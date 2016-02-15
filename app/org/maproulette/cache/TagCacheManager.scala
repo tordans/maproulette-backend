@@ -4,6 +4,7 @@ import java.util.concurrent.locks.{ReentrantReadWriteLock, ReadWriteLock}
 
 import anorm._
 import org.maproulette.data.Tag
+import org.maproulette.data.dal.TagDAL
 import play.api.db.DB
 import play.api.Play.current
 import scala.collection.mutable
@@ -26,7 +27,7 @@ object TagCacheManager extends CacheManager[Tag] {
     try {
       DB.withConnection { implicit c =>
         cache.clear()
-        SQL"""SELECT * FROM tags""".as(Tag.parser *).foreach(tag => add(tag.id, tag))
+        SQL"""SELECT * FROM tags""".as(TagDAL.parser *).foreach(tag => add(tag.id, tag))
       }
     } finally {
       loadingLock.writeLock().unlock()

@@ -10,14 +10,18 @@ POST    /api/v2/task                                            controllers.Task
 PUT     /api/v2/task/:id                                        controllers.TaskController.updateTask(id:Long)
 GET     /api/v2/task/:id                                        controllers.TaskController.getTask(id:Long)
 DELETE  /api/v2/task/:id                                        controllers.TaskController.deleteTask(id:Long)
-GET     /api/v2/tasks/:primaryTag                               controllers.TaskController.listPrimary(primaryTag)
-GET     /api/v2/tasks/:primaryTag/:secondaryTag                 controllers.TaskController.listSecondary(primaryTag, secondaryTag)
+# Not a safe API, should remove
+GET     /api/v2/tasks                                           controllers.TaskController.list(limit:Int ?= 10, offset:Int ?= 0)
+###############################
+GET     /api/v2/tasks/:primaryTag                               controllers.TaskController.listPrimary(primaryTag, limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/tasks/:primaryTag/:secondaryTag                 controllers.TaskController.listSecondary(primaryTag, secondaryTag, limit:Int ?= 10, offset:Int ?= 0)
 # Tag API
 POST    /api/v2/tag                                             controllers.TagController.createTag
 PUT     /api/v2/tag/:id                                         controllers.TagController.updateTag(id:Long)
 GET     /api/v2/tag/:id                                         controllers.TagController.getTag(id:Long)
 DELETE  /api/v2/tag/:id                                         controllers.TagController.deleteTag(id:Long)
 GET     /api/v2/tags                                            controllers.TagController.getTags(prefix: String ?= "", limit: Int ?= (-1), offset: Int ?= 0)
+POST    /api/v2/tags                                            controllers.TagController.buildTags
 # Handles invalid paths that use the /api/v2 prefix
 POST    /api/v2/*path                                           controllers.Application.invalidAPIPath(path)
 PUT     /api/v2/*path                                           controllers.Application.invalidAPIPath(path)

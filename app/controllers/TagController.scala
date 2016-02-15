@@ -1,26 +1,25 @@
 package controllers
 
+import com.fasterxml.jackson.databind.JsonMappingException
 import org.maproulette.data.Tag
-import play.api.libs.json.{Writes, Reads, JsError, Json}
+import org.maproulette.data.dal.TagDAL
+import org.maproulette.utils.Utils
+import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers, Controller}
 
 /**
   * @author cuthbertm
   */
 object TagController extends Controller {
-
-  implicit val tagReads: Reads[Tag] = Tag.jsonReader
-  implicit val tagWrites: Writes[Tag] = Tag.jsonWriter
-
   def createTag() = Action(BodyParsers.parse.json) { implicit request =>
-    val tagResult = request.body.validate[Tag]
+    val tagResult = Utils.insertJson(request.body).validate[Tag]
     tagResult.fold(
       errors => {
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       },
       tag => {
         try {
-          Created(Json.toJson(Tag.insert(tag)))
+          Created(Json.toJson(TagDAL.insert(tag)))
         } catch {
           case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
         }
@@ -28,26 +27,39 @@ object TagController extends Controller {
     )
   }
 
-  def updateTag(id:Long) = Action(BodyParsers.parse.json) { implicit request =>
-    Tag.update(id, request.body) match {
-      case Some(value) => Ok(Json.toJson(value))
-      case None => NoContent
+  def updateTag(implicit id:Long) = Action(BodyParsers.parse.json) { implicit request =>
+    try {
+      Ok(Json.toJson(Tag.getUpdateOrCreateTag(request.body)))
+    } catch {
+      case e:JsonMappingException => BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
+      case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 
   def getTag(id:Long) = Action { implicit request =>
-    Tag.retrieveById(id) match {
+    TagDAL.retrieveById(id) match {
       case Some(value) => Ok(Json.toJson(value))
       case None =>  NoContent
     }
   }
 
   def deleteTag(id:Long) = Action { implicit request =>
-    Tag.delete(id)
+    TagDAL.delete(id)
     NoContent
   }
 
   def getTags(prefix:String, limit:Int, offset:Int) = Action { implicit request =>
-    Ok(Json.toJson(Tag.retrieveListByPrefix(prefix, limit, offset)))
+    Ok(Json.toJson(TagDAL.retrieveListByPrefix(prefix, limit, offset)))
+  }
+
+  def buildTags() = Action(BodyParsers.parse.json) { implicit request =>
+    request.body.validate[List[Tag]].fold(
+      errors => {
+        BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
+      },
+      tagArray => {
+        Ok(Json.toJson(TagDAL.updateTagList(tagArray)))
+      }
+    )
   }
 }

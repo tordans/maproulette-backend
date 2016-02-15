@@ -1,6 +1,9 @@
 package controllers
 
+import com.fasterxml.jackson.databind.JsonMappingException
 import org.maproulette.data.Task
+import org.maproulette.data.dal.TaskDAL
+import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc._
 
@@ -8,22 +11,15 @@ import play.api.mvc._
   * @author cuthbertm
   */
 object TaskController extends Controller {
-
-  implicit val taskReads: Reads[Task] = Task.jsonReader
-  implicit val taskWrites: Writes[Task] = Task.jsonWriter
-
   def createTask() = Action(BodyParsers.parse.json) { implicit request =>
-    val taskResult = request.body.validate[Task]
+    val taskResult = Utils.insertJson(request.body).validate[Task]
     taskResult.fold(
       errors => {
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       },
       task => {
         try {
-          Task.insert(task) match {
-            case Some(t) => Created(Json.toJson(t))
-            case None => NoContent // we should never get here
-          }
+          Created(Json.toJson(TaskDAL.insert(task)))
         } catch {
           case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
         }
@@ -31,23 +27,29 @@ object TaskController extends Controller {
     )
   }
 
-  def updateTask(id:Long) = Action(BodyParsers.parse.json) { implicit request =>
-    Task.update(id, request.body) match {
-      case Some(value) => Ok(Json.toJson(value))
-      case None => NoContent
+  def updateTask(implicit id:Long) = Action(BodyParsers.parse.json) { implicit request =>
+    try {
+      Ok(Json.toJson(Task.getUpdateOrCreateTask(request.body)))
+    } catch {
+      case e:JsonMappingException => BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
+      case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 
-  def listPrimary(primaryTag:String) = Action {
-    Ok(Json.toJson(Task.list(primaryTag, None)))
+  def list(limit:Int, offset:Int) = Action {
+    Ok(Json.toJson(TaskDAL.list(None, None, limit, offset)))
   }
 
-  def listSecondary(primaryTag:String, secondaryTag:String) = Action {
-    Ok(Json.toJson(Task.list(primaryTag, Some(secondaryTag))))
+  def listPrimary(primaryTag:String, limit:Int, offset:Int) = Action {
+    Ok(Json.toJson(TaskDAL.list(Some(primaryTag), None, limit, offset)))
   }
 
-  def getTask(id:Long) = Action {
-    Task.retrieveById(id) match {
+  def listSecondary(primaryTag:String, secondaryTag:String, limit:Int, offset:Int) = Action {
+    Ok(Json.toJson(TaskDAL.list(Some(primaryTag), Some(secondaryTag), limit, offset)))
+  }
+
+  def getTask(implicit id:Long) = Action {
+    TaskDAL.retrieveById match {
       case Some(value) =>
         Ok(Json.toJson(value))
       case None =>
@@ -56,7 +58,7 @@ object TaskController extends Controller {
   }
 
   def deleteTask(id:Long) = Action {
-    Ok(Json.obj("message" -> s"${Task.delete(id)} Tasks deleted."))
+    Ok(Json.obj("message" -> s"${TaskDAL.delete(id)} Tasks deleted."))
     NoContent
   }
 }

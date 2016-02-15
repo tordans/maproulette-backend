@@ -1,6 +1,7 @@
 package org.maproulette.cache
 
 import scala.collection.mutable.Map
+import scala.reflect.runtime.universe._
 
 /**
   * @author cuthbertm
@@ -11,19 +12,23 @@ trait BaseCacheManager[A] {
 
   def get(id:String) : Option[A] = cache.get(id)
 
-  def get(id:Long) : Option[A] = get(id+"")
+  def get(id:Long) : Option[A] = if (id > -1) get(id+"") else None
 
   def add(id:String, obj:A) : Option[A] = cache.put(id, obj)
 
-  def add(id:Long, obj:A) : Option[A] = add(id+"", obj)
+  def add(id:Long, obj:A) : Option[A] = if (id > -1) add(id+"", obj) else None
 
   def delete(id:String) : Option[A] = cache.remove(id)
 
-  def delete(id:Long) : Option[A] = delete(id+"")
+  def delete(id:Long) : Option[A] = if (id > -1) delete(id+"") else None
 
-  def clear = cache.clear()
+  def clear() = cache.clear()
 
   def size : Int = cache.size
+
+  def isCached(id:String) : Boolean = cache.contains(id)
+
+  def isCached(id:Long) : Boolean = cache.contains(id+"")
 
   /**
     * Hits the cache first to see if the object exists, if it doesn't then it will hit the database and retrieve the object
