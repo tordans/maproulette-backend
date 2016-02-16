@@ -15,7 +15,7 @@ import play.api.Play.current
 object TaskDAL extends BaseDAL[Long, Task] {
   override val cacheManager = new CacheManager[Long, Task]()
   override val tableName: String = "tasks"
-  override val retrieveColumns:String = "id, name, parentId, instruction, " +
+  override val retrieveColumns:String = "id, name, parent_id, instruction, " +
     "ST_AsGeoJSON(location) AS location, status"
 
   implicit val parser: RowParser[Task] = {
@@ -33,8 +33,8 @@ object TaskDAL extends BaseDAL[Long, Task] {
   override def insert(task:Task) : Task = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
-        val newTaskId = SQL"""INSERT INTO tasks (name, parentId, location, instruction, status)
-                     VALUES (${task.name}, ${task.parent}
+        val newTaskId = SQL"""INSERT INTO tasks (name, parent_id, location, instruction, status)
+                     VALUES (${task.name}, ${task.parent},
                               ST_GeomFromGeoJSON(${task.location.toString}),
                               ${task.instruction},
                               ${task.status}
@@ -53,7 +53,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
         val location = Utils.getDefaultOption((value \ "location").asOpt[JsValue], cachedItem.location)
         val status = Utils.getDefaultOption((value \ "status").asOpt[Int], cachedItem.status)
 
-        SQL"""UPDATE tasks SET name = ${name}, primary_tag = ${parentId},
+        SQL"""UPDATE tasks SET name = ${name}, parent_id = ${parentId},
               instruction = ${instruction}, location = ST_GeomFromGeoJSON(${location.toString}),
               status = ${status}
               WHERE id = $id""".executeUpdate()

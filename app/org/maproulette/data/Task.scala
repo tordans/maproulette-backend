@@ -2,8 +2,7 @@ package org.maproulette.data
 
 import anorm._
 import anorm.SqlParser._
-import com.fasterxml.jackson.databind.JsonMappingException
-import org.maproulette.data.dal.{ChallengeDAL, TaskDAL, TagDAL}
+import org.maproulette.data.dal.{ChallengeDAL, TagDAL}
 import play.api.Play.current
 import play.api.db.DB
 import play.api.libs.json._
@@ -29,19 +28,4 @@ case class Task(override val id:Long,
 object Task {
   implicit val taskReads: Reads[Task] = Json.reads[Task]
   implicit val taskWrites: Writes[Task] = Json.writes[Task]
-
-  def getOrCreateTag(tag:Option[JsValue])(implicit id:Long) : Option[Long] = tag match {
-    case Some(value) => Some(Tag.getUpdateOrCreateTag(value).id)
-    case None => None
-  }
-
-  def getUpdateOrCreateTask(value:JsValue)(implicit id:Long) : Task = {
-    TaskDAL.update(value) match {
-      case Some(task) => task
-      case None => taskReads.reads(value).fold(
-        errors => throw new JsonMappingException(JsError.toJson(errors).toString),
-        newTask => TaskDAL.insert(newTask)
-      )
-    }
-  }
 }

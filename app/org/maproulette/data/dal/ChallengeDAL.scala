@@ -17,6 +17,7 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
   override val tableName: String = "challenges"
   override val childTable: String = "tasks"
   override val childParser = TaskDAL.parser
+  override val childColumns: String = TaskDAL.retrieveColumns
 
   override val parser: RowParser[Challenge] = {
     get[Long]("challenges.id") ~
