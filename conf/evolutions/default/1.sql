@@ -45,26 +45,52 @@ CREATE TABLE IF NOT EXISTS users
 SELECT create_index_if_not_exists('users', 'home_location', '(home_location)');
 SELECT create_index_if_not_exists('users', 'last_changeset_bbox', '(last_changeset_bbox)');
 
+CREATE TABLE IF NOT EXISTS projects
+(
+  id SERIAL NOT NULL,
+  name character varying NOT NULL,
+  description character varying DEFAULT '',
+  CONSTRAINT projects_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS challenges
+(
+  id SERIAL NOT NULL,
+  name character varying NOT NULL,
+  parent_id integer NOT NULL,
+  description character varying DEFAULT '',
+  blurb character varying DEFAULT '',
+  instruction character varying DEFAULT '',
+  CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
+    REFERENCES projects(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT challenges_pkey PRIMARY KEY (id)
+);
+
+SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
+
 CREATE TABLE IF NOT EXISTS tasks
 (
   id SERIAL NOT NULL,
-  name character varying,
+  name character varying NOT NULL,
   location geometry NOT NULL,
   instruction character varying NOT NULL,
-  primary_tag integer,
-  secondary_tag integer,
+  parent_id integer NOT NULL,
   status integer DEFAULT 0,
-  CONSTRAINT tasks_pkey PRIMARY KEY(id)
+  CONSTRAINT tasks_pkey PRIMARY KEY(id),
+  CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
+    REFERENCES challenges(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
-SELECT create_index_if_not_exists('tasks', 'primary_tag', '(primary_tag)');
-SELECT create_index_if_not_exists('tasks', 'secondary_tag', '(secondary_tag)');
+SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
+SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 
 CREATE TABLE IF NOT EXISTS tags
 (
   id SERIAL NOT NULL,
   name character varying NOT NULL,
-  description character varying,
+  description character varying DEFAULT '',
   CONSTRAINT tag_pkey PRIMARY KEY(id)
 );
 -- index has the potentially to slow down inserts badly
@@ -92,10 +118,10 @@ CREATE TABLE IF NOT EXISTS task_geometries
 (
   id SERIAL NOT NULL,
   osmid bigint,
-  task_id integer NOT NULL,
+  taskId integer NOT NULL,
   geom geometry NOT NULL,
   CONSTRAINT task_geometries_pkey PRIMARY KEY(id),
-  CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (task_id)
+  CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
 );

@@ -9,7 +9,7 @@ import play.api.libs.json._
   */
 case class Tag(override val id: Long,
                override val name: String,
-               description: Option[String] = None) extends BaseObject
+               description: Option[String] = None) extends BaseObject[Long]
 
 object Tag {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]

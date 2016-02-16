@@ -4,23 +4,34 @@
 
 # Home page
 GET     /                                                       controllers.Application.index
-
+# Project API
+POST    /api/v2/project                                         controllers.ProjectController.create
+PUT     /api/v2/project/:id                                     controllers.ProjectController.update(id:Long)
+GET     /api/v2/project/:id                                     controllers.ProjectController.read(id:Long)
+DELETE  /api/v2/project/:id                                     controllers.ProjectController.delete(id:Long)
+GET     /api/v2/projects                                        controllers.ProjectController.list(limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/project/:id/challenges                          controllers.ProjectController.listChildren(id:Long, limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/project/:id/expandchallenges                    controllers.ProjectController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
+# Challenge API
+POST    /api/v2/challenge                                       controllers.ChallengeController.create
+PUT     /api/v2/challenge/:id                                   controllers.ChallengeController.update(id:Long)
+GET     /api/v2/challenge/:id                                   controllers.ChallengeController.read(id:Long)
+DELETE  /api/v2/challenge/:id                                   controllers.ChallengeController.delete(id:Long)
+GET     /api/v2/challenges                                      controllers.ChallengeController.list(limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/challenge/:id/tasks                            controllers.ChallengeController.listChildren(id:Long, limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/challenge/:id/expandTasks                       controllers.ChallengeController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
 # Task API
-POST    /api/v2/task                                            controllers.TaskController.createTask
-PUT     /api/v2/task/:id                                        controllers.TaskController.updateTask(id:Long)
-GET     /api/v2/task/:id                                        controllers.TaskController.getTask(id:Long)
-DELETE  /api/v2/task/:id                                        controllers.TaskController.deleteTask(id:Long)
-# Not a safe API, should remove
+POST    /api/v2/task                                            controllers.TaskController.create
+PUT     /api/v2/task/:id                                        controllers.TaskController.update(id:Long)
+GET     /api/v2/task/:id                                        controllers.TaskController.read(id:Long)
+DELETE  /api/v2/task/:id                                        controllers.TaskController.delete(id:Long)
 GET     /api/v2/tasks                                           controllers.TaskController.list(limit:Int ?= 10, offset:Int ?= 0)
-###############################
-GET     /api/v2/tasks/:primaryTag                               controllers.TaskController.listPrimary(primaryTag, limit:Int ?= 10, offset:Int ?= 0)
-GET     /api/v2/tasks/:primaryTag/:secondaryTag                 controllers.TaskController.listSecondary(primaryTag, secondaryTag, limit:Int ?= 10, offset:Int ?= 0)
 # Tag API
-POST    /api/v2/tag                                             controllers.TagController.createTag
-PUT     /api/v2/tag/:id                                         controllers.TagController.updateTag(id:Long)
-GET     /api/v2/tag/:id                                         controllers.TagController.getTag(id:Long)
-DELETE  /api/v2/tag/:id                                         controllers.TagController.deleteTag(id:Long)
-GET     /api/v2/tags                                            controllers.TagController.getTags(prefix: String ?= "", limit: Int ?= (-1), offset: Int ?= 0)
+POST    /api/v2/tag                                             controllers.TagController.create
+PUT     /api/v2/tag/:id                                         controllers.TagController.update(id:Long)
+GET     /api/v2/tag/:id                                         controllers.TagController.read(id:Long)
+DELETE  /api/v2/tag/:id                                         controllers.TagController.delete(id:Long)
+GET     /api/v2/tags                                            controllers.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, offset: Int ?= 0)
 POST    /api/v2/tags                                            controllers.TagController.buildTags
 # Handles invalid paths that use the /api/v2 prefix
 POST    /api/v2/*path                                           controllers.Application.invalidAPIPath(path)

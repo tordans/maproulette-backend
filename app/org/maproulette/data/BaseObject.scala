@@ -3,7 +3,7 @@ package org.maproulette.data
 /**
   * @author cuthbertm
   */
-trait BaseObject {
+trait BaseObject[Key] {
   def name:String
-  def id:Long
+  def id:Key
 }

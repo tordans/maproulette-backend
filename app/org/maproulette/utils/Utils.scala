@@ -1,6 +1,9 @@
 package org.maproulette.utils
 
 import play.api.libs.json.{Json, JsObject, JsValue}
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+
 
 /**
   * @author cuthbertm
@@ -15,9 +18,14 @@ object Utils {
     * @tparam T The type of object in the option
     * @return the value of the option of the default value
     */
-  def getDefaultOption[T](obj:Option[T], default:T) = obj match {
+  def getDefaultOption[T](obj:Option[T], default:T) : T = obj match {
     case Some(value) => value
     case None => default
+  }
+
+  def getDefaultOption[T](obj:Option[T], default:Option[T], secondDefault:T) : T = default match {
+    case Some(value) => getDefaultOption(obj, value)
+    case None => getDefaultOption(obj, secondDefault)
   }
 
   /**
@@ -32,5 +40,19 @@ object Utils {
       case Some(_) => json
       case None => json.as[JsObject] + ("id" -> Json.toJson(-1))
     }
+  }
+
+  def getCaseClassVariableNames[T:TypeTag] : List[MethodSymbol] = {
+    typeOf[T].members.collect {
+      case m:MethodSymbol if m.isCaseAccessor => m
+    }.toList
+  }
+
+  def getCaseClassValueMappings[T:ClassTag](obj:T)(implicit tag:TypeTag[T]) : Map[MethodSymbol, Any] = {
+    implicit val mirror = scala.reflect.runtime.currentMirror
+    val im = mirror.reflect(obj)
+    typeOf[T].members.collect {
+      case m:MethodSymbol if m.isCaseAccessor => m -> im.reflectMethod(m).apply()
+    }.toMap
   }
 }

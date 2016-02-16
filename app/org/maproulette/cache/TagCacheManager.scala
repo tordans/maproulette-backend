@@ -16,10 +16,9 @@ import scala.collection.mutable
   *
   * @author cuthbertm
   */
-object TagCacheManager extends CacheManager[Tag] {
+object TagCacheManager extends CacheManager[Long, Tag] {
 
   private val loadingLock:ReadWriteLock = new ReentrantReadWriteLock()
-  override implicit protected val cache = mutable.Map[String, Tag]().empty
 
   // TODO: This is not the correct approach to just load everything into memory - this needs to be redone later
   def reloadTags = {
@@ -27,7 +26,7 @@ object TagCacheManager extends CacheManager[Tag] {
     try {
       DB.withConnection { implicit c =>
         cache.clear()
-        SQL"""SELECT * FROM tags""".as(TagDAL.parser *).foreach(tag => add(tag.id, tag))
+        SQL"""SELECT * FROM tags""".as(TagDAL.parser *).foreach(tag => cache.add(tag))
       }
     } finally {
       loadingLock.writeLock().unlock()

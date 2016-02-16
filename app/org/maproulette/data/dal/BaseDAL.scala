@@ -1,44 +1,71 @@
 package org.maproulette.data.dal
 
+import java.sql.PreparedStatement
+
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.BaseObject
 import play.api.db.DB
 import play.api.Play.current
+import play.api.libs.json.JsValue
 
 /**
   * @author cuthbertm
   */
-trait BaseDAL[T<:BaseObject] {
-  implicit val cacheManager:CacheManager[T]
-  implicit val tableName:String
+trait BaseDAL[Key, T<:BaseObject[Key]] {
+  val cacheManager:CacheManager[Key, T]
+  val tableName:String
   implicit val caching:Boolean = true
-  implicit val parser:RowParser[T]
+  val parser:RowParser[T]
   // this allows for columns used in the retrieve functions to be optionally built
-  implicit val retrieveColumns:String = "*"
+  val retrieveColumns:String = "*"
+
+  /**
+    * Our key for our objects are current Long, but can support String if need be
+    *
+    * @tparam Key
+    * @return
+    */
+  implicit def keyToStatement[Key] : ToStatement[Key] = {
+    new ToStatement[Key] {
+      def set(s: PreparedStatement, i: Int, identifier: Key) =
+        identifier match {
+          case id:String => ToStatement.stringToStatement.set(s, i, id)
+          case Some(id:String) => ToStatement.stringToStatement.set(s, i, id)
+          case id:Long => ToStatement.longToStatement.set(s, i, id)
+          case Some(id:Long) => ToStatement.longToStatement.set(s, i, id)
+          case intValue:Integer => ToStatement.integerToStatement.set(s, i, intValue)
+        }
+    }
+  }
+
+  def insert(element: T): T
+
+  def update(tag:JsValue)(implicit id:Long): Option[T]
 
   /**
     * Deletes items of type T where the ID matches any of the ids in the given list
     *
     * @param ids List of ids for the objects we want to delete
     */
-  def delete(implicit ids:List[Long]) : Unit = {
+  def delete(implicit ids:List[Key]) : Unit = {
     cacheManager.withCacheIDDeletion { () =>
       DB.withConnection { implicit c =>
         val query = s"DELETE FROM $tableName WHERE id IN ({ids})"
-        SQL(query).on('ids -> ids).executeUpdate()
+        val idSeq:Seq[Key] = ids.toSeq
+        SQL(query).on('ids -> ParameterValue.toParameterValue(idSeq)).executeUpdate()
       }
     }
   }
 
-  def delete(id: Long): Int = deleteFromIdList(List(id))
+  def delete(id: Key): Int = deleteFromIdList(List(id))
 
-  def deleteFromIdList(implicit tags: List[Long]): Int = {
+  def deleteFromIdList(implicit tags: List[Key]): Int = {
     cacheManager.withCacheIDDeletion { () =>
       DB.withConnection { implicit c =>
         val query = s"DELETE FROM $tableName WHERE id IN ({tags})"
-        SQL(query).on('tags -> tags).executeUpdate()
+        SQL(query).on('tags -> ParameterValue.toParameterValue(tags)).executeUpdate()
       }
     }
   }
@@ -47,16 +74,16 @@ trait BaseDAL[T<:BaseObject] {
     cacheManager.withCacheNameDeletion { () =>
       DB.withConnection { implicit c =>
         val query = s"DELETE FROM $tableName WHERE name IN ({tags})"
-        SQL(query).on('tags -> tags).executeUpdate()
+        SQL(query).on('tags -> ParameterValue.toParameterValue(tags)).executeUpdate()
       }
     }
   }
 
-  def retrieveById(implicit id:Long) : Option[T] = {
+  def retrieveById(implicit id:Key) : Option[T] = {
     cacheManager.withOptionCaching { () =>
       DB.withConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE id = {id}"
-        SQL(query).on('id -> id).as(parser *).headOption
+        SQL(query).on('id -> ParameterValue.toParameterValue(id)).as(parser *).headOption
       }
     }
   }
@@ -70,13 +97,14 @@ trait BaseDAL[T<:BaseObject] {
     }
   }
 
-  def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Long]): List[T] = {
+  def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       DB.withConnection { implicit c =>
         val limitValue = if (limit < 0) "ALL" else limit + ""
-        val query = s"SELECT $retrieveColumns FROM $tableName WHERE id IN ({inString}) LIMIT $limitValue OFFSET $offset"
-        val inString = uncachedIDs.mkString(",")
-        SQL(query).on('inString -> inString).as(parser *)
+        val query = s"SELECT $retrieveColumns FROM $tableName " +
+                    s"WHERE id IN ({inString}) LIMIT $limitValue OFFSET {offset}"
+        implicit val serializer = keyToStatement
+        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs.toSeq), 'offset -> offset).as(parser *)
       }
     }
   }
@@ -84,8 +112,8 @@ trait BaseDAL[T<:BaseObject] {
   def retrieveListByName(implicit names: List[String]): List[T] = {
     cacheManager.withNameListCaching { implicit uncachedNames =>
       DB.withConnection { implicit c =>
-        val inString = uncachedNames.mkString("'", "','", "'")
-        SQL"""SELECT $retrieveColumns FROM $tableName WHERE name IN ($inString)""".as(parser *)
+        val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
+        SQL(query).on('inString -> names.toSeq).as(parser *)
       }
     }
   }
@@ -104,8 +132,24 @@ trait BaseDAL[T<:BaseObject] {
     DB.withConnection { implicit c =>
       val sqlPrefix = s"$prefix%"
       val sqlLimit = if (limit < 0) "ALL" else limit + ""
-      val query = s"SELECT $retrieveColumns FROM $tableName WHERE name LIKE {prefix} LIMIT $sqlLimit OFFSET $offset"
-      SQL(query).on('prefix -> sqlPrefix).as(parser *)
+      val query = s"SELECT $retrieveColumns FROM $tableName " +
+                  s"WHERE name LIKE {prefix} LIMIT $sqlLimit OFFSET {offset}"
+      SQL(query).on('prefix -> sqlPrefix, 'offset -> offset).as(parser *)
+    }
+  }
+
+  /**
+    * This is a dangerous function as it will return all the objects available, so it could take up
+    * a lot of memory
+    */
+  def list(limit:Int = 10, offset:Int = 0) : List[T] = {
+    implicit val ids = List.empty
+    cacheManager.withIDListCaching { implicit uncachedIDs =>
+      DB.withConnection { implicit c =>
+        val sqlLimit = if (limit < 0) "ALL" else limit + ""
+        val query = s"SELECT $retrieveColumns FROM $tableName LIMIT $sqlLimit OFFSET {offset}"
+        SQL(query).on('offset -> ParameterValue.toParameterValue(offset)).as(parser *)
+      }
     }
   }
 }

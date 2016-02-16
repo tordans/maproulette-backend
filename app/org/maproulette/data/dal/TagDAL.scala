@@ -14,10 +14,10 @@ import play.api.libs.json.JsValue
 /**
   * @author cuthbertm
   */
-object TagDAL extends BaseDAL[Tag] {
-  override implicit val cacheManager = TagCacheManager
-  override implicit val tableName: String = "tags"
-  implicit val parser: RowParser[Tag] = {
+object TagDAL extends BaseDAL[Long, Tag] {
+  override val cacheManager = TagCacheManager
+  override val tableName: String = "tags"
+  val parser: RowParser[Tag] = {
     get[Long]("tags.id") ~
       get[String]("tags.name") ~
       get[Option[String]]("tags.description") map {
@@ -26,7 +26,7 @@ object TagDAL extends BaseDAL[Tag] {
     }
   }
 
-  def insert(tag: Tag): Tag = {
+  override def insert(tag: Tag): Tag = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
         SQL"""INSERT INTO tags (name, description)
@@ -35,7 +35,7 @@ object TagDAL extends BaseDAL[Tag] {
     }.get
   }
 
-  def update(tag:JsValue)(implicit id:Long): Option[Tag] = {
+  override def update(tag:JsValue)(implicit id:Long): Option[Tag] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       DB.withConnection { implicit c =>
         val name = Utils.getDefaultOption((tag \ "name").asOpt[String], cachedItem.name)
