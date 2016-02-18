@@ -36,6 +36,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
           case id:Long => ToStatement.longToStatement.set(s, i, id)
           case Some(id:Long) => ToStatement.longToStatement.set(s, i, id)
           case intValue:Integer => ToStatement.integerToStatement.set(s, i, intValue)
+          case list:List[Long @unchecked] => ToStatement.listToStatement[Long].set(s, i, list)
         }
     }
   }
