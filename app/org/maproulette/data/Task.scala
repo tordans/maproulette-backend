@@ -15,7 +15,7 @@ case class Task(override val id:Long,
                 parent: Long,
                 instruction: String,
                 location: JsValue,
-                status:Int = 0) extends BaseObject[Long] {
+                status:Option[Int]=None) extends BaseObject[Long] {
   lazy val tags:List[Tag] = DB.withConnection { implicit c =>
     SQL"""SELECT t.id, t.name, t.description FROM tags as t
         INNER JOIN tags_on_tasks as tt ON t.id = tt.tag_id

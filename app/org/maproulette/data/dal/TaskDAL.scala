@@ -24,7 +24,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
       get[Long]("parent_id") ~
       get[String]("tasks.instruction") ~
       get[String]("location") ~
-      get[Int]("tasks.status") map {
+      get[Option[Int]]("tasks.status") map {
       case id ~ name ~ parent_id ~ instruction ~ location ~ status =>
         new Task(id, name, parent_id, instruction, Json.parse(location), status)
     }
@@ -51,14 +51,14 @@ object TaskDAL extends BaseDAL[Long, Task] {
         val parentId = Utils.getDefaultOption((value \ "parentId").asOpt[Long], cachedItem.parent)
         val instruction = Utils.getDefaultOption((value \ "instruction").asOpt[String], cachedItem.instruction)
         val location = Utils.getDefaultOption((value \ "location").asOpt[JsValue], cachedItem.location)
-        val status = Utils.getDefaultOption((value \ "status").asOpt[Int], cachedItem.status)
+        val status = Utils.getDefaultOption((value \ "status").asOpt[Int], cachedItem.status, 0)
 
         SQL"""UPDATE tasks SET name = ${name}, parent_id = ${parentId},
               instruction = ${instruction}, location = ST_GeomFromGeoJSON(${location.toString}),
               status = ${status}
               WHERE id = $id""".executeUpdate()
 
-        Some(Task(id, name, parentId, instruction, location, status))
+        Some(Task(id, name, parentId, instruction, location, Some(status)))
       }
     }
   }

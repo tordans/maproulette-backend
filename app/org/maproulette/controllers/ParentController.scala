@@ -30,32 +30,45 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     implicit val reads:Reads[C] = cReads
     (body \ "children").asOpt[List[JsValue]] match {
       case Some(children) => children map { child =>
-        (child \ "id").asOpt[Long] match {
-          case Some(identifier) => childController.internalUpdate(child)(identifier)
-          case None => Utils.insertJsonID(child).validate[C].fold(
-            errors => {
-              throw new Exception(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)).toString())
-            },
-            element => {
-              try {
-                childController.internalCreate(child, element)
-              } catch {
-                case e:Exception =>
-                  Logger.error(e.getMessage, e)
-                  throw new Exception(Json.obj("status" -> "KO", "message" -> e.getMessage).toString())
-              }
+        // add the parent id to the child.
+        child.transform(parentAddition(createdObject.id)) match {
+          case JsSuccess(value, _) =>
+            (value \ "id").asOpt[Long] match {
+              case Some(identifier) => childController.internalUpdate(value)(identifier)
+              case None => Utils.insertJsonID(value).validate[C].fold(
+                errors => {
+                  throw new Exception(JsError.toJson(errors).toString)
+                },
+                element => {
+                  try {
+                    childController.internalCreate(value, element)
+                  } catch {
+                    case e:Exception =>
+                      Logger.error(e.getMessage, e)
+                      throw e
+                  }
+                }
+              )
             }
-          )
+          case JsError(errors) =>
+            Logger.error(JsError.toJson(errors).toString)
+            throw new Exception(JsError.toJson(errors).toString)
         }
       }
       case None => // ignore
     }
   }
 
+  def parentAddition(id:Long) = {
+    __.json.update(
+      __.read[JsObject] map { o => o ++ Json.obj("parent" -> Json.toJson(id)) }
+    )
+  }
+
   def childrenAddition(children:List[C]) = {
     implicit val writes:Writes[C] = cWrites
-    (__).json.update(
-      __.read[JsObject].map{ o => o ++ Json.obj("children" -> Json.toJson(children)) }
+    __.json.update(
+      __.read[JsObject] map { o => o ++ Json.obj("children" -> Json.toJson(children)) }
     )
   }
 
