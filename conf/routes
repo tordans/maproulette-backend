@@ -11,21 +11,28 @@ GET     /api/v2/project/:id                                     controllers.Proj
 DELETE  /api/v2/project/:id                                     controllers.ProjectController.delete(id:Long)
 GET     /api/v2/projects                                        controllers.ProjectController.list(limit:Int ?= 10, offset:Int ?= 0)
 GET     /api/v2/project/:id/challenges                          controllers.ProjectController.listChildren(id:Long, limit:Int ?= 10, offset:Int ?= 0)
-GET     /api/v2/project/:id/expandchallenges                    controllers.ProjectController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
+POST    /api/v2/project/:id/challenges                          controllers.ProjectController.createChildren(id:Long)
+PUT     /api/v2/project/:id/challenges                          controllers.ProjectController.updateChildren(id:Long)
+GET     /api/v2/project/:id/children                            controllers.ProjectController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
 # Challenge API
 POST    /api/v2/challenge                                       controllers.ChallengeController.create
 PUT     /api/v2/challenge/:id                                   controllers.ChallengeController.update(id:Long)
 GET     /api/v2/challenge/:id                                   controllers.ChallengeController.read(id:Long)
 DELETE  /api/v2/challenge/:id                                   controllers.ChallengeController.delete(id:Long)
 GET     /api/v2/challenges                                      controllers.ChallengeController.list(limit:Int ?= 10, offset:Int ?= 0)
-GET     /api/v2/challenge/:id/tasks                            controllers.ChallengeController.listChildren(id:Long, limit:Int ?= 10, offset:Int ?= 0)
-GET     /api/v2/challenge/:id/expandTasks                       controllers.ChallengeController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
+GET     /api/v2/challenge/:id/tasks                             controllers.ChallengeController.listChildren(id:Long, limit:Int ?= 10, offset:Int ?= 0)
+POST    /api/v2/challenge/:id/tasks                             controllers.ChallengeController.createChildren(id:Long)
+PUT     /api/v2/challenge/:id/tasks                             controllers.ChallengeController.updateChildren(id:Long)
+GET     /api/v2/challenge/:id/children                          controllers.ChallengeController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
 # Task API
 POST    /api/v2/task                                            controllers.TaskController.create
 PUT     /api/v2/task/:id                                        controllers.TaskController.update(id:Long)
 GET     /api/v2/task/:id                                        controllers.TaskController.read(id:Long)
 DELETE  /api/v2/task/:id                                        controllers.TaskController.delete(id:Long)
-GET     /api/v2/tasks                                           controllers.TaskController.list(limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/task/:id/tags                                   controllers.TaskController.getTagsForTask(id:Long)
+GET     /api/v2/tasks/tags                                      controllers.TaskController.getTasksBasedOnTags(tags:String ?= "", limit:Int ?= 10, offset:Int ?= 0)
+# Batch Task API
+POST    /api/v2/tasks                                           controllers.TaskController.batchUpload
 # Tag API
 POST    /api/v2/tag                                             controllers.TagController.create
 PUT     /api/v2/tag/:id                                         controllers.TagController.update(id:Long)

@@ -27,7 +27,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * @tparam Key
     * @return
     */
-  implicit def keyToStatement[Key] : ToStatement[Key] = {
+  def keyToStatement[Key] : ToStatement[Key] = {
     new ToStatement[Key] {
       def set(s: PreparedStatement, i: Int, identifier: Key) =
         identifier match {
@@ -51,10 +51,11 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     */
   def delete(implicit ids:List[Key]) : Unit = {
     cacheManager.withCacheIDDeletion { () =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val query = s"DELETE FROM $tableName WHERE id IN ({ids})"
         val idSeq:Seq[Key] = ids.toSeq
-        SQL(query).on('ids -> ParameterValue.toParameterValue(idSeq)).executeUpdate()
+        implicit val serializer = keyToStatement
+        SQL(query).on('ids -> ParameterValue.toParameterValue(idSeq)(p = keyToStatement)).executeUpdate()
       }
     }
   }
@@ -63,16 +64,16 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
 
   def deleteFromIdList(implicit tags: List[Key]): Int = {
     cacheManager.withCacheIDDeletion { () =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val query = s"DELETE FROM $tableName WHERE id IN ({tags})"
-        SQL(query).on('tags -> ParameterValue.toParameterValue(tags)).executeUpdate()
+        SQL(query).on('tags -> ParameterValue.toParameterValue(tags)(p = keyToStatement)).executeUpdate()
       }
     }
   }
 
   def deleteFromStringList(implicit tags: List[String]): Int = {
     cacheManager.withCacheNameDeletion { () =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val query = s"DELETE FROM $tableName WHERE name IN ({tags})"
         SQL(query).on('tags -> ParameterValue.toParameterValue(tags)).executeUpdate()
       }
@@ -81,16 +82,16 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
 
   def retrieveById(implicit id:Key) : Option[T] = {
     cacheManager.withOptionCaching { () =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE id = {id}"
-        SQL(query).on('id -> ParameterValue.toParameterValue(id)).as(parser *).headOption
+        SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).as(parser *).headOption
       }
     }
   }
 
   def retrieveByName(implicit name:String) : Option[T] = {
     cacheManager.withOptionCaching { () =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE name = {name}"
         SQL(query).on('name -> name).as(parser *).headOption
       }
@@ -99,21 +100,20 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
 
   def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val limitValue = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName " +
                     s"WHERE id IN ({inString}) LIMIT $limitValue OFFSET {offset}"
-        implicit val serializer = keyToStatement
-        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs.toSeq), 'offset -> offset).as(parser *)
+        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs.toSeq)(p = keyToStatement), 'offset -> offset).as(parser *)
       }
     }
   }
 
   def retrieveListByName(implicit names: List[String]): List[T] = {
     cacheManager.withNameListCaching { implicit uncachedNames =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
-        SQL(query).on('inString -> names.toSeq).as(parser *)
+        SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser *)
       }
     }
   }
@@ -129,7 +129,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * @return A list of tags that contain the supplied prefix
     */
   def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0): List[T] = {
-    DB.withConnection { implicit c =>
+    DB.withTransaction { implicit c =>
       val sqlPrefix = s"$prefix%"
       val sqlLimit = if (limit < 0) "ALL" else limit + ""
       val query = s"SELECT $retrieveColumns FROM $tableName " +
@@ -145,7 +145,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
   def list(limit:Int = 10, offset:Int = 0) : List[T] = {
     implicit val ids = List.empty
     cacheManager.withIDListCaching { implicit uncachedIDs =>
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val sqlLimit = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName LIMIT $sqlLimit OFFSET {offset}"
         SQL(query).on('offset -> ParameterValue.toParameterValue(offset)).as(parser *)

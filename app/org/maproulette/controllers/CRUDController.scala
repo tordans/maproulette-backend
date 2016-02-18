@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import org.maproulette.data.BaseObject
 import org.maproulette.data.dal.BaseDAL
 import org.maproulette.utils.Utils
-import play.api.libs.json.{JsError, Json, Reads, Writes}
+import play.api.Logger
+import play.api.db.DB
+import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers, Controller}
+import play.api.Play.current
 
 /**
   * @author cuthbertm
@@ -15,28 +18,83 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   implicit val tReads:Reads[T]
   implicit val tWrites:Writes[T]
 
+  /**
+    * Function can be implemented to extract more information than just the default create data,
+    * to build other objects with the current object at the core. No data will be returned from this
+    * function, it purely does work in the background AFTER creating the current object
+    *
+    * @param body The Json body of data
+    * @param createdObject The object that was created by the create function
+    */
+  def extractAndCreate(body:JsValue, createdObject:T) : Unit = { }
+
   def create() = Action(BodyParsers.parse.json) { implicit request =>
-    val result = Utils.insertJson(request.body).validate[T]
+    val result = Utils.insertJsonID(request.body).validate[T]
     result.fold(
       errors => {
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       },
       element => {
         try {
-          Created(Json.toJson(dal.insert(element)))
+          if (element.id < 0) {
+            Created(Json.toJson(internalCreate(request.body, element)))
+          } else {
+            // if you provide the ID in the post method we will send you to the update path
+            internalUpdate(request.body)(element.id) match {
+              case Some(value) => Ok(Json.toJson(value))
+              case None => NotModified
+            }
+          }
         } catch {
-          case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+          case e:Exception =>
+            Logger.error(e.getMessage, e)
+            InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
         }
       }
     )
   }
 
+  def internalCreate(requestBody:JsValue, element:T) : T = {
+    DB.withTransaction { implicit c =>
+      val createdObject = dal.insert(element)
+      extractAndCreate(requestBody, createdObject)
+      createdObject
+    }
+  }
+
+  /**
+    * Similar to the extractAndCreate function however will be executed after the update function
+    *
+    * @param body
+    */
+  def extractAndUpdate(body:JsValue, updatedObject:Option[T]) : Unit = {
+    updatedObject match {
+      case Some(updated) => extractAndCreate(body, updated)
+      case None => // ignore
+    }
+  }
+
   def update(implicit id:Long) = Action(BodyParsers.parse.json) { implicit request =>
     try {
-      Ok(Json.toJson(dal.update(request.body)))
+      internalUpdate(request.body) match {
+        case Some(value) => Ok(Json.toJson(value))
+        case None => NotModified
+      }
     } catch {
-      case e:JsonMappingException => BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
-      case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+      case e:JsonMappingException =>
+        Logger.error(e.getMessage, e)
+        BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
+      case e:Exception =>
+        Logger.error(e.getMessage, e)
+        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+    }
+  }
+
+  def internalUpdate(requestBody:JsValue)(implicit id:Long) : Option[T] = {
+    DB.withTransaction { implicit c =>
+      val updatedObject = dal.update(requestBody)
+      extractAndUpdate(requestBody, updatedObject)
+      updatedObject
     }
   }
 
@@ -58,7 +116,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     try {
       Ok(Json.toJson(dal.list(limit, offset)))
     } catch {
-      case e:Exception => InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+      case e:Exception =>
+        Logger.error(e.getMessage, e)
+        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 }

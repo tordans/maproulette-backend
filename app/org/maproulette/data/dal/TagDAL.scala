@@ -1,7 +1,5 @@
 package org.maproulette.data.dal
 
-import java.sql.Connection
-
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.TagCacheManager
@@ -22,15 +20,15 @@ object TagDAL extends BaseDAL[Long, Tag] {
       get[String]("tags.name") ~
       get[Option[String]]("tags.description") map {
       case id ~ name ~ description =>
-        new Tag(id, name, description)
+        new Tag(id, name.toLowerCase, description)
     }
   }
 
   override def insert(tag: Tag): Tag = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
-        SQL"""INSERT INTO tags (name, description)
-              VALUES (${tag.name}, ${tag.description}) RETURNING *""".as(parser *).headOption
+        SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) RETURNING *")
+          .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser *).headOption
       }
     }.get
   }
@@ -45,7 +43,7 @@ object TagDAL extends BaseDAL[Long, Tag] {
         )
         val updatedTag = Tag(id, name, Some(description))
 
-        SQL"""UPDATE tags SET name = ${updatedTag.name}, description = ${updatedTag.description}
+        SQL"""UPDATE tags SET name = ${updatedTag.name.toLowerCase}, description = ${updatedTag.description}
               WHERE id = $id RETURNING *""".as(parser *).headOption
       }
     }

@@ -2,13 +2,18 @@
 
 # --- !Ups
 
-CREATE OR REPLACE FUNCTION create_index_if_not_exists(t_name text, i_name text, index_sql text) RETURNS void as $$
+CREATE OR REPLACE FUNCTION create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean default false) RETURNS void as $$
 DECLARE
   full_index_name varchar;;
   schema_name varchar;;
+  unqValue varchar;;
 BEGIN
   full_index_name = 'idx_' || t_name || '_' || i_name;;
   schema_name = 'public';;
+  unqValue = '';;
+  IF unq THEN
+    unqValue = 'UNIQUE ';;
+  END IF;;
 
   IF NOT EXISTS (
     SELECT 1
@@ -17,7 +22,7 @@ BEGIN
     WHERE c.relname = full_index_name
     AND n.nspname = schema_name
   ) THEN
-    execute 'CREATE INDEX ' || full_index_name || ' ON ' || schema_name || '.' || t_name || ' ' || index_sql;;
+    execute 'CREATE ' || unqValue || 'INDEX ' || full_index_name || ' ON ' || schema_name || '.' || t_name || ' ' || index_sql;;
   END IF;;
 END
 $$
@@ -48,7 +53,7 @@ SELECT create_index_if_not_exists('users', 'last_changeset_bbox', '(last_changes
 CREATE TABLE IF NOT EXISTS projects
 (
   id SERIAL NOT NULL,
-  name character varying NOT NULL,
+  name character varying NOT NULL UNIQUE,
   description character varying DEFAULT '',
   CONSTRAINT projects_pkey PRIMARY KEY (id)
 );
@@ -68,6 +73,7 @@ CREATE TABLE IF NOT EXISTS challenges
 );
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
+SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
 
 CREATE TABLE IF NOT EXISTS tasks
 (
@@ -84,12 +90,12 @@ CREATE TABLE IF NOT EXISTS tasks
 );
 
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
+SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
 
 CREATE TABLE IF NOT EXISTS tags
 (
   id SERIAL NOT NULL,
-  name character varying NOT NULL,
+  name character varying NOT NULL UNIQUE,
   description character varying DEFAULT '',
   CONSTRAINT tag_pkey PRIMARY KEY(id)
 );

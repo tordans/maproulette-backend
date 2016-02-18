@@ -13,4 +13,6 @@ object ChallengeController extends ParentController[Challenge, Task] {
   override implicit val tReads: Reads[Challenge] = Challenge.challengeReads
   override implicit val tWrites: Writes[Challenge] = Challenge.challengeWrites
   override protected val cWrites: Writes[Task] = Task.taskWrites
+  override protected val cReads: Reads[Task] = Task.taskReads
+  override protected val childController = TaskController
 }

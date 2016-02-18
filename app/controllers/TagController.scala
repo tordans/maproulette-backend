@@ -3,6 +3,7 @@ package controllers
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data.Tag
 import org.maproulette.data.dal.{BaseDAL, TagDAL}
+import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers}
 
@@ -21,6 +22,7 @@ object TagController extends CRUDController[Tag] {
   def buildTags() = Action(BodyParsers.parse.json) { implicit request =>
     request.body.validate[List[Tag]].fold(
       errors => {
+        Logger.error(JsError.toJson(errors).toString)
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       },
       tagArray => {

@@ -35,7 +35,7 @@ object Utils {
     * @param json The json that you want to add the id into
     * @return
     */
-  def insertJson(json:JsValue) : JsValue = {
+  def insertJsonID(json:JsValue) : JsValue = {
     (json \ "id").asOpt[Long] match {
       case Some(_) => json
       case None => json.as[JsObject] + ("id" -> Json.toJson(-1))
