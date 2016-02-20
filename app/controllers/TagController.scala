@@ -20,21 +20,17 @@ object TagController extends CRUDController[Tag] {
     Ok(Json.toJson(TagDAL.retrieveListByPrefix(prefix, limit, offset)))
   }
 
-  def buildTags() = Action(BodyParsers.parse.json) { implicit request =>
-    request.body.validate[List[JsValue]].fold(
-      errors => {
-        Logger.error(JsError.toJson(errors).toString)
-        BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
-      },
-      tagArray => {
-        val theTags = tagArray.flatMap(json => {
-          Utils.insertJsonID(json).validate[Tag].fold(
-            errors => None,
-            t => Some(t)
-          )
-        })
-        Ok(Json.toJson(TagDAL.updateTagList(theTags)))
-      }
-    )
+  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], update: Boolean): Unit = {
+    val tagList = arr.flatMap(element => (element \ "id").asOpt[Long] match {
+      case Some(itemID) => if (update) element.validate[Tag].fold(
+        errors => None,
+        value => Some(value)
+      ) else None
+      case None => Utils.insertJsonID(element).validate[Tag].fold(
+        errors => None,
+        value => Some(value)
+      )
+    })
+    TagDAL.updateTagList(tagList)
   }
 }

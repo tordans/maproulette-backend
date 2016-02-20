@@ -6,7 +6,9 @@
 GET     /                                                       controllers.Application.index
 # Project API
 POST    /api/v2/project                                         controllers.ProjectController.create
+POST    /api/v2/projects                                        controllers.ProjectController.batchUploadPost
 PUT     /api/v2/project/:id                                     controllers.ProjectController.update(id:Long)
+PUT     /api/v2/projects                                        controllers.ProjectController.batchUploadPut
 GET     /api/v2/project/:id                                     controllers.ProjectController.read(id:Long)
 DELETE  /api/v2/project/:id                                     controllers.ProjectController.delete(id:Long)
 GET     /api/v2/projects                                        controllers.ProjectController.list(limit:Int ?= 10, offset:Int ?= 0)
@@ -17,7 +19,9 @@ GET     /api/v2/project/:id/children                            controllers.Proj
 GET     /api/v2/project/:id/tasks                               controllers.ProjectController.getRandomTasks(id:Long, tags:String ?= "", limit:Int ?= 1)
 # Challenge API
 POST    /api/v2/challenge                                       controllers.ChallengeController.create
+POST    /api/v2/challenges                                      controllers.ChallengeController.batchUploadPost
 PUT     /api/v2/challenge/:id                                   controllers.ChallengeController.update(id:Long)
+PUT     /api/v2/challenges                                      controllers.ChallengeController.batchUploadPut
 GET     /api/v2/challenge/:id                                   controllers.ChallengeController.read(id:Long)
 DELETE  /api/v2/challenge/:id                                   controllers.ChallengeController.delete(id:Long)
 GET     /api/v2/challenges                                      controllers.ChallengeController.list(limit:Int ?= 10, offset:Int ?= 0)
@@ -28,21 +32,22 @@ GET     /api/v2/challenge/:id/children                          controllers.Chal
 GET     /api/v2/project/:pid/challenge/:cid/tasks               controllers.ChallengeController.getRandomTasks(pid:Long, cid:Long, tags:String ?= "", limit:Int ?= 1)
 # Task API
 POST    /api/v2/task                                            controllers.TaskController.create
+POST    /api/v2/tasks                                           controllers.TaskController.batchUploadPost
 PUT     /api/v2/task/:id                                        controllers.TaskController.update(id:Long)
+PUT     /api/v2/tasks                                           controllers.TaskController.batchUploadPut
 GET     /api/v2/task/:id                                        controllers.TaskController.read(id:Long)
 DELETE  /api/v2/task/:id                                        controllers.TaskController.delete(id:Long)
 GET     /api/v2/task/:id/tags                                   controllers.TaskController.getTagsForTask(id:Long)
 GET     /api/v2/tasks/tags                                      controllers.TaskController.getTasksBasedOnTags(tags:String ?= "", limit:Int ?= 10, offset:Int ?= 0)
 GET     /api/v2/tasks/random                                    controllers.TaskController.getRandomTasks(tags:String ?= "", limit:Int ?= 1)
-# Batch Task API
-POST    /api/v2/tasks                                           controllers.TaskController.batchUpload
 # Tag API
 POST    /api/v2/tag                                             controllers.TagController.create
+POST    /api/v2/tags                                            controllers.TagController.batchUploadPost
 PUT     /api/v2/tag/:id                                         controllers.TagController.update(id:Long)
+PUT     /api/v2/tags                                            controllers.TagController.batchUploadPut
 GET     /api/v2/tag/:id                                         controllers.TagController.read(id:Long)
 DELETE  /api/v2/tag/:id                                         controllers.TagController.delete(id:Long)
 GET     /api/v2/tags                                            controllers.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, offset: Int ?= 0)
-POST    /api/v2/tags                                            controllers.TagController.buildTags
 # Handles invalid paths that use the /api/v2 prefix
 POST    /api/v2/*path                                           controllers.Application.invalidAPIPath(path)
 PUT     /api/v2/*path                                           controllers.Application.invalidAPIPath(path)

@@ -5,7 +5,7 @@ import org.maproulette.data.{Tag, Task}
 import org.maproulette.data.dal.{TagDAL, TaskDAL}
 import play.api.Logger
 import play.api.libs.json._
-import play.api.mvc.{BodyParsers, Action}
+import play.api.mvc.Action
 
 /**
   * @author cuthbertm
@@ -86,9 +86,5 @@ object TaskController extends CRUDController[Task] {
         Logger.error(e.getMessage, e)
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
-  }
-
-  def batchUpload() = Action(BodyParsers.parse.json) { implicit request =>
-    Ok("")
   }
 }

@@ -121,4 +121,30 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
+
+  def batchUploadPost = batchUpload(false)
+
+  def batchUploadPut = batchUpload(true)
+
+  def batchUpload(update:Boolean) = Action(BodyParsers.parse.json) { implicit request =>
+    request.body.validate[List[JsValue]].fold(
+      errors => {
+        BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
+      },
+      items => {
+        internalBatchUpload(request.body, items, update)
+        Ok(Json.obj("status" -> "OK", "message" -> "Items created and updated"))
+      }
+    )
+  }
+
+  def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], update:Boolean=false) : Unit = {
+    arr.foreach(element => (element \ "id").asOpt[Long] match {
+      case Some(itemID) => if (update) internalUpdate(element)(itemID)
+      case None => Utils.insertJsonID(element).validate[T].fold(
+        errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+        validT => internalCreate(requestBody, validT)
+      )
+    })
+  }
 }
