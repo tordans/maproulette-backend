@@ -55,6 +55,37 @@ GET     /api/v2/*path                                           controllers.Appl
 DELETE  /api/v2/*path                                           controllers.Application.invalidAPIPath(path)
 HEAD    /api/v2/*path                                           controllers.Application.invalidAPIPath(path)
 
+# Backwards Compatibility for Map Roulette V1
+#GET    /api/admin/challenge/:slug/tasks    #Status' for tasks
+#POST   /api/admin/challenge/:slug          #Create Challenge
+#PUT    /api/admin/challenge/:slug          #Update Challenge
+#POST   /api/admin/challenge/:slug/task/:id #Create Task
+#PUT    /api/admin/challenge/:slug/task/:id #Update Task
+#POST   /api/admin/challenge/:slug/tasks    #Create one or more tasks
+#PUT    /api/admin/challenge/:slugh/tasks   #Update one or more tasks
+#GET    /api/stats                          #Get stats
+#GET    /api/stats/user/:id                 #Get stats for user
+#GET    /api/stats/challenge/:slug          #Get stats for challenge
+#GET    /api/stats/users                    #Get stats for all users
+#GET    /api/stats/challenge/:slug/users    #Get stats for users for a challenge
+#GET    /api/stats/challenges               #Get stats for for all challenges
+#GET    /api/stats/user/:id/challenges      #?
+#GET    /api/stats/history
+#GET    /api/stats/user/:id/history
+#GET    /api/stats/challenge/:slug/history
+#GET    /api/stats/challenge/:slug/user/:id/history
+#GET    /api/stats/user/:id/challenge/:slug/history
+#GET    /api/users                          #List users
+#GET    /api/challenges                     #List challenges
+#GET    /api/challenge/:slug                #Get Challenge details
+#GET    /api/challenge/:slug/summary        #Get challenge summary
+#GET    /api/challenge/:slug/polygon        #Get a challenges polygon
+#GET    /api/challenge/:slug/task           #Get a random task from a challenge
+#GET    /api/challenge/:slug/task/:id       #Get information on a specific task
+#PUT    /api/challenge/:slug/task/:id       #Update status of task
+#GET    /api/challenge/:slug/task/:id/geometries    #Get geometries of task
+
+
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                           controllers.Assets.at(path="/public", file)
 
