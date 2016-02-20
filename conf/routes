@@ -14,6 +14,7 @@ GET     /api/v2/project/:id/challenges                          controllers.Proj
 POST    /api/v2/project/:id/challenges                          controllers.ProjectController.createChildren(id:Long)
 PUT     /api/v2/project/:id/challenges                          controllers.ProjectController.updateChildren(id:Long)
 GET     /api/v2/project/:id/children                            controllers.ProjectController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
+GET     /api/v2/project/:id/tasks                               controllers.ProjectController.getRandomTasks(id:Long, tags:String ?= "", limit:Int ?= 1)
 # Challenge API
 POST    /api/v2/challenge                                       controllers.ChallengeController.create
 PUT     /api/v2/challenge/:id                                   controllers.ChallengeController.update(id:Long)
@@ -23,7 +24,8 @@ GET     /api/v2/challenges                                      controllers.Chal
 GET     /api/v2/challenge/:id/tasks                             controllers.ChallengeController.listChildren(id:Long, limit:Int ?= 10, offset:Int ?= 0)
 POST    /api/v2/challenge/:id/tasks                             controllers.ChallengeController.createChildren(id:Long)
 PUT     /api/v2/challenge/:id/tasks                             controllers.ChallengeController.updateChildren(id:Long)
-GET     /api/v2/challenge/:id/children                          controllers.ChallengeController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?=0)
+GET     /api/v2/challenge/:id/children                          controllers.ChallengeController.expandedList(id:Long, limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/project/:pid/challenge/:cid/tasks               controllers.ChallengeController.getRandomTasks(pid:Long, cid:Long, tags:String ?= "", limit:Int ?= 1)
 # Task API
 POST    /api/v2/task                                            controllers.TaskController.create
 PUT     /api/v2/task/:id                                        controllers.TaskController.update(id:Long)
@@ -31,6 +33,7 @@ GET     /api/v2/task/:id                                        controllers.Task
 DELETE  /api/v2/task/:id                                        controllers.TaskController.delete(id:Long)
 GET     /api/v2/task/:id/tags                                   controllers.TaskController.getTagsForTask(id:Long)
 GET     /api/v2/tasks/tags                                      controllers.TaskController.getTasksBasedOnTags(tags:String ?= "", limit:Int ?= 10, offset:Int ?= 0)
+GET     /api/v2/tasks/random                                    controllers.TaskController.getRandomTasks(tags:String ?= "", limit:Int ?= 1)
 # Batch Task API
 POST    /api/v2/tasks                                           controllers.TaskController.batchUpload
 # Tag API

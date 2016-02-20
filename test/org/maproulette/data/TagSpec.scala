@@ -17,7 +17,7 @@ class TagSpec extends Specification {
   sequential
 
   "Tags" should {
-    "write tag object to database" in new WithApplication with DatabaseIsolation {
+    "write tag object to database" in new WithApplication {
       val newTag = Tag(tagID, "NewTag", Some("This is a newTag"))
       tagID = TagDAL.insert(newTag).id
       TagDAL.retrieveById match {

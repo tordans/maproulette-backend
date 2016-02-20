@@ -62,7 +62,7 @@ object TagDAL extends BaseDAL[Long, Tag] {
             case Some(d) => d
             case None => ""
           }
-          Seq[NamedParameter]("name" -> tag.name, "description" -> descriptionString, "id" -> tag.id)
+          Seq[NamedParameter]("name" -> tag.name.toLowerCase, "description" -> descriptionString, "id" -> tag.id)
         })
         val batchUpsert = BatchSql(sqlQuery, parameters.head, parameters.tail:_*)
         val result = batchUpsert.execute()

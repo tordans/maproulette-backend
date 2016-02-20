@@ -69,7 +69,7 @@ class CacheManager[Key, A<:BaseObject[Key]] {
 
   /**
     * This will pull the items out of the cache that have been cached, and send the rest of the id's
-    * to the database to retireve the objects and place them in the cache after they have been retrieved
+    * to the database to retrieve the objects and place them in the cache after they have been retrieved
     *
     * @param block the lambda function that will be used to retrieve the objects
     * @param ids The ids of the objects to retrieve

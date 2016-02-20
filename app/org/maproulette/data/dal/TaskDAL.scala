@@ -9,6 +9,8 @@ import play.api.db.DB
 import play.api.libs.json._
 import play.api.Play.current
 
+import scala.collection.mutable.ListBuffer
+
 /**
   * @author cuthbertm
   */
@@ -68,21 +70,23 @@ object TaskDAL extends BaseDAL[Long, Task] {
   }
 
   def updateTaskTags(taskId:Long, tags:List[Long]) : Unit = {
-    DB.withConnection { implicit c =>
-      val indexedValues = tags.zipWithIndex
-      val rows = indexedValues.map{ case (value, i) =>
-        s"({taskid_$i}, {tagid_$i})"
-      }.mkString(",")
-      val parameters = indexedValues.flatMap{ case(value, i) =>
-        Seq(
-          NamedParameter(s"taskid_$i", ParameterValue.toParameterValue(taskId)),
-          NamedParameter(s"tagid_$i", ParameterValue.toParameterValue(value))
-        )
-      }
+    if (tags.nonEmpty) {
+      DB.withConnection { implicit c =>
+        val indexedValues = tags.zipWithIndex
+        val rows = indexedValues.map{ case (value, i) =>
+          s"({taskid_$i}, {tagid_$i})"
+        }.mkString(",")
+        val parameters = indexedValues.flatMap{ case(value, i) =>
+          Seq(
+            NamedParameter(s"taskid_$i", ParameterValue.toParameterValue(taskId)),
+            NamedParameter(s"tagid_$i", ParameterValue.toParameterValue(value))
+          )
+        }
 
-      SQL("INSERT INTO tags_on_tasks (task_id, tag_id) VALUES " + rows)
-        .on(parameters: _*)
+        SQL("INSERT INTO tags_on_tasks (task_id, tag_id) VALUES " + rows)
+          .on(parameters: _*)
           .execute()
+      }
     }
   }
 
@@ -104,7 +108,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
   }
 
   def getTasksBasedOnTags(tags:List[String], limit:Int, offset:Int) : List[Task] = {
-    DB.withConnection { implicit c =>
+    DB.withTransaction { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit+""
       val query = s"SELECT $retrieveColumns FROM tasks " +
         "INNER JOIN tags_on_tasks tt ON tasks.id = tt.task_id " +
@@ -119,27 +123,72 @@ object TaskDAL extends BaseDAL[Long, Task] {
                      challengeId:Option[Long],
                      tags:List[String],
                      limit:Int=(-1)) : List[Task] = {
-    List.empty
+    if (tags.isEmpty) {
+      getRandomTasksInt(projectId, challengeId, List(), limit)
+    } else {
+      val idList = tags.flatMap(id => {
+        TagDAL.retrieveByName(id) match {
+          case Some(i) => Some(i.id)
+          case None => None
+        }
+      })
+      getRandomTasksInt(projectId, challengeId, idList, limit)
+    }
   }
 
   def getRandomTasksInt(projectId:Option[Long],
                      challengeId:Option[Long],
                      tags:List[Long],
                      limit:Int=(-1)) : List[Task] = {
-    /*val sqlLimit = if (limit == -1) "ALL" else limit+""
-    val sqlTuple = projectId match {
-      case Some(id) => (
-          "INNER JOIN challenges c ON c.id = t.parent_id",
-          "({projectId} = -1 OR c.parent_id = {projectId)"
-        )
-      case None => ("", "")
+    val sqlLimit = if (limit == -1) "ALL" else limit+""
+    val firstQuery = s"SELECT $retrieveColumns FROM tasks "
+    val secondQuery = "SELECT COUNT(*) FROM tasks "
+
+    val parameters = new ListBuffer[NamedParameter]()
+    val queryBuilder = new StringBuilder
+    val whereClause = new StringBuilder
+    challengeId match {
+      case Some(id) =>
+        whereClause ++= "t.parent_id = {parentId} "
+        parameters += ('parentId -> ParameterValue.toParameterValue(id))
+      case None => //ignore
     }
-    val query = "SELECT * FROM tasks t" +
-                s"${sqlTuple._1} " +
-                s"WHERE ${sqlTuple._2} " +
-                      "({challengeId} = -1 OR t.parent_id = {challenge_id}) " +
-                s"OFFSET FLOOR(RANDOM()*(SELECT COUNT(*) FROM tasks)) LIMIT $sqlLimit"
-    SQL(query).on('challengeId -> )*/
-    List.empty
+    projectId match {
+      case Some(id) =>
+        queryBuilder ++= "INNER JOIN challenges c ON c.id = tasks.parent_id " +
+                          "INNER JOIN projects p ON p.id = c.parent_id "
+        if (whereClause.nonEmpty) {
+          whereClause ++= "AND "
+        }
+        whereClause ++= "p.id = {projectId} "
+        parameters += ('projectId -> ParameterValue.toParameterValue(id))
+      case None => //ignore
+    }
+    if (tags.nonEmpty) {
+      queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
+      if (whereClause.nonEmpty) {
+        whereClause ++= "AND "
+      }
+      whereClause ++= "tt.tag_id IN ({tagids}) "
+      parameters += ('tagids -> ParameterValue.toParameterValue(tags))
+    }
+    if (whereClause.nonEmpty) {
+      whereClause.insert(0, "WHERE ")
+    }
+    val query = s"$firstQuery ${queryBuilder.toString} ${whereClause.toString} " +
+                s"OFFSET FLOOR(RANDOM()*(" +
+                s"$secondQuery ${queryBuilder.toString} ${whereClause.toString}" +
+                s")) LIMIT $sqlLimit"
+
+    implicit val ids = List[Long]()
+    cacheManager.withIDListCaching { implicit cachedItems =>
+      DB.withTransaction { implicit c =>
+        if (parameters.nonEmpty) {
+          SQL(query).on(parameters:_*).as(parser *)
+        } else {
+          SQL(query).as(parser *)
+        }
+      }
+    }
   }
 }

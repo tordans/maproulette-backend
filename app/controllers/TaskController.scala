@@ -77,12 +77,10 @@ object TaskController extends CRUDController[Task] {
     }
   }
 
-  def getRandomTasks(projectId: Option[Long] = None,
-                     challengeId: Option[Long] = None,
-                     tags: String = "",
-                     limit:Int, offset:Int) = Action {
+  def getRandomTasks(tags: String,
+                     limit:Int) = Action {
     try {
-      Ok(Json.toJson(dal.getRandomTasksStr(projectId, challengeId, tags.split(",").toList, limit)))
+      Ok(Json.toJson(dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)))
     } catch {
       case e: Exception =>
         Logger.error(e.getMessage, e)
