@@ -88,18 +88,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
 
   def listChildren(id:Long, limit:Int, offset:Int) = Action {
     implicit val writes:Writes[C] = cWrites
-    try {
+    Utils.internalServerCatcher { () =>
       Ok(Json.toJson(dal.listChildren(limit, offset)(id)))
-    } catch {
-      case e:Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 
   def expandedList(id:Long, limit:Int, offset:Int) = Action {
     implicit val writes:Writes[C] = cWrites
-    try {
+    Utils.internalServerCatcher { () =>
       // first get the parent
       val parent = Json.toJson(dal.retrieveById(id))
       // now list the children
@@ -111,10 +107,6 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
           Logger.error(JsError.toJson(errors).toString)
           InternalServerError(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       }
-    } catch {
-      case e:Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 }

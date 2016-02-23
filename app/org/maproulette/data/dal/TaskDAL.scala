@@ -4,7 +4,6 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Tag, Task}
-import org.maproulette.utils.Utils
 import play.api.db.DB
 import play.api.libs.json._
 import play.api.Play.current
@@ -17,26 +16,27 @@ import scala.collection.mutable.ListBuffer
 object TaskDAL extends BaseDAL[Long, Task] {
   override val cacheManager = new CacheManager[Long, Task]()
   override val tableName: String = "tasks"
-  override val retrieveColumns:String = "tasks.id, tasks.name, tasks.parent_id, " +
+  override val retrieveColumns:String = "tasks.id, tasks.name, tasks.identifier, tasks.parent_id, " +
     "tasks.instruction, ST_AsGeoJSON(tasks.location) AS location, tasks.status"
 
   implicit val parser: RowParser[Task] = {
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
+      get[Option[String]]("tasks.identifier") ~
       get[Long]("parent_id") ~
       get[String]("tasks.instruction") ~
       get[String]("location") ~
       get[Option[Int]]("tasks.status") map {
-      case id ~ name ~ parent_id ~ instruction ~ location ~ status =>
-        new Task(id, name, parent_id, instruction, Json.parse(location), status)
+      case id ~ name ~ identifier ~ parent_id ~ instruction ~ location ~ status =>
+        new Task(id, name, identifier, parent_id, instruction, Json.parse(location), status)
     }
   }
 
   override def insert(task:Task) : Task = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
-        val newTaskId = SQL"""INSERT INTO tasks (name, parent_id, location, instruction, status)
-                     VALUES (${task.name}, ${task.parent},
+        val newTaskId = SQL"""INSERT INTO tasks (name, identifier, parent_id, location, instruction, status)
+                     VALUES (${task.name}, ${task.identifier}, ${task.parent},
                               ST_GeomFromGeoJSON(${task.location.toString}),
                               ${task.instruction},
                               ${task.status}
@@ -48,30 +48,27 @@ object TaskDAL extends BaseDAL[Long, Task] {
 
   override def update(value:JsValue)(implicit id:Long): Option[Task] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withConnection { implicit c =>
-        val name = Utils.getDefaultOption((value \ "name").asOpt[String], cachedItem.name)
-        val parentId = Utils.getDefaultOption((value \ "parentId").asOpt[Long], cachedItem.parent)
-        val instruction = Utils.getDefaultOption((value \ "instruction").asOpt[String], cachedItem.instruction)
-        val location = Utils.getDefaultOption((value \ "location").asOpt[JsValue], cachedItem.location)
-        val status = Utils.getDefaultOption((value \ "status").asOpt[Int], cachedItem.status, 0)
+      DB.withTransaction { implicit c =>
+        val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+        val identifier = (value \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
+        val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+        val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
+        val location = (value \ "location").asOpt[JsValue].getOrElse(cachedItem.location)
+        val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
 
-        SQL"""UPDATE tasks SET name = ${name}, parent_id = ${parentId},
-              instruction = ${instruction}, location = ST_GeomFromGeoJSON(${location.toString}),
-              status = ${status}
+        SQL"""UPDATE tasks SET name = $name, identifier = $identifier, parent_id = $parentId,
+              instruction = $instruction, location = ST_GeomFromGeoJSON(${location.toString}),
+              status = $status
               WHERE id = $id""".executeUpdate()
 
-        Some(Task(id, name, parentId, instruction, location, Some(status)))
+        Some(Task(id, name, Some(identifier), parentId, instruction, location, Some(status)))
       }
     }
   }
 
-  def retrieveByTag(tag:String) : List[Task] = {
-    List.empty
-  }
-
   def updateTaskTags(taskId:Long, tags:List[Long]) : Unit = {
     if (tags.nonEmpty) {
-      DB.withConnection { implicit c =>
+      DB.withTransaction { implicit c =>
         val indexedValues = tags.zipWithIndex
         val rows = indexedValues.map{ case (value, i) =>
           s"({taskid_$i}, {tagid_$i})"
@@ -86,6 +83,26 @@ object TaskDAL extends BaseDAL[Long, Task] {
         SQL("INSERT INTO tags_on_tasks (task_id, tag_id) VALUES " + rows)
           .on(parameters: _*)
           .execute()
+      }
+    }
+  }
+
+  def deleteTaskTags(taskId:Long, tags:List[Long]) : Unit = {
+    if (tags.nonEmpty) {
+      DB.withTransaction { implicit c =>
+        SQL"""DELETE FROM tags_on_tasks WHERE task_id = {$taskId} AND tag_id IN ($tags)""".execute()
+      }
+    }
+  }
+
+  def deleteTaskStringTags(taskId:Long, tags:List[String]) : Unit = {
+    if (tags.nonEmpty) {
+      val lowerTags = tags.map(_.toLowerCase)
+      DB.withTransaction { implicit c =>
+        SQL"""DELETE FROM tags_on_tasks tt USING tags t
+              WHERE tt.tag_id = t.id AND
+                    tt.task_id = $taskId AND
+                    t.name IN ($lowerTags)""".execute()
       }
     }
   }
@@ -108,14 +125,15 @@ object TaskDAL extends BaseDAL[Long, Task] {
   }
 
   def getTasksBasedOnTags(tags:List[String], limit:Int, offset:Int) : List[Task] = {
-    DB.withTransaction { implicit c =>
+    val lowerTags = tags.map(_.toLowerCase)
+    DB.withConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit+""
       val query = s"SELECT $retrieveColumns FROM tasks " +
         "INNER JOIN tags_on_tasks tt ON tasks.id = tt.task_id " +
         "INNER JOIN tags tg ON tg.id = tt.tag_id " +
         "WHERE tg.name IN ({tags}) " +
         s"LIMIT $sqlLimit OFFSET {offset}"
-      SQL(query).on('tags -> ParameterValue.toParameterValue(tags), 'offset -> offset).as(parser *)
+      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser *)
     }
   }
 
@@ -126,12 +144,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     if (tags.isEmpty) {
       getRandomTasksInt(projectId, challengeId, List(), limit)
     } else {
-      val idList = tags.flatMap(id => {
-        TagDAL.retrieveByName(id) match {
-          case Some(i) => Some(i.id)
-          case None => None
-        }
-      })
+      val idList = TagDAL.retrieveListByName(tags.map(_.toLowerCase)).map(_.id)
       getRandomTasksInt(projectId, challengeId, idList, limit)
     }
   }
@@ -182,7 +195,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
 
     implicit val ids = List[Long]()
     cacheManager.withIDListCaching { implicit cachedItems =>
-      DB.withTransaction { implicit c =>
+      DB.withConnection { implicit c =>
         if (parameters.nonEmpty) {
           SQL(query).on(parameters:_*).as(parser *)
         } else {

@@ -12,6 +12,7 @@ import play.api.libs.json._
   */
 case class Task(override val id:Long,
                 override val name: String,
+                override val identifier:Option[String]=None,
                 parent: Long,
                 instruction: String,
                 location: JsValue,
@@ -28,4 +29,10 @@ case class Task(override val id:Long,
 object Task {
   implicit val taskReads: Reads[Task] = Json.reads[Task]
   implicit val taskWrites: Writes[Task] = Json.writes[Task]
+
+  val STATUS_CREATED = 0
+  val STATUS_FIXED = 1
+  val STATUS_FALSE_POSITIVE = 2
+  val STATUS_SKIPPED = 3
+  val STATUS_DELETED = 4
 }

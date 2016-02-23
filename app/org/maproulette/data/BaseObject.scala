@@ -5,5 +5,6 @@ package org.maproulette.data
   */
 trait BaseObject[Key] {
   def name:String
+  def identifier:Option[String] = None
   def id:Key
 }

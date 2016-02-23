@@ -19,7 +19,7 @@ class ChallengeSpec extends Specification {
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
       val projectID = ProjectDAL.insert(Project(-1, "RootProject_challengeTest")).id
-      val newChallenge = Challenge(challengeID, "NewProject", projectID, Some("This is a newProject"))
+      val newChallenge = Challenge(challengeID, "NewProject", None, projectID, None, Some("This is a newProject"))
       challengeID = ChallengeDAL.insert(newChallenge).id
       ChallengeDAL.retrieveById match {
         case Some(t) =>

@@ -3,7 +3,7 @@ package controllers
 import org.maproulette.controllers.ParentController
 import org.maproulette.data.{Challenge, Project}
 import org.maproulette.data.dal.{TaskDAL, ProjectDAL}
-import play.api.Logger
+import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
 
@@ -21,12 +21,8 @@ object ProjectController extends ParentController[Project, Challenge] {
   def getRandomTasks(projectId: Long,
                      tags: String,
                      limit:Int) = Action {
-    try {
+    Utils.internalServerCatcher { () =>
       Ok(Json.toJson(TaskDAL.getRandomTasksStr(Some(projectId), None, tags.split(",").toList, limit)))
-    } catch {
-      case e: Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 }

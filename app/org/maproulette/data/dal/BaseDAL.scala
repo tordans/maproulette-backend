@@ -83,25 +83,34 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
 
   def retrieveById(implicit id:Key) : Option[T] = {
     cacheManager.withOptionCaching { () =>
-      DB.withTransaction { implicit c =>
+      DB.withConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE id = {id}"
-        SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).as(parser *).headOption
+        SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).as(parser.singleOpt)
       }
     }
   }
 
   def retrieveByName(implicit name:String) : Option[T] = {
     cacheManager.withOptionCaching { () =>
-      DB.withTransaction { implicit c =>
+      DB.withConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE name = {name}"
-        SQL(query).on('name -> name).as(parser *).headOption
+        SQL(query).on('name -> name).as(parser.singleOpt)
+      }
+    }
+  }
+
+  def retrieveByIdentifier(implicit identifer:String) : Option[T] = {
+    cacheManager.withOptionCaching { () =>
+      DB.withConnection { implicit c =>
+        val query = s"SELECT $retrieveColumns FROM $tableName WHERE identifier = {identifier}"
+        SQL(query).on('identifier -> identifer).as(parser.singleOpt)
       }
     }
   }
 
   def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
-      DB.withTransaction { implicit c =>
+      DB.withConnection { implicit c =>
         val limitValue = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName " +
                     s"WHERE id IN ({inString}) LIMIT $limitValue OFFSET {offset}"
@@ -112,7 +121,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
 
   def retrieveListByName(implicit names: List[String]): List[T] = {
     cacheManager.withNameListCaching { implicit uncachedNames =>
-      DB.withTransaction { implicit c =>
+      DB.withConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
         SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser *)
       }
@@ -130,7 +139,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * @return A list of tags that contain the supplied prefix
     */
   def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0): List[T] = {
-    DB.withTransaction { implicit c =>
+    DB.withConnection { implicit c =>
       val sqlPrefix = s"$prefix%"
       val sqlLimit = if (limit < 0) "ALL" else limit + ""
       val query = s"SELECT $retrieveColumns FROM $tableName " +
@@ -146,7 +155,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
   def list(limit:Int = 10, offset:Int = 0) : List[T] = {
     implicit val ids = List.empty
     cacheManager.withIDListCaching { implicit uncachedIDs =>
-      DB.withTransaction { implicit c =>
+      DB.withConnection { implicit c =>
         val sqlLimit = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName LIMIT $sqlLimit OFFSET {offset}"
         SQL(query).on('offset -> ParameterValue.toParameterValue(offset)).as(parser *)

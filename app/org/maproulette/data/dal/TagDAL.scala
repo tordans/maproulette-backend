@@ -4,7 +4,6 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.TagCacheManager
 import org.maproulette.data.Tag
-import org.maproulette.utils.Utils
 import play.api.db.DB
 import play.api.Play.current
 import play.api.libs.json.JsValue
@@ -35,12 +34,9 @@ object TagDAL extends BaseDAL[Long, Tag] {
 
   override def update(tag:JsValue)(implicit id:Long): Option[Tag] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withConnection { implicit c =>
-        val name = Utils.getDefaultOption((tag \ "name").asOpt[String], cachedItem.name)
-        val description = Utils.getDefaultOption(
-          (tag \ "description").asOpt[String],
-          Utils.getDefaultOption(cachedItem.description, "")
-        )
+      DB.withTransaction { implicit c =>
+        val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
+        val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedTag = Tag(id, name, Some(description))
 
         SQL"""UPDATE tags SET name = ${updatedTag.name.toLowerCase}, description = ${updatedTag.description}

@@ -35,7 +35,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       },
       element => {
-        try {
+        Utils.internalServerCatcher { () =>
           if (element.id < 0) {
             Created(Json.toJson(internalCreate(request.body, element)))
           } else {
@@ -45,10 +45,6 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
               case None => NotModified
             }
           }
-        } catch {
-          case e:Exception =>
-            Logger.error(e.getMessage, e)
-            InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
         }
       }
     )
@@ -75,18 +71,17 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   }
 
   def update(implicit id:Long) = Action(BodyParsers.parse.json) { implicit request =>
-    try {
-      internalUpdate(request.body) match {
-        case Some(value) => Ok(Json.toJson(value))
-        case None => NotModified
+    Utils.internalServerCatcher { () =>
+      try {
+        internalUpdate(request.body) match {
+          case Some(value) => Ok(Json.toJson(value))
+          case None => NotModified
+        }
+      } catch {
+        case e:JsonMappingException =>
+          Logger.error(e.getMessage, e)
+          BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
       }
-    } catch {
-      case e:JsonMappingException =>
-        Logger.error(e.getMessage, e)
-        BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
-      case e:Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 
@@ -99,26 +94,26 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   }
 
   def read(implicit id:Long) = Action {
-    dal.retrieveById match {
-      case Some(value) =>
-        Ok(Json.toJson(value))
-      case None =>
-        NoContent
+    Utils.internalServerCatcher { () =>
+      dal.retrieveById match {
+        case Some(value) =>
+          Ok(Json.toJson(value))
+        case None =>
+          NoContent
+      }
     }
   }
 
   def delete(id:Long) = Action {
-    Ok(Json.obj("message" -> s"${dal.delete(id)} Tasks deleted."))
-    NoContent
+    Utils.internalServerCatcher { () =>
+      Ok(Json.obj("message" -> s"${dal.delete(id)} Tasks deleted."))
+      NoContent
+    }
   }
 
   def list(limit:Int, offset:Int) = Action {
-    try {
+    Utils.internalServerCatcher{ () =>
       Ok(Json.toJson(dal.list(limit, offset)))
-    } catch {
-      case e:Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 

@@ -43,7 +43,6 @@ CREATE TABLE IF NOT EXISTS users
   last_changeset_date timestamp without time zone,
   last_changeset_bbox geometry(Polygon),
   osm_account_created timestamp without time zone,
-  difficulty smallint,
   CONSTRAINT users_pkey PRIMARY KEY(id)
 );
 
@@ -61,11 +60,13 @@ CREATE TABLE IF NOT EXISTS projects
 CREATE TABLE IF NOT EXISTS challenges
 (
   id SERIAL NOT NULL,
+  identifier character varying DEFAULT '',
   name character varying NOT NULL,
   parent_id integer NOT NULL,
   description character varying DEFAULT '',
   blurb character varying DEFAULT '',
   instruction character varying DEFAULT '',
+  difficulty integer DEFAULT 1,
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -74,15 +75,17 @@ CREATE TABLE IF NOT EXISTS challenges
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
+SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
 
 CREATE TABLE IF NOT EXISTS tasks
 (
   id SERIAL NOT NULL,
+  identifier character varying DEFAULT '',
   name character varying NOT NULL,
   location geometry NOT NULL,
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
-  status integer DEFAULT 0,
+  status integer DEFAULT 0 NOT NULL,
   CONSTRAINT tasks_pkey PRIMARY KEY(id),
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
@@ -155,5 +158,8 @@ SELECT create_index_if_not_exists('actions', 'status', '(status)');
 SELECT create_index_if_not_exists('actions', 'task_id', '(task_id)');
 SELECT create_index_if_not_exists('actions', 'timestamp', '(timestamp)');
 SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
+
+-- Insert the default root, used for migration and those using the old API
+INSERT INTO projects (name, description) VALUES ('default', 'The default root for any challenges not defining a project parent. Only available when using old API, and through migration.')
 
 # --- !Downs

@@ -4,7 +4,6 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Challenge, Project}
-import org.maproulette.utils.Utils
 import play.api.db.DB
 import play.api.libs.json.JsValue
 import play.api.Play.current
@@ -38,12 +37,9 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
 
   override def update(tag:JsValue)(implicit id:Long): Option[Project] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withConnection { implicit c =>
-        val name = Utils.getDefaultOption((tag \ "name").asOpt[String], cachedItem.name)
-        val description = Utils.getDefaultOption(
-          (tag \ "description").asOpt[String],
-          Utils.getDefaultOption(cachedItem.description, "")
-        )
+      DB.withTransaction { implicit c =>
+        val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
+        val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedProject = Project(id, name, Some(description))
 
         SQL"""UPDATE projects SET name = ${updatedProject.name},

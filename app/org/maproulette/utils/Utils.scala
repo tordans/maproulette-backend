@@ -1,6 +1,9 @@
 package org.maproulette.utils
 
+import play.api.Logger
+import play.api.mvc.Results._
 import play.api.libs.json.{Json, JsObject, JsValue}
+import play.api.mvc.Result
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
@@ -10,22 +13,14 @@ import scala.reflect.runtime.universe._
   */
 object Utils {
 
-  /**
-    * Based on an option object, will either return the value for the option or a supplied value
-    *
-    * @param obj The option that you are checking
-    * @param default The default value if the option is None
-    * @tparam T The type of object in the option
-    * @return the value of the option of the default value
-    */
-  def getDefaultOption[T](obj:Option[T], default:T) : T = obj match {
-    case Some(value) => value
-    case None => default
-  }
-
-  def getDefaultOption[T](obj:Option[T], default:Option[T], secondDefault:T) : T = default match {
-    case Some(value) => getDefaultOption(obj, value)
-    case None => getDefaultOption(obj, secondDefault)
+  def internalServerCatcher(block:() => Result) : Result = {
+    try {
+      block()
+    } catch {
+      case e:Exception =>
+        Logger.error(e.getMessage, e)
+        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+    }
   }
 
   /**

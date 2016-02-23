@@ -1,8 +1,10 @@
 package controllers
 
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data.{Tag, Task}
 import org.maproulette.data.dal.{TagDAL, TaskDAL}
+import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -64,27 +66,34 @@ object TaskController extends CRUDController[Task] {
   }
 
   def getTagsForTask(implicit id: Long) = Action {
-    Ok(Json.toJson(Task(id, "", -1, "", Json.parse("{}")).tags))
+    Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
   }
 
   def getTasksBasedOnTags(tags: String, limit: Int, offset: Int) = Action { implicit request =>
-    try {
-      Ok(Json.toJson(dal.getTasksBasedOnTags(tags.split(",").toList, limit, offset)))
-    } catch {
-      case e: Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+    Utils.internalServerCatcher { () =>
+      if (StringUtils.isEmpty(tags)) {
+        BadRequest(Json.obj("status" -> "KO", "message" -> "A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2"))
+      } else {
+        Ok(Json.toJson(dal.getTasksBasedOnTags(tags.split(",").toList, limit, offset)))
+      }
     }
   }
 
   def getRandomTasks(tags: String,
                      limit:Int) = Action {
-    try {
+    Utils.internalServerCatcher { () =>
       Ok(Json.toJson(dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)))
-    } catch {
-      case e: Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+    }
+  }
+
+  def deleteTagsFromTask(id:Long, tags:String) = Action {
+    if (StringUtils.isEmpty(tags)) {
+      BadRequest(Json.obj("status" -> "KO", "message" -> "A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2"))
+    } else {
+      Utils.internalServerCatcher { () =>
+        TaskDAL.deleteTaskStringTags(id, tags.split(",").toList)
+        NoContent
+      }
     }
   }
 }
