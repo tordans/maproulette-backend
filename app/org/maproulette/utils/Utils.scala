@@ -13,14 +13,8 @@ import scala.reflect.runtime.universe._
   */
 object Utils {
 
-  def internalServerCatcher(block:() => Result) : Result = {
-    try {
-      block()
-    } catch {
-      case e:Exception =>
-        Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
-    }
+  def badRequest(message:String) : Result = {
+    BadRequest(Json.obj("status" -> "KO", "message" -> message))
   }
 
   /**

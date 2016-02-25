@@ -2,6 +2,7 @@ package org.maproulette.controllers
 
 import org.maproulette.data.BaseObject
 import org.maproulette.data.dal.ParentDAL
+import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
@@ -88,14 +89,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
 
   def listChildren(id:Long, limit:Int, offset:Int) = Action {
     implicit val writes:Writes[C] = cWrites
-    Utils.internalServerCatcher { () =>
+    MPExceptionUtil.internalServerCatcher { () =>
       Ok(Json.toJson(dal.listChildren(limit, offset)(id)))
     }
   }
 
   def expandedList(id:Long, limit:Int, offset:Int) = Action {
     implicit val writes:Writes[C] = cWrites
-    Utils.internalServerCatcher { () =>
+    MPExceptionUtil.internalServerCatcher { () =>
       // first get the parent
       val parent = Json.toJson(dal.retrieveById(id))
       // now list the children

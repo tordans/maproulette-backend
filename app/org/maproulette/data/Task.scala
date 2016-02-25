@@ -35,4 +35,18 @@ object Task {
   val STATUS_FALSE_POSITIVE = 2
   val STATUS_SKIPPED = 3
   val STATUS_DELETED = 4
+
+  def isValidStatusProgression(current:Int, toSet:Int) : Boolean = {
+    if (current == toSet) {
+      true
+    } else {
+      current match {
+        case STATUS_CREATED => toSet > STATUS_CREATED || toSet <= STATUS_DELETED
+        case STATUS_FIXED => false
+        case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
+        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_DELETED
+        case STATUS_DELETED => toSet == STATUS_CREATED
+      }
+    }
+  }
 }

@@ -41,6 +41,10 @@ GET     /api/v2/task/:id/tags                                   controllers.Task
 GET     /api/v2/tasks/tags                                      controllers.TaskController.getTasksBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 GET     /api/v2/tasks/random                                    controllers.TaskController.getRandomTasks(tags:String ?= "", limit:Int ?= 1)
 DELETE  /api/v2/task/:id/tags                                   controllers.TaskController.deleteTagsFromTask(id:Long, tags:String ?= "")
+PUT     /api/v2/task/:id/fixed                                  controllers.TaskController.setTaskStatusFixed(id:Long)
+PUT     /api/v2/task/:id/skipped                                controllers.TaskController.setTaskStatisSkipped(id:Long)
+PUT     /api/v2/task/:id/falsepositive                          controllers.TaskController.setTaskStatusFalsePositive(id:Long)
+PUT     /api/v2/task/:id/deleted                                controllers.TaskController.setTaskStatusDeleted(id:Long)
 # Tag API
 POST    /api/v2/tag                                             controllers.TagController.create
 POST    /api/v2/tags                                            controllers.TagController.batchUploadPost

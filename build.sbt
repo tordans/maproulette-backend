@@ -12,7 +12,7 @@ libraryDependencies ++= Seq(
   ws,
   evolutions,
   specs2 % Test,
-  "com.typesafe.play" %% "anorm" % "2.4.0",
+  "com.typesafe.play" %% "anorm" % "3.0.0-M1",
   "postgresql" % "postgresql" % "9.1-901-1.jdbc4",
   "net.postgis" % "postgis-jdbc" % "2.2.0"
 )

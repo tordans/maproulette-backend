@@ -28,11 +28,20 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;
 
+CREATE OR REPLACE FUNCTION updateModified() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.modified = NOW();;
+  RETURN NEW;;
+END
+$$
+LANGUAGE plpgsql VOLATILE;;
+
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS users
 (
   id serial NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
   oauth_token character varying,
   oauth_secret character varying,
   display_name character varying NOT NULL,
@@ -49,6 +58,9 @@ CREATE TABLE IF NOT EXISTS users
 SELECT create_index_if_not_exists('users', 'home_location', '(home_location)');
 SELECT create_index_if_not_exists('users', 'last_changeset_bbox', '(last_changeset_bbox)');
 
+-- create default super user
+INSERT INTO users (id, display_name) VALUES (0, 'SuperUser');
+
 CREATE TABLE IF NOT EXISTS projects
 (
   id SERIAL NOT NULL,
@@ -57,9 +69,14 @@ CREATE TABLE IF NOT EXISTS projects
   CONSTRAINT projects_pkey PRIMARY KEY (id)
 );
 
+CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
+  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+
 CREATE TABLE IF NOT EXISTS challenges
 (
   id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  modified timestamp without time zone,
   identifier character varying DEFAULT '',
   name character varying NOT NULL,
   parent_id integer NOT NULL,
@@ -73,6 +90,9 @@ CREATE TABLE IF NOT EXISTS challenges
   CONSTRAINT challenges_pkey PRIMARY KEY (id)
 );
 
+CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
+  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
 SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
@@ -80,6 +100,8 @@ SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
 CREATE TABLE IF NOT EXISTS tasks
 (
   id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  modified timestamp without time zone,
   identifier character varying DEFAULT '',
   name character varying NOT NULL,
   location geometry NOT NULL,
@@ -92,12 +114,16 @@ CREATE TABLE IF NOT EXISTS tasks
     ON UPDATE CASCADE ON DELETE CASCADE
 );
 
+CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
+  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
 
 CREATE TABLE IF NOT EXISTS tags
 (
   id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL UNIQUE,
   description character varying DEFAULT '',
   CONSTRAINT tag_pkey PRIMARY KEY(id)
@@ -140,13 +166,15 @@ SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');
 CREATE TABLE IF NOT EXISTS actions
 (
   id serial NOT NULL,
-  "timestamp" timestamp without time zone NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
   user_id integer,
-  task_id integer,
+  type_id integer,
+  item_id integer,
+  action integer NOT NULL,
   status integer NOT NULL,
-  editor character varying,
+  extra character varying,
   CONSTRAINT actions_pkey PRIMARY KEY (id),
-  CONSTRAINT actions_task_id_fkey FOREIGN KEY (task_id)
+  CONSTRAINT actions_task_id_fkey FOREIGN KEY (item_id)
     REFERENCES tasks(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
@@ -155,9 +183,9 @@ CREATE TABLE IF NOT EXISTS actions
 );
 
 SELECT create_index_if_not_exists('actions', 'status', '(status)');
-SELECT create_index_if_not_exists('actions', 'task_id', '(task_id)');
-SELECT create_index_if_not_exists('actions', 'timestamp', '(timestamp)');
+SELECT create_index_if_not_exists('actions', 'item_id', '(item_id)');
 SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
+select create_index_if_not_exists('actions', 'created', '(created)');
 
 -- Insert the default root, used for migration and those using the old API
 INSERT INTO projects (name, description) VALUES ('default', 'The default root for any challenges not defining a project parent. Only available when using old API, and through migration.')

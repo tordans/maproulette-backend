@@ -4,6 +4,7 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Tag, Task}
+import org.maproulette.exception.InvalidException
 import play.api.db.DB
 import play.api.libs.json._
 import play.api.Play.current
@@ -35,11 +36,12 @@ object TaskDAL extends BaseDAL[Long, Task] {
   override def insert(task:Task) : Task = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
+        // status is ignored on insert and always set to CREATED
         val newTaskId = SQL"""INSERT INTO tasks (name, identifier, parent_id, location, instruction, status)
                      VALUES (${task.name}, ${task.identifier}, ${task.parent},
                               ST_GeomFromGeoJSON(${task.location.toString}),
                               ${task.instruction},
-                              ${task.status}
+                              ${Task.STATUS_CREATED}
                      ) RETURNING id""".as(long("id") *).head
         Some(task.copy(id = newTaskId))
       }
@@ -55,6 +57,10 @@ object TaskDAL extends BaseDAL[Long, Task] {
         val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
         val location = (value \ "location").asOpt[JsValue].getOrElse(cachedItem.location)
         val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+        if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
+          throw new InvalidException(s"Could not set status for task [$id], " +
+            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
+        }
 
         SQL"""UPDATE tasks SET name = $name, identifier = $identifier, parent_id = $parentId,
               instruction = $instruction, location = ST_GeomFromGeoJSON(${location.toString}),

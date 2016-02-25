@@ -7,7 +7,6 @@ import org.maproulette.data.Tag
 import org.maproulette.data.dal.TagDAL
 import play.api.db.DB
 import play.api.Play.current
-import scala.collection.mutable
 
 /**
   * This is not currently a real cache manager, it will just store elements that have been loaded into memory.

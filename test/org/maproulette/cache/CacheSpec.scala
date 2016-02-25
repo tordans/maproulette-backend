@@ -5,8 +5,6 @@ import org.maproulette.data.BaseObject
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
-import scala.collection.mutable
-
 /**
   * @author cuthbertm
   */
@@ -19,7 +17,7 @@ class CacheSpec extends Specification {
 
   sequential
 
-  "CacheManager" in {
+  "CacheManager" should {
     "cache element withOptionCaching" in {
       theCache.clear
       cacheObject(25, "test")
