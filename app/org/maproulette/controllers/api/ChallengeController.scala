@@ -1,11 +1,11 @@
-package controllers
+package org.maproulette.controllers.api
 
-import org.maproulette.actions.{Challenge => challengeType, TaskViewed, ActionManager}
+import org.maproulette.actions.{ActionManager, ChallengeType, TaskViewed}
 import org.maproulette.controllers.ParentController
-import org.maproulette.data.{Task, Challenge}
-import org.maproulette.data.dal.{TaskDAL, ChallengeDAL}
+import org.maproulette.data.dal.{ChallengeDAL, TaskDAL}
+import org.maproulette.data.{Challenge, Task}
 import org.maproulette.exception.MPExceptionUtil
-import play.api.libs.json.{Json, Writes, Reads}
+import play.api.libs.json.{Json, Reads, Writes}
 import play.api.mvc.Action
 
 /**
@@ -18,13 +18,13 @@ object ChallengeController extends ParentController[Challenge, Task] {
   override protected val cWrites: Writes[Task] = Task.taskWrites
   override protected val cReads: Reads[Task] = Task.taskReads
   override protected val childController = TaskController
-  override implicit val itemType = challengeType()
+  override implicit val itemType = ChallengeType()
 
   def getRandomTasks(projectId: Long,
                      challengeId: Long,
                      tags: String,
                      limit:Int) = Action {
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       val result = TaskDAL.getRandomTasksStr(Some(projectId), Some(challengeId), tags.split(",").toList, limit)
       result.foreach(task => ActionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))

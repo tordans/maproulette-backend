@@ -89,14 +89,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
 
   def listChildren(id:Long, limit:Int, offset:Int) = Action {
     implicit val writes:Writes[C] = cWrites
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       Ok(Json.toJson(dal.listChildren(limit, offset)(id)))
     }
   }
 
   def expandedList(id:Long, limit:Int, offset:Int) = Action {
     implicit val writes:Writes[C] = cWrites
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       // first get the parent
       val parent = Json.toJson(dal.retrieveById(id))
       // now list the children

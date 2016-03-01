@@ -1,9 +1,9 @@
-package controllers
+package org.maproulette.controllers.v1
 
 import org.maproulette.data.Task
 import org.maproulette.data.dal.ChallengeDAL
 import play.api.libs.json.Json
-import play.api.mvc.{BodyParsers, Action, Controller}
+import play.api.mvc.{Action, BodyParsers, Controller}
 
 /**
   * @author cuthbertm

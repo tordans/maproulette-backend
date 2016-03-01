@@ -25,7 +25,7 @@ object TagCacheManager extends CacheManager[Long, Tag] {
     try {
       DB.withConnection { implicit c =>
         cache.clear()
-        SQL"""SELECT * FROM tags""".as(TagDAL.parser *).foreach(tag => cache.add(tag))
+        SQL"""SELECT * FROM tags""".as(TagDAL.parser.*).foreach(tag => cache.add(tag))
       }
     } finally {
       loadingLock.writeLock().unlock()

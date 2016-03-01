@@ -42,7 +42,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
                               ST_GeomFromGeoJSON(${task.location.toString}),
                               ${task.instruction},
                               ${Task.STATUS_CREATED}
-                     ) RETURNING id""".as(long("id") *).head
+                     ) RETURNING id""".as(long("id").*).head
         Some(task.copy(id = newTaskId))
       }
     }.get
@@ -139,7 +139,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
         "INNER JOIN tags tg ON tg.id = tt.tag_id " +
         "WHERE tg.name IN ({tags}) " +
         s"LIMIT $sqlLimit OFFSET {offset}"
-      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser *)
+      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser.*)
     }
   }
 
@@ -203,9 +203,9 @@ object TaskDAL extends BaseDAL[Long, Task] {
     cacheManager.withIDListCaching { implicit cachedItems =>
       DB.withConnection { implicit c =>
         if (parameters.nonEmpty) {
-          SQL(query).on(parameters:_*).as(parser *)
+          SQL(query).on(parameters:_*).as(parser.*)
         } else {
-          SQL(query).as(parser *)
+          SQL(query).as(parser.*)
         }
       }
     }

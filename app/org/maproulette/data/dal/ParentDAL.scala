@@ -18,7 +18,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     DB.withConnection { implicit c =>
       val sqlLimit = if (limit < 0) "ALL" else limit+""
       val query = s"SELECT $childColumns FROM $childTable WHERE parent_id = {id} LIMIT $sqlLimit OFFSET {offset}"
-      SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement), 'offset -> offset).as(childParser *)
+      SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement), 'offset -> offset).as(childParser.*)
     }
   }
 }

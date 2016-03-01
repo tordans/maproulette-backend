@@ -38,7 +38,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
       },
       element => {
-        MPExceptionUtil.internalServerCatcher { () =>
+        MPExceptionUtil.internalExceptionCatcher { () =>
           if (element.id < 0) {
             Created(Json.toJson(internalCreate(request.body, element)))
           } else {
@@ -75,7 +75,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   }
 
   def update(implicit id:Long) = Action(BodyParsers.parse.json) { implicit request =>
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       try {
         internalUpdate(request.body) match {
           case Some(value) => Ok(Json.toJson(value))
@@ -99,7 +99,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   }
 
   def read(implicit id:Long) = Action {
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       dal.retrieveById match {
         case Some(value) =>
           Ok(Json.toJson(value))
@@ -110,7 +110,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   }
 
   def delete(id:Long) = Action {
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       Ok(Json.obj("message" -> s"${dal.delete(id)} Tasks deleted."))
       ActionManager.setAction(0, itemType.convertToItem(id), Deleted(), "")
       NoContent
@@ -118,10 +118,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   }
 
   def list(limit:Int, offset:Int) = Action {
-    MPExceptionUtil.internalServerCatcher{ () =>
+    MPExceptionUtil.internalExceptionCatcher{ () =>
       val result = dal.list(limit, offset)
       itemType match {
-        case it:Task =>
+        case it:TaskType =>
           result.foreach(task => ActionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
         case _ => //ignore, only update view actions if it is a task type
       }

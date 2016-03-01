@@ -1,7 +1,7 @@
-package controllers
+package org.maproulette.controllers.api
 
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions.{Task => taskType, _}
+import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data.dal.{TagDAL, TaskDAL}
 import org.maproulette.data.{Tag, Task}
@@ -17,7 +17,7 @@ object TaskController extends CRUDController[Task] {
   override protected val dal = TaskDAL
   override implicit val tReads: Reads[Task] = Task.taskReads
   override implicit val tWrites: Writes[Task] = Task.taskWrites
-  override implicit val itemType = taskType()
+  override implicit val itemType = TaskType()
   implicit val tagReads: Reads[Tag] = Tag.tagReads
 
   /**
@@ -75,7 +75,7 @@ object TaskController extends CRUDController[Task] {
   }
 
   def getTasksBasedOnTags(tags: String, limit: Int, offset: Int) = Action { implicit request =>
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
@@ -86,7 +86,7 @@ object TaskController extends CRUDController[Task] {
 
   def getRandomTasks(tags: String,
                      limit: Int) = Action {
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       val result = dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)
       result.foreach(task => ActionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
@@ -97,7 +97,7 @@ object TaskController extends CRUDController[Task] {
     if (StringUtils.isEmpty(tags)) {
       Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
     } else {
-      MPExceptionUtil.internalServerCatcher { () =>
+      MPExceptionUtil.internalExceptionCatcher { () =>
         val tagList = tags.split(",").toList
         if (tagList.nonEmpty) {
           TaskDAL.deleteTaskStringTags(id, tagList)
@@ -117,7 +117,7 @@ object TaskController extends CRUDController[Task] {
     if (status < Task.STATUS_CREATED || status > Task.STATUS_DELETED) {
       Utils.badRequest(s"Invalid status [$status] provided.")
     } else {
-      MPExceptionUtil.internalServerCatcher { () =>
+      MPExceptionUtil.internalExceptionCatcher { () =>
         val statusUpdateJson = Json.obj("status" -> status)
         TaskDAL.update(statusUpdateJson)(id) match {
           case Some(resp) =>

@@ -1,16 +1,20 @@
 package controllers
 
-import play.api.libs.json.Json
 import play.api.mvc._
+import play.api.Play.current
 
 object Application extends Controller {
 
-  def index = Action {
-    Ok(views.html.index("Title"))
+  lazy val logoURL = current.configuration.getString("maproulette.logo") match {
+    case Some(logo) => logo
+    case None => "assets/images/logo.png"// default to the Map Roulette Icon
   }
 
-  def invalidAPIPath(path:String) = Action {
-    val message = s"Invalid Path [$path] for API"
-    BadRequest(Json.obj("status" -> "KO", "message" -> message))
+  def index = Action {
+    Ok(views.html.index("MapRoulette")(views.html.main()))
+  }
+
+  def testing = Action {
+    Ok(views.html.testing())
   }
 }

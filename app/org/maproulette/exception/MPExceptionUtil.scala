@@ -9,7 +9,7 @@ import play.api.mvc.Results._
   * @author cuthbertm
   */
 object MPExceptionUtil {
-  def internalServerCatcher(block:() => Result) : Result = {
+  def internalExceptionCatcher(block:() => Result) : Result = {
     try {
       block()
     } catch {

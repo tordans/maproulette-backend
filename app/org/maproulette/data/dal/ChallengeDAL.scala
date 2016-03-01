@@ -38,7 +38,7 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
         SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction)
               VALUES (${challenge.name}, ${challenge.identifier}, ${challenge.parent},
                       ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
-                      ${challenge.instruction}) RETURNING *""".as(parser *).headOption
+                      ${challenge.instruction}) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }
@@ -63,7 +63,7 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
                                     description = ${updatedChallenge.description},
                                     blurb = ${updatedChallenge.blurb},
                                     instruction = ${updatedChallenge.instruction}
-              WHERE id = $id RETURNING *""".as(parser *).headOption
+              WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }
   }
@@ -81,7 +81,7 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
         case count ~ status => status.getOrElse(0) -> count
       }
       SQL"""SELECT COUNT(*) as count, status FROM tasks WHERE parent_id = $id GROUP BY status"""
-        .as(summaryParser *).toMap
+        .as(summaryParser.*).toMap
     }
   }
 }

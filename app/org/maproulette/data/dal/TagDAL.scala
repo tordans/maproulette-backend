@@ -27,7 +27,7 @@ object TagDAL extends BaseDAL[Long, Tag] {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) RETURNING *")
-          .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser *).headOption
+          .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser.*).headOption
       }
     }.get
   }
@@ -40,7 +40,7 @@ object TagDAL extends BaseDAL[Long, Tag] {
         val updatedTag = Tag(id, name, Some(description))
 
         SQL"""UPDATE tags SET name = ${updatedTag.name.toLowerCase}, description = ${updatedTag.description}
-              WHERE id = $id RETURNING *""".as(parser *).headOption
+              WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }
   }

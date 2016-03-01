@@ -114,7 +114,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
         val limitValue = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName " +
                     s"WHERE id IN ({inString}) LIMIT $limitValue OFFSET {offset}"
-        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs.toSeq)(p = keyToStatement), 'offset -> offset).as(parser *)
+        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs.toSeq)(p = keyToStatement), 'offset -> offset).as(parser.*)
       }
     }
   }
@@ -123,7 +123,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     cacheManager.withNameListCaching { implicit uncachedNames =>
       DB.withConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
-        SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser *)
+        SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser.*)
       }
     }
   }
@@ -144,7 +144,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
       val sqlLimit = if (limit < 0) "ALL" else limit + ""
       val query = s"SELECT $retrieveColumns FROM $tableName " +
                   s"WHERE name LIKE {prefix} LIMIT $sqlLimit OFFSET {offset}"
-      SQL(query).on('prefix -> sqlPrefix, 'offset -> offset).as(parser *)
+      SQL(query).on('prefix -> sqlPrefix, 'offset -> offset).as(parser.*)
     }
   }
 
@@ -158,7 +158,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
       DB.withConnection { implicit c =>
         val sqlLimit = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName LIMIT $sqlLimit OFFSET {offset}"
-        SQL(query).on('offset -> ParameterValue.toParameterValue(offset)).as(parser *)
+        SQL(query).on('offset -> ParameterValue.toParameterValue(offset)).as(parser.*)
       }
     }
   }

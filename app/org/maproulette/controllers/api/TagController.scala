@@ -1,6 +1,6 @@
-package controllers
+package org.maproulette.controllers.api
 
-import org.maproulette.actions.{Tag => tagType}
+import org.maproulette.actions.TagType
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data.Tag
 import org.maproulette.data.dal.{BaseDAL, TagDAL}
@@ -16,10 +16,10 @@ object TagController extends CRUDController[Tag] {
   override protected val dal: BaseDAL[Long, Tag] = TagDAL
   override implicit val tReads: Reads[Tag] = Tag.tagReads
   override implicit val tWrites: Writes[Tag] = Tag.tagWrites
-  override implicit val itemType = tagType()
+  override implicit val itemType = TagType()
 
   def getTags(prefix:String, limit:Int, offset:Int) = Action { implicit request =>
-    MPExceptionUtil.internalServerCatcher { () =>
+    MPExceptionUtil.internalExceptionCatcher { () =>
       Ok(Json.toJson(TagDAL.retrieveListByPrefix(prefix, limit, offset)))
     }
   }

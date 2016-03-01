@@ -30,7 +30,7 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description)
-              VALUES (${tag.name}, ${tag.description}) RETURNING *""".as(parser *).headOption
+              VALUES (${tag.name}, ${tag.description}) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }
@@ -44,7 +44,7 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
 
         SQL"""UPDATE projects SET name = ${updatedProject.name},
               description = ${updatedProject.description}
-              WHERE id = $id RETURNING *""".as(parser *).headOption
+              WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }
   }
