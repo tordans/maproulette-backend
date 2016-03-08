@@ -1,7 +1,7 @@
-package org.maproulette.data
+package org.maproulette.models
 
 import org.junit.runner._
-import org.maproulette.data.dal.TagDAL
+import org.maproulette.models.dal.TagDAL
 import org.specs2.mutable._
 import org.specs2.runner._
 import play.api.test._

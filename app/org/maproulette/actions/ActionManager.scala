@@ -10,12 +10,12 @@ import play.api.db.DB
 import play.api.Play.current
 import org.maproulette.exception.InvalidException
 import scala.collection.mutable.ListBuffer
-import org.maproulette.data.Task
+import org.maproulette.models.Task
 
 /**
   * @author cuthbertm
   */
-case class ActionSummary(count:Int, userId:Option[Int]=None, typeId:Option[String]=None, itemId:Option[Int]=None, action:Option[String]=None, status:Option[String]=None)
+case class ActionSummary(count:Int, userId:Option[Long]=None, typeId:Option[String]=None, itemId:Option[Long]=None, action:Option[String]=None, status:Option[String]=None)
 
 object ActionManager {
 
@@ -34,9 +34,9 @@ object ActionManager {
 
   implicit val parser: RowParser[ActionSummary] = {
     get[Int]("count") ~
-      get[Option[Int]]("actions.user_id") ~
+      get[Option[Long]]("actions.user_id") ~
       get[Option[Int]]("actions.type_id") ~
-      get[Option[Int]]("actions.item_id") ~
+      get[Option[Long]]("actions.item_id") ~
       get[Option[Int]]("actions.action") ~
       get[Option[Int]]("actions.status") map {
       case count ~ userId ~ typeId ~ itemId ~ action ~ status => {
@@ -57,7 +57,7 @@ object ActionManager {
     }
   }
 
-  def setAction(userId:Int, item:Item with ItemType, action:ActionType, extra:String) = {
+  def setAction(userId:Long, item:Item with ItemType, action:ActionType, extra:String) = {
     if (action.getLevel > Config.actionLevel) {
       Logger.trace("Action not logged, action level higher than threshold in configuration.")
     } else {
@@ -97,8 +97,8 @@ object ActionManager {
     * @return
     */
   def getActionSummary(columns:List[Int]=List.empty, timeframe:Option[Int]=None,
-                               userLimit:List[Int]=List.empty, typeLimit:List[Int]=List.empty,
-                               itemLimit:List[Int]=List.empty, statusLimit:List[Int]=List.empty,
+                               userLimit:List[Long]=List.empty, typeLimit:List[Int]=List.empty,
+                               itemLimit:List[Long]=List.empty, statusLimit:List[Int]=List.empty,
                                startTime:Option[Timestamp]=None, endTime:Option[Timestamp]=None) = {
     val groupByClause = new StringBuilder
     groupByClause ++= "GROUP BY "
@@ -160,7 +160,7 @@ object ActionManager {
     }
     val whereClause = if (whereList.nonEmpty) s"WHERE ${whereList.mkString(" AND ")}" else ""
     DB.withConnection { implicit c =>
-      SQL(s"${selectClause.toString} FROM actions ${whereClause} ${groupByClause.toString}").as(parser.*)
+      SQL(s"${selectClause.toString} FROM actions $whereClause ${groupByClause.toString}").as(parser.*)
     }
   }
 }

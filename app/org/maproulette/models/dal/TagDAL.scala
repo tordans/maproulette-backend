@@ -1,9 +1,9 @@
-package org.maproulette.data.dal
+package org.maproulette.models.dal
 
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.TagCacheManager
-import org.maproulette.data.Tag
+import org.maproulette.models.Tag
 import play.api.db.DB
 import play.api.Play.current
 import play.api.libs.json.JsValue

@@ -1,7 +1,7 @@
-package org.maproulette.data.dal
+package org.maproulette.models.dal
 
 import anorm._
-import org.maproulette.data.BaseObject
+import org.maproulette.models.BaseObject
 import play.api.db.DB
 import play.api.Play.current
 

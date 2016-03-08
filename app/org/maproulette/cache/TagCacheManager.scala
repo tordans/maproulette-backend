@@ -3,8 +3,8 @@ package org.maproulette.cache
 import java.util.concurrent.locks.{ReentrantReadWriteLock, ReadWriteLock}
 
 import anorm._
-import org.maproulette.data.Tag
-import org.maproulette.data.dal.TagDAL
+import org.maproulette.models.Tag
+import org.maproulette.models.dal.TagDAL
 import play.api.db.DB
 import play.api.Play.current
 

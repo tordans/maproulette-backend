@@ -1,5 +1,6 @@
-@(title:String)(content:Html)
+@import org.maproulette.session.User
 @import org.maproulette.Config
+@(title:String, user:User)(content:Html)
 @minified() = {@{(Config.isDebugMode match { case true => ""; case false => ".min" })}}
 <!DOCTYPE html>
 <!--
@@ -25,13 +26,20 @@ scratch. This page gets rid of all links and provides the needed markup only.
           page. However, you can choose any other skin. Make sure you
           apply the skin class to the body tag so the changes take effect.
     -->
-        <link rel="stylesheet" href="assets/AdminLTE/skins/skin-blue@{minified()}.css"/>
+        <link rel="stylesheet" href="assets/AdminLTE/skins/_all-skins@{minified()}.css"/>
 
             <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
             <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-            <!--[if lt IE 9]>
+            <!--[if lt IE 9]-->
         <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"html5shiv${minified()}.js"))"></script>
         <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"respond${minified()}.js"))"></script>
+
+            <!-- REQUIRED JS SCRIPTS -->
+        <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"jquery${minified()}.js"))"></script>
+            <!-- Latest compiled and minified JavaScript -->
+        <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
+            <!-- AdminLTE App -->
+        <script src="assets/AdminLTE/app@{minified()}.js"></script>
     <![endif]-->
     </head>
         <!--
@@ -63,9 +71,9 @@ scratch. This page gets rid of all links and provides the needed markup only.
                     <!-- Logo -->
                 <a class="logo">
                         <!-- mini logo for sidebar mini 50x50 pixels -->
-                    <span class="logo-mini"><img style="height:25px;width:25px" src="@Application.logoURL" alt="logo"></span>
+                    <span class="logo-mini"><img style="height:25px;width:25px" src="@Config.logoURL" alt="logo"></span>
                         <!-- logo for regular state and mobile devices -->
-                    <span class="logo-lg"><img style="height:25px;width:25px" src="@Application.logoURL" alt="logo"> <b>Map</b>Roulette</span>
+                    <span class="logo-lg"><img style="height:25px;width:25px" src="@Config.logoURL" alt="logo"> <b>Map</b>Roulette</span>
                 </a>
 
                     <!-- Header Navbar -->
@@ -74,131 +82,35 @@ scratch. This page gets rid of all links and provides the needed markup only.
                     <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
                         <span class="sr-only">Toggle navigation</span>
                     </a>
-                        <!-- Navbar Right Menu -->
-                    <div class="navbar-custom-menu">
-                        <ul class="nav navbar-nav">
-                            <!-- Notifications Menu -->
-                            <li class="dropdown notifications-menu">
-                                    <!-- Menu toggle button -->
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                                    <i class="fa fa-bell-o"></i>
-                                    <span class="label label-warning">2</span>
-                                </a>
-                                <ul class="dropdown-menu">
-                                    <li class="header">You have 2 notifications</li>
-                                    <li>
-                                            <!-- Inner Menu: contains the notifications -->
-                                        <ul class="menu">
-                                            <li><!-- start notification -->
-                                                <a href="#">
-                                                    <i class="fa fa-users text-aqua"></i> 5 Tasks completed today by you
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a href="#">
-                                                    <i class="fa fa-users text-aqua"></i> 100 Tasks completed today by the community
-                                                </a>
-                                            </li>
-                                                <!-- end notification -->
-                                        </ul>
-                                    </li>
-                                    <li class="footer"><a href="#">View all</a></li>
-                                </ul>
-                            </li>
-                                <!-- User Account Menu -->
-                            <li class="dropdown user user-menu">
-                                    <!-- Menu Toggle Button -->
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                                        <!-- The user image in the navbar-->
-                                    <img src="assets/images/user_no_image.png" class="user-image" alt="User Image">
-                                        <!-- hidden-xs hides the username on small devices so only the image appears. -->
-                                    <span class="hidden-xs">Michael Cuthbert</span>
-                                </a>
-                                <ul class="dropdown-menu">
-                                        <!-- The user image in the menu -->
-                                    <li class="user-header">
-                                        <img src="assets/images/user_no_image.png" class="img-circle" alt="User Image">
-                                        <p>
-                      Michael Cuthbert
-                                            <small>OSM Member since Sept. 2015</small>
-                                        </p>
-                                    </li>
-                                        <!-- Menu Footer-->
-                                    <li class="user-footer">
-                                        <div class="pull-left">
-                                            <a href="#" class="btn btn-default btn-flat">Profile</a>
-                                        </div>
-                                        <div class="pull-right">
-                                            <a href="#" class="btn btn-default btn-flat">Sign out</a>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </li>
-                                <!-- Control Sidebar Toggle Button -->
-                            <li>
-                                <a href="#" data-toggle="control-sidebar"><i class="fa fa-gears"></i></a>
-                            </li>
-                        </ul>
-                    </div>
+                    @views.html.user.userInfo(user)
                 </nav>
             </header>
                 <!-- Left side column. contains the logo and sidebar -->
             <aside class="main-sidebar">
-
-                    <!-- sidebar: style can be found in sidebar.less -->
-                <section class="sidebar">
-
-                        <!-- Sidebar user panel (optional) -->
-                    <div class="user-panel">
-                        <div class="pull-left image">
-                            <img src="assets/images/user_no_image.png" class="img-circle" alt="User Image">
-                        </div>
-                        <div class="pull-left info">
-                            <p>Michael Cuthbert</p>
-                                <!-- Status -->
-                            <a href="#"><i class="fa fa-circle text-success"></i> Online</a>
-                        </div>
-                    </div>
-
-                        <!-- search form (Optional) -->
-                    <form action="#" method="get" class="sidebar-form">
-                        <div class="input-group">
-                            <input type="text" name="q" class="form-control" placeholder="Search...">
-                            <span class="input-group-btn">
-                                <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
-                            </span>
-                        </div>
-                    </form>
-                        <!-- /.search form -->
-
-                        <!-- Sidebar Menu -->
-                    <ul class="sidebar-menu">
-                        <li class="header">MY PROJECTS</li>
-                            <!-- Optionally, you can add icons to the links -->
-                        <li class="active"><a href="#"><i class="fa fa-life-ring"></i> <span>Project 1</span></a></li>
-                        <li><a href="#"><i class="fa fa-life-ring"></i> <span>Project 2</span></a></li>
-                        <li class="treeview">
-                            <a href="#"><i class="fa fa-life-ring"></i> <span>Project 3</span> <i class="fa fa-angle-left pull-right"></i></a>
-                            <ul class="treeview-menu">
-                                <li><a href="#">Challenge 1</a></li>
-                                <li><a href="#">Challenge 2</a></li>
-                            </ul>
-                        </li>
-                    </ul><!-- /.sidebar-menu -->
-                </section>
-                    <!-- /.sidebar -->
+                @views.html.user.userSettings(user)
             </aside>
 
                 <!-- Content Wrapper. Contains page content -->
             <div class="content-wrapper">
-                    @content
+                    <!-- Modal -->
+                <div id="piModal" class="modal fade modal-primary" role="dialog">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-body" align="center">
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                                <iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe>
+                            </div>
+                        </div><!-- /.modal-content -->
+                    </div><!-- /.modal-dialog -->
+                </div>
+                @content
             </div><!-- /.content-wrapper -->
 
             <!-- Main Footer -->
             <footer class="main-footer">
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
-                    <a>...</a>
+                    <a href="#" id="pi" data-toggle="modal" data-target="#piModal">&pi;</a>
                 </div>
                     <!-- Default to the left -->
                 <strong>Copyright &copy; 2016 <a href="#">MapRoulette</a>.</strong> All rights reserved.
@@ -236,9 +148,11 @@ scratch. This page gets rid of all links and provides the needed markup only.
                                         Curent Challenge
                                         <span class="label label-danger pull-right">70%</span>
                                     </h4>
-                                    <div class="progress progress-xxs">
-                                        <div class="progress-bar progress-bar-danger" style="width: 70%"></div>
-                                    </div>
+                                    @if(Config.isDebugMode) {
+                                        <div class="progress progress-xxs">
+                                            <div class="progress-bar progress-bar-danger" style="width: 70%"></div>
+                                        </div>
+                                    }
                                 </a>
                             </li>
                         </ul><!-- /.control-sidebar-menu -->
@@ -267,13 +181,6 @@ scratch. This page gets rid of all links and provides the needed markup only.
            immediately after the control sidebar -->
             <div class="control-sidebar-bg"></div>
         </div><!-- ./wrapper -->
-
-        <!-- REQUIRED JS SCRIPTS -->
-        <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"jquery${minified()}.js"))"></script>
-        <!-- Latest compiled and minified JavaScript -->
-        <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
-        <!-- AdminLTE App -->
-        <script src="assets/AdminLTE/app@{minified()}.js"></script>
 
             <!-- Optionally, you can add Slimscroll and FastClick plugins.
          Both of these plugins are recommended to enhance the

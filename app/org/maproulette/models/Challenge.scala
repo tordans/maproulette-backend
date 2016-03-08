@@ -1,6 +1,6 @@
-package org.maproulette.data
+package org.maproulette.models
 
-import org.maproulette.data.dal.ProjectDAL
+import org.maproulette.models.dal.ProjectDAL
 import play.api.libs.json.{Reads, Json, Writes}
 
 /**

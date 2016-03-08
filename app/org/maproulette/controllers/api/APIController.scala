@@ -1,13 +1,13 @@
 package org.maproulette.controllers.api
 
-import controllers.Application._
+import javax.inject.Inject
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 
 /**
   * @author cuthbertm
   */
-object APIController extends Controller {
+class APIController @Inject() extends Controller {
   def invalidAPIPath(path:String) = Action {
     val message = s"Invalid Path [$path] for API"
     BadRequest(Json.obj("status" -> "KO", "message" -> message))

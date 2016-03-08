@@ -1,8 +1,8 @@
-package org.maproulette.data
+package org.maproulette.models
 
 import anorm._
 import anorm.SqlParser._
-import org.maproulette.data.dal.{ChallengeDAL, TagDAL}
+import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
 import play.api.Play.current
 import play.api.db.DB
 import play.api.libs.json._

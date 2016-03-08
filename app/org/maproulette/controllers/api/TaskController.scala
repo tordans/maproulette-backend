@@ -1,11 +1,14 @@
 package org.maproulette.controllers.api
 
+import javax.inject.Inject
+
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
-import org.maproulette.data.dal.{TagDAL, TaskDAL}
-import org.maproulette.data.{Tag, Task}
+import org.maproulette.models.dal.{TagDAL, TaskDAL}
+import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.session.SessionManager
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -13,7 +16,7 @@ import play.api.mvc.Action
 /**
   * @author cuthbertm
   */
-object TaskController extends CRUDController[Task] {
+class TaskController @Inject() extends CRUDController[Task] {
   override protected val dal = TaskDAL
   override implicit val tReads: Reads[Task] = Task.taskReads
   override implicit val tWrites: Writes[Task] = Task.taskWrites
@@ -31,7 +34,7 @@ object TaskController extends CRUDController[Task] {
     * @param body          The Json body of data
     * @param createdObject The Task that was created by the create function
     */
-  override def extractAndCreate(body: JsValue, createdObject: Task): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: Task, userId:Long): Unit = {
     val tagIds: List[Long] = body \ "tags" match {
       case tags: JsDefined =>
         // this case is for a comma separated list, either of ints or strings
@@ -66,16 +69,18 @@ object TaskController extends CRUDController[Task] {
     // now we have the ids for the supplied tags, then lets map them to the task created
     TaskDAL.updateTaskTags(createdObject.id, tagIds)
     if (tagIds.nonEmpty) {
-      ActionManager.setAction(0, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+      ActionManager.setAction(userId, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
   }
 
-  def getTagsForTask(implicit id: Long) = Action {
-    Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
+  def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
+    SessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
+    }
   }
 
-  def getTasksBasedOnTags(tags: String, limit: Int, offset: Int) = Action { implicit request =>
-    MPExceptionUtil.internalExceptionCatcher { () =>
+  def getTasksBasedOnTags(tags: String, limit: Int, offset: Int) = Action.async { implicit request =>
+    SessionManager.userAwareRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
@@ -85,25 +90,27 @@ object TaskController extends CRUDController[Task] {
   }
 
   def getRandomTasks(tags: String,
-                     limit: Int) = Action {
-    MPExceptionUtil.internalExceptionCatcher { () =>
+                     limit: Int) = Action.async { implicit request =>
+    SessionManager.userAwareRequest { implicit user =>
       val result = dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)
       result.foreach(task => ActionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }
 
-  def deleteTagsFromTask(id: Long, tags: String) = Action {
-    if (StringUtils.isEmpty(tags)) {
-      Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
-    } else {
-      MPExceptionUtil.internalExceptionCatcher { () =>
-        val tagList = tags.split(",").toList
-        if (tagList.nonEmpty) {
-          TaskDAL.deleteTaskStringTags(id, tagList)
-          ActionManager.setAction(0, itemType.convertToItem(id), TagRemoved(), tags)
+  def deleteTagsFromTask(id: Long, tags: String) = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      if (StringUtils.isEmpty(tags)) {
+        Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
+      } else {
+        MPExceptionUtil.internalExceptionCatcher { () =>
+          val tagList = tags.split(",").toList
+          if (tagList.nonEmpty) {
+            TaskDAL.deleteTaskStringTags(id, tagList)
+            ActionManager.setAction(user.id, itemType.convertToItem(id), TagRemoved(), tags)
+          }
+          NoContent
         }
-        NoContent
       }
     }
   }
@@ -113,17 +120,19 @@ object TaskController extends CRUDController[Task] {
   def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
   def setTaskStatisSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
 
-  private def setTaskStatus(id: Long, status: Int) = Action {
-    if (status < Task.STATUS_CREATED || status > Task.STATUS_DELETED) {
-      Utils.badRequest(s"Invalid status [$status] provided.")
-    } else {
-      MPExceptionUtil.internalExceptionCatcher { () =>
-        val statusUpdateJson = Json.obj("status" -> status)
-        TaskDAL.update(statusUpdateJson)(id) match {
-          case Some(resp) =>
-            ActionManager.setAction(0, itemType.convertToItem(id), TaskStatusSet(status), "")
-            NoContent
-          case None => Utils.badRequest(s"Task with id [$id] not found to have status updated.")
+  private def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      if (status < Task.STATUS_CREATED || status > Task.STATUS_DELETED) {
+        Utils.badRequest(s"Invalid status [$status] provided.")
+      } else {
+        MPExceptionUtil.internalExceptionCatcher { () =>
+          val statusUpdateJson = Json.obj("status" -> status)
+          TaskDAL.update(statusUpdateJson)(id) match {
+            case Some(resp) =>
+              ActionManager.setAction(user.id, itemType.convertToItem(id), TaskStatusSet(status), "")
+              NoContent
+            case None => Utils.badRequest(s"Task with id [$id] not found to have status updated.")
+          }
         }
       }
     }

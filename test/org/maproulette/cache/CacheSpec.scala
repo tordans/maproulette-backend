@@ -1,7 +1,7 @@
 package org.maproulette.cache
 
 import org.junit.runner.RunWith
-import org.maproulette.data.BaseObject
+import org.maproulette.models.BaseObject
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 

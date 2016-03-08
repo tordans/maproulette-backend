@@ -1,57 +1,57 @@
 # Project API
-POST    /project                                    org.maproulette.controllers.api.ProjectController.create
-POST    /projects                                   org.maproulette.controllers.api.ProjectController.batchUploadPost
-PUT     /project/:id                                org.maproulette.controllers.api.ProjectController.update(id:Long)
-PUT     /projects                                   org.maproulette.controllers.api.ProjectController.batchUploadPut
-GET     /project/:id                                org.maproulette.controllers.api.ProjectController.read(id:Long)
-DELETE  /project/:id                                org.maproulette.controllers.api.ProjectController.delete(id:Long)
-GET     /projects                                   org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0)
-GET     /project/:id/challenges                     org.maproulette.controllers.api.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
-POST    /project/:id/challenges                     org.maproulette.controllers.api.ProjectController.createChildren(id:Long)
-PUT     /project/:id/challenges                     org.maproulette.controllers.api.ProjectController.updateChildren(id:Long)
-GET     /project/:id/children                       org.maproulette.controllers.api.ProjectController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
-GET     /project/:id/tasks                          org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, tags:String ?= "", limit:Int ?= 1)
+POST    /project                                    @org.maproulette.controllers.api.ProjectController.create
+POST    /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPost
+PUT     /project/:id                                @org.maproulette.controllers.api.ProjectController.update(id:Long)
+PUT     /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPut
+GET     /project/:id                                @org.maproulette.controllers.api.ProjectController.read(id:Long)
+DELETE  /project/:id                                @org.maproulette.controllers.api.ProjectController.delete(id:Long)
+GET     /projects                                   @org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0)
+GET     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
+POST    /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.createChildren(id:Long)
+PUT     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.updateChildren(id:Long)
+GET     /project/:id/children                       @org.maproulette.controllers.api.ProjectController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
+GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, tags:String ?= "", limit:Int ?= 1)
 # Challenge API
-POST    /challenge                                  org.maproulette.controllers.api.ChallengeController.create
-POST    /challenges                                 org.maproulette.controllers.api.ChallengeController.batchUploadPost
-PUT     /challenge/:id                              org.maproulette.controllers.api.ChallengeController.update(id:Long)
-PUT     /challenges                                 org.maproulette.controllers.api.ChallengeController.batchUploadPut
-GET     /challenge/:id                              org.maproulette.controllers.api.ChallengeController.read(id:Long)
-DELETE  /challenge/:id                              org.maproulette.controllers.api.ChallengeController.delete(id:Long)
-GET     /challenges                                 org.maproulette.controllers.api.ChallengeController.list(limit:Int ?= 10, page:Int ?= 0)
-GET     /challenge/:id/tasks                        org.maproulette.controllers.api.ChallengeController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
-POST    /challenge/:id/tasks                        org.maproulette.controllers.api.ChallengeController.createChildren(id:Long)
-PUT     /challenge/:id/tasks                        org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
-GET     /challenge/:id/children                     org.maproulette.controllers.api.ChallengeController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
-GET     /project/:pid/challenge/:cid/tasks          org.maproulette.controllers.api.ChallengeController.getRandomTasks(pid:Long, cid:Long, tags:String ?= "", limit:Int ?= 1)
+POST    /challenge                                  @org.maproulette.controllers.api.ChallengeController.create
+POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost
+PUT     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.update(id:Long)
+PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
+GET     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.read(id:Long)
+DELETE  /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.delete(id:Long)
+GET     /challenges                                 @org.maproulette.controllers.api.ChallengeController.list(limit:Int ?= 10, page:Int ?= 0)
+GET     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
+POST    /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.createChildren(id:Long)
+PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
+GET     /challenge/:id/children                     @org.maproulette.controllers.api.ChallengeController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
+GET     /project/:pid/challenge/:cid/tasks          @org.maproulette.controllers.api.ChallengeController.getRandomTasks(pid:Long, cid:Long, tags:String ?= "", limit:Int ?= 1)
 # Task API
-POST    /task                                       org.maproulette.controllers.api.TaskController.create
-POST    /tasks                                      org.maproulette.controllers.api.TaskController.batchUploadPost
-PUT     /task/:id                                   org.maproulette.controllers.api.TaskController.update(id:Long)
-PUT     /tasks                                      org.maproulette.controllers.api.TaskController.batchUploadPut
-GET     /task/:id                                   org.maproulette.controllers.api.TaskController.read(id:Long)
-DELETE  /task/:id                                   org.maproulette.controllers.api.TaskController.delete(id:Long)
-GET     /task/:id/tags                              org.maproulette.controllers.api.TaskController.getTagsForTask(id:Long)
-GET     /tasks/tags                                 org.maproulette.controllers.api.TaskController.getTasksBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
-GET     /tasks/random                               org.maproulette.controllers.api.TaskController.getRandomTasks(tags:String ?= "", limit:Int ?= 1)
-DELETE  /task/:id/tags                              org.maproulette.controllers.api.TaskController.deleteTagsFromTask(id:Long, tags:String ?= "")
-PUT     /task/:id/fixed                             org.maproulette.controllers.api.TaskController.setTaskStatusFixed(id:Long)
-PUT     /task/:id/skipped                           org.maproulette.controllers.api.TaskController.setTaskStatisSkipped(id:Long)
-PUT     /task/:id/falsepositive                     org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(id:Long)
-PUT     /task/:id/deleted                           org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(id:Long)
+POST    /task                                       @org.maproulette.controllers.api.TaskController.create
+POST    /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPost
+PUT     /task/:id                                   @org.maproulette.controllers.api.TaskController.update(id:Long)
+PUT     /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPut
+GET     /task/:id                                   @org.maproulette.controllers.api.TaskController.read(id:Long)
+DELETE  /task/:id                                   @org.maproulette.controllers.api.TaskController.delete(id:Long)
+GET     /task/:id/tags                              @org.maproulette.controllers.api.TaskController.getTagsForTask(id:Long)
+GET     /tasks/tags                                 @org.maproulette.controllers.api.TaskController.getTasksBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+GET     /tasks/random                               @org.maproulette.controllers.api.TaskController.getRandomTasks(tags:String ?= "", limit:Int ?= 1)
+DELETE  /task/:id/tags                              @org.maproulette.controllers.api.TaskController.deleteTagsFromTask(id:Long, tags:String ?= "")
+PUT     /task/:id/fixed                             @org.maproulette.controllers.api.TaskController.setTaskStatusFixed(id:Long)
+PUT     /task/:id/skipped                           @org.maproulette.controllers.api.TaskController.setTaskStatisSkipped(id:Long)
+PUT     /task/:id/falsepositive                     @org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(id:Long)
+PUT     /task/:id/deleted                           @org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(id:Long)
 # Tag API
-POST    /tag                                        org.maproulette.controllers.api.TagController.create
-POST    /tags                                       org.maproulette.controllers.api.TagController.batchUploadPost
-PUT     /tag/:id                                    org.maproulette.controllers.api.TagController.update(id:Long)
-PUT     /tags                                       org.maproulette.controllers.api.TagController.batchUploadPut
-GET     /tag/:id                                    org.maproulette.controllers.api.TagController.read(id:Long)
-DELETE  /tag/:id                                    org.maproulette.controllers.api.TagController.delete(id:Long)
-GET     /tags                                       org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
+POST    /tag                                        @org.maproulette.controllers.api.TagController.create
+POST    /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPost
+PUT     /tag/:id                                    @org.maproulette.controllers.api.TagController.update(id:Long)
+PUT     /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPut
+GET     /tag/:id                                    @org.maproulette.controllers.api.TagController.read(id:Long)
+DELETE  /tag/:id                                    @org.maproulette.controllers.api.TagController.delete(id:Long)
+GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 # Action Controller
-GET     /action/summary                             org.maproulette.controllers.api.ActionController.getFullSummary()
+GET     /action/summary                             @org.maproulette.controllers.api.ActionController.getFullSummary()
 # Handles invalid paths that use the  prefix
-POST    /*path                                      org.maproulette.controllers.api.APIController.invalidAPIPath(path)
-PUT     /*path                                      org.maproulette.controllers.api.APIController.invalidAPIPath(path)
-GET     /*path                                      org.maproulette.controllers.api.APIController.invalidAPIPath(path)
-DELETE  /*path                                      org.maproulette.controllers.api.APIController.invalidAPIPath(path)
-HEAD    /*path                                      org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+PUT     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+GET     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+DELETE  /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+HEAD    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)

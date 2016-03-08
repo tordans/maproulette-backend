@@ -1,11 +1,11 @@
-package org.maproulette.data.dal
+package org.maproulette.models.dal
 
 import java.sql.PreparedStatement
 
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
-import org.maproulette.data.BaseObject
+import org.maproulette.models.BaseObject
 import play.api.db.DB
 import play.api.Play.current
 import play.api.libs.json.JsValue

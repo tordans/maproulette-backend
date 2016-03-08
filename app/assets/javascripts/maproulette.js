@@ -107,14 +107,14 @@ var MRManager = (function () {
         var layers = {};
 
         // add each layer to the map
-        for (tileLayerKey in MRConfig.tileLayers) {
+        for (var tileLayerKey in MRConfig.tileLayers) {
             var tileLayer = MRConfig.tileLayers[tileLayerKey];
             var layer = new L.TileLayer(tileLayer.url, {
                 attribution: tileLayer.attribution});
             map.addLayer(layer);
             // add layer to control
             layers[tileLayerKey.replace('_',' ')] = layer;
-        };
+        }
 
         // add Layer control to the map
         L.control.layers(layers, null, {position:"topleft"}).addTo(map);
@@ -152,4 +152,4 @@ var MRManager = (function () {
 // initialization
 function init(elemName) {
     MRManager.init(elemName);
-};
+}

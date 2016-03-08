@@ -1,7 +1,7 @@
-package org.maproulette.data
+package org.maproulette.models
 
 import org.junit.runner.RunWith
-import org.maproulette.data.dal.ProjectDAL
+import org.maproulette.models.dal.ProjectDAL
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json

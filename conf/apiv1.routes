@@ -1,11 +1,11 @@
 # Backwards Compatibility for Map Roulette V1
-GET    /admin/challenge/:slug/tasks                org.maproulette.controllers.v1.V1Controller.getStatusOfTasks(slug:String)
-POST   /admin/challenge/:slug                      org.maproulette.controllers.v1.V1Controller.createChallenge(slug:String)
-PUT    /admin/challenge/:slug                      org.maproulette.controllers.v1.V1Controller.updateChallenge(slug:String)
-POST   /admin/challenge/:slug/task/:id             org.maproulette.controllers.v1.V1Controller.createTask(slug:String, id:String)
-PUT    /admin/challenge/:slug/task/:id             org.maproulette.controllers.v1.V1Controller.updateTask(slug:String, id:String)
-POST   /admin/challenge/:slug/tasks                org.maproulette.controllers.v1.V1Controller.createTasks(slug:String)
-PUT    /admin/challenge/:slug/tasks                org.maproulette.controllers.v1.V1Controller.updateTasks(slug:String)
+GET    /admin/challenge/:slug/tasks                @org.maproulette.controllers.v1.V1Controller.getStatusOfTasks(slug:String)
+POST   /admin/challenge/:slug                      @org.maproulette.controllers.v1.V1Controller.createChallenge(slug:String)
+PUT    /admin/challenge/:slug                      @org.maproulette.controllers.v1.V1Controller.updateChallenge(slug:String)
+POST   /admin/challenge/:slug/task/:id             @org.maproulette.controllers.v1.V1Controller.createTask(slug:String, id:String)
+PUT    /admin/challenge/:slug/task/:id             @org.maproulette.controllers.v1.V1Controller.updateTask(slug:String, id:String)
+POST   /admin/challenge/:slug/tasks                @org.maproulette.controllers.v1.V1Controller.createTasks(slug:String)
+PUT    /admin/challenge/:slug/tasks                @org.maproulette.controllers.v1.V1Controller.updateTasks(slug:String)
 #GET    /stats                          #Get stats
 #GET    /stats/user/:id                 #Get stats for user
 #GET    /stats/challenge/:slug          #Get stats for challenge
@@ -19,11 +19,11 @@ PUT    /admin/challenge/:slug/tasks                org.maproulette.controllers.v
 #GET    /stats/challenge/:slug/user/:id/history
 #GET    /stats/user/:id/challenge/:slug/history
 #GET    /users                          #List users
-GET    /challenges                                 org.maproulette.controllers.v1.V1Controller.listChallenges(difficulty:Int ?= 0, all:Boolean ?= false, contains:String ?= "")
-GET    /challenge/:slug                            org.maproulette.controllers.v1.V1Controller.getChallenge(slug:String)
-GET    /challenge/:slug/summary                    org.maproulette.controllers.v1.V1Controller.getChallengeSummary(slug:String)
-GET    /challenge/:slug/polygon                    org.maproulette.controllers.v1.V1Controller.getChallengePolygon(slug:String)
-GET    /challenge/:slug/task                       org.maproulette.controllers.v1.V1Controller.getRandomChallengeTask(slug:String)
-GET    /challenge/:slug/task/:id                   org.maproulette.controllers.v1.V1Controller.getChallengeTask(slug:String, id:String)
-PUT    /challenge/:slug/task/:id                   org.maproulette.controllers.v1.V1Controller.updateTaskStatus(slug:String, id:String)
-GET    /challenge/:slug/task/:id/geometries        org.maproulette.controllers.v1.V1Controller.getTaskGeometries(slug:String, id:String)
+GET    /challenges                                 @org.maproulette.controllers.v1.V1Controller.listChallenges(difficulty:Int ?= 0, all:Boolean ?= false, contains:String ?= "")
+GET    /challenge/:slug                            @org.maproulette.controllers.v1.V1Controller.getChallenge(slug:String)
+GET    /challenge/:slug/summary                    @org.maproulette.controllers.v1.V1Controller.getChallengeSummary(slug:String)
+GET    /challenge/:slug/polygon                    @org.maproulette.controllers.v1.V1Controller.getChallengePolygon(slug:String)
+GET    /challenge/:slug/task                       @org.maproulette.controllers.v1.V1Controller.getRandomChallengeTask(slug:String)
+GET    /challenge/:slug/task/:id                   @org.maproulette.controllers.v1.V1Controller.getChallengeTask(slug:String, id:String)
+PUT    /challenge/:slug/task/:id                   @org.maproulette.controllers.v1.V1Controller.updateTaskStatus(slug:String, id:String)
+GET    /challenge/:slug/task/:id/geometries        @org.maproulette.controllers.v1.V1Controller.getTaskGeometries(slug:String, id:String)

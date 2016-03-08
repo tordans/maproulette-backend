@@ -1,6 +1,6 @@
 package org.maproulette.cache
 
-import org.maproulette.data.BaseObject
+import org.maproulette.models.BaseObject
 
 /**
   * @author cuthbertm

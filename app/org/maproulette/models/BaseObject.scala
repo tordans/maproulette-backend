@@ -1,4 +1,4 @@
-package org.maproulette.data
+package org.maproulette.models
 
 /**
   * @author cuthbertm

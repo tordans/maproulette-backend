@@ -1,0 +1,79 @@
+@import org.maproulette.session.User
+@(user:User)
+    <!-- Navbar Right Menu -->
+<div class="navbar-custom-menu">
+    <ul class="nav navbar-nav">
+            <!-- Notifications Menu -->
+        <li class="dropdown notifications-menu">
+                <!-- Menu toggle button -->
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                <i class="fa fa-bell-o"></i>
+                <span class="label label-warning">2</span>
+            </a>
+            <ul class="dropdown-menu">
+                <li class="header">You have 2 notifications</li>
+                <li>
+                        <!-- Inner Menu: contains the notifications -->
+                    <ul class="menu">
+                        <li><!-- start notification -->
+                            <a href="#">
+                                <i class="fa fa-users text-aqua"></i> 5 Tasks completed today by you
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#">
+                                <i class="fa fa-users text-aqua"></i> 100 Tasks completed today by the community
+                            </a>
+                        </li>
+                            <!-- end notification -->
+                    </ul>
+                </li>
+                <li class="footer"><a href="#">View all</a></li>
+            </ul>
+        </li>
+            <!-- User Account Menu -->
+        <li class="dropdown user user-menu">
+                <!-- Menu Toggle Button -->
+            @if(user.guest) {
+                <a href="@routes.AuthController.authenticate()" class="dropdown-toggle">
+            } else {
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            }
+                    <!-- The user image in the navbar-->
+                <img src="@user.osmProfile.avatarURL" class="user-image" alt="User Image">
+                    <!-- hidden-xs hides the username on small devices so only the image appears. -->
+                <span class="hidden-xs">
+                @if(user.guest){
+                    Sign in
+                } else {
+                    @user.name
+                }
+                </span>
+            </a>
+            @if(!user.guest) {
+                <ul class="dropdown-menu">
+                        <!-- The user image in the menu -->
+                    <li class="user-header">
+                        <img src="@user.osmProfile.avatarURL" class="img-circle" alt="User Image">
+                        <p>@user.name
+                            <small>OSM Member since @user.formattedOSMCreatedDate</small>
+                        </p>
+                    </li>
+                        <!-- Menu Footer-->
+                    <li class="user-footer">
+                        <div class="pull-left">
+                            <a href="#" class="btn btn-default btn-flat">Profile</a>
+                        </div>
+                        <div class="pull-right">
+                            <a href="@routes.AuthController.signOut()" class="btn btn-default btn-flat">Sign out</a>
+                        </div>
+                    </li>
+                </ul>
+            }
+        </li>
+            <!-- Control Sidebar Toggle Button -->
+        <li>
+            <a href="#" data-toggle="control-sidebar"><i class="fa fa-gears"></i></a>
+        </li>
+    </ul>
+</div>

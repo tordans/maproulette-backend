@@ -1,14 +1,17 @@
 package org.maproulette.controllers.v1
 
-import org.maproulette.data.Task
-import org.maproulette.data.dal.ChallengeDAL
+import javax.inject.Inject
+
+import org.maproulette.models.Task
+import org.maproulette.models.dal.ChallengeDAL
+import org.maproulette.session.SessionManager
 import play.api.libs.json.Json
 import play.api.mvc.{Action, BodyParsers, Controller}
 
 /**
   * @author cuthbertm
   */
-object V1Controller extends Controller {
+class V1Controller @Inject() extends Controller {
 
   def getStatusOfTasks(challenge:String) = Action { implicit request =>
     NoContent
@@ -52,16 +55,18 @@ object V1Controller extends Controller {
     }
   }
 
-  def getChallengeSummary(implicit challenge:String) = Action { implicit request =>
-    ChallengeDAL.retrieveByIdentifier match {
-      case Some(obj) =>
-        val summaryMap = ChallengeDAL.getSummary(obj.id)
-        val total = summaryMap.foldLeft(0)(_+_._2)
-        val available = summaryMap.foldLeft(0)((total,element) =>
-          if (element == Task.STATUS_CREATED || element == Task.STATUS_SKIPPED) total + element._2 else total
-        )
-        Ok(Json.obj("available" -> available, "total" -> total))
-      case None => Ok(Json.obj("available" -> 0, "total" -> 0))
+  def getChallengeSummary(implicit challenge:String) = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      ChallengeDAL.retrieveByIdentifier match {
+        case Some(obj) =>
+          val summaryMap = ChallengeDAL.getSummary(obj.id)
+          val total = summaryMap.foldLeft(0)(_+_._2)
+          val available = summaryMap.foldLeft(0)((total,element) =>
+            if (element == Task.STATUS_CREATED || element == Task.STATUS_SKIPPED) total + element._2 else total
+          )
+          Ok(Json.obj("available" -> available, "total" -> total))
+        case None => Ok(Json.obj("available" -> 0, "total" -> 0))
+      }
     }
   }
 

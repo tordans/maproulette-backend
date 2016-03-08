@@ -1,7 +1,7 @@
-package org.maproulette.data
+package org.maproulette.models
 
 import com.fasterxml.jackson.databind.JsonMappingException
-import org.maproulette.data.dal.TagDAL
+import org.maproulette.models.dal.TagDAL
 import play.api.libs.json._
 
 /**

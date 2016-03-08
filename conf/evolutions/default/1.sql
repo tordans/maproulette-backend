@@ -41,25 +41,22 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE TABLE IF NOT EXISTS users
 (
   id serial NOT NULL,
+  osm_id integer NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
-  oauth_token character varying,
-  oauth_secret character varying,
+  modified timestamp without time zone,
+  home_location geometry,
+  osm_created timestamp without time zone NOT NULL,
   display_name character varying NOT NULL,
-  home_location geometry(Point),
-  languages character varying,
-  changeset_count integer,
-  last_changeset_id integer,
-  last_changeset_date timestamp without time zone,
-  last_changeset_bbox geometry(Polygon),
-  osm_account_created timestamp without time zone,
+  description character varying,
+  avatar_url character varying,
+  api_key character varying,
+  oauth_token character varying NOT NULL,
+  oauth_secret character varying NOT NULL,
   CONSTRAINT users_pkey PRIMARY KEY(id)
 );
 
-SELECT create_index_if_not_exists('users', 'home_location', '(home_location)');
-SELECT create_index_if_not_exists('users', 'last_changeset_bbox', '(last_changeset_bbox)');
-
--- create default super user
-INSERT INTO users (id, display_name) VALUES (0, 'SuperUser');
+CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE PROCEDURE updateModified();
 
 CREATE TABLE IF NOT EXISTS projects
 (

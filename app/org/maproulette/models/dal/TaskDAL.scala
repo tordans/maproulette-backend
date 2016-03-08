@@ -1,9 +1,9 @@
-package org.maproulette.data.dal
+package org.maproulette.models.dal
 
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
-import org.maproulette.data.{Tag, Task}
+import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.InvalidException
 import play.api.db.DB
 import play.api.libs.json._

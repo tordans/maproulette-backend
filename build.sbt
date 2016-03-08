@@ -6,6 +6,8 @@ lazy val `playmaproulettev2` = (project in file(".")).enablePlugins(PlayScala)
 
 scalaVersion := "2.11.7"
 
+routesGenerator := InjectedRoutesGenerator
+
 libraryDependencies ++= Seq(
   jdbc,
   cache,
@@ -24,12 +26,17 @@ libraryDependencies ++= Seq(
   "org.webjars" % "html5shiv" % "3.7.3",
   "org.webjars" % "jquery" % "2.2.1",
   "org.webjars" % "leaflet" % "0.7.7",
-  "org.webjars" % "toastr" % "2.1.1"
+  "org.webjars" % "toastr" % "2.1.1",
+  "joda-time" % "joda-time" % "2.9.2"
 )
 
 unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )  
 
-resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases"
+resolvers ++= Seq(
+  "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
+  "Atlassian Releases" at "https://maven.atlassian.com/public/",
+  Resolver.sonatypeRepo("snapshots")
+)
 
 scalacOptions ++= Seq(
   // Show warning feature details in the console
@@ -37,3 +44,7 @@ scalacOptions ++= Seq(
   // Enable routes file splitting
   "-language:reflectiveCalls"
 )
+
+includeFilter in (Assets, LessKeys.less) := "*.less"
+
+excludeFilter in (Assets, LessKeys.less) := "_*.less"
