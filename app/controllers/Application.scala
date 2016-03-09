@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import org.maproulette.session.{User, SessionManager}
 import play.api.mvc._
+import play.api.routing._
 
 class Application @Inject() extends Controller {
 
@@ -15,5 +16,13 @@ class Application @Inject() extends Controller {
 
   def testing = Action {
     Ok(views.html.testing())
+  }
+
+  def javascriptRoutes = Action { implicit request =>
+    Ok(
+      JavaScriptReverseRouter("jsRoutes")(
+        routes.javascript.AuthController.generateAPIKey
+      )
+    ).as("text/javascript")
   }
 }

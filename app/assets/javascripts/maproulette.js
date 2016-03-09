@@ -17,6 +17,23 @@ toastr.options = {
     "hideMethod": "fadeOut"
 };
 
+var generateAPIKey = function() {
+    var apiCallback = {
+        success : onSuccess,
+        error : onError
+    };
+
+    jsRoutes.controllers.AuthController.generateAPIKey().ajax(apiCallback);
+};
+
+var  onSuccess = function(data) {
+    $("#apiKey").html("<small id='apiKey'>API Key:<br/>" + data + "</small>");
+};
+
+var onError = function(error) {
+    $("#apiKey").html("<small id='apiKey'>No key could be generated: " + error + "</small>");
+};
+
 // get URL parameters
 // http://stackoverflow.com/a/979995
 var Q = (function () {

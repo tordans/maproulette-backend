@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
 @(user:User)
+
     <!-- Navbar Right Menu -->
 <div class="navbar-custom-menu">
     <ul class="nav navbar-nav">
@@ -57,12 +58,17 @@
                         <img src="@user.osmProfile.avatarURL" class="img-circle" alt="User Image">
                         <p>@user.name
                             <small>OSM Member since @user.formattedOSMCreatedDate</small>
+                            @if(user.apiKey.isDefined) {
+                                <small id="apiKey">API Key:<br/> @user.apiKey.get</small>
+                            } else {
+                                <small id="apiKey">No API Key generated</small>
+                            }
                         </p>
                     </li>
                         <!-- Menu Footer-->
                     <li class="user-footer">
                         <div class="pull-left">
-                            <a href="#" class="btn btn-default btn-flat">Profile</a>
+                            <a href="javascript:generateAPIKey();" class="btn btn-default btn-flat">Generate API Key</a>
                         </div>
                         <div class="pull-right">
                             <a href="@routes.AuthController.signOut()" class="btn btn-default btn-flat">Sign out</a>
@@ -77,3 +83,20 @@
         </li>
     </ul>
 </div>
+
+<script type="text/javascript">
+    $(function () {
+        $('.change-state').click(function () {
+            var attr = this.dataset;
+            $.ajax({
+                method: 'GET',
+                url: jsRoutes.controller.,
+                data: { id: attr.id, status: attr.state },
+                success: function (data) {
+                    var name = '#report-number-' + attr.id;
+                    $(name).html(data);
+                }
+            });
+        });
+    });
+</script>

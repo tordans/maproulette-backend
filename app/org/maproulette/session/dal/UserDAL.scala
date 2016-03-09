@@ -24,6 +24,7 @@ object UserDAL {
     get[Long]("users.id") ~
       get[Long]("users.osm_id") ~
       get[DateTime]("users.created") ~
+      get[DateTime]("users.modified") ~
       get[DateTime]("users.osm_created") ~
       get[String]("users.display_name") ~
       get[Option[String]]("users.description") ~
@@ -31,9 +32,10 @@ object UserDAL {
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
       get[String]("users.oauth_secret") map {
-      case id ~ osmId ~ created ~ osmCreated ~ displayName ~ description ~ avatarURL ~ apiKey ~ oauthToken ~ oauthSecret =>
+      case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~
+        avatarURL ~ apiKey ~ oauthToken ~ oauthSecret =>
         // If the modified date is too old, then lets update this user information from OSM
-        new User(id, created,
+        new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(0, 0), osmCreated, RequestToken(oauthToken, oauthSecret)), apiKey)
     }
@@ -48,6 +50,12 @@ object UserDAL {
   def findByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
     DB.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE osm_id = $id""".as(parser.*).headOption
+    }
+  }
+
+  def findByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
+    DB.withConnection { implicit c =>
+      SQL"""SELECT * FROM users WHERE id = $id AND api_key = ${apiKey}""".as(parser.*).headOption
     }
   }
 
@@ -79,14 +87,21 @@ object UserDAL {
     }
   }
 
-  def create(user: User): Option[User] = cacheManager.withOptionCaching { () =>
-    DB.withConnection { implicit c =>
-      SQL"""INSERT INTO users (osm_id, osm_created, display_name, description,
-                          avatar_url, api_key, oauth_token, oauth_secret)
-            VALUES (${user.osmProfile.id}, ${user.osmProfile.created}, ${user.osmProfile.displayName},
+  def upsert(user: User): Option[User] = cacheManager.withOptionCaching { () =>
+    DB.withTransaction { implicit c =>
+      SQL"""WITH upsert AS (UPDATE users SET osm_id = ${user.osmProfile.id}, osm_created = ${user.osmProfile.created},
+                              display_name = ${user.osmProfile.displayName}, description = ${user.osmProfile.description},
+                              avatar_url = ${user.osmProfile.avatarURL}, api_key = ${user.apiKey},
+                              oauth_token = ${user.osmProfile.requestToken.token},
+                              oauth_secret = ${user.osmProfile.requestToken.secret}
+                            WHERE id = ${user.id} OR osm_id = ${user.osmProfile.id} RETURNING *)
+            INSERT INTO users (osm_id, osm_created, display_name, description,
+                               avatar_url, api_key, oauth_token, oauth_secret)
+            SELECT ${user.osmProfile.id}, ${user.osmProfile.created}, ${user.osmProfile.displayName},
                     ${user.osmProfile.description}, ${user.osmProfile.avatarURL}, ${user.apiKey},
-                    ${user.osmProfile.requestToken.token}, ${user.osmProfile.requestToken.secret})
-            RETURNING *""".as(parser.*).headOption
+                    ${user.osmProfile.requestToken.token}, ${user.osmProfile.requestToken.secret}
+            WHERE NOT EXISTS (SELECT * FROM upsert)""".executeUpdate()
+      SQL"""SELECT * FROM users WHERE osm_id = ${user.osmProfile.id}""".as(parser.*).headOption
     }
   }
 
@@ -108,7 +123,7 @@ object UserDAL {
         val secret = (value \ "osmProfile" \ "secret").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.secret)
 
         SQL"""UPDATE users SET api_key = $apiKey, display_name = $displayName, description = $description,
-                avatar_url = $avatarURL, token = $token, secret = $secret
+                avatar_url = $avatarURL, oauth_token = $token, oauth_secret = $secret
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }

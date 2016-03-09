@@ -3,6 +3,9 @@ package org.maproulette.session
 import dal.UserDAL
 import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
+import org.apache.commons.lang3.StringUtils
+import org.joda.time.DateTime
+import org.maproulette.exception.MPExceptionUtil
 import play.api.Logger
 import play.api.Play.current
 import play.api.libs.Crypto
@@ -43,11 +46,11 @@ object SessionManager {
 
               case Failure(e) =>
                 Logger.error(e.getMessage, e)
-                p failure new OAuthNotAuthorizedException()
+                p failure e
             }
           case Left(e) =>
             Logger.error(e.getMessage, e)
-            p failure new OAuthNotAuthorizedException()
+            p failure e
         }
       case None => p failure new OAuthNotAuthorizedException()
     }
@@ -80,10 +83,15 @@ object SessionManager {
       case None =>
         request.headers.get("apiKey") match {
           case Some(apiKey) =>
-            val accessToken = Crypto.decryptAES(apiKey).split("|")
-            getUser(RequestToken(accessToken(0), accessToken(1)), Some(accessToken(2)), create) onComplete {
-              case Success(optionUser) => p success optionUser
-              case Failure(f) => p failure f
+            try {
+              val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
+              UserDAL.findByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+                case Some(user) => p success Some(user)
+                case None => p success None
+              }
+            } catch {
+              case e:NumberFormatException => p failure new OAuthNotAuthorizedException(s"Invalid APIKey supplied => $apiKey")
+              case e:Exception => p failure e
             }
           case None => p success None
         }
@@ -92,35 +100,50 @@ object SessionManager {
   }
 
   private def getUser(accessToken:RequestToken, userId:Option[String], create:Boolean=false) : Future[Option[User]] = {
-    val p = Promise[Option[User]]
     // we use the userId for caching, so only if this is the first time the user is authorizing
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
-      case Some(sessionId) => UserDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
+      case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
+        UserDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
       case None => UserDAL.matchByRequestToken(accessToken)
     }
     storedUser match {
-      case Some(u) => p success Some(u)
+      case Some(u) =>
+        // if the user information is more than a day old, then lets update it.
+        if (u.modified.plusDays(1).isBefore(DateTime.now())) {
+          upsertUser(u.osmProfile.requestToken)
+        } else {
+          Future { Some(u) }
+        }
       case None =>
         if (create) {
-          // if no user is matched, then lets create a new user
-          val details = WS.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
-          details.get() onComplete {
-            case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
-              val newUser = User(detailsResponse.body, accessToken)
-              UserDAL.create(newUser) match {
-                case Some(u) => p success Some(u)
-                case None => p failure new OAuthNotAuthorizedException("Failed to create new user")
-              }
-            case Success(response) =>
-              p failure new OAuthNotAuthorizedException()
-            case Failure(error) =>
-              Logger.error(error.getMessage, error)
-              p failure new OAuthNotAuthorizedException()
-          }
+          upsertUser(accessToken)
         } else {
-          p success None
+          Future { None }
         }
+    }
+  }
+
+  private def upsertUser(accessToken:RequestToken) : Future[Option[User]] = {
+    val p = Promise[Option[User]]
+    // if no user is matched, then lets create a new user
+    val details = WS.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
+    details.get() onComplete {
+      case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
+        try {
+          val newUser = User(detailsResponse.body, accessToken)
+          UserDAL.upsert(newUser) match {
+            case Some(u) => p success Some(u)
+            case None => p failure new OAuthNotAuthorizedException("Failed to create new user")
+          }
+        } catch {
+          case e:Exception => p failure e
+        }
+      case Success(response) =>
+        p failure new OAuthNotAuthorizedException(response.body)
+      case Failure(error) =>
+        Logger.error(error.getMessage, error)
+        p failure error
     }
     p.future
   }
@@ -135,12 +158,14 @@ object SessionManager {
     * @return The result from the block of code
     */
   def userAwareRequest(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
-    val p = Promise[Result]
-    sessionUser(sessionTokenPair) onComplete {
-      case Success(result) => p success block(result)
-      case Failure(error) => p failure error
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      val p = Promise[Result]
+      sessionUser(sessionTokenPair) onComplete {
+        case Success(result) => p success block(result)
+        case Failure(error) => p failure error
+      }
+      p.future
     }
-    p.future
   }
 
   /**
@@ -152,14 +177,16 @@ object SessionManager {
     * @return The result from the block of code
     */
   def authenticatedRequest(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
-    val p = Promise[Result]
-    sessionUser(sessionTokenPair) onComplete {
-      case Success(result) => result match {
-        case Some(user) => block(user)
-        case None => p failure new OAuthNotAuthorizedException()
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      val p = Promise[Result]
+      sessionUser(sessionTokenPair) onComplete {
+        case Success(result) => result match {
+          case Some(user) => p success block(user)
+          case None => p failure new OAuthNotAuthorizedException()
+        }
+        case Failure(e) => p failure e
       }
-      case Failure(e) => p failure e
+      p.future
     }
-    p.future
   }
 }

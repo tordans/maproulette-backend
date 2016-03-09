@@ -41,4 +41,16 @@ class AuthController @Inject() extends Controller {
   def signOut() = Action { implicit request =>
     Redirect(routes.Application.index()).withNewSession
   }
+
+  def generateAPIKey() = Action.async { implicit request =>
+    SessionManager.userAwareRequest { implicit user =>
+      user match {
+        case Some(u) => u.generateAPIKey.apiKey match {
+          case Some(api) => Ok(api)
+          case None => NoContent
+        }
+        case None => NoContent
+      }
+    }
+  }
 }

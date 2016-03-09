@@ -1,6 +1,6 @@
 package org.maproulette.session
 
-import java.time.format.DateTimeFormatter
+import java.util.UUID
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.models.BaseObject
@@ -25,20 +25,21 @@ case class OSMProfile(id:Long,
 
 case class User(override val id:Long,
                 created:DateTime,
+                modified:DateTime,
                 osmProfile: OSMProfile,
                 apiKey:Option[String]=None,
                 guest:Boolean=false) extends BaseObject[Long] {
-  // for users the display name is always retrieved from teh
+  // for users the display name is always retrieved from OSM
   override def name = osmProfile.displayName
 
-  def formattedOSMCreatedDate = DateTimeFormatter.ofPattern("MMMM. yyyy")
-  def formattedMPCreatedDate = DateTimeFormatter.ofPattern("MMMM. yyyy")
+  def formattedOSMCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(osmProfile.created)
+  def formattedMPCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(created)
 
   /**
     * Generate (or regenerate) api key for the user, set it in the database
     */
   def generateAPIKey : User = {
-    val newAPIKey = Crypto.encryptAES(osmProfile.requestToken.token+"|"+osmProfile.requestToken.secret+"|"+id)
+    val newAPIKey = Crypto.encryptAES(id + "|" + UUID.randomUUID())
     UserDAL.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""))(id)
     this.copy(apiKey = Some(newAPIKey))
   }
@@ -58,7 +59,7 @@ object User {
       case Some(location) => Location((location \@ "lat").toDouble, (location \@ "lon").toDouble)
       case None => Location(0, 0)
     }
-    User(-1, null, OSMProfile(osmId.toLong,
+    User(-1, null, null, OSMProfile(osmId.toLong,
       displayName,
       description,
       avatarURL,
@@ -71,7 +72,7 @@ object User {
   def apply(userXML:String, requestToken: RequestToken) : User =
     apply(XML.loadString(userXML), requestToken)
 
-  val guestUser = User(0, DateTime.now(),
+  val guestUser = User(0, DateTime.now(), DateTime.now(),
     OSMProfile(0, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "assets/images/user_no_image.png",
