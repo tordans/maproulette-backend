@@ -1,10 +1,10 @@
 toastr.options = {
-    "closeButton": false,
+    "closeButton": true,
     "debug": false,
     "newestOnTop": false,
     "progressBar": false,
     "toastClass": "notification",
-    "positionClass": "toast-top-left",
+    "positionClass": "toast-top-center",
     "preventDuplicates": false,
     "onclick": null,
     "showDuration": "300",
@@ -26,12 +26,17 @@ var generateAPIKey = function() {
     jsRoutes.controllers.AuthController.generateAPIKey().ajax(apiCallback);
 };
 
+var showAPIKey = function() {
+    toastr.info(currentAPIKey);
+};
+
 var  onSuccess = function(data) {
-    $("#apiKey").html("<small id='apiKey'>API Key:<br/>" + data + "</small>");
+    currentAPIKey = data;
+    showAPIKey();
 };
 
 var onError = function(error) {
-    $("#apiKey").html("<small id='apiKey'>No key could be generated: " + error + "</small>");
+    toastr.error(error);
 };
 
 // get URL parameters

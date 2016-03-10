@@ -14,6 +14,13 @@ class Application @Inject() extends Controller {
     }
   }
 
+  def refreshProfile = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      SessionManager.refreshProfile(user.osmProfile.requestToken)
+      Redirect(routes.Application.index())
+    }
+  }
+
   def testing = Action {
     Ok(views.html.testing())
   }

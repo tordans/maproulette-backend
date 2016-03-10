@@ -4,10 +4,11 @@
 # Home page
 GET     /                                                       @controllers.Application.index
 GET     /testing                                                @controllers.Application.testing
-GET     /auth/authenticate                                      @controllers.AuthController.authenticate()
-GET     /auth/signout                                           @controllers.AuthController.signOut()
-GET     /auth/generateAPIKey                                    @controllers.AuthController.generateAPIKey()
-GET     /javascriptRoutes                                       @controllers.Application.javascriptRoutes()
+GET     /auth/authenticate                                      @controllers.AuthController.authenticate
+GET     /auth/signout                                           @controllers.AuthController.signOut
+GET     /auth/generateAPIKey                                    @controllers.AuthController.generateAPIKey
+GET     /refreshProfile                                         @controllers.Application.refreshProfile
+GET     /javascriptRoutes                                       @controllers.Application.javascriptRoutes
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                           @controllers.Assets.at(path="/public", file)
 GET     /webjars/*file                                          @controllers.WebJarAssets.at(file)

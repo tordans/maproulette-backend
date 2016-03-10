@@ -26,6 +26,7 @@ case class OSMProfile(id:Long,
 case class User(override val id:Long,
                 created:DateTime,
                 modified:DateTime,
+                theme:String,
                 osmProfile: OSMProfile,
                 apiKey:Option[String]=None,
                 guest:Boolean=false) extends BaseObject[Long] {
@@ -59,7 +60,7 @@ object User {
       case Some(location) => Location((location \@ "lat").toDouble, (location \@ "lon").toDouble)
       case None => Location(0, 0)
     }
-    User(-1, null, null, OSMProfile(osmId.toLong,
+    User(-1, null, null, "skin-blue", OSMProfile(osmId.toLong,
       displayName,
       description,
       avatarURL,
@@ -72,7 +73,7 @@ object User {
   def apply(userXML:String, requestToken: RequestToken) : User =
     apply(XML.loadString(userXML), requestToken)
 
-  val guestUser = User(0, DateTime.now(), DateTime.now(),
+  val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-blue",
     OSMProfile(0, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "assets/images/user_no_image.png",

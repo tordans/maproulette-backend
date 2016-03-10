@@ -25,6 +25,7 @@ object UserDAL {
       get[Long]("users.osm_id") ~
       get[DateTime]("users.created") ~
       get[DateTime]("users.modified") ~
+      get[String]("users.theme") ~
       get[DateTime]("users.osm_created") ~
       get[String]("users.display_name") ~
       get[Option[String]]("users.description") ~
@@ -32,10 +33,10 @@ object UserDAL {
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
       get[String]("users.oauth_secret") map {
-      case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~
+      case id ~ osmId ~ created ~ modified ~ theme ~ osmCreated ~ displayName ~ description ~
         avatarURL ~ apiKey ~ oauthToken ~ oauthSecret =>
         // If the modified date is too old, then lets update this user information from OSM
-        new User(id, created, modified,
+        new User(id, created, modified, theme,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(0, 0), osmCreated, RequestToken(oauthToken, oauthSecret)), apiKey)
     }
@@ -91,15 +92,17 @@ object UserDAL {
     DB.withTransaction { implicit c =>
       SQL"""WITH upsert AS (UPDATE users SET osm_id = ${user.osmProfile.id}, osm_created = ${user.osmProfile.created},
                               display_name = ${user.osmProfile.displayName}, description = ${user.osmProfile.description},
-                              avatar_url = ${user.osmProfile.avatarURL}, api_key = ${user.apiKey},
+                              avatar_url = ${user.osmProfile.avatarURL},
                               oauth_token = ${user.osmProfile.requestToken.token},
-                              oauth_secret = ${user.osmProfile.requestToken.secret}
+                              oauth_secret = ${user.osmProfile.requestToken.secret},
+                              theme = ${user.theme}
                             WHERE id = ${user.id} OR osm_id = ${user.osmProfile.id} RETURNING *)
             INSERT INTO users (osm_id, osm_created, display_name, description,
-                               avatar_url, api_key, oauth_token, oauth_secret)
+                               avatar_url, oauth_token, oauth_secret, theme)
             SELECT ${user.osmProfile.id}, ${user.osmProfile.created}, ${user.osmProfile.displayName},
-                    ${user.osmProfile.description}, ${user.osmProfile.avatarURL}, ${user.apiKey},
-                    ${user.osmProfile.requestToken.token}, ${user.osmProfile.requestToken.secret}
+                    ${user.osmProfile.description}, ${user.osmProfile.avatarURL},
+                    ${user.osmProfile.requestToken.token}, ${user.osmProfile.requestToken.secret},
+                    ${user.theme}
             WHERE NOT EXISTS (SELECT * FROM upsert)""".executeUpdate()
       SQL"""SELECT * FROM users WHERE osm_id = ${user.osmProfile.id}""".as(parser.*).headOption
     }
@@ -121,6 +124,7 @@ object UserDAL {
         val avatarURL = (value \ "osmProfile" \ "avatarURL").asOpt[String].getOrElse(cachedItem.osmProfile.avatarURL)
         val token = (value \ "osmProfile" \ "token").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.token)
         val secret = (value \ "osmProfile" \ "secret").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.secret)
+        val theme = (value \ "theme").asOpt[String].getOrElse(cachedItem.theme)
 
         SQL"""UPDATE users SET api_key = $apiKey, display_name = $displayName, description = $description,
                 avatar_url = $avatarURL, oauth_token = $token, oauth_secret = $secret

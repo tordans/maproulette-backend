@@ -111,20 +111,26 @@ object SessionManager {
       case Some(u) =>
         // if the user information is more than a day old, then lets update it.
         if (u.modified.plusDays(1).isBefore(DateTime.now())) {
-          upsertUser(u.osmProfile.requestToken)
+          refreshProfile(u.osmProfile.requestToken)
         } else {
           Future { Some(u) }
         }
       case None =>
         if (create) {
-          upsertUser(accessToken)
+          refreshProfile(accessToken)
         } else {
           Future { None }
         }
     }
   }
 
-  private def upsertUser(accessToken:RequestToken) : Future[Option[User]] = {
+  /**
+    * Will refresh the current profile or will create a new user based on this profile
+    *
+    * @param accessToken
+    * @return
+    */
+  def refreshProfile(accessToken:RequestToken) : Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
     val details = WS.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
