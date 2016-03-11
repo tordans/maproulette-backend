@@ -36,7 +36,7 @@ GET     /tasks/tags                                 @org.maproulette.controllers
 GET     /tasks/random                               @org.maproulette.controllers.api.TaskController.getRandomTasks(tags:String ?= "", limit:Int ?= 1)
 DELETE  /task/:id/tags                              @org.maproulette.controllers.api.TaskController.deleteTagsFromTask(id:Long, tags:String ?= "")
 PUT     /task/:id/fixed                             @org.maproulette.controllers.api.TaskController.setTaskStatusFixed(id:Long)
-PUT     /task/:id/skipped                           @org.maproulette.controllers.api.TaskController.setTaskStatisSkipped(id:Long)
+PUT     /task/:id/skipped                           @org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(id:Long)
 PUT     /task/:id/falsepositive                     @org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(id:Long)
 PUT     /task/:id/deleted                           @org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(id:Long)
 # Tag API
