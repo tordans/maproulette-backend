@@ -12,14 +12,20 @@ import play.api.libs.json.JsValue
 import play.api.libs.oauth.RequestToken
 
 /**
+  * The data access layer for the user object. This is considered a special object in the system,
+  * as it does not use the baseObject for the user class and does not rely on the BaseDAL like all
+  * the other objects. This is somewhat related to how the id's for the User are generated and used.
+  *
   * @author cuthbertm
   */
 object UserDAL {
 
   import org.maproulette.utils.AnormExtension._
 
+  // The cache manager for the users
   val cacheManager = new CacheManager[Long, User]
 
+  // The anorm row parser to convert user records from the database to user objects
   val parser: RowParser[User] = {
     get[Long]("users.id") ~
       get[Long]("users.osm_id") ~
@@ -42,24 +48,52 @@ object UserDAL {
     }
   }
 
+  /**
+    * Find the user by the user's id. If found in cache, will return cached object instead of
+    * hitting the database
+    *
+    * @param id The user id
+    * @return The matched user, None if User not found
+    */
   def findByID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
     DB.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE id = $id""".as(parser.*).headOption
     }
   }
 
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id The user's osm ID
+    * @return The matched user, None if User not found
+    */
   def findByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
     DB.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE osm_id = $id""".as(parser.*).headOption
     }
   }
 
+  /**
+    * Find the User based on an API key, the API key is unique in the database.
+    *
+    * @param apiKey The APIKey to match against
+    * @param id The id of the user
+    * @return The matched user, None if User not found
+    */
   def findByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
     DB.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE id = $id AND api_key = ${apiKey}""".as(parser.*).headOption
     }
   }
 
+  /**
+    * Match the user based on the token, secret and id for the user.
+    *
+    * @param id The id of the user
+    * @param requestToken The request token containing the access token and secret
+    * @return The matched user, None if User not found
+    */
   def matchByRequestTokenAndId(id: Long, requestToken: RequestToken): Option[User] = {
     implicit val userId = id
     val user = cacheManager.withOptionCaching { () =>
@@ -81,6 +115,12 @@ object UserDAL {
     }
   }
 
+  /**
+    * Match the user based on the token and secret for the user.
+    *
+    * @param requestToken The request token containing the access token and secret
+    * @return The matched user, None if User not found
+    */
   def matchByRequestToken(requestToken: RequestToken): Option[User] = {
     DB.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE oauth_token = ${requestToken.token}
@@ -88,6 +128,14 @@ object UserDAL {
     }
   }
 
+  /**
+    * "Upsert" function that will insert a new user into the database, if the user already exists in
+    * the database it will simply update the user with new information. A user is considered to exist
+    * in the database if the id or osm_id is found in the users table.
+    *
+    * @param user The user to update
+    * @return None if failed to update or create.
+    */
   def upsert(user: User): Option[User] = cacheManager.withOptionCaching { () =>
     DB.withTransaction { implicit c =>
       SQL"""WITH upsert AS (UPDATE users SET osm_id = ${user.osmProfile.id}, osm_created = ${user.osmProfile.created},
@@ -109,11 +157,12 @@ object UserDAL {
   }
 
   /**
-    * Only certain values are allowed to be updated for the user.
+    * Only certain values are allowed to be updated for the user. Namely apiKey, displayName,
+    * description, avatarURL, token, secret and theme.
     *
-    * @param value
-    * @param id
-    * @return
+    * @param value The json object containing the fields to update
+    * @param id The id of the user to update
+    * @return The user that was updated, None if no user was found with the id
     */
   def update(value:JsValue)(implicit id:Long): Option[User] = {
     cacheManager.withUpdatingCache(Long => findByID) { implicit cachedItem =>
@@ -133,11 +182,26 @@ object UserDAL {
     }
   }
 
-  def delete(implicit id: Long) = {
+  /**
+    * Deletes a user from the database based on a specific user id
+    *
+    * @param id The user to delete
+    * @return The rows that were deleted
+    */
+  def delete(implicit id: Long) : Int = {
     implicit val ids = List(id)
     cacheManager.withCacheIDDeletion { () =>
       DB.withConnection { implicit c =>
-        SQL"""DELETE FROM users WHERE id = $id"""
+        SQL"""DELETE FROM users WHERE id = $id""".executeUpdate()
+      }
+    }
+  }
+
+  def deleteByOsmID(implicit osmId:Long) : Int = {
+    implicit val ids = List(osmId)
+    cacheManager.withCacheIDDeletion { () =>
+      DB.withConnection { implicit c =>
+        SQL"""DELETE FROM users WHERE osm_id = $osmId""".executeUpdate()
       }
     }
   }

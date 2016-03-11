@@ -49,11 +49,11 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
   }
 
   /**
+    * Updates a project in the database
     *
-    *
-    * @param updates
-    * @param id The id of the object that you are updating
-    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    * @param updates A json object containing all the fields that are too be updated.
+    * @param id The id of the object that you are updating.
+    * @return An optional object, it will return None if no object found with a matching id that was supplied.
     */
   override def update(updates:JsValue)(implicit id:Long): Option[Project] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>

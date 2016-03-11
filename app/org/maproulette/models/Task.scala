@@ -8,6 +8,18 @@ import play.api.db.DB
 import play.api.libs.json._
 
 /**
+  * The primary object in Map Roulette is the task, this is the object that defines the actual problem
+  * in the OSM data that needs to be fixed. It is a child of a Challenge and has a special one to
+  * many relationship with tags. It contains the following parameters:
+  *
+  * id - A database assigned id for the Task
+  * name - The name of the task
+  * identifier - TODO: remove
+  * parent - The id of the challenge of the task
+  * instruction - A detailed instruction on how to fix this particular task
+  * location - The direct location of the task
+  * status - Status of the Task "Created, Fixed, False_Positive, Skipped, Deleted"
+  *
   * @author cuthbertm
   */
 case class Task(override val id:Long,
@@ -41,8 +53,26 @@ object Task {
   val STATUS_DELETED = 4
   val STATUS_DELETED_NAME = "Deleted"
 
+  /**
+    * Based on the status id, will return a boolean stating whether it is a valid id or not
+    *
+    * @param status The id to check for validity
+    * @return true if status id is valid
+    */
   def isValidStatus(status:Int) : Boolean = status >= STATUS_CREATED && status <= STATUS_DELETED
 
+  /**
+    * A Task must have a valid progression between status. The following rules apply:
+    * If current status is created, then can be set to any of the other status's.
+    * If current status is fixed, then the status cannot be changed.
+    * If current status is false_positive, then it can only be changed to fixed (This is the case where it was accidentally set to false positive.
+    * If current status is skipped, then it can set the status to fixed, false_positive or deleted
+    * If current statis is deleted, then it can set the status to created. Essentially resetting the task
+    *
+    * @param current The current status of the task
+    * @param toSet The status that the task will be set too
+    * @return True if the status can be set without violating any of the above rules
+    */
   def isValidStatusProgression(current:Int, toSet:Int) : Boolean = {
     if (current == toSet) {
       true
@@ -57,6 +87,12 @@ object Task {
     }
   }
 
+  /**
+    * Gets the string name of the status based on a status id
+    *
+    * @param status The status id
+    * @return None if status id is invalid, otherwise the name of the status
+    */
   def getStatusName(status:Int) : Option[String] = status match {
     case STATUS_CREATED => Some(STATUS_CREATED_NAME)
     case STATUS_FIXED => Some(STATUS_FIXED_NAME)
@@ -66,6 +102,12 @@ object Task {
     case _ => None
   }
 
+  /**
+    * Gets the status id based on the status name
+    *
+    * @param status The status name
+    * @return None if status name is invalid, otherwise the id of the status
+    */
   def getStatusID(status:String) : Option[Int] = status.toLowerCase match {
     case t if t.equalsIgnoreCase(STATUS_CREATED_NAME.toLowerCase) => Some(STATUS_CREATED)
     case t if t.equalsIgnoreCase(STATUS_FIXED_NAME.toLowerCase) => Some(STATUS_FIXED)

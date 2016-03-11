@@ -12,14 +12,22 @@ import play.api.Play.current
 import scala.collection.mutable.ListBuffer
 
 /**
+  * The data access layer for the Task objects
+  *
   * @author cuthbertm
   */
 object TaskDAL extends BaseDAL[Long, Task] {
+  // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
+  // The database table name for the tasks
   override val tableName: String = "tasks"
+  // The columns to be retrieved for the task. Reason this is required is because one of the columns
+  // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
+  // so the ST_AsGeoJSON function is used to convert it to geoJSON
   override val retrieveColumns:String = "tasks.id, tasks.name, tasks.identifier, tasks.parent_id, " +
     "tasks.instruction, ST_AsGeoJSON(tasks.location) AS location, tasks.status"
 
+  // The anorm row parser to convert records from the task table to task objects
   implicit val parser: RowParser[Task] = {
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
@@ -33,6 +41,12 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }
   }
 
+  /**
+    * Inserts a new task object into the database
+    *
+    * @param task The task to be inserted into the database
+    * @return The object that was inserted into the database. This will include the newly created id
+    */
   override def insert(task:Task) : Task = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
@@ -48,6 +62,13 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }.get
   }
 
+  /**
+    * Updates a task object in the database.
+    *
+    * @param value A json object containing fields to be updated for the task
+    * @param id The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
   override def update(value:JsValue)(implicit id:Long): Option[Task] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       DB.withTransaction { implicit c =>
@@ -72,6 +93,13 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }
   }
 
+  /**
+    * Updates the tags on the task. This maps the tag objects to the task objects in the database
+    * through the use of a mapping table
+    *
+    * @param taskId The id of the task to add the tags too
+    * @param tags A list of tags to add to the task
+    */
   def updateTaskTags(taskId:Long, tags:List[Long]) : Unit = {
     if (tags.nonEmpty) {
       DB.withTransaction { implicit c =>
@@ -93,6 +121,13 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }
   }
 
+  /**
+    * Deletes tags from a task. This will not delete any tasks or tags, it will simply sever the
+    * connection between the task and tag.
+    *
+    * @param taskId The task id that the user is removing the tags from
+    * @param tags The tags that are being removed from the task
+    */
   def deleteTaskTags(taskId:Long, tags:List[Long]) : Unit = {
     if (tags.nonEmpty) {
       DB.withTransaction { implicit c =>
@@ -101,6 +136,13 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }
   }
 
+  /**
+    * Pretty much the same as {@link this#deleteTaskTags} but removes the tags from the task based
+    * on the name of the tag instead of the id. This is most likely to be used more often.
+    *
+    * @param taskId The id of the task that is having the tags remove from it
+    * @param tags The tags to be removed from the task
+    */
   def deleteTaskStringTags(taskId:Long, tags:List[String]) : Unit = {
     if (tags.nonEmpty) {
       val lowerTags = tags.map(_.toLowerCase)
@@ -130,6 +172,14 @@ object TaskDAL extends BaseDAL[Long, Task] {
     updateTaskTags(taskId, tagIds)
   }
 
+  /**
+    * Get a list of tasks based purely on the tags that are associated with the tasks
+    *
+    * @param tags The list of tags to match
+    * @param limit The number of tasks to return
+    * @param offset For paging, where 0 is the first page
+    * @return A list of tags that have the tags
+    */
   def getTasksBasedOnTags(tags:List[String], limit:Int, offset:Int) : List[Task] = {
     val lowerTags = tags.map(_.toLowerCase)
     DB.withConnection { implicit c =>
@@ -143,6 +193,17 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }
   }
 
+  /**
+    * Gets a random task based on the tags, and can include project and challenge restrictions as well.
+    *
+    * @param projectId None if ignoring project restriction, otherwise the id of the project to limit
+    *                  where the random tasks come from
+    * @param challengeId None if ignoring the challenge restriction, otherwise the id of the challenge
+    *                    to limit where the random tasks come from
+    * @param tags List of tag names that will restrict the returned tags
+    * @param limit The amount of tags that should be returned
+    * @return A list of random tags matching the above criteria, an empty list if none match
+    */
   def getRandomTasksStr(projectId:Option[Long],
                      challengeId:Option[Long],
                      tags:List[String],
@@ -155,6 +216,21 @@ object TaskDAL extends BaseDAL[Long, Task] {
     }
   }
 
+  /**
+    * Gets a random task based on the tags, and can include project and challenge restrictions as well.
+    * The sql query that is built to execute this could be costly on larger datasets, the reason being is
+    * that it will basically execute the same query twice, once to retrieve the objects that match
+    * the criteria and the second time to get an accurate random offset to choose a random tasks from
+    * all the matching tasks in the set. This will most likely always be called with a limit of 1.
+    *
+    * @param projectId None if ignoring project restriction, otherwise the id of the project to limit
+    *                  where the random tasks come from
+    * @param challengeId None if ignoring the challenge restriction, otherwise the id of the challenge
+    *                    to limit where the random tasks come from
+    * @param tags List of tag ids that will restrict the returned tags
+    * @param limit The amount of tags that should be returned
+    * @return A list of random tags matching the above criteria, an empty list if none match
+    */
   def getRandomTasksInt(projectId:Option[Long],
                      challengeId:Option[Long],
                      tags:List[Long],

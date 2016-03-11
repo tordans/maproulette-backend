@@ -5,6 +5,10 @@ import org.maproulette.models.dal.TagDAL
 import play.api.libs.json._
 
 /**
+  * Tags sit outside of the object hierarchy and have no parent or children objects associated it.
+  * It simply has a many to one mapping between tags and tasks. This allows tasks to be easily
+  * searched for and organized. Helping people find tasks related to what interests them.
+  *
   * @author cuthbertm
   */
 case class Tag(override val id: Long,

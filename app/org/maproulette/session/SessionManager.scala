@@ -17,20 +17,34 @@ import scala.concurrent.{Promise, Future}
 import scala.util.{Success, Failure}
 
 /**
+  * The Session manager handles the current user session. Making sure that requests that require
+  * authorization are correctly authorized, and handling the APIKey for API request authorizations.
+  *
   * @author cuthbertm
   */
 object SessionManager {
   import scala.concurrent.ExecutionContext.Implicits.global
 
+  // URLs used for OAuth 1.0a
   private val userDetailsURL = current.configuration.getString("osm.userDetails").get
   private val requestTokenURL = current.configuration.getString("osm.requestTokenURL").get
   private val accessTokenURL = current.configuration.getString("osm.accessTokenURL").get
   private val authorizationURL = current.configuration.getString("osm.authorizationURL").get
+  // the consumer key and secret for the Map Roulette application
   private val consumerKey = ConsumerKey(current.configuration.getString("osm.consumerKey").get,
     current.configuration.getString("osm.consumerSecret").get)
 
+  // The OAuth object used to make the requests to the OpenStreetMap servers
   private val oauth = OAuth(ServiceInfo(requestTokenURL, accessTokenURL, authorizationURL, consumerKey), true)
 
+  /**
+    * Retrieves the user based on the verifier query string values from the authorization request to
+    * the OpenStreetMap servers
+    *
+    * @param verifier The verifier query string values
+    * @param request The request made from the OpenStreetMap servers based on OAuth
+    * @return A Future which will contain the user
+    */
   def retrieveUser(verifier:String)(implicit request:Request[AnyContent]) : Future[User] = {
     val p = Promise[User]
     sessionTokenPair match {
@@ -57,6 +71,12 @@ object SessionManager {
     p.future
   }
 
+  /**
+    * Retrieves the request token and then makes a callback to the Map Roulette auth URL
+    *
+    * @param callback The callback after the request is made to retrieve the request token
+    * @return Either OAuthException (ie. NotAuthorized) or the request token
+    */
   def retrieveRequestToken(callback:String) = oauth.retrieveRequestToken(callback)
 
   def redirectUrl(token:String) = oauth.redirectUrl(token)

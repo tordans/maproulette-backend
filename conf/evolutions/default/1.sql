@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS users
   display_name character varying NOT NULL,
   description character varying,
   avatar_url character varying,
-  api_key character varying,
+  api_key character varying UNIQUE,
   oauth_token character varying NOT NULL,
   oauth_secret character varying NOT NULL,
   theme character varying DEFAULT('skin-blue'),
