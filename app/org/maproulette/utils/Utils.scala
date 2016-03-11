@@ -1,6 +1,5 @@
 package org.maproulette.utils
 
-import play.api.Logger
 import play.api.mvc.Results._
 import play.api.libs.json.{Json, JsObject, JsValue}
 import play.api.mvc.Result
@@ -9,10 +8,18 @@ import scala.reflect.runtime.universe._
 
 
 /**
+  * Some random utliity helper functions
+  *
   * @author cuthbertm
   */
 object Utils {
 
+  /**
+    * Wraps a JSON message inside of a BadRequest response
+    *
+    * @param message The message to place inside the json
+    * @return 400 BadRequest
+    */
   def badRequest(message:String) : Result = {
     BadRequest(Json.obj("status" -> "KO", "message" -> message))
   }

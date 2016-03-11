@@ -1,6 +1,8 @@
 package org.maproulette.utils
 
 /**
+  * Implicit helper conversion functions to convert Date Time values to SQL and back
+  *
   * @author cuthbertm
   */
 import org.joda.time._
