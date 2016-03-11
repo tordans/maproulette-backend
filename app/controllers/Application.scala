@@ -8,12 +8,22 @@ import play.api.routing._
 
 class Application @Inject() extends Controller {
 
+  /**
+    * The primary entry point to the application
+    *
+    * @return The index HTML
+    */
   def index = Action.async { implicit request =>
     SessionManager.userAwareRequest { implicit user =>
       Ok(views.html.index("MapRoulette", User.userOrMocked(user))(views.html.main()))
     }
   }
 
+  /**
+    * Action to refresh the user's OSM profile, this will reload the index page
+    *
+    * @return The index html
+    */
   def refreshProfile = Action.async { implicit request =>
     SessionManager.authenticatedRequest { implicit user =>
       SessionManager.refreshProfile(user.osmProfile.requestToken)
@@ -21,10 +31,20 @@ class Application @Inject() extends Controller {
     }
   }
 
+  /**
+    * REMOVE: ONLY FOR TESTING PURPOSES
+    *
+    * @return The testing html page
+    */
   def testing = Action {
     Ok(views.html.testing())
   }
 
+  /**
+    * Maps specific actions to javascripts reverse routes, so that we can call the actions in javascript
+    *
+    * @return The results of whatever action is called by the javascript
+    */
   def javascriptRoutes = Action { implicit request =>
     Ok(
       JavaScriptReverseRouter("jsRoutes")(

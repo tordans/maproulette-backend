@@ -56,20 +56,27 @@
                         <!-- The user image in the menu -->
                     <li class="user-header">
                         <img src="@user.osmProfile.avatarURL" class="img-circle" alt="User Image">
-                        <p>@user.name
+                        <p>@user.name <a href="@routes.Application.refreshProfile()" class="fa fa-refresh"></a>
                             <small>OSM Member since @user.formattedOSMCreatedDate</small>
-                            @if(user.apiKey.isDefined) {
-                                <small id="apiKey">API Key:<br/> @user.apiKey.get</small>
-                            } else {
-                                <small id="apiKey">No API Key generated</small>
-                            }
                         </p>
+                    </li>
+                        <!-- Menu Body -->
+                    <li class="user-body">
+                        @if(user.apiKey.isDefined) {
+                            <div class="col-xs-6 text-center pull-left">
+                                <a href="#" onclick="showAPIKey();"><b>View API Key</b></a>
+                            </div>
+                            <div class="col-xs-6 text-center pull-right">
+                                <a href="#" onclick="generateAPIKey();"><b>New API Key</b></a>
+                            </div>
+                        } else {
+                            <div class="col-xs-6 text-center -align-center">
+                                <b>No API Key generated</b>
+                            </div>
+                        }
                     </li>
                         <!-- Menu Footer-->
                     <li class="user-footer">
-                        <div class="pull-left">
-                            <a href="javascript:generateAPIKey();" class="btn btn-default btn-flat">Generate API Key</a>
-                        </div>
                         <div class="pull-right">
                             <a href="@routes.AuthController.signOut()" class="btn btn-default btn-flat">Sign out</a>
                         </div>
@@ -83,20 +90,3 @@
         </li>
     </ul>
 </div>
-
-<script type="text/javascript">
-    $(function () {
-        $('.change-state').click(function () {
-            var attr = this.dataset;
-            $.ajax({
-                method: 'GET',
-                url: jsRoutes.controller.,
-                data: { id: attr.id, status: attr.state },
-                success: function (data) {
-                    var name = '#report-number-' + attr.id;
-                    $(name).html(data);
-                }
-            });
-        });
-    });
-</script>

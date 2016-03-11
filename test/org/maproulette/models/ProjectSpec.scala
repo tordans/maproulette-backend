@@ -47,7 +47,7 @@ class ProjectSpec extends Specification {
 
     "delete project object in database" in new WithApplication {
       implicit val ids = List(projectID)
-      ProjectDAL.delete
+      ProjectDAL.deleteFromIdList
       ProjectDAL.retrieveById mustEqual None
     }
   }

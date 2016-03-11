@@ -7,12 +7,19 @@ import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
 /**
+  * All the authentication actions go in this class
+  *
   * @author cuthbertm
   */
 class AuthController @Inject() extends Controller {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
+  /**
+    * An action to call to authenticate a user using OAuth 1.0a against the OAuth OSM Provider
+    *
+    * @return Redirects back to the index page containing a valid session
+    */
   def authenticate() = Action.async { implicit request =>
     val p = Promise[Result]
     request.getQueryString("oauth_verifier").map { verifier =>
@@ -38,10 +45,23 @@ class AuthController @Inject() extends Controller {
     p.future
   }
 
+  /**
+    * Signs out the user, creating essentially a blank new session and redirects user to the index page
+    *
+    * @return The index html page
+    */
   def signOut() = Action { implicit request =>
     Redirect(routes.Application.index()).withNewSession
   }
 
+  /**
+    * Generates a new API key for the user. A user can then use the API key to make API calls directly against
+    * the server. Only the current API key for the user will work on any authenticated API calls, any previous
+    * keys are immediately discarded once a new one is created.
+    *
+    * @return Will return NoContent if cannot create the key (which most likely means that no user was
+    *         found, or will return the api key as plain text.
+    */
   def generateAPIKey() = Action.async { implicit request =>
     SessionManager.userAwareRequest { implicit user =>
       user match {

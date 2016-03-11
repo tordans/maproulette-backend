@@ -1,14 +1,30 @@
 package org.maproulette.actions
 
 /**
+  * A class primarily of case classes that is used in place of java's enums. This is better for pattern
+  * matching. Enum's in Scala are really only useful in the simpliest of cases.
+  *
   * @author cuthbertm
+  */
+
+/**
+  * This is the sealed base class for an Action Type, {@see Actions}
+  *
+  * @param id The id of the action {@see Actions}
+  * @param level The level at which the action will be stored in the database. The level is set in the
+  *              application config. And any action at that level and below will be writtern to the
+  *              database, anything above will be ignored.
   */
 sealed class ActionType(id:Int, level:Int) {
   def getId = id
   def getLevel = level
 }
 
-
+/**
+  * This is the sealed base class for the type of item for the action, {@see Actions}
+  *
+  * @param id The id of the action {@see Actions}
+  */
 sealed class ItemType(id:Int) {
   val typeId = id
   def convertToItem(itemId:Long) = {
@@ -72,10 +88,28 @@ object Actions {
   val ACTION_TYPE_TAG_REMOVED = 6
   val ACTION_TYPE_TAG_REMOVED_NAME = "Tag_Removed"
 
+  /**
+    * Validates whether the provided id is actually an action type id
+    *
+    * @param actionType The id to test
+    * @return true if valid action type id
+    */
   def validActionType(actionType:Int) : Boolean = actionType >= ACTION_TYPE_UPDATED && actionType <= ACTION_TYPE_TAG_REMOVED
 
+  /**
+    * Validates whether the provided id is actually an item type id
+    *
+    * @param itemType The id to test
+    * @return true if valid item type id
+    */
   def validItemType(itemType:Int) : Boolean = itemType >= ITEM_TYPE_PROJECT && itemType <= ITEM_TYPE_TAG
 
+  /**
+    * Based on an id will return the Item type name it matches, None otherwise
+    *
+    * @param itemType The id to find
+    * @return Option[String] if found, None otherwise
+    */
   def getTypeName(itemType:Int) : Option[String] = itemType match {
     case ITEM_TYPE_PROJECT => Some(ITEM_TYPE_PROJECT_NAME)
     case ITEM_TYPE_CHALLENGE => Some(ITEM_TYPE_CHALLENGE_NAME)
@@ -84,6 +118,12 @@ object Actions {
     case _ => None
   }
 
+  /**
+    * Based on a string will return the item type id that the string matches, None otherwise
+    *
+    * @param itemType The string to match against
+    * @return Option[Int] if found, None otherwise
+    */
   def getTypeID(itemType:String) : Option[Int] = itemType.toLowerCase match {
     case t if t.equalsIgnoreCase(ITEM_TYPE_PROJECT_NAME.toLowerCase) => Some(ITEM_TYPE_PROJECT)
     case t if t.equalsIgnoreCase(ITEM_TYPE_CHALLENGE_NAME.toLowerCase) => Some(ITEM_TYPE_CHALLENGE)
@@ -92,6 +132,12 @@ object Actions {
     case _ => None
   }
 
+  /**
+    * Based on an id will return the action name that the id matches, None otherwise
+    *
+    * @param action The id to match against
+    * @return Option[String] if found, None otherwise.
+    */
   def getActionName(action:Int) : Option[String] = action match {
     case ACTION_TYPE_UPDATED => Some(ACTION_TYPE_UPDATED_NAME)
     case ACTION_TYPE_CREATED => Some(ACTION_TYPE_CREATED_NAME)
@@ -103,6 +149,12 @@ object Actions {
     case _ => None
   }
 
+  /**
+    * Based on a string will return the action id that it matches, None otherwise
+    *
+    * @param action The string to match against
+    * @return Option[Int] if found, None otherwise.
+    */
   def getActionID(action:String) : Option[Int] = action.toLowerCase match {
     case t if t.equalsIgnoreCase(ACTION_TYPE_UPDATED_NAME.toLowerCase) => Some(ACTION_TYPE_UPDATED)
     case t if t.equalsIgnoreCase(ACTION_TYPE_CREATED_NAME.toLowerCase) => Some(ACTION_TYPE_CREATED)

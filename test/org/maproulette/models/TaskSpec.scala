@@ -49,7 +49,7 @@ class TaskSpec extends Specification {
 
     "delete tasks object in database" in new WithApplication {
       implicit val ids = List(taskID)
-      TaskDAL.delete
+      TaskDAL.deleteFromIdList
       TaskDAL.retrieveById mustEqual None
     }
   }

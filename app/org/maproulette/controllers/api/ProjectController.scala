@@ -10,16 +10,35 @@ import play.api.libs.json._
 import play.api.mvc.Action
 
 /**
+  * The project controller handles all operations for the Project objects.
+  * This includes CRUD operations and searching/listing.
+  * See {@link org.maproulette.controllers.ParentController} for more details on parent object operations
+  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  *
   * @author cuthbertm
   */
 class ProjectController @Inject() (override val childController:ChallengeController) extends ParentController[Project, Challenge] {
+  // data access layer for projects
   override protected val dal = ProjectDAL
+  // json reads for automatically reading Projects from a posted json body
   override implicit val tReads: Reads[Project] = Project.projectReads
+  // json writes for automatically writing Projects to a json body response
   override implicit val tWrites: Writes[Project] = Project.projectWrites
+  // json writes for automatically writing Challenges to a json body response
   override protected val cWrites: Writes[Challenge] = Challenge.challengeWrites
+  // json reads for automatically reading Challenges from a posted json body
   override protected val cReads: Reads[Challenge] = Challenge.challengeReads
+  // The type of object that this controller deals with.
   override implicit val itemType = ProjectType()
 
+  /**
+    * Gets a random task that is an descendant of the project.
+    *
+    * @param projectId The project id, ie. the ancestor of the child.
+    * @param tags A comma separated list of tags that optionally can be used to further filter the tasks
+    * @param limit Limit of how many tasks should be returned
+    * @return A list of Tasks that match the supplied filters
+    */
   def getRandomTasks(projectId: Long,
                      tags: String,
                      limit:Int) = Action.async { implicit request =>

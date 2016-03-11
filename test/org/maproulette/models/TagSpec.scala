@@ -47,7 +47,7 @@ class TagSpec extends Specification {
 
     "delete tag object in database" in new WithApplication {
       implicit val ids = List(tagID)
-      TagDAL.delete
+      TagDAL.deleteFromIdList
       TagDAL.retrieveById mustEqual None
     }
 

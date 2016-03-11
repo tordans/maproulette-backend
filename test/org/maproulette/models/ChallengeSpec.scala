@@ -48,7 +48,7 @@ class ChallengeSpec extends Specification {
 
     "delete challenge object in database" in new WithApplication {
       implicit val ids = List(challengeID)
-      ChallengeDAL.delete
+      ChallengeDAL.deleteFromIdList
       ChallengeDAL.retrieveById mustEqual None
     }
   }

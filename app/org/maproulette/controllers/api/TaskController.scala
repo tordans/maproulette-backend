@@ -14,13 +14,22 @@ import play.api.libs.json._
 import play.api.mvc.Action
 
 /**
+  * The Task controller handles all operations for the Task objects.
+  * This includes CRUD operations and searching/listing.
+  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  *
   * @author cuthbertm
   */
 class TaskController @Inject() extends CRUDController[Task] {
+  // data access layer for tasks
   override protected val dal = TaskDAL
+  // json reads for automatically reading Tasks from a posted json body
   override implicit val tReads: Reads[Task] = Task.taskReads
+  // json writes for automatically writing Tasks to a json body response
   override implicit val tWrites: Writes[Task] = Task.taskWrites
+  // The type of object that this controller deals with.
   override implicit val itemType = TaskType()
+  // json reads for automatically reading Tags from a posted json body
   implicit val tagReads: Reads[Tag] = Tag.tagReads
 
   /**
@@ -33,6 +42,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     *
     * @param body          The Json body of data
     * @param createdObject The Task that was created by the create function
+    * @param userId the user executing the request
     */
   override def extractAndCreate(body: JsValue, createdObject: Task, userId:Long): Unit = {
     val tagIds: List[Long] = body \ "tags" match {
@@ -73,12 +83,26 @@ class TaskController @Inject() extends CRUDController[Task] {
     }
   }
 
+  /**
+    * Gets a json list of tags of the task
+    *
+    * @param id The id of the task containing the tags
+    * @return The html Result containing json array of tags
+    */
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
     SessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
     }
   }
 
+  /**
+    * Gets tasks based on tags, this is regardless of the project or challenge parents.
+    *
+    * @param tags A comma separated list of tags to match against
+    * @param limit The number of tasks to return
+    * @param offset The paging offset, incrementing will take you to the next set in the list
+    * @return The html Result containing a json array of the found tasks
+    */
   def getTasksBasedOnTags(tags: String, limit: Int, offset: Int) = Action.async { implicit request =>
     SessionManager.userAwareRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
@@ -89,6 +113,13 @@ class TaskController @Inject() extends CRUDController[Task] {
     }
   }
 
+  /**
+    * Gets a random task(s) given the provided tags.
+    *
+    * @param tags A comma separated list of tags to match against
+    * @param limit The number of tasks to return
+    * @return
+    */
   def getRandomTasks(tags: String,
                      limit: Int) = Action.async { implicit request =>
     SessionManager.userAwareRequest { implicit user =>
@@ -98,6 +129,14 @@ class TaskController @Inject() extends CRUDController[Task] {
     }
   }
 
+  /**
+    * Deletes tags from a given task.
+    * Must be authenticated to perform operation
+    *
+    * @param id The id of the task
+    * @param tags A comma separated list of tags to delete
+    * @return
+    */
   def deleteTagsFromTask(id: Long, tags: String) = Action.async { implicit request =>
     SessionManager.authenticatedRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
@@ -115,11 +154,56 @@ class TaskController @Inject() extends CRUDController[Task] {
     }
   }
 
+  /**
+    * Sets the task status to Deleted, this is a case where a task is deleted by the project admin,
+    * or user within the admin group for that project. The task will not be deleted in the
+    * database but flagged and then ignored. It will continue to be used for statistics.
+    * Must be authenticated to perform operation
+    *
+    * @param id The id of the task
+    * @return See {@link this#setTaskStatus} for information
+    */
   def setTaskStatusDeleted(id: Long) = setTaskStatus(id, Task.STATUS_DELETED)
-  def setTaskStatusFalsePositive(id: Long) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
-  def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
-  def setTaskStatisSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
 
+  /**
+    * Sets the task status to false positive, this is the case where the task is incorrect in
+    * stating that a problem exists. Ie. the task really isn't a task
+    * Must be authenticated to perform operation
+    *
+    * @param id the id of the task
+    * @return See {@link this#setTaskStatus} for information
+    */
+  def setTaskStatusFalsePositive(id: Long) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
+
+  /**
+    * Sets the task to fixed, this is the case where the user fixed the data in OSM.
+    * Must be authenticated to perform operation
+    *
+    * @param id the id of the task
+    * @return See {@link this#setTaskStatus} for information
+    */
+  def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
+
+  /**
+    * Sets the task to skipped, this is the case where a user either doesn't know how to fix the
+    * issue or doesn't want to fix it.
+    * Must be authenticated to perform operation
+    *
+    * @param id the id of the task
+    * @return See {@link this#setTaskStatus} for information
+    */
+  def setTaskStatusSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
+
+  /**
+    * This is the generic function that is leveraged by all the specific functions above. So it
+    * sets the task status to the specific status ID's provided by those functions.
+    * Must be authenticated to perform operation
+    *
+    * @param id The id of the task
+    * @param status The status id to set the task's status to
+    * @return 400 BadRequest if status id is invalid or task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
   private def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
     SessionManager.authenticatedRequest { implicit user =>
       if (status < Task.STATUS_CREATED || status > Task.STATUS_DELETED) {

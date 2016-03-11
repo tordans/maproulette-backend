@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS users
   api_key character varying,
   oauth_token character varying NOT NULL,
   oauth_secret character varying NOT NULL,
-  theme character varying DEFAULT('skin-blue')
+  theme character varying DEFAULT('skin-blue'),
   CONSTRAINT users_pkey PRIMARY KEY(id)
 );
 

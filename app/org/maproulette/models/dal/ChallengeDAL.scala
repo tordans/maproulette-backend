@@ -9,15 +9,27 @@ import play.api.libs.json.JsValue
 import play.api.Play.current
 
 /**
+  * The challenge data access layer handles all calls for challenges going to the database. Most
+  * worked is delegated to the ParentDAL and BaseDAL, but a couple of specific function like
+  * insert and update found here.
+  *
   * @author cuthbertm
   */
 object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
+  // The manager for the challenge cache
   override val cacheManager = new CacheManager[Long, Challenge]
+  // The name of the challenge table
   override val tableName: String = "challenges"
+  // The name of the table for it's children Tasks
   override val childTable: String = "tasks"
+  // The row parser for it's children defined in the TaskDAL
   override val childParser = TaskDAL.parser
   override val childColumns: String = TaskDAL.retrieveColumns
 
+  /**
+    * The row parser for Anorm to enable the object to be read from the retrieved row directly
+    * to the Challenge object.
+    */
   override val parser: RowParser[Challenge] = {
     get[Long]("challenges.id") ~
       get[String]("challenges.name") ~
@@ -32,6 +44,13 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
     }
   }
 
+  /**
+    * Inserts a new Challenge object into the database. It will also place it in the cache after
+    * inserting the object.
+    *
+    * @param challenge The challenge to insert into the database
+    * @return The object that was inserted into the database. This will include the newly created id
+    */
   override def insert(challenge: Challenge): Challenge = {
     cacheManager.withOptionCaching { () =>
       DB.withTransaction { implicit c =>
@@ -43,16 +62,24 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
     }.get
   }
 
-  override def update(tag:JsValue)(implicit id:Long): Option[Challenge] = {
+  /**
+    * Updates a challenge. Uses the updatingCache so will first retrieve the object and make sure
+    * to update only values supplied by the json. After updated will update the cache as well
+    *
+    * @param updates The updates in json format
+    * @param id The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  override def update(updates:JsValue)(implicit id:Long): Option[Challenge] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       DB.withTransaction { implicit c =>
-        val identifier = (tag \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
-        val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
-        val parentId = (tag \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-        val difficulty = (tag \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
-        val description =(tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
-        val blurb = (tag \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
-        val instruction =(tag \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+        val identifier = (updates \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
+        val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
+        val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+        val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
+        val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
+        val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
+        val instruction =(updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
         val updatedChallenge = Challenge(id, name, Some(identifier), parentId,
           Some(difficulty), Some(description), Some(blurb), Some(instruction))
 

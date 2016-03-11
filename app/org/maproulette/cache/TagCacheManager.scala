@@ -11,7 +11,8 @@ import play.api.Play.current
 /**
   * This is not currently a real cache manager, it will just store elements that have been loaded into memory.
   * Using this too much will most likely end up in OutOfMemory exceptions, so this needs to be readdressed
-  * prior to a live version of this service
+  * prior to a live version of this service. The CacheStorage is the area that you would be required
+  * to be modified.
   *
   * @author cuthbertm
   */
