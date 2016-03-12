@@ -1,0 +1,71 @@
+package org.maproulette.controllers.api
+
+import javax.inject.Inject
+
+import org.maproulette.actions.TagType
+import org.maproulette.controllers.CRUDController
+import org.maproulette.models.Tag
+import org.maproulette.models.dal.{BaseDAL, TagDAL}
+import org.maproulette.session.SessionManager
+import org.maproulette.utils.Utils
+import play.api.libs.json._
+import play.api.mvc.Action
+
+/**
+  * The Tag controller handles all operations for the Challenge objects.
+  * This includes CRUD operations and searching/listing.
+  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  *
+  * @author cuthbertm
+  */
+class TagController @Inject() extends CRUDController[Tag] {
+  // data access layer for tags
+  override protected val dal: BaseDAL[Long, Tag] = TagDAL
+  // json reads for automatically reading Tags from a posted json body
+  override implicit val tReads: Reads[Tag] = Tag.tagReads
+  // json writes for automatically writing Tags to a json body response
+  override implicit val tWrites: Writes[Tag] = Tag.tagWrites
+  // The type of object that this controller deals with.
+  override implicit val itemType = TagType()
+
+  /**
+    * Gets the tags based on a prefix. So if you are looking for all tags that begin with
+    * "road_", then set the prefix to "road_"
+    *
+    * @param prefix The prefix for the tags
+    * @param limit The limit on how many tags to be returned
+    * @param offset This is used for page offsets, so if you limit 10 tags and have offset 0, then
+    *               changing to offset 1 will return the next set of 10 tags.
+    * @return
+    */
+  def getTags(prefix:String, limit:Int, offset:Int) = Action.async { implicit request =>
+    SessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(TagDAL.retrieveListByPrefix(prefix, limit, offset)))
+    }
+  }
+
+  /**
+    * Function is primarily called from CRUDController, which is used to handle the actual creation
+    * of the tags. The function it overrides does it in a very generic way, so this function is
+    * specifically written so that it will update the tags correctly. Specifically tags have to be
+    * matched on ids and names, instead of just ids.
+    *
+    * @param requestBody This is the posted request body in json format.
+    * @param arr The list of Tag objects supplied in the json array from the request body
+    * @param update If an item is found then update it, if parameter set to true, otherwise we skip.
+    * @param userId The id of the user that is executing the request
+    */
+  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], update: Boolean, userId:Long): Unit = {
+    val tagList = arr.flatMap(element => (element \ "id").asOpt[Long] match {
+      case Some(itemID) => if (update) element.validate[Tag].fold(
+        errors => None,
+        value => Some(value)
+      ) else None
+      case None => Utils.insertJsonID(element).validate[Tag].fold(
+        errors => None,
+        value => Some(value)
+      )
+    })
+    TagDAL.updateTagList(tagList)
+  }
+}

@@ -1,0 +1,21 @@
+@()
+@import org.maproulette.Config
+@minified() = {@{(Config.isDebugMode match { case true => "-src"; case false => "" })}}
+<link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.css"))" />
+<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"leaflet${minified()}.js"))"></script>
+<script src="@routes.WebJarAssets.at(WebJarAssets.locate("toastr.js"))"></script>
+<script src="@routes.Assets.at("../assets/javascripts/maproulette.js")"></script>
+
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        <small>Well you gotta ask yourself one question. Do you feel lucky?</small>
+        Well, do ya? PUNK!
+    </h1>
+</section>
+
+    <!-- Main content -->
+<section class="content">
+    <!-- Your Page Content Here -->
+    <!--div id="map"></div-->
+</section><!-- /.content -->
