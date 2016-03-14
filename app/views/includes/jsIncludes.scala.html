@@ -1,7 +1,6 @@
-@import org.maproulette.Config
 @import org.maproulette.session.User
-@(user:User)(implicit req: play.api.mvc.RequestHeader)
-@minified() = {@{Config.isDebugMode match { case true => ""; case false => ".min" }}}
+@(user:User, debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader)
+@minified() = {@{debugMode match { case true => ""; case false => ".min" }}}
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]-->

@@ -1,13 +1,14 @@
 package org.maproulette.models.dal
 
+import javax.inject.{Inject, Singleton}
+
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.InvalidException
-import play.api.db.DB
+import play.api.db.Database
 import play.api.libs.json._
-import play.api.Play.current
 
 import scala.collection.mutable.ListBuffer
 
@@ -16,7 +17,8 @@ import scala.collection.mutable.ListBuffer
   *
   * @author cuthbertm
   */
-object TaskDAL extends BaseDAL[Long, Task] {
+@Singleton
+class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseDAL[Long, Task] {
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
   // The database table name for the tasks
@@ -49,7 +51,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     */
   override def insert(task:Task) : Task = {
     cacheManager.withOptionCaching { () =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         // status is ignored on insert and always set to CREATED
         val newTaskId = SQL"""INSERT INTO tasks (name, identifier, parent_id, location, instruction, status)
                      VALUES (${task.name}, ${task.identifier}, ${task.parent},
@@ -71,7 +73,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     */
   override def update(value:JsValue)(implicit id:Long): Option[Task] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
         val identifier = (value \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -102,7 +104,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     */
   def updateTaskTags(taskId:Long, tags:List[Long]) : Unit = {
     if (tags.nonEmpty) {
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val indexedValues = tags.zipWithIndex
         val rows = indexedValues.map{ case (value, i) =>
           s"({taskid_$i}, {tagid_$i})"
@@ -130,7 +132,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     */
   def deleteTaskTags(taskId:Long, tags:List[Long]) : Unit = {
     if (tags.nonEmpty) {
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_tasks WHERE task_id = {$taskId} AND tag_id IN ($tags)""".execute()
       }
     }
@@ -146,7 +148,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
   def deleteTaskStringTags(taskId:Long, tags:List[String]) : Unit = {
     if (tags.nonEmpty) {
       val lowerTags = tags.map(_.toLowerCase)
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_tasks tt USING tags t
               WHERE tt.tag_id = t.id AND
                     tt.task_id = $taskId AND
@@ -164,9 +166,9 @@ object TaskDAL extends BaseDAL[Long, Task] {
     */
   def updateTaskTagNames(taskId:Long, tags:List[String]) : Unit = {
     val tagIds = tags.flatMap { tag => {
-      TagDAL.retrieveByName(tag) match {
+      tagDAL.retrieveByName(tag) match {
         case Some(t) => Some(t.id)
-        case None => Some(TagDAL.insert(Tag(-1, tag)).id)
+        case None => Some(tagDAL.insert(Tag(-1, tag)).id)
       }
     }}
     updateTaskTags(taskId, tagIds)
@@ -182,7 +184,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     */
   def getTasksBasedOnTags(tags:List[String], limit:Int, offset:Int) : List[Task] = {
     val lowerTags = tags.map(_.toLowerCase)
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit+""
       val query = s"SELECT $retrieveColumns FROM tasks " +
         "INNER JOIN tags_on_tasks tt ON tasks.id = tt.task_id " +
@@ -211,7 +213,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
     if (tags.isEmpty) {
       getRandomTasksInt(projectId, challengeId, List(), limit)
     } else {
-      val idList = TagDAL.retrieveListByName(tags.map(_.toLowerCase)).map(_.id)
+      val idList = tagDAL.retrieveListByName(tags.map(_.toLowerCase)).map(_.id)
       getRandomTasksInt(projectId, challengeId, idList, limit)
     }
   }
@@ -277,7 +279,7 @@ object TaskDAL extends BaseDAL[Long, Task] {
 
     implicit val ids = List[Long]()
     cacheManager.withIDListCaching { implicit cachedItems =>
-      DB.withConnection { implicit c =>
+      db.withConnection { implicit c =>
         if (parameters.nonEmpty) {
           SQL(query).on(parameters:_*).as(parser.*)
         } else {

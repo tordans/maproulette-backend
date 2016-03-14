@@ -20,9 +20,12 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
-class TaskController @Inject() extends CRUDController[Task] {
-  // data access layer for tasks
-  override protected val dal = TaskDAL
+class TaskController @Inject() (override val sessionManager: SessionManager,
+                                override val actionManager: ActionManager,
+                                override val dal:TaskDAL,
+                                tagDAL: TagDAL)
+  extends CRUDController[Task] {
+
   // json reads for automatically reading Tasks from a posted json body
   override implicit val tReads: Reads[Task] = Task.taskReads
   // json writes for automatically writing Tasks to a json body response
@@ -55,9 +58,9 @@ class TaskController @Inject() extends CRUDController[Task] {
             case e: NumberFormatException =>
               // this is the case where a name is supplied, so we will either search for a tag with
               // the same name or create a new tag with the current name
-              TagDAL.retrieveByName(tag) match {
+              dal.retrieveByName(tag) match {
                 case Some(t) => Some(t.id)
-                case None => Some(TagDAL.insert(Tag(-1, tag)).id)
+                case None => Some(tagDAL.insert(Tag(-1, tag)).id)
               }
           }
         })
@@ -77,9 +80,9 @@ class TaskController @Inject() extends CRUDController[Task] {
     }
 
     // now we have the ids for the supplied tags, then lets map them to the task created
-    TaskDAL.updateTaskTags(createdObject.id, tagIds)
+    dal.updateTaskTags(createdObject.id, tagIds)
     if (tagIds.nonEmpty) {
-      ActionManager.setAction(userId, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+      actionManager.setAction(userId, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
   }
 
@@ -90,7 +93,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     * @return The html Result containing json array of tags
     */
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
     }
   }
@@ -104,7 +107,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     * @return The html Result containing a json array of the found tasks
     */
   def getTasksBasedOnTags(tags: String, limit: Int, offset: Int) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
@@ -122,9 +125,9 @@ class TaskController @Inject() extends CRUDController[Task] {
     */
   def getRandomTasks(tags: String,
                      limit: Int) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       val result = dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)
-      result.foreach(task => ActionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
+      result.foreach(task => actionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }
@@ -138,15 +141,15 @@ class TaskController @Inject() extends CRUDController[Task] {
     * @return
     */
   def deleteTagsFromTask(id: Long, tags: String) = Action.async { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
         MPExceptionUtil.internalExceptionCatcher { () =>
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
-            TaskDAL.deleteTaskStringTags(id, tagList)
-            ActionManager.setAction(user.id, itemType.convertToItem(id), TagRemoved(), tags)
+            dal.deleteTaskStringTags(id, tagList)
+            actionManager.setAction(user.id, itemType.convertToItem(id), TagRemoved(), tags)
           }
           NoContent
         }
@@ -161,7 +164,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     * Must be authenticated to perform operation
     *
     * @param id The id of the task
-    * @return See {@link this#setTaskStatus} for information
+    * @return See {@see this#setTaskStatus} for information
     */
   def setTaskStatusDeleted(id: Long) = setTaskStatus(id, Task.STATUS_DELETED)
 
@@ -171,7 +174,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     * Must be authenticated to perform operation
     *
     * @param id the id of the task
-    * @return See {@link this#setTaskStatus} for information
+    * @return See {@see this#setTaskStatus} for information
     */
   def setTaskStatusFalsePositive(id: Long) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
 
@@ -180,7 +183,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     * Must be authenticated to perform operation
     *
     * @param id the id of the task
-    * @return See {@link this#setTaskStatus} for information
+    * @return See {@see this#setTaskStatus} for information
     */
   def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
 
@@ -190,7 +193,7 @@ class TaskController @Inject() extends CRUDController[Task] {
     * Must be authenticated to perform operation
     *
     * @param id the id of the task
-    * @return See {@link this#setTaskStatus} for information
+    * @return See {@see this#setTaskStatus} for information
     */
   def setTaskStatusSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
 
@@ -205,15 +208,15 @@ class TaskController @Inject() extends CRUDController[Task] {
     *         If successful then 200 NoContent
     */
   private def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       if (status < Task.STATUS_CREATED || status > Task.STATUS_DELETED) {
         Utils.badRequest(s"Invalid status [$status] provided.")
       } else {
         MPExceptionUtil.internalExceptionCatcher { () =>
           val statusUpdateJson = Json.obj("status" -> status)
-          TaskDAL.update(statusUpdateJson)(id) match {
+          dal.update(statusUpdateJson)(id) match {
             case Some(resp) =>
-              ActionManager.setAction(user.id, itemType.convertToItem(id), TaskStatusSet(status), "")
+              actionManager.setAction(user.id, itemType.convertToItem(id), TaskStatusSet(status), "")
               NoContent
             case None => Utils.badRequest(s"Task with id [$id] not found to have status updated.")
           }

@@ -1,6 +1,5 @@
-@()
-@import org.maproulette.Config
-@minified() = {@{(Config.isDebugMode match { case true => "-src"; case false => "" })}}
+@(debugMode:Boolean)
+@minified() = {@{(debugMode match { case true => "-src"; case false => "" })}}
 <link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.css"))" />
 <link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("toastr.css"))"/>
 <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"leaflet${minified()}.js"))"/>

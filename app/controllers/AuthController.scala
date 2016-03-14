@@ -11,7 +11,7 @@ import scala.util.{Failure, Success}
   *
   * @author cuthbertm
   */
-class AuthController @Inject() extends Controller {
+class AuthController @Inject() (sessionManager:SessionManager) extends Controller {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -23,7 +23,7 @@ class AuthController @Inject() extends Controller {
   def authenticate() = Action.async { implicit request =>
     val p = Promise[Result]
     request.getQueryString("oauth_verifier").map { verifier =>
-      SessionManager.retrieveUser(verifier) onComplete {
+      sessionManager.retrieveUser(verifier) onComplete {
         case Success(user) =>
           // We received the authorized tokens in the OAuth object - store it before we proceed
           p success Redirect(routes.Application.index())
@@ -35,10 +35,10 @@ class AuthController @Inject() extends Controller {
         case Failure(e) => p failure e
       }
     }.getOrElse(
-      SessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL()) match {
+      sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL()) match {
         case Right(t) => {
           // We received the unauthorized tokens in the OAuth object - store it before we proceed
-          p success Redirect(SessionManager.redirectUrl(t.token)).withSession("token" -> t.token, "secret" -> t.secret)
+          p success Redirect(sessionManager.redirectUrl(t.token)).withSession("token" -> t.token, "secret" -> t.secret)
         }
         case Left(e) => p failure e
       })
@@ -63,7 +63,7 @@ class AuthController @Inject() extends Controller {
     *         found, or will return the api key as plain text.
     */
   def generateAPIKey() = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       user match {
         case Some(u) => u.generateAPIKey.apiKey match {
           case Some(api) => Ok(api)

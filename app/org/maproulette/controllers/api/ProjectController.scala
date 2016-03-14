@@ -17,9 +17,13 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
-class ProjectController @Inject() (override val childController:ChallengeController) extends ParentController[Project, Challenge] {
-  // data access layer for projects
-  override protected val dal = ProjectDAL
+class ProjectController @Inject() (override val childController:ChallengeController,
+                                   override val sessionManager:SessionManager,
+                                   override val actionManager: ActionManager,
+                                   override val dal:ProjectDAL,
+                                   taskDAL: TaskDAL)
+  extends ParentController[Project, Challenge] {
+
   // json reads for automatically reading Projects from a posted json body
   override implicit val tReads: Reads[Project] = Project.projectReads
   // json writes for automatically writing Projects to a json body response
@@ -42,9 +46,9 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   def getRandomTasks(projectId: Long,
                      tags: String,
                      limit:Int) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
-      val result = TaskDAL.getRandomTasksStr(Some(projectId), None, tags.split(",").toList, limit)
-      result.foreach(task => ActionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
+    sessionManager.userAwareRequest { implicit user =>
+      val result = taskDAL.getRandomTasksStr(Some(projectId), None, tags.split(",").toList, limit)
+      result.foreach(task => actionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }

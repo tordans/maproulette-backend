@@ -1,12 +1,14 @@
 package org.maproulette.session.dal
 
+import javax.inject.Inject
+import javax.inject.Singleton
+
 import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.session.{Location, OSMProfile, User}
-import play.api.db.DB
-import play.api.Play.current
+import play.api.db.Database
 import org.maproulette.cache.CacheManager
 import play.api.libs.json.JsValue
 import play.api.libs.oauth.RequestToken
@@ -18,7 +20,8 @@ import play.api.libs.oauth.RequestToken
   *
   * @author cuthbertm
   */
-object UserDAL {
+@Singleton
+class UserDAL @Inject() (db:Database) {
 
   import org.maproulette.utils.AnormExtension._
 
@@ -56,7 +59,7 @@ object UserDAL {
     * @return The matched user, None if User not found
     */
   def findByID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE id = $id""".as(parser.*).headOption
     }
   }
@@ -69,7 +72,7 @@ object UserDAL {
     * @return The matched user, None if User not found
     */
   def findByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE osm_id = $id""".as(parser.*).headOption
     }
   }
@@ -82,7 +85,7 @@ object UserDAL {
     * @return The matched user, None if User not found
     */
   def findByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE id = $id AND api_key = ${apiKey}""".as(parser.*).headOption
     }
   }
@@ -97,7 +100,7 @@ object UserDAL {
   def matchByRequestTokenAndId(id: Long, requestToken: RequestToken): Option[User] = {
     implicit val userId = id
     val user = cacheManager.withOptionCaching { () =>
-      DB.withConnection { implicit c =>
+      db.withConnection { implicit c =>
         SQL"""SELECT * FROM users WHERE id = $id AND oauth_token = ${requestToken.token}
              AND oauth_secret = ${requestToken.secret}""".as(parser.*).headOption
       }
@@ -122,7 +125,7 @@ object UserDAL {
     * @return The matched user, None if User not found
     */
   def matchByRequestToken(requestToken: RequestToken): Option[User] = {
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE oauth_token = ${requestToken.token}
            AND oauth_secret = ${requestToken.secret}""".as(parser.*).headOption
     }
@@ -137,7 +140,7 @@ object UserDAL {
     * @return None if failed to update or create.
     */
   def upsert(user: User): Option[User] = cacheManager.withOptionCaching { () =>
-    DB.withTransaction { implicit c =>
+    db.withTransaction { implicit c =>
       SQL"""WITH upsert AS (UPDATE users SET osm_id = ${user.osmProfile.id}, osm_created = ${user.osmProfile.created},
                               display_name = ${user.osmProfile.displayName}, description = ${user.osmProfile.description},
                               avatar_url = ${user.osmProfile.avatarURL},
@@ -166,7 +169,7 @@ object UserDAL {
     */
   def update(value:JsValue)(implicit id:Long): Option[User] = {
     cacheManager.withUpdatingCache(Long => findByID) { implicit cachedItem =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse(""))
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
@@ -191,7 +194,7 @@ object UserDAL {
   def delete(implicit id: Long) : Int = {
     implicit val ids = List(id)
     cacheManager.withCacheIDDeletion { () =>
-      DB.withConnection { implicit c =>
+      db.withConnection { implicit c =>
         SQL"""DELETE FROM users WHERE id = $id""".executeUpdate()
       }
     }
@@ -200,7 +203,7 @@ object UserDAL {
   def deleteByOsmID(implicit osmId:Long) : Int = {
     implicit val ids = List(osmId)
     cacheManager.withCacheIDDeletion { () =>
-      DB.withConnection { implicit c =>
+      db.withConnection { implicit c =>
         SQL"""DELETE FROM users WHERE osm_id = $osmId""".executeUpdate()
       }
     }

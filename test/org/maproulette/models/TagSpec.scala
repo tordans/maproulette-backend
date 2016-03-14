@@ -1,5 +1,7 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import org.junit.runner._
 import org.maproulette.models.dal.TagDAL
 import org.specs2.mutable._
@@ -11,7 +13,7 @@ import play.api.libs.json._
   * @author cuthbertm
   */
 @RunWith(classOf[JUnitRunner])
-class TagSpec extends Specification {
+class TagSpec @Inject() (tagDAL: TagDAL) extends Specification {
   implicit var tagID:Long = -1
 
   sequential
@@ -19,8 +21,8 @@ class TagSpec extends Specification {
   "Tags" should {
     "write tag object to database" in new WithApplication {
       val newTag = Tag(tagID, "NewTag", Some("This is a newTag"))
-      tagID = TagDAL.insert(newTag).id
-      TagDAL.retrieveById match {
+      tagID = tagDAL.insert(newTag).id
+      tagDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newTag.name.toLowerCase
           t.description mustEqual newTag.description
@@ -31,11 +33,11 @@ class TagSpec extends Specification {
     }
 
     "update tag object to database" in new WithApplication {
-      TagDAL.update(Json.parse(
+      tagDAL.update(Json.parse(
         """{
           "name":"updatedTag"
         }""".stripMargin))(tagID)
-      TagDAL.retrieveById match {
+      tagDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "updatedtag"
           t.id mustEqual tagID
@@ -47,17 +49,17 @@ class TagSpec extends Specification {
 
     "delete tag object in database" in new WithApplication {
       implicit val ids = List(tagID)
-      TagDAL.deleteFromIdList
-      TagDAL.retrieveById mustEqual None
+      tagDAL.deleteFromIdList
+      tagDAL.retrieveById mustEqual None
     }
 
     "delete multiple tag objects from database based on name" in new WithApplication {
-      TagDAL.insert(Tag(-1, "tag1"))
-      TagDAL.insert(Tag(-1, "tag2"))
-      TagDAL.insert(Tag(-1, "tag3"))
-      TagDAL.deleteFromStringList(List("tag1", "tag2")) mustEqual 2
-      TagDAL.retrieveByName("tag1") mustEqual None
-      TagDAL.retrieveByName("tag2") mustEqual None
+      tagDAL.insert(Tag(-1, "tag1"))
+      tagDAL.insert(Tag(-1, "tag2"))
+      tagDAL.insert(Tag(-1, "tag3"))
+      tagDAL.deleteFromStringList(List("tag1", "tag2")) mustEqual 2
+      tagDAL.retrieveByName("tag1") mustEqual None
+      tagDAL.retrieveByName("tag2") mustEqual None
       //TagDAL.retrieve("tag3") mustEqual Some(_)
     }
   }

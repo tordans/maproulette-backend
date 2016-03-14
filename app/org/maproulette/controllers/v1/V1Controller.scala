@@ -11,7 +11,7 @@ import play.api.mvc.{Action, BodyParsers, Controller}
 /**
   * @author cuthbertm
   */
-class V1Controller @Inject() extends Controller {
+class V1Controller @Inject() (sessionManager: SessionManager, challengeDAL: ChallengeDAL) extends Controller {
 
   def getStatusOfTasks(challenge:String) = Action { implicit request =>
     NoContent
@@ -49,17 +49,17 @@ class V1Controller @Inject() extends Controller {
   }
 
   def getChallenge(implicit challenge:String) = Action { implicit request =>
-    ChallengeDAL.retrieveByIdentifier match {
+    challengeDAL.retrieveByIdentifier match {
       case Some(obj) => NoContent
       case None => NoContent
     }
   }
 
   def getChallengeSummary(implicit challenge:String) = Action.async { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
-      ChallengeDAL.retrieveByIdentifier match {
+    sessionManager.authenticatedRequest { implicit user =>
+      challengeDAL.retrieveByIdentifier match {
         case Some(obj) =>
-          val summaryMap = ChallengeDAL.getSummary(obj.id)
+          val summaryMap = challengeDAL.getSummary(obj.id)
           val total = summaryMap.foldLeft(0)(_+_._2)
           val available = summaryMap.foldLeft(0)((total,element) =>
             if (element == Task.STATUS_CREATED || element == Task.STATUS_SKIPPED) total + element._2 else total

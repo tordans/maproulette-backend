@@ -1,6 +1,5 @@
-@import org.maproulette.Config
-@()(implicit req: play.api.mvc.RequestHeader)
-@minified() = {@{Config.isDebugMode match { case true => ""; case false => ".min" }}}
+@(debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader)
+@minified() = {@{debugMode match { case true => ""; case false => ".min" }}}
 <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
     <!-- Latest compiled and minified CSS -->
 <link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate(s"css/bootstrap${minified()}.css"))"/>

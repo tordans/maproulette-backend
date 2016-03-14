@@ -109,7 +109,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @return 201 Created with no content
     */
   def createChildren(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       dal.retrieveById match {
         case Some(parent) =>
           extractAndCreate(Json.obj("children" -> request.body), parent, user.id)
@@ -143,7 +143,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     */
   def listChildren(id:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     implicit val writes:Writes[C] = cWrites
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(dal.listChildren(limit, offset)(id)))
     }
   }
@@ -161,7 +161,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     */
   def expandedList(id:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     implicit val writes:Writes[C] = cWrites
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       // first get the parent
       val parent = Json.toJson(dal.retrieveById(id))
       // now list the children

@@ -1,6 +1,7 @@
 package org.maproulette.session
 
 import java.util.UUID
+import javax.inject.Inject
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.models.BaseObject
@@ -57,7 +58,7 @@ case class OSMProfile(id:Long,
   * @param apiKey The current api key to validate requests
   * @param guest Whether this is a guest account or not.
   */
-case class User(override val id:Long,
+case class User (override val id:Long,
                 created:DateTime,
                 modified:DateTime,
                 theme:String,
@@ -74,8 +75,9 @@ case class User(override val id:Long,
     * Generate (or regenerate) api key for the user, set it in the database
     */
   def generateAPIKey : User = {
+    @Inject() val userDAL:UserDAL = null
     val newAPIKey = Crypto.encryptAES(id + "|" + UUID.randomUUID())
-    UserDAL.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""))(id)
+    userDAL.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""))(id)
     this.copy(apiKey = Some(newAPIKey))
   }
 }

@@ -1,19 +1,23 @@
 package org.maproulette.models.dal
 
+import javax.inject.{Inject, Singleton}
+
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Challenge, Project}
-import play.api.db.DB
+import play.api.db.Database
 import play.api.libs.json.JsValue
-import play.api.Play.current
 
 /**
   * Specific functions for the project data access layer
   *
   * @author cuthbertm
   */
-object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
+@Singleton
+class ProjectDAL @Inject() (override val db:Database, val childDAL:ChallengeDAL)
+  extends ParentDAL[Long, Project, Challenge] {
+
   // manager for the cache of the projects
   override val cacheManager = new CacheManager[Long, Project]
   // table name for projects
@@ -21,7 +25,7 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
   // table name for project children, challenges
   override val childTable: String = "challenges"
   // anorm row parser for child as defined by the challenge data access layer
-  override val childParser = ChallengeDAL.parser
+  override val childParser = childDAL.parser
 
   // The anorm row parser for the Project to map database records directly to Project objects
   override val parser: RowParser[Project] = {
@@ -41,7 +45,7 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
     */
   override def insert(project: Project): Project = {
     cacheManager.withOptionCaching { () =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description)
               VALUES (${project.name}, ${project.description}) RETURNING *""".as(parser.*).headOption
       }
@@ -57,7 +61,7 @@ object ProjectDAL extends ParentDAL[Long, Project, Challenge] {
     */
   override def update(updates:JsValue)(implicit id:Long): Option[Project] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedProject = Project(id, name, Some(description))

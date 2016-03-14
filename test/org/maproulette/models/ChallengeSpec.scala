@@ -1,5 +1,7 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.{ProjectDAL, ChallengeDAL}
 import org.specs2.mutable.Specification
@@ -11,17 +13,17 @@ import play.api.test.WithApplication
   * @author cuthbertm
   */
 @RunWith(classOf[JUnitRunner])
-class ChallengeSpec extends Specification {
+class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL) extends Specification {
   implicit var challengeID:Long = -1
 
   sequential
 
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
-      val projectID = ProjectDAL.insert(Project(-1, "RootProject_challengeTest")).id
+      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest")).id
       val newChallenge = Challenge(challengeID, "NewProject", None, projectID, None, Some("This is a newProject"))
-      challengeID = ChallengeDAL.insert(newChallenge).id
-      ChallengeDAL.retrieveById match {
+      challengeID = challengeDAL.insert(newChallenge).id
+      challengeDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newChallenge.name
           t.description mustEqual newChallenge.description
@@ -32,11 +34,11 @@ class ChallengeSpec extends Specification {
     }
 
     "update challenge object to database" in new WithApplication {
-      ChallengeDAL.update(Json.parse(
+      challengeDAL.update(Json.parse(
         """{
           "name":"UpdatedChallenge"
         }""".stripMargin))(challengeID)
-      ChallengeDAL.retrieveById match {
+      challengeDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "UpdatedChallenge"
           t.id mustEqual challengeID
@@ -48,8 +50,8 @@ class ChallengeSpec extends Specification {
 
     "delete challenge object in database" in new WithApplication {
       implicit val ids = List(challengeID)
-      ChallengeDAL.deleteFromIdList
-      ChallengeDAL.retrieveById mustEqual None
+      challengeDAL.deleteFromIdList
+      challengeDAL.retrieveById mustEqual None
     }
   }
 }

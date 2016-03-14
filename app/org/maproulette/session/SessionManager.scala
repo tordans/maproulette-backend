@@ -1,16 +1,18 @@
 package org.maproulette.session
 
+import javax.inject.Inject
+import javax.inject.Singleton
+
 import dal.UserDAL
 import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.exception.MPExceptionUtil
-import play.api.Logger
-import play.api.Play.current
+import play.api.{Application, Logger}
 import play.api.libs.Crypto
 import play.api.libs.oauth._
-import play.api.libs.ws.WS
+import play.api.libs.ws.WSClient
 import play.api.mvc.{Result, Request, AnyContent, RequestHeader}
 
 import scala.concurrent.{Promise, Future}
@@ -22,17 +24,18 @@ import scala.util.{Success, Failure}
   *
   * @author cuthbertm
   */
-object SessionManager {
+@Singleton
+class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
-  private val userDetailsURL = current.configuration.getString("osm.userDetails").get
-  private val requestTokenURL = current.configuration.getString("osm.requestTokenURL").get
-  private val accessTokenURL = current.configuration.getString("osm.accessTokenURL").get
-  private val authorizationURL = current.configuration.getString("osm.authorizationURL").get
+  private val userDetailsURL = application.configuration.getString("osm.userDetails").get
+  private val requestTokenURL = application.configuration.getString("osm.requestTokenURL").get
+  private val accessTokenURL = application.configuration.getString("osm.accessTokenURL").get
+  private val authorizationURL = application.configuration.getString("osm.authorizationURL").get
   // the consumer key and secret for the Map Roulette application
-  private val consumerKey = ConsumerKey(current.configuration.getString("osm.consumerKey").get,
-    current.configuration.getString("osm.consumerSecret").get)
+  private val consumerKey = ConsumerKey(application.configuration.getString("osm.consumerKey").get,
+    application.configuration.getString("osm.consumerSecret").get)
 
   // The OAuth object used to make the requests to the OpenStreetMap servers
   private val oauth = OAuth(ServiceInfo(requestTokenURL, accessTokenURL, authorizationURL, consumerKey), true)
@@ -131,7 +134,7 @@ object SessionManager {
           case Some(apiKey) =>
             try {
               val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-              UserDAL.findByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+              userDAL.findByAPIKey(apiKey)(decryptedKey(0).toLong) match {
                 case Some(user) => p success Some(user)
                 case None => p success None
               }
@@ -160,8 +163,8 @@ object SessionManager {
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        UserDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
-      case None => UserDAL.matchByRequestToken(accessToken)
+        userDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
+      case None => userDAL.matchByRequestToken(accessToken)
     }
     storedUser match {
       case Some(u) =>
@@ -190,12 +193,12 @@ object SessionManager {
   def refreshProfile(accessToken:RequestToken) : Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
-    val details = WS.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
+    val details = ws.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
           val newUser = User(detailsResponse.body, accessToken)
-          UserDAL.upsert(newUser) match {
+          userDAL.upsert(newUser) match {
             case Some(u) => p success Some(u)
             case None => p failure new OAuthNotAuthorizedException("Failed to create new user")
           }

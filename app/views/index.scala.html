@@ -1,6 +1,6 @@
 @import org.maproulette.session.User
 @import org.maproulette.Config
-@(title:String, user:User)(content:Html)(implicit req: play.api.mvc.RequestHeader)
+@(title:String, user:User, config:Config)(content:Html)(implicit req: play.api.mvc.RequestHeader)
 <!DOCTYPE html>
 <!--
 This is a starter template page. Use this page to start your new project from
@@ -13,30 +13,10 @@ scratch. This page gets rid of all links and provides the needed markup only.
         <title>@title</title>
         <!-- Tell the browser to be responsive to screen width -->
         <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
-        @views.html.includes.cssIncludes()
-        @views.html.includes.jsIncludes(user)
+        @views.html.includes.cssIncludes(config.isDebugMode)
+        @views.html.includes.jsIncludes(user, config.isDebugMode)
     <![endif]-->
     </head>
-        <!--
-  BODY TAG OPTIONS:
-  =================
-  Apply one or more of the following classes to get the
-  desired effect
-  |---------------------------------------------------------|
-  | SKINS         | skin-blue                               |
-  |               | skin-black                              |
-  |               | skin-purple                             |
-  |               | skin-yellow                             |
-  |               | skin-red                                |
-  |               | skin-green                              |
-  |---------------------------------------------------------|
-  |LAYOUT OPTIONS | fixed                                   |
-  |               | layout-boxed                            |
-  |               | layout-top-nav                          |
-  |               | sidebar-collapse                        |
-  |               | sidebar-mini                            |
-  |---------------------------------------------------------|
-  -->
     <body class="hold-transition @user.theme sidebar-mini">
         <div class="wrapper">
 
@@ -46,9 +26,9 @@ scratch. This page gets rid of all links and provides the needed markup only.
                     <!-- Logo -->
                 <a class="logo">
                         <!-- mini logo for sidebar mini 50x50 pixels -->
-                    <span class="logo-mini"><img style="height:25px;width:25px" src="@Config.logoURL" alt="logo"></span>
+                    <span class="logo-mini"><img style="height:25px;width:25px" src="@config.logoURL" alt="logo"></span>
                         <!-- logo for regular state and mobile devices -->
-                    <span class="logo-lg"><img style="height:25px;width:25px" src="@Config.logoURL" alt="logo"> <b>Map</b>Roulette</span>
+                    <span class="logo-lg"><img style="height:25px;width:25px" src="@config.logoURL" alt="logo"> <b>Map</b>Roulette</span>
                 </a>
 
                     <!-- Header Navbar -->
@@ -123,7 +103,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
                                         Curent Challenge
                                         <span class="label label-danger pull-right">70%</span>
                                     </h4>
-                                    @if(Config.isDebugMode) {
+                                    @if(config.isDebugMode) {
                                         <div class="progress progress-xxs">
                                             <div class="progress-bar progress-bar-danger" style="width: 70%"></div>
                                         </div>

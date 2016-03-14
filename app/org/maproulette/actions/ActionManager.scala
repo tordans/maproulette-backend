@@ -1,13 +1,13 @@
 package org.maproulette.actions
 
 import java.sql.Timestamp
+import javax.inject.{Inject, Singleton}
 
 import anorm.SqlParser._
 import anorm._
 import org.maproulette.Config
-import play.api.Logger
-import play.api.db.DB
-import play.api.Play.current
+import play.api.{Application, Logger}
+import play.api.db.Database
 import org.maproulette.exception.InvalidException
 import scala.collection.mutable.ListBuffer
 import org.maproulette.models.Task
@@ -21,7 +21,8 @@ import org.maproulette.models.Task
   */
 case class ActionSummary(count:Int, userId:Option[Long]=None, typeId:Option[String]=None, itemId:Option[Long]=None, action:Option[String]=None, status:Option[String]=None)
 
-object ActionManager {
+@Singleton
+class ActionManager @Inject()(config: Config, db:Database)(implicit application:Application) {
 
   // Columns
   val userId = 0
@@ -74,11 +75,11 @@ object ActionManager {
     * @return true if created
     */
   def setAction(userId:Long, item:Item with ItemType, action:ActionType, extra:String) : Boolean = {
-    if (action.getLevel > Config.actionLevel) {
+    if (action.getLevel > config.actionLevel) {
       Logger.trace("Action not logged, action level higher than threshold in configuration.")
       false
     } else {
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val statusId = action match {
           case t:TaskStatusSet => t.status
           case _ => 0
@@ -180,7 +181,7 @@ object ActionManager {
       whereList += s"status IN (${distinctStatus.mkString(",")})"
     }
     val whereClause = if (whereList.nonEmpty) s"WHERE ${whereList.mkString(" AND ")}" else ""
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       SQL(s"${selectClause.toString} FROM actions $whereClause ${groupByClause.toString}").as(parser.*)
     }
   }

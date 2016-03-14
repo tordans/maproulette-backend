@@ -1,11 +1,12 @@
 package org.maproulette.models.dal
 
+import javax.inject.{Inject, Singleton}
+
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.TagCacheManager
 import org.maproulette.models.Tag
-import play.api.db.DB
-import play.api.Play.current
+import play.api.db.Database
 import play.api.libs.json.JsValue
 
 /**
@@ -13,9 +14,8 @@ import play.api.libs.json.JsValue
   *
   * @author cuthbertm
   */
-object TagDAL extends BaseDAL[Long, Tag] {
-  // The tag cache manager specifically for the tags
-  override val cacheManager = TagCacheManager
+@Singleton
+class TagDAL @Inject() (override val db:Database, override val cacheManager: TagCacheManager) extends BaseDAL[Long, Tag] {
   // the name of the table in the database for tags
   override val tableName: String = "tags"
   // the anorm row parser for the tag object
@@ -36,7 +36,7 @@ object TagDAL extends BaseDAL[Long, Tag] {
     */
   override def insert(tag: Tag): Tag = {
     cacheManager.withOptionCaching { () =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) RETURNING *")
           .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser.*).headOption
       }
@@ -52,13 +52,24 @@ object TagDAL extends BaseDAL[Long, Tag] {
     */
   override def update(tag:JsValue)(implicit id:Long): Option[Tag] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedTag = Tag(id, name, Some(description))
 
         SQL"""UPDATE tags SET name = ${updatedTag.name.toLowerCase}, description = ${updatedTag.description}
               WHERE id = $id RETURNING *""".as(parser.*).headOption
+      }
+    }
+  }
+
+  def listByTask(id:Long) : List[Tag] = {
+    implicit val ids:List[Long] = List()
+    cacheManager.withIDListCaching { implicit uncached =>
+      db.withConnection { implicit c =>
+        SQL"""SELECT t.id, t.name, t.description FROM tags as t
+        INNER JOIN tags_on_tasks as tt ON t.id = tt.tag_id
+        WHERE tt.task_id = $id""".as(parser.*)
       }
     }
   }
@@ -76,7 +87,7 @@ object TagDAL extends BaseDAL[Long, Tag] {
   def updateTagList(tags: List[Tag]): List[Tag] = {
     implicit val names = tags.map(_.name)
     cacheManager.withCacheNameDeletion { () =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         val sqlQuery = s"WITH upsert AS (UPDATE tags SET name = {name}, description = {description} " +
           "WHERE id = {id} OR name = {name} RETURNING *) " +
           s"INSERT INTO tags (name, description) SELECT {name}, {description} " +

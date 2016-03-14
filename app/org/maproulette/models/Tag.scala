@@ -1,5 +1,7 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import com.fasterxml.jackson.databind.JsonMappingException
 import org.maproulette.models.dal.TagDAL
 import play.api.libs.json._
@@ -19,12 +21,14 @@ object Tag {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]
   implicit val tagReads: Reads[Tag] = Json.reads[Tag]
 
+  @Inject val tagDAL:TagDAL = null
+
   def getUpdateOrCreateTag(value:JsValue)(implicit id:Long) : Tag = {
-    TagDAL.update(value) match {
+    tagDAL.update(value) match {
       case Some(tag) => tag
       case None => tagReads.reads(value).fold(
         errors => throw new JsonMappingException(JsError.toJson(errors).toString),
-        newTag => TagDAL.insert(newTag)
+        newTag => tagDAL.insert(newTag)
       )
     }
   }

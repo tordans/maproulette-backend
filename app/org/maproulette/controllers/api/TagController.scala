@@ -2,7 +2,7 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import org.maproulette.actions.TagType
+import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.Tag
 import org.maproulette.models.dal.{BaseDAL, TagDAL}
@@ -18,9 +18,11 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
-class TagController @Inject() extends CRUDController[Tag] {
-  // data access layer for tags
-  override protected val dal: BaseDAL[Long, Tag] = TagDAL
+class TagController @Inject() (override val sessionManager: SessionManager,
+                               override val actionManager: ActionManager,
+                               override val dal:TagDAL)
+  extends CRUDController[Tag] {
+
   // json reads for automatically reading Tags from a posted json body
   override implicit val tReads: Reads[Tag] = Tag.tagReads
   // json writes for automatically writing Tags to a json body response
@@ -39,8 +41,8 @@ class TagController @Inject() extends CRUDController[Tag] {
     * @return
     */
   def getTags(prefix:String, limit:Int, offset:Int) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(TagDAL.retrieveListByPrefix(prefix, limit, offset)))
+    sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(dal.retrieveListByPrefix(prefix, limit, offset)))
     }
   }
 
@@ -66,6 +68,6 @@ class TagController @Inject() extends CRUDController[Tag] {
         value => Some(value)
       )
     })
-    TagDAL.updateTagList(tagList)
+    dal.updateTagList(tagList)
   }
 }
