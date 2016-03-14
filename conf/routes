@@ -3,6 +3,10 @@
 # ~~~~
 # Home page
 GET     /                                                       @controllers.Application.index
+GET     /ui/admin/project                                       @controllers.Application.projects
+GET     /ui/admin/challenge                                     @controllers.Application.challenges
+GET     /ui/admin/task                                          @controllers.Application.tasks
+GET     /ui/admin/main                                          @controllers.Application.admin
 GET     /testing                                                @controllers.Application.testing
 GET     /auth/authenticate                                      @controllers.AuthController.authenticate
 GET     /auth/signout                                           @controllers.AuthController.signOut

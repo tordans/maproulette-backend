@@ -19,6 +19,30 @@ class Application @Inject() extends Controller {
     }
   }
 
+  def projects = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      Ok(views.html.index("MapRoulette Admin", user)(views.html.admin.project(user)))
+    }
+  }
+
+  def challenges = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      Ok(views.html.index("MapRoulette Admin", user)(views.html.admin.challenge(user)))
+    }
+  }
+
+  def tasks = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      Ok(views.html.index("MapRoulette Admin", user)(views.html.admin.task(user)))
+    }
+  }
+
+  def admin = Action.async { implicit request =>
+    SessionManager.authenticatedRequest { implicit user =>
+      Ok(views.html.index("MapRoulette Admin", user)(views.html.admin.main(user)))
+    }
+  }
+
   /**
     * Action to refresh the user's OSM profile, this will reload the index page
     *
