@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
   "org.webjars" % "respond" % "1.4.2",
   "org.webjars" % "html5shiv" % "3.7.3",
   "org.webjars" % "jquery" % "2.2.1",
-  "org.webjars" % "leaflet" % "0.7.7",
+  "org.webjars" % "openlayers" % "3.13.0",
   "org.webjars" % "toastr" % "2.1.1",
   "joda-time" % "joda-time" % "2.9.2"
 )
