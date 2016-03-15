@@ -29,6 +29,12 @@ object MPExceptionUtil {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
         BadRequest(Json.obj("status" -> "KO", "message" -> e.getMessage))
+      case e:IllegalAccessException =>
+        Logger.error(e.getMessage, e)
+        Forbidden(Json.obj("status" -> "Forbidden", "Message" -> e.getMessage))
+      case e:NotFoundException =>
+        Logger.error(e.getMessage, e)
+        NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
       case e:Exception =>
         Logger.error(e.getMessage, e)
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
@@ -54,6 +60,12 @@ object MPExceptionUtil {
         case e:OAuthNotAuthorizedException =>
           Logger.error(e.getMessage, e)
           p success Unauthorized(Json.obj("status" -> "NotAuthorized", "message" -> e.getMessage))
+        case e:IllegalAccessException =>
+          Logger.error(e.getMessage, e)
+          p success Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
+        case e:NotFoundException =>
+          Logger.error(e.getMessage, e)
+          p success NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
         case e:Exception =>
           Logger.error(e.getMessage, e)
           p success InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))

@@ -1,6 +1,7 @@
 package controllers
 
 import com.google.inject.Inject
+import org.joda.time.DateTime
 import org.maproulette.session.SessionManager
 import play.api.mvc.{Result, Action, Controller}
 import scala.concurrent.Promise
@@ -27,10 +28,11 @@ class AuthController @Inject() (sessionManager:SessionManager) extends Controlle
         case Success(user) =>
           // We received the authorized tokens in the OAuth object - store it before we proceed
           p success Redirect(routes.Application.index())
-            .withSession("token" -> user.osmProfile.requestToken.token,
-              "secret" -> user.osmProfile.requestToken.secret,
-              "userId" -> user.id.toString,
-              "osmId" -> user.osmProfile.id.toString
+            .withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
+              SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
+              SessionManager.KEY_USER_ID -> user.id.toString,
+              SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
+              SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
             )
         case Failure(e) => p failure e
       }

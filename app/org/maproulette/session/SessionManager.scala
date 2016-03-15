@@ -101,8 +101,8 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     */
   def sessionTokenPair(implicit request: RequestHeader): Option[RequestToken] = {
     for {
-      token <- request.session.get("token")
-      secret <- request.session.get("secret")
+      token <- request.session.get(SessionManager.KEY_TOKEN)
+      secret <- request.session.get(SessionManager.KEY_SECRET)
     } yield {
       RequestToken(token, secret)
     }
@@ -122,19 +122,19 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
   def sessionUser(tokenPair:Option[RequestToken], create:Boolean=false)
                  (implicit request:RequestHeader) : Future[Option[User]] = {
     val p = Promise[Option[User]]
-    val userId = request.session.get("userId")
-    val osmId = request.session.get("osmId")
+    val userId = request.session.get(SessionManager.KEY_USER_ID)
+    val osmId = request.session.get(SessionManager.KEY_OSM_ID)
     tokenPair match {
       case Some(pair) => getUser(pair, userId, create) onComplete {
         case Success(optionUser) => p success optionUser
         case Failure(f) => p failure f
       }
       case None =>
-        request.headers.get("apiKey") match {
+        request.headers.get(SessionManager.KEY_API) match {
           case Some(apiKey) =>
             try {
               val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-              userDAL.findByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+              userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
                 case Some(user) => p success Some(user)
                 case None => p success None
               }
@@ -158,7 +158,8 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  private def getUser(accessToken:RequestToken, userId:Option[String], create:Boolean=false) : Future[Option[User]] = {
+  private def getUser(accessToken:RequestToken, userId:Option[String],
+                      create:Boolean=false) : Future[Option[User]] = {
     // we use the userId for caching, so only if this is the first time the user is authorizing
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
@@ -170,13 +171,13 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
       case Some(u) =>
         // if the user information is more than a day old, then lets update it.
         if (u.modified.plusDays(1).isBefore(DateTime.now())) {
-          refreshProfile(u.osmProfile.requestToken)
+          refreshProfile(u.osmProfile.requestToken, User.superUser)
         } else {
           Future { Some(u) }
         }
       case None =>
         if (create) {
-          refreshProfile(accessToken)
+          refreshProfile(accessToken, User.superUser)
         } else {
           Future { None }
         }
@@ -190,7 +191,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  def refreshProfile(accessToken:RequestToken) : Future[Option[User]] = {
+  def refreshProfile(accessToken:RequestToken, user:User) : Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
     val details = ws.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
@@ -198,10 +199,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
           val newUser = User(detailsResponse.body, accessToken)
-          userDAL.upsert(newUser) match {
-            case Some(u) => p success Some(u)
-            case None => p failure new OAuthNotAuthorizedException("Failed to create new user")
-          }
+          p success Some(userDAL.insert(newUser, user))
         } catch {
           case e:Exception => p failure e
         }
@@ -255,4 +253,13 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
       p.future
     }
   }
+}
+
+object SessionManager {
+  val KEY_USER_TICK = "userTick"
+  val KEY_TOKEN = "token"
+  val KEY_SECRET = "secret"
+  val KEY_USER_ID = "userId"
+  val KEY_OSM_ID = "osmId"
+  val KEY_API = "apiKey"
 }

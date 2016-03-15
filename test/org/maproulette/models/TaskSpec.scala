@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.{TaskDAL, ProjectDAL, ChallengeDAL}
+import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json
@@ -20,10 +21,10 @@ class TaskSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL, ta
 
   "Tasks" should {
     "write tasks object to database" in new WithApplication {
-      val projectID = projectDAL.insert(Project(-1, "RootProject_tasktest")).id
-      val challengeID = challengeDAL.insert(Challenge(-1, "ChallengeProject", None, projectID)).id
+      val projectID = projectDAL.insert(Project(-1, "RootProject_tasktest"), User.superUser).id
+      val challengeID = challengeDAL.insert(Challenge(-1, "ChallengeProject", None, projectID), User.superUser).id
       val newTask = Task(-1, "NewTask", None, challengeID, "Instructions for task", Json.parse("""{"type":"Point","coordinates":[77.6255107,40.5872232]}"""))
-      taskID = taskDAL.insert(newTask).id
+      taskID = taskDAL.insert(newTask, User.superUser).id
       taskDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newTask.name
@@ -38,7 +39,7 @@ class TaskSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL, ta
       taskDAL.update(Json.parse(
         """{
           "name":"UpdatedTask"
-        }""".stripMargin))(taskID)
+        }""".stripMargin), User.superUser)(taskID)
       taskDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "UpdatedTask"
@@ -51,7 +52,7 @@ class TaskSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL, ta
 
     "delete tasks object in database" in new WithApplication {
       implicit val ids = List(taskID)
-      taskDAL.deleteFromIdList
+      taskDAL.deleteFromIdList(User.superUser)
       taskDAL.retrieveById mustEqual None
     }
   }

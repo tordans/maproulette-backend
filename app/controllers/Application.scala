@@ -3,11 +3,16 @@ package controllers
 import javax.inject.Inject
 
 import org.maproulette.Config
+import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{User, SessionManager}
 import play.api.mvc._
 import play.api.routing._
 
-class Application @Inject() (sessionManager:SessionManager, config:Config) extends Controller {
+class Application @Inject() (sessionManager:SessionManager,
+                             userDAL: UserDAL,
+                             projectDAL: ProjectDAL,
+                             config:Config) extends Controller {
 
   /**
     * The primary entry point to the application
@@ -20,27 +25,45 @@ class Application @Inject() (sessionManager:SessionManager, config:Config) exten
     }
   }
 
-  def projects = Action.async { implicit request =>
+  def projects(limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Admin", user, config)(views.html.admin.project(user)))
+      Ok(views.html.index("MapRoulette Project Administration", user, config)
+        (views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset)))
+      )
     }
   }
 
   def challenges = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Admin", user, config)(views.html.admin.challenge(user)))
+      Ok(views.html.index("MapRoulette Challenge Administration", user, config)(views.html.admin.challenge(user)))
     }
   }
 
   def tasks = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Admin", user, config)(views.html.admin.task(user)))
+      Ok(views.html.index("MapRoulette Task Administration", user, config)(views.html.admin.task(user)))
     }
   }
 
-  def admin = Action.async { implicit request =>
+  def stats = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Admin", user, config)(views.html.admin.main(user)))
+      Ok(views.html.index("MapRoulette Statistics", user, config)(views.html.admin.stats(user)))
+    }
+  }
+
+  def users(limit:Int, offset:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      Ok(views.html.index("MapRoulette Users", user, config)
+        (views.html.admin.users(user, userDAL.list(limit, offset)))
+      )
+    }
+  }
+
+  def profile = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      Ok(views.html.index("MapRoulette Profile", user, config)
+        (views.html.user.profile(user))
+      )
     }
   }
 
@@ -51,18 +74,9 @@ class Application @Inject() (sessionManager:SessionManager, config:Config) exten
     */
   def refreshProfile = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      sessionManager.refreshProfile(user.osmProfile.requestToken)
+      sessionManager.refreshProfile(user.osmProfile.requestToken, user)
       Redirect(routes.Application.index())
     }
-  }
-
-  /**
-    * REMOVE: ONLY FOR TESTING PURPOSES
-    *
-    * @return The testing html page
-    */
-  def testing = Action {
-    Ok(views.html.testing(config.isDebugMode))
   }
 
   /**

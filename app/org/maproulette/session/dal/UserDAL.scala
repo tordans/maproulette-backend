@@ -7,7 +7,8 @@ import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
-import org.maproulette.session.{Location, OSMProfile, User}
+import org.maproulette.models.dal.BaseDAL
+import org.maproulette.session.{Group, Location, OSMProfile, User}
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
 import play.api.libs.json.JsValue
@@ -21,12 +22,13 @@ import play.api.libs.oauth.RequestToken
   * @author cuthbertm
   */
 @Singleton
-class UserDAL @Inject() (db:Database) {
+class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) extends BaseDAL[Long, User] {
 
   import org.maproulette.utils.AnormExtension._
 
   // The cache manager for the users
-  val cacheManager = new CacheManager[Long, User]
+  override val cacheManager = new CacheManager[Long, User]
+  override val tableName = "users"
 
   // The anorm row parser to convert user records from the database to user objects
   val parser: RowParser[User] = {
@@ -47,20 +49,8 @@ class UserDAL @Inject() (db:Database) {
         // If the modified date is too old, then lets update this user information from OSM
         new User(id, created, modified, theme,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
-            Location(0, 0), osmCreated, RequestToken(oauthToken, oauthSecret)), apiKey)
-    }
-  }
-
-  /**
-    * Find the user by the user's id. If found in cache, will return cached object instead of
-    * hitting the database
-    *
-    * @param id The user id
-    * @return The matched user, None if User not found
-    */
-  def findByID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
-    db.withConnection { implicit c =>
-      SQL"""SELECT * FROM users WHERE id = $id""".as(parser.*).headOption
+            Location(0, 0), osmCreated, RequestToken(oauthToken, oauthSecret)),
+            userGroupDAL.getGroups(id), apiKey)
     }
   }
 
@@ -71,7 +61,7 @@ class UserDAL @Inject() (db:Database) {
     * @param id The user's osm ID
     * @return The matched user, None if User not found
     */
-  def findByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
+  def retrieveByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
     db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE osm_id = $id""".as(parser.*).headOption
     }
@@ -84,7 +74,7 @@ class UserDAL @Inject() (db:Database) {
     * @param id The id of the user
     * @return The matched user, None if User not found
     */
-  def findByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
+  def retrieveByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
     db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE id = $id AND api_key = ${apiKey}""".as(parser.*).headOption
     }
@@ -139,25 +129,26 @@ class UserDAL @Inject() (db:Database) {
     * @param user The user to update
     * @return None if failed to update or create.
     */
-  def upsert(user: User): Option[User] = cacheManager.withOptionCaching { () =>
+  override def insert(item:User, user: User): User = cacheManager.withOptionCaching { () =>
+    user.hasWriteAccess(user)
     db.withTransaction { implicit c =>
-      SQL"""WITH upsert AS (UPDATE users SET osm_id = ${user.osmProfile.id}, osm_created = ${user.osmProfile.created},
-                              display_name = ${user.osmProfile.displayName}, description = ${user.osmProfile.description},
-                              avatar_url = ${user.osmProfile.avatarURL},
-                              oauth_token = ${user.osmProfile.requestToken.token},
-                              oauth_secret = ${user.osmProfile.requestToken.secret},
-                              theme = ${user.theme}
-                            WHERE id = ${user.id} OR osm_id = ${user.osmProfile.id} RETURNING *)
+      SQL"""WITH upsert AS (UPDATE users SET osm_id = ${item.osmProfile.id}, osm_created = ${item.osmProfile.created},
+                              display_name = ${item.osmProfile.displayName}, description = ${item.osmProfile.description},
+                              avatar_url = ${item.osmProfile.avatarURL},
+                              oauth_token = ${item.osmProfile.requestToken.token},
+                              oauth_secret = ${item.osmProfile.requestToken.secret},
+                              theme = ${item.theme}
+                            WHERE id = ${item.id} OR osm_id = ${item.osmProfile.id} RETURNING *)
             INSERT INTO users (osm_id, osm_created, display_name, description,
                                avatar_url, oauth_token, oauth_secret, theme)
-            SELECT ${user.osmProfile.id}, ${user.osmProfile.created}, ${user.osmProfile.displayName},
-                    ${user.osmProfile.description}, ${user.osmProfile.avatarURL},
-                    ${user.osmProfile.requestToken.token}, ${user.osmProfile.requestToken.secret},
-                    ${user.theme}
+            SELECT ${item.osmProfile.id}, ${item.osmProfile.created}, ${item.osmProfile.displayName},
+                    ${item.osmProfile.description}, ${item.osmProfile.avatarURL},
+                    ${item.osmProfile.requestToken.token}, ${item.osmProfile.requestToken.secret},
+                    ${item.theme}
             WHERE NOT EXISTS (SELECT * FROM upsert)""".executeUpdate()
-      SQL"""SELECT * FROM users WHERE osm_id = ${user.osmProfile.id}""".as(parser.*).headOption
+      SQL"""SELECT * FROM users WHERE osm_id = ${item.osmProfile.id}""".as(parser.*).headOption
     }
-  }
+  }.get
 
   /**
     * Only certain values are allowed to be updated for the user. Namely apiKey, displayName,
@@ -167,8 +158,9 @@ class UserDAL @Inject() (db:Database) {
     * @param id The id of the user to update
     * @return The user that was updated, None if no user was found with the id
     */
-  def update(value:JsValue)(implicit id:Long): Option[User] = {
-    cacheManager.withUpdatingCache(Long => findByID) { implicit cachedItem =>
+  override def update(value:JsValue, user:User)(implicit id:Long): Option[User] = {
+    cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse(""))
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
@@ -206,6 +198,13 @@ class UserDAL @Inject() (db:Database) {
       db.withConnection { implicit c =>
         SQL"""DELETE FROM users WHERE osm_id = $osmId""".executeUpdate()
       }
+    }
+  }
+
+  def addUserToGroup(user:User, group:Group) : User = {
+    db.withConnection { implicit c =>
+      SQL"""INSERT INTO user_groups (user_id, group_id) VALUES (${user.id}, ${group.id})""".executeUpdate()
+      user.copy(groups = user.groups ++ List(group))
     }
   }
 }

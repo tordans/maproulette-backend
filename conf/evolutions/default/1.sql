@@ -43,8 +43,9 @@ CREATE TABLE IF NOT EXISTS users
   id serial NOT NULL,
   osm_id integer NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
-  modified timestamp without time zone,
+  modified timestamp without time zone DEFAULT NOW(),
   home_location geometry,
+  home_location_name character varying,
   osm_created timestamp without time zone NOT NULL,
   display_name character varying NOT NULL,
   description character varying,
@@ -59,9 +60,35 @@ CREATE TABLE IF NOT EXISTS users
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE PROCEDURE updateModified();
 
+CREATE TABLE IF NOT EXISTS groups
+(
+  id serial NOT NULL,
+  name character varying NOT NULL UNIQUE,
+  group_type integer NOT NULL,
+  CONSTRAINT groups_pkey PRIMARY KEY(id)
+);
+
+INSERT INTO groups (id, name, group_type) VALUES (-1, 'SUPER_USER', -1);
+
+CREATE TABLE IF NOT EXISTS user_groups
+(
+  id serial NOT NULL,
+  user_id integer NOT NULL,
+  group_id integer NOT NULL,
+  CONSTRAINT ug_user_id_fkey FOREIGN KEY (user_id)
+    REFERENCES users(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT ug_group_id_fkey FOREIGN KEY (group_id)
+    REFERENCES groups(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT ug_pkey PRIMARY KEY(id)
+);
+
 CREATE TABLE IF NOT EXISTS projects
 (
   id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  modified timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL UNIQUE,
   description character varying DEFAULT '',
   CONSTRAINT projects_pkey PRIMARY KEY (id)
@@ -70,11 +97,27 @@ CREATE TABLE IF NOT EXISTS projects
 CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
   FOR EACH ROW EXECUTE PROCEDURE updateModified();
 
+CREATE TABLE IF NOT EXISTS projects_group_mapping
+(
+  id serial NOT NULL,
+  project_id integer NOT NULL,
+  group_id integer NOT NULL,
+  CONSTRAINT pgm_project_id_fkey FOREIGN KEY (project_id)
+    REFERENCES projects(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT pgm_group_id_fkey FOREIGN KEY (group_id)
+    REFERENCES groups(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT pgm_pkey PRIMARY KEY(id)
+);
+
+SELECT create_index_if_not_exists('projects_group_mapping', 'project_id', '(project_id)');
+
 CREATE TABLE IF NOT EXISTS challenges
 (
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
-  modified timestamp without time zone,
+  modified timestamp without time zone DEFAULT NOW(),
   identifier character varying DEFAULT '',
   name character varying NOT NULL,
   parent_id integer NOT NULL,
@@ -99,7 +142,7 @@ CREATE TABLE IF NOT EXISTS tasks
 (
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
-  modified timestamp without time zone,
+  modified timestamp without time zone DEFAULT NOW(),
   identifier character varying DEFAULT '',
   name character varying NOT NULL,
   location geometry NOT NULL,

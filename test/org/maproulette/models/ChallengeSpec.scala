@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.{ProjectDAL, ChallengeDAL}
+import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json
@@ -20,9 +21,9 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
 
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
-      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest")).id
+      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest"), User.superUser).id
       val newChallenge = Challenge(challengeID, "NewProject", None, projectID, None, Some("This is a newProject"))
-      challengeID = challengeDAL.insert(newChallenge).id
+      challengeID = challengeDAL.insert(newChallenge, User.superUser).id
       challengeDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newChallenge.name
@@ -37,7 +38,7 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
       challengeDAL.update(Json.parse(
         """{
           "name":"UpdatedChallenge"
-        }""".stripMargin))(challengeID)
+        }""".stripMargin), User.superUser)(challengeID)
       challengeDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "UpdatedChallenge"
@@ -50,7 +51,7 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
 
     "delete challenge object in database" in new WithApplication {
       implicit val ids = List(challengeID)
-      challengeDAL.deleteFromIdList
+      challengeDAL.deleteFromIdList(User.superUser)
       challengeDAL.retrieveById mustEqual None
     }
   }

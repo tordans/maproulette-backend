@@ -5,6 +5,7 @@ import javax.inject.Inject
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
+import org.maproulette.session.User
 import play.api.db.{Database}
 import play.api.libs.json._
 
@@ -29,7 +30,7 @@ case class Task(override val id:Long,
                 parent: Long,
                 instruction: String,
                 location: JsValue,
-                status:Option[Int]=None) extends BaseObject[Long] {
+                status:Option[Int]=None) extends ChildObject[Long, Challenge] {
 
 
   @Inject val tagDAL:TagDAL = null
@@ -37,7 +38,17 @@ case class Task(override val id:Long,
 
   lazy val tags:List[Tag] = tagDAL.listByTask(id)
 
-  def getParent = challengeDAL.retrieveById(parent)
+  override def getParent = challengeDAL.retrieveById(parent).get
+
+  /**
+    * Whether a user has write access to an object or not.
+    * By default it will assume that it does
+    *
+    * @param user The user to check
+    * @return true if user can update the object
+    */
+  override def hasWriteAccess(user: User): Boolean =
+    user.isSuperUser || getParent.hasWriteAccess(user)
 }
 
 object Task {

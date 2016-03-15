@@ -8,7 +8,7 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.session.SessionManager
+import org.maproulette.session.{User, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -45,9 +45,9 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     *
     * @param body          The Json body of data
     * @param createdObject The Task that was created by the create function
-    * @param userId the user executing the request
+    * @param user the user executing the request
     */
-  override def extractAndCreate(body: JsValue, createdObject: Task, userId:Long): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: Task, user:User): Unit = {
     val tagIds: List[Long] = body \ "tags" match {
       case tags: JsDefined =>
         // this case is for a comma separated list, either of ints or strings
@@ -60,7 +60,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
               // the same name or create a new tag with the current name
               dal.retrieveByName(tag) match {
                 case Some(t) => Some(t.id)
-                case None => Some(tagDAL.insert(Tag(-1, tag)).id)
+                case None => Some(tagDAL.insert(Tag(-1, tag), user).id)
               }
           }
         })
@@ -72,7 +72,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
                 case Some(id) => id
                 case None => -1
               }
-              Tag.getUpdateOrCreateTag(value)(identifier).id
+              Tag.getUpdateOrCreateTag(value, user)(identifier).id
             })
           case None => List.empty
         }
@@ -80,9 +80,9 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     }
 
     // now we have the ids for the supplied tags, then lets map them to the task created
-    dal.updateTaskTags(createdObject.id, tagIds)
+    dal.updateTaskTags(createdObject.id, tagIds, user)
     if (tagIds.nonEmpty) {
-      actionManager.setAction(userId, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+      actionManager.setAction(user.id, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
   }
 
@@ -148,7 +148,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         MPExceptionUtil.internalExceptionCatcher { () =>
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
-            dal.deleteTaskStringTags(id, tagList)
+            dal.deleteTaskStringTags(id, tagList, user)
             actionManager.setAction(user.id, itemType.convertToItem(id), TagRemoved(), tags)
           }
           NoContent
@@ -214,7 +214,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
       } else {
         MPExceptionUtil.internalExceptionCatcher { () =>
           val statusUpdateJson = Json.obj("status" -> status)
-          dal.update(statusUpdateJson)(id) match {
+          dal.update(statusUpdateJson, user)(id) match {
             case Some(resp) =>
               actionManager.setAction(user.id, itemType.convertToItem(id), TaskStatusSet(status), "")
               NoContent

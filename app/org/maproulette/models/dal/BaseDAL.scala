@@ -6,6 +6,7 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.BaseObject
+import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
 
@@ -54,36 +55,41 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * Insert function that must be implemented by the class that mixes in this trait
     *
     * @param element The element that you are inserting to the database
+    * @param user The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  def insert(element: T): T
+  def insert(element: T, user:User): T
 
   /**
     * Update function that must be implemented by the class that mixes in this trait
     *
     * @param updates The updates in json form
+    * @param user The user executing the task
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  def update(updates:JsValue)(implicit id:Long): Option[T]
+  def update(updates:JsValue, user:User)(implicit id:Long): Option[T]
 
   /**
     * Helper function that takes a single key to delete and pushes the workload off to the deleteFromIdList
     * function that takes a list. This just creates a list with a single element
     *
     * @param id The id that you want to delete
+    * @param user The user executing the task
     * @return Count of deleted row(s)
     */
-  def delete(id: Key): Int = deleteFromIdList(List(id))
+  def delete(id: Key, user:User): Int = deleteFromIdList(user)(List(id))
 
   /**
     * Deletes all the objects in the supplied id list. With caching, so after
     * it has deleted the objects from the database it will delete the same objects from the cache.
     *
+    * @param user The user executing the task
     * @param ids The list of ids that will be deleted
     * @return Count of deleted row(s)
     */
-  def deleteFromIdList(implicit ids: List[Key]): Int = {
+  def deleteFromIdList(user:User)(implicit ids: List[Key]): Int = {
+    // todo: add access checks here
     cacheManager.withCacheIDDeletion { () =>
       db.withTransaction { implicit c =>
         val query = s"DELETE FROM $tableName WHERE id IN ({ids})"
@@ -96,10 +102,12 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * Deletes all the objects found matching names in the supplied list. With caching, so after
     * it has deleted the objects from the database it will delete the same objects from the cache.
     *
+    * @param user The user executing the task
     * @param names The names to match and delete
     * @return Count of deleted row(s)
     */
-  def deleteFromStringList(implicit names: List[String]): Int = {
+  def deleteFromStringList(user:User)(implicit names: List[String]): Int = {
+    // todo: add access checks here
     cacheManager.withCacheNameDeletion { () =>
       db.withTransaction { implicit c =>
         val query = s"DELETE FROM $tableName WHERE name IN ({names})"

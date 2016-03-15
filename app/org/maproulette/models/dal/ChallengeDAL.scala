@@ -6,6 +6,7 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Task, Challenge}
+import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
 
@@ -53,7 +54,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     * @param challenge The challenge to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(challenge: Challenge): Challenge = {
+  override def insert(challenge: Challenge, user:User): Challenge = {
+    challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction)
@@ -72,8 +74,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue)(implicit id:Long): Option[Challenge] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long): Option[Challenge] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
         val identifier = (updates \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)

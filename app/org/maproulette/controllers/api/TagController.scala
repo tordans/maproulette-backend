@@ -5,8 +5,8 @@ import javax.inject.Inject
 import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.Tag
-import org.maproulette.models.dal.{BaseDAL, TagDAL}
-import org.maproulette.session.SessionManager
+import org.maproulette.models.dal.TagDAL
+import org.maproulette.session.{User, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -54,10 +54,10 @@ class TagController @Inject() (override val sessionManager: SessionManager,
     *
     * @param requestBody This is the posted request body in json format.
     * @param arr The list of Tag objects supplied in the json array from the request body
+    * @param user The id of the user that is executing the request
     * @param update If an item is found then update it, if parameter set to true, otherwise we skip.
-    * @param userId The id of the user that is executing the request
     */
-  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], update: Boolean, userId:Long): Unit = {
+  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user:User, update: Boolean): Unit = {
     val tagList = arr.flatMap(element => (element \ "id").asOpt[Long] match {
       case Some(itemID) => if (update) element.validate[Tag].fold(
         errors => None,

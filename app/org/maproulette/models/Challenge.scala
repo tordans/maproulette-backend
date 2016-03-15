@@ -2,6 +2,7 @@ package org.maproulette.models
 
 import com.google.inject.Inject
 import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.session.User
 import play.api.libs.json.{Reads, Json, Writes}
 
 /**
@@ -27,11 +28,21 @@ case class Challenge(override val id: Long,
                      difficulty:Option[Int]=None,
                      description: Option[String]=None,
                      blurb:Option[String]=None,
-                     instruction:Option[String]=None) extends BaseObject[Long] {
+                     instruction:Option[String]=None) extends ChildObject[Long, Project] {
 
   @Inject val projectDAL:ProjectDAL = null
 
-  def getParent = projectDAL.retrieveById(parent)
+  override def getParent = projectDAL.retrieveById(parent).get
+
+  /**
+    * Whether a user has write access to an object or not.
+    * By default it will assume that it does
+    *
+    * @param user The user to check
+    * @return true if user can update the object
+    */
+  override def hasWriteAccess(user: User): Boolean =
+    user.isSuperUser || getParent.hasWriteAccess(user)
 }
 
 object Challenge {

@@ -12,7 +12,7 @@ import play.api.Application
 class Config @Inject() (implicit val application:Application) {
   lazy val logoURL = application.configuration.getString("maproulette.logo") match {
     case Some(logo) => logo
-    case None => "assets/images/logo.png"// default to the Map Roulette Icon
+    case None => "/assets/images/logo.png"// default to the Map Roulette Icon
   }
 
   def isDebugMode : Boolean = application.configuration.getBoolean(Config.KEY_DEBUG).getOrElse(false)

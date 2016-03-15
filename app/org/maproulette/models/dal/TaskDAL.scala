@@ -7,6 +7,7 @@ import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.InvalidException
+import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json._
 
@@ -47,9 +48,11 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     * Inserts a new task object into the database
     *
     * @param task The task to be inserted into the database
+    * @param user The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(task:Task) : Task = {
+  override def insert(task:Task, user:User) : Task = {
+    task.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
         // status is ignored on insert and always set to CREATED
@@ -68,11 +71,13 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     * Updates a task object in the database.
     *
     * @param value A json object containing fields to be updated for the task
+    * @param user The user executing the task
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(value:JsValue)(implicit id:Long): Option[Task] = {
+  override def update(value:JsValue, user:User)(implicit id:Long): Option[Task] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
         val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
         val identifier = (value \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
@@ -101,25 +106,32 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     *
     * @param taskId The id of the task to add the tags too
     * @param tags A list of tags to add to the task
+    * @param user The user executing the task
     */
-  def updateTaskTags(taskId:Long, tags:List[Long]) : Unit = {
-    if (tags.nonEmpty) {
-      db.withTransaction { implicit c =>
-        val indexedValues = tags.zipWithIndex
-        val rows = indexedValues.map{ case (value, i) =>
-          s"({taskid_$i}, {tagid_$i})"
-        }.mkString(",")
-        val parameters = indexedValues.flatMap{ case(value, i) =>
-          Seq(
-            NamedParameter(s"taskid_$i", ParameterValue.toParameterValue(taskId)),
-            NamedParameter(s"tagid_$i", ParameterValue.toParameterValue(value))
-          )
-        }
+  def updateTaskTags(taskId:Long, tags:List[Long], user:User) : Unit = {
+    retrieveById(taskId) match {
+      case Some(task) =>
+        task.hasWriteAccess(user)
+        if (tags.nonEmpty) {
+          db.withTransaction { implicit c =>
+            val indexedValues = tags.zipWithIndex
+            val rows = indexedValues.map{ case (value, i) =>
+              s"({taskid_$i}, {tagid_$i})"
+            }.mkString(",")
+            val parameters = indexedValues.flatMap{ case(value, i) =>
+              Seq(
+                NamedParameter(s"taskid_$i", ParameterValue.toParameterValue(taskId)),
+                NamedParameter(s"tagid_$i", ParameterValue.toParameterValue(value))
+              )
+            }
 
-        SQL("INSERT INTO tags_on_tasks (task_id, tag_id) VALUES " + rows)
-          .on(parameters: _*)
-          .execute()
-      }
+            SQL("INSERT INTO tags_on_tasks (task_id, tag_id) VALUES " + rows)
+              .on(parameters: _*)
+              .execute()
+          }
+        }
+      case None =>
+        throw new InvalidException(s"""Could not add tags [${tags.mkString(",")}]. Task [$taskId] Not Found.""")
     }
   }
 
@@ -129,8 +141,9 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     *
     * @param taskId The task id that the user is removing the tags from
     * @param tags The tags that are being removed from the task
+    * @param user The user executing the task
     */
-  def deleteTaskTags(taskId:Long, tags:List[Long]) : Unit = {
+  def deleteTaskTags(taskId:Long, tags:List[Long], user:User) : Unit = {
     if (tags.nonEmpty) {
       db.withTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_tasks WHERE task_id = {$taskId} AND tag_id IN ($tags)""".execute()
@@ -144,8 +157,9 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     *
     * @param taskId The id of the task that is having the tags remove from it
     * @param tags The tags to be removed from the task
+    * @param user The user executing the task
     */
-  def deleteTaskStringTags(taskId:Long, tags:List[String]) : Unit = {
+  def deleteTaskStringTags(taskId:Long, tags:List[String], user:User) : Unit = {
     if (tags.nonEmpty) {
       val lowerTags = tags.map(_.toLowerCase)
       db.withTransaction { implicit c =>
@@ -163,15 +177,16 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     *
     * @param taskId The task id to update with
     * @param tags The tags to be applied to the task
+    * @param user The user executing the task
     */
-  def updateTaskTagNames(taskId:Long, tags:List[String]) : Unit = {
+  def updateTaskTagNames(taskId:Long, tags:List[String], user:User) : Unit = {
     val tagIds = tags.flatMap { tag => {
       tagDAL.retrieveByName(tag) match {
         case Some(t) => Some(t.id)
-        case None => Some(tagDAL.insert(Tag(-1, tag)).id)
+        case None => Some(tagDAL.insert(Tag(-1, tag), user).id)
       }
     }}
-    updateTaskTags(taskId, tagIds)
+    updateTaskTags(taskId, tagIds, user)
   }
 
   /**

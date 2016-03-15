@@ -3,7 +3,7 @@ package org.maproulette.controllers
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.ParentDAL
 import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.session.SessionManager
+import org.maproulette.session.{User, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
@@ -37,9 +37,9 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     *
     * @param body          The Json body of data
     * @param createdObject The object that was created by the create function
-    * @param userId the user executing the request
+    * @param user the user executing the request
     */
-  override def extractAndCreate(body: JsValue, createdObject: T, userId:Long): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: T, user:User): Unit = {
     implicit val reads:Reads[C] = cReads
     (body \ "children").asOpt[List[JsValue]] match {
       case Some(children) => children map { child =>
@@ -47,14 +47,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
         child.transform(parentAddition(createdObject.id)) match {
           case JsSuccess(value, _) =>
             (value \ "id").asOpt[Long] match {
-              case Some(identifier) => childController.internalUpdate(value, userId)(identifier)
+              case Some(identifier) => childController.internalUpdate(value, user)(identifier)
               case None => Utils.insertJsonID(value).validate[C].fold(
                 errors => {
                   throw new Exception(JsError.toJson(errors).toString)
                 },
                 element => {
                   try {
-                    childController.internalCreate(value, element, userId)
+                    childController.internalCreate(value, element, user)
                   } catch {
                     case e:Exception =>
                       Logger.error(e.getMessage, e)
@@ -112,7 +112,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     sessionManager.authenticatedRequest { implicit user =>
       dal.retrieveById match {
         case Some(parent) =>
-          extractAndCreate(Json.obj("children" -> request.body), parent, user.id)
+          extractAndCreate(Json.obj("children" -> request.body), parent, user)
           Created
         case None =>
           val message = s"Bad id, no parent found with supplied id [$id]"

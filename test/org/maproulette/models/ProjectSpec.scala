@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json
@@ -21,7 +22,7 @@ class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
   "Projects" should {
     "write project object to database" in new WithApplication {
       val newProject = Project(projectID, "NewProject_projecttest", Some("This is a newProject"))
-      projectID = projectDAL.insert(newProject).id
+      projectID = projectDAL.insert(newProject, User.superUser).id
       projectDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newProject.name
@@ -36,7 +37,7 @@ class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
       projectDAL.update(Json.parse(
         """{
           "name":"UpdatedProject"
-        }""".stripMargin))(projectID)
+        }""".stripMargin), User.superUser)(projectID)
       projectDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "UpdatedProject"
@@ -49,7 +50,7 @@ class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
 
     "delete project object in database" in new WithApplication {
       implicit val ids = List(projectID)
-      projectDAL.deleteFromIdList
+      projectDAL.deleteFromIdList(User.superUser)
       projectDAL.retrieveById mustEqual None
     }
   }

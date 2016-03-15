@@ -1,11 +1,12 @@
 package org.maproulette.models.dal
 
-import javax.inject.{Inject, Singleton}
+import javax.inject.{Provider, Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
-import org.maproulette.cache.TagCacheManager
+import org.maproulette.cache.{CacheManager, TagCacheManager}
 import org.maproulette.models.Tag
+import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
 
@@ -15,9 +16,11 @@ import play.api.libs.json.JsValue
   * @author cuthbertm
   */
 @Singleton
-class TagDAL @Inject() (override val db:Database, override val cacheManager: TagCacheManager) extends BaseDAL[Long, Tag] {
+class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[TagCacheManager]) extends BaseDAL[Long, Tag] {
   // the name of the table in the database for tags
   override val tableName: String = "tags"
+
+  override val cacheManager: CacheManager[Long, Tag] = tagCacheProvider.get()
   // the anorm row parser for the tag object
   val parser: RowParser[Tag] = {
     get[Long]("tags.id") ~
@@ -34,7 +37,7 @@ class TagDAL @Inject() (override val db:Database, override val cacheManager: Tag
     * @param tag The tag object to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(tag: Tag): Tag = {
+  override def insert(tag: Tag, user:User): Tag = {
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) RETURNING *")
@@ -50,7 +53,7 @@ class TagDAL @Inject() (override val db:Database, override val cacheManager: Tag
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(tag:JsValue)(implicit id:Long): Option[Tag] = {
+  override def update(tag:JsValue, user:User)(implicit id:Long): Option[Tag] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       db.withTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)

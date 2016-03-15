@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import com.fasterxml.jackson.databind.JsonMappingException
 import org.maproulette.models.dal.TagDAL
+import org.maproulette.session.User
 import play.api.libs.json._
 
 /**
@@ -23,12 +24,20 @@ object Tag {
 
   @Inject val tagDAL:TagDAL = null
 
-  def getUpdateOrCreateTag(value:JsValue)(implicit id:Long) : Tag = {
-    tagDAL.update(value) match {
+  /**
+    * Update a tag, or if it does not exist, then create a new tag
+    *
+    * @param value The json value containing the updates
+    * @param user The user executing the request
+    * @param id id of the tag you are updating
+    * @return The updated or newly created tag
+    */
+  def getUpdateOrCreateTag(value:JsValue, user:User)(implicit id:Long) : Tag = {
+    tagDAL.update(value, user) match {
       case Some(tag) => tag
       case None => tagReads.reads(value).fold(
         errors => throw new JsonMappingException(JsError.toJson(errors).toString),
-        newTag => tagDAL.insert(newTag)
+        newTag => tagDAL.insert(newTag, user)
       )
     }
   }
