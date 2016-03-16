@@ -39,15 +39,38 @@ var onError = function(error) {
     toastr.error(error);
 };
 
-var map = new ol.Map({
-    target: 'map',
-    layers: [
-        new ol.layer.Tile({
-            source: new ol.source.OSM()
-        })
-    ],
-    view: new ol.View({
-        center: ol.proj.fromLonLat([37.41, 8.82]),
-        zoom: 4
-    })
-});
+(function() {
+    var map = new ol.Map({
+        target: 'map',
+        layers: [
+            new ol.layer.Group({
+                'title': 'Base maps',
+                layers: [
+                    new ol.layer.Tile({
+                        title: 'OSM',
+                        type: 'base',
+                        source: new ol.source.OSM()
+                    }),
+                    new ol.layer.Tile({
+                        title: 'MapQuest Sat',
+                        type: 'base',
+                        source: new ol.source.MapQuest({layer: 'sat'})
+                    })
+                ]
+            })
+        ],
+        view: new ol.View({
+            center: ol.proj.fromLonLat([37.41, 8.82]),
+            zoom: 4
+        }),
+        controls: ol.control.defaults({
+            attributionOptions: ({
+                collapsible: false
+            })
+        }).extend([
+            new ol.control.FullScreen(),
+            new ol.control.LayerSwitcher()
+        ])
+    });
+})();
+
