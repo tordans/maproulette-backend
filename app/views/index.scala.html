@@ -16,7 +16,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
         @views.html.includes.cssIncludes(config.isDebugMode)
         @views.html.includes.jsIncludes(user, config.isDebugMode)
     </head>
-    <body class="hold-transition @user.theme sidebar-mini">
+    <body class="hold-transition @{if (user.guest) { "skin-blue sidebar-collapse" } else { user.theme }} sidebar-mini">
         <div class="wrapper">
 
                 <!-- Main Header -->

@@ -39,38 +39,41 @@ var onError = function(error) {
     toastr.error(error);
 };
 
+var MRConfig = (function () {
+    return {
+        // the default map options
+        mapOptions: {
+            center: new L.LatLng(40, -90),
+            zoom: 4,
+            keyboard: false
+        },
+
+        // the collection of tile layers.
+        // Each layer should have an url and attribution property.
+        // the key will be the title in the layer picker control
+        // where underscores in the key will be translated to spaces.
+        tileLayers: {
+            OpenStreetMap: {
+                url: "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                attribution: "&copy; <a href=\'http://openstreetmap.org\'> OpenStreetMap</a> contributors"},
+            ESRI_Aerial: {
+                url: "http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"}
+        },
+
+        // minimum zoom level for enabling edit buttons
+        minZoomLevelForEditing: 14
+    };
+}());
+
 (function() {
-    var map = new ol.Map({
-        target: 'map',
-        layers: [
-            new ol.layer.Group({
-                'title': 'Base maps',
-                layers: [
-                    new ol.layer.Tile({
-                        title: 'OSM',
-                        type: 'base',
-                        source: new ol.source.OSM()
-                    }),
-                    new ol.layer.Tile({
-                        title: 'MapQuest Sat',
-                        type: 'base',
-                        source: new ol.source.MapQuest({layer: 'sat'})
-                    })
-                ]
-            })
-        ],
-        view: new ol.View({
-            center: ol.proj.fromLonLat([37.41, 8.82]),
-            zoom: 4
-        }),
-        controls: ol.control.defaults({
-            attributionOptions: ({
-                collapsible: false
-            })
-        }).extend([
-            new ol.control.FullScreen(),
-            new ol.control.LayerSwitcher()
-        ])
-    });
+    var map = L.map('map');
+
+    var osmURL = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    var osmAttrib = 'Map Data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors';
+    var osm = new L.TileLayer(osmURL, {attribution: osmAttrib});
+
+    map.setView(new L.LatLng(47.6097, -122.3331), 13);
+    map.addLayer(osm);
 })();
 

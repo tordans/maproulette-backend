@@ -1,4 +1,20 @@
-.map {
-  height: 98%;
+body, html {
+  height: 100%;
   width: 100%;
+}
+
+.map {
+  position: absolute;
+  /*height: -moz-calc(100% - 15px);
+  height: -webkit-calc(100% - 15px);
+  height:*/
+  top: 100px;
+  bottom: 51px;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .map {
+    top: 50px;
+  }
 }

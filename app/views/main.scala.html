@@ -1,10 +1,8 @@
 @(debugMode:Boolean)
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
-<link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("ol.css"))" />
 <link rel="stylesheet" href="@routes.Assets.at("stylesheets/maproulette.css")"/>
-<link rel="stylesheet" href="@routes.Assets.at("ol3-layerswitcher/ol3-layerswitcher.css")"/>
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"ol${minified()}.js"))"></script>
-<script src="@routes.Assets.at("ol3-layerswitcher/ol3-layerswitcher.js")"></script>
+<link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.css"))"/>
+<script src="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.js"))"></script>
 
 <div id="map" class="map"></div>
 
