@@ -3,9 +3,8 @@
 # ~~~~
 # Home page
 GET     /                                                       @controllers.Application.index
-GET     /ui/admin/project                                       @controllers.Application.projects(limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/challenge                                     @controllers.Application.challenges
-GET     /ui/admin/task                                          @controllers.Application.tasks
+GET     /ui/admin/list/:itemType                                @controllers.Application.adminList(itemType, limit:Int ?= 10, page:Int ?= 0)
+GET     /ui/admin/create/:itemType                              @controllers.Application.adminCreate(itemType)
 GET     /ui/admin/users                                         @controllers.Application.users(limit:Int ?= 10, page:Int ?= 0)
 GET     /ui/admin/stats                                         @controllers.Application.stats
 GET     /ui/user/profile                                        @controllers.Application.profile
@@ -19,6 +18,5 @@ GET     /assets/*file                                           @controllers.Ass
 GET     /webjars/*file                                          @controllers.WebJarAssets.at(file)
 
 ->  /api/v2     apiv2.Routes
-->  /api        apiv1.Routes
 ->  /ui         ui.Routes
 

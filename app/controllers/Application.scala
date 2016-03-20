@@ -3,9 +3,10 @@ package controllers
 import javax.inject.Inject
 
 import org.maproulette.Config
+import org.maproulette.actions._
 import org.maproulette.models.dal.ProjectDAL
 import org.maproulette.session.dal.UserDAL
-import org.maproulette.session.{User, SessionManager}
+import org.maproulette.session.{SessionManager, User}
 import play.api.mvc._
 import play.api.routing._
 
@@ -25,23 +26,54 @@ class Application @Inject() (sessionManager:SessionManager,
     }
   }
 
-  def projects(limit:Int, offset:Int) = Action.async { implicit request =>
+  /**
+    * The generic function used to list elements in the UI
+    *
+    * @param itemType The type of function you are listing the elements for
+    * @param limit The amount of elements you want to limit the list result to
+    * @param offset For paging
+    * @return The html view to show the user
+    */
+  def adminList(itemType:String, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Project Administration", user, config)
-        (views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset)))
-      )
+      val view = Actions.getItemType(itemType) match {
+        case Some(it) => it match {
+          case ProjectType() =>
+            views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset))
+          case ChallengeType() =>
+            views.html.admin.challenge(user)
+          case SurveyType() =>
+            views.html.admin.survey(user)
+          //case TaskType() =>
+          case _ => views.html.error.error("Invalid item type requested.")
+        }
+        case None => views.html.error.error("Invalid item type requested.")
+      }
+      Ok(views.html.index("MapRoulette Administration", user, config)(view))
     }
   }
 
-  def challenges = Action.async { implicit request =>
+  /**
+    * Generic function used for displaying the create forms for the various item types
+    *
+    * @param itemType The item type that you want to create
+    * @return The UI form
+    */
+  def adminCreate(itemType:String) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Challenge Administration", user, config)(views.html.admin.challenge(user)))
-    }
-  }
-
-  def tasks = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Task Administration", user, config)(views.html.admin.task(user)))
+      val view = Actions.getItemType(itemType) match {
+        case Some(it) => it match {
+          case ProjectType() =>
+            views.html.admin.forms.projectCreate()
+          case ChallengeType() =>
+            views.html.admin.forms.challengeCreate()
+          case SurveyType() =>
+            views.html.admin.forms.surveyCreate()
+          case _ => views.html.error.error("Invalid item type requested.")
+        }
+        case None => views.html.error.error("Invalid item type requested.")
+      }
+      Ok(views.html.index("MapRoulette Administration", user, config)(view))
     }
   }
 

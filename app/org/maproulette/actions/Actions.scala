@@ -142,6 +142,36 @@ object Actions {
   }
 
   /**
+    * Gets the ItemType based on the Item Type Id
+    *
+    * @param itemType The item type id
+    * @return The ItemType matching the supplied item type id
+    */
+  def getItemType(itemType:Int) : Option[ItemType] = itemType match {
+    case ITEM_TYPE_PROJECT => Some(ProjectType())
+    case ITEM_TYPE_CHALLENGE => Some(ChallengeType())
+    case ITEM_TYPE_TASK => Some(TaskType())
+    case ITEM_TYPE_TAG => Some(TagType())
+    case ITEM_TYPE_SURVEY => Some(SurveyType())
+    case _ => None
+  }
+
+  /**
+    * Gets the ItemType based on the Item Type name
+    *
+    * @param itemType The item type name
+    * @return The ItemType matching the supplied item type name
+    */
+  def getItemType(itemType:String) : Option[ItemType] = itemType match {
+    case ITEM_TYPE_PROJECT_NAME => Some(ProjectType())
+    case ITEM_TYPE_CHALLENGE_NAME => Some(ChallengeType())
+    case ITEM_TYPE_TASK_NAME => Some(TaskType())
+    case ITEM_TYPE_TAG_NAME => Some(TagType())
+    case ITEM_TYPE_SURVEY_NAME => Some(SurveyType())
+    case _ => None
+  }
+
+  /**
     * Based on an id will return the action name that the id matches, None otherwise
     *
     * @param action The id to match against

@@ -1,0 +1,10 @@
+@(title:String, subtitle:String=null)
+
+<section class="content-header">
+    <h1>
+        @title
+        @if(subtitle != null && subtitle != "") {
+            <small> - @subtitle</small>
+        }
+    </h1>
+</section>
