@@ -1,3 +1,16 @@
 @import org.maproulette.models.Challenge
 @(challenge:Option[Challenge]=None)
 
+<div class="form-group">
+    <label>Blurb</label>
+    @defining(if (challenge.isDefined) { " value=" + challenge.get.blurb.getOrElse("") } else { "" }) { currentValue =>
+        <textarea class="form-control" id="blurb" rows="3" placeholder="Blurb..."@currentValue></textarea>
+    }
+</div>
+<div class="form-group">
+    <label>Instruction</label>
+    @defining(if (challenge.isDefined) { " value=" + challenge.get.instruction.getOrElse("") } else { "" }) { currentValue =>
+        <textarea class="form-control" id="instruction" rows="3" placeholder="Instruction..."@currentValue></textarea>
+    }
+</div>
+

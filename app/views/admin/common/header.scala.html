@@ -1,5 +1,4 @@
-@import org.maproulette.actions.Actions
-@(title:String, subtitle:String=null)
+@(title:String, subtitle:String=null, breadcrumbs:Map[String, Call]=Map.empty)
 
 <section class="content-header">
     <h1>
@@ -10,8 +9,11 @@
     </h1>
     <ol class="breadcrumb">
         <li>
-            <a href="@routes.Application.adminUIList(Actions.ITEM_TYPE_PROJECT_NAME)">
+            <a href="@routes.Application.adminUIProjectList()">
                 <i class="fa fa-folder"></i> Project Admin</a>
         </li>
+        @for(b <- breadcrumbs) {
+            <li><a href="@b._2"><i></i>@b._1</a></li>
+        }
     </ol>
 </section>

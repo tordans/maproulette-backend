@@ -3,9 +3,10 @@
 # ~~~~
 # Home page
 GET     /                                                       @controllers.Application.index
-GET     /ui/admin/list/:itemType                                @controllers.Application.adminUIList(itemType, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/create/:itemType                              @controllers.Application.adminUICreate(itemType)
-GET     /ui/admin/edit/:itemType/:itemId                        @controllers.Application.adminUIEdit(itemType, itemId:Long)
+GET     /ui/admin/list/Project                                  @controllers.Application.adminUIProjectList(limit:Int ?= 10, page:Int ?= 0)
+GET     /ui/admin/list/:itemType/:parentId                      @controllers.Application.adminUIChildList(itemType, parentId:Long, limit:Int ?= 10, page:Int ?= 0)
+GET     /ui/admin/create/:itemType/:parentId                    @controllers.Application.adminUICreate(parentId:Long, itemType, limit:Int ?= 10, page:Int ?= 0)
+GET     /ui/admin/edit/:itemType/:parentId/:itemId              @controllers.Application.adminUIEdit(parentId:Long, itemType, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
 GET     /ui/admin/users                                         @controllers.Application.users(limit:Int ?= 10, page:Int ?= 0)
 GET     /ui/admin/stats                                         @controllers.Application.stats
 GET     /ui/user/profile                                        @controllers.Application.profile
@@ -19,5 +20,4 @@ GET     /assets/*file                                           @controllers.Ass
 GET     /webjars/*file                                          @controllers.WebJarAssets.at(file)
 
 ->  /api/v2     apiv2.Routes
-->  /ui         ui.Routes
 

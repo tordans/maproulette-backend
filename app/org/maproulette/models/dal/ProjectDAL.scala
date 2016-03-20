@@ -5,7 +5,7 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Challenge, Project}
+import org.maproulette.models.{Challenge, Project, Survey}
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
 import play.api.db.Database
@@ -19,6 +19,7 @@ import play.api.libs.json.JsValue
 @Singleton
 class ProjectDAL @Inject() (override val db:Database,
                             childDAL:ChallengeDAL,
+                            surveyDAL:SurveyDAL,
                             userGroupDAL: UserGroupDAL)
   extends ParentDAL[Long, Project, Challenge] {
 
@@ -103,6 +104,15 @@ class ProjectDAL @Inject() (override val db:Database,
           'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
           .as(parser.*)
       }
+    }
+  }
+
+  def listSurveys(limit:Int=10, offset:Int = 0)(implicit id:Long) : List[Survey] = {
+    // add a child caching option that will keep a list of children for the parent
+    db.withConnection { implicit c =>
+      val sqlLimit = if (limit < 0) "ALL" else limit+""
+      val query = s"SELECT * FROM surveys WHERE parent_id = {id} LIMIT $sqlLimit OFFSET {offset}"
+      SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement), 'offset -> offset).as(surveyDAL.parser.*)
     }
   }
 }

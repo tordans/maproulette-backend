@@ -28,24 +28,30 @@ class Application @Inject() (sessionManager:SessionManager,
     }
   }
 
+  def adminUIProjectList(limit:Int, offset:Int) =
+    adminUIList(Actions.ITEM_TYPE_PROJECT_NAME, None, limit, offset)
+  def adminUIChildList(itemType:String, parentId:Long, limit:Int, offset:Int) =
+    adminUIList(itemType, Some(parentId), limit, offset)
+
   /**
     * The generic function used to list elements in the UI
     *
     * @param itemType The type of function you are listing the elements for
+    * @param parentId The parent of the objects to list
     * @param limit The amount of elements you want to limit the list result to
     * @param offset For paging
     * @return The html view to show the user
     */
-  def adminUIList(itemType:String, limit:Int, offset:Int) = Action.async { implicit request =>
+  protected def adminUIList(itemType:String, parentId:Option[Long]=None, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
             views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset))
           case ChallengeType() =>
-            views.html.admin.challenge(user)
+            views.html.admin.challenge(user, parentId.get, projectDAL.listChildren(limit, offset)(parentId.get))
           case SurveyType() =>
-            views.html.admin.survey(user)
+            views.html.admin.survey(user, parentId.get, projectDAL.listSurveys(limit, offset)(parentId.get))
           //case TaskType() =>
           case _ => views.html.error.error("Invalid item type requested.")
         }
@@ -55,8 +61,10 @@ class Application @Inject() (sessionManager:SessionManager,
     }
   }
 
-  def adminUICreate(itemType:String) = adminUIEditForm(itemType)
-  def adminUIEdit(itemType:String, itemId:Long) = adminUIEditForm(itemType, Some(itemId))
+  def adminUICreate(parentId:Long, itemType:String, limit:Int, offset:Int) =
+    adminUIEditForm(parentId, itemType, limit, offset)
+  def adminUIEdit(parentId:Long, itemType:String, itemId:Long, limit:Int, offset:Int) =
+    adminUIEditForm(parentId, itemType, limit, offset, Some(itemId))
 
   /**
     * Generic function used for displaying the create forms for the various item types
@@ -64,7 +72,7 @@ class Application @Inject() (sessionManager:SessionManager,
     * @param itemType The item type that you want to create
     * @return The UI form
     */
-  protected def adminUIEditForm(itemType:String, itemId:Option[Long]=None) = Action.async { implicit request =>
+  protected def adminUIEditForm(parentId:Long, itemType:String, limit:Int, offset:Int, itemId:Option[Long]=None) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
@@ -73,19 +81,31 @@ class Application @Inject() (sessionManager:SessionManager,
               case Some(pid) => projectDAL.retrieveById(pid)
               case None => None
             }
-            views.html.admin.common.editForm(Actions.ITEM_TYPE_PROJECT_NAME, project)(views.html.admin.forms.projectEdit(project))
+            (views.html.admin.common.editForm(Actions.ITEM_TYPE_PROJECT_NAME, project, Map.empty)
+              (views.html.admin.forms.projectEdit(project))
+            )
           case ChallengeType() =>
             val challenge = itemId match {
               case Some(pid) => challengeDAL.retrieveById(pid)
               case None => None
             }
-            views.html.admin.common.editForm(Actions.ITEM_TYPE_CHALLENGE_NAME, challenge)(views.html.admin.forms.challengeEdit(challenge))
+            val breadcrumbs = Map(
+              "Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)
+            )
+            (views.html.admin.common.editForm(Actions.ITEM_TYPE_CHALLENGE_NAME, challenge, breadcrumbs)
+              (views.html.admin.forms.challengeEdit(challenge))
+            )
           case SurveyType() =>
             val survey = itemId match {
               case Some(pid) => surveyDAL.retrieveById(pid)
               case None => None
             }
-            views.html.admin.common.editForm(Actions.ITEM_TYPE_SURVEY_NAME, survey)(views.html.admin.forms.surveyEdit(survey))
+            val breadcrumbs = Map(
+              "Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)
+            )
+            (views.html.admin.common.editForm(Actions.ITEM_TYPE_SURVEY_NAME, survey, breadcrumbs)
+              (views.html.admin.forms.surveyEdit(survey))
+            )
           case _ => views.html.error.error("Invalid item type requested.")
         }
         case None => views.html.error.error("Invalid item type requested.")
@@ -99,7 +119,7 @@ class Application @Inject() (sessionManager:SessionManager,
       projectDAL.retrieveById(itemId) match {
         case Some(project) =>
           Ok(views.html.index("Map Roulette Administration", user, config)
-            (views.html.admin.common.editForm(Actions.ITEM_TYPE_PROJECT_NAME, Some(project))
+            (views.html.admin.common.editForm(Actions.ITEM_TYPE_PROJECT_NAME, Some(project), Map.empty)
               (views.html.admin.forms.projectEdit(Some(project))
             )
           ))

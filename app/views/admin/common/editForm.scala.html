@@ -1,6 +1,6 @@
 @import org.maproulette.models.BaseObject
-@(itemType:String, editObject:Option[BaseObject[Long]]=None)(content:Html)
-@views.html.admin.common.header("Administration")
+@(itemType:String, editObject:Option[BaseObject[Long]]=None, breadcrumbs:Map[String, Call])(content:Html)
+@views.html.admin.common.header("Administration", null, breadcrumbs)
 <div class="box box-primary">
     <div class="box-header with-border">
     @defining(if (editObject.isDefined) { "Edit" } else { "Create"} ) { title =>
@@ -33,7 +33,7 @@
             @content
         </div>
         <div class="box-footer">
-            <button type="submit" class="btn btn-primary">Create</button>
+            <button type="submit" class="btn btn-primary">@if(editObject.isDefined) { Edit } else { Create }</button>
         </div>
     </form>
 </div><!-- /.box -->
