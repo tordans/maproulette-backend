@@ -82,7 +82,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     // now we have the ids for the supplied tags, then lets map them to the task created
     dal.updateTaskTags(createdObject.id, tagIds, user)
     if (tagIds.nonEmpty) {
-      actionManager.setAction(user.id, itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+      actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
   }
 
@@ -127,7 +127,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
                      limit: Int) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       val result = dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)
-      result.foreach(task => actionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
+      result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }
@@ -149,7 +149,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
             dal.deleteTaskStringTags(id, tagList, user)
-            actionManager.setAction(user.id, itemType.convertToItem(id), TagRemoved(), tags)
+            actionManager.setAction(Some(user), itemType.convertToItem(id), TagRemoved(), tags)
           }
           NoContent
         }
@@ -216,7 +216,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
           val statusUpdateJson = Json.obj("status" -> status)
           dal.update(statusUpdateJson, user)(id) match {
             case Some(resp) =>
-              actionManager.setAction(user.id, itemType.convertToItem(id), TaskStatusSet(status), "")
+              actionManager.setAction(Some(user), itemType.convertToItem(id), TaskStatusSet(status), "")
               NoContent
             case None => Utils.badRequest(s"Task with id [$id] not found to have status updated.")
           }

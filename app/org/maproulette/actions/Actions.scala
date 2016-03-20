@@ -43,6 +43,7 @@ sealed trait Item {
 
 case class ProjectType() extends ItemType(Actions.ITEM_TYPE_PROJECT)
 case class ChallengeType() extends ItemType(Actions.ITEM_TYPE_CHALLENGE)
+case class SurveyType() extends ItemType(Actions.ITEM_TYPE_SURVEY)
 case class TaskType() extends ItemType(Actions.ITEM_TYPE_TASK)
 case class TagType() extends ItemType(Actions.ITEM_TYPE_TAG)
 
@@ -58,6 +59,7 @@ case class TaskViewed() extends ActionType(Actions.ACTION_TYPE_TASK_VIEWED, Acti
 case class TaskStatusSet(status:Int) extends ActionType(Actions.ACTION_TYPE_TASK_STATUS_SET, Actions.ACTION_LEVEL_1)
 case class TagAdded() extends ActionType(Actions.ACTION_TYPE_TAG_ADDED, Actions.ACTION_LEVEL_2)
 case class TagRemoved() extends ActionType(Actions.ACTION_TYPE_TAG_REMOVED, Actions.ACTION_LEVEL_2)
+case class QuestionAnswered() extends ActionType(Actions.ACTION_TYPE_QUESTION_ANSWERED, Actions.ACTION_LEVEL_1)
 
 object Actions {
   val ACTION_LEVEL_1 = 1
@@ -72,6 +74,8 @@ object Actions {
   val ITEM_TYPE_TASK_NAME = "Task"
   val ITEM_TYPE_TAG = 3
   val ITEM_TYPE_TAG_NAME = "Tag"
+  val ITEM_TYPE_SURVEY = 4
+  val ITEM_TYPE_SURVEY_NAME = "Survey"
 
   val ACTION_TYPE_UPDATED = 0
   val ACTION_TYPE_UPDATED_NAME = "Updated"
@@ -87,6 +91,8 @@ object Actions {
   val ACTION_TYPE_TAG_ADDED_NAME = "Tag_Added"
   val ACTION_TYPE_TAG_REMOVED = 6
   val ACTION_TYPE_TAG_REMOVED_NAME = "Tag_Removed"
+  val ACTION_TYPE_QUESTION_ANSWERED = 7
+  val ACTION_TYPE_QUESTION_ANSWERED_NAME = "Question_Answered"
 
   /**
     * Validates whether the provided id is actually an action type id
@@ -94,7 +100,8 @@ object Actions {
     * @param actionType The id to test
     * @return true if valid action type id
     */
-  def validActionType(actionType:Int) : Boolean = actionType >= ACTION_TYPE_UPDATED && actionType <= ACTION_TYPE_TAG_REMOVED
+  def validActionType(actionType:Int) : Boolean =
+    actionType >= ACTION_TYPE_UPDATED && actionType <= ACTION_TYPE_QUESTION_ANSWERED
 
   /**
     * Validates whether the provided id is actually an item type id
@@ -115,6 +122,7 @@ object Actions {
     case ITEM_TYPE_CHALLENGE => Some(ITEM_TYPE_CHALLENGE_NAME)
     case ITEM_TYPE_TASK => Some(ITEM_TYPE_TASK_NAME)
     case ITEM_TYPE_TAG => Some(ITEM_TYPE_TAG_NAME)
+    case ITEM_TYPE_SURVEY => Some(ITEM_TYPE_SURVEY_NAME)
     case _ => None
   }
 
@@ -129,6 +137,7 @@ object Actions {
     case t if t.equalsIgnoreCase(ITEM_TYPE_CHALLENGE_NAME.toLowerCase) => Some(ITEM_TYPE_CHALLENGE)
     case t if t.equalsIgnoreCase(ITEM_TYPE_TASK_NAME.toLowerCase) => Some(ITEM_TYPE_TASK)
     case t if t.equalsIgnoreCase(ITEM_TYPE_TAG_NAME.toLowerCase) => Some(ITEM_TYPE_TAG)
+    case t if t.equalsIgnoreCase(ITEM_TYPE_SURVEY_NAME.toLowerCase) => Some(ITEM_TYPE_SURVEY)
     case _ => None
   }
 
@@ -146,6 +155,7 @@ object Actions {
     case ACTION_TYPE_TASK_STATUS_SET => Some(ACTION_TYPE_TASK_STATUS_SET_NAME)
     case ACTION_TYPE_TAG_ADDED => Some(ACTION_TYPE_TAG_ADDED_NAME)
     case ACTION_TYPE_TAG_REMOVED => Some(ACTION_TYPE_TAG_REMOVED_NAME)
+    case ACTION_TYPE_QUESTION_ANSWERED => Some(ACTION_TYPE_QUESTION_ANSWERED_NAME)
     case _ => None
   }
 
@@ -163,6 +173,7 @@ object Actions {
     case t if t.equalsIgnoreCase(ACTION_TYPE_TASK_STATUS_SET_NAME.toLowerCase) => Some(ACTION_TYPE_TASK_STATUS_SET)
     case t if t.equalsIgnoreCase(ACTION_TYPE_TAG_ADDED_NAME.toLowerCase) => Some(ACTION_TYPE_TAG_ADDED)
     case t if t.equalsIgnoreCase(ACTION_TYPE_TAG_REMOVED_NAME.toLowerCase) => Some(ACTION_TYPE_TAG_REMOVED)
+    case t if t.equalsIgnoreCase(ACTION_TYPE_QUESTION_ANSWERED_NAME.toLowerCase) => Some(ACTION_TYPE_QUESTION_ANSWERED)
     case _ => None
   }
 }

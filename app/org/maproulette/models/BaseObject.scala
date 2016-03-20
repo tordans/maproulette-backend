@@ -25,6 +25,16 @@ trait BaseObject[Key] {
   def hasWriteAccess(user:User) : Boolean = true
 }
 
-trait ChildObject[Key, P] extends BaseObject[Key] {
+trait ChildObject[Key, P <: BaseObject[Key]] extends BaseObject[Key] {
   def getParent : P
+
+  /**
+    * Whether a user has write access to an object or not.
+    * By default it will assume that it does
+    *
+    * @param user The user to check
+    * @return true if user can update the object
+    */
+  override def hasWriteAccess(user: User): Boolean =
+    user.isSuperUser || getParent.hasWriteAccess(user)
 }

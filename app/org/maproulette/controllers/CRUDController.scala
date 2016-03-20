@@ -92,7 +92,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   def internalCreate(requestBody:JsValue, element:T, user:User) : T = {
     val createdObject = dal.insert(element, user)
     extractAndCreate(requestBody, createdObject, user)
-    actionManager.setAction(user.id, itemType.convertToItem(createdObject.id), ActionCreated(), "")
+    actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), ActionCreated(), "")
     createdObject
   }
 
@@ -146,7 +146,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   def internalUpdate(requestBody:JsValue, user:User)(implicit id:Long) : Option[T] = {
     val updatedObject = dal.update(requestBody, user)
     extractAndUpdate(requestBody, updatedObject, user)
-    actionManager.setAction(user.id, itemType.convertToItem(id), Updated(), "")
+    actionManager.setAction(Some(user), itemType.convertToItem(id), Updated(), "")
     updatedObject
   }
 
@@ -177,7 +177,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   def delete(id:Long) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.obj("message" -> s"${dal.delete(id, user)} Tasks deleted by user ${user.id}."))
-      actionManager.setAction(user.id, itemType.convertToItem(id), Deleted(), "")
+      actionManager.setAction(Some(user), itemType.convertToItem(id), Deleted(), "")
       NoContent
     }
   }
@@ -199,7 +199,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
       val result = dal.list(limit, offset)
       itemType match {
         case it:TaskType if user.isDefined =>
-          result.foreach(task => actionManager.setAction(user.get.id, itemType.convertToItem(task.id), TaskViewed(), ""))
+          result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
         case _ => //ignore, only update view actions if it is a task type
       }
       Ok(Json.toJson(result))

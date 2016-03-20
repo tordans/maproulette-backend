@@ -26,6 +26,7 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>User Groups</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,6 +35,7 @@
                             <td>@p.id</td>
                             <td>@p.name</td>
                             <td>@p.groups.map(_.name).mkString(",")</td>
+                            <td><DeleteButton/></td>
                         </tr>
                     }
                 </tbody>
@@ -42,6 +44,7 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>User Groups</th>
+                        <th>Actions</th>
                     </tr>
                 </tfoot>
             </table>

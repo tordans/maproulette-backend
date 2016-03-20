@@ -144,7 +144,7 @@ object User {
   /**
     * Creates a guest user object with default information.
     */
-  val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-blue",
+  val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-green",
     OSMProfile(0, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "assets/images/user_no_image.png",

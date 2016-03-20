@@ -51,7 +51,7 @@ class ChallengeController @Inject() (override val childController:TaskController
                      limit:Int) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       val result = taskDAL.getRandomTasksStr(Some(projectId), Some(challengeId), tags.split(",").toList, limit)
-      result.foreach(task => actionManager.setAction(0, itemType.convertToItem(task.id), TaskViewed(), ""))
+      result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }

@@ -16,7 +16,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
         @views.html.includes.cssIncludes(config.isDebugMode)
         @views.html.includes.jsIncludes(user, config.isDebugMode)
     </head>
-    <body class="hold-transition @{if (user.guest) { "skin-blue sidebar-collapse" } else { user.theme }} sidebar-mini">
+    <body class="hold-transition @{user.theme} @{if (user.guest) { "sidebar-collapse" } else { "" }} sidebar-mini">
         <div class="wrapper">
 
                 <!-- Main Header -->
@@ -46,17 +46,6 @@ scratch. This page gets rid of all links and provides the needed markup only.
 
                 <!-- Content Wrapper. Contains page content -->
             <div class="content-wrapper">
-                    <!-- Modal -->
-                <div id="piModal" class="modal fade modal-primary" role="dialog">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-body" align="center">
-                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                                <iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe>
-                            </div>
-                        </div><!-- /.modal-content -->
-                    </div><!-- /.modal-dialog -->
-                </div>
                 @content
             </div><!-- /.content-wrapper -->
 
@@ -64,7 +53,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             <footer class="main-footer">
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
-                    <a href="#" id="pi" data-toggle="modal" data-target="#piModal">&pi;</a>
+                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer">&pi;</a>
                 </div>
                     <!-- Default to the left -->
                 <strong>Copyright &copy; 2016 <a href="#">MapRoulette</a>.</strong> All rights reserved.
@@ -135,6 +124,26 @@ scratch. This page gets rid of all links and provides the needed markup only.
            immediately after the control sidebar -->
             <div class="control-sidebar-bg"></div>
         </div><!-- ./wrapper -->
+
+        <!-- Modal -->
+        <div id="geoJsonViewer" class="modal fade modal-primary" role="dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="box box-solid box-primary" align="center">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <!--iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe-->
+                        <div class="box-body">
+                            <label>GeoJson Viewer</label>
+                            <textarea id="geojson_text" class="form-control" rows="10" placeholder=""></textarea>
+                        </div>
+                        <div class="box-footer">
+                            <button id="geojson_submit" class="btn btn-primary btn-large btn-action pull-left">Submit</button>
+                            <p>For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html">read the spec</a>.</p>
+                        </div>
+                    </div>
+                </div><!-- /.modal-content -->
+            </div><!-- /.modal-dialog -->
+        </div>
 
             <!-- Optionally, you can add Slimscroll and FastClick plugins.
          Both of these plugins are recommended to enhance the

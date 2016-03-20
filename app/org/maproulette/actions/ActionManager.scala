@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 import anorm.SqlParser._
 import anorm._
 import org.maproulette.Config
+import org.maproulette.session.User
 import play.api.{Application, Logger}
 import play.api.db.Database
 import org.maproulette.exception.InvalidException
@@ -68,13 +69,13 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
   /**
     * Creates an action in the database
     *
-    * @param userId The id of the user that performed the action
+    * @param user The user executing the request
     * @param item The item that the action was performed on
     * @param action The action that was performed
     * @param extra And extra information that you want to send along with the creation of the action
     * @return true if created
     */
-  def setAction(userId:Long, item:Item with ItemType, action:ActionType, extra:String) : Boolean = {
+  def setAction(user:Option[User]=None, item:Item with ItemType, action:ActionType, extra:String) : Boolean = {
     if (action.getLevel > config.actionLevel) {
       Logger.trace("Action not logged, action level higher than threshold in configuration.")
       false
@@ -83,6 +84,10 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
         val statusId = action match {
           case t:TaskStatusSet => t.status
           case _ => 0
+        }
+        val userId = user match {
+          case Some(u) => Some(u.id)
+          case None => None
         }
         SQL"""INSERT INTO actions (user_id, type_id, item_id, action, status, extra)
                 VALUES ($userId, ${item.typeId}, ${item.itemId}, ${action.getId},

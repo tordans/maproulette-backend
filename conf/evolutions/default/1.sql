@@ -57,8 +57,12 @@ CREATE TABLE IF NOT EXISTS users
   CONSTRAINT users_pkey PRIMARY KEY(id)
 );
 
+DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE PROCEDURE updateModified();
+
+INSERT INTO users (id, osm_id, osm_created, display_name, oauth_token, oauth_secret, theme)
+VALUES (-999, -999, NOW(), 'Guest', '', '', 'skin-green');
 
 CREATE TABLE IF NOT EXISTS groups
 (
@@ -69,6 +73,7 @@ CREATE TABLE IF NOT EXISTS groups
 );
 
 INSERT INTO groups (id, name, group_type) VALUES (-1, 'SUPER_USER', -1);
+INSERT INTO groups (id, name, group_type) VALUES (-999, 'GUEST', -999);
 
 CREATE TABLE IF NOT EXISTS user_groups
 (
@@ -94,6 +99,7 @@ CREATE TABLE IF NOT EXISTS projects
   CONSTRAINT projects_pkey PRIMARY KEY (id)
 );
 
+DROP TRIGGER IF EXISTS update_projects_modified ON projects;
 CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
   FOR EACH ROW EXECUTE PROCEDURE updateModified();
 
@@ -131,12 +137,77 @@ CREATE TABLE IF NOT EXISTS challenges
   CONSTRAINT challenges_pkey PRIMARY KEY (id)
 );
 
+DROP TRIGGER IF EXISTS update_challenges_modified ON challenges;
 CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
   FOR EACH ROW EXECUTE PROCEDURE updateModified();
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
 SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
+
+CREATE TABLE IF NOT EXISTS surveys
+(
+  id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  modified timestamp without time zone DEFAULT NOW(),
+  identifier character varying DEFAULT '',
+  name character varying NOT NULL,
+  parent_id integer NOT NULL,
+  description character varying DEFAULT '',
+  question character varying DEFAULT '',
+  CONSTRAINT surveys_parent_id_fkey FOREIGN KEY (parent_id)
+  REFERENCES projects(id) MATCH SIMPLE
+  ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT surveys_pkey PRIMARY KEY (id)
+);
+
+DROP TRIGGER IF EXISTS update_surveys_modified ON surveys;
+CREATE TRIGGER update_surveys_modified BEFORE UPDATE ON surveys
+  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+
+SELECT create_index_if_not_exists('surveys', 'parent_id', '(parent_id)');
+SELECT create_index_if_not_exists('surveys', 'parent_id_name', '(parent_id, name)', true);
+SELECT create_index_if_not_exists('surveys', 'identifier', '(identifier)');
+
+CREATE TABLE IF NOT EXISTS answers
+(
+  id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  modified timestamp without time zone DEFAULT NOW(),
+  survey_id integer NOT NULL,
+  answer character varying NOT NULL,
+  CONSTRAINT answers_survey_id_fkey FOREIGN KEY (survey_id)
+    REFERENCES surveys(id) MATCH SIMPLE
+  ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT answers_pkey PRIMARY KEY(id)
+);
+
+DROP TRIGGER IF EXISTS update_answers_modified ON answers;
+CREATE TRIGGER update_answers_modified BEFORE UPDATE ON answers
+  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+
+SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');
+
+CREATE TABLE IF NOT EXISTS survey_answers
+(
+  id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  user_id integer NOT NULL DEFAULT(-999),
+  survey_id integer NOT NULL,
+  task_id integer NOT NULL,
+  answer_id integer NOT NULL,
+  CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
+    REFERENCES users(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
+    REFERENCES surveys(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
+    REFERENCES tasks(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
+    REFERENCES answers(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
+);
+
+SELECT create_index_if_not_exists('survey_answer', 'survey_id', '(survey_id)');
 
 CREATE TABLE IF NOT EXISTS tasks
 (
@@ -155,6 +226,7 @@ CREATE TABLE IF NOT EXISTS tasks
     ON UPDATE CASCADE ON DELETE CASCADE
 );
 
+DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE PROCEDURE updateModified();
 
@@ -208,19 +280,19 @@ CREATE TABLE IF NOT EXISTS actions
 (
   id serial NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
-  user_id integer,
+  user_id integer DEFAULT(-999),
   type_id integer,
   item_id integer,
   action integer NOT NULL,
   status integer NOT NULL,
   extra character varying,
-  CONSTRAINT actions_pkey PRIMARY KEY (id),
-  CONSTRAINT actions_task_id_fkey FOREIGN KEY (item_id)
-    REFERENCES tasks(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE
+    REFERENCES users(id) MATCH SIMPLE,
+  CONSTRAINT actions_task_id_fkey FOREIGN KEY (item_id)
+    REFERENCES tasks(id) MATCH SIMPLE,
+  CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
+    REFERENCES users(id) MATCH SIMPLE,
+  CONSTRAINT actions_pkey PRIMARY KEY (id)
 );
 
 SELECT create_index_if_not_exists('actions', 'status', '(status)');
@@ -229,6 +301,6 @@ SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
 select create_index_if_not_exists('actions', 'created', '(created)');
 
 -- Insert the default root, used for migration and those using the old API
-INSERT INTO projects (name, description) VALUES ('default', 'The default root for any challenges not defining a project parent. Only available when using old API, and through migration.')
+INSERT INTO projects (name, description) VALUES ('default', 'The default root for any challenges not defining a project parent. Only available when using old API, and through migration.');
 
 # --- !Downs
