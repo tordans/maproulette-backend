@@ -1,6 +1,7 @@
 package org.maproulette.session
 
 import java.util.UUID
+import javax.inject.Inject
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.models.BaseObject
@@ -21,7 +22,7 @@ import scala.xml.{XML, Elem}
   * @param longitude longitude for location
   * @param latitude latitude for location
   */
-case class Location(longitude:Double, latitude:Double)
+case class Location(longitude:Double, latitude:Double, name:Option[String]=None)
 
 /**
   * Information specific to the OSM profile of the user. All users in the system are based on
@@ -57,15 +58,21 @@ case class OSMProfile(id:Long,
   * @param apiKey The current api key to validate requests
   * @param guest Whether this is a guest account or not.
   */
-case class User(override val id:Long,
-                created:DateTime,
-                modified:DateTime,
-                theme:String,
-                osmProfile: OSMProfile,
-                apiKey:Option[String]=None,
-                guest:Boolean=false) extends BaseObject[Long] {
+case class User (override val id:Long,
+                 created:DateTime,
+                 modified:DateTime,
+                 theme:String,
+                 osmProfile: OSMProfile,
+                 groups:List[Group]=List(),
+                 apiKey:Option[String]=None,
+                 guest:Boolean=false) extends BaseObject[Long] {
   // for users the display name is always retrieved from OSM
   override def name = osmProfile.displayName
+
+  def homeLocation = osmProfile.homeLocation.name match {
+    case Some(name) => name
+    case None => "Unknown"
+  }
 
   def formattedOSMCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(osmProfile.created)
   def formattedMPCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(created)
@@ -74,10 +81,20 @@ case class User(override val id:Long,
     * Generate (or regenerate) api key for the user, set it in the database
     */
   def generateAPIKey : User = {
+    @Inject() val userDAL:UserDAL = null
     val newAPIKey = Crypto.encryptAES(id + "|" + UUID.randomUUID())
-    UserDAL.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""))(id)
+    userDAL.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), this)(id)
     this.copy(apiKey = Some(newAPIKey))
   }
+
+  /**
+    * Checks to see if this user is part of the special super user group
+    *
+    * @return true if user is a super user
+    */
+  def isSuperUser = groups.exists(_.id == -1)
+
+  def isAdmin = groups.exists(_.groupType == Group.TYPE_ADMIN)
 }
 
 /**
@@ -127,14 +144,22 @@ object User {
   /**
     * Creates a guest user object with default information.
     */
-  val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-blue",
+  val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-green",
     OSMProfile(0, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "assets/images/user_no_image.png",
       Location(47.6097, 122.3331),
       DateTime.now(),
       RequestToken("", "")
-    ), None, true
+    ), List(), None, true
+  )
+
+  val superUser = User(-1, DateTime.now(), DateTime.now(), "skin-black",
+    OSMProfile(0, "SuperUser", "FULL ACCESS", "assets/images/user_no_image.png",
+      Location(47.6097, 122.3331),
+      DateTime.now(),
+      RequestToken("", "")
+    ), List(Group(-1, "SuperUserGroup", Group.TYPE_ADMIN))
   )
 
   /**

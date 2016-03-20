@@ -1,7 +1,10 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.{ProjectDAL, ChallengeDAL}
+import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json
@@ -11,17 +14,17 @@ import play.api.test.WithApplication
   * @author cuthbertm
   */
 @RunWith(classOf[JUnitRunner])
-class ChallengeSpec extends Specification {
+class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL) extends Specification {
   implicit var challengeID:Long = -1
 
   sequential
 
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
-      val projectID = ProjectDAL.insert(Project(-1, "RootProject_challengeTest")).id
-      val newChallenge = Challenge(challengeID, "NewProject", None, projectID, None, Some("This is a newProject"))
-      challengeID = ChallengeDAL.insert(newChallenge).id
-      ChallengeDAL.retrieveById match {
+      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest"), User.superUser).id
+      val newChallenge = Challenge(challengeID, "NewChallenge", None, Some("This is a new challenge"), projectID, None)
+      challengeID = challengeDAL.insert(newChallenge, User.superUser).id
+      challengeDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newChallenge.name
           t.description mustEqual newChallenge.description
@@ -32,11 +35,11 @@ class ChallengeSpec extends Specification {
     }
 
     "update challenge object to database" in new WithApplication {
-      ChallengeDAL.update(Json.parse(
+      challengeDAL.update(Json.parse(
         """{
           "name":"UpdatedChallenge"
-        }""".stripMargin))(challengeID)
-      ChallengeDAL.retrieveById match {
+        }""".stripMargin), User.superUser)(challengeID)
+      challengeDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "UpdatedChallenge"
           t.id mustEqual challengeID
@@ -48,8 +51,8 @@ class ChallengeSpec extends Specification {
 
     "delete challenge object in database" in new WithApplication {
       implicit val ids = List(challengeID)
-      ChallengeDAL.deleteFromIdList
-      ChallengeDAL.retrieveById mustEqual None
+      challengeDAL.deleteFromIdList(User.superUser)
+      challengeDAL.retrieveById mustEqual None
     }
   }
 }

@@ -1,7 +1,10 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 import play.api.libs.json.Json
@@ -11,7 +14,7 @@ import play.api.test.WithApplication
   * @author cuthbertm
   */
 @RunWith(classOf[JUnitRunner])
-class ProjectSpec extends Specification {
+class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
   implicit var projectID:Long = -1
 
   sequential
@@ -19,8 +22,8 @@ class ProjectSpec extends Specification {
   "Projects" should {
     "write project object to database" in new WithApplication {
       val newProject = Project(projectID, "NewProject_projecttest", Some("This is a newProject"))
-      projectID = ProjectDAL.insert(newProject).id
-      ProjectDAL.retrieveById match {
+      projectID = projectDAL.insert(newProject, User.superUser).id
+      projectDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newProject.name
           t.description mustEqual newProject.description
@@ -31,11 +34,11 @@ class ProjectSpec extends Specification {
     }
 
     "update project object to database" in new WithApplication {
-      ProjectDAL.update(Json.parse(
+      projectDAL.update(Json.parse(
         """{
           "name":"UpdatedProject"
-        }""".stripMargin))(projectID)
-      ProjectDAL.retrieveById match {
+        }""".stripMargin), User.superUser)(projectID)
+      projectDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual "UpdatedProject"
           t.id mustEqual projectID
@@ -47,8 +50,8 @@ class ProjectSpec extends Specification {
 
     "delete project object in database" in new WithApplication {
       implicit val ids = List(projectID)
-      ProjectDAL.deleteFromIdList
-      ProjectDAL.retrieveById mustEqual None
+      projectDAL.deleteFromIdList(User.superUser)
+      projectDAL.retrieveById mustEqual None
     }
   }
 }

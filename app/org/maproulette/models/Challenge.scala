@@ -1,6 +1,8 @@
 package org.maproulette.models
 
+import com.google.inject.Inject
 import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.session.User
 import play.api.libs.json.{Reads, Json, Writes}
 
 /**
@@ -22,13 +24,15 @@ import play.api.libs.json.{Reads, Json, Writes}
 case class Challenge(override val id: Long,
                      override val name: String,
                      override val identifier:Option[String]=None,
+                     override val description:Option[String]=None,
                      parent:Long,
                      difficulty:Option[Int]=None,
-                     description: Option[String]=None,
                      blurb:Option[String]=None,
-                     instruction:Option[String]=None) extends BaseObject[Long] {
+                     instruction:Option[String]=None) extends ChildObject[Long, Project] {
 
-  def getParent = ProjectDAL.retrieveById(parent)
+  @Inject val projectDAL:ProjectDAL = null
+
+  override def getParent = projectDAL.retrieveById(parent).get
 }
 
 object Challenge {

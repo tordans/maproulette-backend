@@ -2,8 +2,6 @@ package org.maproulette.models.dal
 
 import anorm._
 import org.maproulette.models.BaseObject
-import play.api.db.DB
-import play.api.Play.current
 
 /**
   * Parent data access layer that simply includes the ability to list the children of the current
@@ -30,7 +28,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     */
   def listChildren(limit:Int=10, offset:Int=0)(implicit id:Key) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       val sqlLimit = if (limit < 0) "ALL" else limit+""
       val query = s"SELECT $childColumns FROM $childTable WHERE parent_id = {id} LIMIT $sqlLimit OFFSET {offset}"
       SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement), 'offset -> offset).as(childParser.*)

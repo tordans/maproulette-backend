@@ -1,4 +1,5 @@
 @import org.maproulette.session.User
+@import org.maproulette.actions.Actions
 @(user:User)
 <!-- sidebar: style can be found in sidebar.less -->
 <section class="sidebar">
@@ -30,18 +31,15 @@
 
     <!-- Sidebar Menu -->
   <ul class="sidebar-menu">
-      <!--li class="header">MY PROJECTS</li-->
-      <!-- Optionally, you can add icons to the links -->
-    <li class="active"><a href="#"><i class="fa fa-map-marker"></i> <span>Mapping</span></a></li>
-    <li><a href="#"><i class="fa fa-folder-open"></i> <span>Admin</span></a></li>
-    <li><a href="#"><i class="fa fa-pie-chart"></i> <span>Stats</span></a></li>
-      <!--li class="treeview">
-                            <a href="#"><i class="fa fa-life-ring"></i> <span>Stats</span> <i class="fa fa-angle-left pull-right"></i></a>
-                            <ul class="treeview-menu">
-                                <li><a href="#">Challenge 1</a></li>
-                                <li><a href="#">Challenge 2</a></li>
-                            </ul>
-                        </li-->
+    @if(user.isSuperUser) {
+      <li class="header">Administration</li>
+        <!-- Optionally, you can add icons to the links -->
+      <li><a href="@routes.Application.adminUIList(Actions.ITEM_TYPE_PROJECT_NAME)"><i class="fa fa-folder-open"></i> <span>Projects</span></a></li>
+      <li><a href="@routes.Application.users()"><i class="fa fa-users"></i> <span>Users</span></a></li>
+      <li><a href="@routes.Application.stats()"><i class="fa fa-pie-chart"></i> <span>Stats</span></a></li>
+    }
+    <li class="header">Mapping</li>
+    <li><a href="@routes.Application.index()"><i class="fa fa-map-o"></i> <span>Maps</span></a></li>
   </ul><!-- /.sidebar-menu -->
 </section>
   <!-- /.sidebar -->

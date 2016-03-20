@@ -39,41 +39,8 @@ var onError = function(error) {
     toastr.error(error);
 };
 
-// get URL parameters
-// http://stackoverflow.com/a/979995
-var Q = (function () {
-    // This function is anonymous, is executed immediately and
-    // the return value is assigned to Q!
-    var i = 0;
-    var query_string = {};
-    var query = window.location.search.substring(1);
-    var vars = query.split('&');
-    while (i < vars.length) {
-        var pair = vars[i].split('=');
-        // If first entry with this name
-        if (typeof query_string[pair[0]] === 'undefined') {
-            query_string[pair[0]] = pair[1];
-            // If second entry with this name
-        } else if (typeof query_string[pair[0]] === 'string') {
-            query_string[pair[0]] = [query_string[pair[0]], pair[1]];
-            // If third or later entry with this name
-        } else {
-            query_string[pair[0]].push(pair[1]);
-        }
-        i++;
-    }
-    return query_string;
-}());
-
 var MRConfig = (function () {
     return {
-        // the UI strings
-        strings: {
-            msgNextChallenge: 'Faites vos jeux...',
-            msgMovingOnToNextChallenge: 'OK, moving right along...',
-            msgZoomInForEdit: 'Please zoom in a little so we don\'t have to load a huge area from the API.'
-        },
-
         // the default map options
         mapOptions: {
             center: new L.LatLng(40, -90),
@@ -99,79 +66,61 @@ var MRConfig = (function () {
     };
 }());
 
-var MRManager = (function () {
+(function() {
     var map;
-    var near = (Q.lon && Q.lat) ? {
-        'lon': parseFloat(Q.lon),
-        'lat': parseFloat(Q.lat)
-    } : {};
-    var taskLayer = new L.geoJson(null, {
-        onEachFeature: function (feature, layer) {
-            if (feature.properties && feature.properties.text) {
-                layer.bindPopup(feature.properties.text);
-                return layer.openPopup();
+    $(document).ready(function() {
+        var road_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            subdomains: ['1', '2', '3', '4'],
+            attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a>. Map data (c) <a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> contributors, CC-BY-SA.'
+        }),
+        satellite_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            subdomains: ['1', '2', '3', '4'],
+            attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a>.'
+        }),
+        map = new L.Map('map', {
+            center: new L.LatLng(47.6097, -122.3331),
+            zoom: 13,
+            layers: [
+                road_layer
+            ]
+        });
+
+        var geojsonLayer = new L.GeoJSON(null, {
+            onEachFeature: function (feature, layer) {
+                if (feature.properties) {
+                    var popupString = '<div class="popup">';
+                    for (var k in feature.properties) {
+                        var v = feature.properties[k];
+                        popupString += k + ': ' + v + '<br />';
+                    }
+                    popupString += '</div>';
+                    layer.bindPopup(popupString, {
+                        maxHeight: 200
+                    });
+                }
             }
-        }
+        });
+
+        map.addLayer(geojsonLayer);
+
+        L.control.layers(
+            {'Road': road_layer, 'Satellite': satellite_layer},
+            {'GeoJSON': geojsonLayer},
+            {position:"topleft"}
+        ).addTo(map);
+
+        $('#geojson_submit').on('click', function() {
+            if ($('#geojson_text').val().length < 1) {
+                $('#geoJsonViewer').modal("hide");
+                return;
+            }
+            geojsonLayer.clearLayers();
+            geojsonLayer.addData(JSON.parse($('#geojson_text').val()));
+            map.fitBounds(geojsonLayer.getBounds());
+            $('#geoJsonViewer').modal("hide");
+        });
     });
-
-    /*
-     * This function initializes the leaflet map, gets the user location, and loads the first task.
-     * A challenge is selected based on the user location, the URL parameter, or on the server side using the stored OSM home location.
-     * elem is the div id on the page
-     */
-    var init = function (elem) {
-        // check if the map element exists.
-        if (!document.getElementById(elem)) return false;
-
-        // initialize the map
-        map = new L.Map(elem, MRConfig.mapOptions);
-
-        var layers = {};
-
-        // add each layer to the map
-        for (var tileLayerKey in MRConfig.tileLayers) {
-            var tileLayer = MRConfig.tileLayers[tileLayerKey];
-            var layer = new L.TileLayer(tileLayer.url, {
-                attribution: tileLayer.attribution});
-            map.addLayer(layer);
-            // add layer to control
-            layers[tileLayerKey.replace('_',' ')] = layer;
-        }
-
-        // add Layer control to the map
-        L.control.layers(layers, null, {position:"topleft"}).addTo(map);
-
-        // Add both the tile layer and the task layer to the map
-        map.addLayer(taskLayer);
-        geoLocateUser();
-    };
-
-    var geoLocateUser = function () {
-        // Locate the user and define the event triggers
-        map.locate({
-            setView: false,
-            timeout: 10000,
-            maximumAge: 0
-        });
-        // If the location is found, let the user know, and store.
-        map.on('locationfound', function (e) {
-            near.lat = parseFloat(e.latlng.lat);
-            near.lon = parseFloat(e.latlng.lng);
-            toastr.info('We found your location. MapRoulette will try and give you tasks closer to home if they are available.');
-        });
-        // If the location is not found, meh.
-        map.on('locationerror', function (e) {
-            console.log('location not found or not permitted: ' + e.message);
-        });
-    };
-
-    return {
-        init: init,
-        geoLocateUser: geoLocateUser
-    };
 }());
 
-// initialization
-function init(elemName) {
-    MRManager.init(elemName);
-}

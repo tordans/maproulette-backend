@@ -12,7 +12,7 @@ import play.api.mvc.{Action, Controller}
   *
   * @author cuthbertm
   */
-class ActionController @Inject() extends Controller {
+class ActionController @Inject() (sessionManager: SessionManager, actionManager: ActionManager) extends Controller {
 
   implicit val summaryReads = Json.writes[ActionSummary]
 
@@ -25,8 +25,8 @@ class ActionController @Inject() extends Controller {
     * @return Json response body containing array of ActionSummary objects
     */
   def getFullSummary() = Action.async { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(ActionManager.getFullSummary()))
+    sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(actionManager.getFullSummary()))
     }
   }
 }

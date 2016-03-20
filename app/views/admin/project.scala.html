@@ -1,0 +1,69 @@
+@import org.maproulette.session.User
+@import org.maproulette.models.Project
+@import org.maproulette.actions.Actions
+@(user:User, projects:List[Project])
+
+@views.html.admin.common.header("Administration")
+<section class="content">
+    <div class="box">
+        <div class="box-header">
+            <h3 class="box-title">Projects</h3>
+            <div class="pull-right">
+                <a href="@routes.Application.adminUICreate(Actions.ITEM_TYPE_PROJECT_NAME)">
+                    <button class="btn-xs btn-block btn-primary">New Project</button>
+                </a>
+            </div>
+        </div><!-- /.box-header -->
+        <div class="box-body">
+            <table id="userTable" class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>User Groups</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for(p <- projects) {
+                        <tr>
+                            <td>@p.id</td>
+                            <td>@p.name</td>
+                            <td>@p.groups.map(_.name).mkString(",")</td>
+                            <td>
+                                <div class="col-md-2 pull-left">
+                                    <a href="@routes.Application.adminUIEdit(Actions.ITEM_TYPE_PROJECT_NAME, p.id)">
+                                        <button class="btn-xs btn-block btn-warning">Edit</button>
+                                    </a>
+                                </div>
+                                <div class="col-md-3 pull-left">
+                                    <a href="@routes.Application.adminUICreate(Actions.ITEM_TYPE_CHALLENGE_NAME)">
+                                        <button class="btn-xs btn-block btn-primary">New Challenge</button>
+                                    </a>
+                                </div>
+                                <div class="col-md-2 pull-left">
+                                    <a href="@routes.Application.adminUICreate(Actions.ITEM_TYPE_SURVEY_NAME)">
+                                        <button class="btn-xs btn-block btn-primary">New Survey</button>
+                                    </a>
+                                </div>
+                                <div class="col-md-2 pull-left">
+                                    <a href="#">
+                                        <button class="btn-xs btn-block btn-danger">Delete</button>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>User Groups</th>
+                        <th>Actions</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div><!-- /.box-body -->
+    </div><!-- /.box -->
+</section>

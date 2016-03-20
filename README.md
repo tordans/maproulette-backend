@@ -18,6 +18,10 @@ See the code style conventions at https://github.com/osmlab/maproulette/wiki/Cod
 ### Frameworks used
 
 MapRoulette version 2 is built upon the Play Framework using Scala. You can find more information about the Play Framework at https://www.playframework.com
+It uses the following core technologies:
+
+* Postgres 9.5 with PostGIS 2.2.1
+* Play Framework 2.5.0 with Scala 2.11.7
 
 ## Deploying MapRoulette
 

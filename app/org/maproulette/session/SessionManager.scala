@@ -1,16 +1,18 @@
 package org.maproulette.session
 
+import javax.inject.Inject
+import javax.inject.Singleton
+
 import dal.UserDAL
 import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.exception.MPExceptionUtil
-import play.api.Logger
-import play.api.Play.current
+import play.api.{Application, Logger}
 import play.api.libs.Crypto
 import play.api.libs.oauth._
-import play.api.libs.ws.WS
+import play.api.libs.ws.WSClient
 import play.api.mvc.{Result, Request, AnyContent, RequestHeader}
 
 import scala.concurrent.{Promise, Future}
@@ -22,17 +24,18 @@ import scala.util.{Success, Failure}
   *
   * @author cuthbertm
   */
-object SessionManager {
+@Singleton
+class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
-  private val userDetailsURL = current.configuration.getString("osm.userDetails").get
-  private val requestTokenURL = current.configuration.getString("osm.requestTokenURL").get
-  private val accessTokenURL = current.configuration.getString("osm.accessTokenURL").get
-  private val authorizationURL = current.configuration.getString("osm.authorizationURL").get
+  private val userDetailsURL = application.configuration.getString("osm.userDetails").get
+  private val requestTokenURL = application.configuration.getString("osm.requestTokenURL").get
+  private val accessTokenURL = application.configuration.getString("osm.accessTokenURL").get
+  private val authorizationURL = application.configuration.getString("osm.authorizationURL").get
   // the consumer key and secret for the Map Roulette application
-  private val consumerKey = ConsumerKey(current.configuration.getString("osm.consumerKey").get,
-    current.configuration.getString("osm.consumerSecret").get)
+  private val consumerKey = ConsumerKey(application.configuration.getString("osm.consumerKey").get,
+    application.configuration.getString("osm.consumerSecret").get)
 
   // The OAuth object used to make the requests to the OpenStreetMap servers
   private val oauth = OAuth(ServiceInfo(requestTokenURL, accessTokenURL, authorizationURL, consumerKey), true)
@@ -98,8 +101,8 @@ object SessionManager {
     */
   def sessionTokenPair(implicit request: RequestHeader): Option[RequestToken] = {
     for {
-      token <- request.session.get("token")
-      secret <- request.session.get("secret")
+      token <- request.session.get(SessionManager.KEY_TOKEN)
+      secret <- request.session.get(SessionManager.KEY_SECRET)
     } yield {
       RequestToken(token, secret)
     }
@@ -119,19 +122,19 @@ object SessionManager {
   def sessionUser(tokenPair:Option[RequestToken], create:Boolean=false)
                  (implicit request:RequestHeader) : Future[Option[User]] = {
     val p = Promise[Option[User]]
-    val userId = request.session.get("userId")
-    val osmId = request.session.get("osmId")
+    val userId = request.session.get(SessionManager.KEY_USER_ID)
+    val osmId = request.session.get(SessionManager.KEY_OSM_ID)
     tokenPair match {
       case Some(pair) => getUser(pair, userId, create) onComplete {
         case Success(optionUser) => p success optionUser
         case Failure(f) => p failure f
       }
       case None =>
-        request.headers.get("apiKey") match {
+        request.headers.get(SessionManager.KEY_API) match {
           case Some(apiKey) =>
             try {
               val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-              UserDAL.findByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+              userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
                 case Some(user) => p success Some(user)
                 case None => p success None
               }
@@ -155,25 +158,26 @@ object SessionManager {
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  private def getUser(accessToken:RequestToken, userId:Option[String], create:Boolean=false) : Future[Option[User]] = {
+  private def getUser(accessToken:RequestToken, userId:Option[String],
+                      create:Boolean=false) : Future[Option[User]] = {
     // we use the userId for caching, so only if this is the first time the user is authorizing
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        UserDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
-      case None => UserDAL.matchByRequestToken(accessToken)
+        userDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
+      case None => userDAL.matchByRequestToken(accessToken)
     }
     storedUser match {
       case Some(u) =>
         // if the user information is more than a day old, then lets update it.
         if (u.modified.plusDays(1).isBefore(DateTime.now())) {
-          refreshProfile(u.osmProfile.requestToken)
+          refreshProfile(u.osmProfile.requestToken, User.superUser)
         } else {
           Future { Some(u) }
         }
       case None =>
         if (create) {
-          refreshProfile(accessToken)
+          refreshProfile(accessToken, User.superUser)
         } else {
           Future { None }
         }
@@ -187,18 +191,15 @@ object SessionManager {
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  def refreshProfile(accessToken:RequestToken) : Future[Option[User]] = {
+  def refreshProfile(accessToken:RequestToken, user:User) : Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
-    val details = WS.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
+    val details = ws.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
           val newUser = User(detailsResponse.body, accessToken)
-          UserDAL.upsert(newUser) match {
-            case Some(u) => p success Some(u)
-            case None => p failure new OAuthNotAuthorizedException("Failed to create new user")
-          }
+          p success Some(userDAL.insert(newUser, user))
         } catch {
           case e:Exception => p failure e
         }
@@ -252,4 +253,13 @@ object SessionManager {
       p.future
     }
   }
+}
+
+object SessionManager {
+  val KEY_USER_TICK = "userTick"
+  val KEY_TOKEN = "token"
+  val KEY_SECRET = "secret"
+  val KEY_USER_ID = "userId"
+  val KEY_OSM_ID = "osmId"
+  val KEY_API = "apiKey"
 }

@@ -5,7 +5,7 @@ import org.maproulette.actions.{Created => ActionCreated, _}
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
 import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.session.SessionManager
+import org.maproulette.session.{User, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.db.DB
@@ -29,6 +29,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   implicit val tWrites:Writes[T]
   // the type of object that the controller is executing against
   implicit val itemType:ItemType
+  // The session manager which should be injected into the implementing class using @Inject
+  val sessionManager:SessionManager
+  // The action manager which should be injected into the implementing class using @Inject
+  val actionManager:ActionManager
 
   /**
     * Function can be implemented to extract more information than just the default create data,
@@ -37,9 +41,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     *
     * @param body The Json body of data
     * @param createdObject The object that was created by the create function
-    * @param userId The user that is executing the function
+    * @param user The user that is executing the function
     */
-  def extractAndCreate(body:JsValue, createdObject:T, userId:Long) : Unit = { }
+  def extractAndCreate(body:JsValue, createdObject:T, user:User) : Unit = { }
 
   /**
     * The base create function that most controllers will run through to create the object. The
@@ -51,7 +55,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @return 201 Created with the json body of the created object
     */
   def create() = Action.async(BodyParsers.parse.json) { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       val result = Utils.insertJsonID(request.body).validate[T]
       result.fold(
         errors => {
@@ -60,10 +64,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
         element => {
           MPExceptionUtil.internalExceptionCatcher { () =>
             if (element.id < 0) {
-              Created(Json.toJson(internalCreate(request.body, element, user.id)))
+              Created(Json.toJson(internalCreate(request.body, element, user)))
             } else {
               // if you provide the ID in the post method we will send you to the update path
-              internalUpdate(request.body, user.id)(element.id) match {
+              internalUpdate(request.body, user)(element.id) match {
                 case Some(value) => Ok(Json.toJson(value))
                 case None => NotModified
               }
@@ -82,16 +86,14 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     *
     * @param requestBody The request body containing the full json payload
     * @param element The intial object to be created. Ie. if this was the ProjectController then it would be a project object
-    * @param userId The user that is executing this request
+    * @param user The user that is executing this request
     * @return The createdObject (not any of it's children if creating multiple objects, only top level)
     */
-  def internalCreate(requestBody:JsValue, element:T, userId:Long) : T = {
-    DB.withTransaction { implicit c =>
-      val createdObject = dal.insert(element)
-      extractAndCreate(requestBody, createdObject, userId)
-      ActionManager.setAction(userId, itemType.convertToItem(createdObject.id), ActionCreated(), "")
-      createdObject
-    }
+  def internalCreate(requestBody:JsValue, element:T, user:User) : T = {
+    val createdObject = dal.insert(element, user)
+    extractAndCreate(requestBody, createdObject, user)
+    actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), ActionCreated(), "")
+    createdObject
   }
 
   /**
@@ -100,11 +102,11 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     *
     * @param body The request body containing the full json payload
     * @param updatedObject The object that was updated.
-    * @param userId The user executing the operation
+    * @param user The user executing the operation
     */
-  def extractAndUpdate(body:JsValue, updatedObject:Option[T], userId:Long) : Unit = {
+  def extractAndUpdate(body:JsValue, updatedObject:Option[T], user:User) : Unit = {
     updatedObject match {
-      case Some(updated) => extractAndCreate(body, updated, userId)
+      case Some(updated) => extractAndCreate(body, updated, user)
       case None => // ignore
     }
   }
@@ -118,9 +120,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
   def update(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       try {
-        internalUpdate(request.body, user.id) match {
+        internalUpdate(request.body, user) match {
           case Some(value) => Ok(Json.toJson(value))
           case None =>  NotModified
         }
@@ -137,17 +139,15 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * the extractAndUpdate function after the object has been updated.
     *
     * @param requestBody The full request body payload pass in the request
-    * @param userId The id of the user executing the request
+    * @param user The user executing the request
     * @param id The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody:JsValue, userId:Long)(implicit id:Long) : Option[T] = {
-    DB.withTransaction { implicit c =>
-      val updatedObject = dal.update(requestBody)
-      extractAndUpdate(requestBody, updatedObject, userId)
-      ActionManager.setAction(userId, itemType.convertToItem(id), Updated(), "")
-      updatedObject
-    }
+  def internalUpdate(requestBody:JsValue, user:User)(implicit id:Long) : Option[T] = {
+    val updatedObject = dal.update(requestBody, user)
+    extractAndUpdate(requestBody, updatedObject, user)
+    actionManager.setAction(Some(user), itemType.convertToItem(id), Updated(), "")
+    updatedObject
   }
 
   /**
@@ -157,7 +157,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @return 200 Ok, 204 NoContent if not found
     */
   def read(implicit id:Long) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       dal.retrieveById match {
         case Some(value) =>
           Ok(Json.toJson(value))
@@ -175,9 +175,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @return 204 NoContent
     */
   def delete(id:Long) = Action.async { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.obj("message" -> s"${dal.delete(id)} Tasks deleted by user ${user.id}."))
-      ActionManager.setAction(user.id, itemType.convertToItem(id), Deleted(), "")
+    sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.obj("message" -> s"${dal.delete(id, user)} Tasks deleted by user ${user.id}."))
+      actionManager.setAction(Some(user), itemType.convertToItem(id), Deleted(), "")
       NoContent
     }
   }
@@ -195,11 +195,11 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @return A list of requested objects
     */
   def list(limit:Int, offset:Int) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       val result = dal.list(limit, offset)
       itemType match {
         case it:TaskType if user.isDefined =>
-          result.foreach(task => ActionManager.setAction(user.get.id, itemType.convertToItem(task.id), TaskViewed(), ""))
+          result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
         case _ => //ignore, only update view actions if it is a task type
       }
       Ok(Json.toJson(result))
@@ -231,13 +231,13 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @return 200 OK basic message saying all items where uploaded
     */
   def batchUpload(update:Boolean) = Action.async(BodyParsers.parse.json) { implicit request =>
-    SessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       request.body.validate[List[JsValue]].fold(
         errors => {
           BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
         },
         items => {
-          internalBatchUpload(request.body, items, update, user.id)
+          internalBatchUpload(request.body, items, user, update)
           Ok(Json.obj("status" -> "OK", "message" -> "Items created and updated"))
         }
       )
@@ -249,15 +249,15 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     *
     * @param requestBody The full request body
     * @param arr The array of json objects representing the objects or values of those objects that you want to update/create
+    * @param user The user executing the request
     * @param update Whether to update the object if a matching object is found, if false will simply do nothing
-    * @param userId The user executing the request
     */
-  def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], update:Boolean=false, userId:Long) : Unit = {
+  def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], user:User, update:Boolean=false) : Unit = {
     arr.foreach(element => (element \ "id").asOpt[Long] match {
-      case Some(itemID) => if (update) internalUpdate(element, userId)(itemID)
+      case Some(itemID) => if (update) internalUpdate(element, user)(itemID)
       case None => Utils.insertJsonID(element).validate[T].fold(
         errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-        validT => internalCreate(requestBody, validT, userId)
+        validT => internalCreate(requestBody, validT, user)
       )
     })
   }

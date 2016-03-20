@@ -1,12 +1,14 @@
 package org.maproulette.models.dal
 
+import javax.inject.{Inject, Singleton}
+
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Task, Challenge}
-import play.api.db.DB
+import org.maproulette.session.User
+import play.api.db.Database
 import play.api.libs.json.JsValue
-import play.api.Play.current
 
 /**
   * The challenge data access layer handles all calls for challenges going to the database. Most
@@ -15,7 +17,8 @@ import play.api.Play.current
   *
   * @author cuthbertm
   */
-object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
+@Singleton
+class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends ParentDAL[Long, Challenge, Task] {
   // The manager for the challenge cache
   override val cacheManager = new CacheManager[Long, Challenge]
   // The name of the challenge table
@@ -23,8 +26,8 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
   // The name of the table for it's children Tasks
   override val childTable: String = "tasks"
   // The row parser for it's children defined in the TaskDAL
-  override val childParser = TaskDAL.parser
-  override val childColumns: String = TaskDAL.retrieveColumns
+  override val childParser = taskDAL.parser
+  override val childColumns: String = taskDAL.retrieveColumns
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -34,13 +37,13 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
     get[Long]("challenges.id") ~
       get[String]("challenges.name") ~
       get[Option[String]]("challenges.identifier") ~
+      get[Option[String]]("challenges.description") ~
       get[Long]("challenges.parent_id") ~
       get[Option[Int]]("challenges.difficulty") ~
-      get[Option[String]]("challenges.description") ~
       get[Option[String]]("challenges.blurb") ~
       get[Option[String]]("challenges.instruction") map {
-      case id ~ name ~ identifier ~ parentId ~ difficulty ~ description ~ blurb ~ instruction =>
-        new Challenge(id, name, identifier, parentId, difficulty, description, blurb, instruction)
+      case id ~ name ~ identifier ~ description ~ parentId ~ difficulty ~ blurb ~ instruction =>
+        new Challenge(id, name, identifier, description, parentId, difficulty, blurb, instruction)
     }
   }
 
@@ -51,9 +54,10 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
     * @param challenge The challenge to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(challenge: Challenge): Challenge = {
+  override def insert(challenge: Challenge, user:User): Challenge = {
+    challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
-      DB.withTransaction { implicit c =>
+      db.withTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction)
               VALUES (${challenge.name}, ${challenge.identifier}, ${challenge.parent},
                       ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
@@ -70,9 +74,10 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue)(implicit id:Long): Option[Challenge] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long): Option[Challenge] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      DB.withTransaction { implicit c =>
+      cachedItem.hasWriteAccess(user)
+      db.withTransaction { implicit c =>
         val identifier = (updates \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -80,8 +85,8 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
         val instruction =(updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-        val updatedChallenge = Challenge(id, name, Some(identifier), parentId,
-          Some(difficulty), Some(description), Some(blurb), Some(instruction))
+        val updatedChallenge = Challenge(id, name, Some(identifier), Some(description), parentId,
+          Some(difficulty), Some(blurb), Some(instruction))
 
         SQL"""UPDATE challenges SET name = ${updatedChallenge.name},
                                     identifier = ${updatedChallenge.identifier},
@@ -103,7 +108,7 @@ object ChallengeDAL extends ParentDAL[Long, Challenge, Task] {
     * @return Map of status codes mapped to task counts
     */
   def getSummary(id:Long) : Map[Int, Int] = {
-    DB.withConnection { implicit c =>
+    db.withConnection { implicit c =>
       val summaryParser = int("count") ~ get[Option[Int]]("tasks.status") map {
         case count ~ status => status.getOrElse(0) -> count
       }

@@ -2,11 +2,11 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import org.maproulette.actions.TagType
+import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.Tag
-import org.maproulette.models.dal.{BaseDAL, TagDAL}
-import org.maproulette.session.SessionManager
+import org.maproulette.models.dal.TagDAL
+import org.maproulette.session.{User, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -18,9 +18,11 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
-class TagController @Inject() extends CRUDController[Tag] {
-  // data access layer for tags
-  override protected val dal: BaseDAL[Long, Tag] = TagDAL
+class TagController @Inject() (override val sessionManager: SessionManager,
+                               override val actionManager: ActionManager,
+                               override val dal:TagDAL)
+  extends CRUDController[Tag] {
+
   // json reads for automatically reading Tags from a posted json body
   override implicit val tReads: Reads[Tag] = Tag.tagReads
   // json writes for automatically writing Tags to a json body response
@@ -39,8 +41,8 @@ class TagController @Inject() extends CRUDController[Tag] {
     * @return
     */
   def getTags(prefix:String, limit:Int, offset:Int) = Action.async { implicit request =>
-    SessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(TagDAL.retrieveListByPrefix(prefix, limit, offset)))
+    sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(dal.retrieveListByPrefix(prefix, limit, offset)))
     }
   }
 
@@ -52,10 +54,10 @@ class TagController @Inject() extends CRUDController[Tag] {
     *
     * @param requestBody This is the posted request body in json format.
     * @param arr The list of Tag objects supplied in the json array from the request body
+    * @param user The id of the user that is executing the request
     * @param update If an item is found then update it, if parameter set to true, otherwise we skip.
-    * @param userId The id of the user that is executing the request
     */
-  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], update: Boolean, userId:Long): Unit = {
+  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user:User, update: Boolean): Unit = {
     val tagList = arr.flatMap(element => (element \ "id").asOpt[Long] match {
       case Some(itemID) => if (update) element.validate[Tag].fold(
         errors => None,
@@ -66,6 +68,6 @@ class TagController @Inject() extends CRUDController[Tag] {
         value => Some(value)
       )
     })
-    TagDAL.updateTagList(tagList)
+    dal.updateTagList(tagList)
   }
 }

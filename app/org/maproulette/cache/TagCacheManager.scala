@@ -1,11 +1,12 @@
 package org.maproulette.cache
 
 import java.util.concurrent.locks.{ReentrantReadWriteLock, ReadWriteLock}
+import javax.inject.{Provider, Inject, Singleton}
 
 import anorm._
 import org.maproulette.models.Tag
 import org.maproulette.models.dal.TagDAL
-import play.api.db.DB
+import play.api.db.{Database, DB}
 import play.api.Play.current
 
 /**
@@ -16,7 +17,8 @@ import play.api.Play.current
   *
   * @author cuthbertm
   */
-object TagCacheManager extends CacheManager[Long, Tag] {
+@Singleton
+class TagCacheManager @Inject() (tagDAL: Provider[TagDAL], db:Database) extends CacheManager[Long, Tag] {
 
   private val loadingLock:ReadWriteLock = new ReentrantReadWriteLock()
 
@@ -24,9 +26,9 @@ object TagCacheManager extends CacheManager[Long, Tag] {
   def reloadTags = {
     loadingLock.writeLock().lock()
     try {
-      DB.withConnection { implicit c =>
+      db.withConnection { implicit c =>
         cache.clear()
-        SQL"""SELECT * FROM tags""".as(TagDAL.parser.*).foreach(tag => cache.add(tag))
+        SQL"""SELECT * FROM tags""".as(tagDAL.get.parser.*).foreach(tag => cache.add(tag))
       }
     } finally {
       loadingLock.writeLock().unlock()

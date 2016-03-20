@@ -24,6 +24,20 @@ POST    /challenge/:id/tasks                        @org.maproulette.controllers
 PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
 GET     /challenge/:id/children                     @org.maproulette.controllers.api.ChallengeController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
 GET     /project/:pid/challenge/:cid/tasks          @org.maproulette.controllers.api.ChallengeController.getRandomTasks(pid:Long, cid:Long, tags:String ?= "", limit:Int ?= 1)
+# Survey API
+POST    /survey                                     @org.maproulette.controllers.api.SurveyController.create
+POST    /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPost
+PUT     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.update(id:Long)
+PUT     /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPut
+GET     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.read(id:Long)
+DELETE  /survey/:id                                 @org.maproulette.controllers.api.SurveyController.delete(id:Long)
+GET     /surveys                                    @org.maproulette.controllers.api.SurveyController.list(limit:Int ?= 10, page:Int ?= 0)
+GET     /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
+POST    /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.createChildren(id:Long)
+PUT     /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.updateChildren(id:Long)
+GET     /survey/:id/children                        @org.maproulette.controllers.api.SurveyController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
+GET     /project/:pid/survey/:cid/tasks             @org.maproulette.controllers.api.SurveyController.getRandomTasks(pid:Long, cid:Long, tags:String ?= "", limit:Int ?= 1)
+PUT     /survey/:id/task/:taskId/:answerId          @org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(id:Long, taskId:Long, answerId:Long)
 # Task API
 POST    /task                                       @org.maproulette.controllers.api.TaskController.create
 POST    /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPost

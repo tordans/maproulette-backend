@@ -1,10 +1,12 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
-import play.api.Play.current
-import play.api.db.DB
+import org.maproulette.session.User
+import play.api.db.{Database}
 import play.api.libs.json._
 
 /**
@@ -28,14 +30,15 @@ case class Task(override val id:Long,
                 parent: Long,
                 instruction: String,
                 location: JsValue,
-                status:Option[Int]=None) extends BaseObject[Long] {
-  lazy val tags:List[Tag] = DB.withConnection { implicit c =>
-    SQL"""SELECT t.id, t.name, t.description FROM tags as t
-        INNER JOIN tags_on_tasks as tt ON t.id = tt.tag_id
-        WHERE tt.task_id = $id""".as(TagDAL.parser.*)
-  }
+                status:Option[Int]=None) extends ChildObject[Long, Challenge] {
 
-  def getParent = ChallengeDAL.retrieveById(parent)
+
+  @Inject val tagDAL:TagDAL = null
+  @Inject val challengeDAL:ChallengeDAL = null
+
+  lazy val tags:List[Tag] = tagDAL.listByTask(id)
+
+  override def getParent = challengeDAL.retrieveById(parent).get
 }
 
 object Task {
