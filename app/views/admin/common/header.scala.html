@@ -1,3 +1,4 @@
+@import org.maproulette.actions.Actions
 @(title:String, subtitle:String=null)
 
 <section class="content-header">
@@ -7,4 +8,10 @@
             <small> - @subtitle</small>
         }
     </h1>
+    <ol class="breadcrumb">
+        <li>
+            <a href="@routes.Application.adminUIList(Actions.ITEM_TYPE_PROJECT_NAME)">
+                <i class="fa fa-folder"></i> Project Admin</a>
+        </li>
+    </ol>
 </section>

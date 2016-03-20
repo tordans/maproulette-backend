@@ -12,7 +12,7 @@ import play.api.libs.json.{Reads, Json, Writes}
   */
 case class Project(override val id: Long,
                    override val name: String,
-                   description: Option[String]=None,
+                   override val description: Option[String]=None,
                    groups:List[Group]=List()) extends BaseObject[Long] {
 
   /**

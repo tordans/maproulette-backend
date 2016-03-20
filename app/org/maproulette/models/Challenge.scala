@@ -24,9 +24,9 @@ import play.api.libs.json.{Reads, Json, Writes}
 case class Challenge(override val id: Long,
                      override val name: String,
                      override val identifier:Option[String]=None,
+                     override val description:Option[String]=None,
                      parent:Long,
                      difficulty:Option[Int]=None,
-                     description: Option[String]=None,
                      blurb:Option[String]=None,
                      instruction:Option[String]=None) extends ChildObject[Long, Project] {
 

@@ -41,14 +41,14 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
     get[Long]("surveys.id") ~
       get[String]("surveys.name") ~
       get[Option[String]]("surveys.identifier") ~
+     get[Option[String]]("surveys.description") ~
       get[Long]("surveys.parent_id") ~
-      get[Option[String]]("surveys.description") ~
       get[String]("surveys.question") map {
-      case id ~ name ~ identifier ~ parentId ~ description ~ question =>
+      case id ~ name ~ identifier ~ description ~ parentId ~ question =>
         val answers = db.withTransaction { implicit c =>
           SQL"""SELECT * FROM answers WHERE survey_id = $id""".as(answerParser.*)
         }
-        new Survey(id, name, identifier, parentId, description, question, answers)
+        new Survey(id, name, identifier, description, parentId, question, answers)
     }
   }
 

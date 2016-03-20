@@ -105,7 +105,11 @@ var MRConfig = (function () {
 
         map.addLayer(geojsonLayer);
 
-        L.control.layers({'Road': road_layer, 'Satellite': satellite_layer}, {'GeoJSON': geojsonLayer}).addTo(map);
+        L.control.layers(
+            {'Road': road_layer, 'Satellite': satellite_layer},
+            {'GeoJSON': geojsonLayer},
+            {position:"topleft"}
+        ).addTo(map);
 
         $('#geojson_submit').on('click', function() {
             if ($('#geojson_text').val().length < 1) {

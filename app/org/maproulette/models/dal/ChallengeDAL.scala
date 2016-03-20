@@ -37,13 +37,13 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     get[Long]("challenges.id") ~
       get[String]("challenges.name") ~
       get[Option[String]]("challenges.identifier") ~
+      get[Option[String]]("challenges.description") ~
       get[Long]("challenges.parent_id") ~
       get[Option[Int]]("challenges.difficulty") ~
-      get[Option[String]]("challenges.description") ~
       get[Option[String]]("challenges.blurb") ~
       get[Option[String]]("challenges.instruction") map {
-      case id ~ name ~ identifier ~ parentId ~ difficulty ~ description ~ blurb ~ instruction =>
-        new Challenge(id, name, identifier, parentId, difficulty, description, blurb, instruction)
+      case id ~ name ~ identifier ~ description ~ parentId ~ difficulty ~ blurb ~ instruction =>
+        new Challenge(id, name, identifier, description, parentId, difficulty, blurb, instruction)
     }
   }
 
@@ -85,8 +85,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
         val instruction =(updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-        val updatedChallenge = Challenge(id, name, Some(identifier), parentId,
-          Some(difficulty), Some(description), Some(blurb), Some(instruction))
+        val updatedChallenge = Challenge(id, name, Some(identifier), Some(description), parentId,
+          Some(difficulty), Some(blurb), Some(instruction))
 
         SQL"""UPDATE challenges SET name = ${updatedChallenge.name},
                                     identifier = ${updatedChallenge.identifier},

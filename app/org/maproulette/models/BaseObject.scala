@@ -14,6 +14,7 @@ trait BaseObject[Key] {
   def name:String
   def identifier:Option[String] = None
   def id:Key
+  def description:Option[String] = None
 
   /**
     * Whether a user has write access to an object or not.

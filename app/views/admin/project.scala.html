@@ -9,8 +9,8 @@
         <div class="box-header">
             <h3 class="box-title">Projects</h3>
             <div class="pull-right">
-                <a href="@routes.Application.adminCreate(Actions.ITEM_TYPE_PROJECT_NAME)">
-                    <button class="btn btn-block btn-primary">New Project</button>
+                <a href="@routes.Application.adminUICreate(Actions.ITEM_TYPE_PROJECT_NAME)">
+                    <button class="btn-xs btn-block btn-primary">New Project</button>
                 </a>
             </div>
         </div><!-- /.box-header -->
@@ -31,14 +31,24 @@
                             <td>@p.name</td>
                             <td>@p.groups.map(_.name).mkString(",")</td>
                             <td>
-                                <div class="pull-left">
-                                    <a href="@routes.Application.adminCreate(Actions.ITEM_TYPE_CHALLENGE_NAME)">
-                                        <button class="btn btn-block btn-primary">New Challenge</button>
+                                <div class="col-md-2 pull-left">
+                                    <a href="@routes.Application.adminUIEdit(Actions.ITEM_TYPE_PROJECT_NAME, p.id)">
+                                        <button class="btn-xs btn-block btn-warning">Edit</button>
                                     </a>
                                 </div>
-                                <div class="pull-left">
-                                    <a href="@routes.Application.adminCreate(Actions.ITEM_TYPE_SURVEY_NAME)">
-                                        <button class="btn btn-block btn-primary">New Survey</button>
+                                <div class="col-md-3 pull-left">
+                                    <a href="@routes.Application.adminUICreate(Actions.ITEM_TYPE_CHALLENGE_NAME)">
+                                        <button class="btn-xs btn-block btn-primary">New Challenge</button>
+                                    </a>
+                                </div>
+                                <div class="col-md-2 pull-left">
+                                    <a href="@routes.Application.adminUICreate(Actions.ITEM_TYPE_SURVEY_NAME)">
+                                        <button class="btn-xs btn-block btn-primary">New Survey</button>
+                                    </a>
+                                </div>
+                                <div class="col-md-2 pull-left">
+                                    <a href="#">
+                                        <button class="btn-xs btn-block btn-danger">Delete</button>
                                     </a>
                                 </div>
                             </td>

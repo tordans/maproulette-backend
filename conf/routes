@@ -3,8 +3,9 @@
 # ~~~~
 # Home page
 GET     /                                                       @controllers.Application.index
-GET     /ui/admin/list/:itemType                                @controllers.Application.adminList(itemType, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/create/:itemType                              @controllers.Application.adminCreate(itemType)
+GET     /ui/admin/list/:itemType                                @controllers.Application.adminUIList(itemType, limit:Int ?= 10, page:Int ?= 0)
+GET     /ui/admin/create/:itemType                              @controllers.Application.adminUICreate(itemType)
+GET     /ui/admin/edit/:itemType/:itemId                        @controllers.Application.adminUIEdit(itemType, itemId:Long)
 GET     /ui/admin/users                                         @controllers.Application.users(limit:Int ?= 10, page:Int ?= 0)
 GET     /ui/admin/stats                                         @controllers.Application.stats
 GET     /ui/user/profile                                        @controllers.Application.profile

@@ -21,8 +21,8 @@ case class Answer(id:Long=(-1), answer:String)
 case class Survey(override val id: Long,
                   override val name: String,
                   override val identifier:Option[String]=None,
+                  override val description:Option[String]=None,
                   parent:Long,
-                  description:Option[String]=None,
                   question:String,
                   answers:List[Answer]) extends ChildObject[Long, Project] {
   @Inject val projectDAL:ProjectDAL = null

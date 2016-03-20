@@ -4,7 +4,7 @@ import javax.inject.Inject
 
 import org.maproulette.Config
 import org.maproulette.actions._
-import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.mvc._
@@ -13,6 +13,8 @@ import play.api.routing._
 class Application @Inject() (sessionManager:SessionManager,
                              userDAL: UserDAL,
                              projectDAL: ProjectDAL,
+                             challengeDAL: ChallengeDAL,
+                             surveyDAL: SurveyDAL,
                              config:Config) extends Controller {
 
   /**
@@ -34,7 +36,7 @@ class Application @Inject() (sessionManager:SessionManager,
     * @param offset For paging
     * @return The html view to show the user
     */
-  def adminList(itemType:String, limit:Int, offset:Int) = Action.async { implicit request =>
+  def adminUIList(itemType:String, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
@@ -53,27 +55,59 @@ class Application @Inject() (sessionManager:SessionManager,
     }
   }
 
+  def adminUICreate(itemType:String) = adminUIEditForm(itemType)
+  def adminUIEdit(itemType:String, itemId:Long) = adminUIEditForm(itemType, Some(itemId))
+
   /**
     * Generic function used for displaying the create forms for the various item types
     *
     * @param itemType The item type that you want to create
     * @return The UI form
     */
-  def adminCreate(itemType:String) = Action.async { implicit request =>
+  protected def adminUIEditForm(itemType:String, itemId:Option[Long]=None) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.forms.projectCreate()
+            val project = itemId match {
+              case Some(pid) => projectDAL.retrieveById(pid)
+              case None => None
+            }
+            views.html.admin.common.editForm(Actions.ITEM_TYPE_PROJECT_NAME, project)(views.html.admin.forms.projectEdit(project))
           case ChallengeType() =>
-            views.html.admin.forms.challengeCreate()
+            val challenge = itemId match {
+              case Some(pid) => challengeDAL.retrieveById(pid)
+              case None => None
+            }
+            views.html.admin.common.editForm(Actions.ITEM_TYPE_CHALLENGE_NAME, challenge)(views.html.admin.forms.challengeEdit(challenge))
           case SurveyType() =>
-            views.html.admin.forms.surveyCreate()
+            val survey = itemId match {
+              case Some(pid) => surveyDAL.retrieveById(pid)
+              case None => None
+            }
+            views.html.admin.common.editForm(Actions.ITEM_TYPE_SURVEY_NAME, survey)(views.html.admin.forms.surveyEdit(survey))
           case _ => views.html.error.error("Invalid item type requested.")
         }
         case None => views.html.error.error("Invalid item type requested.")
       }
       Ok(views.html.index("MapRoulette Administration", user, config)(view))
+    }
+  }
+
+  def projectEdit(itemId:Long) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      projectDAL.retrieveById(itemId) match {
+        case Some(project) =>
+          Ok(views.html.index("Map Roulette Administration", user, config)
+            (views.html.admin.common.editForm(Actions.ITEM_TYPE_PROJECT_NAME, Some(project))
+              (views.html.admin.forms.projectEdit(Some(project))
+            )
+          ))
+        case None =>
+          Ok(views.html.index("Map Roulette Administration", user, config)
+            (views.html.error.error(s"No project found with id [$itemId]"))
+          )
+      }
     }
   }
 

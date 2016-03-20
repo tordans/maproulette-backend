@@ -15,7 +15,7 @@ package org.maproulette.actions
   *              application config. And any action at that level and below will be writtern to the
   *              database, anything above will be ignored.
   */
-sealed class ActionType(id:Int, level:Int) {
+class ActionType(id:Int, level:Int) {
   def getId = id
   def getLevel = level
 }
@@ -25,7 +25,7 @@ sealed class ActionType(id:Int, level:Int) {
   *
   * @param id The id of the action {@see Actions}
   */
-sealed class ItemType(id:Int) {
+class ItemType(id:Int) {
   val typeId = id
   def convertToItem(itemId:Long) = {
     this match {
@@ -37,7 +37,7 @@ sealed class ItemType(id:Int) {
   }
 }
 
-sealed trait Item {
+trait Item {
   def itemId:Long
 }
 

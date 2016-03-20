@@ -156,8 +156,8 @@ CREATE TABLE IF NOT EXISTS surveys
   description character varying DEFAULT '',
   question character varying DEFAULT '',
   CONSTRAINT surveys_parent_id_fkey FOREIGN KEY (parent_id)
-  REFERENCES projects(id) MATCH SIMPLE
-  ON UPDATE CASCADE ON DELETE CASCADE,
+    REFERENCES projects(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT surveys_pkey PRIMARY KEY (id)
 );
 
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS answers
   answer character varying NOT NULL,
   CONSTRAINT answers_survey_id_fkey FOREIGN KEY (survey_id)
     REFERENCES surveys(id) MATCH SIMPLE
-  ON UPDATE CASCADE ON DELETE CASCADE,
+    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT answers_pkey PRIMARY KEY(id)
 );
 
