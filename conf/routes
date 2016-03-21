@@ -5,10 +5,15 @@
 GET     /                                                       @controllers.Application.index
 GET     /ui/admin/list/Project                                  @controllers.Application.adminUIProjectList(limit:Int ?= 10, page:Int ?= 0)
 GET     /ui/admin/list/:itemType/:parentId                      @controllers.Application.adminUIChildList(itemType, parentId:Long, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/create/:itemType/:parentId                    @controllers.Application.adminUICreate(parentId:Long, itemType, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/edit/:itemType/:parentId/:itemId              @controllers.Application.adminUIEdit(parentId:Long, itemType, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
+GET     /ui/admin/form/project/:parentId/:itemId                @controllers.FormEditController.projectFormUI(parentId:Long, itemId:Long)
+POST    /ui/admin/form/project/:parentId/:itemId                @controllers.FormEditController.projectFormPost(parentId:Long, itemId:Long)
+GET     /ui/admin/form/challenge/:parentId/:itemId              @controllers.FormEditController.challengeFormUI(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
+POST    /ui/admin/form/challenge/:parentId/:itemId              @controllers.FormEditController.challengeFormPost(parentId:Long, itemId:Long)
+GET     /ui/admin/form/survey/:parentId/:itemId                 @controllers.FormEditController.surveyFormUI(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
+POST    /ui/admin/form/survey/:parentId/:itemId                 @controllers.FormEditController.surveyFormPost(parentId:Long, itemId:Long)
 GET     /ui/admin/users                                         @controllers.Application.users(limit:Int ?= 10, page:Int ?= 0)
 GET     /ui/admin/stats                                         @controllers.Application.stats
+GET     /ui/error/:errorString                                  @controllers.Application.error(errorString)
 GET     /ui/user/profile                                        @controllers.Application.profile
 GET     /auth/authenticate                                      @controllers.AuthController.authenticate
 GET     /auth/signout                                           @controllers.AuthController.signOut

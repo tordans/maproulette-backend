@@ -9,7 +9,7 @@
         <div class="box-header">
             <h3 class="box-title">Surveys</h3>
             <div class="pull-right">
-                <a href="@routes.Application.adminUICreate(parentId, Actions.ITEM_TYPE_SURVEY_NAME)">
+                <a href="@routes.FormEditController.surveyFormUI(parentId, -1)">
                     <button class="btn-xs btn-block btn-primary">New Survey</button>
                 </a>
             </div>
@@ -33,7 +33,7 @@
                             <td>@s.identifier</td>
                             <td>
                                 <div class="col-md-2 pull-left">
-                                    <a href="@routes.Application.adminUIEdit(s.parent, Actions.ITEM_TYPE_SURVEY_NAME, s.id)">
+                                    <a href="@routes.FormEditController.surveyFormUI(s.parent, s.id)">
                                         <button class="btn-xs btn-block btn-warning">Edit</button>
                                     </a>
                                 </div>

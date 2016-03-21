@@ -1,0 +1,40 @@
+@import org.maproulette.models.Challenge
+@import views.html.admin.forms.elements._
+@(parentId:Long, challengeForm:Form[Challenge], breadcrumbs:Map[String, Call])
+
+@views.html.admin.common.header("Administration", null, breadcrumbs)
+<div class="box box-primary">
+    <div class="box-header with-border">
+        <h3 class="box-title">Create/Edit Challenge</h3>
+    </div><!-- /.box-header -->
+    <!-- form start -->
+    @helper.form(routes.FormEditController.challengeFormPost(parentId, challengeForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
+        <div class="box-body">
+            <div class="form-group">
+            @text(challengeForm("name"),
+                label = "Name",
+                placeholder = "Challenge Name",
+                help = "Please enter the challenge name. (required)"
+            )
+            </div>
+            <div class="form-group">
+            @textarea(challengeForm("description"),
+                label = "Description",
+                rows = "5",
+                placeholder = "Challenge Description",
+                help = "Please enter the description for the challenge. (optional)"
+            )
+            </div>
+            <div class="form-group">
+            @text(challengeForm("identifier"),
+                label = "Identifier",
+                placeholder = "Challenge Identifier",
+                help = "Please enter the challenge identifier. (optional)"
+            )
+            </div>
+        </div><!-- /.box-body -->
+        <div class="box-footer">
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+    }
+</div><!-- /.box -->
