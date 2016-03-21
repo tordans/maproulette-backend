@@ -49,11 +49,11 @@ class Application @Inject() (sessionManager:SessionManager,
         case Some(it) => it match {
           case ProjectType() =>
             views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset))
-          case ChallengeType() =>
-            views.html.admin.challenge(user, parentId.get, projectDAL.listChildren(limit, offset)(parentId.get))
-          case SurveyType() =>
-            views.html.admin.survey(user, parentId.get, projectDAL.listSurveys(limit, offset)(parentId.get))
-          //case TaskType() =>
+          case ChallengeType() | SurveyType() =>
+            views.html.admin.projectChildren(user, parentId.get,
+              projectDAL.listSurveys(limit, offset)(parentId.get),
+              projectDAL.listChildren(limit, offset)(parentId.get)
+            )
           case _ => views.html.error.error("Invalid item type requested.")
         }
         case None => views.html.error.error("Invalid item type requested.")

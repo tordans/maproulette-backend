@@ -8,6 +8,7 @@ import org.maproulette.models.{Challenge, Project, Survey}
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.SessionManager
 import org.maproulette.session.dal.UserDAL
+import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 
 /**
@@ -20,7 +21,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
                                     surveyDAL: SurveyDAL,
                                     config:Config) extends Controller {
 
-  def projectFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
+  def projectFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val project:Project = if (itemId > -1) {
         projectDAL.retrieveById(itemId) match {
@@ -37,9 +38,24 @@ class FormEditController @Inject() (sessionManager:SessionManager,
     }
   }
 
-  def projectFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
+  def projectFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok
+      Project.projectForm.bindFromRequest.fold(
+        formWithErrors => {
+          BadRequest(views.html.admin.forms.projectForm(parentId, formWithErrors, Map.empty))
+        },
+        project => {
+          val id = if (itemId > -1) {
+            implicit val groupWrites = Project.groupWrites
+            projectDAL.update(Json.toJson(project)(Project.projectWrites), user)(itemId)
+            itemId
+          } else {
+            val newProject = projectDAL.insert(project, user)
+            newProject.id
+          }
+          Redirect(routes.Application.adminUIProjectList(limit, offset)).flashing("success" -> "Project saved!")
+        }
+      )
     }
   }
 
@@ -62,9 +78,25 @@ class FormEditController @Inject() (sessionManager:SessionManager,
     }
   }
 
-  def challengeFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
+  def challengeFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok
+      Challenge.challengeForm.bindFromRequest.fold(
+        formWithErrors => {
+          BadRequest(views.html.admin.forms.challengeForm(parentId, formWithErrors,
+            Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)))
+          )
+        },
+        challenge => {
+          val id = if (itemId > -1) {
+            challengeDAL.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId)
+            itemId
+          } else {
+            val newChallenge = challengeDAL.insert(challenge, user)
+            newChallenge.id
+          }
+          Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)).flashing("success" -> "Project saved!")
+        }
+      )
     }
   }
 
@@ -87,9 +119,26 @@ class FormEditController @Inject() (sessionManager:SessionManager,
     }
   }
 
-  def surveyFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
+  def surveyFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok
+      Survey.surveyForm.bindFromRequest.fold(
+        formWithErrors => {
+          BadRequest(views.html.admin.forms.surveyForm(parentId, formWithErrors,
+            Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)))
+          )
+        },
+        survey => {
+          val id = if (itemId > -1) {
+            implicit val answerWrites = Survey.answerWrites
+            surveyDAL.update(Json.toJson(survey)(Survey.surveyWrites), user)(itemId)
+            itemId
+          } else {
+            val newSurvey = surveyDAL.insert(survey, user)
+            newSurvey.id
+          }
+          Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)).flashing("success" -> "Project saved!")
+        }
+      )
     }
   }
 

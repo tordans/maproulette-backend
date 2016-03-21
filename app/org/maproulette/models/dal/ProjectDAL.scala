@@ -5,7 +5,7 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Challenge, Project, Survey}
+import org.maproulette.models.{Challenge, ChildObject, Project, Survey}
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
 import play.api.db.Database

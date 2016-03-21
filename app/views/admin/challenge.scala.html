@@ -3,62 +3,59 @@
 @import org.maproulette.models.Challenge
 @(user:User, parentId:Long, challenges:List[Challenge])
 
-@views.html.admin.common.header("Administration")
-<section class="content">
-    <div class="box">
-        <div class="box-header">
-            <h3 class="box-title">Challenges</h3>
-            <div class="pull-right">
-                <a href="@routes.FormEditController.challengeFormUI(parentId, -1)">
-                    <button class="btn-xs btn-block btn-primary">New Challenge</button>
-                </a>
-            </div>
-        </div><!-- /.box-header -->
-        <div class="box-body">
-            <table id="userTable" class="table table-bordered table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Identifier</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @if(challenges.size > 0) {
-                    @for(c <- challenges) {
-                        <tr>
-                            <td>@c.id</td>
-                            <td>@c.name</td>
-                            <td>@c.identifier</td>
-                            <td>
-                                <div class="col-md-2 pull-left">
-                                    <a href="@routes.FormEditController.challengeFormUI(c.parent, c.id)">
-                                        <button class="btn-xs btn-block btn-warning">Edit</button>
-                                    </a>
-                                </div>
-                                <div class="col-md-2 pull-left">
-                                    <a href="#">
-                                        <button class="btn-xs btn-block btn-danger">Delete</button>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                } else {
-                    <td>No Challenges Found</td>
-                }
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Identifier</th>
-                        <th>Actions</th>
-                    </tr>
-                </tfoot>
-            </table>
-        </div><!-- /.box-body -->
-    </div><!-- /.box -->
-</section>
+<div class="box-body">
+    <div class="pull-right">
+        <a href="@routes.FormEditController.challengeFormUI(parentId, -1)">
+            <button class="btn-xs btn-block btn-primary">New Challenge</button>
+        </a>
+    </div>
+    <table id="userTable" class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Identifier</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @if(challenges.size > 0) {
+            @for(c <- challenges) {
+                <tr>
+                    <td>@c.id</td>
+                    <td>@c.name</td>
+                    <td>@c.identifier</td>
+                    <td>
+                        <div class="col-md-2 pull-left">
+                            <a href="@routes.FormEditController.challengeFormUI(c.parent, c.id)">
+                                <button class="btn-xs btn-block btn-warning">Edit</button>
+                            </a>
+                        </div>
+                        <div class="col-md-2 pull-left">
+                            <a href="#">
+                                <button class="btn-xs btn-block btn-danger">Delete</button>
+                            </a>
+                        </div>
+                        <div class="col-md-2 pull-left">
+                            <a href="#">
+                                <button class="btn-xs btn-block btn-success">Start</button>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        } else {
+            <td>No Challenges Found</td>
+        }
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Identifier</th>
+                <th>Actions</th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
 
