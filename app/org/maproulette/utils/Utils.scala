@@ -31,10 +31,16 @@ object Utils {
     * @param json The json that you want to add the id into
     * @return
     */
-  def insertJsonID(json:JsValue) : JsValue = {
-    (json \ "id").asOpt[Long] match {
-      case Some(_) => json
-      case None => json.as[JsObject] + ("id" -> Json.toJson(-1))
+  def insertJsonID(json:JsValue, overwrite:Boolean=false) : JsValue = insertIDIntoJson(json, "id", -1L)
+
+  def insertIDIntoJson[Value](json:JsValue, key:String, value:Long, overwrite:Boolean=false) : JsValue = {
+    if (overwrite) {
+      json.as[JsObject] + (key -> Json.toJson(value))
+    } else {
+      (json \ key).asOpt[Long] match {
+        case Some(_) => json
+        case None => json.as[JsObject] + (key -> Json.toJson(value))
+      }
     }
   }
 

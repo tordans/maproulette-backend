@@ -1,5 +1,7 @@
 package org.maproulette.models
 
+import play.api.data._
+import play.api.data.Forms._
 import com.google.inject.Inject
 import org.maproulette.models.dal.ProjectDAL
 import play.api.libs.json.{Reads, Json, Writes}
@@ -36,4 +38,23 @@ object Survey {
 
   implicit val answerWrites: Writes[Answer] = Json.writes[Answer]
   implicit val answerReads: Reads[Answer] = Json.reads[Answer]
+
+  val surveyForm = Form(
+    mapping(
+      "id" -> longNumber,
+      "name" -> nonEmptyText,
+      "identifier" -> optional(text),
+      "description" -> optional(text),
+      "parent" -> longNumber,
+      "question" -> nonEmptyText,
+      "answers" -> list(
+        mapping(
+          "id" -> longNumber,
+          "answer" -> nonEmptyText
+        )(Answer.apply)(Answer.unapply)
+      )
+    )(Survey.apply)(Survey.unapply)
+  )
+
+  def emptySurvey(parentId:Long) = Survey(-1, "", None, None, parentId, "", List.empty)
 }

@@ -1,9 +1,10 @@
 package org.maproulette.models
 
+import play.api.data._
+import play.api.data.Forms._
 import com.google.inject.Inject
 import org.maproulette.models.dal.ProjectDAL
-import org.maproulette.session.User
-import play.api.libs.json.{Reads, Json, Writes}
+import play.api.libs.json.{Json, Reads, Writes}
 
 /**
   * The Challenge object is a child of the project object and contains Task objects as it's children.
@@ -38,6 +39,21 @@ case class Challenge(override val id: Long,
 object Challenge {
   implicit val challengeWrites: Writes[Challenge] = Json.writes[Challenge]
   implicit val challengeReads: Reads[Challenge] = Json.reads[Challenge]
+
+  val challengeForm = Form(
+    mapping(
+      "id" -> longNumber,
+      "name" -> nonEmptyText,
+      "identifier" -> optional(text),
+      "description" -> optional(text),
+      "parent" -> longNumber,
+      "difficulty" -> optional(number(min = 1, max = 3)),
+      "blurb" -> optional(text),
+      "instruction" -> optional(text)
+    )(Challenge.apply)(Challenge.unapply)
+  )
+
+  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, None, parentId)
 
   val DIFFICULTY_EASY = 1
   val DIFFICULTY_NORMAL = 2

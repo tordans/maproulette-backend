@@ -1,0 +1,26 @@
+@import org.maproulette.session.User
+@import org.maproulette.models.Survey
+@import org.maproulette.models.Challenge
+@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge])
+
+@views.html.admin.common.header("Administration")
+<section class="content">
+    <div class="box">
+        <div class="nav-tabs-custom">
+                <!-- Tabs within a box -->
+            <ul class="nav nav-tabs pull-left">
+                <li class="active"><a href="#challenges" data-toggle="tab">Challenges</a></li>
+                <li class="pull-left"><a href="#surveys" data-toggle="tab">Surveys</a></li>
+            </ul>
+            <div class="tab-content no-padding">
+                    <!-- Morris chart - Sales -->
+                <div class="tab-pane active" id="challenges">
+                    @views.html.admin.challenge(user, parentId, challenges)
+                </div>
+                <div class="tab-pane" id="surveys">
+                    @views.html.admin.survey(user, parentId, surveys)
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

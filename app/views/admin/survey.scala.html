@@ -1,11 +1,60 @@
 @import org.maproulette.session.User
-@(user:User)
+@import org.maproulette.actions.Actions
+@import org.maproulette.models.Survey
+@(user:User, parentId:Long, surveys:List[Survey])
 
-@views.html.admin.common.header("Administration")
-<section class="content">
-    <div class="box">
-        <div class="box-header">
-            <h3 class="box-title">Survey Administration</h3>
-        </div><!-- /.box-header -->
+<div class="box-body">
+    <div class="pull-right">
+        <a href="@routes.FormEditController.surveyFormUI(parentId, -1)">
+            <button class="btn-xs btn-block btn-primary">New Survey</button>
+        </a>
     </div>
-</section>
+    <table id="userTable" class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Identifier</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @if(surveys.size > 0) {
+            @for(s <- surveys) {
+                <tr>
+                    <td>@s.id</td>
+                    <td>@s.name</td>
+                    <td>@s.identifier</td>
+                    <td>
+                        <div class="col-md-2 pull-left">
+                            <a href="@routes.FormEditController.surveyFormUI(s.parent, s.id)">
+                                <button class="btn-xs btn-block btn-warning">Edit</button>
+                            </a>
+                        </div>
+                        <div class="col-md-2 pull-left">
+                            <a href="#">
+                                <button class="btn-xs btn-block btn-danger">Delete</button>
+                            </a>
+                        </div>
+                        <div class="col-md-2 pull-left">
+                            <a href="#">
+                                <button class="btn-xs btn-block btn-success">Start</button>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        } else {
+            <td>No Surveys found</td>
+        }
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Identifier</th>
+                <th>Actions</th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
