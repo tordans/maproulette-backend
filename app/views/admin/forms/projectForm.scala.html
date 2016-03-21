@@ -1,6 +1,6 @@
 @import org.maproulette.models.Project
 @import views.html.admin.forms.elements._
-@(parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, Call])
+@(parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, Call])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null, breadcrumbs)
 <section class="content">

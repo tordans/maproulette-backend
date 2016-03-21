@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
+import play.api.i18n.Messages
 import play.api.{Application, Logger}
 import play.api.libs.Crypto
 import play.api.libs.oauth._
@@ -223,7 +224,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return The result from the block of code
     */
-  def userAwareUIRequest(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
+  def userAwareUIRequest(block:Option[User] => Result)(implicit request:Request[Any], messages:Messages) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(config) { () =>
       userAware(block)
     }
@@ -262,7 +263,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return
     */
-  def authenticatedUIRequest(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
+  def authenticatedUIRequest(block:User => Result)(implicit request:Request[Any], messages:Messages) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(config) { () =>
       authenticated(block)
     }

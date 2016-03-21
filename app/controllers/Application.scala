@@ -7,16 +7,17 @@ import org.maproulette.actions._
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
-import org.maproulette.utils.Utils
+import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.mvc._
 import play.api.routing._
 
-class Application @Inject() (sessionManager:SessionManager,
+class Application @Inject() (val messagesApi: MessagesApi,
+                             sessionManager:SessionManager,
                              userDAL: UserDAL,
                              projectDAL: ProjectDAL,
                              challengeDAL: ChallengeDAL,
                              surveyDAL: SurveyDAL,
-                             config:Config) extends Controller {
+                             config:Config) extends Controller with I18nSupport {
 
   /**
     * The primary entry point to the application
@@ -110,7 +111,11 @@ class Application @Inject() (sessionManager:SessionManager,
   def javascriptRoutes = Action { implicit request =>
     Ok(
       JavaScriptReverseRouter("jsRoutes")(
-        routes.javascript.AuthController.generateAPIKey
+        routes.javascript.AuthController.generateAPIKey,
+        routes.javascript.Application.error,
+        org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
+        org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
+        org.maproulette.controllers.api.routes.javascript.SurveyController.delete
       )
     ).as("text/javascript")
   }

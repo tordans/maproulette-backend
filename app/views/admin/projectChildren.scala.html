@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Survey
 @import org.maproulette.models.Challenge
-@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge])
+@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">

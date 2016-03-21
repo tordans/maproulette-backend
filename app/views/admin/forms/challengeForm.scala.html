@@ -1,6 +1,6 @@
 @import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
-@(parentId:Long, challengeForm:Form[Challenge], breadcrumbs:Map[String, Call])
+@(parentId:Long, challengeForm:Form[Challenge], breadcrumbs:Map[String, Call])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null, breadcrumbs)
 <section class="content">

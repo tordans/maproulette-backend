@@ -3,7 +3,9 @@ package controllers
 import com.google.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.session.SessionManager
-import play.api.mvc.{Result, Action, Controller}
+import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.mvc.{Action, Controller, Result}
+
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
@@ -12,7 +14,8 @@ import scala.util.{Failure, Success}
   *
   * @author cuthbertm
   */
-class AuthController @Inject() (sessionManager:SessionManager) extends Controller {
+class AuthController @Inject() (val messagesApi: MessagesApi,
+                                sessionManager:SessionManager) extends Controller with I18nSupport {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 

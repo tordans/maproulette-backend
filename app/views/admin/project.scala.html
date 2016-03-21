@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Project
 @import org.maproulette.actions.Actions
-@(user:User, projects:List[Project])
+@(user:User, projects:List[Project])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -51,7 +51,7 @@
                                     </div>
                                     <div class="col-md-2 pull-left">
                                         <a href="#">
-                                            <button class="btn-xs btn-block btn-danger">Delete</button>
+                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteProject(@p.id);">Delete</button>
                                         </a>
                                     </div>
                                 </td>

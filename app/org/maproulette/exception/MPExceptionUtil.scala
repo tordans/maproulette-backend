@@ -4,6 +4,7 @@ import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.Config
 import org.maproulette.session.User
 import play.api.Logger
+import play.api.i18n.Messages
 import play.api.libs.json.Json
 import play.api.mvc.{Request, Result}
 import play.api.mvc.Results._
@@ -51,7 +52,7 @@ object MPExceptionUtil {
     * @param block The block of code to be executed
     * @return The error page with the error that occurred.
     */
-  def internalUIExceptionCatcher(config:Config)(block:() => Result)(implicit request:Request[Any]) : Result = {
+  def internalUIExceptionCatcher(config:Config)(block:() => Result)(implicit request:Request[Any], messages:Messages) : Result = {
     val tempUser = User.guestUser.copy(theme = "skin-red")
     try {
       block()
@@ -104,7 +105,7 @@ object MPExceptionUtil {
     p.future
   }
 
-  def internalAsyncUIExceptionCatcher(config:Config)(block:() => Future[Result])(implicit request:Request[Any]) : Future[Result] = {
+  def internalAsyncUIExceptionCatcher(config:Config)(block:() => Future[Result])(implicit request:Request[Any], messages:Messages) : Future[Result] = {
     val p = Promise[Result]
     val tempUser = User.guestUser.copy(theme = "skin-red")
     block() onComplete {

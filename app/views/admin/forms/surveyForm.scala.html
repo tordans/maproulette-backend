@@ -1,6 +1,6 @@
 @import org.maproulette.models.Survey
 @import views.html.admin.forms.elements._
-@(parentId:Long, surveyForm:Form[Survey], breadcrumbs:Map[String, Call])
+@(parentId:Long, surveyForm:Form[Survey], breadcrumbs:Map[String, Call])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null, breadcrumbs)
 <section class="content">
@@ -60,16 +60,21 @@
                     )
                 </div>
                 @helper.repeat(surveyForm("answers")) { answerField =>
-                    <div class="form-group form-horizontal">
-                        @text(surveyForm("answers.id"),
-                            label = "ID",
-                            placeholder = "-1",
-                            readOnly = true
-                        )
+                    <div class="form-group">
+                        <div class="col-lg-1"></div>
+                        <div class="col-xs-1">
+                            @text(surveyForm("answers.id"),
+                                label = "ID",
+                                placeholder = "-1",
+                                readOnly = true
+                            )
+                        </div>
+                        <div class="col-lg-9">
                         @text(surveyForm("answers.answer"),
                             label = "Answer",
                             placeholder = "Survey Answer"
                         )
+                        </div>
                     </div>
                 }
             </div><!-- /.box-body -->

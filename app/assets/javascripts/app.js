@@ -1,0 +1,71 @@
+/**
+ * Created by cuthbertm on 3/21/16.
+ */
+toastr.options = {
+    "closeButton": true,
+    "debug": false,
+    "newestOnTop": false,
+    "progressBar": false,
+    "toastClass": "notification",
+    "positionClass": "toast-top-center",
+    "preventDuplicates": false,
+    "onclick": null,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": "3000",
+    "extendedTimeOut": "0",
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut"
+};
+
+var deleteProject = function(itemId) {
+    deleteItem("Project", itemId);
+};
+
+var deleteChallenge = function(itemId) {
+    deleteItem("Challenge", itemId);
+};
+
+var deleteSurvey = function(itemId) {
+    deleteItem("Survey", itemId);
+};
+
+var deleteItem = function(itemType, itemId) {
+    var apiCallback = {
+        success : function(data) {
+            //todo: probably might want to do something with the data
+            location.reload();
+        },
+        error : function(error) {
+            location.href = jsRoutes.controllers.Application.error(error.toString());
+        }
+    };
+
+    if (itemType == "Project") {
+        jsRoutes.org.maproulette.controllers.api.ProjectController.delete(itemId).ajax(apiCallback);
+    } else if (itemType == "Challenge") {
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.delete(itemId).ajax(apiCallback);
+    } else if (itemType == "Survey") {
+        jsRoutes.org.maproulette.controllers.api.SurveyController.delete(itemId).ajax(apiCallback);
+    }
+};
+
+var generateAPIKey = function() {
+    var apiCallback = {
+        success : function(data) {
+            currentAPIKey = data;
+            showAPIKey();
+        },
+        error : function(error) {
+            toastr.error(error);
+        }
+    };
+
+    jsRoutes.controllers.AuthController.generateAPIKey().ajax(apiCallback);
+};
+
+var showAPIKey = function() {
+    toastr.info(currentAPIKey);
+};
