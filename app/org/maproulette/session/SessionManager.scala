@@ -8,15 +8,16 @@ import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
+import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
 import play.api.{Application, Logger}
 import play.api.libs.Crypto
 import play.api.libs.oauth._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Result, Request, AnyContent, RequestHeader}
+import play.api.mvc.{AnyContent, Request, RequestHeader, Result}
 
-import scala.concurrent.{Promise, Future}
-import scala.util.{Success, Failure}
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success}
 
 /**
   * The Session manager handles the current user session. Making sure that requests that require
@@ -25,7 +26,7 @@ import scala.util.{Success, Failure}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application) {
+class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application, config:Config) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
@@ -215,6 +216,22 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
   /**
     * For a user aware request we are simply checking to see if we can find a user that can be
     * associated with the current session. So if a session token is available we will try to authenticate
+    * the user and optionally return a User object. This differs from userAwareRequest
+    * due to if any exceptions are thrown it will show a UI page, instead of a JSON payload
+    *
+    * @param block The block of code that is executed after user has been checked
+    * @param request The incoming http request
+    * @return The result from the block of code
+    */
+  def userAwareUIRequest(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(config) { () =>
+      userAware(block)
+    }
+  }
+
+  /**
+    * For a user aware request we are simply checking to see if we can find a user that can be
+    * associated with the current session. So if a session token is available we will try to authenticate
     * the user and optionally return a User object.
     *
     * @param block The block of code that is executed after user has been checked
@@ -223,12 +240,31 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     */
   def userAwareRequest(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      val p = Promise[Result]
-      sessionUser(sessionTokenPair) onComplete {
-        case Success(result) => p success block(result)
-        case Failure(error) => p failure error
-      }
-      p.future
+      userAware(block)
+    }
+  }
+
+  protected def userAware(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
+    val p = Promise[Result]
+    sessionUser(sessionTokenPair) onComplete {
+      case Success(result) => p success block(result)
+      case Failure(error) => p failure error
+    }
+    p.future
+  }
+
+  /**
+    * For an authenticated request we expect there to current be a valid session. If no session is
+    * available an OAuthNotAuthorizedException will be thrown. This differs from authenticatedRequest
+    * due to if any exceptions are thrown it will show a UI page, instead of a JSON payload
+    *
+    * @param block The block of code to execute after a valid session has been found
+    * @param request The incoming http request
+    * @return
+    */
+  def authenticatedUIRequest(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(config) { () =>
+      authenticated(block)
     }
   }
 
@@ -242,16 +278,28 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     */
   def authenticatedRequest(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      val p = Promise[Result]
+      authenticated(block)
+    }
+  }
+
+  protected def authenticated(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
+    val p = Promise[Result]
+    try {
       sessionUser(sessionTokenPair) onComplete {
         case Success(result) => result match {
-          case Some(user) => p success block(user)
+          case Some(user) => try {
+            p success block(user)
+          } catch {
+            case e:Exception => p failure e
+          }
           case None => p failure new OAuthNotAuthorizedException()
         }
         case Failure(e) => p failure e
       }
-      p.future
+    } catch {
+      case e:Exception => p failure e
     }
+    p.future
   }
 }
 

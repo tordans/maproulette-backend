@@ -15,6 +15,7 @@
                         <th>Osm ID</th>
                         <th>Display Name</th>
                         <th>User Groups</th>
+                        <th>API Key</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -25,18 +26,14 @@
                             <td>@u.osmProfile.id</td>
                             <td>@u.osmProfile.displayName</td>
                             <td>@u.groups.map(_.name).mkString(",")</td>
+                            <td>@u.apiKey</td>
                             <td>
-                                <div class="col-md-2 pull-left">
+                                <div class="col-md-8 pull-left">
                                     <a href="#">
-                                        <button class="btn-xs btn-block btn-warning">Edit</button>
+                                        <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
                                     </a>
                                 </div>
-                                <div class="col-md-2 pull-left">
-                                    <a href="#">
-                                        <button class="btn-xs btn-block btn-primary">New</button>
-                                    </a>
-                                </div>
-                                <div class="col-md-2 pull-left">
+                                <div class="col-md-4 pull-left">
                                     <a href="#">
                                         <button class="btn-xs btn-block btn-danger">Delete</button>
                                     </a>
@@ -51,6 +48,7 @@
                         <th>Osm ID</th>
                         <th>Display Name</th>
                         <th>User Groups</th>
+                        <th>API Key</th>
                         <th>Actions</th>
                     </tr>
                 </tfoot>

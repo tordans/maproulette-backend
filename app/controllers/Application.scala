@@ -24,7 +24,7 @@ class Application @Inject() (sessionManager:SessionManager,
     * @return The index HTML
     */
   def index = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette", User.userOrMocked(user), config)(views.html.main(config.isDebugMode)))
     }
   }
@@ -44,7 +44,7 @@ class Application @Inject() (sessionManager:SessionManager,
     * @return The html view to show the user
     */
   protected def adminUIList(itemType:String, parentId:Option[Long]=None, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
@@ -63,13 +63,13 @@ class Application @Inject() (sessionManager:SessionManager,
   }
 
   def stats = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette Statistics", user, config)(views.html.admin.stats(user)))
     }
   }
 
   def users(limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette Users", user, config)
         (views.html.admin.users(user, userDAL.list(limit, offset)))
       )
@@ -77,7 +77,7 @@ class Application @Inject() (sessionManager:SessionManager,
   }
 
   def profile = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette Profile", user, config)
         (views.html.user.profile(user))
       )
@@ -90,14 +90,14 @@ class Application @Inject() (sessionManager:SessionManager,
     * @return The index html
     */
   def refreshProfile = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       sessionManager.refreshProfile(user.osmProfile.requestToken, user)
       Redirect(routes.Application.index())
     }
   }
 
   def error(error:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareUIRequest { implicit user =>
       Ok(views.html.index("Map Roulette Error", User.userOrMocked(user), config)(views.html.error.error(error)))
     }
   }

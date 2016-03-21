@@ -22,7 +22,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
                                     config:Config) extends Controller {
 
   def projectFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val project:Project = if (itemId > -1) {
         projectDAL.retrieveById(itemId) match {
           case Some(proj) => proj
@@ -39,7 +39,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def projectFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Project.projectForm.bindFromRequest.fold(
         formWithErrors => {
           BadRequest(views.html.admin.forms.projectForm(parentId, formWithErrors, Map.empty))
@@ -60,7 +60,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def challengeFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val challenge:Challenge = if (itemId > -1) {
         challengeDAL.retrieveById(itemId) match {
           case Some(chal) => chal
@@ -79,7 +79,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def challengeFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
           BadRequest(views.html.admin.forms.challengeForm(parentId, formWithErrors,
@@ -101,7 +101,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def surveyFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val survey:Survey = if (itemId > -1) {
         surveyDAL.retrieveById(itemId) match {
           case Some(sur) => sur
@@ -120,7 +120,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def surveyFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Survey.surveyForm.bindFromRequest.fold(
         formWithErrors => {
           BadRequest(views.html.admin.forms.surveyForm(parentId, formWithErrors,

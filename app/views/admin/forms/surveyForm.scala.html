@@ -59,6 +59,19 @@
                         help = "Please enter the question for the survey. (optional)"
                     )
                 </div>
+                @helper.repeat(surveyForm("answers")) { answerField =>
+                    <div class="form-group form-horizontal">
+                        @text(surveyForm("answers.id"),
+                            label = "ID",
+                            placeholder = "-1",
+                            readOnly = true
+                        )
+                        @text(surveyForm("answers.answer"),
+                            label = "Answer",
+                            placeholder = "Survey Answer"
+                        )
+                    </div>
+                }
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
