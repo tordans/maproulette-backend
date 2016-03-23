@@ -23,6 +23,15 @@
                     )
                 </div>
                 <div class="form-group">
+                    @select(projectForm("enabled"),
+                        label = "Enabled",
+                        optionList = List(("true", "true"), ("false", "false")),
+                        isMultiple = false,
+                        help = "Please set whether the project is enabled or not.",
+                        defaultSelected = Some("0")
+                    )
+                </div>
+                <div class="form-group">
                     @text(projectForm("name"),
                         label = "Name",
                         placeholder = "Project Name",
@@ -47,6 +56,7 @@
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
+                <a href="@routes.Application.adminUIProjectList()" class="btn btn-primary">Cancel</a>
             </div>
         }
     </div><!-- /.box -->

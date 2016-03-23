@@ -125,7 +125,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * @return The object, None if not found
     */
   def retrieveById(implicit id:Key) : Option[T] = {
-    cacheManager.withOptionCaching { () =>
+    cacheManager.withCaching { () =>
       db.withConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE id = {id}"
         SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).as(parser.singleOpt)

@@ -41,9 +41,10 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
       get[Long]("challenges.parent_id") ~
       get[Option[Int]]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
-      get[Option[String]]("challenges.instruction") map {
-      case id ~ name ~ identifier ~ description ~ parentId ~ difficulty ~ blurb ~ instruction =>
-        new Challenge(id, name, identifier, description, parentId, difficulty, blurb, instruction)
+      get[Option[String]]("challenges.instruction") ~
+      get[Boolean]("challenges.enabled") map {
+      case id ~ name ~ identifier ~ description ~ parentId ~ difficulty ~ blurb ~ instruction ~ enabled =>
+        new Challenge(id, name, identifier, description, parentId, difficulty, blurb, instruction, enabled)
     }
   }
 
@@ -58,10 +59,10 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction)
+        SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction, enabled)
               VALUES (${challenge.name}, ${challenge.identifier}, ${challenge.parent},
                       ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
-                      ${challenge.instruction}) RETURNING *""".as(parser.*).headOption
+                      ${challenge.instruction}, ${challenge.enabled}) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }
@@ -84,17 +85,17 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
-        val instruction =(updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-        val updatedChallenge = Challenge(id, name, Some(identifier), Some(description), parentId,
-          Some(difficulty), Some(blurb), Some(instruction))
+        val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
 
-        SQL"""UPDATE challenges SET name = ${updatedChallenge.name},
-                                    identifier = ${updatedChallenge.identifier},
-                                    parent_id = ${updatedChallenge.parent},
-                                    difficulty = ${updatedChallenge.difficulty},
-                                    description = ${updatedChallenge.description},
-                                    blurb = ${updatedChallenge.blurb},
-                                    instruction = ${updatedChallenge.instruction}
+        SQL"""UPDATE challenges SET name = $name,
+                                    identifier = $identifier,
+                                    parent_id = $parentId,
+                                    difficulty = $difficulty,
+                                    description = $description,
+                                    blurb = $blurb,
+                                    instruction = $instruction,
+                                    enabled = $enabled
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }

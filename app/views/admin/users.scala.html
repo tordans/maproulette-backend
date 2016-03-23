@@ -14,7 +14,7 @@
                         <th>ID</th>
                         <th>Osm ID</th>
                         <th>Display Name</th>
-                        <th>User Groups</th>
+                        <th>Projects</th>
                         <th>API Key</th>
                         <th>Actions</th>
                     </tr>
@@ -25,7 +25,7 @@
                             <td>@u.id</td>
                             <td>@u.osmProfile.id</td>
                             <td>@u.osmProfile.displayName</td>
-                            <td>@u.groups.map(_.name).mkString(",")</td>
+                            <td>@if(u.isSuperUser) { ALL } else { }</td>
                             <td>@u.apiKey</td>
                             <td>
                                 <div class="col-md-8 pull-left">
@@ -38,6 +38,11 @@
                                         <button class="btn-xs btn-block btn-danger">Delete</button>
                                     </a>
                                 </div>
+                                <div class="col-md-4 pull-left">
+                                    <a href="#">
+                                        <button class="btn-xs btn-block btn-primary>">Add Project</button>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -47,7 +52,7 @@
                         <th>ID</th>
                         <th>Osm ID</th>
                         <th>Display Name</th>
-                        <th>User Groups</th>
+                        <th>Projects</th>
                         <th>API Key</th>
                         <th>Actions</th>
                     </tr>

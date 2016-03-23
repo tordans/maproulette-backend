@@ -17,12 +17,25 @@ class CacheManager[Key, A<:BaseObject[Key]] {
 
 
   /**
+    * Helper function for withOptionCaching, the only difference is that it takes a non optional
+    * id key
+    *
+    * @param block the function to be executed that would retrieve the object from primary storage
+    * @param id The id of the object
+    * @param caching default true, if false will skip checking the cache
+    * @return An optional base object that is cached
+    */
+  def withCaching(block:() => Option[A])(implicit id:Key, caching:Boolean=true) : Option[A] =
+    withOptionCaching(block)(Some(id), caching)
+
+  /**
     * Hits the cache first to see if the object exists, if it doesn't then it will hit the
     * inner block of code and presumably retrieve the object and then place it into the cache.
     * If the object is found it will simply return it and not execute the inner block of code.
     *
     * @param id The id of the object, if None then will not hit the cache first
     * @param block the function to be executed that would retrieve the object from primary storage
+    * @param caching default true, if false will skip checking the cache
     * @return An optional base object that is cached
     */
   def withOptionCaching(block:() => Option[A])

@@ -87,9 +87,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param requestToken The request token containing the access token and secret
     * @return The matched user, None if User not found
     */
-  def matchByRequestTokenAndId(id: Long, requestToken: RequestToken): Option[User] = {
-    implicit val userId = id
-    val user = cacheManager.withOptionCaching { () =>
+  def matchByRequestTokenAndId(requestToken: RequestToken)(implicit id:Long): Option[User] = {
+    val user = cacheManager.withCaching { () =>
       db.withConnection { implicit c =>
         SQL"""SELECT * FROM users WHERE id = $id AND oauth_token = ${requestToken.token}
              AND oauth_secret = ${requestToken.secret}""".as(parser.*).headOption

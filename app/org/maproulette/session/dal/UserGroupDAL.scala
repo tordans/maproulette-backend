@@ -23,26 +23,29 @@ class UserGroupDAL @Inject() (db:Database) {
   val parser: RowParser[Group] = {
     get[Long]("groups.id") ~
       get[String]("groups.name") ~
+      get[Long]("groups.project_id") ~
       get[Int]("groups.group_type") map {
-      case id ~ name ~ groupType =>
+      case id ~ name ~ projectId ~ groupType =>
         // If the modified date is too old, then lets update this user information from OSM
-        new Group(id, name, groupType)
+        new Group(id, name, projectId, groupType)
     }
   }
 
   /**
     * Creates a new group given a name and groupType id
     *
+    * @param projectId The id of the project that this group is created under
     * @param name The name of the group to add
     * @param groupType current only 1 (Admin) however currently no restriction on what you can supply here
     * @return The new group
     */
-  def createGroup(name:String, groupType:Int) : Group = db.withConnection { implicit c =>
-    SQL"""INSERT INTO groups (name, group_type) VALUES ($name, $groupType) RETURNING *""".as(parser.*).head
+  def createGroup(projectId:Long, name:String, groupType:Int) : Group = db.withConnection { implicit c =>
+    SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(parser.*).head
   }
 
   /**
-    * Update the group name, groups can only have their names modified
+    * Update the group name, groups can only have their names modified. The project id for a group
+    * cannot be updated
     *
     * @param groupId The id for the group
     * @param newName The new name of the group
@@ -91,8 +94,6 @@ class UserGroupDAL @Inject() (db:Database) {
     * @return
     */
   def getProjectGroups(projectId:Long) : List[Group] = db.withConnection { implicit c =>
-    SQL"""SELECT * FROM groups g
-          INNER JOIN projects_group_mapping pgm ON g.id = pgm.group_id
-          WHERE pgm.project_id = $projectId""".as(parser.*)
+    SQL"""SELECT * FROM groups g WHERE project_id = $projectId""".as(parser.*)
   }
 }

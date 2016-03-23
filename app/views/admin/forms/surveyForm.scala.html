@@ -30,6 +30,15 @@
                     )
                 </div>
                 <div class="form-group">
+                    @select(surveyForm("enabled"),
+                        label = "Enabled",
+                        optionList = List(("true", "true"), ("false", "false")),
+                        isMultiple = false,
+                        help = "Please set whether the survey is enabled or not.",
+                        defaultSelected = Some("0")
+                    )
+                </div>
+                <div class="form-group">
                     @text(surveyForm("name"),
                         label = "Name",
                         placeholder = "Survey Name",
@@ -80,6 +89,13 @@
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
+                <a class="btn btn-primary"
+                    @if(surveyForm("id").value.getOrElse("-1").toInt == -1) {
+                        href="@routes.Application.adminUIProjectList()"
+                    } else {
+                        href="@routes.Application.adminUIChildList("Survey", surveyForm("parent").value.get.toLong)"
+                        }
+                >Cancel</a>
             </div>
         }
     </div><!-- /.box -->

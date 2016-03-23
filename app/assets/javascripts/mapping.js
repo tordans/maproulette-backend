@@ -28,15 +28,23 @@ var MRConfig = (function () {
 (function() {
     var map;
     $(document).ready(function() {
-        var road_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png', {
+        var osm_layer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: "&copy; <a href=\'http://openstreetmap.org\'> OpenStreetMap</a> contributors"
+        }),
+        road_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png', {
             maxZoom: 18,
             subdomains: ['1', '2', '3', '4'],
             attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a>. Map data (c) <a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> contributors, CC-BY-SA.'
         }),
-        satellite_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.png', {
+        mapquest_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.png', {
             maxZoom: 18,
             subdomains: ['1', '2', '3', '4'],
             attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a>.'
+        }),
+        bing_layer = new L.TileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         }),
         map = new L.Map('map', {
             center: new L.LatLng(47.6097, -122.3331),
@@ -65,7 +73,7 @@ var MRConfig = (function () {
         map.addLayer(geojsonLayer);
 
         L.control.layers(
-            {'Road': road_layer, 'Satellite': satellite_layer},
+            {'OSM': osm_layer, 'MapQuest Roads': road_layer, 'MapQuest': mapquest_layer, 'Bing': bing_layer},
             {'GeoJSON': geojsonLayer},
             {position:"topleft"}
         ).addTo(map);

@@ -26,12 +26,18 @@ BEGIN
   END IF;;
 END
 $$
-LANGUAGE plpgsql VOLATILE;
+LANGUAGE plpgsql VOLATILE;;
 
-CREATE OR REPLACE FUNCTION updateModified() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION update_modified() RETURNS TRIGGER AS $$
 BEGIN
   NEW.modified = NOW();;
   RETURN NEW;;
+END
+$$
+LANGUAGE plpgsql VOLATILE;;
+
+CREATE OR REPLACE FUNCTION add_user_to_project(projectId integer, userId integer) RETURNS void AS $$
+BEGIN
 END
 $$
 LANGUAGE plpgsql VOLATILE;;
@@ -59,21 +65,37 @@ CREATE TABLE IF NOT EXISTS users
 
 DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 INSERT INTO users (id, osm_id, osm_created, display_name, oauth_token, oauth_secret, theme)
 VALUES (-999, -999, NOW(), 'Guest', '', '', 'skin-green');
 
+CREATE TABLE IF NOT EXISTS projects
+(
+  id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  modified timestamp without time zone DEFAULT NOW(),
+  name character varying NOT NULL UNIQUE,
+  description character varying DEFAULT '',
+  enabled BOOLEAN DEFAULT(true),
+  CONSTRAINT projects_pkey PRIMARY KEY (id)
+);
+
+DROP TRIGGER IF EXISTS update_projects_modified ON projects;
+CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();
+
 CREATE TABLE IF NOT EXISTS groups
 (
   id serial NOT NULL,
+  project_id integer NOT NULL,
   name character varying NOT NULL UNIQUE,
   group_type integer NOT NULL,
+  CONSTRAINT groups_project_id_fkey FOREIGN KEY (project_id)
+    REFERENCES projects(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT groups_pkey PRIMARY KEY(id)
 );
-
-INSERT INTO groups (id, name, group_type) VALUES (-1, 'SUPER_USER', -1);
-INSERT INTO groups (id, name, group_type) VALUES (-999, 'GUEST', -999);
 
 CREATE TABLE IF NOT EXISTS user_groups
 (
@@ -89,36 +111,6 @@ CREATE TABLE IF NOT EXISTS user_groups
   CONSTRAINT ug_pkey PRIMARY KEY(id)
 );
 
-CREATE TABLE IF NOT EXISTS projects
-(
-  id SERIAL NOT NULL,
-  created timestamp without time zone DEFAULT NOW(),
-  modified timestamp without time zone DEFAULT NOW(),
-  name character varying NOT NULL UNIQUE,
-  description character varying DEFAULT '',
-  CONSTRAINT projects_pkey PRIMARY KEY (id)
-);
-
-DROP TRIGGER IF EXISTS update_projects_modified ON projects;
-CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
-  FOR EACH ROW EXECUTE PROCEDURE updateModified();
-
-CREATE TABLE IF NOT EXISTS projects_group_mapping
-(
-  id serial NOT NULL,
-  project_id integer NOT NULL,
-  group_id integer NOT NULL,
-  CONSTRAINT pgm_project_id_fkey FOREIGN KEY (project_id)
-    REFERENCES projects(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT pgm_group_id_fkey FOREIGN KEY (group_id)
-    REFERENCES groups(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT pgm_pkey PRIMARY KEY(id)
-);
-
-SELECT create_index_if_not_exists('projects_group_mapping', 'project_id', '(project_id)');
-
 CREATE TABLE IF NOT EXISTS challenges
 (
   id SERIAL NOT NULL,
@@ -131,6 +123,7 @@ CREATE TABLE IF NOT EXISTS challenges
   blurb character varying DEFAULT '',
   instruction character varying DEFAULT '',
   difficulty integer DEFAULT 1,
+  enabled BOOLEAN DEFAULT(true),
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -139,7 +132,7 @@ CREATE TABLE IF NOT EXISTS challenges
 
 DROP TRIGGER IF EXISTS update_challenges_modified ON challenges;
 CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
-  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
@@ -155,6 +148,7 @@ CREATE TABLE IF NOT EXISTS surveys
   parent_id integer NOT NULL,
   description character varying DEFAULT '',
   question character varying DEFAULT '',
+  enabled BOOLEAN DEFAULT(true),
   CONSTRAINT surveys_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -163,7 +157,7 @@ CREATE TABLE IF NOT EXISTS surveys
 
 DROP TRIGGER IF EXISTS update_surveys_modified ON surveys;
 CREATE TRIGGER update_surveys_modified BEFORE UPDATE ON surveys
-  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 SELECT create_index_if_not_exists('surveys', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('surveys', 'parent_id_name', '(parent_id, name)', true);
@@ -184,30 +178,9 @@ CREATE TABLE IF NOT EXISTS answers
 
 DROP TRIGGER IF EXISTS update_answers_modified ON answers;
 CREATE TRIGGER update_answers_modified BEFORE UPDATE ON answers
-  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');
-
-CREATE TABLE IF NOT EXISTS survey_answers
-(
-  id SERIAL NOT NULL,
-  created timestamp without time zone DEFAULT NOW(),
-  user_id integer NOT NULL DEFAULT(-999),
-  survey_id integer NOT NULL,
-  task_id integer NOT NULL,
-  answer_id integer NOT NULL,
-  CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
-    REFERENCES surveys(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
-    REFERENCES tasks(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
-    REFERENCES answers(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
-);
-
-SELECT create_index_if_not_exists('survey_answer', 'survey_id', '(survey_id)');
 
 CREATE TABLE IF NOT EXISTS tasks
 (
@@ -228,10 +201,31 @@ CREATE TABLE IF NOT EXISTS tasks
 
 DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
-  FOR EACH ROW EXECUTE PROCEDURE updateModified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
+
+CREATE TABLE IF NOT EXISTS survey_answers
+(
+  id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  user_id integer NOT NULL DEFAULT(-999),
+  survey_id integer NOT NULL,
+  task_id integer NOT NULL,
+  answer_id integer NOT NULL,
+  CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
+  REFERENCES users(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
+  REFERENCES surveys(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
+  REFERENCES tasks(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
+  REFERENCES answers(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
+);
+
+SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
 
 CREATE TABLE IF NOT EXISTS tags
 (
@@ -288,10 +282,6 @@ CREATE TABLE IF NOT EXISTS actions
   extra character varying,
   CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
     REFERENCES users(id) MATCH SIMPLE,
-  CONSTRAINT actions_task_id_fkey FOREIGN KEY (item_id)
-    REFERENCES tasks(id) MATCH SIMPLE,
-  CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE,
   CONSTRAINT actions_pkey PRIMARY KEY (id)
 );
 
@@ -301,6 +291,7 @@ SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
 select create_index_if_not_exists('actions', 'created', '(created)');
 
 -- Insert the default root, used for migration and those using the old API
-INSERT INTO projects (name, description) VALUES ('default', 'The default root for any challenges not defining a project parent. Only available when using old API, and through migration.');
+INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
+INSERT INTO groups(id, project_id, name, group_type)  VALUES (0, 0, 'SUPERUSERS', -1);
 
 # --- !Downs

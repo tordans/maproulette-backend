@@ -12,9 +12,11 @@
     <table id="userTable" class="table table-bordered table-hover">
         <thead>
             <tr>
+                <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Identifier</th>
+                <th>Tasks All/Fixed/FalsePositive</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -22,9 +24,17 @@
         @if(challenges.size > 0) {
             @for(c <- challenges) {
                 <tr>
+                    <td>
+                    @if(c.enabled) {
+                        <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
+                    } else {
+                        <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
+                    }
+                    </td>
                     <td>@c.id</td>
                     <td>@c.name</td>
                     <td>@c.identifier</td>
+                    <td>0/0/0</td>
                     <td>
                         <div class="col-md-2 pull-left">
                             <a href="@routes.FormEditController.challengeFormUI(c.parent, c.id)">
@@ -50,9 +60,11 @@
         </tbody>
         <tfoot>
             <tr>
+                <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Identifier</th>
+                <th>Tasks All/Fixed/FalsePositive</th>
                 <th>Actions</th>
             </tr>
         </tfoot>

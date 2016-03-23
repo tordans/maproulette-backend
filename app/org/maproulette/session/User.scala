@@ -92,7 +92,7 @@ case class User (override val id:Long,
     *
     * @return true if user is a super user
     */
-  def isSuperUser = groups.exists(_.id == -1)
+  def isSuperUser = groups.exists(_.groupType == Group.TYPE_SUPER_USER)
 
   def isAdmin = groups.exists(_.groupType == Group.TYPE_ADMIN)
 }
@@ -147,7 +147,7 @@ object User {
   val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-green",
     OSMProfile(0, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
-      "assets/images/user_no_image.png",
+      "/assets/images/user_no_image.png",
       Location(47.6097, 122.3331),
       DateTime.now(),
       RequestToken("", "")
@@ -155,11 +155,11 @@ object User {
   )
 
   val superUser = User(-1, DateTime.now(), DateTime.now(), "skin-black",
-    OSMProfile(0, "SuperUser", "FULL ACCESS", "assets/images/user_no_image.png",
+    OSMProfile(0, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
       Location(47.6097, 122.3331),
       DateTime.now(),
       RequestToken("", "")
-    ), List(Group(-1, "SuperUserGroup", Group.TYPE_ADMIN))
+    ), List(Group(-1, "SuperUserGroup", -1, Group.TYPE_ADMIN))
   )
 
   /**

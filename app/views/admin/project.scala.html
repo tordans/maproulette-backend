@@ -18,21 +18,33 @@
             <table id="userTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
+                        <th>Enabled</th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Identifier</th>
-                        <th>User Groups</th>
+                        <th>Admins</th>
+                        <th>Challenges</th>
+                        <th>Surveys</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @if(projects.size > 0) {
+                    @if(projects.nonEmpty) {
                         @for(p <- projects) {
                             <tr>
+                                <td>
+                                @if(p.enabled) {
+                                    <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
+                                } else {
+                                    <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
+                                }
+                                </td>
                                 <td>@p.id</td>
                                 <td><a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p.id)">@p.name</a></td>
                                 <td>@p.identifier.getOrElse("")</td>
-                                <td>@p.groups.map(_.name).mkString(",")</td>
+                                <td></td>
+                                <td>0</td>
+                                <td>0</td>
                                 <td>
                                     <div class="col-md-2 pull-left">
                                         <a href="@routes.FormEditController.projectFormUI(-1, p.id)">
@@ -63,9 +75,13 @@
                 </tbody>
                 <tfoot>
                     <tr>
+                        <th>Enabled</th>
                         <th>ID</th>
                         <th>Name</th>
-                        <th>User Groups</th>
+                        <th>Identifier</th>
+                        <th>Admins</th>
+                        <th>Challenges</th>
+                        <th>Surveys</th>
                         <th>Actions</th>
                     </tr>
                 </tfoot>

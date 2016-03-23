@@ -201,11 +201,13 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     val lowerTags = tags.map(_.toLowerCase)
     db.withConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit+""
-      val query = s"SELECT $retrieveColumns FROM tasks " +
-        "INNER JOIN tags_on_tasks tt ON tasks.id = tt.task_id " +
-        "INNER JOIN tags tg ON tg.id = tt.tag_id " +
-        "WHERE tg.name IN ({tags}) " +
-        s"LIMIT $sqlLimit OFFSET {offset}"
+      val query = s"""SELECT $retrieveColumns FROM tasks
+                      INNER JOIN challenges c ON c.id = tasks.parent_id
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      INNER JOIN tags_on_tasks tt ON tasks.id = tt.task_id
+                      INNER JOIN tags tg ON tg.id = tt.tag_id
+                      WHERE c.enabled = TRUE AND tg.name IN ({tags})
+                      LIMIT $sqlLimit OFFSET {offset}"""
       SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser.*)
     }
   }
@@ -253,39 +255,37 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
                      tags:List[Long],
                      limit:Int=(-1)) : List[Task] = {
     val sqlLimit = if (limit == -1) "ALL" else limit+""
-    val firstQuery = s"SELECT $retrieveColumns FROM tasks "
-    val secondQuery = "SELECT COUNT(*) FROM tasks "
+    val firstQuery =
+      s"""SELECT $retrieveColumns FROM tasks
+          INNER JOIN challenges c ON c.id = tasks.parent_id
+          INNER JOIN projects p ON p.id = c.parent_id
+       """.stripMargin
+    val secondQuery =
+      """SELECT COUNT(*) FROM tasks
+         INNER JOIN challenges c ON c.id = tasks.parent_id
+         INNER JOIN projects p ON p.id = c.parent_id
+      """.stripMargin
 
     val parameters = new ListBuffer[NamedParameter]()
     val queryBuilder = new StringBuilder
-    val whereClause = new StringBuilder
+    val whereClause = new StringBuilder("WHERE c.enabled = TRUE AND p.enabled = TRUE")
+
     challengeId match {
       case Some(id) =>
-        whereClause ++= "t.parent_id = {parentId} "
+        whereClause ++= " AND tasks.parent_id = {parentId} "
         parameters += ('parentId -> ParameterValue.toParameterValue(id))
       case None => //ignore
     }
     projectId match {
       case Some(id) =>
-        queryBuilder ++= "INNER JOIN challenges c ON c.id = tasks.parent_id " +
-                          "INNER JOIN projects p ON p.id = c.parent_id "
-        if (whereClause.nonEmpty) {
-          whereClause ++= "AND "
-        }
-        whereClause ++= "p.id = {projectId} "
+        whereClause ++= " AND p.id = {projectId} "
         parameters += ('projectId -> ParameterValue.toParameterValue(id))
       case None => //ignore
     }
     if (tags.nonEmpty) {
       queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
-      if (whereClause.nonEmpty) {
-        whereClause ++= "AND "
-      }
-      whereClause ++= "tt.tag_id IN ({tagids}) "
+      whereClause ++= " AND tt.tag_id IN ({tagids}) "
       parameters += ('tagids -> ParameterValue.toParameterValue(tags))
-    }
-    if (whereClause.nonEmpty) {
-      whereClause.insert(0, "WHERE ")
     }
     val query = s"$firstQuery ${queryBuilder.toString} ${whereClause.toString} " +
                 s"OFFSET FLOOR(RANDOM()*(" +

@@ -12,9 +12,11 @@
     <table id="userTable" class="table table-bordered table-hover">
         <thead>
             <tr>
+                <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Identifier</th>
+                <th>Tasks All/Answered</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -22,9 +24,17 @@
         @if(surveys.size > 0) {
             @for(s <- surveys) {
                 <tr>
+                    <td>
+                    @if(s.enabled) {
+                        <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
+                    } else {
+                        <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
+                    }
+                    </td>
                     <td>@s.id</td>
                     <td>@s.name</td>
                     <td>@s.identifier</td>
+                    <td>0/0</td>
                     <td>
                         <div class="col-md-2 pull-left">
                             <a href="@routes.FormEditController.surveyFormUI(s.parent, s.id)">
@@ -50,6 +60,7 @@
         </tbody>
         <tfoot>
             <tr>
+                <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Identifier</th>

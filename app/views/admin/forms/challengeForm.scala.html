@@ -30,6 +30,15 @@
                     )
                 </div>
                 <div class="form-group">
+                    @select(challengeForm("enabled"),
+                        label = "Enabled",
+                        optionList = List(("true", "true"), ("false", "false")),
+                        isMultiple = false,
+                        help = "Please set whether the challenge is enabled or not.",
+                        defaultSelected = Some("0")
+                    )
+                </div>
+                <div class="form-group">
                     @text(challengeForm("name"),
                         label = "Name",
                         placeholder = "Challenge Name",
@@ -78,6 +87,13 @@
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
+                <a class="btn btn-primary"
+                    @if(challengeForm("id").value.getOrElse("-1").toInt == -1) {
+                        href="@routes.Application.adminUIProjectList()"
+                    } else {
+                        href="@routes.Application.adminUIChildList("Challenge", challengeForm("parent").value.get.toLong)"
+                    }
+                >Cancel</a>
             </div>
         }
     </div><!-- /.box -->

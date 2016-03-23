@@ -134,15 +134,23 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
       case None =>
         request.headers.get(SessionManager.KEY_API) match {
           case Some(apiKey) =>
-            try {
-              val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-              userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
-                case Some(user) => p success Some(user)
-                case None => p success None
+            // The super key gives complete access to everything. By default the super key is not
+            // enabled, but if it is anybody with that key can do anything in the system. This is
+            // generally not a good idea to have it enabled, but useful for internal systems or
+            // dev testing.
+            if (config.superKey.nonEmpty && StringUtils.equals(config.superKey.get, apiKey)) {
+              p success Some(User.superUser)
+            } else {
+              try {
+                val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
+                userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+                  case Some(user) => p success Some(user)
+                  case None => p success None
+                }
+              } catch {
+                case e: NumberFormatException => p failure new OAuthNotAuthorizedException(s"Invalid APIKey supplied => $apiKey")
+                case e: Exception => p failure e
               }
-            } catch {
-              case e:NumberFormatException => p failure new OAuthNotAuthorizedException(s"Invalid APIKey supplied => $apiKey")
-              case e:Exception => p failure e
             }
           case None => p success None
         }
@@ -166,7 +174,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        userDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
+        userDAL.matchByRequestTokenAndId(accessToken)(sessionId.toLong)
       case None => userDAL.matchByRequestToken(accessToken)
     }
     storedUser match {
