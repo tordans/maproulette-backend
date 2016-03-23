@@ -188,27 +188,6 @@ CREATE TRIGGER update_answers_modified BEFORE UPDATE ON answers
 
 SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');
 
-CREATE TABLE IF NOT EXISTS survey_answers
-(
-  id SERIAL NOT NULL,
-  created timestamp without time zone DEFAULT NOW(),
-  user_id integer NOT NULL DEFAULT(-999),
-  survey_id integer NOT NULL,
-  task_id integer NOT NULL,
-  answer_id integer NOT NULL,
-  CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
-    REFERENCES surveys(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
-    REFERENCES tasks(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
-    REFERENCES answers(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
-);
-
-SELECT create_index_if_not_exists('survey_answer', 'survey_id', '(survey_id)');
-
 CREATE TABLE IF NOT EXISTS tasks
 (
   id SERIAL NOT NULL,
@@ -232,6 +211,27 @@ CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
 
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
+
+CREATE TABLE IF NOT EXISTS survey_answers
+(
+  id SERIAL NOT NULL,
+  created timestamp without time zone DEFAULT NOW(),
+  user_id integer NOT NULL DEFAULT(-999),
+  survey_id integer NOT NULL,
+  task_id integer NOT NULL,
+  answer_id integer NOT NULL,
+  CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
+    REFERENCES users(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
+    REFERENCES surveys(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
+    REFERENCES tasks(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
+    REFERENCES answers(id) MATCH SIMPLE,
+  CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
+);
+
+SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
 
 CREATE TABLE IF NOT EXISTS tags
 (
@@ -290,8 +290,6 @@ CREATE TABLE IF NOT EXISTS actions
     REFERENCES users(id) MATCH SIMPLE,
   CONSTRAINT actions_task_id_fkey FOREIGN KEY (item_id)
     REFERENCES tasks(id) MATCH SIMPLE,
-  CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE,
   CONSTRAINT actions_pkey PRIMARY KEY (id)
 );
 
