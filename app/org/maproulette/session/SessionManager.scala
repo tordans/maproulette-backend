@@ -18,7 +18,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.{AnyContent, Request, RequestHeader, Result}
 
 import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * The Session manager handles the current user session. Making sure that requests that require
@@ -259,7 +259,10 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
                          (implicit request:Request[Any]) : Future[Result] = {
     val p = Promise[Result]
     sessionUser(sessionTokenPair) onComplete {
-      case Success(result) => p success block(result)
+      case Success(result) => Try(block(result)) match {
+        case Success(res) => p success res
+        case Failure(f) => p failure f
+      }
       case Failure(error) => p failure error
     }
     p.future
@@ -311,9 +314,15 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
         case Success(result) => result match {
           case Some(user) => try {
             execute match {
-              case Left(block) => p success block(user)
-              case Right(block) => block(user) onComplete {
+              case Left(block) => Try(block(user)) match {
                 case Success(s) => p success s
+                case Failure(f) => p failure f
+              }
+              case Right(block) => Try(block(user)) match {
+                case Success(s) => s onComplete {
+                  case Success(s) => p success s
+                  case Failure(f) => p failure f
+                }
                 case Failure(f) => p failure f
               }
             }
