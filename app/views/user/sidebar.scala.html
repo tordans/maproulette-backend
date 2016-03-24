@@ -1,0 +1,80 @@
+@import org.maproulette.session.User
+@(user:User)(implicit messages: Messages)
+<!-- sidebar: style can be found in sidebar.less -->
+<section class="sidebar">
+
+    <!-- Sidebar user panel (optional) -->
+  <div class="user-panel">
+    <div class="pull-left image">
+      <img src="@user.osmProfile.avatarURL" class="img-circle" alt="User Image">
+    </div>
+    <div class="pull-left info">
+      <p>@user.name</p>
+        <!-- Status -->
+      @if(!user.guest) {
+        <a href="#"><i class="fa fa-circle text-success"></i> Online</a>
+      }
+    </div>
+  </div>
+
+    <!-- search form (Optional) -->
+  <form action="#" method="get" class="sidebar-form">
+    <div class="input-group">
+      <input type="text" name="q" class="form-control" placeholder="Search...">
+      <span class="input-group-btn">
+        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+      </span>
+    </div>
+  </form>
+    <!-- /.search form -->
+
+    <!-- Sidebar Menu -->
+  <ul class="sidebar-menu">
+    <li class="header">Search Results</li>
+    <li class="treeview">
+      <a href="#">
+        <i class="fa fa-edit"></i> <span>Surveys</span>
+        <i class="fa fa-angle-left pull-right"></i>
+      </a>
+      <ul class="treeview-menu">
+        <li><a href="#"><i class="fa fa-circle-o"></i> Survey1</a></li>
+        <li><a href="#"><i class="fa fa-circle-o"></i> Survey2</a></li>
+        <li><a href="#"><i class="fa fa-circle-o"></i> Survey3</a></li>
+      </ul>
+    </li>
+    <li class="treeview">
+      <a href="#">
+        <i class="fa fa-wrench"></i> <span>Challenges</span>
+        <i class="fa fa-angle-left pull-right"></i>
+      </a>
+      <ul class="treeview-menu">
+        <li><a href="#"><i class="fa fa-circle-o"></i> Challenge1</a></li>
+        <li><a href="#"><i class="fa fa-circle-o"></i> Challenge2</a></li>
+        <li><a href="#"><i class="fa fa-circle-o"></i> Challenge3</a></li>
+      </ul>
+    </li>
+    <li class="treeview">
+      <a href="#">
+        <i class="fa fa-tag"></i> <span>Tags</span>
+        <i class="fa fa-angle-left pull-right"></i>
+      </a>
+      <ul class="treeview-menu">
+        <li><a href="#"><i class="fa fa-circle-o"></i> Tag1</a></li>
+        <li><a href="#"><i class="fa fa-circle-o"></i> Tag2</a></li>
+        <li><a href="#"><i class="fa fa-circle-o"></i> Tag3</a></li>
+      </ul>
+    </li>
+    @if(user.isAdmin || user.isSuperUser) {
+      <li class="header">Administration</li>
+        <!-- Optionally, you can add icons to the links -->
+      <li><a href="@routes.Application.adminUIProjectList()"><i class="fa fa-folder-open"></i> <span>Projects</span></a></li>
+      <li><a href="@routes.Application.stats()"><i class="fa fa-pie-chart"></i> <span>Stats</span></a></li>
+      @if(user.isSuperUser) {
+        <li><a href="@routes.Application.users()"><i class="fa fa-users"></i> <span>Users</span></a></li>
+      }
+    }
+    <li class="header">Mapping</li>
+    <li><a href="@routes.Application.index()"><i class="fa fa-map-o"></i> <span>Maps</span></a></li>
+  </ul><!-- /.sidebar-menu -->
+</section>
+  <!-- /.sidebar -->

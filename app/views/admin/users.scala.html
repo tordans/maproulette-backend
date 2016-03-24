@@ -1,5 +1,5 @@
 @import org.maproulette.session.User
-@(user:User, userList:List[User])
+@(user:User, userList:List[User])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -14,7 +14,8 @@
                         <th>ID</th>
                         <th>Osm ID</th>
                         <th>Display Name</th>
-                        <th>User Groups</th>
+                        <th>Projects</th>
+                        <th>API Key</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -24,21 +25,22 @@
                             <td>@u.id</td>
                             <td>@u.osmProfile.id</td>
                             <td>@u.osmProfile.displayName</td>
-                            <td>@u.groups.map(_.name).mkString(",")</td>
+                            <td>@if(u.isSuperUser) { ALL } else { }</td>
+                            <td>@u.apiKey</td>
                             <td>
-                                <div class="col-md-2 pull-left">
+                                <div class="col-sm-2 pull-left">
                                     <a href="#">
-                                        <button class="btn-xs btn-block btn-warning">Edit</button>
+                                        <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
                                     </a>
                                 </div>
-                                <div class="col-md-2 pull-left">
+                                <div class="col-sm-2 pull-left">
                                     <a href="#">
-                                        <button class="btn-xs btn-block btn-primary">New</button>
+                                        <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@u.id);">Delete</button>
                                     </a>
                                 </div>
-                                <div class="col-md-2 pull-left">
+                                <div class="col-sm-2 pull-left">
                                     <a href="#">
-                                        <button class="btn-xs btn-block btn-danger">Delete</button>
+                                        <button class="btn-xs btn-block btn-primary>">Add Project</button>
                                     </a>
                                 </div>
                             </td>
@@ -50,7 +52,8 @@
                         <th>ID</th>
                         <th>Osm ID</th>
                         <th>Display Name</th>
-                        <th>User Groups</th>
+                        <th>Projects</th>
+                        <th>API Key</th>
                         <th>Actions</th>
                     </tr>
                 </tfoot>

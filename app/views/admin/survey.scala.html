@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.actions.Actions
 @import org.maproulette.models.Survey
-@(user:User, parentId:Long, surveys:List[Survey])
+@(user:User, parentId:Long, surveys:List[Survey])(implicit messages: Messages)
 
 <div class="box-body">
     <div class="pull-right">
@@ -12,9 +12,11 @@
     <table id="userTable" class="table table-bordered table-hover">
         <thead>
             <tr>
+                <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Identifier</th>
+                <th>Tasks All/Answered</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -22,9 +24,17 @@
         @if(surveys.size > 0) {
             @for(s <- surveys) {
                 <tr>
+                    <td>
+                    @if(s.enabled) {
+                        <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
+                    } else {
+                        <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
+                    }
+                    </td>
                     <td>@s.id</td>
                     <td>@s.name</td>
                     <td>@s.identifier</td>
+                    <td>0/0</td>
                     <td>
                         <div class="col-md-2 pull-left">
                             <a href="@routes.FormEditController.surveyFormUI(s.parent, s.id)">
@@ -33,7 +43,7 @@
                         </div>
                         <div class="col-md-2 pull-left">
                             <a href="#">
-                                <button class="btn-xs btn-block btn-danger">Delete</button>
+                                <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteSurvey(@s.id);">Delete</button>
                             </a>
                         </div>
                         <div class="col-md-2 pull-left">
@@ -50,6 +60,7 @@
         </tbody>
         <tfoot>
             <tr>
+                <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
                 <th>Identifier</th>

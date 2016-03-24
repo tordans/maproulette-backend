@@ -1,6 +1,6 @@
 @import org.maproulette.models.Survey
 @import views.html.admin.forms.elements._
-@(parentId:Long, surveyForm:Form[Survey], breadcrumbs:Map[String, Call])
+@(parentId:Long, surveyForm:Form[Survey], breadcrumbs:Map[String, Call])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null, breadcrumbs)
 <section class="content">
@@ -27,6 +27,15 @@
                         label = "Parent ID",
                         placeholder = "-1",
                         readOnly = true
+                    )
+                </div>
+                <div class="form-group">
+                    @select(surveyForm("enabled"),
+                        label = "Enabled",
+                        optionList = List(("true", "true"), ("false", "false")),
+                        isMultiple = false,
+                        help = "Please set whether the survey is enabled or not.",
+                        defaultSelected = Some("0")
                     )
                 </div>
                 <div class="form-group">
@@ -59,9 +68,34 @@
                         help = "Please enter the question for the survey. (optional)"
                     )
                 </div>
+                @helper.repeat(surveyForm("answers")) { answerField =>
+                    <div class="form-group">
+                        <div class="col-lg-1"></div>
+                        <div class="col-xs-1">
+                            @text(surveyForm("answers.id"),
+                                label = "ID",
+                                placeholder = "-1",
+                                readOnly = true
+                            )
+                        </div>
+                        <div class="col-lg-9">
+                        @text(surveyForm("answers.answer"),
+                            label = "Answer",
+                            placeholder = "Survey Answer"
+                        )
+                        </div>
+                    </div>
+                }
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
+                <a class="btn btn-primary"
+                    @if(surveyForm("id").value.getOrElse("-1").toInt == -1) {
+                        href="@routes.Application.adminUIProjectList()"
+                    } else {
+                        href="@routes.Application.adminUIChildList("Survey", surveyForm("parent").value.get.toLong)"
+                        }
+                >Cancel</a>
             </div>
         }
     </div><!-- /.box -->

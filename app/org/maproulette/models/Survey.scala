@@ -26,7 +26,8 @@ case class Survey(override val id: Long,
                   override val description:Option[String]=None,
                   parent:Long,
                   question:String,
-                  answers:List[Answer]) extends ChildObject[Long, Project] {
+                  answers:List[Answer],
+                  enabled:Boolean=true) extends ChildObject[Long, Project] {
   @Inject val projectDAL:ProjectDAL = null
 
   override def getParent = projectDAL.retrieveById(parent).get
@@ -52,7 +53,8 @@ object Survey {
           "id" -> longNumber,
           "answer" -> nonEmptyText
         )(Answer.apply)(Answer.unapply)
-      )
+      ),
+      "enabled" -> boolean
     )(Survey.apply)(Survey.unapply)
   )
 

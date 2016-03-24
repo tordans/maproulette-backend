@@ -7,16 +7,20 @@ import org.maproulette.actions._
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
-import org.maproulette.utils.Utils
+import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.mvc._
 import play.api.routing._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Promise
+import scala.util.{Failure, Success}
 
-class Application @Inject() (sessionManager:SessionManager,
+class Application @Inject() (val messagesApi: MessagesApi,
+                             sessionManager:SessionManager,
                              userDAL: UserDAL,
                              projectDAL: ProjectDAL,
                              challengeDAL: ChallengeDAL,
                              surveyDAL: SurveyDAL,
-                             config:Config) extends Controller {
+                             config:Config) extends Controller with I18nSupport {
 
   /**
     * The primary entry point to the application
@@ -24,7 +28,7 @@ class Application @Inject() (sessionManager:SessionManager,
     * @return The index HTML
     */
   def index = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette", User.userOrMocked(user), config)(views.html.main(config.isDebugMode)))
     }
   }
@@ -44,7 +48,7 @@ class Application @Inject() (sessionManager:SessionManager,
     * @return The html view to show the user
     */
   protected def adminUIList(itemType:String, parentId:Option[Long]=None, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
@@ -63,13 +67,13 @@ class Application @Inject() (sessionManager:SessionManager,
   }
 
   def stats = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette Statistics", user, config)(views.html.admin.stats(user)))
     }
   }
 
   def users(limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette Users", user, config)
         (views.html.admin.users(user, userDAL.list(limit, offset)))
       )
@@ -77,7 +81,7 @@ class Application @Inject() (sessionManager:SessionManager,
   }
 
   def profile = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Ok(views.html.index("MapRoulette Profile", user, config)
         (views.html.user.profile(user))
       )
@@ -90,14 +94,18 @@ class Application @Inject() (sessionManager:SessionManager,
     * @return The index html
     */
   def refreshProfile = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
-      sessionManager.refreshProfile(user.osmProfile.requestToken, user)
-      Redirect(routes.Application.index())
+    sessionManager.authenticatedFutureUIRequest { implicit user =>
+      val p = Promise[Result]
+      sessionManager.refreshProfile(user.osmProfile.requestToken, user) onComplete {
+        case Success(result) => p success Redirect(routes.Application.index())
+        case Failure(f) => p failure f
+      }
+      p.future
     }
   }
 
   def error(error:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+    sessionManager.userAwareUIRequest { implicit user =>
       Ok(views.html.index("Map Roulette Error", User.userOrMocked(user), config)(views.html.error.error(error)))
     }
   }
@@ -110,7 +118,12 @@ class Application @Inject() (sessionManager:SessionManager,
   def javascriptRoutes = Action { implicit request =>
     Ok(
       JavaScriptReverseRouter("jsRoutes")(
-        routes.javascript.AuthController.generateAPIKey
+        routes.javascript.AuthController.generateAPIKey,
+        routes.javascript.AuthController.deleteUser,
+        routes.javascript.Application.error,
+        org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
+        org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
+        org.maproulette.controllers.api.routes.javascript.SurveyController.delete
       )
     ).as("text/javascript")
   }

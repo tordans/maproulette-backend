@@ -50,7 +50,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         new User(id, created, modified, theme,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(0, 0), osmCreated, RequestToken(oauthToken, oauthSecret)),
-            userGroupDAL.getGroups(id), apiKey)
+            userGroupDAL.getGroups(osmId), apiKey)
     }
   }
 
@@ -87,9 +87,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param requestToken The request token containing the access token and secret
     * @return The matched user, None if User not found
     */
-  def matchByRequestTokenAndId(id: Long, requestToken: RequestToken): Option[User] = {
-    implicit val userId = id
-    val user = cacheManager.withOptionCaching { () =>
+  def matchByRequestTokenAndId(requestToken: RequestToken)(implicit id:Long): Option[User] = {
+    val user = cacheManager.withCaching { () =>
       db.withConnection { implicit c =>
         SQL"""SELECT * FROM users WHERE id = $id AND oauth_token = ${requestToken.token}
              AND oauth_secret = ${requestToken.secret}""".as(parser.*).headOption
@@ -146,6 +145,19 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
                     ${item.osmProfile.requestToken.token}, ${item.osmProfile.requestToken.secret},
                     ${item.theme}
             WHERE NOT EXISTS (SELECT * FROM upsert)""".executeUpdate()
+      // if we are updating a user, then get rid of his group associations and recreate
+      SQL"""DELETE FROM user_groups WHERE osm_user_id = ${item.osmProfile.id}""".executeUpdate()
+      if (item.groups.nonEmpty) {
+        val ugQuery = s"""INSERT INTO user_groups (osm_user_id, group_id) VALUES (${item.osmProfile.id}, {groupId})"""
+        val parameters = item.groups.map(group => {
+            Seq[NamedParameter]("groupId" -> group.id)
+        })
+        BatchSql(ugQuery, parameters.head, parameters.tail: _*).execute()
+      }
+    }
+    // We do this separately from the transaction because if we don't the user_group mappings
+    // wont be accessible just yet.
+    db.withConnection { implicit c =>
       SQL"""SELECT * FROM users WHERE osm_id = ${item.osmProfile.id}""".as(parser.*).headOption
     }
   }.get
@@ -169,6 +181,21 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         val token = (value \ "osmProfile" \ "token").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.token)
         val secret = (value \ "osmProfile" \ "secret").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.secret)
         val theme = (value \ "theme").asOpt[String].getOrElse(cachedItem.theme)
+
+        // list of grousp to delete
+        (value \ "groups" \ "delete").asOpt[List[Long]] match {
+          case Some(values) => SQL"""DELETE FROM user_groups WHERE group_id IN ($values)""".execute()
+          case None => //ignore
+        }
+        (value \ "groups" \ "add").asOpt[List[Long]] match {
+          case Some(values) =>
+            val sqlQuery = s"""INSERT INTO user_groups (user_id, group_id) VALUES ($id, {groupId})"""
+            val parameters = values.map(groupId => {
+              Seq[NamedParameter]("groupId" -> groupId)
+            })
+            BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+          case None => //ignore
+        }
 
         SQL"""UPDATE users SET api_key = $apiKey, display_name = $displayName, description = $description,
                 avatar_url = $avatarURL, oauth_token = $token, oauth_secret = $secret

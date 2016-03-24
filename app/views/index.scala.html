@@ -1,6 +1,6 @@
 @import org.maproulette.session.User
 @import org.maproulette.Config
-@(title:String, user:User, config:Config)(content:Html)(implicit req: play.api.mvc.RequestHeader)
+@(title:String, user:User, config:Config)(content:Html)(implicit req: play.api.mvc.RequestHeader, messages: Messages)
 <!DOCTYPE html>
 <!--
 This is a starter template page. Use this page to start your new project from
@@ -41,7 +41,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             </header>
                 <!-- Left side column. contains the logo and sidebar -->
             <aside class="main-sidebar">
-                @views.html.user.userSettings(user)
+                @views.html.user.sidebar(user)
             </aside>
 
                 <!-- Content Wrapper. Contains page content -->

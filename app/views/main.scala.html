@@ -1,9 +1,9 @@
-@(debugMode:Boolean)
+@(debugMode:Boolean)(implicit messages: Messages)
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
-<link rel="stylesheet" href="@routes.Assets.at("stylesheets/maproulette.css")"/>
+<link rel="stylesheet" href="@routes.Assets.at("stylesheets/mapping.css")"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.css"))"/>
 <script src="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.js"))"></script>
 
 <div id="map" class="map"></div>
 
-<script src="@routes.Assets.at("javascripts/maproulette.js")"></script>
+<script src="@routes.Assets.at("javascripts/mapping.js")"></script>

@@ -3,7 +3,11 @@ package controllers
 import com.google.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.session.SessionManager
-import play.api.mvc.{Result, Action, Controller}
+import org.maproulette.session.dal.UserDAL
+import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.libs.json.Json
+import play.api.mvc.{Action, Controller, Result}
+
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
@@ -12,7 +16,9 @@ import scala.util.{Failure, Success}
   *
   * @author cuthbertm
   */
-class AuthController @Inject() (sessionManager:SessionManager) extends Controller {
+class AuthController @Inject() (val messagesApi: MessagesApi,
+                                sessionManager:SessionManager,
+                                userDAL: UserDAL) extends Controller with I18nSupport {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -54,6 +60,16 @@ class AuthController @Inject() (sessionManager:SessionManager) extends Controlle
     */
   def signOut() = Action { implicit request =>
     Redirect(routes.Application.index()).withNewSession
+  }
+
+  def deleteUser(userId:Long) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      if (user.isSuperUser) {
+        Ok(Json.obj("message" -> s"${userDAL.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
+      } else {
+        throw new IllegalAccessException(s"User ${user.name} [${user.id} does not have super user access to delete other users")
+      }
+    }
   }
 
   /**

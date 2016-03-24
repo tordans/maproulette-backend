@@ -15,7 +15,8 @@ import play.api.libs.json.{Json, Reads, Writes}
 case class Project(override val id: Long,
                    override val name: String,
                    override val description: Option[String]=None,
-                   groups:List[Group]=List.empty) extends BaseObject[Long] {
+                   groups:List[Group]=List.empty,
+                   enabled:Boolean=true) extends BaseObject[Long] {
 
   /**
     * Checks whether the user currently has admin access to this project
@@ -42,9 +43,11 @@ object Project {
         mapping(
           "id" -> longNumber,
           "name" -> nonEmptyText,
+          "projectId" -> longNumber,
           "groupType" -> number(min = 1, max = 1)
         )(Group.apply)(Group.unapply)
-      )
+      ),
+      "enabled" -> boolean
     )(Project.apply)(Project.unapply)
   )
 

@@ -29,7 +29,8 @@ case class Challenge(override val id: Long,
                      parent:Long,
                      difficulty:Option[Int]=None,
                      blurb:Option[String]=None,
-                     instruction:Option[String]=None) extends ChildObject[Long, Project] {
+                     instruction:Option[String]=None,
+                     enabled:Boolean=true) extends ChildObject[Long, Project] {
 
   @Inject val projectDAL:ProjectDAL = null
 
@@ -49,7 +50,8 @@ object Challenge {
       "parent" -> longNumber,
       "difficulty" -> optional(number(min = 1, max = 3)),
       "blurb" -> optional(text),
-      "instruction" -> optional(text)
+      "instruction" -> optional(text),
+      "enabled" -> boolean
     )(Challenge.apply)(Challenge.unapply)
   )
 

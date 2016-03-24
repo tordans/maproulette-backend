@@ -8,21 +8,23 @@ import org.maproulette.models.{Challenge, Project, Survey}
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.SessionManager
 import org.maproulette.session.dal.UserDAL
+import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
 
 /**
   * @author cuthbertm
   */
-class FormEditController @Inject() (sessionManager:SessionManager,
+class FormEditController @Inject() (val messagesApi: MessagesApi,
+                                    sessionManager:SessionManager,
                                     userDAL: UserDAL,
                                     projectDAL: ProjectDAL,
                                     challengeDAL: ChallengeDAL,
                                     surveyDAL: SurveyDAL,
-                                    config:Config) extends Controller {
+                                    config:Config) extends Controller with I18nSupport {
 
   def projectFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val project:Project = if (itemId > -1) {
         projectDAL.retrieveById(itemId) match {
           case Some(proj) => proj
@@ -39,10 +41,12 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def projectFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Project.projectForm.bindFromRequest.fold(
         formWithErrors => {
-          BadRequest(views.html.admin.forms.projectForm(parentId, formWithErrors, Map.empty))
+          BadRequest(views.html.index("MapRoulette Administration", user, config)
+            (views.html.admin.forms.projectForm(parentId, formWithErrors, Map.empty))
+          )
         },
         project => {
           val id = if (itemId > -1) {
@@ -60,7 +64,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def challengeFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val challenge:Challenge = if (itemId > -1) {
         challengeDAL.retrieveById(itemId) match {
           case Some(chal) => chal
@@ -79,11 +83,13 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def challengeFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
-          BadRequest(views.html.admin.forms.challengeForm(parentId, formWithErrors,
-            Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)))
+          BadRequest(views.html.index("MapRoulette Administration", user, config)
+            (views.html.admin.forms.challengeForm(parentId, formWithErrors,
+              Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)))
+            )
           )
         },
         challenge => {
@@ -101,7 +107,7 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def surveyFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       val survey:Survey = if (itemId > -1) {
         surveyDAL.retrieveById(itemId) match {
           case Some(sur) => sur
@@ -120,11 +126,13 @@ class FormEditController @Inject() (sessionManager:SessionManager,
   }
 
   def surveyFormPost(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.authenticatedUIRequest { implicit user =>
       Survey.surveyForm.bindFromRequest.fold(
         formWithErrors => {
-          BadRequest(views.html.admin.forms.surveyForm(parentId, formWithErrors,
-            Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)))
+          BadRequest(views.html.index("MapRoulette Administration", user, config)
+            (views.html.admin.forms.surveyForm(parentId, formWithErrors,
+              Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)))
+            )
           )
         },
         survey => {

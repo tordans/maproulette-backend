@@ -43,12 +43,13 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
       get[Option[String]]("surveys.identifier") ~
      get[Option[String]]("surveys.description") ~
       get[Long]("surveys.parent_id") ~
-      get[String]("surveys.question") map {
-      case id ~ name ~ identifier ~ description ~ parentId ~ question =>
+      get[String]("surveys.question") ~
+      get[Boolean]("surveys.enabled") map {
+      case id ~ name ~ identifier ~ description ~ parentId ~ question ~ enabled =>
         val answers = db.withTransaction { implicit c =>
           SQL"""SELECT * FROM answers WHERE survey_id = $id""".as(answerParser.*)
         }
-        new Survey(id, name, identifier, description, parentId, question, answers)
+        new Survey(id, name, identifier, description, parentId, question, answers, enabled)
     }
   }
 
@@ -66,9 +67,9 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
     survey.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
-        val newSurveyId = SQL"""INSERT INTO survey (name, identifier, parent_id, description, question)
+        val newSurveyId = SQL"""INSERT INTO survey (name, identifier, parent_id, description, question, enabled)
               VALUES (${survey.name}, ${survey.identifier}, ${survey.parent},
-                      ${survey.description}, ${survey.question}) RETURNING id""".as(long("id").single)
+                      ${survey.description}, ${survey.question}, ${survey.enabled}) RETURNING id""".as(long("id").single)
         // insert the answers into the table
         SQL"""INSERT INTO answers (answer, survey_id) VALUES """.executeInsert()
         Some(survey.copy(id = newSurveyId))
@@ -93,6 +94,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val question = (updates \ "question").asOpt[String].getOrElse(cachedItem.question)
+        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
         implicit val answerReads = Survey.answerReads
         // list of answers to delete
         (updates \ "answers" \ "delete").asOpt[List[Long]] match {
@@ -122,7 +124,8 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
                                     identifier = $identifier,
                                     parent_id = $parentId,
                                     description = $description,
-                                    question = $question
+                                    question = $question,
+                                    enabled = $enabled
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }

@@ -1,6 +1,6 @@
 @import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
-@(parentId:Long, challengeForm:Form[Challenge], breadcrumbs:Map[String, Call])
+@(parentId:Long, challengeForm:Form[Challenge], breadcrumbs:Map[String, Call])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null, breadcrumbs)
 <section class="content">
@@ -27,6 +27,15 @@
                         label = "Parent ID",
                         placeholder = "-1",
                         readOnly = true
+                    )
+                </div>
+                <div class="form-group">
+                    @select(challengeForm("enabled"),
+                        label = "Enabled",
+                        optionList = List(("true", "true"), ("false", "false")),
+                        isMultiple = false,
+                        help = "Please set whether the challenge is enabled or not.",
+                        defaultSelected = Some("0")
                     )
                 </div>
                 <div class="form-group">
@@ -78,6 +87,13 @@
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
+                <a class="btn btn-primary"
+                    @if(challengeForm("id").value.getOrElse("-1").toInt == -1) {
+                        href="@routes.Application.adminUIProjectList()"
+                    } else {
+                        href="@routes.Application.adminUIChildList("Challenge", challengeForm("parent").value.get.toLong)"
+                    }
+                >Cancel</a>
             </div>
         }
     </div><!-- /.box -->

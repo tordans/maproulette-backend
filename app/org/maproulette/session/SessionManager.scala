@@ -8,15 +8,17 @@ import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
+import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
+import play.api.i18n.Messages
 import play.api.{Application, Logger}
 import play.api.libs.Crypto
 import play.api.libs.oauth._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Result, Request, AnyContent, RequestHeader}
+import play.api.mvc.{AnyContent, Request, RequestHeader, Result}
 
-import scala.concurrent.{Promise, Future}
-import scala.util.{Success, Failure}
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 /**
   * The Session manager handles the current user session. Making sure that requests that require
@@ -25,7 +27,7 @@ import scala.util.{Success, Failure}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application) {
+class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application, config:Config) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
@@ -132,15 +134,23 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
       case None =>
         request.headers.get(SessionManager.KEY_API) match {
           case Some(apiKey) =>
-            try {
-              val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-              userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
-                case Some(user) => p success Some(user)
-                case None => p success None
+            // The super key gives complete access to everything. By default the super key is not
+            // enabled, but if it is anybody with that key can do anything in the system. This is
+            // generally not a good idea to have it enabled, but useful for internal systems or
+            // dev testing.
+            if (config.superKey.nonEmpty && StringUtils.equals(config.superKey.get, apiKey)) {
+              p success Some(User.superUser)
+            } else {
+              try {
+                val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
+                userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+                  case Some(user) => p success Some(user)
+                  case None => p success None
+                }
+              } catch {
+                case e: NumberFormatException => p failure new OAuthNotAuthorizedException(s"Invalid APIKey supplied => $apiKey")
+                case e: Exception => p failure e
               }
-            } catch {
-              case e:NumberFormatException => p failure new OAuthNotAuthorizedException(s"Invalid APIKey supplied => $apiKey")
-              case e:Exception => p failure e
             }
           case None => p success None
         }
@@ -164,7 +174,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        userDAL.matchByRequestTokenAndId(sessionId.toLong, accessToken)
+        userDAL.matchByRequestTokenAndId(accessToken)(sessionId.toLong)
       case None => userDAL.matchByRequestToken(accessToken)
     }
     storedUser match {
@@ -198,7 +208,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
-          val newUser = User(detailsResponse.body, accessToken)
+          val newUser = User(detailsResponse.body, accessToken, config)
           p success Some(userDAL.insert(newUser, user))
         } catch {
           case e:Exception => p failure e
@@ -215,20 +225,69 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
   /**
     * For a user aware request we are simply checking to see if we can find a user that can be
     * associated with the current session. So if a session token is available we will try to authenticate
+    * the user and optionally return a User object. This differs from userAwareRequest
+    * due to if any exceptions are thrown it will show a UI page, instead of a JSON payload
+    *
+    * @param block The block of code that is executed after user has been checked
+    * @param request The incoming http request
+    * @return The result from the block of code
+    */
+  def userAwareUIRequest(block:Option[User] => Result)
+                        (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+      userAware(block)
+    }
+  }
+
+  /**
+    * For a user aware request we are simply checking to see if we can find a user that can be
+    * associated with the current session. So if a session token is available we will try to authenticate
     * the user and optionally return a User object.
     *
     * @param block The block of code that is executed after user has been checked
     * @param request The incoming http request
     * @return The result from the block of code
     */
-  def userAwareRequest(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
+  def userAwareRequest(block:Option[User] => Result)
+                      (implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      val p = Promise[Result]
-      sessionUser(sessionTokenPair) onComplete {
-        case Success(result) => p success block(result)
-        case Failure(error) => p failure error
+      userAware(block)
+    }
+  }
+
+  protected def userAware(block:Option[User] => Result)
+                         (implicit request:Request[Any]) : Future[Result] = {
+    val p = Promise[Result]
+    sessionUser(sessionTokenPair) onComplete {
+      case Success(result) => Try(block(result)) match {
+        case Success(res) => p success res
+        case Failure(f) => p failure f
       }
-      p.future
+      case Failure(error) => p failure error
+    }
+    p.future
+  }
+
+  /**
+    * For an authenticated request we expect there to current be a valid session. If no session is
+    * available an OAuthNotAuthorizedException will be thrown. This differs from authenticatedRequest
+    * due to if any exceptions are thrown it will show a UI page, instead of a JSON payload
+    *
+    * @param block The block of code to execute after a valid session has been found
+    * @param request The incoming http request
+    * @return
+    */
+  def authenticatedUIRequest(block:User => Result)
+                            (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+      authenticated(Left(block))
+    }
+  }
+
+  def authenticatedFutureUIRequest(block:User => Future[Result])
+                                  (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+      authenticated(Right(block))
     }
   }
 
@@ -240,18 +299,44 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return The result from the block of code
     */
-  def authenticatedRequest(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
+  def authenticatedRequest(block:User => Result)
+                          (implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      val p = Promise[Result]
+      authenticated(Left(block))
+    }
+  }
+
+  protected def authenticated(execute:Either[User => Result, User => Future[Result]])
+                             (implicit request:Request[Any]) : Future[Result] = {
+    val p = Promise[Result]
+    try {
       sessionUser(sessionTokenPair) onComplete {
         case Success(result) => result match {
-          case Some(user) => p success block(user)
+          case Some(user) => try {
+            execute match {
+              case Left(block) => Try(block(user)) match {
+                case Success(s) => p success s
+                case Failure(f) => p failure f
+              }
+              case Right(block) => Try(block(user)) match {
+                case Success(s) => s onComplete {
+                  case Success(s) => p success s
+                  case Failure(f) => p failure f
+                }
+                case Failure(f) => p failure f
+              }
+            }
+          } catch {
+            case e:Exception => p failure e
+          }
           case None => p failure new OAuthNotAuthorizedException()
         }
         case Failure(e) => p failure e
       }
-      p.future
+    } catch {
+      case e:Exception => p failure e
     }
+    p.future
   }
 }
 
