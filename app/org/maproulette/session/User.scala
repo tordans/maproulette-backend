@@ -2,14 +2,17 @@ package org.maproulette.session
 
 import java.util.UUID
 import javax.inject.Inject
+
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import org.maproulette.Config
 import org.maproulette.models.BaseObject
 import org.maproulette.session.dal.UserDAL
 import play.api.libs.Crypto
 import play.api.libs.json.Json
 import play.api.libs.oauth.RequestToken
-import scala.xml.{XML, Elem}
+
+import scala.xml.{Elem, XML}
 
 /**
   * Classes for the User object and the OSM Profile
@@ -109,7 +112,7 @@ object User {
     * @param requestToken The access token used to retrieve the OSM details
     * @return A user object based on the XML details provided
     */
-  def apply(root:Elem, requestToken:RequestToken) : User = {
+  def apply(root:Elem, requestToken:RequestToken, config:Config) : User = {
     val userXML = (root \ "user").head
     val displayName = userXML \@ "display_name"
     val osmAccountCreated = userXML \@ "account_created"
@@ -118,8 +121,14 @@ object User {
     val avatarURL = (userXML \ "img").head \@ "href"
     // todo currently setting to 0,0 lat,lon but will need to set a default or null or something
     val location = (userXML \ "home").headOption match {
-      case Some(location) => Location((location \@ "lat").toDouble, (location \@ "lon").toDouble)
+      case Some(loc) => Location((loc \@ "lat").toDouble, (loc \@ "lon").toDouble)
       case None => Location(0, 0)
+    }
+    // check whether this user is a super user
+    val groups = if (config.superAccounts.contains(osmId)) {
+      List(superGroup)
+    } else {
+      List[Group]()
     }
     User(-1, null, null, "skin-blue", OSMProfile(osmId.toLong,
       displayName,
@@ -128,7 +137,7 @@ object User {
       location,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").parseDateTime(osmAccountCreated),
       requestToken
-    ))
+    ), groups)
   }
 
   /**
@@ -138,8 +147,8 @@ object User {
     * @param requestToken The access token used to retrieve the OSM details
     * @return A user object based on the XML details provided
     */
-  def apply(userXML:String, requestToken: RequestToken) : User =
-    apply(XML.loadString(userXML), requestToken)
+  def apply(userXML:String, requestToken: RequestToken, config:Config) : User =
+    apply(XML.loadString(userXML), requestToken, config)
 
   /**
     * Creates a guest user object with default information.
@@ -159,8 +168,10 @@ object User {
       Location(47.6097, 122.3331),
       DateTime.now(),
       RequestToken("", "")
-    ), List(Group(-1, "SuperUserGroup", -1, Group.TYPE_ADMIN))
+    ), List(superGroup)
   )
+
+  val superGroup = Group(0, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
 
   /**
     * Simple helper function that if the provided Option[User] is None, will return a guest

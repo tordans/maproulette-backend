@@ -10,6 +10,9 @@ import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.mvc._
 import play.api.routing._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Promise
+import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
                              sessionManager:SessionManager,
@@ -91,9 +94,13 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @return The index html
     */
   def refreshProfile = Action.async { implicit request =>
-    sessionManager.authenticatedUIRequest { implicit user =>
-      sessionManager.refreshProfile(user.osmProfile.requestToken, user)
-      Redirect(routes.Application.index())
+    sessionManager.authenticatedFutureUIRequest { implicit user =>
+      val p = Promise[Result]
+      sessionManager.refreshProfile(user.osmProfile.requestToken, user) onComplete {
+        case Success(result) => p success Redirect(routes.Application.index())
+        case Failure(f) => p failure f
+      }
+      p.future
     }
   }
 
@@ -112,6 +119,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     Ok(
       JavaScriptReverseRouter("jsRoutes")(
         routes.javascript.AuthController.generateAPIKey,
+        routes.javascript.AuthController.deleteUser,
         routes.javascript.Application.error,
         org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,

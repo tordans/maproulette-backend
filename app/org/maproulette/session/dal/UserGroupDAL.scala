@@ -78,13 +78,13 @@ class UserGroupDAL @Inject() (db:Database) {
   /**
     * Gets all the groups that a specific user belongs too
     *
-    * @param userId The id of the user
+    * @param osmUserId The osm id of the user
     * @return A list of groups the user belongs too
     */
-  def getGroups(userId:Long) : List[Group] = db.withConnection { implicit c =>
+  def getGroups(osmUserId:Long) : List[Group] = db.withConnection { implicit c =>
     SQL"""SELECT * FROM groups g
           INNER JOIN user_groups ug ON ug.group_id = g.id
-          WHERE ug.user_id = $userId""".as(parser.*)
+          WHERE ug.osm_user_id = $osmUserId""".as(parser.*)
   }
 
   /**

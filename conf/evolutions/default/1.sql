@@ -47,7 +47,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE TABLE IF NOT EXISTS users
 (
   id serial NOT NULL,
-  osm_id integer NOT NULL,
+  osm_id integer NOT NULL UNIQUE,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
   home_location geometry,
@@ -66,9 +66,6 @@ CREATE TABLE IF NOT EXISTS users
 DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
-
-INSERT INTO users (id, osm_id, osm_created, display_name, oauth_token, oauth_secret, theme)
-VALUES (-999, -999, NOW(), 'Guest', '', '', 'skin-green');
 
 CREATE TABLE IF NOT EXISTS projects
 (
@@ -93,18 +90,20 @@ CREATE TABLE IF NOT EXISTS groups
   group_type integer NOT NULL,
   CONSTRAINT groups_project_id_fkey FOREIGN KEY (project_id)
     REFERENCES projects(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
+    ON UPDATE CASCADE ON DELETE CASCADE
+    DEFERRABLE,
   CONSTRAINT groups_pkey PRIMARY KEY(id)
 );
 
 CREATE TABLE IF NOT EXISTS user_groups
 (
   id serial NOT NULL,
-  user_id integer NOT NULL,
+  osm_user_id integer NOT NULL,
   group_id integer NOT NULL,
-  CONSTRAINT ug_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT ug_user_id_fkey FOREIGN KEY (osm_user_id)
+    REFERENCES users(osm_id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
+    DEFERRABLE,
   CONSTRAINT ug_group_id_fkey FOREIGN KEY (group_id)
     REFERENCES groups(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -172,7 +171,8 @@ CREATE TABLE IF NOT EXISTS answers
   answer character varying NOT NULL,
   CONSTRAINT answers_survey_id_fkey FOREIGN KEY (survey_id)
     REFERENCES surveys(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
+    ON UPDATE CASCADE ON DELETE CASCADE
+    DEFERRABLE,
   CONSTRAINT answers_pkey PRIMARY KEY(id)
 );
 
@@ -215,13 +215,13 @@ CREATE TABLE IF NOT EXISTS survey_answers
   task_id integer NOT NULL,
   answer_id integer NOT NULL,
   CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
-  REFERENCES users(id) MATCH SIMPLE,
+    REFERENCES users(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
-  REFERENCES surveys(id) MATCH SIMPLE,
+    REFERENCES surveys(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
-  REFERENCES tasks(id) MATCH SIMPLE,
+    REFERENCES tasks(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
-  REFERENCES answers(id) MATCH SIMPLE,
+    REFERENCES answers(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
 );
 
@@ -266,6 +266,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
   CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
+    DEFERRABLE
 );
 
 SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');

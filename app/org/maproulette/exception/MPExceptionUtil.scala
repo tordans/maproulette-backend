@@ -11,7 +11,7 @@ import play.api.mvc.Results._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Function wrappers that wrap our code blocks in try catches.
@@ -52,8 +52,8 @@ object MPExceptionUtil {
     * @param block The block of code to be executed
     * @return The error page with the error that occurred.
     */
-  def internalUIExceptionCatcher(config:Config)(block:() => Result)(implicit request:Request[Any], messages:Messages) : Result = {
-    val tempUser = User.guestUser.copy(theme = "skin-red")
+  def internalUIExceptionCatcher(user:User, config:Config)(block:() => Result)(implicit request:Request[Any], messages:Messages) : Result = {
+    val tempUser = user.copy(theme = "skin-red")
     try {
       block()
     } catch {
@@ -82,52 +82,66 @@ object MPExceptionUtil {
     */
   def internalAsyncExceptionCatcher(block:() => Future[Result]) : Future[Result] = {
     val p = Promise[Result]
-    block() onComplete {
-      case Success(result) => p success result
-      case Failure(f) => f match {
-        case e:InvalidException =>
-          Logger.error(e.getMessage, e)
-          p success BadRequest(Json.obj("status" -> "KO", "message" -> e.getMessage))
-        case e:OAuthNotAuthorizedException =>
-          Logger.error(e.getMessage, e)
-          p success Unauthorized(Json.obj("status" -> "NotAuthorized", "message" -> e.getMessage))
-        case e:IllegalAccessException =>
-          Logger.error(e.getMessage, e)
-          p success Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
-        case e:NotFoundException =>
-          Logger.error(e.getMessage, e)
-          p success NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
-        case e:Exception =>
-          Logger.error(e.getMessage, e)
-          p success InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+    Try(block()) match {
+      case Success(f) => f onComplete {
+        case Success(result) => p success result
+        case Failure(e) => p success manageException(e)
       }
+      case Failure(e) => p success manageException(e)
     }
     p.future
   }
 
-  def internalAsyncUIExceptionCatcher(config:Config)(block:() => Future[Result])(implicit request:Request[Any], messages:Messages) : Future[Result] = {
+  private def manageException(e:Throwable) : Result = {
+    e match {
+      case e:InvalidException =>
+        Logger.error(e.getMessage, e)
+        BadRequest(Json.obj("status" -> "KO", "message" -> e.getMessage))
+      case e:OAuthNotAuthorizedException =>
+        Logger.error(e.getMessage, e)
+        Unauthorized(Json.obj("status" -> "NotAuthorized", "message" -> e.getMessage))
+      case e:IllegalAccessException =>
+        Logger.error(e.getMessage, e)
+        Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
+      case e:NotFoundException =>
+        Logger.error(e.getMessage, e)
+        NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
+      case e:Throwable =>
+        Logger.error(e.getMessage, e)
+        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+    }
+  }
+
+  def internalAsyncUIExceptionCatcher(user:User, config:Config)(block:() => Future[Result])(implicit request:Request[Any], messages:Messages) : Future[Result] = {
     val p = Promise[Result]
-    val tempUser = User.guestUser.copy(theme = "skin-red")
-    block() onComplete {
-      case Success(result) => p success result
-      case Failure(f) => f match {
-        case e:InvalidException =>
-          Logger.error(e.getMessage, e)
-          p success BadRequest(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error(e.getMessage)))
-        case e:OAuthNotAuthorizedException =>
-          Logger.error(e.getMessage, e)
-          p success Unauthorized(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Unauthorized: " + e.getMessage)))
-        case e:IllegalAccessException =>
-          Logger.error(e.getMessage, e)
-          p success Forbidden(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Forbidden: " + e.getMessage)))
-        case e:NotFoundException =>
-          Logger.error(e.getMessage, e)
-          p success NotFound(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Not Found: " + e.getMessage)))
-        case e:Exception =>
-          Logger.error(e.getMessage, e)
-          p success InternalServerError(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Internal Server Error: " + e.getMessage)))
+    val tempUser = user.copy(theme = "skin-red")
+    Try(block()) match {
+      case Success(s) => s onComplete {
+        case Success(result) => p success result
+        case Failure(f) => p success manageUIException(f, tempUser, config)
       }
+      case Failure(f) => p success manageUIException(f, tempUser, config)
     }
     p.future
+  }
+
+  private def manageUIException(e:Throwable, user:User, config:Config)(implicit request:Request[Any], messages:Messages) : Result = {
+    e match {
+      case e:InvalidException =>
+        Logger.error(e.getMessage, e)
+        BadRequest(views.html.index("Map Roulette Error", user, config)(views.html.error.error(e.getMessage)))
+      case e:OAuthNotAuthorizedException =>
+        Logger.error(e.getMessage, e)
+        Unauthorized(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Unauthorized: " + e.getMessage)))
+      case e:IllegalAccessException =>
+        Logger.error(e.getMessage, e)
+        Forbidden(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Forbidden: " + e.getMessage)))
+      case e:NotFoundException =>
+        Logger.error(e.getMessage, e)
+        NotFound(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Not Found: " + e.getMessage)))
+      case e:Throwable =>
+        Logger.error(e.getMessage, e)
+        InternalServerError(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Internal Server Error: " + e.getMessage)))
+    }
   }
 }

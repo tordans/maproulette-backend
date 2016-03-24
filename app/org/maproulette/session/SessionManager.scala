@@ -208,7 +208,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
-          val newUser = User(detailsResponse.body, accessToken)
+          val newUser = User(detailsResponse.body, accessToken, config)
           p success Some(userDAL.insert(newUser, user))
         } catch {
           case e:Exception => p failure e
@@ -232,8 +232,9 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return The result from the block of code
     */
-  def userAwareUIRequest(block:Option[User] => Result)(implicit request:Request[Any], messages:Messages) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(config) { () =>
+  def userAwareUIRequest(block:Option[User] => Result)
+                        (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
       userAware(block)
     }
   }
@@ -247,13 +248,15 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return The result from the block of code
     */
-  def userAwareRequest(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
+  def userAwareRequest(block:Option[User] => Result)
+                      (implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       userAware(block)
     }
   }
 
-  protected def userAware(block:Option[User] => Result)(implicit request:Request[Any]) : Future[Result] = {
+  protected def userAware(block:Option[User] => Result)
+                         (implicit request:Request[Any]) : Future[Result] = {
     val p = Promise[Result]
     sessionUser(sessionTokenPair) onComplete {
       case Success(result) => p success block(result)
@@ -271,9 +274,17 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return
     */
-  def authenticatedUIRequest(block:User => Result)(implicit request:Request[Any], messages:Messages) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(config) { () =>
-      authenticated(block)
+  def authenticatedUIRequest(block:User => Result)
+                            (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+      authenticated(Left(block))
+    }
+  }
+
+  def authenticatedFutureUIRequest(block:User => Future[Result])
+                                  (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+      authenticated(Right(block))
     }
   }
 
@@ -285,19 +296,27 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @param request The incoming http request
     * @return The result from the block of code
     */
-  def authenticatedRequest(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
+  def authenticatedRequest(block:User => Result)
+                          (implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      authenticated(block)
+      authenticated(Left(block))
     }
   }
 
-  protected def authenticated(block:User => Result)(implicit request:Request[Any]) : Future[Result] = {
+  protected def authenticated(execute:Either[User => Result, User => Future[Result]])
+                             (implicit request:Request[Any]) : Future[Result] = {
     val p = Promise[Result]
     try {
       sessionUser(sessionTokenPair) onComplete {
         case Success(result) => result match {
           case Some(user) => try {
-            p success block(user)
+            execute match {
+              case Left(block) => p success block(user)
+              case Right(block) => block(user) onComplete {
+                case Success(s) => p success s
+                case Failure(f) => p failure f
+              }
+            }
           } catch {
             case e:Exception => p failure e
           }

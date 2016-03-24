@@ -15,7 +15,12 @@ class Config @Inject() (implicit val application:Application) {
     case None => "/assets/images/logo.png"// default to the Map Roulette Icon
   }
 
-  lazy val superKey : Option[String] = application.configuration.getString("maproulette.superkey")
+  lazy val superKey : Option[String] = application.configuration.getString("maproulette.super.key")
+
+  lazy val superAccounts : List[String] = application.configuration.getString("maproulette.super.accounts") match {
+    case Some(accs) => accs.split(",").toList
+    case None => List.empty
+  }
 
   def isDebugMode : Boolean = application.configuration.getBoolean(Config.KEY_DEBUG).getOrElse(false)
 

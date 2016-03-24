@@ -28,17 +28,17 @@
                             <td>@if(u.isSuperUser) { ALL } else { }</td>
                             <td>@u.apiKey</td>
                             <td>
-                                <div class="col-md-8 pull-left">
+                                <div class="col-sm-2 pull-left">
                                     <a href="#">
                                         <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
                                     </a>
                                 </div>
-                                <div class="col-md-4 pull-left">
+                                <div class="col-sm-2 pull-left">
                                     <a href="#">
-                                        <button class="btn-xs btn-block btn-danger">Delete</button>
+                                        <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@u.id);">Delete</button>
                                     </a>
                                 </div>
-                                <div class="col-md-4 pull-left">
+                                <div class="col-sm-2 pull-left">
                                     <a href="#">
                                         <button class="btn-xs btn-block btn-primary>">Add Project</button>
                                     </a>

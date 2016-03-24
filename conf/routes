@@ -18,6 +18,7 @@ GET     /ui/user/profile                                        @controllers.App
 GET     /auth/authenticate                                      @controllers.AuthController.authenticate
 GET     /auth/signout                                           @controllers.AuthController.signOut
 GET     /auth/generateAPIKey                                    @controllers.AuthController.generateAPIKey
+DELETE  /auth/deleteUser/userId                                 @controllers.AuthController.deleteUser(userId:Long)
 GET     /refreshProfile                                         @controllers.Application.refreshProfile
 GET     /javascriptRoutes                                       @controllers.Application.javascriptRoutes
 # Map static resources from the /public folder to the /assets URL path
