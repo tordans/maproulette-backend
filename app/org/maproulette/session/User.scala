@@ -153,7 +153,7 @@ object User {
   /**
     * Creates a guest user object with default information.
     */
-  val guestUser = User(0, DateTime.now(), DateTime.now(), "skin-green",
+  def guestUser = User(0, DateTime.now(), DateTime.now(), "skin-green",
     OSMProfile(0, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "/assets/images/user_no_image.png",
@@ -163,12 +163,12 @@ object User {
     ), List(), None, true
   )
 
-  val superUser = User(-1, DateTime.now(), DateTime.now(), "skin-black",
+  def superUser = User(-1, DateTime.now(), DateTime.now(), "skin-black",
     OSMProfile(0, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
       Location(47.6097, 122.3331),
       DateTime.now(),
       RequestToken("", "")
-    ), List(superGroup)
+    ), List(superGroup.copy())
   )
 
   val superGroup = Group(0, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)

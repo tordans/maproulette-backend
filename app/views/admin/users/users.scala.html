@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
-@(user:User, userList:List[User])(implicit messages: Messages)
+@import org.maproulette.models.Project
+@(user:User, userList:List[User], projects:List[Project])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -37,18 +38,17 @@
                                 <td>@if(u.isSuperUser) { ALL } else {}</td>
                                 <td>@u.apiKey</td>
                                 <td>
-                                    <div class="col-sm-2 pull-left">
-                                        <a href="#">
-                                            <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
-                                        </a>
+                                    <div class="pull-left">
+                                        <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
                                     </div>
-                                    <div class="col-sm-2 pull-left">
-                                        <a href="#">
-                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@u.id);">Delete</button>
-                                        </a>
-                                    </div>
-                                    <div class="col-sm-2 pull-left">
-                                        <a href="#">
+                                    @if(user.isSuperUser) {
+                                        <div class="pull-left">
+                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteUser(@u.id);">
+                                                Delete</button>
+                                        </div>
+                                    }
+                                    <div class="pull-left">
+                                        <a href="#" id="addtoproject" data-toggle="modal" data-target="#addtoproject_modal">
                                             <button class="btn-xs btn-block btn-primary>">Add Project</button>
                                         </a>
                                     </div>
@@ -72,4 +72,5 @@
             </table>
         </div><!-- /.box-body -->
     </div><!-- /.box -->
+    @views.html.admin.users.addtoproject(projects)
 </section>

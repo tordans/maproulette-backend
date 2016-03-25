@@ -55,11 +55,12 @@ class Application @Inject() (val messagesApi: MessagesApi,
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset, false, q))
+            views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset, false, q), Some(q))
           case ChallengeType() | SurveyType() =>
             views.html.admin.projectChildren(user, parentId.get,
               projectDAL.listSurveys(limit, offset, false, q)(parentId.get),
-              projectDAL.listChildren(limit, offset, false, q)(parentId.get)
+              projectDAL.listChildren(limit, offset, false, q)(parentId.get),
+              Some(q)
             )
           case _ => views.html.error.error("Invalid item type requested.")
         }
@@ -77,7 +78,12 @@ class Application @Inject() (val messagesApi: MessagesApi,
 
   def users(limit:Int, offset:Int, q:String) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      getOkIndex("MapRoulette Users", user, views.html.admin.users(user, userDAL.list(limit, offset, false, q)))
+      getOkIndex("MapRoulette Users", user,
+        views.html.admin.users.users(user,
+          userDAL.list(limit, offset, false, q),
+          projectDAL.listManagedProjects(user)
+        )
+      )
     }
   }
 

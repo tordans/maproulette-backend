@@ -1,7 +1,8 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Survey
 @import org.maproulette.models.Challenge
-@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge])(implicit messages: Messages)
+@import org.maproulette.actions.Actions
+@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge], search:Option[String]=None)(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -13,12 +14,22 @@
                 <li class="pull-left"><a href="#surveys" data-toggle="tab">Surveys</a></li>
             </ul>
             <div class="tab-content no-padding">
+                <div>
+                    <form action="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)" method="get" class="sidebar-form pull-right">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control" placeholder="Search..." @if(search.isDefined) { value="@search.get" }>
+                            <span class="input-group-btn">
+                                <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                            </span>
+                        </div>
+                    </form>
+                </div>
                     <!-- Morris chart - Sales -->
                 <div class="tab-pane active" id="challenges">
-                    @views.html.admin.challenge(user, parentId, challenges)
+                    @views.html.admin.challenge(user, parentId, challenges, search)
                 </div>
                 <div class="tab-pane" id="surveys">
-                    @views.html.admin.survey(user, parentId, surveys)
+                    @views.html.admin.survey(user, parentId, surveys, search)
                 </div>
             </div>
         </div>
