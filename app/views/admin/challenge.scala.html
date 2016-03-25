@@ -8,6 +8,14 @@
         <a href="@routes.FormEditController.challengeFormUI(parentId, -1)">
             <button class="btn-xs btn-block btn-primary">New Challenge</button>
         </a>
+        <form action="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)" method="get" class="sidebar-form pull-right">
+            <div class="input-group">
+                <input type="text" name="q" class="form-control" placeholder="Search...">
+                <span class="input-group-btn">
+                    <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                </span>
+            </div>
+        </form>
     </div>
     <table id="userTable" class="table table-bordered table-hover">
         <thead>
@@ -21,7 +29,7 @@
             </tr>
         </thead>
         <tbody>
-        @if(challenges.size > 0) {
+        @if(challenges.nonEmpty) {
             @for(c <- challenges) {
                 <tr>
                     <td>

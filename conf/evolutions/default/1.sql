@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS users
   home_location geometry,
   home_location_name character varying,
   osm_created timestamp without time zone NOT NULL,
-  display_name character varying NOT NULL,
+  name character varying NOT NULL,
   description character varying,
   avatar_url character varying,
   api_key character varying UNIQUE,

@@ -6,6 +6,14 @@
     <div class="box">
         <div class="box-header">
             <h3 class="box-title">Users (OSM)</h3>
+            <form action="@routes.Application.users()" method="get" class="sidebar-form pull-right">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Search...">
+                    <span class="input-group-btn">
+                        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                    </span>
+                </div>
+            </form>
         </div><!-- /.box-header -->
         <div class="box-body">
             <table id="userTable" class="table table-bordered table-hover">
@@ -20,31 +28,35 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @for(u <- userList) {
-                        <tr>
-                            <td>@u.id</td>
-                            <td>@u.osmProfile.id</td>
-                            <td>@u.osmProfile.displayName</td>
-                            <td>@if(u.isSuperUser) { ALL } else { }</td>
-                            <td>@u.apiKey</td>
-                            <td>
-                                <div class="col-sm-2 pull-left">
-                                    <a href="#">
-                                        <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
-                                    </a>
-                                </div>
-                                <div class="col-sm-2 pull-left">
-                                    <a href="#">
-                                        <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@u.id);">Delete</button>
-                                    </a>
-                                </div>
-                                <div class="col-sm-2 pull-left">
-                                    <a href="#">
-                                        <button class="btn-xs btn-block btn-primary>">Add Project</button>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
+                    @if(userList.nonEmpty) {
+                        @for(u <- userList) {
+                            <tr>
+                                <td>@u.id</td>
+                                <td>@u.osmProfile.id</td>
+                                <td>@u.osmProfile.displayName</td>
+                                <td>@if(u.isSuperUser) { ALL } else {}</td>
+                                <td>@u.apiKey</td>
+                                <td>
+                                    <div class="col-sm-2 pull-left">
+                                        <a href="#">
+                                            <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
+                                        </a>
+                                    </div>
+                                    <div class="col-sm-2 pull-left">
+                                        <a href="#">
+                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@u.id);">Delete</button>
+                                        </a>
+                                    </div>
+                                    <div class="col-sm-2 pull-left">
+                                        <a href="#">
+                                            <button class="btn-xs btn-block btn-primary>">Add Project</button>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    } else {
+                        <td>No Users Found</td>
                     }
                 </tbody>
                 <tfoot>

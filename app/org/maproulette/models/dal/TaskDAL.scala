@@ -7,6 +7,7 @@ import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.InvalidException
+import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json._
@@ -19,7 +20,8 @@ import scala.collection.mutable.ListBuffer
   * @author cuthbertm
   */
 @Singleton
-class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseDAL[Long, Task] {
+class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
+    extends BaseDAL[Long, Task] with DALHelper {
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
   // The database table name for the tasks
@@ -254,7 +256,6 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
                      challengeId:Option[Long],
                      tags:List[Long],
                      limit:Int=(-1)) : List[Task] = {
-    val sqlLimit = if (limit == -1) "ALL" else limit+""
     val firstQuery =
       s"""SELECT $retrieveColumns FROM tasks
           INNER JOIN challenges c ON c.id = tasks.parent_id
@@ -290,7 +291,7 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL) extends BaseD
     val query = s"$firstQuery ${queryBuilder.toString} ${whereClause.toString} " +
                 s"OFFSET FLOOR(RANDOM()*(" +
                 s"$secondQuery ${queryBuilder.toString} ${whereClause.toString}" +
-                s")) LIMIT $sqlLimit"
+                s")) LIMIT ${sqlLimit(limit)}"
 
     implicit val ids = List[Long]()
     cacheManager.withIDListCaching { implicit cachedItems =>

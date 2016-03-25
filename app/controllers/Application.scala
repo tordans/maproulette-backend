@@ -4,12 +4,14 @@ import javax.inject.Inject
 
 import org.maproulette.Config
 import org.maproulette.actions._
+import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.mvc._
 import play.api.routing._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
@@ -20,7 +22,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              projectDAL: ProjectDAL,
                              challengeDAL: ChallengeDAL,
                              surveyDAL: SurveyDAL,
-                             config:Config) extends Controller with I18nSupport {
+                             val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   /**
     * The primary entry point to the application
@@ -29,14 +31,14 @@ class Application @Inject() (val messagesApi: MessagesApi,
     */
   def index = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
-      Ok(views.html.index("MapRoulette", User.userOrMocked(user), config)(views.html.main(config.isDebugMode)))
+      getOkIndex("MapRoulette", User.userOrMocked(user), views.html.main(config.isDebugMode))
     }
   }
 
-  def adminUIProjectList(limit:Int, offset:Int) =
-    adminUIList(Actions.ITEM_TYPE_PROJECT_NAME, None, limit, offset)
-  def adminUIChildList(itemType:String, parentId:Long, limit:Int, offset:Int) =
-    adminUIList(itemType, Some(parentId), limit, offset)
+  def adminUIProjectList(limit:Int, offset:Int, q:String) =
+    adminUIList(Actions.ITEM_TYPE_PROJECT_NAME, None, limit, offset, q)
+  def adminUIChildList(itemType:String, parentId:Long, limit:Int, offset:Int, q:String) =
+    adminUIList(itemType, Some(parentId), limit, offset, q)
 
   /**
     * The generic function used to list elements in the UI
@@ -47,44 +49,41 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param offset For paging
     * @return The html view to show the user
     */
-  protected def adminUIList(itemType:String, parentId:Option[Long]=None, limit:Int, offset:Int) = Action.async { implicit request =>
+  protected def adminUIList(itemType:String, parentId:Option[Long]=None,
+                            limit:Int, offset:Int, q:String="") = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset))
+            views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset, false, q))
           case ChallengeType() | SurveyType() =>
             views.html.admin.projectChildren(user, parentId.get,
-              projectDAL.listSurveys(limit, offset)(parentId.get),
-              projectDAL.listChildren(limit, offset)(parentId.get)
+              projectDAL.listSurveys(limit, offset, false, q)(parentId.get),
+              projectDAL.listChildren(limit, offset, false, q)(parentId.get)
             )
           case _ => views.html.error.error("Invalid item type requested.")
         }
         case None => views.html.error.error("Invalid item type requested.")
       }
-      Ok(views.html.index("MapRoulette Administration", user, config)(view))
+      getOkIndex("MapRoulette Administration", user, view)
     }
   }
 
   def stats = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Statistics", user, config)(views.html.admin.stats(user)))
+      getOkIndex("MapRoulette Statistics", user, views.html.admin.stats(user))
     }
   }
 
-  def users(limit:Int, offset:Int) = Action.async { implicit request =>
+  def users(limit:Int, offset:Int, q:String) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Users", user, config)
-        (views.html.admin.users(user, userDAL.list(limit, offset)))
-      )
+      getOkIndex("MapRoulette Users", user, views.html.admin.users(user, userDAL.list(limit, offset, false, q)))
     }
   }
 
   def profile = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      Ok(views.html.index("MapRoulette Profile", user, config)
-        (views.html.user.profile(user))
-      )
+      getOkIndex("MapRoulette Profile", user, views.html.user.profile(user))
     }
   }
 
@@ -106,7 +105,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
 
   def error(error:String) = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
-      Ok(views.html.index("Map Roulette Error", User.userOrMocked(user), config)(views.html.error.error(error)))
+      getOkIndex("MapRoulette Error", User.userOrMocked(user), views.html.error.error(error))
     }
   }
 

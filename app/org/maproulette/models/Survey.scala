@@ -34,15 +34,15 @@ case class Survey(override val id: Long,
 }
 
 object Survey {
-  implicit val surveyWrites: Writes[Survey] = Json.writes[Survey]
-  implicit val surveyReads: Reads[Survey] = Json.reads[Survey]
-
   implicit val answerWrites: Writes[Answer] = Json.writes[Answer]
   implicit val answerReads: Reads[Answer] = Json.reads[Answer]
 
+  implicit val surveyWrites: Writes[Survey] = Json.writes[Survey]
+  implicit val surveyReads: Reads[Survey] = Json.reads[Survey]
+
   val surveyForm = Form(
     mapping(
-      "id" -> longNumber,
+      "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
       "identifier" -> optional(text),
       "description" -> optional(text),
@@ -50,7 +50,7 @@ object Survey {
       "question" -> nonEmptyText,
       "answers" -> list(
         mapping(
-          "id" -> longNumber,
+          "id" -> default(longNumber,-1L),
           "answer" -> nonEmptyText
         )(Answer.apply)(Answer.unapply)
       ),

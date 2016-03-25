@@ -8,6 +8,14 @@
         <a href="@routes.FormEditController.surveyFormUI(parentId, -1)">
             <button class="btn-xs btn-block btn-primary">New Survey</button>
         </a>
+        <form action="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)" method="get" class="sidebar-form pull-right">
+            <div class="input-group">
+                <input type="text" name="q" class="form-control" placeholder="Search...">
+                <span class="input-group-btn">
+                    <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                </span>
+            </div>
+        </form>
     </div>
     <table id="userTable" class="table table-bordered table-hover">
         <thead>
@@ -21,7 +29,7 @@
             </tr>
         </thead>
         <tbody>
-        @if(surveys.size > 0) {
+        @if(surveys.nonEmpty) {
             @for(s <- surveys) {
                 <tr>
                     <td>

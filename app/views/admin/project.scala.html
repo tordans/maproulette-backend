@@ -12,6 +12,14 @@
                 <a href="@routes.FormEditController.projectFormUI(-1, -1)">
                     <button class="btn-xs btn-block btn-primary">New Project</button>
                 </a>
+                <form action="@routes.Application.adminUIProjectList()" method="get" class="sidebar-form pull-right">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control" placeholder="Search...">
+                        <span class="input-group-btn">
+                            <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                        </span>
+                    </div>
+                </form>
             </div>
         </div><!-- /.box-header -->
         <div class="box-body">
@@ -52,12 +60,12 @@
                                         </a>
                                     </div>
                                     <div class="col-md-3 pull-left">
-                                        <a href="@routes.FormEditController.challengeFormUI(-1, -1)">
+                                        <a href="@routes.FormEditController.challengeFormUI(p.id, -1)">
                                             <button class="btn-xs btn-block btn-primary">New Challenge</button>
                                         </a>
                                     </div>
                                     <div class="col-md-3 pull-left">
-                                        <a href="@routes.FormEditController.surveyFormUI(-1, -1)">
+                                        <a href="@routes.FormEditController.surveyFormUI(p.id, -1)">
                                             <button class="btn-xs btn-block btn-primary">New Survey</button>
                                         </a>
                                     </div>

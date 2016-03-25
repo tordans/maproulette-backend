@@ -77,9 +77,9 @@ class ProjectDAL @Inject() (override val db:Database,
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
 
-        SQL"""UPDATE projects SET name = ${name},
-              description = ${description},
-              enabled = ${enabled}
+        SQL"""UPDATE projects SET name = $name,
+              description = $description,
+              enabled = $enabled
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }
@@ -91,18 +91,17 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param user The user executing the request
     * @return A list of projects managed by the user
     */
-  def listManagedProjects(user:User, limit:Int = 10, offset:Int = 0) : List[Project] = {
+  def listManagedProjects(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="") : List[Project] = {
     if (user.isSuperUser) {
-      list(limit, offset)
+      list(limit, offset, onlyEnabled, searchString)
     } else {
       db.withConnection { implicit c =>
-        val sqlLimit = if (limit < 0) "ALL" else limit + ""
         val query =
           s"""SELECT * FROM projects p
             INNER JOIN projects_group_mapping pgm ON pgm.project_id = p.id
-            WHERE pgm.group_id IN ({ids})
-            LIMIT $sqlLimit OFFSET {offset}""".stripMargin
-        SQL(query).on('offset -> ParameterValue.toParameterValue(offset),
+            WHERE pgm.group_id IN ({ids}) ${enabled(onlyEnabled)} AND name LIKE {ss}
+            LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
+        SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
           'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
           .as(parser.*)
       }
@@ -115,15 +114,19 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param limit limit the number of children in the response, default 10
     * @param offset The paging, defaults to the first page 0, second page 1, etc.
     * @param id The id for the parent project
+    * @param searchString limit children based on some search filter
     * @return A list of survey objects that are children of the project
     */
-  def listSurveys(limit:Int=10, offset:Int = 0, onlyEnabled:Boolean=false)(implicit id:Long) : List[Survey] = {
+  def listSurveys(limit:Int=10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="")(implicit id:Long) : List[Survey] = {
     // add a child caching option that will keep a list of children for the parent
     db.withConnection { implicit c =>
-      val sqlLimit = if (limit < 0) "ALL" else limit+""
-      val enabledString = if (onlyEnabled) "AND enabled = TRUE" else ""
-      val query = s"SELECT * FROM surveys WHERE parent_id = {id} $enabledString LIMIT $sqlLimit OFFSET {offset}"
-      SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement), 'offset -> offset).as(surveyDAL.parser.*)
+      val query = s"""SELECT * FROM surveys
+                      WHERE parent_id = {id} ${enabled(onlyEnabled)} AND name LIKE {ss}
+                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> search(searchString),
+                    'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
+                    'offset -> offset)
+        .as(surveyDAL.parser.*)
     }
   }
 

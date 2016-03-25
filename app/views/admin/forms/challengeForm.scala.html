@@ -15,17 +15,19 @@
         <!-- form start -->
         @helper.form(routes.FormEditController.challengeFormPost(parentId, challengeForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
             <div class="box-body">
-                <div class="form-group">
+                <div class="form-group" style="display:none;">
                     @text(challengeForm("id"),
                         label = "id",
                         placeholder = "-1",
+                        default = "-1",
                         readOnly = true
                     )
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="display:none;">
                     @text(challengeForm("parent"),
                         label = "Parent ID",
                         placeholder = "-1",
+                        default = parentId+"",
                         readOnly = true
                     )
                 </div>

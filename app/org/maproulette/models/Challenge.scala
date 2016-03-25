@@ -43,7 +43,7 @@ object Challenge {
 
   val challengeForm = Form(
     mapping(
-      "id" -> longNumber,
+      "id" -> default(longNumber, -1L),
       "name" -> nonEmptyText,
       "identifier" -> optional(text),
       "description" -> optional(text),

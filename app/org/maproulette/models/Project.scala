@@ -36,7 +36,7 @@ object Project {
 
   val projectForm = Form(
     mapping(
-      "id" -> longNumber,
+      "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
       "description" -> optional(text),
       "groups" -> list(

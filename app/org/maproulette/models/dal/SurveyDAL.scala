@@ -19,7 +19,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
   // The manager for the survey cache
   override val cacheManager = new CacheManager[Long, Survey]
   // The name of the survey table
-  override val tableName: String = "survey"
+  override val tableName: String = "surveys"
   // The name of the table for it's children Tasks
   override val childTable: String = "tasks"
   // The row parser for it's children defined in the TaskDAL
@@ -46,10 +46,13 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
       get[String]("surveys.question") ~
       get[Boolean]("surveys.enabled") map {
       case id ~ name ~ identifier ~ description ~ parentId ~ question ~ enabled =>
-        val answers = db.withTransaction { implicit c =>
-          SQL"""SELECT * FROM answers WHERE survey_id = $id""".as(answerParser.*)
-        }
-        new Survey(id, name, identifier, description, parentId, question, answers, enabled)
+        new Survey(id, name, identifier, description, parentId, question, getAnswers(id), enabled)
+    }
+  }
+
+  private def getAnswers(surveyId:Long) = {
+    db.withTransaction { implicit c =>
+      SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(answerParser.*)
     }
   }
 
@@ -67,12 +70,16 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
     survey.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
-        val newSurveyId = SQL"""INSERT INTO survey (name, identifier, parent_id, description, question, enabled)
+        val newSurvey = SQL"""INSERT INTO surveys (name, identifier, parent_id, description, question, enabled)
               VALUES (${survey.name}, ${survey.identifier}, ${survey.parent},
-                      ${survey.description}, ${survey.question}, ${survey.enabled}) RETURNING id""".as(long("id").single)
+                      ${survey.description}, ${survey.question}, ${survey.enabled}) RETURNING *""".as(parser.*).head
         // insert the answers into the table
-        SQL"""INSERT INTO answers (answer, survey_id) VALUES """.executeInsert()
-        Some(survey.copy(id = newSurveyId))
+        val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newSurvey.id}, {answer})"""
+        val parameters = survey.answers.map(answer => {
+          Seq[NamedParameter]("answer" -> answer.answer)
+        })
+        BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+        Some(newSurvey.copy(answers = getAnswers(newSurvey.id)))
       }
     }.get
   }
@@ -120,7 +127,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
           case None => //ignore
         }
 
-        SQL"""UPDATE survey SET name = $name,
+        SQL"""UPDATE surveys SET name = $name,
                                     identifier = $identifier,
                                     parent_id = $parentId,
                                     description = $description,
