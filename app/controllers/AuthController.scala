@@ -2,6 +2,7 @@ package controllers
 
 import com.google.inject.Inject
 import org.joda.time.DateTime
+import org.maproulette.Config
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.session.SessionManager
 import org.maproulette.session.dal.UserDAL
@@ -19,7 +20,8 @@ import scala.util.{Failure, Success}
   */
 class AuthController @Inject() (val messagesApi: MessagesApi,
                                 sessionManager:SessionManager,
-                                userDAL: UserDAL) extends Controller with I18nSupport with ControllerHelper {
+                                userDAL: UserDAL,
+                                val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
