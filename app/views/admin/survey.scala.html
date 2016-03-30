@@ -9,7 +9,7 @@
             <button class="btn-xs btn-block btn-primary">New Survey</button>
         </a>
     </div>
-    <table id="userTable" class="table table-bordered table-hover">
+    <table id="surveyTable" class="table table-bordered table-hover">
         <thead>
             <tr>
                 <th>Enabled</th>
@@ -67,3 +67,8 @@
         </tfoot>
     </table>
 </div>
+<script>
+    $(function() {
+        $("#surveyTable").DataTable();
+    });
+</script>

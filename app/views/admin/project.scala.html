@@ -5,16 +5,6 @@
 
 @views.html.admin.common.header("Administration")
 <section class="content">
-    <div>
-        <form action="@routes.Application.adminUIProjectList()" method="get" class="sidebar-form pull-right">
-            <div class="input-group">
-                <input type="text" name="q" class="form-control" placeholder="Search..." @if(search.isDefined) { value="@search.get" }>
-                <span class="input-group-btn">
-                    <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
-                </span>
-            </div>
-        </form>
-    </div>
     <div class="box">
         <div class="box-header">
             <h3 class="box-title">Projects</h3>
@@ -25,7 +15,7 @@
             </div>
         </div><!-- /.box-header -->
         <div class="box-body">
-            <table id="userTable" class="table table-bordered table-hover">
+            <table id="projectTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
                         <th>Enabled</th>
@@ -100,3 +90,8 @@
         </div><!-- /.box-body -->
     </div><!-- /.box -->
 </section>
+<script>
+    $(function() {
+        $("#projectTable").DataTable();
+    });
+</script>

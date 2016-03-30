@@ -9,21 +9,11 @@
     <div class="box">
         <div class="nav-tabs-custom">
                 <!-- Tabs within a box -->
-            <ul class="nav nav-tabs pull-left">
+            <ul class="nav nav-tabs">
                 <li class="active"><a href="#challenges" data-toggle="tab">Challenges</a></li>
-                <li class="pull-left"><a href="#surveys" data-toggle="tab">Surveys</a></li>
+                <li><a href="#surveys" data-toggle="tab">Surveys</a></li>
             </ul>
-            <div class="tab-content no-padding">
-                <div>
-                    <form action="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)" method="get" class="sidebar-form pull-right">
-                        <div class="input-group">
-                            <input type="text" name="q" class="form-control" placeholder="Search..." @if(search.isDefined) { value="@search.get" }>
-                            <span class="input-group-btn">
-                                <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
-                            </span>
-                        </div>
-                    </form>
-                </div>
+            <div class="tab-content">
                     <!-- Morris chart - Sales -->
                 <div class="tab-pane active" id="challenges">
                     @views.html.admin.challenge(user, parentId, challenges, search)

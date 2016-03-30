@@ -153,8 +153,8 @@ object User {
   /**
     * Creates a guest user object with default information.
     */
-  def guestUser = User(0, DateTime.now(), DateTime.now(), "skin-green",
-    OSMProfile(0, "Guest",
+  def guestUser = User(-998, DateTime.now(), DateTime.now(), "skin-green",
+    OSMProfile(-998, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "/assets/images/user_no_image.png",
       Location(47.6097, 122.3331),
@@ -163,15 +163,15 @@ object User {
     ), List(), None, true
   )
 
-  def superUser = User(-1, DateTime.now(), DateTime.now(), "skin-black",
-    OSMProfile(0, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
+  def superUser = User(-999, DateTime.now(), DateTime.now(), "skin-black",
+    OSMProfile(-999, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
       Location(47.6097, 122.3331),
       DateTime.now(),
       RequestToken("", "")
     ), List(superGroup.copy())
   )
 
-  val superGroup = Group(0, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
+  val superGroup = Group(-999, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
 
   /**
     * Simple helper function that if the provided Option[User] is None, will return a guest

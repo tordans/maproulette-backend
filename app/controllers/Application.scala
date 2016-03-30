@@ -52,14 +52,17 @@ class Application @Inject() (val messagesApi: MessagesApi,
   protected def adminUIList(itemType:String, parentId:Option[Long]=None,
                             limit:Int, offset:Int, q:String="") = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      // For now we are ignoring the limit and offset properties and letting the UI handle it completely
+      val limitIgnore = 10000
+      val offsetIgnore = 0
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, projectDAL.listManagedProjects(user, limit, offset, false, q), Some(q))
+            views.html.admin.project(user, projectDAL.listManagedProjects(user, limitIgnore, offsetIgnore, false, q), Some(q))
           case ChallengeType() | SurveyType() =>
             views.html.admin.projectChildren(user, parentId.get,
-              projectDAL.listSurveys(limit, offset, false, q)(parentId.get),
-              projectDAL.listChildren(limit, offset, false, q)(parentId.get),
+              projectDAL.listSurveys(limitIgnore, offsetIgnore, false, q)(parentId.get),
+              projectDAL.listChildren(limitIgnore, offsetIgnore, false, q)(parentId.get),
               Some(q)
             )
           case _ => views.html.error.error("Invalid item type requested.")

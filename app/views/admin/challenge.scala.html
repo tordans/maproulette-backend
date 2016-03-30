@@ -8,7 +8,7 @@
             <button class="btn-xs btn-block btn-primary">New Challenge</button>
         </a>
     </div>
-    <table id="userTable" class="table table-bordered table-hover">
+    <table id="challengeTable" class="table table-bordered table-hover">
         <thead>
             <tr>
                 <th>Enabled</th>
@@ -67,4 +67,8 @@
         </tfoot>
     </table>
 </div>
-
+<script>
+    $(function() {
+       $("#challengeTable").DataTable();
+    });
+</script>

@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS groups
   CONSTRAINT groups_project_id_fkey FOREIGN KEY (project_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-    DEFERRABLE,
+    DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT groups_pkey PRIMARY KEY(id)
 );
 
@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS answers
   CONSTRAINT answers_survey_id_fkey FOREIGN KEY (survey_id)
     REFERENCES surveys(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-    DEFERRABLE,
+    DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT answers_pkey PRIMARY KEY(id)
 );
 
@@ -266,7 +266,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
   CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-    DEFERRABLE
+    DEFERRABLE INITIALLY DEFERRED
 );
 
 SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');
@@ -293,6 +293,9 @@ select create_index_if_not_exists('actions', 'created', '(created)');
 
 -- Insert the default root, used for migration and those using the old API
 INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
-INSERT INTO groups(id, project_id, name, group_type)  VALUES (0, 0, 'SUPERUSERS', -1);
+INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
+INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
+    VALUES (-999, -999, NOW(), 'SuperUser', '', '', 'skin-black');
+INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, 0);
 
 # --- !Downs

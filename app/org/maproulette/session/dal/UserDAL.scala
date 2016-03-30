@@ -156,7 +156,11 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         val parameters = item.groups.map(group => {
             Seq[NamedParameter]("groupId" -> group.id)
         })
-        BatchSql(ugQuery, parameters.head, parameters.tail: _*).execute()
+        if (parameters.tail.nonEmpty) {
+          BatchSql(ugQuery, parameters.head, parameters.tail: _*).execute()
+        } else {
+          BatchSql(ugQuery, parameters.head).execute()
+        }
       }
     }
     // We do this separately from the transaction because if we don't the user_group mappings

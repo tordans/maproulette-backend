@@ -52,9 +52,12 @@ class ProjectDAL @Inject() (override val db:Database,
   override def insert(project: Project, user:User): Project = {
     project.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
-      db.withTransaction { implicit c =>
-        val newProject = SQL"""INSERT INTO projects (name, description, enabled)
+      val newProject = db.withTransaction { implicit c =>
+        SQL"""INSERT INTO projects (name, description, enabled)
               VALUES (${project.name}, ${project.description}, ${project.enabled}) RETURNING *""".as(parser.*).head
+      }
+      // todo: this should be in the above transaction, but for some reason the fkey won't allow it
+      db.withTransaction { implicit c =>
         // Every new project needs to have a admin group created for them
         userGroupDAL.createGroup(newProject.id, newProject.name + "_Admin", Group.TYPE_ADMIN)
         Some(newProject)
