@@ -19,6 +19,10 @@ import play.api.libs.oauth.RequestToken
   * as it does not use the baseObject for the user class and does not rely on the BaseDAL like all
   * the other objects. This is somewhat related to how the id's for the User are generated and used.
   *
+  * TODO: This object should be locked down more than it currently is. Currently althoguh you cannot
+  * write to any of the objects without super user access, you can list all the users, which is
+  * definitely not desirable, so will need to block any listing access unless you are a super user.
+  *
   * @author cuthbertm
   */
 @Singleton
@@ -38,7 +42,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
       get[DateTime]("users.modified") ~
       get[String]("users.theme") ~
       get[DateTime]("users.osm_created") ~
-      get[String]("users.display_name") ~
+      get[String]("users.name") ~
       get[Option[String]]("users.description") ~
       get[Option[String]]("users.avatar_url") ~
       get[Option[String]]("users.api_key") ~
@@ -129,16 +133,16 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @return None if failed to update or create.
     */
   override def insert(item:User, user: User): User = cacheManager.withOptionCaching { () =>
-    user.hasWriteAccess(user)
+    hasAccess(user)
     db.withTransaction { implicit c =>
       SQL"""WITH upsert AS (UPDATE users SET osm_id = ${item.osmProfile.id}, osm_created = ${item.osmProfile.created},
-                              display_name = ${item.osmProfile.displayName}, description = ${item.osmProfile.description},
+                              name = ${item.osmProfile.displayName}, description = ${item.osmProfile.description},
                               avatar_url = ${item.osmProfile.avatarURL},
                               oauth_token = ${item.osmProfile.requestToken.token},
                               oauth_secret = ${item.osmProfile.requestToken.secret},
                               theme = ${item.theme}
                             WHERE id = ${item.id} OR osm_id = ${item.osmProfile.id} RETURNING *)
-            INSERT INTO users (osm_id, osm_created, display_name, description,
+            INSERT INTO users (osm_id, osm_created, name, description,
                                avatar_url, oauth_token, oauth_secret, theme)
             SELECT ${item.osmProfile.id}, ${item.osmProfile.created}, ${item.osmProfile.displayName},
                     ${item.osmProfile.description}, ${item.osmProfile.avatarURL},
@@ -152,7 +156,11 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         val parameters = item.groups.map(group => {
             Seq[NamedParameter]("groupId" -> group.id)
         })
-        BatchSql(ugQuery, parameters.head, parameters.tail: _*).execute()
+        if (parameters.tail.nonEmpty) {
+          BatchSql(ugQuery, parameters.head, parameters.tail: _*).execute()
+        } else {
+          BatchSql(ugQuery, parameters.head).execute()
+        }
       }
     }
     // We do this separately from the transaction because if we don't the user_group mappings
@@ -171,6 +179,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @return The user that was updated, None if no user was found with the id
     */
   override def update(value:JsValue, user:User)(implicit id:Long): Option[User] = {
+    hasAccess(user)
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
@@ -197,7 +206,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
           case None => //ignore
         }
 
-        SQL"""UPDATE users SET api_key = $apiKey, display_name = $displayName, description = $description,
+        SQL"""UPDATE users SET api_key = $apiKey, name = $displayName, description = $description,
                 avatar_url = $avatarURL, oauth_token = $token, oauth_secret = $secret
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
@@ -210,7 +219,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param id The user to delete
     * @return The rows that were deleted
     */
-  def delete(implicit id: Long) : Int = {
+  override def delete(id: Long, user:User) : Int = {
+    hasAccess(user)
     implicit val ids = List(id)
     cacheManager.withCacheIDDeletion { () =>
       db.withConnection { implicit c =>
@@ -219,7 +229,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     }
   }
 
-  def deleteByOsmID(implicit osmId:Long) : Int = {
+  def deleteByOsmID(osmId:Long, user:User) : Int = {
+    hasAccess(user)
     implicit val ids = List(osmId)
     cacheManager.withCacheIDDeletion { () =>
       db.withConnection { implicit c =>
@@ -229,9 +240,16 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   }
 
   def addUserToGroup(user:User, group:Group) : User = {
+    hasAccess(user)
     db.withConnection { implicit c =>
       SQL"""INSERT INTO user_groups (user_id, group_id) VALUES (${user.id}, ${group.id})""".executeUpdate()
       user.copy(groups = user.groups ++ List(group))
+    }
+  }
+
+  private def hasAccess(user:User) = {
+    if (!user.isSuperUser) {
+      throw new IllegalAccessException("Only super users have access to user objects.")
     }
   }
 }

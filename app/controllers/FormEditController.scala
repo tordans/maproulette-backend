@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import org.maproulette.Config
 import org.maproulette.actions.Actions
+import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.{Challenge, Project, Survey}
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.SessionManager
@@ -21,7 +22,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     projectDAL: ProjectDAL,
                                     challengeDAL: ChallengeDAL,
                                     surveyDAL: SurveyDAL,
-                                    config:Config) extends Controller with I18nSupport {
+                                    val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   def projectFormUI(parentId:Long, itemId:Long, limit:Int, offset:Int) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
@@ -34,9 +35,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         Project.emptyProject
       }
       val projectForm = Project.projectForm.fill(project)
-      Ok(views.html.index("MapRoulette Administration", user, config)
-        (views.html.admin.forms.projectForm(parentId, projectForm, Map.empty))
-      )
+      getOkIndex("MapRoulette Administration", user, views.html.admin.forms.projectForm(parentId, projectForm, Map.empty))
     }
   }
 
@@ -44,9 +43,8 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       Project.projectForm.bindFromRequest.fold(
         formWithErrors => {
-          BadRequest(views.html.index("MapRoulette Administration", user, config)
-            (views.html.admin.forms.projectForm(parentId, formWithErrors, Map.empty))
-          )
+          getIndex(BadRequest, "MapRoulette Administration", user,
+            views.html.admin.forms.projectForm(parentId, formWithErrors, Map.empty))
         },
         project => {
           val id = if (itemId > -1) {
@@ -74,10 +72,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         Challenge.emptyChallenge(parentId)
       }
       val challengeForm = Challenge.challengeForm.fill(challenge)
-      Ok(views.html.index("MapRoulette Administration", user, config)
-        (views.html.admin.forms.challengeForm(parentId, challengeForm,
+      getOkIndex("MapRoulette Administration", user,
+        views.html.admin.forms.challengeForm(parentId, challengeForm,
           Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)))
-        )
+
       )
     }
   }
@@ -86,10 +84,9 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
-          BadRequest(views.html.index("MapRoulette Administration", user, config)
-            (views.html.admin.forms.challengeForm(parentId, formWithErrors,
+          getIndex(BadRequest, "MapRoulette Administration", user,
+            views.html.admin.forms.challengeForm(parentId, formWithErrors,
               Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId, limit, offset)))
-            )
           )
         },
         challenge => {
@@ -117,10 +114,9 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         Survey.emptySurvey(parentId)
       }
       val surveyForm = Survey.surveyForm.fill(survey)
-      Ok(views.html.index("MapRoulette Administration", user, config)
-        (views.html.admin.forms.surveyForm(parentId, surveyForm,
+      getOkIndex("MapRoulette Administration", user,
+        views.html.admin.forms.surveyForm(parentId, surveyForm,
           Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)))
-        )
       )
     }
   }
@@ -129,10 +125,9 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       Survey.surveyForm.bindFromRequest.fold(
         formWithErrors => {
-          BadRequest(views.html.index("MapRoulette Administration", user, config)
-            (views.html.admin.forms.surveyForm(parentId, formWithErrors,
+          getIndex(BadRequest, "MapRoulette Administration", user,
+            views.html.admin.forms.surveyForm(parentId, formWithErrors,
               Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId, limit, offset)))
-            )
           )
         },
         survey => {

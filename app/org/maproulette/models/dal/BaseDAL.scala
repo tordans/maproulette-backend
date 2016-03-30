@@ -6,6 +6,7 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.BaseObject
+import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -16,7 +17,7 @@ import play.api.libs.json.JsValue
   *
   * @author cuthbertm
   */
-trait BaseDAL[Key, T<:BaseObject[Key]] {
+trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
   // Manager to handle all the caching for this particular layer
   val cacheManager:CacheManager[Key, T]
   // The name of the table in the database
@@ -190,10 +191,9 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
   def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
-        val limitValue = if (limit < 0) "ALL" else limit + ""
         val query = s"SELECT $retrieveColumns FROM $tableName " +
-                    s"WHERE id IN ({inString}) LIMIT $limitValue OFFSET {offset}"
-        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs.toSeq)(p = keyToStatement), 'offset -> offset).as(parser.*)
+                    s"WHERE id IN ({inString}) LIMIT ${sqlLimit(limit)} OFFSET {offset}"
+        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
       }
     }
   }
@@ -220,17 +220,30 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * tags to be available, and you don't necessarily want to load all the tags into memory. Although
     * maybe you do.
     *
-    * @param prefix The prefix of the tag
+    * @param prefix The prefix of the "name" field in the database
     * @param limit  Limit the number of results to be returned
     * @return A list of tags that contain the supplied prefix
     */
-  def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0): List[T] = {
+  def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0, onlyEnabled:Boolean=false): List[T] =
+    _find(s"$prefix%", limit, offset, onlyEnabled)
+
+  /**
+    * Same database concerns as retrieveListByPrefix. This find function will search the "name"
+    * field for any references of the search string. So will be wrapped by %%, eg. LIKE %test%
+    *
+    * @param searchString The string to search for within the name field
+    * @param limit Limit the number of results to be returned
+    * @param offset For paging, ie. the page number starting at 0
+    * @return A list of tags that contain the supplied prefix
+    */
+  def find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false) : List[T] =
+    _find(s"%$searchString%", limit, offset, onlyEnabled)
+
+  def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false) : List[T] = {
     db.withConnection { implicit c =>
-      val sqlPrefix = s"$prefix%"
-      val sqlLimit = if (limit < 0) "ALL" else limit + ""
       val query = s"SELECT $retrieveColumns FROM $tableName " +
-                  s"WHERE name LIKE {prefix} LIMIT $sqlLimit OFFSET {offset}"
-      SQL(query).on('prefix -> sqlPrefix, 'offset -> offset).as(parser.*)
+        s"WHERE name LIKE {ss} ${enabled(onlyEnabled)} LIMIT ${sqlLimit(limit)} OFFSET {offset}"
+      SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
     }
   }
 
@@ -238,13 +251,14 @@ trait BaseDAL[Key, T<:BaseObject[Key]] {
     * This is a dangerous function as it will return all the objects available, so it could take up
     * a lot of memory
     */
-  def list(limit:Int = 10, offset:Int = 0) : List[T] = {
+  def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="") : List[T] = {
     implicit val ids = List.empty
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
-        val sqlLimit = if (limit < 0) "ALL" else limit + ""
-        val query = s"SELECT $retrieveColumns FROM $tableName LIMIT $sqlLimit OFFSET {offset}"
-        SQL(query).on('offset -> ParameterValue.toParameterValue(offset)).as(parser.*)
+        val query = s"""SELECT $retrieveColumns FROM $tableName
+                        WHERE name LIKE {ss} ${enabled(onlyEnabled)}
+                        LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+        SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset)).as(parser.*)
       }
     }
   }

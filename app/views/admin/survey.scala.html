@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.actions.Actions
 @import org.maproulette.models.Survey
-@(user:User, parentId:Long, surveys:List[Survey])(implicit messages: Messages)
+@(user:User, parentId:Long, surveys:List[Survey], search:Option[String]=None)(implicit messages: Messages)
 
 <div class="box-body">
     <div class="pull-right">
@@ -9,7 +9,7 @@
             <button class="btn-xs btn-block btn-primary">New Survey</button>
         </a>
     </div>
-    <table id="userTable" class="table table-bordered table-hover">
+    <table id="surveyTable" class="table table-bordered table-hover">
         <thead>
             <tr>
                 <th>Enabled</th>
@@ -21,7 +21,7 @@
             </tr>
         </thead>
         <tbody>
-        @if(surveys.size > 0) {
+        @if(surveys.nonEmpty) {
             @for(s <- surveys) {
                 <tr>
                     <td>
@@ -36,17 +36,15 @@
                     <td>@s.identifier</td>
                     <td>0/0</td>
                     <td>
-                        <div class="col-md-2 pull-left">
+                        <div class="pull-left">
                             <a href="@routes.FormEditController.surveyFormUI(s.parent, s.id)">
                                 <button class="btn-xs btn-block btn-warning">Edit</button>
                             </a>
                         </div>
-                        <div class="col-md-2 pull-left">
-                            <a href="#">
-                                <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteSurvey(@s.id);">Delete</button>
-                            </a>
+                        <div class="pull-left">
+                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteSurvey(@s.id);">Delete</button>
                         </div>
-                        <div class="col-md-2 pull-left">
+                        <div class="pull-left">
                             <a href="#">
                                 <button class="btn-xs btn-block btn-success">Start</button>
                             </a>
@@ -69,3 +67,8 @@
         </tfoot>
     </table>
 </div>
+<script>
+    $(function() {
+        $("#surveyTable").DataTable();
+    });
+</script>

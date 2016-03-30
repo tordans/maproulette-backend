@@ -1,58 +1,78 @@
-var MRConfig = (function () {
-    return {
-        // the default map options
-        mapOptions: {
-            center: new L.LatLng(40, -90),
-            zoom: 4,
-            keyboard: false
-        },
+L.TileLayer.Common = L.TileLayer.extend({
+    initialize: function (options) {
+        L.TileLayer.prototype.initialize.call(this, this.url, options);
+    }
+});
 
-        // the collection of tile layers.
-        // Each layer should have an url and attribution property.
-        // the key will be the title in the layer picker control
-        // where underscores in the key will be translated to spaces.
-        tileLayers: {
-            OpenStreetMap: {
-                url: "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                attribution: "&copy; <a href=\'http://openstreetmap.org\'> OpenStreetMap</a> contributors"},
-            ESRI_Aerial: {
-                url: "http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"}
-        },
+(function () {
 
-        // minimum zoom level for enabling edit buttons
-        minZoomLevelForEditing: 14
-    };
+    var osmAttr = '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>';
+
+    L.TileLayer.CloudMade = L.TileLayer.Common.extend({
+        url: 'http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png',
+        options: {
+            attribution: 'Map data ' + osmAttr + ', Imagery &copy; <a href="http://cloudmade.com">CloudMade</a>',
+            styleId: 997
+        }
+    });
+
+    L.TileLayer.OpenStreetMap = L.TileLayer.Common.extend({
+        url: 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: {attribution: osmAttr}
+    });
+
+    L.TileLayer.OpenCycleMap = L.TileLayer.Common.extend({
+        url: 'http://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png',
+        options: {
+            attribution: '&copy; OpenCycleMap, ' + 'Map data ' + osmAttr
+        }
+    });
+
+    var mqTilesAttr = 'Tiles &copy; <a href="http://www.mapquest.com/" target="_blank">MapQuest</a> <img src="http://developer.mapquest.com/content/osm/mq_logo.png" />';
+
+    L.TileLayer.MapQuestOSM = L.TileLayer.Common.extend({
+        url: 'http://otile{s}.mqcdn.com/tiles/1.0.0/{type}/{z}/{x}/{y}.png',
+        options: {
+            subdomains: '1234',
+            type: 'osm',
+            attribution: 'Map data ' + L.TileLayer.OSM_ATTR + ', ' + mqTilesAttr
+        }
+    });
+
+    L.TileLayer.MapQuestAerial = L.TileLayer.MapQuestOSM.extend({
+        options: {
+            type: 'sat',
+            attribution: 'Imagery &copy; NASA/JPL-Caltech and U.S. Depart. of Agriculture, Farm Service Agency, ' + mqTilesAttr
+        }
+    });
+
+    L.TileLayer.MapBox = L.TileLayer.Common.extend({
+        url: 'http://{s}.tiles.mapbox.com/v3/{user}.{map}/{z}/{x}/{y}.png'
+    });
+
+    L.TileLayer.Bing = L.TileLayer.Common.extend({
+        url: 'http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    });
+
 }());
 
 (function() {
     var map;
+
     $(document).ready(function() {
-        var osm_layer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: "&copy; <a href=\'http://openstreetmap.org\'> OpenStreetMap</a> contributors"
-        }),
-        road_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            subdomains: ['1', '2', '3', '4'],
-            attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a>. Map data (c) <a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> contributors, CC-BY-SA.'
-        }),
-        mapquest_layer = new L.TileLayer('http://otile{s}.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            subdomains: ['1', '2', '3', '4'],
-            attribution: 'Tiles Courtesy of <a href="http://www.mapquest.com/" target="_blank">MapQuest</a>.'
-        }),
-        bing_layer = new L.TileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        }),
-        map = new L.Map('map', {
-            center: new L.LatLng(47.6097, -122.3331),
-            zoom: 13,
-            layers: [
-                road_layer
-            ]
-        });
+        var osm_layer = new L.TileLayer.OpenStreetMap(),
+            road_layer = new L.TileLayer.MapQuestOSM(),
+            mapquest_layer = new L.TileLayer.MapQuestAerial(),
+            opencycle_layer = new L.TileLayer.OpenCycleMap(),
+            bing_layer = new L.TileLayer.Bing(),
+            map = new L.Map('map', {
+                center: new L.LatLng(47.6097, -122.3331),
+                zoom: 13,
+                layers: [
+                    road_layer
+                ]
+            });
 
         var geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
@@ -73,8 +93,9 @@ var MRConfig = (function () {
         map.addLayer(geojsonLayer);
 
         L.control.layers(
-            {'OSM': osm_layer, 'MapQuest Roads': road_layer, 'MapQuest': mapquest_layer, 'Bing': bing_layer},
-            {'GeoJSON': geojsonLayer},
+            {'OSM': osm_layer, 'Open Cycle': opencycle_layer, 'MapQuest Roads': road_layer,
+                'MapQuest': mapquest_layer, 'Bing': bing_layer},
+        {'GeoJSON': geojsonLayer},
             {position:"topleft"}
         ).addTo(map);
 
@@ -90,4 +111,3 @@ var MRConfig = (function () {
         });
     });
 }());
-

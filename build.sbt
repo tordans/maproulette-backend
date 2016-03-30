@@ -27,7 +27,8 @@ libraryDependencies ++= Seq(
   "org.webjars" % "jquery" % "2.2.1",
   "org.webjars" % "leaflet" % "0.7.7",
   "org.webjars" % "toastr" % "2.1.1",
-  "joda-time" % "joda-time" % "2.9.2"
+  "joda-time" % "joda-time" % "2.9.2",
+  "org.webjars" % "datatables" % "1.10.11"
 )
 
 unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )  

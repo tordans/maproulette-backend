@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Project
 @import org.maproulette.actions.Actions
-@(user:User, projects:List[Project])(implicit messages: Messages)
+@(user:User, projects:List[Project], search:Option[String]=None)(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -15,7 +15,7 @@
             </div>
         </div><!-- /.box-header -->
         <div class="box-body">
-            <table id="userTable" class="table table-bordered table-hover">
+            <table id="projectTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
                         <th>Enabled</th>
@@ -46,26 +46,27 @@
                                 <td>0</td>
                                 <td>0</td>
                                 <td>
-                                    <div class="col-md-2 pull-left">
+                                    <div class="pull-left">
                                         <a href="@routes.FormEditController.projectFormUI(-1, p.id)">
                                             <button class="btn-xs btn-block btn-warning">Edit</button>
                                         </a>
                                     </div>
-                                    <div class="col-md-3 pull-left">
-                                        <a href="@routes.FormEditController.challengeFormUI(-1, -1)">
+                                    <div class="pull-left">
+                                        <a href="@routes.FormEditController.challengeFormUI(p.id, -1)">
                                             <button class="btn-xs btn-block btn-primary">New Challenge</button>
                                         </a>
                                     </div>
-                                    <div class="col-md-3 pull-left">
-                                        <a href="@routes.FormEditController.surveyFormUI(-1, -1)">
+                                    <div class="pull-left">
+                                        <a href="@routes.FormEditController.surveyFormUI(p.id, -1)">
                                             <button class="btn-xs btn-block btn-primary">New Survey</button>
                                         </a>
                                     </div>
-                                    <div class="col-md-2 pull-left">
-                                        <a href="#">
-                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteProject(@p.id);">Delete</button>
-                                        </a>
-                                    </div>
+                                    @if(user.isSuperUser) {
+                                        <div class="pull-left">
+                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteProject(@p.id);">
+                                                Delete</button>
+                                        </div>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -89,3 +90,8 @@
         </div><!-- /.box-body -->
     </div><!-- /.box -->
 </section>
+<script>
+    $(function() {
+        $("#projectTable").DataTable();
+    });
+</script>
