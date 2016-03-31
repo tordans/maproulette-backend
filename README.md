@@ -3,6 +3,8 @@ Version 2 of MapRoulette
 
 [![Build Status](https://travis-ci.org/mvexel/maproulette2.svg?branch=master)](https://travis-ci.org/mvexel/maproulette2)
 
+[![Heroku](http://heroku-badge.herokuapp.com/?app=maproulette2&style=flat&svg=1)]
+
 Click [here](docs/api.md) for API documentation.
 
 Welcome to MapRoulette version 2, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
