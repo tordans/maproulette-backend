@@ -1,5 +1,7 @@
 # MapRoulette Version 2
-Version 2 of Map Roulette
+Version 2 of MapRoulette
+
+[![Build Status](https://travis-ci.org/mvexel/maproulette2.svg?branch=master)](https://travis-ci.org/mvexel/maproulette2)
 
 Click [here](docs/api.md) for API documentation.
 
