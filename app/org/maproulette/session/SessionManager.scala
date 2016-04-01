@@ -105,6 +105,8 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     for {
       token <- request.session.get(SessionManager.KEY_TOKEN)
       secret <- request.session.get(SessionManager.KEY_SECRET)
+      tick <- request.session.get(SessionManager.KEY_USER_TICK)
+      if tick.toLong >= DateTime.now().getMillis - 1800000
     } yield {
       RequestToken(token, secret)
     }

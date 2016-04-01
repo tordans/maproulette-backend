@@ -132,10 +132,10 @@ object MPExceptionUtil {
         BadRequest(views.html.index("Map Roulette Error", user, config)(views.html.error.error(e.getMessage)))
       case e:OAuthNotAuthorizedException =>
         Logger.error(e.getMessage, e)
-        Unauthorized(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Unauthorized: " + e.getMessage)))
+        Unauthorized(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401)))
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
-        Forbidden(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Forbidden: " + e.getMessage)))
+        Forbidden(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", 403)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
         NotFound(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Not Found: " + e.getMessage)))
