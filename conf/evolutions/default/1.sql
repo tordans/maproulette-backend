@@ -50,8 +50,6 @@ CREATE TABLE IF NOT EXISTS users
   osm_id integer NOT NULL UNIQUE,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  home_location geometry,
-  home_location_name character varying,
   osm_created timestamp without time zone NOT NULL,
   name character varying NOT NULL,
   description character varying,
@@ -62,6 +60,8 @@ CREATE TABLE IF NOT EXISTS users
   theme character varying DEFAULT('skin-blue'),
   CONSTRAINT users_pkey PRIMARY KEY(id)
 );
+
+SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);
 
 DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users

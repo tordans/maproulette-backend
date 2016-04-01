@@ -2,7 +2,7 @@
 @import org.maproulette.models.Survey
 @import org.maproulette.models.Challenge
 @import org.maproulette.actions.Actions
-@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge], search:Option[String]=None)(implicit messages: Messages)
+@(user:User, parentId:Long, surveys:List[Survey], challenges:List[Challenge])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -14,12 +14,11 @@
                 <li><a href="#surveys" data-toggle="tab">Surveys</a></li>
             </ul>
             <div class="tab-content">
-                    <!-- Morris chart - Sales -->
                 <div class="tab-pane active" id="challenges">
-                    @views.html.admin.challenge(user, parentId, challenges, search)
+                    @views.html.admin.challenge(user, parentId, challenges)
                 </div>
                 <div class="tab-pane" id="surveys">
-                    @views.html.admin.survey(user, parentId, surveys, search)
+                    @views.html.admin.survey(user, parentId, surveys)
                 </div>
             </div>
         </div>

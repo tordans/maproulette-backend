@@ -57,17 +57,22 @@ L.TileLayer.Common = L.TileLayer.extend({
 
 }());
 
-(function() {
+var Point = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+var MRManager = (function() {
     var map;
 
-    $(document).ready(function() {
+    var init = function (element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
             road_layer = new L.TileLayer.MapQuestOSM(),
             mapquest_layer = new L.TileLayer.MapQuestAerial(),
             opencycle_layer = new L.TileLayer.OpenCycleMap(),
             bing_layer = new L.TileLayer.Bing(),
-            map = new L.Map('map', {
-                center: new L.LatLng(47.6097, -122.3331),
+            map = new L.Map(element, {
+                center: new L.LatLng(point.x, point.y),
                 zoom: 13,
                 layers: [
                     road_layer
@@ -95,8 +100,8 @@ L.TileLayer.Common = L.TileLayer.extend({
         L.control.layers(
             {'OSM': osm_layer, 'Open Cycle': opencycle_layer, 'MapQuest Roads': road_layer,
                 'MapQuest': mapquest_layer, 'Bing': bing_layer},
-        {'GeoJSON': geojsonLayer},
-            {position:"topleft"}
+            {'GeoJSON': geojsonLayer},
+            {position:"topright"}
         ).addTo(map);
 
         $('#geojson_submit').on('click', function() {
@@ -109,5 +114,9 @@ L.TileLayer.Common = L.TileLayer.extend({
             map.fitBounds(geojsonLayer.getBounds());
             $('#geoJsonViewer').modal("hide");
         });
-    });
+    };
+
+    return {
+        init: init
+    };
 }());

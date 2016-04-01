@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Project
 @import org.maproulette.actions.Actions
-@(user:User, projects:List[Project], search:Option[String]=None)(implicit messages: Messages)
+@(user:User, projects:List[Project])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">

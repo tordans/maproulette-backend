@@ -58,12 +58,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, projectDAL.listManagedProjects(user, limitIgnore, offsetIgnore, false, q), Some(q))
+            views.html.admin.project(user, projectDAL.listManagedProjects(user, limitIgnore, offsetIgnore, false, q))
           case ChallengeType() | SurveyType() =>
             views.html.admin.projectChildren(user, parentId.get,
               projectDAL.listSurveys(limitIgnore, offsetIgnore, false, q)(parentId.get),
-              projectDAL.listChildren(limitIgnore, offsetIgnore, false, q)(parentId.get),
-              Some(q)
+              projectDAL.listChildren(limitIgnore, offsetIgnore, false, q)(parentId.get)
             )
           case _ => views.html.error.error("Invalid item type requested.")
         }

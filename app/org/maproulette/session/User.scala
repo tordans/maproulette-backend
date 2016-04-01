@@ -25,7 +25,7 @@ import scala.xml.{Elem, XML}
   * @param longitude longitude for location
   * @param latitude latitude for location
   */
-case class Location(longitude:Double, latitude:Double, name:Option[String]=None)
+case class Location(latitude:Double, longitude:Double, name:Option[String]=None)
 
 /**
   * Information specific to the OSM profile of the user. All users in the system are based on
@@ -122,7 +122,7 @@ object User {
     // todo currently setting to 0,0 lat,lon but will need to set a default or null or something
     val location = (userXML \ "home").headOption match {
       case Some(loc) => Location((loc \@ "lat").toDouble, (loc \@ "lon").toDouble)
-      case None => Location(0, 0)
+      case None => Location(47.608013, -122.335167)
     }
     // check whether this user is a super user
     val groups = if (config.superAccounts.contains(osmId)) {
@@ -157,7 +157,7 @@ object User {
     OSMProfile(-998, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "/assets/images/user_no_image.png",
-      Location(47.6097, 122.3331),
+      Location(-33.918861, 18.423300),
       DateTime.now(),
       RequestToken("", "")
     ), List(), None, true
@@ -165,7 +165,7 @@ object User {
 
   def superUser = User(-999, DateTime.now(), DateTime.now(), "skin-black",
     OSMProfile(-999, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
-      Location(47.6097, 122.3331),
+      Location(47.608013, -122.335167),
       DateTime.now(),
       RequestToken("", "")
     ), List(superGroup.copy())
