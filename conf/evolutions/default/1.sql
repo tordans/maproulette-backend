@@ -296,6 +296,6 @@ INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Roo
 INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
 INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
     VALUES (-999, -999, NOW(), 'SuperUser', '', '', 'skin-black');
-INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, 0);
+INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
 
 # --- !Downs
