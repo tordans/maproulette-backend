@@ -43,6 +43,7 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS HSTORE;
 
 CREATE TABLE IF NOT EXISTS users
 (
@@ -189,7 +190,6 @@ CREATE TABLE IF NOT EXISTS tasks
   modified timestamp without time zone DEFAULT NOW(),
   identifier character varying DEFAULT '',
   name character varying NOT NULL,
-  location geometry NOT NULL,
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
@@ -203,6 +203,7 @@ DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
+SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
 
@@ -259,16 +260,16 @@ SELECT create_index_if_not_exists('tags_on_tasks', 'task_id_tag_id', '(task_id, 
 CREATE TABLE IF NOT EXISTS task_geometries
 (
   id SERIAL NOT NULL,
-  osmid bigint,
-  taskId integer NOT NULL,
-  geom geometry NOT NULL,
+  task_id integer NOT NULL,
+  properties HSTORE,
   CONSTRAINT task_geometries_pkey PRIMARY KEY(id),
-  CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (id)
+  CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
     DEFERRABLE INITIALLY DEFERRED
 );
 
+SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
 SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');
 
 CREATE TABLE IF NOT EXISTS actions

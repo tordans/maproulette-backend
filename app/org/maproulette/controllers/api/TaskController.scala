@@ -94,7 +94,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     */
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
+      Ok(Json.toJson(Task(id, "", None, -1, "", None, "").tags))
     }
   }
 

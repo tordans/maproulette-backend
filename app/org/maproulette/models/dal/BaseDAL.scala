@@ -224,8 +224,9 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param limit  Limit the number of results to be returned
     * @return A list of tags that contain the supplied prefix
     */
-  def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0, onlyEnabled:Boolean=false): List[T] =
-    _find(s"$prefix%", limit, offset, onlyEnabled)
+  def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0, onlyEnabled:Boolean=false,
+                           orderColumn:String="id", orderDirection:String="ASC"): List[T] =
+    _find(s"$prefix%", limit, offset, onlyEnabled, orderColumn, orderDirection)
 
   /**
     * Same database concerns as retrieveListByPrefix. This find function will search the "name"
@@ -236,13 +237,17 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param offset For paging, ie. the page number starting at 0
     * @return A list of tags that contain the supplied prefix
     */
-  def find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false) : List[T] =
-    _find(s"%$searchString%", limit, offset, onlyEnabled)
+  def find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+           orderColumn:String="id", orderDirection:String="ASC") : List[T] =
+    _find(s"%$searchString%", limit, offset, onlyEnabled, orderColumn, orderDirection)
 
-  def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false) : List[T] = {
+  def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+            orderColumn:String="id", orderDirection:String="ASC") : List[T] = {
     db.withConnection { implicit c =>
-      val query = s"SELECT $retrieveColumns FROM $tableName " +
-        s"WHERE name LIKE {ss} ${enabled(onlyEnabled)} LIMIT ${sqlLimit(limit)} OFFSET {offset}"
+      val query = s"""SELECT $retrieveColumns FROM $tableName
+                      WHERE name LIKE {ss} ${enabled(onlyEnabled)}
+                      ${order(Some(orderColumn), orderDirection)}
+                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
     }
   }
@@ -251,14 +256,18 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * This is a dangerous function as it will return all the objects available, so it could take up
     * a lot of memory
     */
-  def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="") : List[T] = {
+  def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
+           orderColumn:String="id", orderDirection:String="ASC") : List[T] = {
     implicit val ids = List.empty
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
                         WHERE name LIKE {ss} ${enabled(onlyEnabled)}
+                        ${order(Some(orderColumn), orderDirection)}
                         LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-        SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset)).as(parser.*)
+        SQL(query).on('ss -> search(searchString),
+          'offset -> ParameterValue.toParameterValue(offset)
+        ).as(parser.*)
       }
     }
   }

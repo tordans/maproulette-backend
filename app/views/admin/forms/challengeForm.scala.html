@@ -1,8 +1,10 @@
 @import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
-@(parentId:Long, challengeForm:Form[Challenge], breadcrumbs:Map[String, Call])(implicit messages: Messages)
+@import org.maproulette.actions.Actions
+@(parentId:Long, challengeForm:Form[Challenge])(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration", null, breadcrumbs)
+@views.html.admin.common.header("Administration", null,
+    Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)))
 <section class="content">
     <div class="box box-primary">
         <div class="box-header with-border">
@@ -89,13 +91,7 @@
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
-                <a class="btn btn-primary"
-                    @if(challengeForm("id").value.getOrElse("-1").toInt == -1) {
-                        href="@routes.Application.adminUIProjectList()"
-                    } else {
-                        href="@routes.Application.adminUIChildList("Challenge", challengeForm("parent").value.get.toLong)"
-                    }
-                >Cancel</a>
+                <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Challenge", parentId)">Cancel</a>
             </div>
         }
     </div><!-- /.box -->

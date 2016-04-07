@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
+@import org.maproulette.actions.Actions
 @(user:User, parentId:Long, challenges:List[Challenge])(implicit messages: Messages)
 
 <div class="box-body">
@@ -31,7 +32,7 @@
                     }
                     </td>
                     <td>@c.id</td>
-                    <td>@c.name</td>
+                    <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c.id)">@c.name</a></td>
                     <td>@c.identifier</td>
                     <td>0/0/0</td>
                     <td>

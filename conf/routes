@@ -2,28 +2,32 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 # Home page
-GET     /                                                       @controllers.Application.index
-GET     /ui/admin/list/project                                  @controllers.Application.adminUIProjectList(limit:Int ?= 10, page:Int ?= 0, q:String ?= "")
-GET     /ui/admin/list/:itemType/:parentId                      @controllers.Application.adminUIChildList(itemType, parentId:Long, limit:Int ?= 10, page:Int ?= 0, q:String ?= "")
-GET     /ui/admin/form/project/:parentId/:itemId                @controllers.FormEditController.projectFormUI(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
-POST    /ui/admin/form/project/:parentId/:itemId                @controllers.FormEditController.projectFormPost(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/form/challenge/:parentId/:itemId              @controllers.FormEditController.challengeFormUI(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
-POST    /ui/admin/form/challenge/:parentId/:itemId              @controllers.FormEditController.challengeFormPost(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/form/survey/:parentId/:itemId                 @controllers.FormEditController.surveyFormUI(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
-POST    /ui/admin/form/survey/:parentId/:itemId                 @controllers.FormEditController.surveyFormPost(parentId:Long, itemId:Long, limit:Int ?= 10, page:Int ?= 0)
-GET     /ui/admin/users                                         @controllers.Application.users(limit:Int ?= 10, page:Int ?= 0, q:String ?= "")
-GET     /ui/admin/stats                                         @controllers.Application.stats
-GET     /ui/error/:errorString                                  @controllers.Application.error(errorString)
-GET     /ui/user/profile                                        @controllers.Application.profile
-GET     /auth/authenticate                                      @controllers.AuthController.authenticate
-GET     /auth/signout                                           @controllers.AuthController.signOut
-GET     /auth/generateAPIKey                                    @controllers.AuthController.generateAPIKey
-DELETE  /auth/deleteUser/userId                                 @controllers.AuthController.deleteUser(userId:Long)
-GET     /refreshProfile                                         @controllers.Application.refreshProfile
-GET     /javascriptRoutes                                       @controllers.Application.javascriptRoutes
+GET     /                                                               @controllers.Application.index
+GET     /ui/admin/list/project                                          @controllers.Application.adminUIProjectList
+GET     /ui/admin/list/:itemType/:parentId                              @controllers.Application.adminUIChildList(itemType, parentId:Long)
+GET     /ui/admin/list/:projectId/:parentType/tasks/:parentId           @controllers.Application.adminUITaskList(projectId:Long, parentType:String, parentId:Long)
+POST    /ui/admin/datatable/:parentType/tasks/:parentId                 @controllers.Application.taskDataTableList(parentType:String, parentId:Long)
+GET     /ui/admin/form/project/:parentId/:itemId                        @controllers.FormEditController.projectFormUI(parentId:Long, itemId:Long)
+POST    /ui/admin/form/project/:parentId/:itemId                        @controllers.FormEditController.projectFormPost(parentId:Long, itemId:Long)
+GET     /ui/admin/form/challenge/:parentId/:itemId                      @controllers.FormEditController.challengeFormUI(parentId:Long, itemId:Long)
+POST    /ui/admin/form/challenge/:parentId/:itemId                      @controllers.FormEditController.challengeFormPost(parentId:Long, itemId:Long)
+GET     /ui/admin/form/survey/:parentId/:itemId                         @controllers.FormEditController.surveyFormUI(parentId:Long, itemId:Long)
+POST    /ui/admin/form/survey/:parentId/:itemId                         @controllers.FormEditController.surveyFormPost(parentId:Long, itemId:Long)
+GET     /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormUI(projectId:Long, parentId:Long, parentType:String, itemId:Long)
+POST    /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormPost(projectId:Long, parentId:Long, parentType:String, itemId:Long)
+GET     /ui/admin/users                                                 @controllers.Application.users(limit:Int ?= 10, page:Int ?= 0, q:String ?= "")
+GET     /ui/admin/stats                                                 @controllers.Application.stats
+GET     /ui/error/:errorString                                          @controllers.Application.error(errorString)
+GET     /ui/user/profile                                                @controllers.Application.profile
+GET     /auth/authenticate                                              @controllers.AuthController.authenticate
+GET     /auth/signout                                                   @controllers.AuthController.signOut
+GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey
+DELETE  /auth/deleteUser/userId                                         @controllers.AuthController.deleteUser(userId:Long)
+GET     /refreshProfile                                                 @controllers.Application.refreshProfile
+GET     /javascriptRoutes                                               @controllers.Application.javascriptRoutes
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file                                           @controllers.Assets.at(path="/public", file)
-GET     /webjars/*file                                          @controllers.WebJarAssets.at(file)
+GET     /assets/*file                                                   @controllers.Assets.at(path="/public", file)
+GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)
 
 ->  /api/v2     apiv2.Routes
 

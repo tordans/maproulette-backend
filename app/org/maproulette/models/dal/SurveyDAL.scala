@@ -41,7 +41,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
     get[Long]("surveys.id") ~
       get[String]("surveys.name") ~
       get[Option[String]]("surveys.identifier") ~
-     get[Option[String]]("surveys.description") ~
+      get[Option[String]]("surveys.description") ~
       get[Long]("surveys.parent_id") ~
       get[String]("surveys.question") ~
       get[Boolean]("surveys.enabled") map {

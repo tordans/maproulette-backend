@@ -2,11 +2,9 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
-import anorm._
-import anorm.SqlParser._
 import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
-import org.maproulette.session.User
-import play.api.db.{Database}
+import play.api.data.Form
+import play.api.data.Forms._
 import play.api.libs.json._
 
 /**
@@ -20,7 +18,11 @@ import play.api.libs.json._
   * parent - The id of the challenge of the task
   * instruction - A detailed instruction on how to fix this particular task
   * location - The direct location of the task
+  * geometries - The list of geometries associated with the task
   * status - Status of the Task "Created, Fixed, False_Positive, Skipped, Deleted"
+  *
+  * TODO: Because the geometries is contained in a separate table, if requesting a large number of
+  * tasks all at once it could cause performance issues.
   *
   * @author cuthbertm
   */
@@ -29,9 +31,9 @@ case class Task(override val id:Long,
                 override val identifier:Option[String]=None,
                 parent: Long,
                 instruction: String,
-                location: JsValue,
+                location: Option[String]=None,
+                geometries:String,
                 status:Option[Int]=None) extends ChildObject[Long, Challenge] {
-
 
   @Inject val tagDAL:TagDAL = null
   @Inject val challengeDAL:ChallengeDAL = null
@@ -119,4 +121,19 @@ object Task {
     case t if t.equalsIgnoreCase(STATUS_DELETED_NAME.toLowerCase) => Some(STATUS_DELETED)
     case _ => None
   }
+
+  val taskForm = Form(
+    mapping(
+      "id" -> default(longNumber,-1L),
+      "name" -> nonEmptyText,
+      "identifier" -> optional(text),
+      "parent" -> longNumber,
+      "instruction" -> nonEmptyText,
+      "location" -> optional(text),
+      "geometries" -> nonEmptyText,
+      "status" -> optional(number)
+    )(Task.apply)(Task.unapply)
+  )
+
+  def emptyTask(parentId:Long) = Task(-1, "", None, parentId, "", None, "")
 }

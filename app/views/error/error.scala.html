@@ -14,7 +14,9 @@
         <div class="error-content">
             <h3><i class="fa fa-warning text-red"></i> @errorTitle</h3>
             <p>
-                We will work on fixing that right away.<br/>
+                @if(statusCode == 500) {
+                    We will work on fixing that right away.<br/>
+                }
                 Click on the Map button to start mapping again right away.<br/>
                 Error: @errorText
             </p>
