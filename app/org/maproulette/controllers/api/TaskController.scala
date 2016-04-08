@@ -7,8 +7,8 @@ import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
-import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.session.{User, SessionManager}
+import org.maproulette.exception.{MPExceptionUtil, NotFoundException}
+import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action

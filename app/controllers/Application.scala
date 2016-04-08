@@ -32,7 +32,23 @@ class Application @Inject() (val messagesApi: MessagesApi,
     */
   def index = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
-      getOkIndex("MapRoulette", User.userOrMocked(user), views.html.main(config.isDebugMode))
+      val userOrMocked = User.userOrMocked(user)
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
+    }
+  }
+
+  /**
+    * Only slightly different to the index page, this one shows the geojson of a specific item on the
+    * map, which then can be edited or status set
+    *
+    * @param parentId The parent of the task (either challenge or survey)
+    * @param taskId The task itself
+    * @return The html view to show the user
+    */
+  def map(parentId:Long, taskId:Long) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      val userOrMocked = User.userOrMocked(user)
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId))
     }
   }
 
@@ -193,7 +209,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
         org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
-        org.maproulette.controllers.api.routes.javascript.TaskController.delete
+        org.maproulette.controllers.api.routes.javascript.TaskController.delete,
+        routes.javascript.MappingController.getTaskDisplayGeoJSON
       )
     ).as("text/javascript")
   }

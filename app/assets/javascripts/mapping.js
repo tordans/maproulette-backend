@@ -64,22 +64,23 @@ var Point = function(x, y) {
 
 var MRManager = (function() {
     var map;
+    var geojsonLayer;
 
     var init = function (element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
             road_layer = new L.TileLayer.MapQuestOSM(),
             mapquest_layer = new L.TileLayer.MapQuestAerial(),
             opencycle_layer = new L.TileLayer.OpenCycleMap(),
-            bing_layer = new L.TileLayer.Bing(),
-            map = new L.Map(element, {
-                center: new L.LatLng(point.x, point.y),
-                zoom: 13,
-                layers: [
-                    road_layer
-                ]
-            });
+            bing_layer = new L.TileLayer.Bing();
+        map = new L.Map(element, {
+            center: new L.LatLng(point.x, point.y),
+            zoom: 13,
+            layers: [
+                road_layer
+            ]
+        });
 
-        var geojsonLayer = new L.GeoJSON(null, {
+        geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
                 if (feature.properties) {
                     var popupString = '<div class="popup">';
@@ -115,8 +116,30 @@ var MRManager = (function() {
             $('#geoJsonViewer').modal("hide");
         });
     };
+    
+    var addTaskToMap = function(challengeId, taskId) {
+        var apiCallback = {
+            success : function(data) {
+                geojsonLayer.clearLayers();
+                geojsonLayer.addData(data);
+                map.fitBounds(geojsonLayer.getBounds());
+            },
+            error : function(error) {
+                toastr.error(error);
+            }
+        };
+
+        if (challengeId != -1) {
+            if (taskId != -1) {
+                jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax(apiCallback);
+            } else {
+                
+            }
+        }
+    };
 
     return {
-        init: init
+        init: init,
+        addTaskToMap: addTaskToMap
     };
 }());
