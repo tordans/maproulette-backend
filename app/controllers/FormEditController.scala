@@ -134,7 +134,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
             itemId
           } else {
             val newSurvey = surveyDAL.insert(survey, user)
-            newSurvey.id
+            newSurvey.challenge.id
           }
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)).flashing("success" -> "Project saved!")
         }

@@ -30,6 +30,9 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
   val retrieveColumns:String = "*"
   // Database that should be injected in any implementing classes
   val db:Database
+  // extra filters that will be applied to all queries. It is very important to not allow any user
+  // inputed string values in this field, as this could lead to sql injection
+  val extraFilters:String = ""
 
   /**
     * Our key for our objects are current Long, but can support String if need be. This function
@@ -191,8 +194,9 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
   def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
-        val query = s"SELECT $retrieveColumns FROM $tableName " +
-                    s"WHERE id IN ({inString}) LIMIT ${sqlLimit(limit)} OFFSET {offset}"
+        val query = s"""SELECT $retrieveColumns FROM $tableName
+                        WHERE id IN ({inString})
+                        LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
       }
     }
@@ -245,7 +249,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
             orderColumn:String="id", orderDirection:String="ASC") : List[T] = {
     db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM $tableName
-                      WHERE name LIKE {ss} ${enabled(onlyEnabled)}
+                      WHERE name LIKE {ss} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
@@ -262,7 +266,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
-                        WHERE name LIKE {ss} ${enabled(onlyEnabled)}
+                        WHERE name LIKE {ss} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
                         ${order(Some(orderColumn), orderDirection)}
                         LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> search(searchString),

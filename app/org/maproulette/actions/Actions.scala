@@ -104,12 +104,34 @@ object Actions {
     actionType >= ACTION_TYPE_UPDATED && actionType <= ACTION_TYPE_QUESTION_ANSWERED
 
   /**
+    * Validates the provided action type name
+    *
+    * @param actionType The action type name to validate
+    * @return true if valid action type
+    */
+  def validActionTypeName(actionType:String) : Boolean = getActionID(actionType) match {
+    case Some(_) => true
+    case None => false
+  }
+
+  /**
     * Validates whether the provided id is actually an item type id
     *
     * @param itemType The id to test
     * @return true if valid item type id
     */
   def validItemType(itemType:Int) : Boolean = itemType >= ITEM_TYPE_PROJECT && itemType <= ITEM_TYPE_TAG
+
+  /**
+    * Validates the provided item name
+    *
+    * @param itemType The item type name to test
+    * @return true if a valid item type
+    */
+  def validItemTypeName(itemType:String) : Boolean = getTypeID(itemType) match {
+    case Some(_) => true
+    case None => false
+  }
 
   /**
     * Based on an id will return the Item type name it matches, None otherwise

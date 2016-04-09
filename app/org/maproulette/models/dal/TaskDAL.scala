@@ -137,7 +137,7 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
           ""
         } else {
           parameters = parameters :+ NamedParameter("location", location)
-          "location = ST_GeomFromGeoJSON({location}),"
+          "location = ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),"
         }
 
         val query = s"""UPDATE tasks SET name = {name}, identifier = {identifier}, parent_id = {parentId},

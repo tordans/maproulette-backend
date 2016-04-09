@@ -3,6 +3,7 @@ package org.maproulette.models
 import play.api.data._
 import play.api.data.Forms._
 import com.google.inject.Inject
+import org.maproulette.actions.Actions
 import org.maproulette.models.dal.ProjectDAL
 import play.api.libs.json.{Json, Reads, Writes}
 
@@ -27,10 +28,11 @@ case class Challenge(override val id: Long,
                      override val identifier:Option[String]=None,
                      override val description:Option[String]=None,
                      parent:Long,
+                     instruction:String,
                      difficulty:Option[Int]=None,
                      blurb:Option[String]=None,
-                     instruction:Option[String]=None,
-                     enabled:Boolean=true) extends ChildObject[Long, Project] {
+                     enabled:Boolean=true,
+                     challengeType:Int=Actions.ITEM_TYPE_CHALLENGE) extends ChildObject[Long, Project] {
 
   @Inject val projectDAL:ProjectDAL = null
 
@@ -48,14 +50,15 @@ object Challenge {
       "identifier" -> optional(text),
       "description" -> optional(text),
       "parent" -> longNumber,
+      "instruction" -> nonEmptyText,
       "difficulty" -> optional(number(min = 1, max = 3)),
       "blurb" -> optional(text),
-      "instruction" -> optional(text),
-      "enabled" -> boolean
+      "enabled" -> boolean,
+      "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE)
     )(Challenge.apply)(Challenge.unapply)
   )
 
-  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, None, parentId)
+  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, None, parentId, "")
 
   val DIFFICULTY_EASY = 1
   val DIFFICULTY_NORMAL = 2

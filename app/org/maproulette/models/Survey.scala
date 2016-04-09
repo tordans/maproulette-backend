@@ -20,43 +20,33 @@ case class Answer(id:Long=(-1), answer:String)
   *
   * @author cuthbertm
   */
-case class Survey(override val id: Long,
-                  override val name: String,
-                  override val identifier:Option[String]=None,
-                  override val description:Option[String]=None,
-                  parent:Long,
-                  question:String,
-                  answers:List[Answer],
-                  enabled:Boolean=true) extends ChildObject[Long, Project] {
-  @Inject val projectDAL:ProjectDAL = null
-
-  override def getParent = projectDAL.retrieveById(parent).get
+case class Survey(challenge:Challenge, answers:List[Answer]) extends ChildObject[Long, Project] {
+  override def getParent: Project = challenge.getParent
+  override def name: String = challenge.name
+  override def id: Long = challenge.id
+  def question = challenge.instruction
 }
 
 object Survey {
   implicit val answerWrites: Writes[Answer] = Json.writes[Answer]
   implicit val answerReads: Reads[Answer] = Json.reads[Answer]
+  implicit val challengeWrites: Writes[Challenge] = Challenge.challengeWrites
+  implicit val challengeReads: Reads[Challenge] = Challenge.challengeReads
 
   implicit val surveyWrites: Writes[Survey] = Json.writes[Survey]
   implicit val surveyReads: Reads[Survey] = Json.reads[Survey]
 
   val surveyForm = Form(
     mapping(
-      "id" -> default(longNumber,-1L),
-      "name" -> nonEmptyText,
-      "identifier" -> optional(text),
-      "description" -> optional(text),
-      "parent" -> longNumber,
-      "question" -> nonEmptyText,
+      "challenge" -> Challenge.challengeForm.mapping,
       "answers" -> list(
         mapping(
           "id" -> default(longNumber,-1L),
           "answer" -> nonEmptyText
         )(Answer.apply)(Answer.unapply)
-      ),
-      "enabled" -> boolean
+      )
     )(Survey.apply)(Survey.unapply)
   )
 
-  def emptySurvey(parentId:Long) = Survey(-1, "", None, None, parentId, "", List.empty)
+  def emptySurvey(parentId:Long) = Survey(Challenge.emptyChallenge(parentId), List.empty)
 }

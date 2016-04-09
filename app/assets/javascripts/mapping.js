@@ -76,22 +76,26 @@ var MRManager = (function() {
             center: new L.LatLng(point.x, point.y),
             zoom: 13,
             layers: [
-                road_layer
+                osm_layer
             ]
         });
 
         geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
                 if (feature.properties) {
+                    var counter = 0;
                     var popupString = '<div class="popup">';
                     for (var k in feature.properties) {
+                        counter++;
                         var v = feature.properties[k];
                         popupString += k + ': ' + v + '<br />';
                     }
                     popupString += '</div>';
-                    layer.bindPopup(popupString, {
-                        maxHeight: 200
-                    });
+                    if (counter > 0) {
+                        layer.bindPopup(popupString, {
+                            maxHeight: 200
+                        });
+                    }
                 }
             }
         });
@@ -116,20 +120,41 @@ var MRManager = (function() {
             $('#geoJsonViewer').modal("hide");
         });
     };
-    
-    var addTaskToMap = function(challengeId, taskId) {
+
+    // Adds default controls like challenge/survey information to the map
+    var addDefaultControls = function() {
+
+    };
+
+    // Adds any challenge specific controls to the map
+    var addChallengeControls = function() {
+
+    };
+
+    // Adds any survey specific controls to the map
+    var addSurveyControls = function() {
+
+    };
+
+    var addTaskToMap = function(parentId, taskId, parentType) {
         var apiCallback = {
             success : function(data) {
                 geojsonLayer.clearLayers();
                 geojsonLayer.addData(data);
                 map.fitBounds(geojsonLayer.getBounds());
+                addDefaultControls();
+                if (parentType === "Challenge") {
+                    addChallengeControls();
+                } else {
+                    addSurveyControls();
+                }
             },
             error : function(error) {
                 toastr.error(error);
             }
         };
 
-        if (challengeId != -1) {
+        if (parentId != -1) {
             if (taskId != -1) {
                 jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax(apiCallback);
             } else {

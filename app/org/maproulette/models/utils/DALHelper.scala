@@ -1,5 +1,6 @@
 package org.maproulette.models.utils
 
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.models.dal.BaseDAL
 
 /**
@@ -31,4 +32,7 @@ trait DALHelper {
       }
     case None => ""
   }
+
+  def addExtraFilters(extra:String, conjunction:String="AND") : String =
+    if (StringUtils.isNotEmpty(extra)) s"$conjunction ($extra)" else ""
 }

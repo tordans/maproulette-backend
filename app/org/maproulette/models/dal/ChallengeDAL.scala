@@ -4,8 +4,9 @@ import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
+import org.maproulette.actions.Actions
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Task, Challenge}
+import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -28,6 +29,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
+  val challengeType = Actions.ITEM_TYPE_CHALLENGE
+  override val extraFilters: String = s"challenge_type = $challengeType"
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -39,12 +42,13 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
       get[Option[String]]("challenges.identifier") ~
       get[Option[String]]("challenges.description") ~
       get[Long]("challenges.parent_id") ~
+      get[String]("challenges.instruction") ~
       get[Option[Int]]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
-      get[Option[String]]("challenges.instruction") ~
-      get[Boolean]("challenges.enabled") map {
-      case id ~ name ~ identifier ~ description ~ parentId ~ difficulty ~ blurb ~ instruction ~ enabled =>
-        new Challenge(id, name, identifier, description, parentId, difficulty, blurb, instruction, enabled)
+      get[Boolean]("challenges.enabled") ~
+      get[Int]("challenges.challenge_type") map {
+      case id ~ name ~ identifier ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~ enabled ~ challenge_type =>
+        new Challenge(id, name, identifier, description, parentId, instruction, difficulty, blurb, enabled, challenge_type)
     }
   }
 
@@ -59,10 +63,10 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction, enabled)
+        SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction, enabled, challenge_type)
               VALUES (${challenge.name}, ${challenge.identifier}, ${challenge.parent},
                       ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
-                      ${challenge.instruction}, ${challenge.enabled}) RETURNING *""".as(parser.*).headOption
+                      ${challenge.instruction}, ${challenge.enabled}, $challengeType) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }
@@ -85,7 +89,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
-        val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+        val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
 
         SQL"""UPDATE challenges SET name = $name,

@@ -5,6 +5,8 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
+import org.maproulette.exception.InvalidException
+import org.maproulette.models.Survey
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
@@ -45,10 +47,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param taskId The task itself
     * @return The html view to show the user
     */
-  def map(parentId:Long, taskId:Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def map(parentType:String, parentId:Long, taskId:Long) = Action.async { implicit request =>
+    sessionManager.userAwareUIRequest { implicit user =>
+      if (!Actions.validItemTypeName(parentType)) throw new InvalidException("Invalid parent type provided.")
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId))
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentType, parentId, taskId))
     }
   }
 
@@ -72,9 +75,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
           case ProjectType() =>
             views.html.admin.project(user, projectDAL.listManagedProjects(user, limitIgnore, offsetIgnore, false))
           case ChallengeType() | SurveyType() =>
-            views.html.admin.projectChildren(user, parentId.get,
-              projectDAL.listSurveys(limitIgnore, offsetIgnore, false)(parentId.get),
-              projectDAL.listChildren(limitIgnore, offsetIgnore, false)(parentId.get),
+            val projectChildren = projectDAL.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
+            val surveys = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_SURVEY).map(Survey(_, List.empty))
+            val challenges = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_CHALLENGE)
+            views.html.admin.projectChildren(user, parentId.get, surveys, challenges,
               if (it == ChallengeType()) { 0 } else { 1 }
             )
           case _ => views.html.error.error("Invalid item type requested.")

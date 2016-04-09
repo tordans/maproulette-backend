@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
-@(user:User, debugMode:Boolean, challengeId:Long=(-1), taskId:Long=(-1))(implicit messages: Messages, req: play.api.mvc.RequestHeader)
+@import org.maproulette.actions.Actions
+@(user:User, debugMode:Boolean, parentType:String=Actions.ITEM_TYPE_CHALLENGE_NAME, parentId:Long=(-1), taskId:Long=(-1))(implicit messages: Messages, req: play.api.mvc.RequestHeader)
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
 <link rel="stylesheet" href="@routes.Assets.at("stylesheets/mapping.css")"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.css"))"/>
@@ -11,6 +12,6 @@
 <script>
     $(document).ready(function() {
         MRManager.init('map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}))
-        MRManager.addTaskToMap(@challengeId, @taskId);
+        MRManager.addTaskToMap(@parentId, @taskId, '@parentType');
     });
 </script>

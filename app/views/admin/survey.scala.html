@@ -25,24 +25,29 @@
             @for(s <- surveys) {
                 <tr>
                     <td>
-                    @if(s.enabled) {
+                    @if(s.challenge.enabled) {
                         <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
                     } else {
                         <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
                     }
                     </td>
-                    <td>@s.id</td>
-                    <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_SURVEY_NAME, s.id)">@s.name</a></td>
-                    <td>@s.identifier</td>
+                    <td>@s.challenge.id</td>
+                    <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_SURVEY_NAME, s.challenge.id)">@s.challenge.name</a></td>
+                    <td>@s.challenge.identifier</td>
                     <td>0/0</td>
                     <td>
                         <div class="pull-left">
-                            <a href="@routes.FormEditController.surveyFormUI(s.parent, s.id)">
+                            <a href="@routes.FormEditController.surveyFormUI(s.challenge.parent, s.challenge.id)">
                                 <button class="btn-xs btn-block btn-warning">Edit</button>
                             </a>
                         </div>
                         <div class="pull-left">
-                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteSurvey(@s.id);">Delete</button>
+                            <a href="@routes.FormEditController.taskFormUI(parentId, s.challenge.id, Actions.ITEM_TYPE_SURVEY_NAME, -1)">
+                                <button class="btn-xs btn-block btn-primary">New Task</button>
+                            </a>
+                        </div>
+                        <div class="pull-left">
+                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteSurvey(@s.challenge.id);">Delete</button>
                         </div>
                         <div class="pull-left">
                             <a href="#">

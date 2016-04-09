@@ -112,28 +112,6 @@ class ProjectDAL @Inject() (override val db:Database,
   }
 
   /**
-    * Lists the children survey for a specified project
-    *
-    * @param limit limit the number of children in the response, default 10
-    * @param offset The paging, defaults to the first page 0, second page 1, etc.
-    * @param id The id for the parent project
-    * @param searchString limit children based on some search filter
-    * @return A list of survey objects that are children of the project
-    */
-  def listSurveys(limit:Int=10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="")(implicit id:Long) : List[Survey] = {
-    // add a child caching option that will keep a list of children for the parent
-    db.withConnection { implicit c =>
-      val query = s"""SELECT * FROM surveys
-                      WHERE parent_id = {id} ${enabled(onlyEnabled)} AND name LIKE {ss}
-                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> search(searchString),
-                    'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
-                    'offset -> offset)
-        .as(surveyDAL.parser.*)
-    }
-  }
-
-  /**
     * Adds a user as a admin of a project. Although on the backend there is support in place for
     * multiple groups which in theory would enable different levels of access to the project, currently
     * there is only a requirement for administrators of the project, and implementing more would simply

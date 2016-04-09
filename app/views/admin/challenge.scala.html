@@ -42,6 +42,11 @@
                             </a>
                         </div>
                         <div class="pull-left">
+                            <a href="@routes.FormEditController.taskFormUI(parentId, c.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">
+                                <button class="btn-xs btn-block btn-primary">New Task</button>
+                            </a>
+                        </div>
+                        <div class="pull-left">
                             <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@c.id);">Delete</button>
                         </div>
                         <div class="pull-left">

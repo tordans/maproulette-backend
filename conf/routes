@@ -3,7 +3,7 @@
 # ~~~~
 # Home page
 GET     /                                                               @controllers.Application.index
-GET     /map/:parentId/:taskId                                          @controllers.Application.map(parentId:Long, taskId:Long)
+GET     /map/:parentType/:parentId/:taskId                              @controllers.Application.map(parentType, parentId:Long, taskId:Long)
 GET     /ui/admin/list/project                                          @controllers.Application.adminUIProjectList
 GET     /ui/admin/list/:itemType/:parentId                              @controllers.Application.adminUIChildList(itemType, parentId:Long)
 GET     /ui/admin/list/:projectId/:parentType/tasks/:parentId           @controllers.Application.adminUITaskList(projectId:Long, parentType:String, parentId:Long)
