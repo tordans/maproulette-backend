@@ -1,5 +1,9 @@
 # MapRoulette Version 2
-Version 2 of Map Roulette
+Version 2 of MapRoulette
+
+[![Build Status](https://travis-ci.org/mvexel/maproulette2.svg?branch=master)](https://travis-ci.org/mvexel/maproulette2)
+
+[![Heroku](http://heroku-badge.herokuapp.com/?app=maproulette2&style=flat&svg=1)](http://maproulette2.herokuapp.com/)
 
 Click [here](docs/api.md) for API documentation.
 
