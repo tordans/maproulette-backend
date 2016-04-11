@@ -29,7 +29,7 @@ GET     /javascriptRoutes                                               @control
 # MAPPING ROUTES
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file                                                   @controllers.Assets.at(path="/public", file)
+GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
 GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)
 
 ->  /api/v2     apiv2.Routes

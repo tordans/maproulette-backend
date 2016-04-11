@@ -4,6 +4,23 @@ L.TileLayer.Common = L.TileLayer.extend({
     }
 });
 
+// -- CUSTOM CONTROLS ----------------------------------
+L.Control.Instructions = L.Control.extend({
+    options: {
+        position:'topleft'
+    },
+    initialize: function(options) {
+        L.Util.setOptions(this, options);
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'modal fade');
+        container.innerHTML = "test";
+        return container;
+    }
+});
+// -----------------------------------------------------
+
+// add various basemap layers to the TileLayer namespace
 (function () {
 
     var osmAttr = '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>';
@@ -65,6 +82,7 @@ var Point = function(x, y) {
 var MRManager = (function() {
     var map;
     var geojsonLayer;
+    var layerControl;
 
     var init = function (element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
@@ -101,13 +119,13 @@ var MRManager = (function() {
         });
 
         map.addLayer(geojsonLayer);
-
-        L.control.layers(
+        layerControl = L.control.layers(
             {'OSM': osm_layer, 'Open Cycle': opencycle_layer, 'MapQuest Roads': road_layer,
                 'MapQuest': mapquest_layer, 'Bing': bing_layer},
             {'GeoJSON': geojsonLayer},
             {position:"topright"}
-        ).addTo(map);
+        );
+        map.addControl(layerControl);
 
         $('#geojson_submit').on('click', function() {
             if ($('#geojson_text').val().length < 1) {
@@ -123,19 +141,18 @@ var MRManager = (function() {
 
     // Adds default controls like challenge/survey information to the map
     var addDefaultControls = function() {
-
     };
 
     // Adds any challenge specific controls to the map
     var addChallengeControls = function() {
-
     };
 
     // Adds any survey specific controls to the map
     var addSurveyControls = function() {
-
+        new L.Control.Instructions({"instructions":"test"}).addTo(map);
     };
 
+    // adds a task (or challenge) to the map
     var addTaskToMap = function(parentId, taskId, parentType) {
         var apiCallback = {
             success : function(data) {
@@ -163,8 +180,64 @@ var MRManager = (function() {
         }
     };
 
+    // registers a series of hotkeys for quick access to functions
+    var registerHotKeys = function() {
+        $(document).keydown(function(e) {
+            e.preventDefault();
+            switch(e.keyCode) {
+                case 81: //q
+                    // Get next task, set current task to false positive
+                    break;
+                case 87: //w
+                    // Get next task, skip current task
+                    break;
+                case 69: //e
+                    // open task in ID
+                    break;
+                case 82: //r
+                    // open task in JSOM in current layer
+                    break;
+                case 84: //y
+                    // open task in JSOM in new layer
+                    break;
+                case 27: //esc
+                    // remove open dialog
+                    break;
+                default:
+                    break;
+            }
+        });
+    };
+
+    // -- CONTROLS ---------------------------
+    var geoController = L.Control.extend({
+        options: {
+            position:'topright'
+        },
+        onAdd: function(map) {
+            var container = L.DomUtil.create('div');
+            var link = L.DomUtil.create('a', 'button', container);
+            link.innerHTML = "Hide";
+            link.href="#";
+            link.id = "geojsoncontroller";
+            L.DomEvent.on(link, 'click', L.DomEvent.stop).on(link, 'click', this.showHide);
+            L.DomEvent.disableClickPropagation(container);
+            return container;
+        },
+        showHide: function(e) {
+            if (map.hasLayer(geojsonLayer)) {
+                map.removeLayer(geojsonLayer);
+                $('#geojsoncontroller')[0].innerHTML = "Show";
+            } else {
+                map.addLayer(geojsonLayer);
+                $('#geojsoncontroller')[0].innerHTML = "Hide";
+            }
+        }
+    });
+
     return {
         init: init,
         addTaskToMap: addTaskToMap
     };
+
 }());

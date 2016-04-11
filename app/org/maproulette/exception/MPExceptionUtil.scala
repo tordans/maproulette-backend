@@ -1,5 +1,6 @@
 package org.maproulette.exception
 
+import controllers.WebJarAssets
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.Config
 import org.maproulette.session.User
@@ -52,7 +53,8 @@ object MPExceptionUtil {
     * @param block The block of code to be executed
     * @return The error page with the error that occurred.
     */
-  def internalUIExceptionCatcher(user:User, config:Config)(block:() => Result)(implicit request:Request[Any], messages:Messages) : Result = {
+  def internalUIExceptionCatcher(user:User, config:Config)(block:() => Result)
+                                (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
     val tempUser = user.copy(theme = "skin-red")
     try {
       block()
@@ -112,7 +114,8 @@ object MPExceptionUtil {
     }
   }
 
-  def internalAsyncUIExceptionCatcher(user:User, config:Config)(block:() => Future[Result])(implicit request:Request[Any], messages:Messages) : Future[Result] = {
+  def internalAsyncUIExceptionCatcher(user:User, config:Config)(block:() => Future[Result])
+                                     (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     val p = Promise[Result]
     val tempUser = user.copy(theme = "skin-red")
     Try(block()) match {
@@ -125,7 +128,8 @@ object MPExceptionUtil {
     p.future
   }
 
-  private def manageUIException(e:Throwable, user:User, config:Config)(implicit request:Request[Any], messages:Messages) : Result = {
+  private def manageUIException(e:Throwable, user:User, config:Config)
+                               (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
     e match {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)

@@ -1,5 +1,6 @@
 package org.maproulette.controllers
 
+import controllers.WebJarAssets
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.session.{SessionManager, User}
@@ -16,6 +17,10 @@ trait ControllerHelper {
   this:Controller =>
 
   implicit val config:Config
+
+  def webJarAssets : WebJarAssets
+
+  implicit def requestWebJarAssets : WebJarAssets = webJarAssets
 
   /**
     * Returns an Ok status code with the primary index file that is used in MapRoulette.

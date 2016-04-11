@@ -2,11 +2,13 @@ name := "PlayMapRouletteV2"
 
 version := "1.0"
 
+scalaVersion := "2.11.8"
+
 lazy val `playmaproulettev2` = (project in file("."))
   .enablePlugins(PlayScala)
   .enablePlugins(SbtWeb)
 
-scalaVersion := "2.11.7"
+pipelineStages := Seq(digest, gzip)
 
 routesGenerator := InjectedRoutesGenerator
 
@@ -19,9 +21,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "anorm" % "3.0.0-M1",
   "postgresql" % "postgresql" % "9.1-901-1.jdbc4",
   "net.postgis" % "postgis-jdbc" % "2.2.0",
-  "org.webjars" %% "webjars-play" % "2.4.0-2",
+  "org.webjars" %% "webjars-play" % "2.5.0",
   "org.webjars" % "bootstrap" % "3.3.6",
-  "org.webjars" % "react" % "0.14.7",
   "org.webjars" % "font-awesome" % "4.5.0",
   "org.webjars" % "ionicons" % "2.0.1",
   "org.webjars" % "respond" % "1.4.2",

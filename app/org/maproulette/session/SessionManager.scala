@@ -3,6 +3,7 @@ package org.maproulette.session
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import controllers.WebJarAssets
 import dal.UserDAL
 import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
@@ -235,7 +236,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @return The result from the block of code
     */
   def userAwareUIRequest(block:Option[User] => Result)
-                        (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+                        (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
       userAware(block)
     }
@@ -280,14 +281,14 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     * @return
     */
   def authenticatedUIRequest(block:User => Result)
-                            (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+                            (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
       authenticated(Left(block))
     }
   }
 
   def authenticatedFutureUIRequest(block:User => Future[Result])
-                                  (implicit request:Request[Any], messages:Messages) : Future[Result] = {
+                                  (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
       authenticated(Right(block))
     }

@@ -20,6 +20,7 @@ import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
+                             override val webJarAssets: WebJarAssets,
                              sessionManager:SessionManager,
                              userDAL: UserDAL,
                              projectDAL: ProjectDAL,

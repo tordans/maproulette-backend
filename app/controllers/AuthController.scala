@@ -20,6 +20,7 @@ import scala.util.{Failure, Success}
   * @author cuthbertm
   */
 class AuthController @Inject() (val messagesApi: MessagesApi,
+                                override val webJarAssets: WebJarAssets,
                                 sessionManager:SessionManager,
                                 userDAL: UserDAL,
                                 val config:Config) extends Controller with I18nSupport with ControllerHelper {

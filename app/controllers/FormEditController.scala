@@ -17,6 +17,7 @@ import play.api.mvc.{Action, Controller}
   * @author cuthbertm
   */
 class FormEditController @Inject() (val messagesApi: MessagesApi,
+                                    override val webJarAssets: WebJarAssets,
                                     sessionManager:SessionManager,
                                     userDAL: UserDAL,
                                     projectDAL: ProjectDAL,
