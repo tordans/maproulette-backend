@@ -1,25 +1,23 @@
 @import org.maproulette.session.User
-@(user:User, debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader)
+@(user:User, debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
 @minified() = {@{debugMode match { case true => ""; case false => ".min" }}}
 <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
 <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
 <![if lt IE 9]>
-    <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"html5shiv${minified()}.js"))"></script>
-    <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"respond${minified()}.js"))"></script>
+    <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"html5shiv${minified()}.js"))"></script>
+    <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"respond${minified()}.js"))"></script>
 <![endif]>
 
     <!-- REQUIRED JS SCRIPTS -->
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"jquery${minified()}.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery${minified()}.js"))"></script>
     <!-- Latest compiled and minified JavaScript -->
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"toastr.js"))"></script>
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"react${minified()}.js"))"></script>
-<script src="@routes.Assets.at("javascripts/app.js")"></script>
-<script src="@routes.Assets.at("javascripts/mp_components.js")"></script>
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"js/jquery.dataTables${minified()}.js"))"></script>
-    <script src="@routes.WebJarAssets.at(WebJarAssets.locate(s"js/dataTables.bootstrap${minified()}.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"toastr.js"))"></script>
+<script src="@routes.Assets.versioned("javascripts/app.js")"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/jquery.dataTables${minified()}.js"))"></script>
+    <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/dataTables.bootstrap${minified()}.js"))"></script>
     <!-- AdminLTE App -->
-<script src="/assets/AdminLTE/app@{minified()}.js"></script>
+<script src="@routes.Assets.versioned(s"AdminLTE/app${minified()}.js")"></script>
 
     <!-- Embedded Javascript router -->
 @helper.javascriptRouter("jsRoutes")(
@@ -28,7 +26,8 @@
     routes.javascript.Application.error,
     org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
     org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
-    org.maproulette.controllers.api.routes.javascript.SurveyController.delete
+    org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
+    routes.javascript.MappingController.getTaskDisplayGeoJSON
 )
 <script type="text/javascript">
     var currentAPIKey = '@user.apiKey';

@@ -1,6 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
-@(user:User, parentId:Long, challenges:List[Challenge], search:Option[String]=None)(implicit messages: Messages)
+@import org.maproulette.actions.Actions
+@(user:User, parentId:Long, challenges:List[Challenge])(implicit messages: Messages)
 
 <div class="box-body">
     <div class="pull-right">
@@ -31,13 +32,18 @@
                     }
                     </td>
                     <td>@c.id</td>
-                    <td>@c.name</td>
+                    <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c.id)">@c.name</a></td>
                     <td>@c.identifier</td>
                     <td>0/0/0</td>
                     <td>
                         <div class="pull-left">
                             <a href="@routes.FormEditController.challengeFormUI(c.parent, c.id)">
                                 <button class="btn-xs btn-block btn-warning">Edit</button>
+                            </a>
+                        </div>
+                        <div class="pull-left">
+                            <a href="@routes.FormEditController.taskFormUI(parentId, c.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">
+                                <button class="btn-xs btn-block btn-primary">New Task</button>
                             </a>
                         </div>
                         <div class="pull-left">

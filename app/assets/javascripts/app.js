@@ -32,6 +32,10 @@ var deleteSurvey = function(itemId) {
     deleteItem("Survey", itemId);
 };
 
+var deleteTask = function(itemId) {
+    deleteItem("Task", itemId);
+};
+
 var deleteUser = function(itemId) {
     deleteItem("User", itemId);
 };
@@ -53,6 +57,8 @@ var deleteItem = function(itemType, itemId) {
         jsRoutes.org.maproulette.controllers.api.ChallengeController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "Survey") {
         jsRoutes.org.maproulette.controllers.api.SurveyController.delete(itemId).ajax(apiCallback);
+    } else if (itemType == "Task") {
+        jsRoutes.org.maproulette.controllers.api.TaskController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "User") {
         jsRoutes.AuthController.deleteUser(itemid).ajax(apiCallback);
     }

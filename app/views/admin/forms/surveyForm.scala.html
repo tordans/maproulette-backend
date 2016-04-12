@@ -1,22 +1,24 @@
 @import org.maproulette.models.Survey
 @import views.html.admin.forms.elements._
-@(parentId:Long, surveyForm:Form[Survey], breadcrumbs:Map[String, Call])(implicit messages: Messages)
+@import org.maproulette.actions.Actions
+@(parentId:Long, surveyForm:Form[Survey])(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration", null, breadcrumbs)
+@views.html.admin.common.header("Administration", null,
+    Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)))
 <section class="content">
     <div class="box box-primary">
         <div class="box-header with-border">
-        @if(surveyForm("id").value.getOrElse("-1").toInt == -1)  {
+        @if(surveyForm("challenge.id").value.getOrElse("-1").toInt == -1)  {
             <h3 class="box-title">Create New Survey</h3>
         } else {
             <h3 class="box-title">Edit Survey</h3>
         }
         </div><!-- /.box-header -->
         <!-- form start -->
-        @helper.form(routes.FormEditController.surveyFormPost(parentId, surveyForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
+        @helper.form(routes.FormEditController.surveyFormPost(parentId, surveyForm("challenge.id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
             <div class="box-body">
                 <div class="form-group" style="display:none;">
-                    @text(surveyForm("id"),
+                    @text(surveyForm("challenge.id"),
                         label = "id",
                         placeholder = "-1",
                         default = "-1",
@@ -24,31 +26,39 @@
                     )
                 </div>
                 <div class="form-group" style="display:none;">
-                    @text(surveyForm("parent"),
+                    @text(surveyForm("challenge.parent"),
                         label = "Parent ID",
                         placeholder = "-1",
                         default = parentId + "",
                         readOnly = true
                     )
                 </div>
+                <div class="form-group" style="display:none;">
+                    @text(surveyForm("challenge.challengeType"),
+                        label = "Challenge Type",
+                        placeholder = Actions.ITEM_TYPE_SURVEY+"",
+                        default = Actions.ITEM_TYPE_SURVEY+"",
+                        readOnly = true
+                    )
+                </div>
                 <div class="form-group">
-                    @select(surveyForm("enabled"),
+                    @select(surveyForm("challenge.enabled"),
                         label = "Enabled",
                         optionList = List(("true", "true"), ("false", "false")),
                         isMultiple = false,
                         help = "Please set whether the survey is enabled or not.",
-                        defaultSelected = Some("0")
+                        defaultSelected = Some("true")
                     )
                 </div>
                 <div class="form-group">
-                    @text(surveyForm("name"),
+                    @text(surveyForm("challenge.name"),
                         label = "Name",
                         placeholder = "Survey Name",
                         help = "Please enter the survey name. (required)"
                     )
                 </div>
                 <div class="form-group">
-                    @textarea(surveyForm("description"),
+                    @textarea(surveyForm("challenge.description"),
                         label = "Description",
                         rows = "5",
                         placeholder = "Survey Description",
@@ -56,16 +66,32 @@
                     )
                 </div>
                 <div class="form-group">
-                    @text(surveyForm("identifier"),
+                    @text(surveyForm("challenge.identifier"),
                         label = "Identifier",
                         placeholder = "Survey Identifier",
                         help = "Please enter the survey identifier. (optional)"
                     )
                 </div>
                 <div class="form-group">
-                    @textarea(surveyForm("question"),
-                        label = "Question",
+                    @textarea(surveyForm("challenge.blurb"),
+                        label = "Blurb",
                         rows = "5",
+                        placeholder = "Survey Blurb",
+                        help = "Please enter the blurb for the survey. (optional)"
+                    )
+                </div>
+                <div class="form-group">
+                @select(surveyForm("challenge.difficulty"),
+                    label = "Difficulty",
+                    optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
+                    isMultiple = false,
+                    help = "Please enter the difficulty level for the survey",
+                    defaultSelected = Some("2")
+                )
+                </div>
+                <div class="form-group">
+                    @text(surveyForm("challenge.instruction"),
+                        label = "Question",
                         placeholder = "Survey Question",
                         help = "Please enter the question for the survey. (optional)"
                     )
@@ -97,13 +123,7 @@
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
-                <a class="btn btn-primary"
-                    @if(surveyForm("id").value.getOrElse("-1").toInt == -1) {
-                        href="@routes.Application.adminUIProjectList()"
-                    } else {
-                        href="@routes.Application.adminUIChildList("Survey", surveyForm("parent").value.get.toLong)"
-                        }
-                >Cancel</a>
+                <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Survey", parentId)">Cancel</a>
             </div>
         }
     </div><!-- /.box -->

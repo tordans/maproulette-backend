@@ -1,7 +1,7 @@
 # --- Map Roulette Scheme
 
 # --- !Ups
-
+-- Function that simply creates an index if it doesn't already exist
 CREATE OR REPLACE FUNCTION create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean default false) RETURNS void as $$
 DECLARE
   full_index_name varchar;;
@@ -28,6 +28,7 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
+-- Function that is used by a trigger to updated the modified column in the table
 CREATE OR REPLACE FUNCTION update_modified() RETURNS TRIGGER AS $$
 BEGIN
   NEW.modified = NOW();;
@@ -36,22 +37,25 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
+-- Function to add a user to a project
 CREATE OR REPLACE FUNCTION add_user_to_project(projectId integer, userId integer) RETURNS void AS $$
 BEGIN
 END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
+-- Map Roulette uses postgis extension for all it's geometries
 CREATE EXTENSION IF NOT EXISTS postgis;
+-- Map Roulette uses hstore for the properties of all it's geometries
+CREATE EXTENSION IF NOT EXISTS HSTORE;
 
+-- The user table contains all users that have logged into Map Roulette.
 CREATE TABLE IF NOT EXISTS users
 (
   id serial NOT NULL,
   osm_id integer NOT NULL UNIQUE,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  home_location geometry,
-  home_location_name character varying,
   osm_created timestamp without time zone NOT NULL,
   name character varying NOT NULL,
   description character varying,
@@ -63,10 +67,13 @@ CREATE TABLE IF NOT EXISTS users
   CONSTRAINT users_pkey PRIMARY KEY(id)
 );
 
+SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);
+
 DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
+-- Top level object that contains all challenges and surveys
 CREATE TABLE IF NOT EXISTS projects
 (
   id SERIAL NOT NULL,
@@ -82,6 +89,7 @@ DROP TRIGGER IF EXISTS update_projects_modified ON projects;
 CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
+-- Groups for user role management
 CREATE TABLE IF NOT EXISTS groups
 (
   id serial NOT NULL,
@@ -95,6 +103,7 @@ CREATE TABLE IF NOT EXISTS groups
   CONSTRAINT groups_pkey PRIMARY KEY(id)
 );
 
+-- Table to map users to groups
 CREATE TABLE IF NOT EXISTS user_groups
 (
   id serial NOT NULL,
@@ -110,6 +119,7 @@ CREATE TABLE IF NOT EXISTS user_groups
   CONSTRAINT ug_pkey PRIMARY KEY(id)
 );
 
+-- Table for all challenges, which is a child of Project, Surveys are also stored in this table
 CREATE TABLE IF NOT EXISTS challenges
 (
   id SERIAL NOT NULL,
@@ -123,6 +133,7 @@ CREATE TABLE IF NOT EXISTS challenges
   instruction character varying DEFAULT '',
   difficulty integer DEFAULT 1,
   enabled BOOLEAN DEFAULT(true),
+  challenge_type integer NOT NULL DEFAULT(1),
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -137,31 +148,7 @@ SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
 SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
 
-CREATE TABLE IF NOT EXISTS surveys
-(
-  id SERIAL NOT NULL,
-  created timestamp without time zone DEFAULT NOW(),
-  modified timestamp without time zone DEFAULT NOW(),
-  identifier character varying DEFAULT '',
-  name character varying NOT NULL,
-  parent_id integer NOT NULL,
-  description character varying DEFAULT '',
-  question character varying DEFAULT '',
-  enabled BOOLEAN DEFAULT(true),
-  CONSTRAINT surveys_parent_id_fkey FOREIGN KEY (parent_id)
-    REFERENCES projects(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT surveys_pkey PRIMARY KEY (id)
-);
-
-DROP TRIGGER IF EXISTS update_surveys_modified ON surveys;
-CREATE TRIGGER update_surveys_modified BEFORE UPDATE ON surveys
-  FOR EACH ROW EXECUTE PROCEDURE update_modified();
-
-SELECT create_index_if_not_exists('surveys', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('surveys', 'parent_id_name', '(parent_id, name)', true);
-SELECT create_index_if_not_exists('surveys', 'identifier', '(identifier)');
-
+-- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
 (
   id SERIAL NOT NULL,
@@ -170,7 +157,7 @@ CREATE TABLE IF NOT EXISTS answers
   survey_id integer NOT NULL,
   answer character varying NOT NULL,
   CONSTRAINT answers_survey_id_fkey FOREIGN KEY (survey_id)
-    REFERENCES surveys(id) MATCH SIMPLE
+    REFERENCES challenges(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
     DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT answers_pkey PRIMARY KEY(id)
@@ -182,6 +169,7 @@ CREATE TRIGGER update_answers_modified BEFORE UPDATE ON answers
 
 SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');
 
+-- All the tasks for a specific challenge or survey
 CREATE TABLE IF NOT EXISTS tasks
 (
   id SERIAL NOT NULL,
@@ -189,7 +177,6 @@ CREATE TABLE IF NOT EXISTS tasks
   modified timestamp without time zone DEFAULT NOW(),
   identifier character varying DEFAULT '',
   name character varying NOT NULL,
-  location geometry NOT NULL,
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
@@ -203,9 +190,11 @@ DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
+SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
 
+-- The answers for a survey from a user
 CREATE TABLE IF NOT EXISTS survey_answers
 (
   id SERIAL NOT NULL,
@@ -217,7 +206,7 @@ CREATE TABLE IF NOT EXISTS survey_answers
   CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
     REFERENCES users(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
-    REFERENCES surveys(id) MATCH SIMPLE,
+    REFERENCES challenges(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
@@ -227,6 +216,7 @@ CREATE TABLE IF NOT EXISTS survey_answers
 
 SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
 
+-- The tags that can be applied to a task
 CREATE TABLE IF NOT EXISTS tags
 (
   id SERIAL NOT NULL,
@@ -238,6 +228,7 @@ CREATE TABLE IF NOT EXISTS tags
 -- index has the potentially to slow down inserts badly
 SELECT create_index_if_not_exists('tags', 'name', '(name)');
 
+-- The tags associated with a task
 CREATE TABLE IF NOT EXISTS tags_on_tasks
 (
   id SERIAL NOT NULL,
@@ -256,21 +247,23 @@ SELECT create_index_if_not_exists('tags_on_tasks', 'tag_id', '(tag_id)');
 -- This index could slow down inserts pretty badly
 SELECT create_index_if_not_exists('tags_on_tasks', 'task_id_tag_id', '(task_id, tag_id)');
 
+-- Geometries for a specific task
 CREATE TABLE IF NOT EXISTS task_geometries
 (
   id SERIAL NOT NULL,
-  osmid bigint,
-  taskId integer NOT NULL,
-  geom geometry NOT NULL,
+  task_id integer NOT NULL,
+  properties HSTORE,
   CONSTRAINT task_geometries_pkey PRIMARY KEY(id),
-  CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (id)
+  CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
     DEFERRABLE INITIALLY DEFERRED
 );
 
+SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
 SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');
 
+-- Actions that are taken in the system, like set the status of a task to 'fixed'
 CREATE TABLE IF NOT EXISTS actions
 (
   id serial NOT NULL,

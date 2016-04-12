@@ -4,27 +4,36 @@ import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
+import org.maproulette.actions.Actions
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.InvalidException
-import org.maproulette.models.{Answer, Task, Survey}
+import org.maproulette.models._
 import org.maproulette.session.User
 import play.api.db.Database
-import play.api.libs.json.JsValue
+import play.api.libs.json.{JsValue, Json}
 
 /**
   * @author cuthbertm
   */
 @Singleton
-class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends ParentDAL[Long, Survey, Task] {
+class SurveyDAL @Inject() (override val db:Database,
+                           taskDAL: TaskDAL,
+                           challengeDAL: ChallengeDAL) extends ParentDAL[Long, Survey, Task] {
   // The manager for the survey cache
   override val cacheManager = new CacheManager[Long, Survey]
   // The name of the survey table
-  override val tableName: String = "surveys"
+  override val tableName: String = "challenges"
   // The name of the table for it's children Tasks
   override val childTable: String = "tasks"
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
+
+  override val parser: RowParser[Survey] = {
+    challengeDAL.parser map {
+      case challenge => Survey(challenge, getAnswers(challenge.id))
+    }
+  }
 
   private val answerParser: RowParser[Answer] = {
     get[Long]("answers.id") ~
@@ -34,22 +43,11 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
   }
 
   /**
-    * The row parser for Anorm to enable the object to be read from the retrieved row directly
-    * to the survey object.
+    * Retrieves the answers for the survey given the survey id
+    *
+    * @param surveyId The id for the survey
+    * @return List of answers for the survey
     */
-  override val parser: RowParser[Survey] = {
-    get[Long]("surveys.id") ~
-      get[String]("surveys.name") ~
-      get[Option[String]]("surveys.identifier") ~
-     get[Option[String]]("surveys.description") ~
-      get[Long]("surveys.parent_id") ~
-      get[String]("surveys.question") ~
-      get[Boolean]("surveys.enabled") map {
-      case id ~ name ~ identifier ~ description ~ parentId ~ question ~ enabled =>
-        new Survey(id, name, identifier, description, parentId, question, getAnswers(id), enabled)
-    }
-  }
-
   private def getAnswers(surveyId:Long) = {
     db.withTransaction { implicit c =>
       SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(answerParser.*)
@@ -57,8 +55,8 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
   }
 
   /**
-    * Inserts a new Survey object into the database. It will also place it in the cache after
-    * inserting the object.
+    * Inserts a new Challenge (survey) into the database, it will use the insert from the Challenge
+    * super class and then insert all the answers into the answer table
     *
     * @param survey The survey to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
@@ -67,74 +65,58 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends P
     if (survey.answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
-    survey.hasWriteAccess(user)
-    cacheManager.withOptionCaching { () =>
-      db.withTransaction { implicit c =>
-        val newSurvey = SQL"""INSERT INTO surveys (name, identifier, parent_id, description, question, enabled)
-              VALUES (${survey.name}, ${survey.identifier}, ${survey.parent},
-                      ${survey.description}, ${survey.question}, ${survey.enabled}) RETURNING *""".as(parser.*).head
-        // insert the answers into the table
-        val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newSurvey.id}, {answer})"""
-        val parameters = survey.answers.map(answer => {
-          Seq[NamedParameter]("answer" -> answer.answer)
-        })
-        BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
-        Some(newSurvey.copy(answers = getAnswers(newSurvey.id)))
-      }
-    }.get
+    survey.challenge.hasWriteAccess(user)
+    db.withTransaction { implicit c =>
+      val newChallenge = challengeDAL.insert(survey.challenge, user)
+      // insert the answers into the table
+      val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newChallenge.id}, {answer})"""
+      val parameters = survey.answers.map(answer => {
+        Seq[NamedParameter]("answer" -> answer.answer)
+      })
+      BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+      Survey(newChallenge, getAnswers(newChallenge.id))
+    }
   }
 
   /**
-    * Updates a Survey. Uses the updatingCache so will first retrieve the object and make sure
-    * to update only values supplied by the json. After updated will update the cache as well
+    * Updates a Survey. It will use the update from the Challenge super class, then delete all
+    * delete/update/add new answers to the answers table
     *
     * @param updates The updates in json format
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
   override def update(updates:JsValue, user:User)(implicit id:Long): Option[Survey] = {
-    cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      cachedItem.hasWriteAccess(user)
-      db.withTransaction { implicit c =>
-        val identifier = (updates \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
-        val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
-        val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-        val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
-        val question = (updates \ "question").asOpt[String].getOrElse(cachedItem.question)
-        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
-        implicit val answerReads = Survey.answerReads
-        // list of answers to delete
-        (updates \ "answers" \ "delete").asOpt[List[Long]] match {
-          case Some(values) => SQL"""DELETE FROM answers WHERE id IN ($values)""".execute()
-          case None => //ignore
-        }
-        (updates \ "answers" \ "update").asOpt[List[Answer]] match {
-          case Some(values) =>
-            val sqlQuery = """UPDATE answers SET answer = {answer} WHERE id = {id}"""
-            val parameters = values.map(answer => {
-              Seq[NamedParameter]("answer" -> answer.answer, "id" -> answer.id)
-            })
-            BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
-          case None => //ignore
-        }
-        (updates \ "answers" \ "add").asOpt[List[Answer]] match {
-          case Some(values) =>
-            val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES ($id, {answer})"""
-            val parameters = values.map(answer => {
-              Seq[NamedParameter]("answer" -> answer.answer)
-            })
-            BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
-          case None => //ignore
-        }
-
-        SQL"""UPDATE surveys SET name = $name,
-                                    identifier = $identifier,
-                                    parent_id = $parentId,
-                                    description = $description,
-                                    question = $question,
-                                    enabled = $enabled
-              WHERE id = $id RETURNING *""".as(parser.*).headOption
+    db.withTransaction { implicit c =>
+      val updatedChallenge = (updates \ "challenge").asOpt[JsValue] match {
+        case Some(c) => challengeDAL.update(c, user)
+        case None => challengeDAL.update(Json.parse(s"""{"id":$id}"""), user)
       }
+      implicit val answerReads = Survey.answerReads
+      // list of answers to delete
+      (updates \ "answers" \ "delete").asOpt[List[Long]] match {
+        case Some(values) => SQL"""DELETE FROM answers WHERE id IN ($values)""".execute()
+        case None => //ignore
+      }
+      (updates \ "answers" \ "update").asOpt[List[Answer]] match {
+        case Some(values) =>
+          val sqlQuery = """UPDATE answers SET answer = {answer} WHERE id = {id}"""
+          val parameters = values.map(answer => {
+            Seq[NamedParameter]("answer" -> answer.answer, "id" -> answer.id)
+          })
+          BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+        case None => //ignore
+      }
+      (updates \ "answers" \ "add").asOpt[List[Answer]] match {
+        case Some(values) =>
+          val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES ($id, {answer})"""
+          val parameters = values.map(answer => {
+            Seq[NamedParameter]("answer" -> answer.answer)
+          })
+          BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+        case None => //ignore
+      }
+      Some(Survey(updatedChallenge.get, getAnswers(updatedChallenge.get.id)))
     }
   }
 

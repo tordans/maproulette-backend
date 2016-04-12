@@ -1,0 +1,98 @@
+@import views.html.admin.forms.elements._
+@import org.maproulette.models.Task
+@(projectId:Long, parentId:Long, parentType:String, taskForm:Form[Task])(implicit messages: Messages)
+
+@views.html.admin.common.header("Administration", null,
+  Map(
+    parentType -> routes.Application.adminUIChildList(parentType, projectId),
+    "Tasks" -> routes.Application.adminUITaskList(projectId, parentType, parentId)
+  )
+)
+<section class="content">
+  <div class="box box-primary">
+    <div class="box-header with-border">
+    @if(taskForm("id").value.getOrElse("-1").toInt == -1)  {
+      <h3 class="box-title">Create New Task</h3>
+    } else {
+      <h3 class="box-title">Edit Task</h3>
+    }
+    </div><!-- /.box-header -->
+    <!-- form start -->
+    @helper.form(routes.FormEditController.taskFormPost(projectId, parentId, parentType, taskForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
+      <div class="box-body">
+        <div class="form-group" style="display:none;">
+        @text(taskForm("id"),
+          label = "id",
+          placeholder = "-1",
+          default = "-1",
+          readOnly = true
+        )
+        </div>
+        <div class="form-group" style="display:none;">
+        @text(taskForm("parent"),
+          label = "Parent ID",
+          placeholder = "-1",
+          default = parentId+"",
+          readOnly = true
+        )
+        </div>
+        <div class="form-group">
+        @text(taskForm("name"),
+          label = "Name",
+          placeholder = "Task Name",
+          help = "Please enter the task name. (required)"
+        )
+        </div>
+        <div class="form-group">
+        @text(taskForm("identifier"),
+          label = "Identifier",
+          placeholder = "Task Identifier",
+          help = "Please enter the task identifier. (optional)"
+        )
+        </div>
+        <div class="form-group">
+        @textarea(taskForm("instruction"),
+          label = "Instruction",
+          rows = "5",
+          placeholder = "Task Instruction",
+          help = "Please enter the instruction for the task. (required)"
+        )
+        </div>
+        <div class="form-group">
+        @text(taskForm("location"),
+          label = "Location",
+          placeholder = "Task Location",
+          help = "Please enter the task location. (optional)"
+        )
+        </div>
+        <div class="form-group">
+        @textarea(taskForm("geometries"),
+          label = "GeoJSON",
+          rows = "5",
+          placeholder = "Task GeoJSON",
+          help = "Please enter the GeoJSON for the task. (required)"
+        )
+        </div>
+        <div class="form-group">
+        @select(taskForm("status"),
+          label = "Status",
+          optionList = List(
+            (Task.STATUS_CREATED_NAME, Task.STATUS_CREATED.toString),
+            (Task.STATUS_FIXED_NAME, Task.STATUS_FIXED.toString),
+            (Task.STATUS_FALSE_POSITIVE_NAME, Task.STATUS_FALSE_POSITIVE.toString),
+            (Task.STATUS_SKIPPED_NAME, Task.STATUS_SKIPPED.toString),
+            (Task.STATUS_DELETED_NAME, Task.STATUS_DELETED.toString)
+          ),
+          isMultiple = false,
+          help = "Please enter the difficulty level for the challenge",
+          defaultSelected = Some(Task.STATUS_CREATED.toString)
+        )
+        </div>
+      </div><!-- /.box-body -->
+      <div class="box-footer">
+        <button type="submit" class="btn btn-primary">Submit</button>
+        <a class="btn btn-primary" href="@routes.Application.adminUITaskList(projectId, parentType, parentId)">Cancel</a>
+      </div>
+    }
+  </div><!-- /.box -->
+</section>

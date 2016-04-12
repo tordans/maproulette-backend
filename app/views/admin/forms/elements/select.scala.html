@@ -13,10 +13,10 @@
         @for((name, value) <- optionList) {
             @field.value match {
                 case Some(v) if v.equals(value) => {
-                    <option id="@name" value="@value" selected>@name</option>
+                    <option id="@name" value="@value" selected="selected">@name</option>
                 }
                 case None if defaultSelected.isDefined && value.equals(defaultSelected.get) => {
-                    <option id="@name" value="@value" selected>@name</option>
+                    <option id="@name" value="@value" selected="selected">@name</option>
                 }
                 case _ => {
                     <option id="@name" value="@value">@name</option>

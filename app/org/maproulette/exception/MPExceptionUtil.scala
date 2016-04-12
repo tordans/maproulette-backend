@@ -1,5 +1,6 @@
 package org.maproulette.exception
 
+import controllers.WebJarAssets
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.Config
 import org.maproulette.session.User
@@ -52,7 +53,8 @@ object MPExceptionUtil {
     * @param block The block of code to be executed
     * @return The error page with the error that occurred.
     */
-  def internalUIExceptionCatcher(user:User, config:Config)(block:() => Result)(implicit request:Request[Any], messages:Messages) : Result = {
+  def internalUIExceptionCatcher(user:User, config:Config)(block:() => Result)
+                                (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
     val tempUser = user.copy(theme = "skin-red")
     try {
       block()
@@ -112,7 +114,8 @@ object MPExceptionUtil {
     }
   }
 
-  def internalAsyncUIExceptionCatcher(user:User, config:Config)(block:() => Future[Result])(implicit request:Request[Any], messages:Messages) : Future[Result] = {
+  def internalAsyncUIExceptionCatcher(user:User, config:Config)(block:() => Future[Result])
+                                     (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     val p = Promise[Result]
     val tempUser = user.copy(theme = "skin-red")
     Try(block()) match {
@@ -125,17 +128,18 @@ object MPExceptionUtil {
     p.future
   }
 
-  private def manageUIException(e:Throwable, user:User, config:Config)(implicit request:Request[Any], messages:Messages) : Result = {
+  private def manageUIException(e:Throwable, user:User, config:Config)
+                               (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
     e match {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
         BadRequest(views.html.index("Map Roulette Error", user, config)(views.html.error.error(e.getMessage)))
       case e:OAuthNotAuthorizedException =>
         Logger.error(e.getMessage, e)
-        Unauthorized(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Unauthorized: " + e.getMessage)))
+        Unauthorized(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401)))
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
-        Forbidden(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Forbidden: " + e.getMessage)))
+        Forbidden(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", 403)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
         NotFound(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Not Found: " + e.getMessage)))

@@ -5,6 +5,8 @@ import javax.inject.Singleton
 
 import anorm._
 import anorm.SqlParser._
+import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory, Point}
+import com.vividsolutions.jts.io.{WKTReader, WKTWriter}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.models.dal.BaseDAL
@@ -33,6 +35,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   // The cache manager for the users
   override val cacheManager = new CacheManager[Long, User]
   override val tableName = "users"
+  override val retrieveColumns: String = "*, ST_AsText(users.home_location) AS home"
 
   // The anorm row parser to convert user records from the database to user objects
   val parser: RowParser[User] = {
@@ -45,15 +48,20 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
       get[String]("users.name") ~
       get[Option[String]]("users.description") ~
       get[Option[String]]("users.avatar_url") ~
+      get[Option[String]]("home") ~
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
       get[String]("users.oauth_secret") map {
       case id ~ osmId ~ created ~ modified ~ theme ~ osmCreated ~ displayName ~ description ~
-        avatarURL ~ apiKey ~ oauthToken ~ oauthSecret =>
+        avatarURL ~ homeLocation ~ apiKey ~ oauthToken ~ oauthSecret =>
+        val locationWKT = homeLocation match {
+          case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
+          case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
+        }
         // If the modified date is too old, then lets update this user information from OSM
         new User(id, created, modified, theme,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
-            Location(0, 0), osmCreated, RequestToken(oauthToken, oauthSecret)),
+            Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
             userGroupDAL.getGroups(osmId), apiKey)
     }
   }
@@ -67,7 +75,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     */
   def retrieveByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
     db.withConnection { implicit c =>
-      SQL"""SELECT * FROM users WHERE osm_id = $id""".as(parser.*).headOption
+      val query = s"""SELECT $retrieveColumns FROM users WHERE osm_id = {id}"""
+      SQL(query).on('id -> id).as(parser.*).headOption
     }
   }
 
@@ -80,7 +89,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     */
   def retrieveByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
     db.withConnection { implicit c =>
-      SQL"""SELECT * FROM users WHERE id = $id AND api_key = ${apiKey}""".as(parser.*).headOption
+      val query = s"""SELECT $retrieveColumns FROM users WHERE id = {id} AND api_key = {apiKey}"""
+      SQL(query).on('id -> id, 'apiKey -> apiKey).as(parser.*).headOption
     }
   }
 
@@ -94,8 +104,9 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   def matchByRequestTokenAndId(requestToken: RequestToken)(implicit id:Long): Option[User] = {
     val user = cacheManager.withCaching { () =>
       db.withConnection { implicit c =>
-        SQL"""SELECT * FROM users WHERE id = $id AND oauth_token = ${requestToken.token}
-             AND oauth_secret = ${requestToken.secret}""".as(parser.*).headOption
+        val query = s"""SELECT $retrieveColumns FROM users
+                        WHERE id = {id} AND oauth_token = {token} AND oauth_secret = {secret}"""
+        SQL(query).on('id -> id, 'token -> requestToken.token, 'secret -> requestToken.secret).as(parser.*).headOption
       }
     }
     user match {
@@ -119,8 +130,9 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     */
   def matchByRequestToken(requestToken: RequestToken): Option[User] = {
     db.withConnection { implicit c =>
-      SQL"""SELECT * FROM users WHERE oauth_token = ${requestToken.token}
-           AND oauth_secret = ${requestToken.secret}""".as(parser.*).headOption
+      val query = s"""SELECT $retrieveColumns FROM users
+                      WHERE oauth_token = {token} AND oauth_secret = {secret}"""
+      SQL(query).on('token -> requestToken.token, 'secret -> requestToken.secret).as(parser.*).headOption
     }
   }
 
@@ -135,20 +147,34 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   override def insert(item:User, user: User): User = cacheManager.withOptionCaching { () =>
     hasAccess(user)
     db.withTransaction { implicit c =>
-      SQL"""WITH upsert AS (UPDATE users SET osm_id = ${item.osmProfile.id}, osm_created = ${item.osmProfile.created},
-                              name = ${item.osmProfile.displayName}, description = ${item.osmProfile.description},
-                              avatar_url = ${item.osmProfile.avatarURL},
-                              oauth_token = ${item.osmProfile.requestToken.token},
-                              oauth_secret = ${item.osmProfile.requestToken.secret},
-                              theme = ${item.theme}
-                            WHERE id = ${item.id} OR osm_id = ${item.osmProfile.id} RETURNING *)
+      val ewkt = new WKTWriter().write(
+        new GeometryFactory().createPoint(
+          new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
+        )
+      )
+
+      val query = s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
+                              name = {name}, description = {description}, avatar_url = {avatarURL},
+                              oauth_token = {token}, oauth_secret = {secret}, theme = {theme},
+                              home_location = ST_GeomFromEWKT({wkt})
+                            WHERE id = {id} OR osm_id = {osmID} RETURNING $retrieveColumns)
             INSERT INTO users (osm_id, osm_created, name, description,
-                               avatar_url, oauth_token, oauth_secret, theme)
-            SELECT ${item.osmProfile.id}, ${item.osmProfile.created}, ${item.osmProfile.displayName},
-                    ${item.osmProfile.description}, ${item.osmProfile.avatarURL},
-                    ${item.osmProfile.requestToken.token}, ${item.osmProfile.requestToken.secret},
-                    ${item.theme}
-            WHERE NOT EXISTS (SELECT * FROM upsert)""".executeUpdate()
+                               avatar_url, oauth_token, oauth_secret, theme, home_location)
+            SELECT {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, {secret},
+                    {theme}, ST_GeomFromEWKT({wkt})
+            WHERE NOT EXISTS (SELECT * FROM upsert)"""
+      SQL(query).on(
+        'osmID -> item.osmProfile.id,
+        'osmCreated -> item.osmProfile.created,
+        'name -> item.osmProfile.displayName,
+        'description -> item.osmProfile.description,
+        'avatarURL -> item.osmProfile.avatarURL,
+        'token -> item.osmProfile.requestToken.token,
+        'secret -> item.osmProfile.requestToken.secret,
+        'theme -> item.theme,
+        'wkt -> s"SRID=4326;$ewkt",
+        'id -> item.id
+      ).executeUpdate()
       // if we are updating a user, then get rid of his group associations and recreate
       SQL"""DELETE FROM user_groups WHERE osm_user_id = ${item.osmProfile.id}""".executeUpdate()
       if (item.groups.nonEmpty) {
@@ -166,7 +192,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     // We do this separately from the transaction because if we don't the user_group mappings
     // wont be accessible just yet.
     db.withConnection { implicit c =>
-      SQL"""SELECT * FROM users WHERE osm_id = ${item.osmProfile.id}""".as(parser.*).headOption
+      val query = s"""SELECT $retrieveColumns FROM users WHERE osm_id = {id}"""
+      SQL(query).on('id -> item.osmProfile.id).as(parser.*).headOption
     }
   }.get
 
@@ -190,6 +217,10 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         val token = (value \ "osmProfile" \ "token").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.token)
         val secret = (value \ "osmProfile" \ "secret").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.secret)
         val theme = (value \ "theme").asOpt[String].getOrElse(cachedItem.theme)
+        // todo: allow to insert in WKT, WKB or latitude/longitude
+        val latitude = (value \ "osmProfile" \ "homeLocation" \ "latitude").asOpt[Double].getOrElse(cachedItem.osmProfile.homeLocation.latitude)
+        val longitude = (value \ "osmProfile" \ "homeLocation" \ "longitude").asOpt[Double].getOrElse(cachedItem.osmProfile.homeLocation.longitude)
+        val ewkt = new WKTWriter().write(new GeometryFactory().createPoint(new Coordinate(latitude, longitude)))
 
         // list of grousp to delete
         (value \ "groups" \ "delete").asOpt[List[Long]] match {
@@ -206,9 +237,21 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
           case None => //ignore
         }
 
-        SQL"""UPDATE users SET api_key = $apiKey, name = $displayName, description = $description,
-                avatar_url = $avatarURL, oauth_token = $token, oauth_secret = $secret
-              WHERE id = $id RETURNING *""".as(parser.*).headOption
+        val query = s"""UPDATE users SET api_key = {apiKey}, name = {name}, description = {description},
+                                          avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
+                                          theme = {theme}, home_location = ST_GeomFromEWKT({wkt})
+                        WHERE id = {id} RETURNING $retrieveColumns"""
+        SQL(query).on(
+          'apiKey -> apiKey,
+          'name -> displayName,
+          'description -> description,
+          'avatarURL -> avatarURL,
+          'token -> token,
+          'secret -> secret,
+          'theme -> theme,
+          'wkt -> s"SRID=4326;$ewkt",
+          'id -> id
+        ).as(parser.*).headOption
       }
     }
   }

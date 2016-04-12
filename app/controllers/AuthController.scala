@@ -4,7 +4,8 @@ import com.google.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.session.SessionManager
+import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.session.{SessionManager, User}
 import org.maproulette.session.dal.UserDAL
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.Json
@@ -19,6 +20,7 @@ import scala.util.{Failure, Success}
   * @author cuthbertm
   */
 class AuthController @Inject() (val messagesApi: MessagesApi,
+                                override val webJarAssets: WebJarAssets,
                                 sessionManager:SessionManager,
                                 userDAL: UserDAL,
                                 val config:Config) extends Controller with I18nSupport with ControllerHelper {
@@ -31,29 +33,35 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Redirects back to the index page containing a valid session
     */
   def authenticate() = Action.async { implicit request =>
-    val p = Promise[Result]
-    request.getQueryString("oauth_verifier").map { verifier =>
-      sessionManager.retrieveUser(verifier) onComplete {
-        case Success(user) =>
-          // We received the authorized tokens in the OAuth object - store it before we proceed
-          p success Redirect(routes.Application.index())
-            .withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
-              SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
-              SessionManager.KEY_USER_ID -> user.id.toString,
-              SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
-              SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
-            )
-        case Failure(e) => p failure e
-      }
-    }.getOrElse(
-      sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL()) match {
-        case Right(t) => {
-          // We received the unauthorized tokens in the OAuth object - store it before we proceed
-          p success Redirect(sessionManager.redirectUrl(t.token)).withSession("token" -> t.token, "secret" -> t.secret)
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+      val p = Promise[Result]
+      request.getQueryString("oauth_verifier").map { verifier =>
+        sessionManager.retrieveUser(verifier) onComplete {
+          case Success(user) =>
+            // We received the authorized tokens in the OAuth object - store it before we proceed
+            p success Redirect(routes.Application.index())
+              .withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
+                SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
+                SessionManager.KEY_USER_ID -> user.id.toString,
+                SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
+                SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
+              )
+          case Failure(e) => p failure e
         }
-        case Left(e) => p failure e
-      })
-    p.future
+      }.getOrElse(
+        sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL()) match {
+          case Right(t) => {
+            // We received the unauthorized tokens in the OAuth object - store it before we proceed
+            p success Redirect(sessionManager.redirectUrl(t.token))
+              .withSession(SessionManager.KEY_TOKEN -> t.token,
+                SessionManager.KEY_SECRET -> t.secret,
+                SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
+              )
+          }
+          case Left(e) => p failure e
+        })
+      p.future
+    }
   }
 
   /**

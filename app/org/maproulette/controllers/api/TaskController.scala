@@ -7,8 +7,8 @@ import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
-import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.session.{User, SessionManager}
+import org.maproulette.exception.{MPExceptionUtil, NotFoundException}
+import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -94,7 +94,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     */
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(Task(id, "", None, -1, "", Json.parse("{}")).tags))
+      Ok(Json.toJson(Task(id, "", None, -1, "", None, "").tags))
     }
   }
 

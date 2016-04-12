@@ -27,17 +27,39 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param id The parent ID
     * @return A list of children objects
     */
-  def listChildren(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key) : List[C] = {
+  def listChildren(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
+                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
     db.withConnection { implicit c =>
       val query = s"""SELECT $childColumns FROM $childTable
                       WHERE parent_id = {id} ${enabled(onlyEnabled)}
                       AND name LIKE {ss}
+                      ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> search(searchString),
                     'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
                     'offset -> offset)
         .as(childParser.*)
+    }
+  }
+
+  /**
+    * Gets the total number of children for the parent
+    *
+    * @param onlyEnabled If set to true will only count the children that are enabled
+    * @param id The id for the parent
+    * @return A integer value representing the total number of children
+    */
+  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key) : Int = {
+    db.withConnection { implicit c =>
+      val query =
+        s"""SELECT COUNT(*) as TotalChildren FROM $childTable
+           |WHERE parent_id = {id} ${enabled(onlyEnabled)}
+           |AND name LIKE {ss}""".stripMargin
+      SQL(query).on(
+        'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
+        'ss -> search(searchString)
+      ).as(SqlParser.int("TotalChildren").single)
     }
   }
 }

@@ -1,9 +1,17 @@
-@(debugMode:Boolean)(implicit messages: Messages)
+@import org.maproulette.session.User
+@import org.maproulette.actions.Actions
+@(user:User, debugMode:Boolean, parentType:String=Actions.ITEM_TYPE_CHALLENGE_NAME, parentId:Long=(-1), taskId:Long=(-1))(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
-<link rel="stylesheet" href="@routes.Assets.at("stylesheets/mapping.css")"/>
-<link rel="stylesheet" href="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.css"))"/>
-<script src="@routes.WebJarAssets.at(WebJarAssets.locate("leaflet.js"))"></script>
+<link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/mapping.css")"/>
+<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.css"))"/>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.js"))"></script>
 
 <div id="map" class="map"></div>
 
-<script src="@routes.Assets.at("javascripts/mapping.js")"></script>
+<script src="@routes.Assets.versioned("javascripts/mapping.js")"></script>
+<script>
+    $(document).ready(function() {
+        MRManager.init('map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}))
+        MRManager.addTaskToMap(@parentId, @taskId, '@parentType');
+    });
+</script>

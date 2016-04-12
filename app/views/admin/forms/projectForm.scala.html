@@ -1,6 +1,7 @@
 @import org.maproulette.models.Project
 @import views.html.admin.forms.elements._
-@(parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, Call])(implicit messages: Messages)
+@import org.maproulette.session.User
+@(user:User, parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, Call])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null, breadcrumbs)
 <section class="content">
@@ -26,10 +27,11 @@
                 <div class="form-group">
                     @select(projectForm("enabled"),
                         label = "Enabled",
+                        readOnly = !user.isSuperUser,
                         optionList = List(("true", "true"), ("false", "false")),
                         isMultiple = false,
                         help = "Please set whether the project is enabled or not.",
-                        defaultSelected = Some("0")
+                        defaultSelected = Some("true")
                     )
                 </div>
                 <div class="form-group">

@@ -1,9 +1,11 @@
 package org.maproulette.models.dal
 
+import java.sql.Connection
 import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.InvalidException
@@ -29,8 +31,7 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
-  override val retrieveColumns:String = "tasks.id, tasks.name, tasks.identifier, tasks.parent_id, " +
-    "tasks.instruction, ST_AsGeoJSON(tasks.location) AS location, tasks.status"
+  override val retrieveColumns:String = "*, ST_AsGeoJSON(tasks.location) AS location"
 
   // The anorm row parser to convert records from the task table to task objects
   implicit val parser: RowParser[Task] = {
@@ -39,10 +40,30 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
       get[Option[String]]("tasks.identifier") ~
       get[Long]("parent_id") ~
       get[String]("tasks.instruction") ~
-      get[String]("location") ~
+      get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") map {
       case id ~ name ~ identifier ~ parent_id ~ instruction ~ location ~ status =>
-        new Task(id, name, identifier, parent_id, instruction, Json.parse(location), status)
+        Task(id, name, identifier, parent_id, instruction, location, getTaskGeometries(id), status)
+    }
+  }
+
+  /**
+    * Retrieve all the geometries for the task
+    *
+    * @param id Id for the task
+    * @return A feature collection geojson of all the task geometries
+    */
+  private def getTaskGeometries(id:Long) : String = {
+    db.withTransaction { implicit c =>
+      SQL"""SELECT row_to_json(fc)::text as geometries
+            FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
+                   FROM ( SELECT 'Feature' As type,
+                                  ST_AsGeoJSON(lg.geom)::json As geometry,
+                                  hstore_to_json(lg.properties) As properties
+                          FROM task_geometries As lg
+                          WHERE task_id = $id
+                    ) As f
+            )  As fc""".as(SqlParser.str("geometries").single)
     }
   }
 
@@ -57,13 +78,24 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
     task.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
+        var parameters = Seq(
+          NamedParameter("name", ParameterValue.toParameterValue(task.name)),
+          NamedParameter("identifier", ParameterValue.toParameterValue(task.identifier)),
+          NamedParameter("parent", ParameterValue.toParameterValue(task.parent)),
+          NamedParameter("instruction", ParameterValue.toParameterValue(task.instruction))
+        )
+        val locationValue = if (!task.location.isDefined || StringUtils.isEmpty(task.location.get)) {
+          ("", "")
+        } else {
+          parameters = parameters :+ NamedParameter("location", ParameterValue.toParameterValue(task.location.get.toString))
+          ("location,", s"ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),")
+        }
         // status is ignored on insert and always set to CREATED
-        val newTaskId = SQL"""INSERT INTO tasks (name, identifier, parent_id, location, instruction, status)
-                     VALUES (${task.name}, ${task.identifier}, ${task.parent},
-                              ST_GeomFromGeoJSON(${task.location.toString}),
-                              ${task.instruction},
-                              ${Task.STATUS_CREATED}
-                     ) RETURNING id""".as(long("id").*).head
+        val query = s"""INSERT INTO tasks (name, identifier, parent_id, ${locationValue._1} instruction, status)
+                        VALUES ({name}, {identifier}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}
+                        ) RETURNING id"""
+        val newTaskId = SQL(query).on(parameters: _*).as(long("id").*).head
+        updateGeometries(newTaskId, Json.parse(task.geometries))
         Some(task.copy(id = newTaskId))
       }
     }.get
@@ -85,21 +117,68 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
         val identifier = (value \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
         val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
-        val location = (value \ "location").asOpt[JsValue].getOrElse(cachedItem.location)
+        val location = (value \ "location").asOpt[String].getOrElse(cachedItem.location.getOrElse(""))
         val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
         if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
           throw new InvalidException(s"Could not set status for task [$id], " +
             s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
         }
+        val geometries = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
 
-        SQL"""UPDATE tasks SET name = $name, identifier = $identifier, parent_id = $parentId,
-              instruction = $instruction, location = ST_GeomFromGeoJSON(${location.toString}),
-              status = $status
-              WHERE id = $id""".executeUpdate()
+        var parameters = Seq(
+          NamedParameter("name", ParameterValue.toParameterValue(name)),
+          NamedParameter("identifier", ParameterValue.toParameterValue(identifier)),
+          NamedParameter("parentId", ParameterValue.toParameterValue(parentId)),
+          NamedParameter("instruction", ParameterValue.toParameterValue(instruction)),
+          NamedParameter("status", ParameterValue.toParameterValue(status)),
+          NamedParameter("id", ParameterValue.toParameterValue(id))
+        )
+        val locationInfo = if (StringUtils.isEmpty(location)) {
+          ""
+        } else {
+          parameters = parameters :+ NamedParameter("location", location)
+          "location = ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),"
+        }
 
-        Some(Task(id, name, Some(identifier), parentId, instruction, location, Some(status)))
+        val query = s"""UPDATE tasks SET name = {name}, identifier = {identifier}, parent_id = {parentId},
+                          instruction = {instruction}, $locationInfo status = {status}
+                        WHERE id = {id}"""
+
+        SQL(query).on(parameters: _*).executeUpdate()
+        updateGeometries(id, Json.parse(geometries))
+        Some(Task(id, name, Some(identifier), parentId, instruction, Some(location), geometries, Some(status)))
       }
     }
+  }
+
+  /**
+    * Function that updates the geometries for the task, either during an insert or update
+    *
+    * @param taskId The task Id to update the geometries for
+    * @param value The geojson that contains the geometries/features
+    * @param setLocation Whether to set the location based on the geometries or not
+    */
+  private def updateGeometries(taskId:Long, value:JsValue, setLocation:Boolean=false)(implicit c:Connection) : Unit = {
+    SQL"""DELETE FROM task_geometries WHERE task_id = $taskId""".executeUpdate()
+    val features = (value \ "features").as[List[JsValue]]
+    val indexedValues = features.zipWithIndex
+    val rows = indexedValues.map {
+      case (_, i) => s"({taskId}, ST_SetSRID(ST_GeomFromGeoJSON({geom_$i}),4326), {props_$i}::hstore)"
+    }.mkString(",")
+    val parameters = indexedValues.flatMap { case (featureJson, i) =>
+      val geometry = ()
+      val props = (featureJson \ "properties").asOpt[JsValue] match {
+        case Some(p) => p.as[Map[String, String]].map(v => s""""${v._1}"=>"${v._2}"""").mkString(",")
+        case None => ""
+      }
+      Seq(
+        NamedParameter(s"geom_$i", ParameterValue.toParameterValue((featureJson \ "geometry").as[JsValue].toString)),
+        NamedParameter(s"props_$i", ParameterValue.toParameterValue(props))
+      )
+    } ++ Seq(NamedParameter("taskId", ParameterValue.toParameterValue(taskId)))
+    SQL("INSERT INTO task_geometries (task_id, geom, properties) VALUES " + rows)
+      .on(parameters: _*)
+      .execute()
   }
 
   /**
@@ -117,7 +196,7 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
         if (tags.nonEmpty) {
           db.withTransaction { implicit c =>
             val indexedValues = tags.zipWithIndex
-            val rows = indexedValues.map{ case (value, i) =>
+            val rows = indexedValues.map{ case (_, i) =>
               s"({taskid_$i}, {tagid_$i})"
             }.mkString(",")
             val parameters = indexedValues.flatMap{ case(value, i) =>

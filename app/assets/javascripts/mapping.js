@@ -4,6 +4,23 @@ L.TileLayer.Common = L.TileLayer.extend({
     }
 });
 
+// -- CUSTOM CONTROLS ----------------------------------
+L.Control.Instructions = L.Control.extend({
+    options: {
+        position:'topleft'
+    },
+    initialize: function(options) {
+        L.Util.setOptions(this, options);
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'modal fade');
+        container.innerHTML = "test";
+        return container;
+    }
+});
+// -----------------------------------------------------
+
+// add various basemap layers to the TileLayer namespace
 (function () {
 
     var osmAttr = '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>';
@@ -57,47 +74,58 @@ L.TileLayer.Common = L.TileLayer.extend({
 
 }());
 
-(function() {
-    var map;
+var Point = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
 
-    $(document).ready(function() {
+var MRManager = (function() {
+    var map;
+    var geojsonLayer;
+    var layerControl;
+
+    var init = function (element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
             road_layer = new L.TileLayer.MapQuestOSM(),
             mapquest_layer = new L.TileLayer.MapQuestAerial(),
             opencycle_layer = new L.TileLayer.OpenCycleMap(),
-            bing_layer = new L.TileLayer.Bing(),
-            map = new L.Map('map', {
-                center: new L.LatLng(47.6097, -122.3331),
-                zoom: 13,
-                layers: [
-                    road_layer
-                ]
-            });
+            bing_layer = new L.TileLayer.Bing();
+        map = new L.Map(element, {
+            center: new L.LatLng(point.x, point.y),
+            zoom: 13,
+            layers: [
+                osm_layer
+            ]
+        });
 
-        var geojsonLayer = new L.GeoJSON(null, {
+        geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
                 if (feature.properties) {
+                    var counter = 0;
                     var popupString = '<div class="popup">';
                     for (var k in feature.properties) {
+                        counter++;
                         var v = feature.properties[k];
                         popupString += k + ': ' + v + '<br />';
                     }
                     popupString += '</div>';
-                    layer.bindPopup(popupString, {
-                        maxHeight: 200
-                    });
+                    if (counter > 0) {
+                        layer.bindPopup(popupString, {
+                            maxHeight: 200
+                        });
+                    }
                 }
             }
         });
 
         map.addLayer(geojsonLayer);
-
-        L.control.layers(
+        layerControl = L.control.layers(
             {'OSM': osm_layer, 'Open Cycle': opencycle_layer, 'MapQuest Roads': road_layer,
                 'MapQuest': mapquest_layer, 'Bing': bing_layer},
-        {'GeoJSON': geojsonLayer},
-            {position:"topleft"}
-        ).addTo(map);
+            {'GeoJSON': geojsonLayer},
+            {position:"topright"}
+        );
+        map.addControl(layerControl);
 
         $('#geojson_submit').on('click', function() {
             if ($('#geojson_text').val().length < 1) {
@@ -109,5 +137,107 @@ L.TileLayer.Common = L.TileLayer.extend({
             map.fitBounds(geojsonLayer.getBounds());
             $('#geoJsonViewer').modal("hide");
         });
+    };
+
+    // Adds default controls like challenge/survey information to the map
+    var addDefaultControls = function() {
+    };
+
+    // Adds any challenge specific controls to the map
+    var addChallengeControls = function() {
+    };
+
+    // Adds any survey specific controls to the map
+    var addSurveyControls = function() {
+        new L.Control.Instructions({"instructions":"test"}).addTo(map);
+    };
+
+    // adds a task (or challenge) to the map
+    var addTaskToMap = function(parentId, taskId, parentType) {
+        var apiCallback = {
+            success : function(data) {
+                geojsonLayer.clearLayers();
+                geojsonLayer.addData(data);
+                map.fitBounds(geojsonLayer.getBounds());
+                addDefaultControls();
+                if (parentType === "Challenge") {
+                    addChallengeControls();
+                } else {
+                    addSurveyControls();
+                }
+            },
+            error : function(error) {
+                toastr.error(error);
+            }
+        };
+
+        if (parentId != -1) {
+            if (taskId != -1) {
+                jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax(apiCallback);
+            } else {
+                
+            }
+        }
+    };
+
+    // registers a series of hotkeys for quick access to functions
+    var registerHotKeys = function() {
+        $(document).keydown(function(e) {
+            e.preventDefault();
+            switch(e.keyCode) {
+                case 81: //q
+                    // Get next task, set current task to false positive
+                    break;
+                case 87: //w
+                    // Get next task, skip current task
+                    break;
+                case 69: //e
+                    // open task in ID
+                    break;
+                case 82: //r
+                    // open task in JSOM in current layer
+                    break;
+                case 84: //y
+                    // open task in JSOM in new layer
+                    break;
+                case 27: //esc
+                    // remove open dialog
+                    break;
+                default:
+                    break;
+            }
+        });
+    };
+
+    // -- CONTROLS ---------------------------
+    var geoController = L.Control.extend({
+        options: {
+            position:'topright'
+        },
+        onAdd: function(map) {
+            var container = L.DomUtil.create('div');
+            var link = L.DomUtil.create('a', 'button', container);
+            link.innerHTML = "Hide";
+            link.href="#";
+            link.id = "geojsoncontroller";
+            L.DomEvent.on(link, 'click', L.DomEvent.stop).on(link, 'click', this.showHide);
+            L.DomEvent.disableClickPropagation(container);
+            return container;
+        },
+        showHide: function(e) {
+            if (map.hasLayer(geojsonLayer)) {
+                map.removeLayer(geojsonLayer);
+                $('#geojsoncontroller')[0].innerHTML = "Show";
+            } else {
+                map.addLayer(geojsonLayer);
+                $('#geojsoncontroller')[0].innerHTML = "Hide";
+            }
+        }
     });
+
+    return {
+        init: init,
+        addTaskToMap: addTaskToMap
+    };
+
 }());
