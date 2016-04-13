@@ -5,7 +5,6 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.InvalidException
 import org.maproulette.models.Survey
 import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
 import org.maproulette.session.dal.UserDAL
@@ -48,11 +47,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param taskId The task itself
     * @return The html view to show the user
     */
-  def map(parentType:String, parentId:Long, taskId:Long) = Action.async { implicit request =>
+  def map(parentId:Long, taskId:Long) = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
-      if (!Actions.validItemTypeName(parentType)) throw new InvalidException("Invalid parent type provided.")
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentType, parentId, taskId))
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId))
     }
   }
 
@@ -215,7 +213,9 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
         org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
         org.maproulette.controllers.api.routes.javascript.TaskController.delete,
-        routes.javascript.MappingController.getTaskDisplayGeoJSON
+        routes.javascript.MappingController.getTaskDisplayGeoJSON,
+        routes.javascript.MappingController.getSequentialNextTask,
+        routes.javascript.MappingController.getSequentialPreviousTask
       )
     ).as("text/javascript")
   }

@@ -20,7 +20,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
         <div class="wrapper">
 
                 <!-- Main Header -->
-            <header class="main-header">
+            <header id="header" class="main-header">
 
                     <!-- Logo -->
                 <a class="logo">
@@ -33,14 +33,14 @@ scratch. This page gets rid of all links and provides the needed markup only.
                     <!-- Header Navbar -->
                 <nav class="navbar navbar-static-top" role="navigation">
                         <!-- Sidebar toggle button-->
-                    <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
+                    <a id="sidebar_toggle" href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
                         <span class="sr-only">Toggle navigation</span>
                     </a>
                     @views.html.user.userInfo(user)
                 </nav>
             </header>
                 <!-- Left side column. contains the logo and sidebar -->
-            <aside class="main-sidebar">
+            <aside id="sidebar" class="main-sidebar">
                 @views.html.user.sidebar(user)
             </aside>
 
@@ -50,7 +50,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             </div><!-- /.content-wrapper -->
 
             <!-- Main Footer -->
-            <footer class="main-footer">
+            <footer id="footer" class="main-footer">
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
                     <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer">&pi;</a>
@@ -91,11 +91,41 @@ scratch. This page gets rid of all links and provides the needed markup only.
                                         Curent Challenge
                                         <span class="label label-danger pull-right">70%</span>
                                     </h4>
-                                    @if(config.isDebugMode) {
-                                        <div class="progress progress-xxs">
-                                            <div class="progress-bar progress-bar-danger" style="width: 70%"></div>
-                                        </div>
-                                    }
+                                    <div class="progress progress-xxs">
+                                        <div class="progress-bar progress-bar-danger" style="width: 70%"></div>
+                                    </div>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="javascript::;">
+                                    <h4 class="control-sidebar-subheading">
+                                        Total Tasks
+                                        <span class="label label-info pull-right">1342</span>
+                                    </h4>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="javascript::;">
+                                    <h4 class="control-sidebar-subheading">
+                                        Completed Tasks
+                                        <span class="label label-info pull-right">500 (45%)</span>
+                                    </h4>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="javascript::;">
+                                    <h4 class="control-sidebar-subheading">
+                                        Skipped Tasks
+                                        <span class="label label-info pull-right">5 (1%)</span>
+                                    </h4>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="javascript::;">
+                                    <h4 class="control-sidebar-subheading">
+                                        False Positive Tasks
+                                        <span class="label label-info pull-right">124 (10%)</span>
+                                    </h4>
                                 </a>
                             </li>
                         </ul><!-- /.control-sidebar-menu -->

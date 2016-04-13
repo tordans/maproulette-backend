@@ -2,12 +2,12 @@
  * Created by cuthbertm on 3/21/16.
  */
 toastr.options = {
-    "closeButton": true,
+    "closeButton": false,
     "debug": false,
     "newestOnTop": false,
     "progressBar": false,
     "toastClass": "notification",
-    "positionClass": "toast-top-center",
+    "positionClass": "toast-top-left",
     "preventDuplicates": false,
     "onclick": null,
     "showDuration": "300",
@@ -17,7 +17,8 @@ toastr.options = {
     "showEasing": "swing",
     "hideEasing": "linear",
     "showMethod": "fadeIn",
-    "hideMethod": "fadeOut"
+    "hideMethod": "fadeOut",
+    "tapToDismiss" : false
 };
 
 var deleteProject = function(itemId) {

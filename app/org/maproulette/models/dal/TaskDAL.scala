@@ -298,21 +298,59 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
     *
     * @param projectId None if ignoring project restriction, otherwise the id of the project to limit
     *                  where the random tasks come from
-    * @param challengeId None if ignoring the challenge restriction, otherwise the id of the challenge
+    * @param parentId None if ignoring the parent restriction, otherwise the id of the parent
     *                    to limit where the random tasks come from
     * @param tags List of tag names that will restrict the returned tags
     * @param limit The amount of tags that should be returned
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
   def getRandomTasksStr(projectId:Option[Long],
-                     challengeId:Option[Long],
+                        parentId:Option[Long],
                      tags:List[String],
                      limit:Int=(-1)) : List[Task] = {
     if (tags.isEmpty) {
-      getRandomTasksInt(projectId, challengeId, List(), limit)
+      getRandomTasksInt(projectId, parentId, List(), limit)
     } else {
       val idList = tagDAL.retrieveListByName(tags.map(_.toLowerCase)).map(_.id)
-      getRandomTasksInt(projectId, challengeId, idList, limit)
+      getRandomTasksInt(projectId, parentId, idList, limit)
+    }
+  }
+
+  /**
+    * Simple query to retrieve the next task in the sequence
+    *
+    * @param parentId The parent of the task
+    * @param currentTaskId The current task that we are basing our query from
+    * @return An optional task, if no more tasks in the list will retrieve the first task
+    */
+  def getNextTaskInSequence(parentId:Long, currentTaskId:Long) : Option[Task] = {
+    db.withConnection { implicit c =>
+      SQL"""SELECT * FROM tasks WHERE id > $currentTaskId AND parent_id = $parentId
+            ORDER BY id ASC LIMIT 1""".as(parser.*).headOption match {
+        case Some(t) => Some(t)
+        case None =>
+          SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
+                ORDER BY id ASC LIMIT 1""".as(parser.*).headOption
+      }
+    }
+  }
+
+  /**
+    * Simple query to retrieve the previous task in the sequence
+    *
+    * @param parentId The parent of the task
+    * @param currentTaskId The current task that we are basing our query from
+    * @return An optional task, if no more tasks in the list will retrieve the last task
+    */
+  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long) : Option[Task] = {
+    db.withConnection { implicit c =>
+      SQL"""SELECT * FROM tasks WHERE id < $currentTaskId AND parent_id = $parentId
+            ORDER BY id DESC LIMIT 1""".as(parser.*).headOption match {
+        case Some(t) => Some(t)
+        case None =>
+          SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
+                ORDER BY id DESC LIMIT 1""".as(parser.*).headOption
+      }
     }
   }
 
@@ -325,14 +363,14 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
     *
     * @param projectId None if ignoring project restriction, otherwise the id of the project to limit
     *                  where the random tasks come from
-    * @param challengeId None if ignoring the challenge restriction, otherwise the id of the challenge
+    * @param parentId None if ignoring the parent (challenge or survey) restriction, otherwise the id of the parent
     *                    to limit where the random tasks come from
     * @param tags List of tag ids that will restrict the returned tags
     * @param limit The amount of tags that should be returned
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
   def getRandomTasksInt(projectId:Option[Long],
-                     challengeId:Option[Long],
+                        parentId:Option[Long],
                      tags:List[Long],
                      limit:Int=(-1)) : List[Task] = {
     val firstQuery =
@@ -350,7 +388,7 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
     val queryBuilder = new StringBuilder
     val whereClause = new StringBuilder("WHERE c.enabled = TRUE AND p.enabled = TRUE")
 
-    challengeId match {
+    parentId match {
       case Some(id) =>
         whereClause ++= " AND tasks.parent_id = {parentId} "
         parameters += ('parentId -> ParameterValue.toParameterValue(id))

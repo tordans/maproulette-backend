@@ -228,6 +228,26 @@ CREATE TABLE IF NOT EXISTS tags
 -- index has the potentially to slow down inserts badly
 SELECT create_index_if_not_exists('tags', 'name', '(name)');
 
+-- The tags associated with challenges
+CREATE TABLE IF NOT EXISTS tags_on_challenges
+(
+  id           SERIAL  NOT NULL,
+  challenge_id INTEGER NOT NULL,
+  tag_id       INTEGER NOT NULL,
+  CONSTRAINT tags_on_challenges_pkey PRIMARY KEY (id),
+  CONSTRAINT challenges_tags_on_challenges_id_fkey FOREIGN KEY (challenge_id)
+  REFERENCES challenges (id) MATCH SIMPLE
+  ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT tags_tags_on_challenges_id_fkey FOREIGN KEY (tag_id)
+  REFERENCES tags (id) MATCH SIMPLE
+  ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id', '(challenge_id)');
+SELECT create_index_if_not_exists('tags_on_challenges', 'tag_id', '(tag_id)');
+-- This index could slow down inserts pretty badly
+SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id_tag_id', '(challenge_id, tag_id)');
+
 -- The tags associated with a task
 CREATE TABLE IF NOT EXISTS tags_on_tasks
 (
@@ -235,11 +255,12 @@ CREATE TABLE IF NOT EXISTS tags_on_tasks
   task_id integer NOT NULL,
   tag_id integer NOT NULL,
   CONSTRAINT tags_on_tasks_pkey PRIMARY KEY(id),
-  CONSTRAINT task_tags_on_tasks_task_id_fkey FOREIGN KEY (task_id)
+  CONSTRAINT tasks_tags_on_tasks_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT task_tags_on_tasks_tag_id_fkey FOREIGN KEY (tag_id)
+  CONSTRAINT tags_tags_on_tasks_tag_id_fkey FOREIGN KEY (tag_id)
     REFERENCES tags (id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 SELECT create_index_if_not_exists('tags_on_tasks', 'task_id', '(task_id)');
@@ -261,7 +282,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
 );
 
 SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
-SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');
+CREATE INDEX idx_task_geometries_geom ON task_geometries USING GIST (geom);
 
 -- Actions that are taken in the system, like set the status of a task to 'fixed'
 CREATE TABLE IF NOT EXISTS actions

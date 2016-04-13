@@ -39,7 +39,7 @@ object MPExceptionUtil {
         Forbidden(Json.obj("status" -> "Forbidden", "Message" -> e.getMessage))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
+        NotFound(Json.obj("status" -> "NotFound", "message" -> e.getMessage))
       case e:Exception =>
         Logger.error(e.getMessage, e)
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
@@ -107,7 +107,7 @@ object MPExceptionUtil {
         Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
+        NotFound(Json.obj("status" -> "NotFound", "message" -> e.getMessage))
       case e:Throwable =>
         Logger.error(e.getMessage, e)
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))

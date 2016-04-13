@@ -32,6 +32,7 @@ libraryDependencies ++= Seq(
   "org.webjars" % "toastr" % "2.1.1",
   "joda-time" % "joda-time" % "2.9.2",
   "org.webjars" % "datatables" % "1.10.11",
+  "org.webjars.bower" % "marked" % "0.3.5",
   "com.vividsolutions" % "jts" % "1.13"
 )
 
