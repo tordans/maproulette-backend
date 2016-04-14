@@ -37,21 +37,21 @@ body, html {
   background-color: #F4F4F4;
 }
 
-.main-header {
-  z-index:99999999;
-}
-
-.sidebar {
-  z-index:99999999;
-}
-
 .notification {
-  position:fixed;
-  left:270px!important;
-  top:50px!important;
   font-size:12px;
   opacity: 0.9!important;
   padding: 10px!important;
+}
+
+.notification-position {
+  position:absolute;
+  top:60px;
+  left:90px;
+}
+
+.notification-position-menuopen {
+  .notification-position;
+  left:270px;
 }
 
 .toast-info {

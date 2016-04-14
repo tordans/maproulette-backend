@@ -1,49 +1,51 @@
+// Basic namespace for some Util functions used in this js lib
 var Utils = {
-  handleError: function(error) {
-      var jsonMsg = JSON.parse(error.responseText);
-      toastr.error(jsonMsg.status + " : " + jsonMsg.message);
-  },
-  addComma: function (str) {
-    return (str.match(/\,\s+$/) || str.match(/in\s+$/)) ? '' : ', ';
-  },
-  mqResultToString: function (addr) {
-    // Convert a MapQuest reverse geocoding result to a human readable string.
-    var out, county, town;
-    if (!addr || !(addr.town || addr.county || addr.hamlet || addr.state || addr.country)) {
-        return 'We are somewhere on earth..';
-    }
-    out = 'We are ';
-    if (addr.city !== null) {
-        out += 'in ' + addr.city;
-    } else if (addr.town !== null) {
-        out += 'in ' + addr.town;
-    } else if (addr.hamlet !== null) {
-        out += 'in ' + addr.hamlet;
-    } else {
-        out += 'somewhere in ';
-    }
-    out += Utils.addComma(out);
-    if (addr.county) {
-        if (addr.county.toLowerCase().indexOf('county') > -1) {
-            out += addr.county;
+    // handles any javascript errors by popping a toast up at the top.
+    handleError: function(error) {
+        var jsonMsg = JSON.parse(error.responseText);
+        toastr.error(jsonMsg.status + " : " + jsonMsg.message);
+    },
+    addComma: function (str) {
+        return (str.match(/\,\s+$/) || str.match(/in\s+$/)) ? '' : ', ';
+    },
+    mqResultToString: function (addr) {
+        // Convert a MapQuest reverse geocoding result to a human readable string.
+        var out, county, town;
+        if (!addr || !(addr.town || addr.county || addr.hamlet || addr.state || addr.country)) {
+            return 'We are somewhere on earth..';
+        }
+        out = 'We are ';
+        if (addr.city !== null) {
+            out += 'in ' + addr.city;
+        } else if (addr.town !== null) {
+            out += 'in ' + addr.town;
+        } else if (addr.hamlet !== null) {
+            out += 'in ' + addr.hamlet;
         } else {
-            out += addr.county + ' County';
+            out += 'somewhere in ';
         }
-    }
-    out += Utils.addComma(out);
-    if (addr.state) {
-        out += addr.state;
-    }
-    out += Utils.addComma(out);
-    if (addr.country) {
-        if (addr.country.indexOf('United States') > -1) {
-            out += 'the ';
+        out += Utils.addComma(out);
+        if (addr.county) {
+            if (addr.county.toLowerCase().indexOf('county') > -1) {
+                out += addr.county;
+            } else {
+                out += addr.county + ' County';
+            }
         }
-        out += addr.country;
+        out += Utils.addComma(out);
+        if (addr.state) {
+            out += addr.state;
+        }
+        out += Utils.addComma(out);
+        if (addr.country) {
+            if (addr.country.indexOf('United States') > -1) {
+                out += 'the ';
+            }
+                out += addr.country;
+            }
+        out += '.';
+        return out;
     }
-    out += '.';
-    return out;
-  }
 };
 
 L.TileLayer.Common = L.TileLayer.extend({
@@ -53,6 +55,7 @@ L.TileLayer.Common = L.TileLayer.extend({
 });
 
 // -- CUSTOM CONTROLS ----------------------------------
+// Help control, when you click on this the help screen will overlay the map
 L.Control.Help = L.Control.extend({
     options: {
         position: 'topright',
@@ -70,6 +73,7 @@ L.Control.Help = L.Control.extend({
     }
 });
 
+// Control panel for all the task functions
 L.Control.ControlPanel = L.Control.extend({
     options: {
         position: 'bottomright',
@@ -84,6 +88,8 @@ L.Control.ControlPanel = L.Control.extend({
         showText:true
     },
     onAdd: function(map) {
+        // we create all the containers first so that the ordering will always be consistent
+        // no matter what controls a user decides to put on the map
         var container = L.DomUtil.create('div', 'mp-control');
         container.id = "controlpanel_container";
         var prevDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
@@ -96,13 +102,16 @@ L.Control.ControlPanel = L.Control.extend({
         nextDiv.id = "controlpanel_next";
         return container;
     },
+    // updates the parent and current task id that is being shown on the map
     update: function(props) {
         this.options.parent.id = props.parent.id;
         this.options.currentTaskId = props.currentTaskId;
     },
+    // updates whether to show the text for the controls or not
     updateShowText: function(showText) {
         this.options.showText = showText;
     },
+    // updates the controls, removes and adds if necessary
     updateUI: function(prevControl, editControl, fpControl, nextControl) {
         this.options.controls[0] = prevControl;
         this.options.controls[1] = editControl;
@@ -110,6 +119,7 @@ L.Control.ControlPanel = L.Control.extend({
         this.options.controls[3] = nextControl;
         this.updateControls();
     },
+    // generic function to update the controls on the map
     updateControl: function(controlID, controlName, friendlyName, icon, clickHandler) {
         if (this.options.controls[controlID]) {
             var controlDiv = L.DomUtil.get(controlName);
@@ -228,6 +238,7 @@ L.Control.ControlPanel = L.Control.extend({
 
 }());
 
+// A simple point class
 var Point = function(x, y) {
     this.x = x;
     this.y = y;
@@ -240,21 +251,23 @@ var MRManager = (function() {
     // controls
     var controlPanel = new L.Control.ControlPanel({});
     var currentTask = {};
+    // In debug mode tasks will not be edited and the previous button is displayed in the control panel
+    var debugMode = false;
 
-    var currentFooterHeight = 50;
-    var currentSidebarWidth = 50;
-    // Function that handles the resizing of the map when
+    // Function that handles the resizing of the map when the menu is toggled
     var resizeMap = function() {
         var mapDiv = $("#map");
-        var footerDiv = $("#footer");
-        if (currentFooterHeight !== footerDiv.outerHeight()) {
-            currentFooterHeight = footerDiv.outerHeight();
-            mapDiv.css("bottom", currentFooterHeight + "px");
-        }
-        var sidebarDiv = $("#sidebar");
-        if (currentSidebarWidth !== sidebarDiv.outerWidth()) {
-            currentSidebarWidth = sidebarDiv.outerWidth();
-            mapDiv.css("left", currentSidebarWidth + "px");
+        var notifications = $(".notification-position");
+        var menuOpenNotifications = $(".notification-position-menuopen");
+        var sidebarWidth = $("#sidebar").width();
+        if (sidebarWidth == 50) {
+            mapDiv.animate({left: '230px'});
+            notifications.animate({left: '270px'});
+            menuOpenNotifications.animate({left: '270px'});
+        } else if (sidebarWidth == 230) {
+            mapDiv.animate({left: '50px'});
+            notifications.animate({left: '90px'});
+            menuOpenNotifications.animate({left: '90px'});
         }
     };
 
@@ -303,6 +316,7 @@ var MRManager = (function() {
         map.addControl(layerControl);
         map.addControl(controlPanel);
 
+        // handles click events that are executed when submitting the custom geojson from the geojson viewer
         $('#geojson_submit').on('click', function() {
             if ($('#geojson_text').val().length < 1) {
                 $('#geoJsonViewer').modal("hide");
@@ -313,9 +327,9 @@ var MRManager = (function() {
             map.fitBounds(geojsonLayer.getBounds());
             $('#geoJsonViewer').modal("hide");
         });
+        // handles the click event from the sidebar toggle
         $("#sidebar_toggle").on("click", resizeMap);
-        $("#sidebar_toggle").on("click", resizeMap);
-        resizeMap();
+        $("#map").css("left", $("#sidebar").width());
     };
 
     var displayTaskData = function(data) {
@@ -329,9 +343,17 @@ var MRManager = (function() {
         controlPanel.updateUI(true, true, true, true);
         // show the task text as a notification
         toastr.clear();
-        toastr.info(data.instruction, '', { timeOut: 0 });
+        toastr.info(data.instruction, '', { positionClass: getNotificationClass(), timeOut: 0 });
         // let the user know where they are
         displayAdminArea();
+    };
+
+    var getNotificationClass = function() {
+        if ($("#sidebar").width() == 50) {
+            return 'notification-position';
+        } else {
+            return 'notification-position-menuopen';
+        }
     };
 
     var displayAdminArea = function () {
@@ -340,7 +362,7 @@ var MRManager = (function() {
             url: mqurl,
             jsonp: "json_callback",
             success: function (data) {
-                toastr.info(Utils.mqResultToString(data.address));
+                toastr.info(Utils.mqResultToString(data.address), '', {positionClass: getNotificationClass()});
             }
         });
     };
@@ -360,6 +382,10 @@ var MRManager = (function() {
                 
             }
         }
+    };
+
+    var getCurrentChallenge = function() {
+        return currentTask.parent;
     };
 
     // registers a series of hotkeys for quick access to functions
