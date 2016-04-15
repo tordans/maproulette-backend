@@ -42,6 +42,6 @@
 <script>
     $(document).ready(function() {
         MRManager.init('map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}))
-        MRManager.addTaskToMap(@parentId, @taskId);
+        MRManager.addTaskToMap(@taskId);
     });
 </script>

@@ -53,7 +53,7 @@ scratch. This page gets rid of all links and provides the needed markup only.
             <footer id="footer" class="main-footer">
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
-                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer">&pi;</a>
+                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='$("#geojson_text").value = MRManager.getCurrentTaskGeoJSON();'>&pi;</a>
                 </div>
                     <!-- Default to the left -->
                 <strong>Copyright &copy; 2016 <a href="#">MapRoulette</a>.</strong> All rights reserved.

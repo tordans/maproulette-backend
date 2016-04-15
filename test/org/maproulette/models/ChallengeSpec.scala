@@ -22,7 +22,7 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
       val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest"), User.superUser).id
-      val newChallenge = Challenge(challengeID, "NewChallenge", None, Some("This is a new challenge"), projectID, "")
+      val newChallenge = Challenge(challengeID, "NewChallenge", Some("This is a new challenge"), projectID, "")
       challengeID = challengeDAL.insert(newChallenge, User.superUser).id
       challengeDAL.retrieveById match {
         case Some(t) =>

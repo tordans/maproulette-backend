@@ -21,7 +21,6 @@
                         <th>Enabled</th>
                         <th>ID</th>
                         <th>Name</th>
-                        <th>Identifier</th>
                         <th>Admins</th>
                         <th>Challenges</th>
                         <th>Surveys</th>
@@ -41,7 +40,6 @@
                                 </td>
                                 <td>@p.id</td>
                                 <td><a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p.id)">@p.name</a></td>
-                                <td>@p.identifier.getOrElse("")</td>
                                 <td></td>
                                 <td>0</td>
                                 <td>0</td>
@@ -79,7 +77,6 @@
                         <th>Enabled</th>
                         <th>ID</th>
                         <th>Name</th>
-                        <th>Identifier</th>
                         <th>Admins</th>
                         <th>Challenges</th>
                         <th>Surveys</th>

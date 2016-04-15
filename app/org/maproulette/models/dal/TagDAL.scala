@@ -76,7 +76,7 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     implicit val ids:List[Long] = List()
     cacheManager.withIDListCaching { implicit uncached =>
       db.withConnection { implicit c =>
-        SQL"""SELECT t.id, t.name, t.description FROM tags AS t
+        SQL"""SELECT * FROM tags AS t
               INNER JOIN tags_on_tasks AS tt ON t.id = tt.tag_id
               WHERE tt.task_id = $id""".as(parser.*)
       }
@@ -93,7 +93,7 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     implicit val ids:List[Long] = List()
     cacheManager.withIDListCaching { implicit uncached =>
       db.withConnection { implicit c =>
-        SQL"""SELECT t.id, t.name, t.description FROM tags AS t
+        SQL"""SELECT * FROM tags AS t
               INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id
               WHERE tc.challenge_id = $id""".as(parser.*)
       }

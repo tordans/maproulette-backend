@@ -2,11 +2,10 @@ package controllers
 
 import javax.inject.Inject
 
-import org.maproulette.actions.Actions
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.Task
 import org.maproulette.models.dal.TaskDAL
-import org.maproulette.session.SessionManager
+import org.maproulette.session.{SearchParameters, SessionManager}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, Controller}
 
@@ -31,17 +30,37 @@ class MappingController @Inject() (sessionManager:SessionManager,
   /**
     * Gets a random next task based on the user selection criteria, which contains a lot of
     * different criteria for the search.
-    * Project - The id of the project if any to limit the search by
-    * Challenge - The id of the challenge if any to limit the search by
-    * ProjectNameSearch - Limit by search on specific project names
-    * ChallengeNameSearch - Limit by the search on the specific challenge names
     *
+    * @param projectId filter by a project Id, use -1 if want to ignore project id
+    * @param projectSearch filter by the name of the project, ignored if project Id set
+    * @param challengeId filter by a challenge Id, use -1 if want to ignore challenge id
+    * @param challengeTags filter by the tags on the challenge, ignored if challenge Id set
+    * @param challengeSearch filter by the name of the challenge, ignored if challenge Id set
+    * @param taskTags filter by the tags on the task
+    * @param taskSearch filter by the name of the task
     *
     * @return
     */
-  def getRandomNextTask() = Action.async { implicit request =>
+  def getRandomNextTask(projectId:Long,
+                        projectSearch:String,
+                        challengeId:Long,
+                        challengeTags:String,
+                        challengeSearch:String,
+                        taskTags:String,
+                        taskSearch:String) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok
+      val params = SearchParameters(
+        if (projectId == -1) None else Some(projectId),
+        projectSearch,
+        if (challengeId == -1) None else Some(challengeId),
+        challengeTags.split(",").toList,
+        challengeSearch,
+        taskTags.split(",").toList,
+        taskSearch
+      )
+
+      Ok(getResponseJSON(taskDAL.getRandomTasks(params, 1).headOption)
+      )
     }
   }
 

@@ -19,7 +19,8 @@ import play.api.libs.json.JsValue
   * @author cuthbertm
   */
 @Singleton
-class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends ParentDAL[Long, Challenge, Task] {
+class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, override val tagDAL: TagDAL)
+  extends ParentDAL[Long, Challenge, Task] with TagDALMixin[Challenge] {
   // The manager for the challenge cache
   override val cacheManager = new CacheManager[Long, Challenge]
   // The name of the challenge table
@@ -39,7 +40,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
   override val parser: RowParser[Challenge] = {
     get[Long]("challenges.id") ~
       get[String]("challenges.name") ~
-      get[Option[String]]("challenges.identifier") ~
       get[Option[String]]("challenges.description") ~
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.instruction") ~
@@ -47,8 +47,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
       get[Int]("challenges.challenge_type") map {
-      case id ~ name ~ identifier ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~ enabled ~ challenge_type =>
-        new Challenge(id, name, identifier, description, parentId, instruction, difficulty, blurb, enabled, challenge_type)
+      case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~ enabled ~ challenge_type =>
+        new Challenge(id, name, description, parentId, instruction, difficulty, blurb, enabled, challenge_type)
     }
   }
 
@@ -63,9 +63,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction, enabled, challenge_type)
-              VALUES (${challenge.name}, ${challenge.identifier}, ${challenge.parent},
-                      ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
+        SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb, instruction, enabled, challenge_type)
+              VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
                       ${challenge.instruction}, ${challenge.enabled}, $challengeType) RETURNING *""".as(parser.*).headOption
       }
     }.get
@@ -83,7 +82,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
-        val identifier = (updates \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
@@ -93,7 +91,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
 
         SQL"""UPDATE challenges SET name = $name,
-                                    identifier = $identifier,
                                     parent_id = $parentId,
                                     difficulty = $difficulty,
                                     description = $description,

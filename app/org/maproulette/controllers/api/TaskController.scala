@@ -7,8 +7,8 @@ import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
-import org.maproulette.exception.{MPExceptionUtil, NotFoundException}
-import org.maproulette.session.{SessionManager, User}
+import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -80,7 +80,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     }
 
     // now we have the ids for the supplied tags, then lets map them to the task created
-    dal.updateTaskTags(createdObject.id, tagIds, user)
+    dal.updateItemTags(createdObject.id, tagIds, user)
     if (tagIds.nonEmpty) {
       actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
@@ -94,7 +94,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     */
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(Task(id, "", None, -1, "", None, "").tags))
+      Ok(Json.toJson(Task(id, "", -1, "", None, "").tags))
     }
   }
 
@@ -111,7 +111,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
-        Ok(Json.toJson(dal.getTasksBasedOnTags(tags.split(",").toList, limit, offset)))
+        Ok(Json.toJson(dal.getItemsBasedOnTags(tags.split(",").toList, limit, offset)))
       }
     }
   }
@@ -119,14 +119,29 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   /**
     * Gets a random task(s) given the provided tags.
     *
+    * @param projectSearch Filter on the name of the project
+    * @param challengeSearch Filter on the name of the challenge (Survey included)
+    * @param challengeTags Filter on the tags of the challenge
     * @param tags A comma separated list of tags to match against
+    * @param taskSearch Filter based on the name of the task
     * @param limit The number of tasks to return
     * @return
     */
-  def getRandomTasks(tags: String,
+  def getRandomTasks(projectSearch:String,
+                     challengeSearch:String,
+                     challengeTags:String,
+                     tags: String,
+                     taskSearch: String,
                      limit: Int) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val result = dal.getRandomTasksStr(None, None, tags.split(",").toList, limit)
+      val params = SearchParameters(
+        projectSearch = projectSearch,
+        challengeSearch = challengeSearch,
+        challengeTags = challengeTags.split(",").toList,
+        taskTags = tags.split(",").toList,
+        taskSearch = taskSearch
+      )
+      val result = dal.getRandomTasks(params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
@@ -148,7 +163,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         MPExceptionUtil.internalExceptionCatcher { () =>
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
-            dal.deleteTaskStringTags(id, tagList, user)
+            dal.deleteItemStringTags(id, tagList, user)
             actionManager.setAction(Some(user), itemType.convertToItem(id), TagRemoved(), tags)
           }
           NoContent

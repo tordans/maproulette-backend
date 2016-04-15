@@ -192,12 +192,17 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @return A list of objects, empty list if none found
     */
   def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
-    cacheManager.withIDListCaching { implicit uncachedIDs =>
-      db.withConnection { implicit c =>
-        val query = s"""SELECT $retrieveColumns FROM $tableName
-                        WHERE id IN ({inString})
-                        LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      cacheManager.withIDListCaching { implicit uncachedIDs =>
+        db.withConnection { implicit c =>
+          val query =
+            s"""SELECT $retrieveColumns FROM $tableName
+                          WHERE id IN ({inString})
+                          LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
+        }
       }
     }
   }
@@ -210,10 +215,14 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @return List of objects, empty list if none found
     */
   def retrieveListByName(implicit names: List[String]): List[T] = {
-    cacheManager.withNameListCaching { implicit uncachedNames =>
-      db.withConnection { implicit c =>
-        val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
-        SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser.*)
+    if (names.isEmpty) {
+      List.empty
+    } else {
+      cacheManager.withNameListCaching { implicit uncachedNames =>
+        db.withConnection { implicit c =>
+          val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
+          SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser.*)
+        }
       }
     }
   }

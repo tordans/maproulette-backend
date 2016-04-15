@@ -175,7 +175,6 @@ class Application @Inject() (val messagesApi: MessagesApi,
           val taskMap = tasks.map(task => Map(
             "id" -> task.id.toString,
             "name" -> task.name,
-            "identifier" -> task.identifier.getOrElse(""),
             "instruction" -> task.instruction,
             "location" -> task.location.toString,
             "status" -> task.status.getOrElse(0).toString,
@@ -213,9 +212,14 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
         org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
         org.maproulette.controllers.api.routes.javascript.TaskController.delete,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusDeleted,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFixed,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusSkipped,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFalsePositive,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
-        routes.javascript.MappingController.getSequentialPreviousTask
+        routes.javascript.MappingController.getSequentialPreviousTask,
+        routes.javascript.MappingController.getRandomNextTask
       )
     ).as("text/javascript")
   }

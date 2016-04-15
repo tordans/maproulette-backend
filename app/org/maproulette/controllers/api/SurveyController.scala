@@ -6,8 +6,8 @@ import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal.{SurveyDAL, TaskDAL}
-import org.maproulette.session.SessionManager
-import play.api.libs.json.{Json, Writes, Reads}
+import org.maproulette.session.{SearchParameters, SessionManager}
+import play.api.libs.json.{Json, Reads, Writes}
 import play.api.mvc.Action
 
 /**
@@ -39,19 +39,23 @@ class SurveyController @Inject() (override val childController:TaskController,
   /**
     * Gets a random task that is a child of the survey.
     *
-    * @param projectId The project id, ie. the parent of the child. If the incorrect parent id is
-    *                  supplied no tasks will be found, due to the inner joins of projects and challenges
     * @param surveyId The survey id that is the parent of the tasks that you would be searching for.
     * @param tags A comma separated list of tags that optionally can be used to further filter the tasks
+    * @param taskSearch Filter based on the name of the task
     * @param limit Limit of how many tasks should be returned
     * @return A list of Tasks that match the supplied filters
     */
-  def getRandomTasks(projectId: Long,
-                     surveyId: Long,
+  def getRandomTasks(surveyId: Long,
                      tags: String,
+                     taskSearch: String,
                      limit:Int) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val result = taskDAL.getRandomTasksStr(Some(projectId), Some(surveyId), tags.split(",").toList, limit)
+      val params = SearchParameters(
+        challengeId = Some(surveyId),
+        taskTags = tags.split(",").toList,
+        taskSearch = taskSearch
+      )
+      val result = taskDAL.getRandomTasks(params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }

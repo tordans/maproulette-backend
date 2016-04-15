@@ -44,6 +44,14 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
+-- Function to remove locks when a user is deleted
+CREATE OR REPLACE FUNCTION update_task_locks() RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE tasks SET locked_by = NULL WHERE locked_by = old.id;
+END
+$$
+LANGUAGE plpgsql VOLATILE;;
+
 -- Map Roulette uses postgis extension for all it's geometries
 CREATE EXTENSION IF NOT EXISTS postgis;
 -- Map Roulette uses hstore for the properties of all it's geometries
@@ -125,7 +133,6 @@ CREATE TABLE IF NOT EXISTS challenges
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  identifier character varying DEFAULT '',
   name character varying NOT NULL,
   parent_id integer NOT NULL,
   description character varying DEFAULT '',
@@ -146,7 +153,6 @@ CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
-SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
 
 -- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
@@ -175,15 +181,17 @@ CREATE TABLE IF NOT EXISTS tasks
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  identifier character varying DEFAULT '',
   name character varying NOT NULL,
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
+  locked_by integer,
   CONSTRAINT tasks_pkey PRIMARY KEY(id),
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT tasks_locked_by_fkey FOREIGN KEY (locked_by)
+    REFERENCES users(id) MATCH SIMPLE
 );
 
 DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
@@ -193,6 +201,10 @@ CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
 SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
+SELECT create_index_if_not_exists('tasks', 'locked_by', '(locked_by)');
+DROP TRIGGER IF EXISTS update_tasks_locked_by ON users;
+CREATE TRIGGER update_tasks_locked_by BEFORE DELETE ON users
+  FOR EACH ROW EXECUTE PROCEDURE update_task_locks();
 
 -- The answers for a survey from a user
 CREATE TABLE IF NOT EXISTS survey_answers

@@ -25,7 +25,6 @@ import play.api.libs.json.{Json, Reads, Writes}
   */
 case class Challenge(override val id: Long,
                      override val name: String,
-                     override val identifier:Option[String]=None,
                      override val description:Option[String]=None,
                      parent:Long,
                      instruction:String,
@@ -47,7 +46,6 @@ object Challenge {
     mapping(
       "id" -> default(longNumber, -1L),
       "name" -> nonEmptyText,
-      "identifier" -> optional(text),
       "description" -> optional(text),
       "parent" -> longNumber,
       "instruction" -> nonEmptyText,
@@ -58,7 +56,7 @@ object Challenge {
     )(Challenge.apply)(Challenge.unapply)
   )
 
-  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, None, parentId, "")
+  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, parentId, "")
 
   val DIFFICULTY_EASY = 1
   val DIFFICULTY_NORMAL = 2

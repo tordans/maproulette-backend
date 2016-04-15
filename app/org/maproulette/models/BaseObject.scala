@@ -12,7 +12,6 @@ import org.maproulette.session.User
   */
 trait BaseObject[Key] {
   def name:String
-  def identifier:Option[String] = None
   def id:Key
   def description:Option[String] = None
 

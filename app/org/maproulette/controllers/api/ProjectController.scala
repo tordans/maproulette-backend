@@ -6,7 +6,7 @@ import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Project}
-import org.maproulette.session.{SessionManager, User}
+import org.maproulette.session.{SearchParameters, SessionManager, User}
 import play.api.libs.json._
 import play.api.mvc.Action
 
@@ -40,15 +40,28 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     * Gets a random task that is an descendant of the project.
     *
     * @param projectId The project id, ie. the ancestor of the child.
+    * @param challengeSearch Filter based on the name of the challenge
+    * @param challengeTags Filter based on the tags of the challenge
     * @param tags A comma separated list of tags that optionally can be used to further filter the tasks
+    * @param taskSearch Filter based on the name of the task
     * @param limit Limit of how many tasks should be returned
     * @return A list of Tasks that match the supplied filters
     */
   def getRandomTasks(projectId: Long,
+                     challengeSearch:String,
+                     challengeTags:String,
                      tags: String,
+                     taskSearch:String,
                      limit:Int) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val result = taskDAL.getRandomTasksStr(Some(projectId), None, tags.split(",").toList, limit)
+      val params = SearchParameters(
+        projectId = Some(projectId),
+        challengeSearch = challengeSearch,
+        challengeTags = challengeTags.split(",").toList,
+        taskSearch = taskSearch,
+        taskTags = tags.split(",").toList
+      )
+      val result = taskDAL.getRandomTasks(params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
