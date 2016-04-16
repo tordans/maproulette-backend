@@ -40,6 +40,14 @@ class Application @Inject() (val messagesApi: MessagesApi,
   }
 
   /**
+    * Maps a challenge onto the map, this will basically start the challenge with that ID
+    *
+    * @param parentId The parent chalenge ID
+    * @return
+    */
+  def mapChallenge(parentId:Long) = map(parentId, -1)
+
+  /**
     * Only slightly different to the index page, this one shows the geojson of a specific item on the
     * map, which then can be edited or status set
     *

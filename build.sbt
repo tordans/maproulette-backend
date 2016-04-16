@@ -8,7 +8,7 @@ lazy val `playmaproulettev2` = (project in file("."))
   .enablePlugins(PlayScala)
   .enablePlugins(SbtWeb)
 
-pipelineStages := Seq(digest, gzip)
+pipelineStages := Seq(rjs, digest, gzip)
 
 routesGenerator := InjectedRoutesGenerator
 

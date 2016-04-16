@@ -15,6 +15,14 @@ import scala.reflect.runtime.universe._
 object Utils {
 
   /**
+    * Checks to see if a string is a number
+    *
+    * @param x The string to check
+    * @return true is string is a number
+    */
+  def isDigit(x:String) = x forall Character.isDigit
+
+  /**
     * Wraps a JSON message inside of a BadRequest response
     *
     * @param message The message to place inside the json

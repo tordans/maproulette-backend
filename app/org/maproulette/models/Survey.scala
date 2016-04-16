@@ -20,11 +20,12 @@ case class Answer(id:Long=(-1), answer:String)
   *
   * @author cuthbertm
   */
-case class Survey(challenge:Challenge, answers:List[Answer]) extends ChildObject[Long, Project] {
+case class Survey(challenge:Challenge, answers:List[Answer]) extends ChildObject[Long, Project] with TagObject[Long] {
   override def getParent: Project = challenge.getParent
   override def name: String = challenge.name
   override def id: Long = challenge.id
   def question = challenge.instruction
+  override lazy val tags: List[Tag] = challenge.tags
 }
 
 object Survey {

@@ -121,7 +121,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
                       INNER JOIN projects p ON p.id = c.parent_id
                       INNER JOIN tags_on_$tableName tt ON $tableName.id = tt.${name}_id
                       INNER JOIN tags tg ON tg.id = tt.tag_id
-                      WHERE c.enabled = TRUE AND tg.name IN ({tags})
+                      WHERE c.enabled = TRUE AND p.enabled = TRUE AND tg.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""
       SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser.*)
     }

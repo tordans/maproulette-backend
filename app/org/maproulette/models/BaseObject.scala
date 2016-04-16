@@ -1,5 +1,8 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
+import org.maproulette.models.dal.TagDALMixin
 import org.maproulette.session.User
 
 /**
@@ -37,4 +40,9 @@ trait ChildObject[Key, P <: BaseObject[Key]] extends BaseObject[Key] {
     */
   override def hasWriteAccess(user: User): Boolean =
     user.isSuperUser || getParent.hasWriteAccess(user)
+}
+
+trait TagObject[Key] {
+  this: BaseObject[Key] =>
+  val tags:List[Tag]
 }

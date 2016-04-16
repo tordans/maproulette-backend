@@ -4,10 +4,10 @@ import javax.inject.Inject
 
 import org.maproulette.actions.{ActionManager, ChallengeType, TaskViewed}
 import org.maproulette.controllers.ParentController
-import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
+import org.maproulette.models.dal.{ChallengeDAL, TagDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Task}
-import org.maproulette.session.{SearchParameters, SessionManager}
-import play.api.libs.json.{Json, Reads, Writes}
+import org.maproulette.session.{SearchParameters, SessionManager, User}
+import play.api.libs.json.{JsValue, Json, Reads, Writes}
 import play.api.mvc.Action
 
 /**
@@ -22,8 +22,9 @@ class ChallengeController @Inject() (override val childController:TaskController
                                      override val sessionManager: SessionManager,
                                      override val actionManager: ActionManager,
                                      override val dal: ChallengeDAL,
-                                     taskDAL: TaskDAL)
-  extends ParentController[Challenge, Task] {
+                                     taskDAL: TaskDAL,
+                                     override val tagDAL: TagDAL)
+  extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
   // json reads for automatically reading Challenges from a posted json body
   override implicit val tReads: Reads[Challenge] = Challenge.challengeReads
@@ -35,6 +36,34 @@ class ChallengeController @Inject() (override val childController:TaskController
   override protected val cReads: Reads[Task] = Task.taskReads
   // The type of object that this controller deals with.
   override implicit val itemType = ChallengeType()
+
+  override def dalWithTags = dal
+
+  /**
+    * Function can be implemented to extract more information than just the default create data,
+    * to build other objects with the current object at the core. No data will be returned from this
+    * function, it purely does work in the background AFTER creating the current object
+    *
+    * @param body          The Json body of data
+    * @param createdObject The object that was created by the create function
+    * @param user          The user that is executing the function
+    */
+  override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User): Unit = {
+    super.extractAndCreate(body, createdObject, user)
+    extractTags(body, createdObject, user)
+  }
+
+  /**
+    * Gets a json list of tags of the challenge
+    *
+    * @param id The id of the challenge containing the tags
+    * @return The html Result containing json array of tags
+    */
+  def getTagsForChallenge(implicit id: Long) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(Challenge(id, "", None, -1, "").tags))
+    }
+  }
 
   /**
     * Gets a random task that is a child of the challenge.

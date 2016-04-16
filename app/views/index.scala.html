@@ -47,13 +47,13 @@ scratch. This page gets rid of all links and provides the needed markup only.
                 <!-- Content Wrapper. Contains page content -->
             <div class="content-wrapper">
                 @content
-            </div><!-- /.content-wrapper -->
+            </div>
 
             <!-- Main Footer -->
             <footer id="footer" class="main-footer">
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
-                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='$("#geojson_text").value = MRManager.getCurrentTaskGeoJSON();'>&pi;</a>
+                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='$("#geojson_text").val(MRManager.getCurrentTaskGeoJSON());'>&pi;</a>
                 </div>
                     <!-- Default to the left -->
                 <strong>Copyright &copy; 2016 <a href="#">MapRoulette</a>.</strong> All rights reserved.
@@ -128,11 +128,11 @@ scratch. This page gets rid of all links and provides the needed markup only.
                                     </h4>
                                 </a>
                             </li>
-                        </ul><!-- /.control-sidebar-menu -->
+                        </ul>
 
-                    </div><!-- /.tab-pane -->
+                    </div>
                     <!-- Stats tab content -->
-                    <div class="tab-pane" id="control-sidebar-stats-tab">Stats Tab Content</div><!-- /.tab-pane -->
+                    <div class="tab-pane" id="control-sidebar-stats-tab">Stats Tab Content</div>
                     <!-- Settings tab content -->
                     <div class="tab-pane" id="control-sidebar-settings-tab">
                         <form method="post">
@@ -145,15 +145,15 @@ scratch. This page gets rid of all links and provides the needed markup only.
                                 <p>
                   Some information about this general settings option
                                 </p>
-                            </div><!-- /.form-group -->
+                            </div>
                         </form>
-                    </div><!-- /.tab-pane -->
+                    </div>
                 </div>
-            </aside><!-- /.control-sidebar -->
+            </aside>
             <!-- Add the sidebar's background. This div must be placed
            immediately after the control sidebar -->
             <div class="control-sidebar-bg"></div>
-        </div><!-- ./wrapper -->
+        </div>
 
         <!-- Modal -->
         <div id="geoJsonViewer" class="modal fade modal-primary" role="dialog">
@@ -171,8 +171,8 @@ scratch. This page gets rid of all links and provides the needed markup only.
                             <p>For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html">read the spec</a>.</p>
                         </div>
                     </div>
-                </div><!-- /.modal-content -->
-            </div><!-- /.modal-dialog -->
+                </div>
+            </div>
         </div>
 
             <!-- Optionally, you can add Slimscroll and FastClick plugins.

@@ -72,7 +72,22 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  def update(updates:JsValue, user:User)(implicit id:Long): Option[T]
+  def update(updates:JsValue, user:User)(implicit id:Key): Option[T]
+
+  /**
+    * Update function that must be implemented by the class that mixes in this trait. This update
+    * function updates based on the name instead of the id
+    *
+    * @param updates The updates in json form
+    * @param user The user executing the update
+    * @param name The name of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  def updateByName(updates:JsValue, user:User)(implicit name:String): Option[T] =
+    cacheManager.updateNameCache(String => retrieveByName) match {
+      case Some(objID) => update(updates, user)(objID)
+      case None => None
+    }
 
   /**
     * Helper function that takes a single key to delete and pushes the workload off to the deleteFromIdList

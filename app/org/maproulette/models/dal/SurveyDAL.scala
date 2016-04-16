@@ -18,7 +18,10 @@ import play.api.libs.json.{JsValue, Json}
 @Singleton
 class SurveyDAL @Inject() (override val db:Database,
                            taskDAL: TaskDAL,
-                           challengeDAL: ChallengeDAL) extends ParentDAL[Long, Survey, Task] {
+                           challengeDAL: ChallengeDAL,
+                           override val tagDAL: TagDAL)
+  extends ParentDAL[Long, Survey, Task] with TagDALMixin[Survey] {
+
   // The manager for the survey cache
   override val cacheManager = new CacheManager[Long, Survey]
   // The name of the survey table

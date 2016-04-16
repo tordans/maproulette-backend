@@ -67,6 +67,7 @@ L.TileLayer.Common = L.TileLayer.extend({
 L.Control.Help = L.Control.extend({
     options: {
         position: 'topright',
+        text: "Help Text"
     },
     onAdd: function(map) {
         var container = L.DomUtil.create('div', 'mp-control mp-control-component');
@@ -74,9 +75,13 @@ L.Control.Help = L.Control.extend({
         control.href = "#";
         var text = L.DomUtil.create('span', '', container);
         text.innerHTML = " Help";
+        var self = this;
         L.DomEvent.on(container, 'click', L.DomEvent.stopPropagation)
             .on(container, 'click', L.DomEvent.preventDefault)
-            .on(container, 'click', function (e) { });
+            .on(container, 'click', function (e) {
+                $("#infoText").innerHTML = marked(self.options.text);
+                $("#information").modal({backdrop:false});
+            });
         return container;
     }
 });
@@ -345,6 +350,7 @@ var MRManager = (function() {
     // In debug mode tasks will not be edited and the previous button is displayed in the control panel
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters(-1, "", -1, "", [], "", []);
+    var signedIn = false;
 
     // Function that handles the resizing of the map when the menu is toggled
     var resizeMap = function() {
@@ -363,7 +369,7 @@ var MRManager = (function() {
         }
     };
 
-    var init = function (element, point) {
+    var init = function (userSignedIn, element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
             road_layer = new L.TileLayer.MapQuestOSM(),
             mapquest_layer = new L.TileLayer.MapQuestAerial(),
@@ -425,6 +431,7 @@ var MRManager = (function() {
         // handles the click event from the sidebar toggle
         $("#sidebar_toggle").on("click", resizeMap);
         $("#map").css("left", $("#sidebar").width());
+        signedIn = userSignedIn;
     };
 
     var updateTaskDisplay = function() {
@@ -432,10 +439,10 @@ var MRManager = (function() {
         geojsonLayer.addData(currentTask.data.geometry);
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(currentTask.data.parentId, currentTask.data.id, debugMode);
-        controlPanel.updateUI(debugMode, true, true, true);
+        controlPanel.updateUI(debugMode, signedIn, signedIn, true);
         // show the task text as a notification
         toastr.clear();
-        toastr.info(currentTask.data.instruction, '', { positionClass: getNotificationClass(), timeOut: 0 });
+        toastr.info(marked(currentTask.data.instruction), '', { positionClass: getNotificationClass(), timeOut: 0 });
         // let the user know where they are
         displayAdminArea();
     };
@@ -460,8 +467,12 @@ var MRManager = (function() {
     };
 
     // adds a task (or challenge) to the map
-    var addTaskToMap = function(taskId) {
-        currentTask.updateTask(taskId, updateTaskDisplay, Utils.handleError);
+    var addTaskToMap = function(parentId, taskId) {
+        if (taskId == -1) {
+            currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);   
+        } else {
+            currentTask.updateTask(taskId, updateTaskDisplay, Utils.handleError);
+        }
     };
 
     var getNextTask = function() {
@@ -509,7 +520,7 @@ var MRManager = (function() {
         if (currentTask.data.id == -1) {
             return "{}";
         }
-        return currentTask.data.geometry;  
+        return JSON.stringify(currentTask.data.geometry);
     };
 
     return {

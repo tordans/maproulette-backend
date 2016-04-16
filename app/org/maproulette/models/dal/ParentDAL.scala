@@ -44,6 +44,33 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
   }
 
   /**
+    * Lists the children of the parent based on the parents name
+    *
+    * @param limit limits the number of children to be returned
+    * @param offset For paging, ie. the page number starting at 0
+    * @param name The parent name
+    * @return A list of children objects
+    */
+  def listChildrenByName(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
+                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String) : List[C] = {
+    // add a child caching option that will keep a list of children for the parent
+    db.withConnection { implicit c =>
+      // TODO currently it will only check if the parent is enabled and not the child, this is because
+      // there is the case where a Task is a child of challenge and so there is no enabled column on that table
+      val query = s"""SELECT $childColumns FROM $childTable c
+                      INNER JOIN $tableName p ON p.id = c.parent_id
+                      WHERE p.name = {name} ${enabled(onlyEnabled, "p")}
+                      AND c.name LIKE {ss}
+                      ${order(Some(orderColumn), orderDirection, "c")}
+                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> search(searchString),
+        'name -> ParameterValue.toParameterValue(name),
+        'offset -> offset)
+        .as(childParser.*)
+    }
+  }
+
+  /**
     * Gets the total number of children for the parent
     *
     * @param onlyEnabled If set to true will only count the children that are enabled

@@ -32,12 +32,12 @@ case class Task(override val id:Long,
                 instruction: String,
                 location: Option[String]=None,
                 geometries:String,
-                status:Option[Int]=None) extends ChildObject[Long, Challenge] {
+                status:Option[Int]=None) extends ChildObject[Long, Challenge] with TagObject[Long] {
 
   @Inject val tagDAL:TagDAL = null
   @Inject val challengeDAL:ChallengeDAL = null
 
-  lazy val tags:List[Tag] = tagDAL.listByTask(id)
+  override lazy val tags = tagDAL.listByTask(id)
 
   override def getParent = challengeDAL.retrieveById(parent).get
 }

@@ -1,6 +1,16 @@
 /**
  * Created by cuthbertm on 3/21/16.
  */
+marked.setOptions({
+    gfm: true,
+    tables: true,
+    breaks: false,
+    pedantic: false,
+    sanitize: true,
+    smartLists: true,
+    smartypants: true
+});
+
 toastr.options = {
     "closeButton": false,
     "debug": false,
