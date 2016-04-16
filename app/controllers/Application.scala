@@ -6,7 +6,7 @@ import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.Survey
-import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
+import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL, TaskDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -25,7 +25,23 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              projectDAL: ProjectDAL,
                              override val challengeDAL: ChallengeDAL,
                              surveyDAL: SurveyDAL,
+                             taskDAL: TaskDAL,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper {
+
+  def clearCaches = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      if (user.isSuperUser) {
+        userDAL.clearCaches
+        projectDAL.clearCaches
+        challengeDAL.clearCaches
+        surveyDAL.clearCaches
+        taskDAL.clearCaches
+        Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
+      } else {
+        throw new IllegalAccessException("Only super users can clear the caches.")
+      }
+    }
+  }
 
   /**
     * The primary entry point to the application
@@ -215,6 +231,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
       JavaScriptReverseRouter("jsRoutes")(
         routes.javascript.AuthController.generateAPIKey,
         routes.javascript.AuthController.deleteUser,
+        routes.javascript.AuthController.addUserToProject,
         routes.javascript.Application.error,
         org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,

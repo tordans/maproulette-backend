@@ -25,7 +25,9 @@ GET     /auth/authenticate                                              @control
 GET     /auth/signout                                                   @controllers.AuthController.signOut
 GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey
 DELETE  /auth/deleteUser/userId                                         @controllers.AuthController.deleteUser(userId:Long)
+GET     /auth/addUser/:userId/toProject/:projectId                      @controllers.AuthController.addUserToProject(userId:Long, projectId:Long)
 GET     /refreshProfile                                                 @controllers.Application.refreshProfile
+GET     /clearCaches                                                    @controllers.Application.clearCaches
 GET     /javascriptRoutes                                               @controllers.Application.javascriptRoutes
 # MAPPING ROUTES
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)

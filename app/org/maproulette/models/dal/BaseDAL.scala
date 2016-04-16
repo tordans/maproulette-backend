@@ -34,6 +34,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
   // inputed string values in this field, as this could lead to sql injection
   val extraFilters:String = ""
 
+  def clearCaches = cacheManager.clearCaches
+
   /**
     * Our key for our objects are current Long, but can support String if need be. This function
     * handles transforming java objects to SQL for a specific set related to the object key

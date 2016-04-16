@@ -10,6 +10,12 @@
                     <!--iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe-->
                 <div class="box-body">
                     <label>Add User to Project</label>
+                    <div class="form-group" style="display:none;">
+                        @text(Field(null, "userId", Seq(), None, Seq(), None),
+                            label = "id",
+                            default = "-1"
+                        )
+                    </div>
                     <div class="form-group">
                         @select(Field(null, "projects", Seq(), None, Seq(), None),
                             label = "Projects",
@@ -20,10 +26,24 @@
                     </div>
                 </div>
                 <div class="box-footer">
-                    <button id="geojson_submit" class="btn btn-primary btn-large btn-action pull-left">Add User</button>
+                    <button class="btn btn-primary btn-large btn-action pull-left" onclick="addUser();">Add User</button>
                     <button type="button" class="btn btn-primary btn-large btn-action pull-right" data-dismiss="modal" >Cancel</button>
                 </div>
             </div>
         </div><!-- /.modal-content -->
     </div><!-- /.modal-dialog -->
 </div>
+<script type="application/javascript">
+var addUser = function() {
+    var projectId = $("#projects").val();
+    var projectName = $("#projects").text();
+    var userId = $("#userId").val();
+    jsRoutes.controllers.AuthController.addUserToProject(userId, projectId).ajax({
+        success:function() {
+            toastr.info("User successfully added to project '" + projectName);
+        },
+        error:Utils.handleError
+    });
+    $("#addtoproject_modal").modal("hide");
+};
+</script>

@@ -18,6 +18,11 @@ class CacheManager[Key, A<:BaseObject[Key]] {
   val cache = new CacheStorage[Key, A]()
   val nameCache = mutable.Map[String, Key]()
 
+  def clearCaches = {
+    cache.clear()
+    nameCache.clear()
+  }
+
   /**
     * Update the name cache to map to the id of the object with that name, and then makes sure that
     * the cacheManager contains that cached item as well

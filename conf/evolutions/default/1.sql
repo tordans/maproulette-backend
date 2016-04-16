@@ -47,7 +47,7 @@ LANGUAGE plpgsql VOLATILE;;
 -- Function to remove locks when a user is deleted
 CREATE OR REPLACE FUNCTION update_task_locks() RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE tasks SET locked_by = NULL WHERE locked_by = old.id;
+  UPDATE tasks SET locked_by = NULL WHERE locked_by = old.id;;
 END
 $$
 LANGUAGE plpgsql VOLATILE;;
@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS user_groups
   CONSTRAINT ug_pkey PRIMARY KEY(id)
 );
 
+SELECT create_index_if_not_exists('user_groups', 'osm_user_id_group_id', '(osm_user_id, group_id)', true);
+
 -- Table for all challenges, which is a child of Project, Surveys are also stored in this table
 CREATE TABLE IF NOT EXISTS challenges
 (
@@ -203,6 +205,7 @@ SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
 SELECT create_index_if_not_exists('tasks', 'locked_by', '(locked_by)');
+
 DROP TRIGGER IF EXISTS update_tasks_locked_by ON users;
 CREATE TRIGGER update_tasks_locked_by BEFORE DELETE ON users
   FOR EACH ROW EXECUTE PROCEDURE update_task_locks();

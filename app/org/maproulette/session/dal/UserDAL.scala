@@ -272,6 +272,13 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     }
   }
 
+  /**
+    * Delete a user based on their OSM ID
+    *
+    * @param osmId The OSM ID for the user
+    * @param user The user deleting the user
+    * @return
+    */
   def deleteByOsmID(osmId:Long, user:User) : Int = {
     hasAccess(user)
     implicit val ids = List(osmId)
@@ -282,14 +289,40 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     }
   }
 
-  def addUserToGroup(user:User, group:Group) : User = {
+  /**
+    * Adds a user to a project
+    *
+    * @param user The user that is adding the user to the project
+    * @param projectId The project that user is being added too
+    */
+  def addUserToProject(user:User, projectId:Long) : Unit = {
     hasAccess(user)
     db.withConnection { implicit c =>
-      SQL"""INSERT INTO user_groups (user_id, group_id) VALUES (${user.id}, ${group.id})""".executeUpdate()
-      user.copy(groups = user.groups ++ List(group))
+      SQL"""INSERT INTO user_groups (osm_user_id, group_id)
+            SELECT ${user.osmProfile.id}, id FROM groups
+            WHERE group_type = 1 AND project_id = $projectId
+         """.executeUpdate()
     }
   }
 
+  /**
+    * Add a user to a group
+    *
+    * @param user The user that is adding the user to the project
+    * @param group The group that user is being added too
+    */
+  def addUserToGroup(user:User, group:Group) : Unit = {
+    hasAccess(user)
+    db.withConnection { implicit c =>
+      SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES (${user.id}, ${group.id})""".executeUpdate()
+    }
+  }
+
+  /**
+    * Access for user functions are limited to super users
+    *
+    * @param user A super user
+    */
   private def hasAccess(user:User) = {
     if (!user.isSuperUser) {
       throw new IllegalAccessException("Only super users have access to user objects.")

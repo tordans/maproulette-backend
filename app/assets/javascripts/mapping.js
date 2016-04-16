@@ -1,59 +1,6 @@
-// Basic namespace for some Util functions used in this js lib
-var Utils = {
-    // handles any javascript errors by popping a toast up at the top.
-    handleError: function(error) {
-        var jsonMsg = JSON.parse(error.responseText);
-        toastr.error(jsonMsg.status + " : " + jsonMsg.message);
-    },
-    addComma: function (str) {
-        return (str.match(/\,\s+$/) || str.match(/in\s+$/)) ? '' : ', ';
-    },
-    mqResultToString: function (addr) {
-        // Convert a MapQuest reverse geocoding result to a human readable string.
-        var out, county, town;
-        if (!addr || !(addr.town || addr.county || addr.hamlet || addr.state || addr.country)) {
-            return 'We are somewhere on earth..';
-        }
-        out = 'We are ';
-        if (addr.city !== null) {
-            out += 'in ' + addr.city;
-        } else if (addr.town !== null) {
-            out += 'in ' + addr.town;
-        } else if (addr.hamlet !== null) {
-            out += 'in ' + addr.hamlet;
-        } else {
-            out += 'somewhere in ';
-        }
-        out += Utils.addComma(out);
-        if (addr.county) {
-            if (addr.county.toLowerCase().indexOf('county') > -1) {
-                out += addr.county;
-            } else {
-                out += addr.county + ' County';
-            }
-        }
-        out += Utils.addComma(out);
-        if (addr.state) {
-            out += addr.state;
-        }
-        out += Utils.addComma(out);
-        if (addr.country) {
-            if (addr.country.indexOf('United States') > -1) {
-                out += 'the ';
-            }
-                out += addr.country;
-            }
-        out += '.';
-        return out;
-    },
-    getQSParameterByName: function(name) {
-        name = name.replace(/[\[\]]/g, "\\$&");
-        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)", "i"),
-            results = regex.exec(window.location.href);
-        if (!results) return null;
-        if (!results[2]) return '';
-        return decodeURIComponent(results[2].replace(/\+/g, " "));
-    }
+toastr.options = {
+    "toastClass": "notification",
+    "positionClass": "notification-position",
 };
 
 L.TileLayer.Common = L.TileLayer.extend({
