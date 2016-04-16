@@ -32,7 +32,8 @@ case class Challenge(override val id: Long,
                      difficulty:Option[Int]=None,
                      blurb:Option[String]=None,
                      enabled:Boolean=true,
-                     challengeType:Int=Actions.ITEM_TYPE_CHALLENGE) extends ChildObject[Long, Project] with TagObject[Long] {
+                     challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
+                     featured:Boolean=false) extends ChildObject[Long, Project] with TagObject[Long] {
 
   @Inject val projectDAL:ProjectDAL = null
   @Inject val tagDAL:TagDAL = null
@@ -56,7 +57,8 @@ object Challenge {
       "difficulty" -> optional(number(min = 1, max = 3)),
       "blurb" -> optional(text),
       "enabled" -> boolean,
-      "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE)
+      "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
+      "featured" -> default(boolean, false)
     )(Challenge.apply)(Challenge.unapply)
   )
 

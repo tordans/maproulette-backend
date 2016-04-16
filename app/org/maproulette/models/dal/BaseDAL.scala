@@ -236,7 +236,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
       cacheManager.withNameListCaching { implicit uncachedNames =>
         db.withConnection { implicit c =>
           val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
-          SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser.*)
+          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedNames)).as(parser.*)
         }
       }
     }

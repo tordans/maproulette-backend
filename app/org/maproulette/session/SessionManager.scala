@@ -11,6 +11,7 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.models.dal.ChallengeDAL
 import play.api.i18n.Messages
 import play.api.{Application, Logger}
 import play.api.libs.Crypto
@@ -28,7 +29,7 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Application, config:Config) {
+class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:ChallengeDAL, application:Application, config:Config) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
@@ -237,7 +238,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     */
   def userAwareUIRequest(block:Option[User] => Result)
                         (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
       userAware(block)
     }
   }
@@ -282,14 +283,14 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, application:Applic
     */
   def authenticatedUIRequest(block:User => Result)
                             (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
       authenticated(Left(block))
     }
   }
 
   def authenticatedFutureUIRequest(block:User => Future[Result])
                                   (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
       authenticated(Right(block))
     }
   }

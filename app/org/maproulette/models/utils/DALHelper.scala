@@ -13,8 +13,18 @@ trait DALHelper {
 
   def sqlLimit(value:Int) : String = if (value < 0) "ALL" else value + ""
 
-  def enabled(value:Boolean, tablePrefix:String="", conjunction:String="AND") : String =
-    if (value) s"$conjunction ${if (tablePrefix.nonEmpty) { tablePrefix+"." }}enabled = TRUE" else ""
+  def enabled(value:Boolean, tablePrefix:String="", conjunction:String="AND") : String = {
+    val prefix = if (tablePrefix.nonEmpty) {
+      tablePrefix + "."
+    } else {
+      ""
+    }
+    if (value) {
+      s"$conjunction ${prefix}enabled = TRUE"
+    } else {
+      ""
+    }
+  }
 
   def search(value:String) : String = if (value.nonEmpty) s"%$value%" else "%"
 

@@ -89,4 +89,17 @@ class ChallengeController @Inject() (override val childController:TaskController
       Ok(Json.toJson(result))
     }
   }
+
+  /**
+    * Gets the featured challenges
+    *
+    * @param limit The number of challenges to get
+    * @param offset The offset
+    * @return A Json array with the featured challenges
+    */
+  def getFeaturedChallenges(limit:Int, offset:Int) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(dal.getFeaturedChallenges(limit, offset)))
+    }
+  }
 }

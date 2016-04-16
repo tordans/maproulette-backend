@@ -5,6 +5,7 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.session.dal.UserDAL
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -23,6 +24,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
                                 override val webJarAssets: WebJarAssets,
                                 sessionManager:SessionManager,
                                 userDAL: UserDAL,
+                                override val challengeDAL:ChallengeDAL,
                                 val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -33,7 +35,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Redirects back to the index page containing a valid session
     */
   def authenticate() = Action.async { implicit request =>
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
       val p = Promise[Result]
       request.getQueryString("oauth_verifier").map { verifier =>
         sessionManager.retrieveUser(verifier) onComplete {

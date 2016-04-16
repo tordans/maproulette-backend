@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS challenges
   difficulty integer DEFAULT 1,
   enabled BOOLEAN DEFAULT(true),
   challenge_type integer NOT NULL DEFAULT(1),
+  featured BOOLEAN DEFAULT(false),
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,

@@ -23,7 +23,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              sessionManager:SessionManager,
                              userDAL: UserDAL,
                              projectDAL: ProjectDAL,
-                             challengeDAL: ChallengeDAL,
+                             override val challengeDAL: ChallengeDAL,
                              surveyDAL: SurveyDAL,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
@@ -227,7 +227,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,
-        routes.javascript.MappingController.getRandomNextTask
+        routes.javascript.MappingController.getRandomNextTask,
+        routes.javascript.Application.mapChallenge
       )
     ).as("text/javascript")
   }

@@ -25,9 +25,14 @@ class Config @Inject() (implicit val application:Application) {
   def isDebugMode : Boolean = application.configuration.getBoolean(Config.KEY_DEBUG).getOrElse(false)
 
   def actionLevel : Int = application.configuration.getInt(Config.KEY_ACTION_LEVEL).getOrElse(Actions.ACTION_LEVEL_2)
+
+  def numberOfChallenges : Int = application.configuration.getInt(Config.KEY_NUM_OF_CHALLENGES).getOrElse(Config.DEFAULT_NUM_OF_CHALLENGES)
 }
 
 object Config {
   val KEY_DEBUG = "maproulette.debug"
   val KEY_ACTION_LEVEL = "maproulette.action.level"
+  val KEY_NUM_OF_CHALLENGES = "maproulette.challenges"
+
+  val DEFAULT_NUM_OF_CHALLENGES = 3
 }
