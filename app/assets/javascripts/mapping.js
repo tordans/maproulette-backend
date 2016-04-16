@@ -313,28 +313,6 @@ function SearchParameters(projectId, projectSearch, challengeId, challengeSearch
     this.challengeTags = challengeTags;
     this.taskSearch = taskSearch;
     this.taskTags = taskTags;
-
-    this.updateProjectId = function(projectId) {
-        this.projectId = projectId;
-    };
-    this.updateProjectSearch = function(projectSearch) {
-        this.projectSeach = projectSearch;
-    };
-    this.updateChallengeId = function(challengeId) {
-        this.challengeId = challengeId;
-    };
-    this.updateChallengeSearch = function(challengeSearch) {
-        this.challengeSearch = challengeSearch;
-    };
-    this.updateChallengeTags = function(challengeTags) {
-        this.challengeTags = challengeTags;
-    };
-    this.updateTaskSearch = function(taskSearch) {
-        this.taskSearch = taskSearch;
-    };
-    this.updateTaskTags = function(taskTags) {
-        this.taskTags = taskTags;
-    };
     this.getQueryString = function() {
         return "pid="+this.projectId+"&ps="+this.projectSeach+"&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&s="+this.taskSearch+"&tags="+this.taskTags;
     };
@@ -469,6 +447,7 @@ var MRManager = (function() {
     // adds a task (or challenge) to the map
     var addTaskToMap = function(parentId, taskId) {
         if (taskId == -1) {
+            currentSearchParameters.challengeId = parentId;
             currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);   
         } else {
             currentTask.updateTask(taskId, updateTaskDisplay, Utils.handleError);

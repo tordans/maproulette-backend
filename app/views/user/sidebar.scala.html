@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
+@import org.maproulette.actions.Actions
 @(user:User, newChallenges:List[Challenge], hotChallenges:List[Challenge], featuredChallenges:List[Challenge])(implicit messages: Messages)
 <!-- sidebar: style can be found in sidebar.less -->
 <section class="sidebar">
@@ -85,7 +86,9 @@
       </a>
       <ul class="treeview-menu">
       @for(c <- hotChallenges) {
-        <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa fa-circle-o"></i> @{c.name}</a></li>
+        <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa
+                  @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
+        </a></li>
       }
       </ul>
     </li>
@@ -98,7 +101,9 @@
       </a>
       <ul class="treeview-menu">
         @for(c <- newChallenges) {
-          <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa fa-circle-o"></i> @{c.name}</a></li>
+          <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa
+                  @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
+          </a></li>
         }
       </ul>
     </li>
@@ -111,7 +116,9 @@
       </a>
       <ul class="treeview-menu">
         @for(c <- featuredChallenges) {
-          <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa fa-circle-o"></i> @{c.name}</a></li>
+          <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa
+                  @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
+          </a></li>
         }
       </ul>
     </li>

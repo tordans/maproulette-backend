@@ -249,7 +249,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     params.challengeId match {
       case Some(id) =>
         whereClause ++= " AND tasks.parent_id = {parentId} "
-        parameters += ('parentId -> ParameterValue.toParameterValue(id))
+        parameters += ('parentId -> ParameterValue.toParameterValue(params.challengeId))
       case None =>
         if (challengeTagIds.nonEmpty) {
           queryBuilder ++= "INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id "
@@ -265,7 +265,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     params.projectId match {
       case Some(id) =>
         whereClause ++= " AND p.id = {projectId} "
-        parameters += ('projectId -> ParameterValue.toParameterValue(id))
+        parameters += ('projectId -> ParameterValue.toParameterValue(params.projectId))
       case None =>
         if (params.projectSearch.nonEmpty) {
           whereClause ++= " AND p.name LIKE {projectSearch}"

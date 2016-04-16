@@ -59,8 +59,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
         taskSearch
       )
 
-      Ok(getResponseJSON(taskDAL.getRandomTasks(params, 1).headOption)
-      )
+      Ok(getResponseJSON(taskDAL.getRandomTasks(params, 1).headOption))
     }
   }
 
