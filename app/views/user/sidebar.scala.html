@@ -22,7 +22,7 @@
     <!-- search form (Optional) -->
   <form action="#" method="get" class="sidebar-form">
     <div class="input-group">
-      <input type="text" name="q" class="form-control" placeholder="Search...">
+      <input id="searchQ" type="text" name="q" class="form-control" placeholder="Search..." onkeyup="mpSearch();">
       <span class="input-group-btn">
         <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
       </span>
@@ -32,38 +32,29 @@
 
     <!-- Sidebar Menu -->
   <ul class="sidebar-menu">
-    <li class="header">Search Results</li>
-    <li class="treeview">
+    <li id="search_header" class="header hidden">Search Results</li>
+    <li id="search_surveys" class="treeview hidden">
       <a href="#">
         <i class="fa fa-edit"></i> <span>Surveys</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
-      <ul class="treeview-menu">
-        <li><a href="#"><i class="fa fa-circle-o"></i> Survey1</a></li>
-        <li><a href="#"><i class="fa fa-circle-o"></i> Survey2</a></li>
-        <li><a href="#"><i class="fa fa-circle-o"></i> Survey3</a></li>
+      <ul id="surveys_results" class="treeview-menu">
       </ul>
     </li>
-    <li class="treeview">
+    <li id="search_challenges" class="treeview hidden">
       <a href="#">
         <i class="fa fa-wrench"></i> <span>Challenges</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
-      <ul class="treeview-menu">
-        <li><a href="#"><i class="fa fa-circle-o"></i> Challenge1</a></li>
-        <li><a href="#"><i class="fa fa-circle-o"></i> Challenge2</a></li>
-        <li><a href="#"><i class="fa fa-circle-o"></i> Challenge3</a></li>
+      <ul id="challenges_results" class="treeview-menu">
       </ul>
     </li>
-    <li class="treeview">
+    <li id="search_tags" class="treeview hidden">
       <a href="#">
         <i class="fa fa-tag"></i> <span>Tags</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
-      <ul class="treeview-menu">
-        <li><a href="#"><i class="fa fa-circle-o"></i> Tag1</a></li>
-        <li><a href="#"><i class="fa fa-circle-o"></i> Tag2</a></li>
-        <li><a href="#"><i class="fa fa-circle-o"></i> Tag3</a></li>
+      <ul id="tags_results" class="treeview-menu">
       </ul>
     </li>
     @if(user.isAdmin || user.isSuperUser) {
@@ -94,7 +85,7 @@
     @if(newChallenges.nonEmpty) {
     <li>
       <a href="#">
-        <i class="fa fa-plus-circle"></i> <span>New</span>
+        <i class="fa fa-plus-circle"></i> <span>Latest</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul class="treeview-menu">
@@ -123,3 +114,61 @@
     }
   </ul>
 </section>
+<script type="application/javascript">
+  var updateSearch = function(data, name) {
+    // remove previous results first
+    $("#" + name + "_results").empty();
+    if (data.length > 0) {
+      $("#search_" + name).removeClass("hidden");
+    } else {
+      $("#search_" + name).addClass("hidden");
+    }
+    for (var i = 0; i < data.length; i++) {
+      var dataObject;
+      if (name === "surveys") {
+        dataObject = data[i].challenge;
+      } else {
+        dataObject = data[i];
+      }
+      $("<li><a href=\"/map/" + dataObject.id + "\">\
+            <i class=\"fa fa-circle-o\"></i> " + dataObject.name + "</a>\
+          </li>").appendTo("#" + name + "_results");
+    }
+  };
+
+  var searchTimer;
+  var mpSearch = function() {
+    clearTimeout(searchTimer);
+    searchTimer=setTimeout(function () {
+      $("#search_header").removeClass("hidden");
+      var q = $("#searchQ").val();
+      if (q === "") {
+        $("#search_header").addClass("hidden");
+        $("#search_surveys").addClass("hidden");
+        $("#search_challenges").addClass("hidden");
+        $("#search_tags").addClass("hidden");
+      } else {
+        // get Challenges that match the search query
+        findChallenges(q, 5, 0, true,
+                function(data) {
+                  console.log(data);
+                  updateSearch(data, "challenges");
+                }, Utils.handleError
+        );
+        // get surveys that match the search query
+        findSurveys(q, 5, 0, true,
+                function(data) {
+                  console.log(data);
+                  updateSearch(data, "surveys");
+                }, Utils.handleError
+        );
+        // get tags that match the search query
+        /*findTags(q, 5, 0, true,
+         function(data) {
+         updateSearch(data, "Tags");
+         }, Utils.handleError
+         );*/
+      }
+    },1000);
+  };
+</script>

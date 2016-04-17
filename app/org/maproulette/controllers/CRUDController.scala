@@ -8,10 +8,8 @@ import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.session.{User, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.Logger
-import play.api.db.DB
 import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers, Controller}
-import play.api.Play.current
 
 /**
   * This is the base controller class that handles all the CRUD operations for the objects in Map Roulette.
@@ -279,5 +277,20 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
         validT => internalCreate(requestBody, validT, user)
       )
     })
+  }
+
+  /**
+    * Does a basic search on the name of an object
+    *
+    * @param search The search string that we are looking for
+    * @param limit limit the number of returned items
+    * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
+    * @param onlyEnabled only enabled objects if true
+    * @return A list of the requested items in JSON format
+    */
+  def find(search:String, limit:Int, offset:Int, onlyEnabled:Boolean) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(dal.find(search, limit, offset, onlyEnabled, "name", "DESC")))
+    }
   }
 }

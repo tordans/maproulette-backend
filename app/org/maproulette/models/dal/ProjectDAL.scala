@@ -5,7 +5,7 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Challenge, ChildObject, Project, Survey}
+import org.maproulette.models.{Challenge, Project}
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
 import play.api.db.Database
@@ -102,7 +102,7 @@ class ProjectDAL @Inject() (override val db:Database,
         val query =
           s"""SELECT * FROM projects p
             INNER JOIN projects_group_mapping pgm ON pgm.project_id = p.id
-            WHERE pgm.group_id IN ({ids}) ${enabled(onlyEnabled)} AND name LIKE {ss}
+            WHERE ${searchField("name")} AND pgm.group_id IN ({ids}) ${enabled(onlyEnabled)}
             LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
         SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
           'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))

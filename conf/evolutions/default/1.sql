@@ -87,11 +87,13 @@ CREATE TABLE IF NOT EXISTS projects
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  name character varying NOT NULL UNIQUE,
+  name character varying NOT NULL,
   description character varying DEFAULT '',
   enabled BOOLEAN DEFAULT(true),
   CONSTRAINT projects_pkey PRIMARY KEY (id)
 );
+
+SELECT create_index_if_not_exists('projects', 'name', '(lower(name))', true);
 
 DROP TRIGGER IF EXISTS update_projects_modified ON projects;
 CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
@@ -102,7 +104,7 @@ CREATE TABLE IF NOT EXISTS groups
 (
   id serial NOT NULL,
   project_id integer NOT NULL,
-  name character varying NOT NULL UNIQUE,
+  name character varying NOT NULL,
   group_type integer NOT NULL,
   CONSTRAINT groups_project_id_fkey FOREIGN KEY (project_id)
     REFERENCES projects(id) MATCH SIMPLE
@@ -110,6 +112,8 @@ CREATE TABLE IF NOT EXISTS groups
     DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT groups_pkey PRIMARY KEY(id)
 );
+
+SELECT create_index_if_not_exists('groups', 'name', '(lower(name))', true);
 
 -- Table to map users to groups
 CREATE TABLE IF NOT EXISTS user_groups
@@ -155,7 +159,7 @@ CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
+SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, lower(name))', true);
 
 -- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
@@ -203,7 +207,7 @@ CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
 
 SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
+SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);
 SELECT create_index_if_not_exists('tasks', 'locked_by', '(locked_by)');
 
 DROP TRIGGER IF EXISTS update_tasks_locked_by ON users;
@@ -237,12 +241,12 @@ CREATE TABLE IF NOT EXISTS tags
 (
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
-  name character varying NOT NULL UNIQUE,
+  name character varying NOT NULL,
   description character varying DEFAULT '',
   CONSTRAINT tag_pkey PRIMARY KEY(id)
 );
 -- index has the potentially to slow down inserts badly
-SELECT create_index_if_not_exists('tags', 'name', '(name)');
+SELECT create_index_if_not_exists('tags', 'name', '(lower(name))', true);
 
 -- The tags associated with challenges
 CREATE TABLE IF NOT EXISTS tags_on_challenges
