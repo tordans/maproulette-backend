@@ -26,7 +26,6 @@
           <tr>
             <th>ID</th>
             <th>Name</th>
-            <th>Identifier</th>
             <th>Instruction</th>
             <th>Location</th>
             <th>Status</th>
@@ -39,7 +38,6 @@
           <tr>
             <th>ID</th>
             <th>Name</th>
-            <th>Identifier</th>
             <th>Instruction</th>
             <th>Location</th>
             <th>Status</th>
@@ -72,12 +70,6 @@
               },
               {
                 orderable: false,
-                data: "identifier",
-                name: "identifier",
-                title: "Identifier"
-              },
-              {
-                orderable: false,
                 data: "instruction",
                 name: "instruction",
                 title: "Instruction"
@@ -100,14 +92,14 @@
                 title: "Actions",
                 render: function ( data, type, full, meta ) {
                   var editHref = '/ui/admin/form/@projectId/@parentType/@parentId/task/';
-                  var viewHref = '/map/@parentType/@parentId/'
+                  var viewHref = '/map/@parentId/'
                   return '<div class="pull-left">' +
                             '<a href="' + editHref + data + '">' +
                               '<button class="btn-xs btn-block btn-warning">Edit</button>' +
                             '</a>' +
                           '</div>' +
                           '<div class="pull-left">' +
-                            '<a href="' + viewHref + data + '">' +
+                            '<a href="' + viewHref + data + '?debug=true">' +
                               '<button class="btn-xs btn-block btn-success">View</button>' +
                             '</a>' +
                           '</div>' +

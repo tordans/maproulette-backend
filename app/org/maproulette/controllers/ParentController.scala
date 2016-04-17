@@ -46,7 +46,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
         // add the parent id to the child.
         child.transform(parentAddition(createdObject.id)) match {
           case JsSuccess(value, _) =>
-            (value \ "id").asOpt[Long] match {
+            (value \ "id").asOpt[String] match {
               case Some(identifier) => childController.internalUpdate(value, user)(identifier)
               case None => Utils.insertJsonID(value).validate[C].fold(
                 errors => {
@@ -108,9 +108,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param id The id of the parent
     * @return 201 Created with no content
     */
-  def createChildren(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
+  def createChildren(implicit id:String) = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      dal.retrieveById match {
+      val item = if (Utils.isDigit(id)) {
+        dal.retrieveById(id.toLong)
+      } else {
+        dal.retrieveByName
+      }
+      item match {
         case Some(parent) =>
           extractAndCreate(Json.obj("children" -> request.body), parent, user)
           Created
@@ -130,7 +135,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param id The id of the parent
     * @return 201 Created with no content
     */
-  def updateChildren(implicit id:Long) = createChildren
+  def updateChildren(implicit id:String) = createChildren
 
   /**
     * Lists all the children of a given parent. This could be very costly, if you are listing all
@@ -141,10 +146,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param offset For paging
     * @return 200 OK with json array of children objects
     */
-  def listChildren(id:Long, limit:Int, offset:Int) = Action.async { implicit request =>
+  def listChildren(id:String, limit:Int, offset:Int) = Action.async { implicit request =>
     implicit val writes:Writes[C] = cWrites
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dal.listChildren(limit, offset)(id)))
+      if (Utils.isDigit(id)) {
+        Ok(Json.toJson(dal.listChildren(limit, offset)(id.toLong)))
+      } else {
+        Ok(Json.toJson(dal.listChildrenByName(limit, offset)(id)))
+      }
     }
   }
 
@@ -159,13 +168,21 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param offset For paging
     * @return 200 Ok with parent json object containing children objects
     */
-  def expandedList(id:Long, limit:Int, offset:Int) = Action.async { implicit request =>
+  def expandedList(id:String, limit:Int, offset:Int) = Action.async { implicit request =>
     implicit val writes:Writes[C] = cWrites
     sessionManager.userAwareRequest { implicit user =>
       // first get the parent
-      val parent = Json.toJson(dal.retrieveById(id))
+      val parent = if (Utils.isDigit(id)) {
+        Json.toJson(dal.retrieveById(id.toLong))
+      } else {
+        Json.toJson(dal.retrieveByName(id))
+      }
       // now list the children
-      val children = dal.listChildren(limit, offset)(id)
+      val children = if (Utils.isDigit(id)) {
+        dal.listChildren(limit, offset)(id.toLong)
+      } else {
+        dal.listChildrenByName(limit, offset)(id)
+      }
       // now replace the parent field in the parent with a children array
       parent.transform(childrenAddition(children)) match {
         case JsSuccess(value, _) => Ok(value)

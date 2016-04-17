@@ -19,7 +19,8 @@ import play.api.libs.json.JsValue
   * @author cuthbertm
   */
 @Singleton
-class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extends ParentDAL[Long, Challenge, Task] {
+class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, override val tagDAL: TagDAL)
+  extends ParentDAL[Long, Challenge, Task] with TagDALMixin[Challenge] {
   // The manager for the challenge cache
   override val cacheManager = new CacheManager[Long, Challenge]
   // The name of the challenge table
@@ -39,16 +40,18 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
   override val parser: RowParser[Challenge] = {
     get[Long]("challenges.id") ~
       get[String]("challenges.name") ~
-      get[Option[String]]("challenges.identifier") ~
       get[Option[String]]("challenges.description") ~
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.instruction") ~
       get[Option[Int]]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
-      get[Int]("challenges.challenge_type") map {
-      case id ~ name ~ identifier ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~ enabled ~ challenge_type =>
-        new Challenge(id, name, identifier, description, parentId, instruction, difficulty, blurb, enabled, challenge_type)
+      get[Int]("challenges.challenge_type") ~
+      get[Boolean]("challenges.featured") map {
+      case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
+        enabled ~ challenge_type ~ featured =>
+        new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
+          enabled, challenge_type, featured)
     }
   }
 
@@ -63,10 +66,11 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, identifier, parent_id, difficulty, description, blurb, instruction, enabled, challenge_type)
-              VALUES (${challenge.name}, ${challenge.identifier}, ${challenge.parent},
-                      ${challenge.difficulty}, ${challenge.description}, ${challenge.blurb},
-                      ${challenge.instruction}, ${challenge.enabled}, $challengeType) RETURNING *""".as(parser.*).headOption
+        SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
+                                      instruction, enabled, challenge_type, featured)
+              VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
+                      ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
+                      ${challenge.enabled}, $challengeType, ${challenge.featured}) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }
@@ -83,7 +87,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
-        val identifier = (updates \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
@@ -91,17 +94,65 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL) extend
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
         val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
+        val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.featured)
 
         SQL"""UPDATE challenges SET name = $name,
-                                    identifier = $identifier,
                                     parent_id = $parentId,
                                     difficulty = $difficulty,
                                     description = $description,
                                     blurb = $blurb,
                                     instruction = $instruction,
-                                    enabled = $enabled
+                                    enabled = $enabled,
+                                    featured = $featured
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
+    }
+  }
+
+  /**
+    * Gets the featured challenges
+    *
+    * @param limit The number of challenges to retrieve
+    * @param offset For paging, ie. the page number starting at 0
+    * @param enabledOnly if true will only return enabled challenges
+    * @return list of challenges
+    */
+  def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
+    db.withConnection { implicit c =>
+      val query = s"""SELECT * FROM challenges
+                      WHERE featured = TRUE ${enabled(enabledOnly)}
+                      LIMIT ${sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).as(parser.*)
+    }
+  }
+
+  /**
+    * Get the Hot challenges, these are challenges that have the most activity
+    *
+    * @param limit the number of challenges to retrieve
+    * @param offset For paging, ie. the page number starting at 0
+    * @param enabledOnly if true will only return enabled challenges
+    * @return List of challenges
+    */
+  def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
+    List.empty
+  }
+
+  /**
+    * Gets the new challenges
+    *
+    * @param limit The number of challenges to retrieve
+    * @param offset For paging ie. the page number starting at 0
+    * @param enabledOnly if true will only return enabled challenges
+    * @return list of challenges
+    */
+  def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
+    db.withConnection { implicit c =>
+      val query = s"""SELECT * FROM challenges
+                      WHERE ${enabled(enabledOnly, "", "")}
+                      ${order(Some("created"), "DESC")}
+                      LIMIT ${sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).as(parser.*)
     }
   }
 

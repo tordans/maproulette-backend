@@ -7,10 +7,10 @@ import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Tag, Task}
+import org.maproulette.models.Task
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.utils.DALHelper
-import org.maproulette.session.User
+import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
 import play.api.libs.json._
 
@@ -22,8 +22,8 @@ import scala.collection.mutable.ListBuffer
   * @author cuthbertm
   */
 @Singleton
-class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
-    extends BaseDAL[Long, Task] with DALHelper {
+class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
+    extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
   // The database table name for the tasks
@@ -37,13 +37,12 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
   implicit val parser: RowParser[Task] = {
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
-      get[Option[String]]("tasks.identifier") ~
       get[Long]("parent_id") ~
       get[String]("tasks.instruction") ~
       get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") map {
-      case id ~ name ~ identifier ~ parent_id ~ instruction ~ location ~ status =>
-        Task(id, name, identifier, parent_id, instruction, location, getTaskGeometries(id), status)
+      case id ~ name ~ parent_id ~ instruction ~ location ~ status =>
+        Task(id, name, parent_id, instruction, location, getTaskGeometries(id), status)
     }
   }
 
@@ -80,7 +79,6 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
       db.withTransaction { implicit c =>
         var parameters = Seq(
           NamedParameter("name", ParameterValue.toParameterValue(task.name)),
-          NamedParameter("identifier", ParameterValue.toParameterValue(task.identifier)),
           NamedParameter("parent", ParameterValue.toParameterValue(task.parent)),
           NamedParameter("instruction", ParameterValue.toParameterValue(task.instruction))
         )
@@ -91,8 +89,8 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
           ("location,", s"ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),")
         }
         // status is ignored on insert and always set to CREATED
-        val query = s"""INSERT INTO tasks (name, identifier, parent_id, ${locationValue._1} instruction, status)
-                        VALUES ({name}, {identifier}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}
+        val query = s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status)
+                        VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}
                         ) RETURNING id"""
         val newTaskId = SQL(query).on(parameters: _*).as(long("id").*).head
         updateGeometries(newTaskId, Json.parse(task.geometries))
@@ -114,7 +112,6 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
       cachedItem.hasWriteAccess(user)
       db.withTransaction { implicit c =>
         val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
-        val identifier = (value \ "identifier").asOpt[String].getOrElse(cachedItem.identifier.getOrElse(""))
         val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
         val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
         val location = (value \ "location").asOpt[String].getOrElse(cachedItem.location.getOrElse(""))
@@ -127,7 +124,6 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
 
         var parameters = Seq(
           NamedParameter("name", ParameterValue.toParameterValue(name)),
-          NamedParameter("identifier", ParameterValue.toParameterValue(identifier)),
           NamedParameter("parentId", ParameterValue.toParameterValue(parentId)),
           NamedParameter("instruction", ParameterValue.toParameterValue(instruction)),
           NamedParameter("status", ParameterValue.toParameterValue(status)),
@@ -140,13 +136,13 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
           "location = ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),"
         }
 
-        val query = s"""UPDATE tasks SET name = {name}, identifier = {identifier}, parent_id = {parentId},
+        val query = s"""UPDATE tasks SET name = {name}, parent_id = {parentId},
                           instruction = {instruction}, $locationInfo status = {status}
                         WHERE id = {id}"""
 
         SQL(query).on(parameters: _*).executeUpdate()
         updateGeometries(id, Json.parse(geometries))
-        Some(Task(id, name, Some(identifier), parentId, instruction, Some(location), geometries, Some(status)))
+        Some(Task(id, name, parentId, instruction, Some(location), geometries, Some(status)))
       }
     }
   }
@@ -182,137 +178,40 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
   }
 
   /**
-    * Updates the tags on the task. This maps the tag objects to the task objects in the database
-    * through the use of a mapping table
+    * Simple query to retrieve the next task in the sequence
     *
-    * @param taskId The id of the task to add the tags too
-    * @param tags A list of tags to add to the task
-    * @param user The user executing the task
+    * @param parentId The parent of the task
+    * @param currentTaskId The current task that we are basing our query from
+    * @return An optional task, if no more tasks in the list will retrieve the first task
     */
-  def updateTaskTags(taskId:Long, tags:List[Long], user:User) : Unit = {
-    retrieveById(taskId) match {
-      case Some(task) =>
-        task.hasWriteAccess(user)
-        if (tags.nonEmpty) {
-          db.withTransaction { implicit c =>
-            val indexedValues = tags.zipWithIndex
-            val rows = indexedValues.map{ case (_, i) =>
-              s"({taskid_$i}, {tagid_$i})"
-            }.mkString(",")
-            val parameters = indexedValues.flatMap{ case(value, i) =>
-              Seq(
-                NamedParameter(s"taskid_$i", ParameterValue.toParameterValue(taskId)),
-                NamedParameter(s"tagid_$i", ParameterValue.toParameterValue(value))
-              )
-            }
-
-            SQL("INSERT INTO tags_on_tasks (task_id, tag_id) VALUES " + rows)
-              .on(parameters: _*)
-              .execute()
-          }
-        }
-      case None =>
-        throw new InvalidException(s"""Could not add tags [${tags.mkString(",")}]. Task [$taskId] Not Found.""")
-    }
-  }
-
-  /**
-    * Deletes tags from a task. This will not delete any tasks or tags, it will simply sever the
-    * connection between the task and tag.
-    *
-    * @param taskId The task id that the user is removing the tags from
-    * @param tags The tags that are being removed from the task
-    * @param user The user executing the task
-    */
-  def deleteTaskTags(taskId:Long, tags:List[Long], user:User) : Unit = {
-    if (tags.nonEmpty) {
-      db.withTransaction { implicit c =>
-        SQL"""DELETE FROM tags_on_tasks WHERE task_id = {$taskId} AND tag_id IN ($tags)""".execute()
-      }
-    }
-  }
-
-  /**
-    * Pretty much the same as {@link this#deleteTaskTags} but removes the tags from the task based
-    * on the name of the tag instead of the id. This is most likely to be used more often.
-    *
-    * @param taskId The id of the task that is having the tags remove from it
-    * @param tags The tags to be removed from the task
-    * @param user The user executing the task
-    */
-  def deleteTaskStringTags(taskId:Long, tags:List[String], user:User) : Unit = {
-    if (tags.nonEmpty) {
-      val lowerTags = tags.map(_.toLowerCase)
-      db.withTransaction { implicit c =>
-        SQL"""DELETE FROM tags_on_tasks tt USING tags t
-              WHERE tt.tag_id = t.id AND
-                    tt.task_id = $taskId AND
-                    t.name IN ($lowerTags)""".execute()
-      }
-    }
-  }
-
-  /**
-    * Links tags to a specific task. If the tags in the provided list do not exist then it will
-    * create the new tags.
-    *
-    * @param taskId The task id to update with
-    * @param tags The tags to be applied to the task
-    * @param user The user executing the task
-    */
-  def updateTaskTagNames(taskId:Long, tags:List[String], user:User) : Unit = {
-    val tagIds = tags.flatMap { tag => {
-      tagDAL.retrieveByName(tag) match {
-        case Some(t) => Some(t.id)
-        case None => Some(tagDAL.insert(Tag(-1, tag), user).id)
-      }
-    }}
-    updateTaskTags(taskId, tagIds, user)
-  }
-
-  /**
-    * Get a list of tasks based purely on the tags that are associated with the tasks
-    *
-    * @param tags The list of tags to match
-    * @param limit The number of tasks to return
-    * @param offset For paging, where 0 is the first page
-    * @return A list of tags that have the tags
-    */
-  def getTasksBasedOnTags(tags:List[String], limit:Int, offset:Int) : List[Task] = {
-    val lowerTags = tags.map(_.toLowerCase)
+  def getNextTaskInSequence(parentId:Long, currentTaskId:Long) : Option[Task] = {
     db.withConnection { implicit c =>
-      val sqlLimit = if (limit == -1) "ALL" else limit+""
-      val query = s"""SELECT $retrieveColumns FROM tasks
-                      INNER JOIN challenges c ON c.id = tasks.parent_id
-                      INNER JOIN projects p ON p.id = c.parent_id
-                      INNER JOIN tags_on_tasks tt ON tasks.id = tt.task_id
-                      INNER JOIN tags tg ON tg.id = tt.tag_id
-                      WHERE c.enabled = TRUE AND tg.name IN ({tags})
-                      LIMIT $sqlLimit OFFSET {offset}"""
-      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser.*)
+      SQL"""SELECT * FROM tasks WHERE id > $currentTaskId AND parent_id = $parentId
+            ORDER BY id ASC LIMIT 1""".as(parser.*).headOption match {
+        case Some(t) => Some(t)
+        case None =>
+          SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
+                ORDER BY id ASC LIMIT 1""".as(parser.*).headOption
+      }
     }
   }
 
   /**
-    * Gets a random task based on the tags, and can include project and challenge restrictions as well.
+    * Simple query to retrieve the previous task in the sequence
     *
-    * @param projectId None if ignoring project restriction, otherwise the id of the project to limit
-    *                  where the random tasks come from
-    * @param challengeId None if ignoring the challenge restriction, otherwise the id of the challenge
-    *                    to limit where the random tasks come from
-    * @param tags List of tag names that will restrict the returned tags
-    * @param limit The amount of tags that should be returned
-    * @return A list of random tags matching the above criteria, an empty list if none match
+    * @param parentId The parent of the task
+    * @param currentTaskId The current task that we are basing our query from
+    * @return An optional task, if no more tasks in the list will retrieve the last task
     */
-  def getRandomTasksStr(projectId:Option[Long],
-                     challengeId:Option[Long],
-                     tags:List[String],
-                     limit:Int=(-1)) : List[Task] = {
-    if (tags.isEmpty) {
-      getRandomTasksInt(projectId, challengeId, List(), limit)
-    } else {
-      val idList = tagDAL.retrieveListByName(tags.map(_.toLowerCase)).map(_.id)
-      getRandomTasksInt(projectId, challengeId, idList, limit)
+  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long) : Option[Task] = {
+    db.withConnection { implicit c =>
+      SQL"""SELECT * FROM tasks WHERE id < $currentTaskId AND parent_id = $parentId
+            ORDER BY id DESC LIMIT 1""".as(parser.*).headOption match {
+        case Some(t) => Some(t)
+        case None =>
+          SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
+                ORDER BY id DESC LIMIT 1""".as(parser.*).headOption
+      }
     }
   }
 
@@ -323,18 +222,15 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
     * the criteria and the second time to get an accurate random offset to choose a random tasks from
     * all the matching tasks in the set. This will most likely always be called with a limit of 1.
     *
-    * @param projectId None if ignoring project restriction, otherwise the id of the project to limit
-    *                  where the random tasks come from
-    * @param challengeId None if ignoring the challenge restriction, otherwise the id of the challenge
-    *                    to limit where the random tasks come from
-    * @param tags List of tag ids that will restrict the returned tags
+    * @param params The search parameters that will define the filters for the random selection
     * @param limit The amount of tags that should be returned
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasksInt(projectId:Option[Long],
-                     challengeId:Option[Long],
-                     tags:List[Long],
+  def getRandomTasks(params: SearchParameters,
                      limit:Int=(-1)) : List[Task] = {
+
+    val taskTagIds = tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
+    val challengeTagIds = tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
     val firstQuery =
       s"""SELECT $retrieveColumns FROM tasks
           INNER JOIN challenges c ON c.id = tasks.parent_id
@@ -350,23 +246,44 @@ class TaskDAL @Inject() (override val db:Database, tagDAL: TagDAL)
     val queryBuilder = new StringBuilder
     val whereClause = new StringBuilder("WHERE c.enabled = TRUE AND p.enabled = TRUE")
 
-    challengeId match {
+    params.challengeId match {
       case Some(id) =>
         whereClause ++= " AND tasks.parent_id = {parentId} "
-        parameters += ('parentId -> ParameterValue.toParameterValue(id))
-      case None => //ignore
+        parameters += ('parentId -> ParameterValue.toParameterValue(params.challengeId))
+      case None =>
+        if (challengeTagIds.nonEmpty) {
+          queryBuilder ++= "INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id "
+          whereClause ++= " AND tc.tag_id IN ({challengeids})"
+          parameters += ('challengeids -> ParameterValue.toParameterValue(challengeTagIds))
+        }
+        if (params.challengeSearch.nonEmpty) {
+          whereClause ++= " AND c.name LIKE {challengeSearch}"
+          parameters += ('challengeSearch -> search(params.challengeSearch))
+        }
     }
-    projectId match {
+
+    params.projectId match {
       case Some(id) =>
         whereClause ++= " AND p.id = {projectId} "
-        parameters += ('projectId -> ParameterValue.toParameterValue(id))
-      case None => //ignore
+        parameters += ('projectId -> ParameterValue.toParameterValue(params.projectId))
+      case None =>
+        if (params.projectSearch.nonEmpty) {
+          whereClause ++= " AND p.name LIKE {projectSearch}"
+          parameters += ('projectSearch -> search(params.projectSearch))
+        }
     }
-    if (tags.nonEmpty) {
+
+    if (taskTagIds.nonEmpty) {
       queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
       whereClause ++= " AND tt.tag_id IN ({tagids}) "
-      parameters += ('tagids -> ParameterValue.toParameterValue(tags))
+      parameters += ('tagids -> ParameterValue.toParameterValue(taskTagIds))
     }
+    if (params.taskSearch.nonEmpty) {
+      whereClause ++= " AND tasks.name LIKE {taskSearch}"
+      parameters += ('taskSearch -> search(params.taskSearch))
+    }
+
+
     val query = s"$firstQuery ${queryBuilder.toString} ${whereClause.toString} " +
                 s"OFFSET FLOOR(RANDOM()*(" +
                 s"$secondQuery ${queryBuilder.toString} ${whereClause.toString}" +

@@ -1,10 +1,11 @@
 package org.maproulette.models
 
+import javax.inject.Inject
+
 import play.api.data._
 import play.api.data.Forms._
-import com.google.inject.Inject
 import org.maproulette.actions.Actions
-import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.models.dal.{ProjectDAL, TagDAL}
 import play.api.libs.json.{Json, Reads, Writes}
 
 /**
@@ -25,18 +26,21 @@ import play.api.libs.json.{Json, Reads, Writes}
   */
 case class Challenge(override val id: Long,
                      override val name: String,
-                     override val identifier:Option[String]=None,
                      override val description:Option[String]=None,
                      parent:Long,
                      instruction:String,
                      difficulty:Option[Int]=None,
                      blurb:Option[String]=None,
                      enabled:Boolean=true,
-                     challengeType:Int=Actions.ITEM_TYPE_CHALLENGE) extends ChildObject[Long, Project] {
+                     challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
+                     featured:Boolean=false) extends ChildObject[Long, Project] with TagObject[Long] {
 
   @Inject val projectDAL:ProjectDAL = null
+  @Inject val tagDAL:TagDAL = null
 
   override def getParent = projectDAL.retrieveById(parent).get
+
+  override lazy val tags: List[Tag] = tagDAL.listByChallenge(id)
 }
 
 object Challenge {
@@ -47,18 +51,18 @@ object Challenge {
     mapping(
       "id" -> default(longNumber, -1L),
       "name" -> nonEmptyText,
-      "identifier" -> optional(text),
       "description" -> optional(text),
       "parent" -> longNumber,
       "instruction" -> nonEmptyText,
       "difficulty" -> optional(number(min = 1, max = 3)),
       "blurb" -> optional(text),
       "enabled" -> boolean,
-      "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE)
+      "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
+      "featured" -> default(boolean, false)
     )(Challenge.apply)(Challenge.unapply)
   )
 
-  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, None, parentId, "")
+  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, parentId, "")
 
   val DIFFICULTY_EASY = 1
   val DIFFICULTY_NORMAL = 2

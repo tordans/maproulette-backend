@@ -5,9 +5,8 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.InvalidException
 import org.maproulette.models.Survey
-import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL}
+import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL, TaskDAL}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -24,9 +23,25 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              sessionManager:SessionManager,
                              userDAL: UserDAL,
                              projectDAL: ProjectDAL,
-                             challengeDAL: ChallengeDAL,
+                             override val challengeDAL: ChallengeDAL,
                              surveyDAL: SurveyDAL,
+                             taskDAL: TaskDAL,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper {
+
+  def clearCaches = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      if (user.isSuperUser) {
+        userDAL.clearCaches
+        projectDAL.clearCaches
+        challengeDAL.clearCaches
+        surveyDAL.clearCaches
+        taskDAL.clearCaches
+        Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
+      } else {
+        throw new IllegalAccessException("Only super users can clear the caches.")
+      }
+    }
+  }
 
   /**
     * The primary entry point to the application
@@ -41,6 +56,14 @@ class Application @Inject() (val messagesApi: MessagesApi,
   }
 
   /**
+    * Maps a challenge onto the map, this will basically start the challenge with that ID
+    *
+    * @param parentId The parent chalenge ID
+    * @return
+    */
+  def mapChallenge(parentId:Long) = map(parentId, -1)
+
+  /**
     * Only slightly different to the index page, this one shows the geojson of a specific item on the
     * map, which then can be edited or status set
     *
@@ -48,11 +71,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param taskId The task itself
     * @return The html view to show the user
     */
-  def map(parentType:String, parentId:Long, taskId:Long) = Action.async { implicit request =>
+  def map(parentId:Long, taskId:Long) = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
-      if (!Actions.validItemTypeName(parentType)) throw new InvalidException("Invalid parent type provided.")
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentType, parentId, taskId))
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId))
     }
   }
 
@@ -177,7 +199,6 @@ class Application @Inject() (val messagesApi: MessagesApi,
           val taskMap = tasks.map(task => Map(
             "id" -> task.id.toString,
             "name" -> task.name,
-            "identifier" -> task.identifier.getOrElse(""),
             "instruction" -> task.instruction,
             "location" -> task.location.toString,
             "status" -> task.status.getOrElse(0).toString,
@@ -210,12 +231,21 @@ class Application @Inject() (val messagesApi: MessagesApi,
       JavaScriptReverseRouter("jsRoutes")(
         routes.javascript.AuthController.generateAPIKey,
         routes.javascript.AuthController.deleteUser,
+        routes.javascript.AuthController.addUserToProject,
         routes.javascript.Application.error,
         org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
         org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
         org.maproulette.controllers.api.routes.javascript.TaskController.delete,
-        routes.javascript.MappingController.getTaskDisplayGeoJSON
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusDeleted,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFixed,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusSkipped,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFalsePositive,
+        routes.javascript.MappingController.getTaskDisplayGeoJSON,
+        routes.javascript.MappingController.getSequentialNextTask,
+        routes.javascript.MappingController.getSequentialPreviousTask,
+        routes.javascript.MappingController.getRandomNextTask,
+        routes.javascript.Application.mapChallenge
       )
     ).as("text/javascript")
   }

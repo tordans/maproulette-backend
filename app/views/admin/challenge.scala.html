@@ -15,7 +15,6 @@
                 <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
-                <th>Identifier</th>
                 <th>Tasks All/Fixed/FalsePositive</th>
                 <th>Actions</th>
             </tr>
@@ -33,7 +32,6 @@
                     </td>
                     <td>@c.id</td>
                     <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c.id)">@c.name</a></td>
-                    <td>@c.identifier</td>
                     <td>0/0/0</td>
                     <td>
                         <div class="pull-left">
@@ -50,7 +48,7 @@
                             <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteChallenge(@c.id);">Delete</button>
                         </div>
                         <div class="pull-left">
-                            <a href="#">
+                            <a href="@routes.Application.mapChallenge(c.id)">
                                 <button class="btn-xs btn-block btn-success">Start</button>
                             </a>
                         </div>
@@ -66,7 +64,6 @@
                 <th>Enabled</th>
                 <th>ID</th>
                 <th>Name</th>
-                <th>Identifier</th>
                 <th>Tasks All/Fixed/FalsePositive</th>
                 <th>Actions</th>
             </tr>

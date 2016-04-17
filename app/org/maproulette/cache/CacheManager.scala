@@ -2,6 +2,8 @@ package org.maproulette.cache
 
 import org.maproulette.models.BaseObject
 
+import scala.collection.mutable
+
 /**
   * A caching manager that can be used to wrap around blocks of code and that can cache the elements
   * that are retrieved by the inner block or return the cached item instead of executing the inner
@@ -14,6 +16,44 @@ import org.maproulette.models.BaseObject
   */
 class CacheManager[Key, A<:BaseObject[Key]] {
   val cache = new CacheStorage[Key, A]()
+  val nameCache = mutable.Map[String, Key]()
+
+  def clearCaches = {
+    cache.clear()
+    nameCache.clear()
+  }
+
+  /**
+    * Update the name cache to map to the id of the object with that name, and then makes sure that
+    * the cacheManager contains that cached item as well
+    *
+    * @param name The name of the object you are looking for
+    * @return An optional key for the object, None if not found
+    */
+  def updateNameCache(block:String => Option[A])(implicit name:String, caching:Boolean=true) : Option[Key] = {
+    if (caching) {
+      if (nameCache.contains(name)) {
+        nameCache.get(name)
+      } else {
+        // check the cache
+        cache.find(name) match {
+          case Some(obj) => Some(obj.id)
+          case None => block(name) match {
+            case Some(obj) =>
+              cache.add(obj)
+              nameCache.put(name, obj.id)
+              Some(obj.id)
+            case None => None
+          }
+        }
+      }
+    } else {
+      block(name) match {
+        case Some(value) => Some(value.id)
+        case None => None
+      }
+    }
+  }
 
 
   /**

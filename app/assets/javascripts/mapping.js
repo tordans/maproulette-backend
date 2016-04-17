@@ -1,3 +1,8 @@
+toastr.options = {
+    "toastClass": "notification",
+    "positionClass": "notification-position",
+};
+
 L.TileLayer.Common = L.TileLayer.extend({
     initialize: function (options) {
         L.TileLayer.prototype.initialize.call(this, this.url, options);
@@ -5,17 +10,119 @@ L.TileLayer.Common = L.TileLayer.extend({
 });
 
 // -- CUSTOM CONTROLS ----------------------------------
-L.Control.Instructions = L.Control.extend({
+// Help control, when you click on this the help screen will overlay the map
+L.Control.Help = L.Control.extend({
     options: {
-        position:'topleft'
-    },
-    initialize: function(options) {
-        L.Util.setOptions(this, options);
+        position: 'topright',
+        text: "Help Text"
     },
     onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'modal fade');
-        container.innerHTML = "test";
+        var container = L.DomUtil.create('div', 'mp-control mp-control-component');
+        var control = L.DomUtil.create('a', 'fa fa-question fa-2x', container);
+        control.href = "#";
+        var text = L.DomUtil.create('span', '', container);
+        text.innerHTML = " Help";
+        var self = this;
+        L.DomEvent.on(container, 'click', L.DomEvent.stopPropagation)
+            .on(container, 'click', L.DomEvent.preventDefault)
+            .on(container, 'click', function (e) {
+                $("#infoText").innerHTML = marked(self.options.text);
+                $("#information").modal({backdrop:false});
+            });
         return container;
+    }
+});
+
+// Control panel for all the task functions
+L.Control.ControlPanel = L.Control.extend({
+    options: {
+        position: 'bottomright',
+        currentTaskId:-1,
+        parent: {
+            id:-1,
+            blurb:'',
+            instruction:'',
+            difficulty:1
+        },
+        controls:[false, false, false, false],
+        showText:true
+    },
+    onAdd: function(map) {
+        // we create all the containers first so that the ordering will always be consistent
+        // no matter what controls a user decides to put on the map
+        var container = L.DomUtil.create('div', 'mp-control');
+        container.id = "controlpanel_container";
+        var prevDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        prevDiv.id = "controlpanel_previous";
+        var editDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        editDiv.id = "controlpanel_edit";
+        var fpDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        fpDiv.id = "controlpanel_fp";
+        var nextDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        nextDiv.id = "controlpanel_next";
+        return container;
+    },
+    // updates the parent and current task id that is being shown on the map
+    update: function(parentId, currentTaskId, debugMode) {
+        this.options.parent.id = parentId;
+        this.options.currentTaskId = currentTaskId;
+        this.options.debugMode = debugMode;
+    },
+    // updates whether to show the text for the controls or not
+    updateShowText: function(showText) {
+        this.options.showText = showText;
+    },
+    // updates the controls, removes and adds if necessary
+    updateUI: function(prevControl, editControl, fpControl, nextControl) {
+        this.options.controls[0] = prevControl;
+        this.options.controls[1] = editControl;
+        this.options.controls[2] = fpControl;
+        this.options.controls[3] = nextControl;
+        this.updateControls();
+    },
+    // generic function to update the controls on the map
+    updateControl: function(controlID, controlName, friendlyName, icon, clickHandler) {
+        if (this.options.controls[controlID]) {
+            var controlDiv = L.DomUtil.get(controlName);
+            if (!controlDiv.hasChildNodes()) {
+                var control = L.DomUtil.create('a', 'fa ' + icon + ' fa-2x', controlDiv);
+                control.href = "#";
+                var text = L.DomUtil.create('span', '', controlDiv);
+                if (this.options.showText) {
+                    text.innerHTML = " " + friendlyName;
+                }
+                L.DomEvent.on(controlDiv, 'click', L.DomEvent.stopPropagation)
+                    .on(controlDiv, 'click', L.DomEvent.preventDefault)
+                    .on(controlDiv, 'click', clickHandler);
+            }
+        } else {
+            $("#" + controlName).innerHTML = "";
+        }
+
+    },
+    updateControls: function() {
+        this.updatePreviousControl();
+        this.updateEditControl();
+        this.updateFPControl();
+        this.updateNextControl();
+    },
+    updatePreviousControl: function() {
+        this.updateControl(0, "controlpanel_previous", "Previous", "fa-backward", function(e) {
+            MRManager.getPreviousTask();
+        });
+    },
+    updateEditControl: function() {
+        this.updateControl(1, "controlpanel_edit", "Edit", "fa-pencil", function(e) {
+            $("#editoptions").fadeIn('slow');
+        });
+    },
+    updateFPControl: function() {
+        this.updateControl(2, "controlpanel_fp", "False Positive", "fa-warning", function(e) { });
+    },
+    updateNextControl: function() {
+        this.updateControl(3, "controlpanel_next", "Next", "fa-forward", function(e) {
+            MRManager.getNextTask();
+        });
     }
 });
 // -----------------------------------------------------
@@ -74,17 +181,120 @@ L.Control.Instructions = L.Control.extend({
 
 }());
 
-var Point = function(x, y) {
+// A simple point class
+function Point(x, y) {
     this.x = x;
     this.y = y;
-};
+}
+
+function Task(data) {
+    this.parentData = {};
+    this.data = data;
+
+    this.resetTask = function() {
+        this.data = {id:-1};
+    };
+
+    this.updateTask = function(taskId, success, error) {
+        var self = this;
+        jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax({
+            success:function(data) {
+                self.data = data;
+                success();
+            },
+            error:error
+        });
+    };
+
+    this.getNextTask = function(params, success, error) {
+        var self = this;
+        jsRoutes.controllers.MappingController
+            .getSequentialNextTask(this.data.parentId, this.data.id)
+            .ajax({
+                success:function(data) {
+                    self.data = data;
+                    success();
+                },
+                error:error
+            });
+    };
+
+    this.getPreviousTask = function(params, success, error) {
+        var self = this;
+        jsRoutes.controllers.MappingController
+            .getSequentialPreviousTask(this.data.parentId, this.data.id)
+            .ajax({
+                success: function (data) {
+                    self.data = data;
+                    success();
+                },
+                error: error
+            });
+    };
+
+    this.getRandomNextTask = function(params, success, error) {
+        var self = this;
+        jsRoutes.controllers.MappingController.getRandomNextTask(params.projectId,
+            params.projectSeach,
+            params.challengeId,
+            params.challengeSearch,
+            params.challengeTags,
+            params.taskSearch,
+            params.taskTags)
+            .ajax({
+                success:function(data) {
+                    self.data = data;
+                    success();
+                },
+                error:error
+            }
+        );
+    };
+}
+
+function SearchParameters(projectId, projectSearch, challengeId, challengeSearch, challengeTags, taskSearch, taskTags) {
+    this.projectId = projectId;
+    this.projectSeach = projectSearch;
+    this.challengeId = challengeId;
+    this.challengeSearch = challengeSearch;
+    this.challengeTags = challengeTags;
+    this.taskSearch = taskSearch;
+    this.taskTags = taskTags;
+    this.getQueryString = function() {
+        return "pid="+this.projectId+"&ps="+this.projectSeach+"&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&s="+this.taskSearch+"&tags="+this.taskTags;
+    };
+}
 
 var MRManager = (function() {
     var map;
     var geojsonLayer;
     var layerControl;
+    // controls
+    var controlPanel = new L.Control.ControlPanel({});
+    var currentTask = new Task({id:-1});
+    // In debug mode tasks will not be edited and the previous button is displayed in the control panel
+    var debugMode = Boolean(Utils.getQSParameterByName("debug"));
+    var currentSearchParameters = new SearchParameters(-1, "", -1, "", [], "", []);
+    var signedIn = false;
 
-    var init = function (element, point) {
+    // Function that handles the resizing of the map when the menu is toggled
+    var resizeMap = function() {
+        var mapDiv = $("#map");
+        var notifications = $(".notification-position");
+        var menuOpenNotifications = $(".notification-position-menuopen");
+        var sidebarWidth = $("#sidebar").width();
+        if (sidebarWidth == 50) {
+            mapDiv.animate({left: '230px'});
+            notifications.animate({left: '270px'});
+            menuOpenNotifications.animate({left: '270px'});
+        } else if (sidebarWidth == 230) {
+            mapDiv.animate({left: '50px'});
+            notifications.animate({left: '90px'});
+            menuOpenNotifications.animate({left: '90px'});
+        }
+    };
+
+    var init = function (userSignedIn, element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
             road_layer = new L.TileLayer.MapQuestOSM(),
             mapquest_layer = new L.TileLayer.MapQuestAerial(),
@@ -125,8 +335,11 @@ var MRManager = (function() {
             {'GeoJSON': geojsonLayer},
             {position:"topright"}
         );
+        map.addControl(new L.Control.Help({}));
         map.addControl(layerControl);
+        map.addControl(controlPanel);
 
+        // handles click events that are executed when submitting the custom geojson from the geojson viewer
         $('#geojson_submit').on('click', function() {
             if ($('#geojson_text').val().length < 1) {
                 $('#geoJsonViewer').modal("hide");
@@ -136,48 +349,68 @@ var MRManager = (function() {
             geojsonLayer.addData(JSON.parse($('#geojson_text').val()));
             map.fitBounds(geojsonLayer.getBounds());
             $('#geoJsonViewer').modal("hide");
+            // in this scenario the task needs to be reset
+            currentTask.resetTask();
+            controlPanel.updateUI(false, false, false, false);
+        });
+        // handles the click event from the sidebar toggle
+        $("#sidebar_toggle").on("click", resizeMap);
+        $("#map").css("left", $("#sidebar").width());
+        signedIn = userSignedIn;
+    };
+
+    var updateTaskDisplay = function() {
+        geojsonLayer.clearLayers();
+        geojsonLayer.addData(currentTask.data.geometry);
+        map.fitBounds(geojsonLayer.getBounds());
+        controlPanel.update(currentTask.data.parentId, currentTask.data.id, debugMode);
+        controlPanel.updateUI(debugMode, signedIn, signedIn, true);
+        // show the task text as a notification
+        toastr.clear();
+        toastr.info(marked(currentTask.data.instruction), '', { positionClass: getNotificationClass(), timeOut: 0 });
+        // let the user know where they are
+        displayAdminArea();
+    };
+
+    var getNotificationClass = function() {
+        if ($("#sidebar").width() == 50) {
+            return 'notification-position';
+        } else {
+            return 'notification-position-menuopen';
+        }
+    };
+
+    var displayAdminArea = function () {
+        var mqurl = 'http://open.mapquestapi.com/nominatim/v1/reverse.php?key=Nj8oRSldMF8mjcsqp2JtTIcYHTDMDMuq&format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
+        $.ajax({
+            url: mqurl,
+            jsonp: "json_callback",
+            success: function (data) {
+                toastr.info(Utils.mqResultToString(data.address), '', {positionClass: getNotificationClass()});
+            }
         });
     };
 
-    // Adds default controls like challenge/survey information to the map
-    var addDefaultControls = function() {
-    };
-
-    // Adds any challenge specific controls to the map
-    var addChallengeControls = function() {
-    };
-
-    // Adds any survey specific controls to the map
-    var addSurveyControls = function() {
-        new L.Control.Instructions({"instructions":"test"}).addTo(map);
-    };
-
     // adds a task (or challenge) to the map
-    var addTaskToMap = function(parentId, taskId, parentType) {
-        var apiCallback = {
-            success : function(data) {
-                geojsonLayer.clearLayers();
-                geojsonLayer.addData(data);
-                map.fitBounds(geojsonLayer.getBounds());
-                addDefaultControls();
-                if (parentType === "Challenge") {
-                    addChallengeControls();
-                } else {
-                    addSurveyControls();
-                }
-            },
-            error : function(error) {
-                toastr.error(error);
-            }
-        };
-
-        if (parentId != -1) {
-            if (taskId != -1) {
-                jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax(apiCallback);
-            } else {
-                
-            }
+    var addTaskToMap = function(parentId, taskId) {
+        if (taskId == -1) {
+            currentSearchParameters.challengeId = parentId;
+            currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);   
+        } else {
+            currentTask.updateTask(taskId, updateTaskDisplay, Utils.handleError);
         }
+    };
+
+    var getNextTask = function() {
+        if (debugMode) {
+            currentTask.getNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+        } else {
+            currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+        }
+    };
+
+    var getPreviousTask = function() {
+        currentTask.getPreviousTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
     };
 
     // registers a series of hotkeys for quick access to functions
@@ -208,36 +441,20 @@ var MRManager = (function() {
             }
         });
     };
-
-    // -- CONTROLS ---------------------------
-    var geoController = L.Control.extend({
-        options: {
-            position:'topright'
-        },
-        onAdd: function(map) {
-            var container = L.DomUtil.create('div');
-            var link = L.DomUtil.create('a', 'button', container);
-            link.innerHTML = "Hide";
-            link.href="#";
-            link.id = "geojsoncontroller";
-            L.DomEvent.on(link, 'click', L.DomEvent.stop).on(link, 'click', this.showHide);
-            L.DomEvent.disableClickPropagation(container);
-            return container;
-        },
-        showHide: function(e) {
-            if (map.hasLayer(geojsonLayer)) {
-                map.removeLayer(geojsonLayer);
-                $('#geojsoncontroller')[0].innerHTML = "Show";
-            } else {
-                map.addLayer(geojsonLayer);
-                $('#geojsoncontroller')[0].innerHTML = "Hide";
-            }
+    
+    var getCurrentTaskGeoJSON = function() {
+        if (currentTask.data.id == -1) {
+            return "{}";
         }
-    });
+        return JSON.stringify(currentTask.data.geometry);
+    };
 
     return {
         init: init,
-        addTaskToMap: addTaskToMap
+        addTaskToMap: addTaskToMap,
+        getCurrentTaskGeoJSON: getCurrentTaskGeoJSON,
+        getNextTask: getNextTask,
+        getPreviousTask: getPreviousTask
     };
 
 }());

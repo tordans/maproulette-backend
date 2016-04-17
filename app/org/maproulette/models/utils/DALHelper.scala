@@ -13,20 +13,35 @@ trait DALHelper {
 
   def sqlLimit(value:Int) : String = if (value < 0) "ALL" else value + ""
 
-  def enabled(value:Boolean, conjunction:String="AND") : String =
-    if (value) s"$conjunction enabled = TRUE" else ""
+  def enabled(value:Boolean, tablePrefix:String="", conjunction:String="AND") : String = {
+    val prefix = if (tablePrefix.nonEmpty) {
+      tablePrefix + "."
+    } else {
+      ""
+    }
+    if (value) {
+      s"$conjunction ${prefix}enabled = TRUE"
+    } else {
+      ""
+    }
+  }
 
   def search(value:String) : String = if (value.nonEmpty) s"%$value%" else "%"
 
-  def order(orderColumn:Option[String]=None, orderDirection:String="ASC") : String = orderColumn match {
+  def order(orderColumn:Option[String]=None, orderDirection:String="ASC", tablePrefix:String="") : String = orderColumn match {
     case Some(column) =>
+      val trueColumnName = if (tablePrefix.nonEmpty) {
+        s"$tablePrefix.$column"
+      } else {
+        column
+      }
       val direction = orderDirection match {
         case "DESC" => "DESC"
         case _ => "ASC"
       }
       // sanitize the column name to prevent sql injection. Only allow underscores and A-Za-z
-      if (column.forall(ordinary.contains(_))) {
-        s"ORDER BY $column $direction"
+      if (trueColumnName.forall(ordinary.contains(_))) {
+        s"ORDER BY $trueColumnName $direction"
       } else {
         ""
       }

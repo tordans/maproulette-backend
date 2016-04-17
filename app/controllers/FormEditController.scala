@@ -21,7 +21,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     sessionManager:SessionManager,
                                     userDAL: UserDAL,
                                     projectDAL: ProjectDAL,
-                                    challengeDAL: ChallengeDAL,
+                                    override val challengeDAL: ChallengeDAL,
                                     surveyDAL: SurveyDAL,
                                     taskDAL: TaskDAL,
                                     val config:Config) extends Controller with I18nSupport with ControllerHelper {
@@ -76,7 +76,6 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       val challengeForm = Challenge.challengeForm.fill(challenge)
       getOkIndex("MapRoulette Administration", user,
         views.html.admin.forms.challengeForm(parentId, challengeForm)
-
       )
     }
   }

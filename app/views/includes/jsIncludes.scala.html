@@ -9,13 +9,14 @@
 <![endif]>
 
     <!-- REQUIRED JS SCRIPTS -->
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"marked.min.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery${minified()}.js"))"></script>
     <!-- Latest compiled and minified JavaScript -->
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"toastr.js"))"></script>
-<script src="@routes.Assets.versioned("javascripts/app.js")"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/jquery.dataTables${minified()}.js"))"></script>
-    <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/dataTables.bootstrap${minified()}.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/dataTables.bootstrap${minified()}.js"))"></script>
+<script src="@routes.Assets.versioned("javascripts/app.js")"></script>
     <!-- AdminLTE App -->
 <script src="@routes.Assets.versioned(s"AdminLTE/app${minified()}.js")"></script>
 
@@ -23,11 +24,15 @@
 @helper.javascriptRouter("jsRoutes")(
     routes.javascript.AuthController.generateAPIKey,
     routes.javascript.AuthController.deleteUser,
+    routes.javascript.AuthController.addUserToProject,
     routes.javascript.Application.error,
+    routes.javascript.Application.mapChallenge,
     org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
     org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
     org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
-    routes.javascript.MappingController.getTaskDisplayGeoJSON
+    routes.javascript.MappingController.getTaskDisplayGeoJSON,
+    routes.javascript.MappingController.getSequentialNextTask,
+    routes.javascript.MappingController.getSequentialPreviousTask
 )
 <script type="text/javascript">
     var currentAPIKey = '@user.apiKey';

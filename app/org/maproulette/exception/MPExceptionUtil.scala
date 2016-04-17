@@ -3,6 +3,7 @@ package org.maproulette.exception
 import controllers.WebJarAssets
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.Config
+import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.User
 import play.api.Logger
 import play.api.i18n.Messages
@@ -39,7 +40,7 @@ object MPExceptionUtil {
         Forbidden(Json.obj("status" -> "Forbidden", "Message" -> e.getMessage))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
+        NotFound(Json.obj("status" -> "NotFound", "message" -> e.getMessage))
       case e:Exception =>
         Logger.error(e.getMessage, e)
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
@@ -53,24 +54,35 @@ object MPExceptionUtil {
     * @param block The block of code to be executed
     * @return The error page with the error that occurred.
     */
-  def internalUIExceptionCatcher(user:User, config:Config)(block:() => Result)
+  def internalUIExceptionCatcher(user:User, config:Config, challengeDAL: ChallengeDAL)(block:() => Result)
                                 (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
     val tempUser = user.copy(theme = "skin-red")
+    val featuredChallenges = challengeDAL.getFeaturedChallenges(config.numberOfChallenges, 0)
+    val hotChallenges = challengeDAL.getHotChallenges(config.numberOfChallenges, 0)
+    val newChallenges = challengeDAL.getNewChallenges(config.numberOfChallenges, 0)
     try {
       block()
     } catch {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
-        BadRequest(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error(e.getMessage)))
+        BadRequest(views.html.index("Map Roulette Error", tempUser, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error(e.getMessage)))
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
-        Forbidden(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Forbidden: " + e.getMessage)))
+        Forbidden(views.html.index("Map Roulette Error", tempUser, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Forbidden: " + e.getMessage)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Not Found: " + e.getMessage)))
+        NotFound(views.html.index("Map Roulette Error", tempUser, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Not Found: " + e.getMessage)))
       case e:Exception =>
         Logger.error(e.getMessage, e)
-        InternalServerError(views.html.index("Map Roulette Error", tempUser, config)(views.html.error.error("Internal Server Error: " + e.getMessage)))
+        InternalServerError(views.html.index("Map Roulette Error", tempUser, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Internal Server Error: " + e.getMessage)))
     }
   }
 
@@ -107,45 +119,58 @@ object MPExceptionUtil {
         Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(Json.obj("status" -> "NotFound", "Message" -> e.getMessage))
+        NotFound(Json.obj("status" -> "NotFound", "message" -> e.getMessage))
       case e:Throwable =>
         Logger.error(e.getMessage, e)
         InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
     }
   }
 
-  def internalAsyncUIExceptionCatcher(user:User, config:Config)(block:() => Future[Result])
+  def internalAsyncUIExceptionCatcher(user:User, config:Config, challengeDAL: ChallengeDAL)(block:() => Future[Result])
                                      (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     val p = Promise[Result]
     val tempUser = user.copy(theme = "skin-red")
     Try(block()) match {
       case Success(s) => s onComplete {
         case Success(result) => p success result
-        case Failure(f) => p success manageUIException(f, tempUser, config)
+        case Failure(f) => p success manageUIException(f, tempUser, config, challengeDAL)
       }
-      case Failure(f) => p success manageUIException(f, tempUser, config)
+      case Failure(f) => p success manageUIException(f, tempUser, config, challengeDAL)
     }
     p.future
   }
 
-  private def manageUIException(e:Throwable, user:User, config:Config)
+  private def manageUIException(e:Throwable, user:User, config:Config, challengeDAL: ChallengeDAL)
                                (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
+    val featuredChallenges = challengeDAL.getFeaturedChallenges(config.numberOfChallenges, 0)
+    val hotChallenges = challengeDAL.getHotChallenges(config.numberOfChallenges, 0)
+    val newChallenges = challengeDAL.getNewChallenges(config.numberOfChallenges, 0)
     e match {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
-        BadRequest(views.html.index("Map Roulette Error", user, config)(views.html.error.error(e.getMessage)))
+        BadRequest(views.html.index("Map Roulette Error", user, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error(e.getMessage)))
       case e:OAuthNotAuthorizedException =>
         Logger.error(e.getMessage, e)
-        Unauthorized(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401)))
+        Unauthorized(views.html.index("Map Roulette Error", user, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401)))
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
-        Forbidden(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", 403)))
+        Forbidden(views.html.index("Map Roulette Error", user, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", 403)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Not Found: " + e.getMessage)))
+        NotFound(views.html.index("Map Roulette Error", user, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Not Found: " + e.getMessage)))
       case e:Throwable =>
         Logger.error(e.getMessage, e)
-        InternalServerError(views.html.index("Map Roulette Error", user, config)(views.html.error.error("Internal Server Error: " + e.getMessage)))
+        InternalServerError(views.html.index("Map Roulette Error", user, config,
+          hotChallenges, newChallenges, featuredChallenges)
+          (views.html.error.error("Internal Server Error: " + e.getMessage)))
     }
   }
 }

@@ -35,12 +35,12 @@
                                     </div>
                                     @if(user.isSuperUser) {
                                         <div class="pull-left">
-                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteUser(@u.id);">
+                                            <button class="btn-xs btn-block btn-danger" onclick="deleteUser(@u.id);">
                                                 Delete</button>
                                         </div>
                                     }
                                     <div class="pull-left">
-                                        <a href="#" id="addtoproject" data-toggle="modal" data-target="#addtoproject_modal">
+                                        <a href="#" id="addtoproject" onclick="addUserToProject(@u.id);">
                                             <button class="btn-xs btn-block btn-primary>">Add Project</button>
                                         </a>
                                     </div>
@@ -70,4 +70,9 @@
     $(function() {
         $("#userTable").DataTable();
     });
+
+    var addUserToProject = function(userId) {
+        $("#userId").val(userId);
+        $("#addtoproject_modal").modal("show");
+    }
 </script>

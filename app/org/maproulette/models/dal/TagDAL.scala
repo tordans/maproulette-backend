@@ -66,13 +66,36 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     }
   }
 
+  /**
+    * Get all the tags for a specific task
+    *
+    * @param id The id fo the task
+    * @return List of tags for the task
+    */
   def listByTask(id:Long) : List[Tag] = {
     implicit val ids:List[Long] = List()
     cacheManager.withIDListCaching { implicit uncached =>
       db.withConnection { implicit c =>
-        SQL"""SELECT t.id, t.name, t.description FROM tags as t
-        INNER JOIN tags_on_tasks as tt ON t.id = tt.tag_id
-        WHERE tt.task_id = $id""".as(parser.*)
+        SQL"""SELECT * FROM tags AS t
+              INNER JOIN tags_on_tasks AS tt ON t.id = tt.tag_id
+              WHERE tt.task_id = $id""".as(parser.*)
+      }
+    }
+  }
+
+  /**
+    * Get all the tags for a specific challenge
+    *
+    * @param id The id of the challenge
+    * @return List of tags for the challenge
+    */
+  def listByChallenge(id:Long) : List[Tag] = {
+    implicit val ids:List[Long] = List()
+    cacheManager.withIDListCaching { implicit uncached =>
+      db.withConnection { implicit c =>
+        SQL"""SELECT * FROM tags AS t
+              INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id
+              WHERE tc.challenge_id = $id""".as(parser.*)
       }
     }
   }
@@ -91,10 +114,10 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     implicit val names = tags.map(_.name)
     cacheManager.withCacheNameDeletion { () =>
       db.withTransaction { implicit c =>
-        val sqlQuery = s"WITH upsert AS (UPDATE tags SET name = {name}, description = {description} " +
-          "WHERE id = {id} OR name = {name} RETURNING *) " +
-          s"INSERT INTO tags (name, description) SELECT {name}, {description} " +
-          "WHERE NOT EXISTS (SELECT * FROM upsert)"
+        val sqlQuery = s"""WITH upsert AS (UPDATE tags SET name = {name}, description = {description}
+                                            WHERE id = {id} OR name = {name} RETURNING *)
+                            INSERT INTO tags (name, description) SELECT {name}, {description}
+                            WHERE NOT EXISTS (SELECT * FROM upsert)"""
         val parameters = tags.map(tag => {
           val descriptionString = tag.description match {
             case Some(d) => d

@@ -44,6 +44,14 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
+-- Function to remove locks when a user is deleted
+CREATE OR REPLACE FUNCTION update_task_locks() RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE tasks SET locked_by = NULL WHERE locked_by = old.id;;
+END
+$$
+LANGUAGE plpgsql VOLATILE;;
+
 -- Map Roulette uses postgis extension for all it's geometries
 CREATE EXTENSION IF NOT EXISTS postgis;
 -- Map Roulette uses hstore for the properties of all it's geometries
@@ -119,13 +127,14 @@ CREATE TABLE IF NOT EXISTS user_groups
   CONSTRAINT ug_pkey PRIMARY KEY(id)
 );
 
+SELECT create_index_if_not_exists('user_groups', 'osm_user_id_group_id', '(osm_user_id, group_id)', true);
+
 -- Table for all challenges, which is a child of Project, Surveys are also stored in this table
 CREATE TABLE IF NOT EXISTS challenges
 (
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  identifier character varying DEFAULT '',
   name character varying NOT NULL,
   parent_id integer NOT NULL,
   description character varying DEFAULT '',
@@ -134,6 +143,7 @@ CREATE TABLE IF NOT EXISTS challenges
   difficulty integer DEFAULT 1,
   enabled BOOLEAN DEFAULT(true),
   challenge_type integer NOT NULL DEFAULT(1),
+  featured BOOLEAN DEFAULT(false),
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -146,7 +156,6 @@ CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, name)', true);
-SELECT create_index_if_not_exists('challenges', 'identifier', '(identifier)');
 
 -- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
@@ -175,15 +184,17 @@ CREATE TABLE IF NOT EXISTS tasks
   id SERIAL NOT NULL,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
-  identifier character varying DEFAULT '',
   name character varying NOT NULL,
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
+  locked_by integer,
   CONSTRAINT tasks_pkey PRIMARY KEY(id),
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT tasks_locked_by_fkey FOREIGN KEY (locked_by)
+    REFERENCES users(id) MATCH SIMPLE
 );
 
 DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
@@ -193,6 +204,11 @@ CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
 SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, name)', true);
+SELECT create_index_if_not_exists('tasks', 'locked_by', '(locked_by)');
+
+DROP TRIGGER IF EXISTS update_tasks_locked_by ON users;
+CREATE TRIGGER update_tasks_locked_by BEFORE DELETE ON users
+  FOR EACH ROW EXECUTE PROCEDURE update_task_locks();
 
 -- The answers for a survey from a user
 CREATE TABLE IF NOT EXISTS survey_answers
@@ -228,6 +244,26 @@ CREATE TABLE IF NOT EXISTS tags
 -- index has the potentially to slow down inserts badly
 SELECT create_index_if_not_exists('tags', 'name', '(name)');
 
+-- The tags associated with challenges
+CREATE TABLE IF NOT EXISTS tags_on_challenges
+(
+  id           SERIAL  NOT NULL,
+  challenge_id INTEGER NOT NULL,
+  tag_id       INTEGER NOT NULL,
+  CONSTRAINT tags_on_challenges_pkey PRIMARY KEY (id),
+  CONSTRAINT challenges_tags_on_challenges_id_fkey FOREIGN KEY (challenge_id)
+  REFERENCES challenges (id) MATCH SIMPLE
+  ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT tags_tags_on_challenges_id_fkey FOREIGN KEY (tag_id)
+  REFERENCES tags (id) MATCH SIMPLE
+  ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id', '(challenge_id)');
+SELECT create_index_if_not_exists('tags_on_challenges', 'tag_id', '(tag_id)');
+-- This index could slow down inserts pretty badly
+SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id_tag_id', '(challenge_id, tag_id)');
+
 -- The tags associated with a task
 CREATE TABLE IF NOT EXISTS tags_on_tasks
 (
@@ -235,11 +271,12 @@ CREATE TABLE IF NOT EXISTS tags_on_tasks
   task_id integer NOT NULL,
   tag_id integer NOT NULL,
   CONSTRAINT tags_on_tasks_pkey PRIMARY KEY(id),
-  CONSTRAINT task_tags_on_tasks_task_id_fkey FOREIGN KEY (task_id)
+  CONSTRAINT tasks_tags_on_tasks_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT task_tags_on_tasks_tag_id_fkey FOREIGN KEY (tag_id)
+  CONSTRAINT tags_tags_on_tasks_tag_id_fkey FOREIGN KEY (tag_id)
     REFERENCES tags (id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 SELECT create_index_if_not_exists('tags_on_tasks', 'task_id', '(task_id)');
@@ -261,7 +298,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
 );
 
 SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
-SELECT create_index_if_not_exists('task_geometries', 'geom', '(geom)');
+CREATE INDEX idx_task_geometries_geom ON task_geometries USING GIST (geom);
 
 -- Actions that are taken in the system, like set the status of a task to 'fixed'
 CREATE TABLE IF NOT EXISTS actions

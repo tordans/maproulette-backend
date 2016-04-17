@@ -1,17 +1,43 @@
 @import org.maproulette.session.User
 @import org.maproulette.actions.Actions
-@(user:User, debugMode:Boolean, parentType:String=Actions.ITEM_TYPE_CHALLENGE_NAME, parentId:Long=(-1), taskId:Long=(-1))(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
+@(user:User, debugMode:Boolean, parentId:Long=(-1), taskId:Long=(-1))(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
 <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/mapping.css")"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.css"))"/>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.js"))"></script>
 
-<div id="map" class="map"></div>
+<div id="map"></div>
+<div id="information" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Help</h4>
+            </div>
+            <div id="infoText" class="modal-body">
+            </div>
+        </div>
+    </div>
+</div>
+<div id="editoptions" class="modal fade modal-primary" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="box box-solid box-primary" align="center">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <div class="box-body">
+                    <label>Edit Options</label>
+                </div>
+                <div class="box-footer">
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="@routes.Assets.versioned("javascripts/mapping.js")"></script>
 <script>
     $(document).ready(function() {
-        MRManager.init('map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}))
-        MRManager.addTaskToMap(@parentId, @taskId, '@parentType');
+        MRManager.init(@{ if (!user.guest) {"true"} else {"false"}}, 'map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}))
+        MRManager.addTaskToMap(@parentId, @taskId);
     });
 </script>

@@ -3,6 +3,7 @@ package org.maproulette.controllers
 import controllers.WebJarAssets
 import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.Messages
 import play.api.mvc.{Controller, Request, Result}
@@ -17,10 +18,9 @@ trait ControllerHelper {
   this:Controller =>
 
   implicit val config:Config
-
   def webJarAssets : WebJarAssets
-
   implicit def requestWebJarAssets : WebJarAssets = webJarAssets
+  val challengeDAL:ChallengeDAL
 
   /**
     * Returns an Ok status code with the primary index file that is used in MapRoulette.
@@ -53,7 +53,10 @@ trait ControllerHelper {
     */
   protected def getIndex(status:Status, title:String, user:User, content:Html)
                         (implicit request:Request[Any], messages:Messages) : Result = {
-    status(views.html.index(title, user, config)(content))
+    status(views.html.index(title, user, config,
+      challengeDAL.getHotChallenges(config.numberOfChallenges, 0),
+      challengeDAL.getNewChallenges(config.numberOfChallenges, 0),
+      challengeDAL.getFeaturedChallenges(config.numberOfChallenges, 0))(content))
       .addingToSession(SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString)
   }
 }

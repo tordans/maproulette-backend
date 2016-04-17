@@ -67,7 +67,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
               Created(Json.toJson(internalCreate(request.body, element, user)))
             } else {
               // if you provide the ID in the post method we will send you to the update path
-              internalUpdate(request.body, user)(element.id) match {
+              internalUpdate(request.body, user)(element.id.toString) match {
                 case Some(value) => Ok(Json.toJson(value))
                 case None => NotModified
               }
@@ -119,7 +119,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  def update(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
+  def update(implicit id:String) = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       try {
         internalUpdate(request.body, user) match {
@@ -143,10 +143,17 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody:JsValue, user:User)(implicit id:Long) : Option[T] = {
-    val updatedObject = dal.update(requestBody, user)
+  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String) : Option[T] = {
+    val updatedObject = if (Utils.isDigit(id)) {
+      dal.update(requestBody, user)(id.toLong)
+    } else {
+      dal.updateByName(requestBody, user)
+    }
     extractAndUpdate(requestBody, updatedObject, user)
-    actionManager.setAction(Some(user), itemType.convertToItem(id), Updated(), "")
+    updatedObject match {
+      case Some(obj) => actionManager.setAction(Some(user), itemType.convertToItem(obj.id), Updated(), "")
+      case None => //ignore
+    }
     updatedObject
   }
 
@@ -156,9 +163,15 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id of the object that is being retrieved
     * @return 200 Ok, 204 NoContent if not found
     */
-  def read(implicit id:Long) = Action.async { implicit request =>
+  def read(implicit id:String) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      dal.retrieveById match {
+      val matched = if (Utils.isDigit(id)) {
+        dal.retrieveById(id.toLong)
+      } else {
+        dal.retrieveByName
+      }
+
+      matched match {
         case Some(value) =>
           Ok(Json.toJson(value))
         case None =>
@@ -174,11 +187,17 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id of the object to delete
     * @return 204 NoContent
     */
-  def delete(id:Long) = Action.async { implicit request =>
+  def delete(id:String) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.obj("message" -> s"${dal.delete(id, user)} Tasks deleted by user ${user.id}."))
-      actionManager.setAction(Some(user), itemType.convertToItem(id), Deleted(), "")
-      NoContent
+      if (Utils.isDigit(id)) {
+        dal.delete(id.toLong, user)
+        actionManager.setAction(Some(user), itemType.convertToItem(id.toLong), Deleted(), "")
+      } else {
+        dal.deleteFromStringList(user)(List(id))
+        // TODO if deleting by name get the id from the deleted object
+        //actionManager.setAction(Some(user), itemType.convertToItem(id), Deleted(), "")
+      }
+      Ok(Json.obj("message" -> s"Task $id deleted by user ${user.id}."))
     }
   }
 
@@ -253,7 +272,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param update Whether to update the object if a matching object is found, if false will simply do nothing
     */
   def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], user:User, update:Boolean=false) : Unit = {
-    arr.foreach(element => (element \ "id").asOpt[Long] match {
+    arr.foreach(element => (element \ "id").asOpt[String] match {
       case Some(itemID) => if (update) internalUpdate(element, user)(itemID)
       case None => Utils.insertJsonID(element).validate[T].fold(
         errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),

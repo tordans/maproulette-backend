@@ -34,6 +34,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
   // inputed string values in this field, as this could lead to sql injection
   val extraFilters:String = ""
 
+  def clearCaches = cacheManager.clearCaches
+
   /**
     * Our key for our objects are current Long, but can support String if need be. This function
     * handles transforming java objects to SQL for a specific set related to the object key
@@ -72,7 +74,22 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  def update(updates:JsValue, user:User)(implicit id:Long): Option[T]
+  def update(updates:JsValue, user:User)(implicit id:Key): Option[T]
+
+  /**
+    * Update function that must be implemented by the class that mixes in this trait. This update
+    * function updates based on the name instead of the id
+    *
+    * @param updates The updates in json form
+    * @param user The user executing the update
+    * @param name The name of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  def updateByName(updates:JsValue, user:User)(implicit name:String): Option[T] =
+    cacheManager.updateNameCache(String => retrieveByName) match {
+      case Some(objID) => update(updates, user)(objID)
+      case None => None
+    }
 
   /**
     * Helper function that takes a single key to delete and pushes the workload off to the deleteFromIdList
@@ -192,12 +209,17 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @return A list of objects, empty list if none found
     */
   def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
-    cacheManager.withIDListCaching { implicit uncachedIDs =>
-      db.withConnection { implicit c =>
-        val query = s"""SELECT $retrieveColumns FROM $tableName
-                        WHERE id IN ({inString})
-                        LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-        SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      cacheManager.withIDListCaching { implicit uncachedIDs =>
+        db.withConnection { implicit c =>
+          val query =
+            s"""SELECT $retrieveColumns FROM $tableName
+                          WHERE id IN ({inString})
+                          LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
+        }
       }
     }
   }
@@ -210,10 +232,14 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @return List of objects, empty list if none found
     */
   def retrieveListByName(implicit names: List[String]): List[T] = {
-    cacheManager.withNameListCaching { implicit uncachedNames =>
-      db.withConnection { implicit c =>
-        val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
-        SQL(query).on('inString -> ParameterValue.toParameterValue(names)).as(parser.*)
+    if (names.isEmpty) {
+      List.empty
+    } else {
+      cacheManager.withNameListCaching { implicit uncachedNames =>
+        db.withConnection { implicit c =>
+          val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
+          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedNames)).as(parser.*)
+        }
       }
     }
   }

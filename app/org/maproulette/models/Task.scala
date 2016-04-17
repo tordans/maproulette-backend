@@ -28,17 +28,16 @@ import play.api.libs.json._
   */
 case class Task(override val id:Long,
                 override val name: String,
-                override val identifier:Option[String]=None,
                 parent: Long,
                 instruction: String,
                 location: Option[String]=None,
                 geometries:String,
-                status:Option[Int]=None) extends ChildObject[Long, Challenge] {
+                status:Option[Int]=None) extends ChildObject[Long, Challenge] with TagObject[Long] {
 
   @Inject val tagDAL:TagDAL = null
   @Inject val challengeDAL:ChallengeDAL = null
 
-  lazy val tags:List[Tag] = tagDAL.listByTask(id)
+  override lazy val tags = tagDAL.listByTask(id)
 
   override def getParent = challengeDAL.retrieveById(parent).get
 }
@@ -126,7 +125,6 @@ object Task {
     mapping(
       "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
-      "identifier" -> optional(text),
       "parent" -> longNumber,
       "instruction" -> nonEmptyText,
       "location" -> optional(text),
@@ -135,5 +133,5 @@ object Task {
     )(Task.apply)(Task.unapply)
   )
 
-  def emptyTask(parentId:Long) = Task(-1, "", None, parentId, "", None, "")
+  def emptyTask(parentId:Long) = Task(-1, "", parentId, "", None, "")
 }

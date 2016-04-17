@@ -4,7 +4,8 @@ import com.google.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.exception.{InvalidException, MPExceptionUtil, NotFoundException}
+import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.session.dal.UserDAL
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -23,6 +24,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
                                 override val webJarAssets: WebJarAssets,
                                 sessionManager:SessionManager,
                                 userDAL: UserDAL,
+                                override val challengeDAL:ChallengeDAL,
                                 val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -33,7 +35,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Redirects back to the index page containing a valid session
     */
   def authenticate() = Action.async { implicit request =>
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
       val p = Promise[Result]
       request.getQueryString("oauth_verifier").map { verifier =>
         sessionManager.retrieveUser(verifier) onComplete {
@@ -99,6 +101,26 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
           case None => NoContent
         }
         case None => NoContent
+      }
+    }
+  }
+
+  /**
+    * Adds a user to the Admin group for a project
+    *
+    * @param projectId The id of the project to add the user too
+    * @return NoContent
+    */
+  def addUserToProject(userId:Long, projectId:Long) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      userDAL.retrieveById(userId) match {
+        case Some(addUser) =>
+          if (addUser.groups.exists(_.projectId == projectId)) {
+            throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
+          }
+          userDAL.addUserToProject(addUser, projectId)
+          Ok(Json.obj("status" -> "Ok", "message" -> s"User ${addUser.name} added to project $projectId"))
+        case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }
     }
   }

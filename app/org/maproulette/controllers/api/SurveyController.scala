@@ -4,10 +4,10 @@ import javax.inject.Inject
 
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
-import org.maproulette.models.{Survey, Task}
-import org.maproulette.models.dal.{SurveyDAL, TaskDAL}
-import org.maproulette.session.SessionManager
-import play.api.libs.json.{Json, Writes, Reads}
+import org.maproulette.models.{Challenge, Survey, Task}
+import org.maproulette.models.dal.{SurveyDAL, TagDAL, TaskDAL}
+import org.maproulette.session.{SearchParameters, SessionManager, User}
+import play.api.libs.json.{JsValue, Json, Reads, Writes}
 import play.api.mvc.Action
 
 /**
@@ -22,8 +22,9 @@ class SurveyController @Inject() (override val childController:TaskController,
                                   override val sessionManager: SessionManager,
                                   override val actionManager: ActionManager,
                                   override val dal: SurveyDAL,
-                                  taskDAL: TaskDAL)
-  extends ParentController[Survey, Task] {
+                                  taskDAL: TaskDAL,
+                                  override val tagDAL: TagDAL)
+  extends ParentController[Survey, Task] with TagsMixin[Survey] {
 
   // json reads for automatically reading Challenges from a posted json body
   override implicit val tReads: Reads[Survey] = Survey.surveyReads
@@ -36,22 +37,54 @@ class SurveyController @Inject() (override val childController:TaskController,
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()
 
+  override def dalWithTags = dal
+
+  /**
+    * Function can be implemented to extract more information than just the default create data,
+    * to build other objects with the current object at the core. No data will be returned from this
+    * function, it purely does work in the background AFTER creating the current object
+    *
+    * @param body          The Json body of data
+    * @param createdObject The object that was created by the create function
+    * @param user          The user that is executing the function
+    */
+  override def extractAndCreate(body: JsValue, createdObject: Survey, user: User): Unit = {
+    super.extractAndCreate(body, createdObject, user)
+    extractTags(body, createdObject, user)
+  }
+
+  /**
+    * Gets a json list of tags of the Survey
+    *
+    * @param id The id of the survey containing the tags
+    * @return The html Result containing json array of tags
+    */
+  def getTagsForSurvey(implicit id: Long) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(Survey(Challenge(id, "", None, -1, ""), List.empty).tags))
+    }
+  }
+
   /**
     * Gets a random task that is a child of the survey.
     *
-    * @param projectId The project id, ie. the parent of the child. If the incorrect parent id is
-    *                  supplied no tasks will be found, due to the inner joins of projects and challenges
     * @param surveyId The survey id that is the parent of the tasks that you would be searching for.
     * @param tags A comma separated list of tags that optionally can be used to further filter the tasks
+    * @param taskSearch Filter based on the name of the task
     * @param limit Limit of how many tasks should be returned
     * @return A list of Tasks that match the supplied filters
     */
-  def getRandomTasks(projectId: Long,
-                     surveyId: Long,
+  def getRandomTasks(surveyId: Long,
                      tags: String,
+                     taskSearch: String,
                      limit:Int) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val result = taskDAL.getRandomTasksStr(Some(projectId), Some(surveyId), tags.split(",").toList, limit)
+      val params = SearchParameters(
+        challengeId = Some(surveyId),
+        taskTags = tags.split(",").toList,
+        taskSearch = taskSearch
+      )
+      val result = taskDAL.getRandomTasks(params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
