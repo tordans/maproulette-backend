@@ -56,6 +56,8 @@ object Task {
   val STATUS_SKIPPED_NAME = "Skipped"
   val STATUS_DELETED = 4
   val STATUS_DELETED_NAME = "Deleted"
+  val STATUS_ALREADY_FIXED = 5
+  val STATUS_ALREADY_FIXED_NAME = "Already_Fixed"
 
   /**
     * Based on the status id, will return a boolean stating whether it is a valid id or not

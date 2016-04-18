@@ -26,6 +26,8 @@ trait DALHelper {
     }
   }
 
+  def searchField(column:String, conjunction:String="", key:String="ss") : String = s"$conjunction LOWER($column) LIKE LOWER({$key})"
+
   def search(value:String) : String = if (value.nonEmpty) s"%$value%" else "%"
 
   def order(orderColumn:Option[String]=None, orderDirection:String="ASC", tablePrefix:String="") : String = orderColumn match {

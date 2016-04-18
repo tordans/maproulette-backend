@@ -33,7 +33,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     db.withConnection { implicit c =>
       val query = s"""SELECT $childColumns FROM $childTable
                       WHERE parent_id = {id} ${enabled(onlyEnabled)}
-                      AND name LIKE {ss}
+                      ${searchField("name", "AND")}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> search(searchString),
@@ -59,8 +59,8 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
       // there is the case where a Task is a child of challenge and so there is no enabled column on that table
       val query = s"""SELECT $childColumns FROM $childTable c
                       INNER JOIN $tableName p ON p.id = c.parent_id
-                      WHERE p.name = {name} ${enabled(onlyEnabled, "p")}
-                      AND c.name LIKE {ss}
+                      WHERE p.name = LOWER({name}) ${enabled(onlyEnabled, "p")}
+                      ${searchField("c.name", "AND")}
                       ${order(Some(orderColumn), orderDirection, "c")}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> search(searchString),
@@ -81,8 +81,8 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     db.withConnection { implicit c =>
       val query =
         s"""SELECT COUNT(*) as TotalChildren FROM $childTable
-           |WHERE parent_id = {id} ${enabled(onlyEnabled)}
-           |AND name LIKE {ss}""".stripMargin
+           |WHERE ${searchField("name")} AND parent_id = {id}
+           |${enabled(onlyEnabled)}""".stripMargin
       SQL(query).on(
         'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
         'ss -> search(searchString)

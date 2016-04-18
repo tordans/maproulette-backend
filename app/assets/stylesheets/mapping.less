@@ -6,12 +6,17 @@ body, html {
 #map {
   position:absolute;
   width:inherit;
+  top:50px;
   right:0px;
   bottom:50px;
   left:50px;
   overflow: hidden;
   font-family: 'Helvetica', 'Arial', sans-serif;
   font-size: 11pt;
+}
+
+#siderbar {
+  z-index: 99999999999;
 }
 
 #information {
@@ -61,10 +66,4 @@ body, html {
 .toast-info {
   background-color: #fff!important;
   color: #000!important;
-}
-
-@media (min-width: 768px) {
-  #map {
-    top: 50px;
-  }
 }

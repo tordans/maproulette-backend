@@ -31,6 +31,7 @@ class SurveyDAL @Inject() (override val db:Database,
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
+  override val extraFilters: String = s"challenge_type = ${Actions.ITEM_TYPE_SURVEY}"
 
   override val parser: RowParser[Survey] = {
     challengeDAL.parser map {

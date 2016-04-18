@@ -1,7 +1,5 @@
-toastr.options = {
-    "toastClass": "notification",
-    "positionClass": "notification-position",
-};
+toastr.options.toastClass = "notification";
+toastr.options.positionClass = "notification-position";
 
 L.TileLayer.Common = L.TileLayer.extend({
     initialize: function (options) {
@@ -187,6 +185,21 @@ function Point(x, y) {
     this.y = y;
 }
 
+/**
+ * The Task class contains all relevent information regarding the current task loaded on the map.
+ * Also contains functionality to get next, previous and random tasks.
+ *
+ * @param data This is the task data that would be in the form
+ * {
+ *  "id":<TASK_ID>,
+ *  "parentId":<CHALLENGE_ID>,
+ *  "name":"<NAME>",
+ *  "instruction":"<INSTRUCTION>",
+ *  "status":"<STATUS>",
+ *  "geometry":"<GEOJSON>"
+ *  }
+ * @constructor
+ */
 function Task(data) {
     this.parentData = {};
     this.data = data;
@@ -252,14 +265,38 @@ function Task(data) {
     };
 }
 
-function SearchParameters(projectId, projectSearch, challengeId, challengeSearch, challengeTags, taskSearch, taskTags) {
-    this.projectId = projectId;
-    this.projectSeach = projectSearch;
-    this.challengeId = challengeId;
-    this.challengeSearch = challengeSearch;
-    this.challengeTags = challengeTags;
-    this.taskSearch = taskSearch;
-    this.taskTags = taskTags;
+/**
+ * The search parameters allow tasks to be executed over multiple different projects, challenges
+ * and tags. It allows searching of those elements and the next random task retrieved will remain
+ * in the bounds of the search parameters.
+ *
+ * projectId If wanting to limit to a specific project set this value
+ * projectSearch Will filter based on the name of the project
+ * challengeId If wanting to limit to a specific challenge set this value
+ * challengeSearch Will filter based on the name of the challenge. eg. All challenges starting with "c"
+ * challengeTags Will filter based on the supplied tags for the challenge
+ * taskSearch Will filter based on the name of the task (probably wouldn't be used a lot
+ * taskTags Will filter based on the tags of the task
+ * @constructor
+ */
+function SearchParameters() {
+    this.projectId = Utils.getQSParameterByName("pid");
+    this.projectSeach = Utils.getQSParameterByName("ps");
+    this.challengeId = Utils.getQSParameterByName("cid");
+    this.challengeSearch = Utils.getQSParameterByName("cs");
+    var ctQS = Utils.getQSParameterByName("ct");
+    if (ctQS === null) {
+        this.challengeTags = null;
+    } else {
+        this.challengeTags = ctQS.split(",");
+    }
+    this.taskSearch = Utils.getQSParameterByName("s");
+    var tagsQS = Utils.getQSParameterByName("tags");
+    if (tagsQS === null) {
+        this.taskTags = null;
+    } else {
+        this.taskTags = tagsQS.split(",");
+    }
     this.getQueryString = function() {
         return "pid="+this.projectId+"&ps="+this.projectSeach+"&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&s="+this.taskSearch+"&tags="+this.taskTags;
     };
@@ -274,7 +311,7 @@ var MRManager = (function() {
     var currentTask = new Task({id:-1});
     // In debug mode tasks will not be edited and the previous button is displayed in the control panel
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
-    var currentSearchParameters = new SearchParameters(-1, "", -1, "", [], "", []);
+    var currentSearchParameters = new SearchParameters();
     var signedIn = false;
 
     // Function that handles the resizing of the map when the menu is toggled
@@ -359,6 +396,10 @@ var MRManager = (function() {
         signedIn = userSignedIn;
     };
 
+    /**
+     * Updates the map, this will first remove all current layers and then update the map with
+     * the current task geometry
+     */
     var updateTaskDisplay = function() {
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.data.geometry);
@@ -372,6 +413,11 @@ var MRManager = (function() {
         displayAdminArea();
     };
 
+    /**
+     * Gets the notification class based on the sidebar, whether it is collapsed or not
+     *
+     * @returns {*}
+     */
     var getNotificationClass = function() {
         if ($("#sidebar").width() == 50) {
             return 'notification-position';
@@ -380,6 +426,9 @@ var MRManager = (function() {
         }
     };
 
+    /**
+     * Will display the current location that you are working in
+     */
     var displayAdminArea = function () {
         var mqurl = 'http://open.mapquestapi.com/nominatim/v1/reverse.php?key=Nj8oRSldMF8mjcsqp2JtTIcYHTDMDMuq&format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
         $.ajax({
@@ -391,9 +440,15 @@ var MRManager = (function() {
         });
     };
 
-    // adds a task (or challenge) to the map
+    /**
+     * This function generally will only be called on a page load. So the initial entry into the
+     * mapping area
+     *
+     * @param parentId This would be the id for a challenge, can be ignored if you are supplying the Task ID
+     * @param taskId The taskId if you are looking for a specific task
+     */
     var addTaskToMap = function(parentId, taskId) {
-        if (taskId == -1) {
+        if (typeof taskId === 'undefined' || taskId == -1) {
             currentSearchParameters.challengeId = parentId;
             currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);   
         } else {
@@ -401,6 +456,10 @@ var MRManager = (function() {
         }
     };
 
+    /**
+     * Gets the Next Task within the current search parameters. This function in debug mode will
+     * retrieve the next task sequentially, in non-debug mode it will retrieve the next random task
+     */
     var getNextTask = function() {
         if (debugMode) {
             currentTask.getNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
@@ -409,8 +468,14 @@ var MRManager = (function() {
         }
     };
 
+    /**
+     * Gets the previous Task within the current search parameters, this function is only available
+     * when in Debug Mode.
+     */
     var getPreviousTask = function() {
-        currentTask.getPreviousTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+        if (debugMode) {
+            currentTask.getPreviousTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+        }
     };
 
     // registers a series of hotkeys for quick access to functions
@@ -442,6 +507,7 @@ var MRManager = (function() {
         });
     };
     
+    // This funtion returns the geoJSON of the currently displayed Task
     var getCurrentTaskGeoJSON = function() {
         if (currentTask.data.id == -1) {
             return "{}";

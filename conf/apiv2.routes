@@ -5,6 +5,7 @@ PUT     /project/:id                                @org.maproulette.controllers
 PUT     /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPut
 GET     /project/:id                                @org.maproulette.controllers.api.ProjectController.read(id:String)
 DELETE  /project/:id                                @org.maproulette.controllers.api.ProjectController.delete(id:String)
+GET     /projects/find                              @org.maproulette.controllers.api.ProjectController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 GET     /projects                                   @org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0)
 GET     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.listChildren(id:String, limit:Int ?= 10, page:Int ?= 0)
 POST    /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.createChildren(id:String)
@@ -18,6 +19,7 @@ PUT     /challenge/:id                              @org.maproulette.controllers
 PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
 GET     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.read(id:String)
 DELETE  /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.delete(id:String)
+GET     /challenges/find                            @org.maproulette.controllers.api.ChallengeController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 GET     /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.getTagsForChallenge(id:Long)
 GET     /challenges/tags                            @org.maproulette.controllers.api.ChallengeController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 DELETE  /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.deleteTagsFromItem(id:Long, tags:String ?= "")
@@ -34,9 +36,10 @@ PUT     /survey/:id                                 @org.maproulette.controllers
 PUT     /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPut
 GET     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.read(id:String)
 DELETE  /survey/:id                                 @org.maproulette.controllers.api.SurveyController.delete(id:String)
-GET     /survey/:id/tags                         @org.maproulette.controllers.api.SurveyController.getTagsForSurvey(id:Long)
-GET     /surveys/tags                            @org.maproulette.controllers.api.SurveyController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
-DELETE  /survey/:id/tags                         @org.maproulette.controllers.api.SurveyController.deleteTagsFromItem(id:Long, tags:String ?= "")
+GET     /surveys/find                               @org.maproulette.controllers.api.SurveyController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
+GET     /survey/:id/tags                            @org.maproulette.controllers.api.SurveyController.getTagsForSurvey(id:Long)
+GET     /surveys/tags                               @org.maproulette.controllers.api.SurveyController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+DELETE  /survey/:id/tags                            @org.maproulette.controllers.api.SurveyController.deleteTagsFromItem(id:Long, tags:String ?= "")
 GET     /surveys                                    @org.maproulette.controllers.api.SurveyController.list(limit:Int ?= 10, page:Int ?= 0)
 GET     /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.listChildren(id:String, limit:Int ?= 10, page:Int ?= 0)
 POST    /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.createChildren(id:String)
@@ -51,6 +54,7 @@ PUT     /task/:id                                   @org.maproulette.controllers
 PUT     /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPut
 GET     /task/:id                                   @org.maproulette.controllers.api.TaskController.read(id:String)
 DELETE  /task/:id                                   @org.maproulette.controllers.api.TaskController.delete(id:String)
+GET     /tasks/find                                 @org.maproulette.controllers.api.TaskController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 GET     /task/:id/tags                              @org.maproulette.controllers.api.TaskController.getTagsForTask(id:Long)
 GET     /tasks/tags                                 @org.maproulette.controllers.api.TaskController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 DELETE  /task/:id/tags                              @org.maproulette.controllers.api.TaskController.deleteTagsFromItem(id:Long, tags:String ?= "")

@@ -56,6 +56,14 @@ var Utils = {
         if (!results) return null;
         if (!results[2]) return '';
         return decodeURIComponent(results[2].replace(/\+/g, " "));
+    },
+    appendQueryString: function(url) {
+        var qs = document.URL.split("?");
+        var queryString = "";
+        if (qs.length > 1) {
+            queryString = qs[1];
+        }    
+        return url + "?" + queryString;
     }
 };
 
@@ -75,7 +83,7 @@ toastr.options = {
     "debug": false,
     "newestOnTop": false,
     "progressBar": false,
-    "preventDuplicates": false,
+    "preventDuplicates": true,
     "onclick": null,
     "showDuration": "300",
     "hideDuration": "1000",
@@ -88,31 +96,67 @@ toastr.options = {
     "tapToDismiss" : false
 };
 
+/**
+ * Helper for the generic delete function, this will delete a specific project
+ * Only an Admin user for the specific project will be able to delete the project or Super user
+ * 
+ * @param itemId The id of the project
+ */
 var deleteProject = function(itemId) {
     deleteItem("Project", itemId);
     toastr.success("Project [" + itemId + "] deleted");
 };
 
+/**
+ * Helper for the generic delete function, this will delete a specific challenge
+ * Only an Admin user for the specific parent project will be able to delete the challenge or Super user
+ * 
+ * @param itemId The id of the challenge
+ */
 var deleteChallenge = function(itemId) {
     deleteItem("Challenge", itemId);
     toastr.success("Challenge [" + itemId + "] deleted");
 };
 
+/**
+ * Helper for the generic delete function, this will delete a specific survey
+ * Only an Admin user for the specific parent project will be able to delete the survey or Super user
+ * 
+ * @param itemId The id of the survey
+ */
 var deleteSurvey = function(itemId) {
     deleteItem("Survey", itemId);
     toastr.success("Survey [" + itemId + "] deleted");
 };
 
+/**
+ * Helper for the generic delete function, this will delete a specific task
+ * Only an Admin user for the specific parent project will be able to delete the task or Super user
+ * 
+ * @param itemId The id of the task
+ */
 var deleteTask = function(itemId) {
     deleteItem("Task", itemId);
     toastr.success("Task [" + itemId + "] deleted");
 };
 
+/**
+ * Helper for the generic delete function, this will delete a specific user
+ * Only a super user can delete users
+ * 
+ * @param itemId The id of the user
+ */
 var deleteUser = function(itemId) {
     deleteItem("User", itemId);
     toastr.success("User [" + itemId + "] deleted");
 };
 
+/**
+ * The generic delete function that makes the API request to the server
+ * 
+ * @param itemType The type of object you are deleting
+ * @param itemId The id of the object you are deleting
+ */
 var deleteItem = function(itemType, itemId) {
     var apiCallback = {
         success : function(data) {
@@ -134,6 +178,81 @@ var deleteItem = function(itemType, itemId) {
         jsRoutes.org.maproulette.controllers.api.TaskController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "User") {
         jsRoutes.AuthController.deleteUser(itemid).ajax(apiCallback);
+    }
+};
+
+/**
+ * Helper function to specifically find projects, see generic find function for information on parameters
+ */
+var findProjects = function(search, limit, offset, onlyEnabled, handler, errorHandler) {
+    findItem("Project", search, limit, offset, onlyEnabled, handler, errorHandler);  
+};
+
+/**
+ * Helper function to specifically find challenges, see generic find function for information on parameters
+ */
+var findChallenges = function(search, limit, offset, onlyEnabled, handler, errorHandler) {
+    findItem("Challenge", search, limit, offset, onlyEnabled, handler, errorHandler);
+};
+
+/**
+ * Helper function to specifically find surveys, see generic find function for information on parameters
+ */
+var findSurveys = function(search, limit, offset, onlyEnabled, handler, errorHandler) {
+    findItem("Survey", search, limit, offset, onlyEnabled, handler, errorHandler);
+};
+
+/**
+ * Helper function to specifically find tags, see generic find function for information on parameters
+ */
+var findTags = function(search, limit, offset, handler, errorHandler) {
+    findItem("Tag", search, limit, offset, true, handler, errorHandler);
+};
+
+/**
+ * A generic find function that will make an API call to the server to search for a specific object 
+ * and return a list of objects that match the search criteria
+ * 
+ * @param itemType The type of object you are searching for
+ * @param search The search phrase that will match against the name of the object
+ * @param limit The number of objects you want returned in the array at one time
+ * @param offset A paging mechanism, starting at 0
+ * @param onlyEnabled If true then only enabled objects will be returned
+ * @param handler The javascript handler that will handle the results
+ * @param errorHandler The javascript handler that will handle any failure
+ */
+var findItem = function(itemType, search, limit, offset, onlyEnabled, handler, errorHandler) {
+    var apiCallback = {
+        success: handler,
+        error: errorHandler
+    };
+    if (itemType == "Project") {
+        jsRoutes.org.maproulette.controllers.api.ProjectController.find(search, limit, offset, onlyEnabled).ajax(apiCallback);
+    } else if (itemType == "Challenge") {
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.find(search, limit, offset, onlyEnabled).ajax(apiCallback);
+    } else if (itemType == "Survey") {
+        jsRoutes.org.maproulette.controllers.api.SurveyController.find(search, limit, offset, onlyEnabled).ajax(apiCallback); 
+    } else if (itemType == "Tag") {
+        jsRoutes.org.maproulette.controllers.api.TagController.getTags(search, limit, offset).ajax(apiCallback);
+    }
+};
+
+/**
+ * Adds a task to the map, if the map is not on the current page it will load that page by 
+ * redirecting, if it is on the page then it will simply load it dynamically.
+ * 
+ * @param parentId
+ * @param taskId
+ */
+var addItemToMap = function(parentId, taskId) {
+    if ($("#map").length) {
+        MRManager.addTaskToMap(parentId, taskId);    
+    } else {
+        if (typeof taskId === 'undefined' || taskId == -1) {
+            location.href = Utils.appendQueryString("/map/" + parentId + "/" + taskId);
+        } else {
+            location.href = Utils.appendQueryString("/map/" + parentId);
+        }
     }
 };
 

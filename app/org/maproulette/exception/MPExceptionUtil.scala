@@ -113,7 +113,7 @@ object MPExceptionUtil {
         BadRequest(Json.obj("status" -> "KO", "message" -> e.getMessage))
       case e:OAuthNotAuthorizedException =>
         Logger.error(e.getMessage, e)
-        Unauthorized(Json.obj("status" -> "NotAuthorized", "message" -> e.getMessage))
+        Unauthorized(Json.obj("status" -> "NotAuthorized", "message" -> e.getMessage)).withNewSession
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
         Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
@@ -155,7 +155,7 @@ object MPExceptionUtil {
         Logger.error(e.getMessage, e)
         Unauthorized(views.html.index("Map Roulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges)
-          (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401)))
+          (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401))).withNewSession
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
         Forbidden(views.html.index("Map Roulette Error", user, config,

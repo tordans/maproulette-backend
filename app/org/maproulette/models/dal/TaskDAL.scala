@@ -257,7 +257,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
           parameters += ('challengeids -> ParameterValue.toParameterValue(challengeTagIds))
         }
         if (params.challengeSearch.nonEmpty) {
-          whereClause ++= " AND c.name LIKE {challengeSearch}"
+          whereClause ++= s" ${searchField("c.name", "AND", "challengeSearch")}"
           parameters += ('challengeSearch -> search(params.challengeSearch))
         }
     }
@@ -268,7 +268,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
         parameters += ('projectId -> ParameterValue.toParameterValue(params.projectId))
       case None =>
         if (params.projectSearch.nonEmpty) {
-          whereClause ++= " AND p.name LIKE {projectSearch}"
+          whereClause ++= s" ${searchField("p.name", "AND", "projectSearch")}"
           parameters += ('projectSearch -> search(params.projectSearch))
         }
     }
@@ -279,7 +279,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
       parameters += ('tagids -> ParameterValue.toParameterValue(taskTagIds))
     }
     if (params.taskSearch.nonEmpty) {
-      whereClause ++= " AND tasks.name LIKE {taskSearch}"
+      whereClause ++= s" ${searchField("tasks.name", "AND", "taskSearch")}"
       parameters += ('taskSearch -> search(params.taskSearch))
     }
 

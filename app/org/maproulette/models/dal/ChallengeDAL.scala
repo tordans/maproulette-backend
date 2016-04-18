@@ -30,8 +30,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
-  val challengeType = Actions.ITEM_TYPE_CHALLENGE
-  override val extraFilters: String = s"challenge_type = $challengeType"
+  override val extraFilters: String = s"challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}"
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -70,7 +69,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
                                       instruction, enabled, challenge_type, featured)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
-                      ${challenge.enabled}, $challengeType, ${challenge.featured}) RETURNING *""".as(parser.*).headOption
+                      ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured}) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }

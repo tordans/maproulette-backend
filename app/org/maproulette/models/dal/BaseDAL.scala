@@ -218,7 +218,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
             s"""SELECT $retrieveColumns FROM $tableName
                           WHERE id IN ({inString})
                           LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement), 'offset -> offset).as(parser.*)
+          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement),
+            'offset -> offset).as(parser.*)
         }
       }
     }
@@ -275,7 +276,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
             orderColumn:String="id", orderDirection:String="ASC") : List[T] = {
     db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM $tableName
-                      WHERE name LIKE {ss} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
+                      WHERE ${searchField("name")} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
@@ -292,7 +293,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
-                        WHERE name LIKE {ss} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
+                        WHERE ${searchField("name")}
+                        ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
                         ${order(Some(orderColumn), orderDirection)}
                         LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> search(searchString),
