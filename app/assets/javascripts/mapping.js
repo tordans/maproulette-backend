@@ -270,23 +270,33 @@ function Task(data) {
  * and tags. It allows searching of those elements and the next random task retrieved will remain
  * in the bounds of the search parameters.
  *
- * @param projectId If wanting to limit to a specific project set this value
- * @param projectSearch Will filter based on the name of the project
- * @param challengeId If wanting to limit to a specific challenge set this value
- * @param challengeSearch Will filter based on the name of the challenge. eg. All challenges starting with "c"
- * @param challengeTags Will filter based on the supplied tags for the challenge
- * @param taskSearch Will filter based on the name of the task (probably wouldn't be used a lot
- * @param taskTags Will filter based on the tags of the task
+ * projectId If wanting to limit to a specific project set this value
+ * projectSearch Will filter based on the name of the project
+ * challengeId If wanting to limit to a specific challenge set this value
+ * challengeSearch Will filter based on the name of the challenge. eg. All challenges starting with "c"
+ * challengeTags Will filter based on the supplied tags for the challenge
+ * taskSearch Will filter based on the name of the task (probably wouldn't be used a lot
+ * taskTags Will filter based on the tags of the task
  * @constructor
  */
-function SearchParameters(projectId, projectSearch, challengeId, challengeSearch, challengeTags, taskSearch, taskTags) {
-    this.projectId = projectId;
-    this.projectSeach = projectSearch;
-    this.challengeId = challengeId;
-    this.challengeSearch = challengeSearch;
-    this.challengeTags = challengeTags;
-    this.taskSearch = taskSearch;
-    this.taskTags = taskTags;
+function SearchParameters() {
+    this.projectId = Utils.getQSParameterByName("pid");
+    this.projectSeach = Utils.getQSParameterByName("ps");
+    this.challengeId = Utils.getQSParameterByName("cid");
+    this.challengeSearch = Utils.getQSParameterByName("cs");
+    var ctQS = Utils.getQSParameterByName("ct");
+    if (ctQS === null) {
+        this.challengeTags = null;
+    } else {
+        this.challengeTags = ctQS.split(",");
+    }
+    this.taskSearch = Utils.getQSParameterByName("s");
+    var tagsQS = Utils.getQSParameterByName("tags");
+    if (tagsQS === null) {
+        this.taskTags = null;
+    } else {
+        this.taskTags = tagsQS.split(",");
+    }
     this.getQueryString = function() {
         return "pid="+this.projectId+"&ps="+this.projectSeach+"&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&s="+this.taskSearch+"&tags="+this.taskTags;
     };
@@ -301,7 +311,7 @@ var MRManager = (function() {
     var currentTask = new Task({id:-1});
     // In debug mode tasks will not be edited and the previous button is displayed in the control panel
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
-    var currentSearchParameters = new SearchParameters(-1, "", -1, "", [], "", []);
+    var currentSearchParameters = new SearchParameters();
     var signedIn = false;
 
     // Function that handles the resizing of the map when the menu is toggled
@@ -438,7 +448,7 @@ var MRManager = (function() {
      * @param taskId The taskId if you are looking for a specific task
      */
     var addTaskToMap = function(parentId, taskId) {
-        if (taskId == -1) {
+        if (typeof taskId === 'undefined' || taskId == -1) {
             currentSearchParameters.challengeId = parentId;
             currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);   
         } else {

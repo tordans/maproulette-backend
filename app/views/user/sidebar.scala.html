@@ -75,7 +75,7 @@
       </a>
       <ul class="treeview-menu">
       @for(c <- hotChallenges) {
-        <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa
+        <li><a href="#" onclick="addItemToMap(@c.id)"><i class="fa
                   @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
         </a></li>
       }
@@ -90,7 +90,7 @@
       </a>
       <ul class="treeview-menu">
         @for(c <- newChallenges) {
-          <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa
+          <li><a href="#" onclick="addItemToMap(@c.id)"><i class="fa
                   @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
           </a></li>
         }
@@ -105,7 +105,7 @@
       </a>
       <ul class="treeview-menu">
         @for(c <- featuredChallenges) {
-          <li><a href="@routes.Application.mapChallenge(c.id)"><i class="fa
+          <li><a href="#" onclick="addItemToMap(@c.id)"><i class="fa
                   @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
           </a></li>
         }
@@ -130,7 +130,7 @@
       } else {
         dataObject = data[i];
       }
-      $("<li><a href=\"/map/" + dataObject.id + "\">\
+      $("<li><a href=\"#\" onclick=\"addItemToMap(" + dataObject.id + ");\">\
             <i class=\"fa fa-circle-o\"></i> " + dataObject.name + "</a>\
           </li>").appendTo("#" + name + "_results");
     }

@@ -56,6 +56,14 @@ var Utils = {
         if (!results) return null;
         if (!results[2]) return '';
         return decodeURIComponent(results[2].replace(/\+/g, " "));
+    },
+    appendQueryString: function(url) {
+        var qs = document.URL.split("?");
+        var queryString = "";
+        if (qs.length > 1) {
+            queryString = qs[1];
+        }    
+        return url + "?" + queryString;
     }
 };
 
@@ -226,6 +234,25 @@ var findItem = function(itemType, search, limit, offset, onlyEnabled, handler, e
         jsRoutes.org.maproulette.controllers.api.SurveyController.find(search, limit, offset, onlyEnabled).ajax(apiCallback); 
     } else if (itemType == "Tag") {
         jsRoutes.org.maproulette.controllers.api.TagController.getTags(search, limit, offset).ajax(apiCallback);
+    }
+};
+
+/**
+ * Adds a task to the map, if the map is not on the current page it will load that page by 
+ * redirecting, if it is on the page then it will simply load it dynamically.
+ * 
+ * @param parentId
+ * @param taskId
+ */
+var addItemToMap = function(parentId, taskId) {
+    if ($("#map").length) {
+        MRManager.addTaskToMap(parentId, taskId);    
+    } else {
+        if (typeof taskId === 'undefined' || taskId == -1) {
+            location.href = Utils.appendQueryString("/map/" + parentId + "/" + taskId);
+        } else {
+            location.href = Utils.appendQueryString("/map/" + parentId);
+        }
     }
 };
 
