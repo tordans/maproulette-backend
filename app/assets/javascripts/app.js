@@ -83,7 +83,7 @@ toastr.options = {
     "debug": false,
     "newestOnTop": false,
     "progressBar": false,
-    "preventDuplicates": true,
+    "preventDuplicates": false,
     "onclick": null,
     "showDuration": "300",
     "hideDuration": "1000",

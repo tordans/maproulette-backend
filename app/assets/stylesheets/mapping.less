@@ -23,8 +23,13 @@ body, html {
   z-index: 9999999999;
 }
 
-.mp-control
-{
+.mp-control-locked {
+  //color: #dd4b39;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.mp-control {
   display: block;
   padding: 3px;
   border-radius: 4px;
@@ -36,13 +41,11 @@ body, html {
   background-color: #FFFFFF;
 }
 
-.mp-control-component
-{
+.mp-control-component {
   padding: 2px;
 }
 
-.mp-control-component:hover
-{
+.mp-control-component:hover {
   background-color: #F4F4F4;
 }
 

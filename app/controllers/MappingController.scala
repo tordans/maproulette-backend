@@ -3,9 +3,9 @@ package controllers
 import javax.inject.Inject
 
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.Task
+import org.maproulette.models.{Lock, Task}
 import org.maproulette.models.dal.TaskDAL
-import org.maproulette.session.{SearchParameters, SessionManager}
+import org.maproulette.session.{SearchParameters, SessionManager, User}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, Controller}
 
@@ -23,7 +23,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     */
   def getTaskDisplayGeoJSON(taskId:Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(getResponseJSON(taskDAL.retrieveById(taskId)))
+      Ok(getResponseJSONNoLock(taskDAL.retrieveById(taskId)))
     }
   }
 
@@ -59,7 +59,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
         taskSearch
       )
 
-      Ok(getResponseJSON(taskDAL.getRandomTasks(params, 1).headOption))
+      Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1).headOption))
     }
   }
 
@@ -89,23 +89,31 @@ class MappingController @Inject() (sessionManager:SessionManager,
     }
   }
 
+  private def getResponseJSONNoLock(task:Option[Task]) : JsValue = task match {
+    case Some(t) => getResponseJSON(Some(t, Lock(null, -1, -1, -1)))
+    case None => getResponseJSON(None)
+  }
+
   /**
     * Builds the response JSON for mapping based on a Task
     *
     * @param task The optional task to check
     * @return If None supplied as Task parameter then will throw NotFoundException
     */
-  private def getResponseJSON(task:Option[Task]) : JsValue = task match {
+  private def getResponseJSON(task:Option[(Task, Lock)]) : JsValue = task match {
     case Some(t) =>
+      val currentStatus = t._1.status.getOrElse(Task.STATUS_CREATED)
       Json.parse(
         s"""
            |{
-           |   "id":${t.id},
-           |   "parentId":${t.parent},
-           |   "name":"${t.name}",
-           |   "instruction":"${t.instruction}",
-           |   "status":"${Task.getStatusName(t.status.getOrElse(Task.STATUS_CREATED))}",
-           |   "geometry":${t.geometries}
+           |   "id":${t._1.id},
+           |   "parentId":${t._1.parent},
+           |   "name":"${t._1.name}",
+           |   "instruction":"${t._1.instruction}",
+           |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
+           |   "status":$currentStatus,
+           |   "geometry":${t._1.geometries},
+           |   "locked":${if(t._2.date == null) "false" else "true"}
            |}
             """.stripMargin)
     case None => throw new NotFoundException(s"Could not find task")

@@ -1,5 +1,6 @@
 package org.maproulette.session.dal
 
+import java.sql.Connection
 import javax.inject.Inject
 import javax.inject.Singleton
 

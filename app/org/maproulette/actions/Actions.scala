@@ -33,6 +33,7 @@ class ItemType(id:Int) {
       case c:ChallengeType => new ChallengeItem(itemId)
       case t:TaskType => new TaskItem(itemId)
       case ta:TagType => new TagItem(itemId)
+      case u:UserType => new UserItem(itemId)
     }
   }
 }
@@ -46,11 +47,14 @@ case class ChallengeType() extends ItemType(Actions.ITEM_TYPE_CHALLENGE)
 case class SurveyType() extends ItemType(Actions.ITEM_TYPE_SURVEY)
 case class TaskType() extends ItemType(Actions.ITEM_TYPE_TASK)
 case class TagType() extends ItemType(Actions.ITEM_TYPE_TAG)
+case class UserType() extends ItemType(Actions.ITEM_TYPE_USER)
+case class GroupType() extends ItemType(Actions.ITEM_TYPE_GROUP)
 
 class ProjectItem(override val itemId:Long) extends ProjectType with Item
 class ChallengeItem(override val itemId:Long) extends ChallengeType with Item
 class TaskItem(override val itemId:Long) extends TaskType with Item
 class TagItem(override val itemId:Long) extends TagType with Item
+class UserItem(override val itemId:Long) extends UserType with Item
 
 case class Updated() extends ActionType(Actions.ACTION_TYPE_UPDATED, Actions.ACTION_LEVEL_2)
 case class Created() extends ActionType(Actions.ACTION_TYPE_CREATED, Actions.ACTION_LEVEL_2)
@@ -76,6 +80,19 @@ object Actions {
   val ITEM_TYPE_TAG_NAME = "Tag"
   val ITEM_TYPE_SURVEY = 4
   val ITEM_TYPE_SURVEY_NAME = "Survey"
+  val ITEM_TYPE_USER = 5
+  val ITEM_TYPE_USER_NAME = "User"
+  val ITEM_TYPE_GROUP = 6
+  val ITEM_TYPE_GROUP_NAME = "Group"
+  val itemIDMap = Map(
+    ITEM_TYPE_PROJECT -> (ITEM_TYPE_PROJECT_NAME, ProjectType()),
+    ITEM_TYPE_CHALLENGE -> (ITEM_TYPE_CHALLENGE_NAME, ChallengeType()),
+    ITEM_TYPE_TASK -> (ITEM_TYPE_TASK_NAME, TaskType()),
+    ITEM_TYPE_TAG -> (ITEM_TYPE_TAG_NAME, TagType()),
+    ITEM_TYPE_SURVEY -> (ITEM_TYPE_SURVEY_NAME, SurveyType()),
+    ITEM_TYPE_USER -> (ITEM_TYPE_USER_NAME, UserType()),
+    ITEM_TYPE_GROUP -> (ITEM_TYPE_GROUP_NAME, GroupType())
+  )
 
   val ACTION_TYPE_UPDATED = 0
   val ACTION_TYPE_UPDATED_NAME = "Updated"
@@ -93,6 +110,16 @@ object Actions {
   val ACTION_TYPE_TAG_REMOVED_NAME = "Tag_Removed"
   val ACTION_TYPE_QUESTION_ANSWERED = 7
   val ACTION_TYPE_QUESTION_ANSWERED_NAME = "Question_Answered"
+  val actionIDMap = Map(
+    ACTION_TYPE_UPDATED -> ACTION_TYPE_UPDATED_NAME,
+    ACTION_TYPE_CREATED -> ACTION_TYPE_CREATED_NAME,
+    ACTION_TYPE_DELETED -> ACTION_TYPE_DELETED_NAME,
+    ACTION_TYPE_TASK_VIEWED -> ACTION_TYPE_TASK_VIEWED_NAME,
+    ACTION_TYPE_TASK_STATUS_SET -> ACTION_TYPE_TASK_STATUS_SET_NAME,
+    ACTION_TYPE_TAG_ADDED -> ACTION_TYPE_TAG_ADDED_NAME,
+    ACTION_TYPE_TAG_REMOVED -> ACTION_TYPE_TAG_REMOVED_NAME,
+    ACTION_TYPE_QUESTION_ANSWERED -> ACTION_TYPE_QUESTION_ANSWERED_NAME
+  )
 
   /**
     * Validates whether the provided id is actually an action type id
@@ -100,8 +127,7 @@ object Actions {
     * @param actionType The id to test
     * @return true if valid action type id
     */
-  def validActionType(actionType:Int) : Boolean =
-    actionType >= ACTION_TYPE_UPDATED && actionType <= ACTION_TYPE_QUESTION_ANSWERED
+  def validActionType(actionType:Int) : Boolean = actionIDMap.contains(actionType)
 
   /**
     * Validates the provided action type name
@@ -120,7 +146,7 @@ object Actions {
     * @param itemType The id to test
     * @return true if valid item type id
     */
-  def validItemType(itemType:Int) : Boolean = itemType >= ITEM_TYPE_PROJECT && itemType <= ITEM_TYPE_TAG
+  def validItemType(itemType:Int) : Boolean = actionIDMap.contains(itemType)
 
   /**
     * Validates the provided item name
@@ -139,13 +165,9 @@ object Actions {
     * @param itemType The id to find
     * @return Option[String] if found, None otherwise
     */
-  def getTypeName(itemType:Int) : Option[String] = itemType match {
-    case ITEM_TYPE_PROJECT => Some(ITEM_TYPE_PROJECT_NAME)
-    case ITEM_TYPE_CHALLENGE => Some(ITEM_TYPE_CHALLENGE_NAME)
-    case ITEM_TYPE_TASK => Some(ITEM_TYPE_TASK_NAME)
-    case ITEM_TYPE_TAG => Some(ITEM_TYPE_TAG_NAME)
-    case ITEM_TYPE_SURVEY => Some(ITEM_TYPE_SURVEY_NAME)
-    case _ => None
+  def getTypeName(itemType:Int) : Option[String] = itemIDMap.get(itemType) match {
+    case Some(it) => Some(it._1)
+    case None => None
   }
 
   /**
@@ -154,13 +176,9 @@ object Actions {
     * @param itemType The string to match against
     * @return Option[Int] if found, None otherwise
     */
-  def getTypeID(itemType:String) : Option[Int] = itemType.toLowerCase match {
-    case t if t.equalsIgnoreCase(ITEM_TYPE_PROJECT_NAME.toLowerCase) => Some(ITEM_TYPE_PROJECT)
-    case t if t.equalsIgnoreCase(ITEM_TYPE_CHALLENGE_NAME.toLowerCase) => Some(ITEM_TYPE_CHALLENGE)
-    case t if t.equalsIgnoreCase(ITEM_TYPE_TASK_NAME.toLowerCase) => Some(ITEM_TYPE_TASK)
-    case t if t.equalsIgnoreCase(ITEM_TYPE_TAG_NAME.toLowerCase) => Some(ITEM_TYPE_TAG)
-    case t if t.equalsIgnoreCase(ITEM_TYPE_SURVEY_NAME.toLowerCase) => Some(ITEM_TYPE_SURVEY)
-    case _ => None
+  def getTypeID(itemType:String) : Option[Int] = itemIDMap.find(_._2._1.equalsIgnoreCase(itemType)) match {
+    case Some(it) => Some(it._1)
+    case None => None
   }
 
   /**
@@ -169,13 +187,9 @@ object Actions {
     * @param itemType The item type id
     * @return The ItemType matching the supplied item type id
     */
-  def getItemType(itemType:Int) : Option[ItemType] = itemType match {
-    case ITEM_TYPE_PROJECT => Some(ProjectType())
-    case ITEM_TYPE_CHALLENGE => Some(ChallengeType())
-    case ITEM_TYPE_TASK => Some(TaskType())
-    case ITEM_TYPE_TAG => Some(TagType())
-    case ITEM_TYPE_SURVEY => Some(SurveyType())
-    case _ => None
+  def getItemType(itemType:Int) : Option[ItemType] = itemIDMap.get(itemType) match {
+    case Some(it) => Some(it._2)
+    case None => None
   }
 
   /**
@@ -184,13 +198,9 @@ object Actions {
     * @param itemType The item type name
     * @return The ItemType matching the supplied item type name
     */
-  def getItemType(itemType:String) : Option[ItemType] = itemType match {
-    case ITEM_TYPE_PROJECT_NAME => Some(ProjectType())
-    case ITEM_TYPE_CHALLENGE_NAME => Some(ChallengeType())
-    case ITEM_TYPE_TASK_NAME => Some(TaskType())
-    case ITEM_TYPE_TAG_NAME => Some(TagType())
-    case ITEM_TYPE_SURVEY_NAME => Some(SurveyType())
-    case _ => None
+  def getItemType(itemType:String) : Option[ItemType] = itemIDMap.find(_._2._1.equalsIgnoreCase(itemType)) match {
+    case Some(a) => Some(a._2._2)
+    case None => None
   }
 
   /**
@@ -199,17 +209,7 @@ object Actions {
     * @param action The id to match against
     * @return Option[String] if found, None otherwise.
     */
-  def getActionName(action:Int) : Option[String] = action match {
-    case ACTION_TYPE_UPDATED => Some(ACTION_TYPE_UPDATED_NAME)
-    case ACTION_TYPE_CREATED => Some(ACTION_TYPE_CREATED_NAME)
-    case ACTION_TYPE_DELETED => Some(ACTION_TYPE_DELETED_NAME)
-    case ACTION_TYPE_TASK_VIEWED => Some(ACTION_TYPE_TASK_VIEWED_NAME)
-    case ACTION_TYPE_TASK_STATUS_SET => Some(ACTION_TYPE_TASK_STATUS_SET_NAME)
-    case ACTION_TYPE_TAG_ADDED => Some(ACTION_TYPE_TAG_ADDED_NAME)
-    case ACTION_TYPE_TAG_REMOVED => Some(ACTION_TYPE_TAG_REMOVED_NAME)
-    case ACTION_TYPE_QUESTION_ANSWERED => Some(ACTION_TYPE_QUESTION_ANSWERED_NAME)
-    case _ => None
-  }
+  def getActionName(action:Int) : Option[String] = actionIDMap.get(action)
 
   /**
     * Based on a string will return the action id that it matches, None otherwise
@@ -217,15 +217,8 @@ object Actions {
     * @param action The string to match against
     * @return Option[Int] if found, None otherwise.
     */
-  def getActionID(action:String) : Option[Int] = action.toLowerCase match {
-    case t if t.equalsIgnoreCase(ACTION_TYPE_UPDATED_NAME.toLowerCase) => Some(ACTION_TYPE_UPDATED)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_CREATED_NAME.toLowerCase) => Some(ACTION_TYPE_CREATED)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_DELETED_NAME.toLowerCase) => Some(ACTION_TYPE_DELETED)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_TASK_VIEWED_NAME.toLowerCase) => Some(ACTION_TYPE_TASK_VIEWED)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_TASK_STATUS_SET_NAME.toLowerCase) => Some(ACTION_TYPE_TASK_STATUS_SET)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_TAG_ADDED_NAME.toLowerCase) => Some(ACTION_TYPE_TAG_ADDED)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_TAG_REMOVED_NAME.toLowerCase) => Some(ACTION_TYPE_TAG_REMOVED)
-    case t if t.equalsIgnoreCase(ACTION_TYPE_QUESTION_ANSWERED_NAME.toLowerCase) => Some(ACTION_TYPE_QUESTION_ANSWERED)
-    case _ => None
+  def getActionID(action:String) : Option[Int] = actionIDMap.find(_._2.equalsIgnoreCase(action)) match {
+    case Some(a) => Some(a._1)
+    case None => None
   }
 }

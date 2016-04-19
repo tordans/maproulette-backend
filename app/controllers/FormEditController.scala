@@ -75,7 +75,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       }
       val challengeForm = Challenge.challengeForm.fill(challenge)
       getOkIndex("MapRoulette Administration", user,
-        views.html.admin.forms.challengeForm(parentId, challengeForm)
+        views.html.admin.forms.challengeForm(user, parentId, challengeForm)
       )
     }
   }
@@ -85,7 +85,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,
-            views.html.admin.forms.challengeForm(parentId, formWithErrors)
+            views.html.admin.forms.challengeForm(user, parentId, formWithErrors)
           )
         },
         challenge => {

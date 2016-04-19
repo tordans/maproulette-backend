@@ -84,7 +84,7 @@ class SurveyController @Inject() (override val childController:TaskController,
         taskTags = tags.split(",").toList,
         taskSearch = taskSearch
       )
-      val result = taskDAL.getRandomTasks(params, limit)
+      val result = taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }

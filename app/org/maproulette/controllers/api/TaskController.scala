@@ -2,12 +2,11 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
-import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.exception.NotFoundException
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -85,7 +84,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         taskTags = tags.split(",").toList,
         taskSearch = taskSearch
       )
-      val result = dal.getRandomTasks(params, limit)
+      val result = dal.getRandomTasks(User.userOrMocked(user), params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
@@ -132,6 +131,15 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   def setTaskStatusSkipped(id: String) = setTaskStatus(id, Task.STATUS_SKIPPED)
 
   /**
+    * Sets the task to already fixed, this is the case where when looking at the base OSM data it
+    * is found that someone has already fixed the issue
+    *
+    * @param id The id of the task
+    * @return See (@see this#setTaskStatus} for information
+    */
+  def setTaskStatusAlreadyFixed(id:String) = setTaskStatus(id, Task.STATUS_ALREADY_FIXED)
+
+  /**
     * This is the generic function that is leveraged by all the specific functions above. So it
     * sets the task status to the specific status ID's provided by those functions.
     * Must be authenticated to perform operation
@@ -143,24 +151,17 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     */
   private def setTaskStatus(id: String, status: Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      if (status < Task.STATUS_CREATED || status > Task.STATUS_DELETED) {
-        Utils.badRequest(s"Invalid status [$status] provided.")
+      val taskOption = if (Utils.isDigit(id)) {
+        dal.retrieveById(id.toLong)
       } else {
-        MPExceptionUtil.internalExceptionCatcher { () =>
-          val statusUpdateJson = Json.obj("status" -> status)
-          val updateResponse = if (Utils.isDigit(id)) {
-            dal.update(statusUpdateJson, user)(id.toLong)
-          } else {
-            dal.updateByName(statusUpdateJson, user)(id)
-          }
-          updateResponse match {
-            case Some(resp) =>
-              actionManager.setAction(Some(user), itemType.convertToItem(resp.id), TaskStatusSet(status), "")
-              NoContent
-            case None => Utils.badRequest(s"Task [$id] not found to have status updated.")
-          }
-        }
+        dal.retrieveByName(id)
       }
+      val task = taskOption match {
+        case Some(t) => t
+        case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
+      }
+      dal.setTaskStatus(task, status, user)
+      NoContent
     }
   }
 }

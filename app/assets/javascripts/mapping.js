@@ -35,15 +35,9 @@ L.Control.Help = L.Control.extend({
 L.Control.ControlPanel = L.Control.extend({
     options: {
         position: 'bottomright',
-        currentTaskId:-1,
-        parent: {
-            id:-1,
-            blurb:'',
-            instruction:'',
-            difficulty:1
-        },
         controls:[false, false, false, false],
-        showText:true
+        showText:true,
+        signedIn:false,
     },
     onAdd: function(map) {
         // we create all the containers first so that the ordering will always be consistent
@@ -60,18 +54,9 @@ L.Control.ControlPanel = L.Control.extend({
         nextDiv.id = "controlpanel_next";
         return container;
     },
-    // updates the parent and current task id that is being shown on the map
-    update: function(parentId, currentTaskId, debugMode) {
-        this.options.parent.id = parentId;
-        this.options.currentTaskId = currentTaskId;
-        this.options.debugMode = debugMode;
-    },
-    // updates whether to show the text for the controls or not
-    updateShowText: function(showText) {
-        this.options.showText = showText;
-    },
     // updates the controls, removes and adds if necessary
-    updateUI: function(prevControl, editControl, fpControl, nextControl) {
+    update: function(signedIn, prevControl, editControl, fpControl, nextControl) {
+        this.options.signedIn = signedIn;
         this.options.controls[0] = prevControl;
         this.options.controls[1] = editControl;
         this.options.controls[2] = fpControl;
@@ -79,7 +64,7 @@ L.Control.ControlPanel = L.Control.extend({
         this.updateControls();
     },
     // generic function to update the controls on the map
-    updateControl: function(controlID, controlName, friendlyName, icon, clickHandler) {
+    updateControl: function(controlID, controlName, friendlyName, icon, locked, clickHandler) {
         if (this.options.controls[controlID]) {
             var controlDiv = L.DomUtil.get(controlName);
             if (!controlDiv.hasChildNodes()) {
@@ -93,6 +78,11 @@ L.Control.ControlPanel = L.Control.extend({
                     .on(controlDiv, 'click', L.DomEvent.preventDefault)
                     .on(controlDiv, 'click', clickHandler);
             }
+            if (locked) {
+                L.DomUtil.addClass(controlDiv, "mp-control-locked");
+            } else {
+                L.DomUtil.removeClass(controlDiv, "mp-control-locked");
+            }
         } else {
             $("#" + controlName).innerHTML = "";
         }
@@ -105,20 +95,28 @@ L.Control.ControlPanel = L.Control.extend({
         this.updateNextControl();
     },
     updatePreviousControl: function() {
-        this.updateControl(0, "controlpanel_previous", "Previous", "fa-backward", function(e) {
+        this.updateControl(0, "controlpanel_previous", "Previous", "fa-backward", false, function(e) {
             MRManager.getPreviousTask();
         });
     },
     updateEditControl: function() {
-        this.updateControl(1, "controlpanel_edit", "Edit", "fa-pencil", function(e) {
-            $("#editoptions").fadeIn('slow');
+        this.updateControl(1, "controlpanel_edit", "Edit", "fa-pencil",
+            MRManager.isTaskLocked() || !this.options.signedIn, function(e) {
+            if (!locked) {
+                $("#editoptions").fadeIn('slow');
+            }
         });
     },
     updateFPControl: function() {
-        this.updateControl(2, "controlpanel_fp", "False Positive", "fa-warning", function(e) { });
+        this.updateControl(2, "controlpanel_fp", "False Positive", "fa-warning",
+            MRManager.isTaskLocked() || !this.options.signedIn, function(e) {
+            if (!locked) {
+                MRManager.setTaskStatus(TaskStatus.FALSEPOSITIVE);
+            }
+        });
     },
     updateNextControl: function() {
-        this.updateControl(3, "controlpanel_next", "Next", "fa-forward", function(e) {
+        this.updateControl(3, "controlpanel_next", "Next", "fa-forward", false, function(e) {
             MRManager.getNextTask();
         });
     }
@@ -185,6 +183,16 @@ function Point(x, y) {
     this.y = y;
 }
 
+var TaskStatus = {
+    FIXED:1,
+    FALSEPOSITIVE:2,
+    SKIPPED:3,
+    DELETED:4,
+    ALREADYFIXED:5,
+    CREATED:0,
+    AVAILABLE:6
+};
+
 /**
  * The Task class contains all relevent information regarding the current task loaded on the map.
  * Also contains functionality to get next, previous and random tasks.
@@ -208,12 +216,18 @@ function Task(data) {
         this.data = {id:-1};
     };
 
+    this.isLocked = function() {
+        return this.data.locked || this.data.status == TaskStatus.FIXED ||
+            this.data.status == TaskStatus.FALSEPOSITIVE || this.data.status == TaskStatus.DELETED ||
+            this.data.status == TaskStatus.ALREADYFIXED;
+    };
+
     this.updateTask = function(taskId, success, error) {
         var self = this;
         jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax({
             success:function(data) {
                 self.data = data;
-                success();
+                self.getSuccessHandler(success)();
             },
             error:error
         });
@@ -226,9 +240,9 @@ function Task(data) {
             .ajax({
                 success:function(data) {
                     self.data = data;
-                    success();
+                    self.getSuccessHandler(success)();
                 },
-                error:error
+                error:this.getErrorHandler(error)
             });
     };
 
@@ -239,9 +253,9 @@ function Task(data) {
             .ajax({
                 success: function (data) {
                     self.data = data;
-                    success();
+                    self.getSuccessHandler(success)();
                 },
-                error: error
+                error:this.getErrorHandler(error)
             });
     };
 
@@ -257,11 +271,57 @@ function Task(data) {
             .ajax({
                 success:function(data) {
                     self.data = data;
-                    success();
+                    self.getSuccessHandler(success)();
                 },
-                error:error
+                error:this.getErrorHandler(error)
             }
         );
+    };
+    
+    this.setTaskStatus = function(status, params, success, error) {
+        var self = this;
+        var errorHandler = this.getErrorHandler(error);
+        var statusSetSuccess = function () {
+            self.getRandomNextTask(params, self.getSuccessHandler(success), errorHandler);
+        };
+        switch (status) {
+            case TaskStatus.FIXED:
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(this.data.id)
+                    .ajax({success: statusSetSuccess, error: errorHandler});
+                break;
+            case TaskStatus.FALSEPOSITIVE:
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(this.data.id)
+                    .ajax({success: statusSetSuccess, error: errorHandler});
+                break;
+            case TaskStatus.SKIPPED:
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(this.data.id)
+                    .ajax({success: statusSetSuccess, error: errorHandler});
+                break;
+            case TaskStatus.DELETED:
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(this.data.id)
+                    .ajax({success: statusSetSuccess, error: errorHandler});
+                break;
+            case TaskStatus.ALREADYFIXED:
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(this.data.id)
+                    .ajax({success: statusSetSuccess, error: errorHandler});
+                break;
+        }
+    };
+    
+    this.getSuccessHandler = function(success) {
+        if (typeof success === 'undefined') {
+            return MRManager.updateDisplayTask;
+        } else {
+            return success;
+        }
+    };
+    
+    this.getErrorHandler = function(error) {
+        if (typeof error === 'undefined') {
+            return Utils.handleError;
+        } else {
+            return error;
+        }
     };
 }
 
@@ -404,8 +464,7 @@ var MRManager = (function() {
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.data.geometry);
         map.fitBounds(geojsonLayer.getBounds());
-        controlPanel.update(currentTask.data.parentId, currentTask.data.id, debugMode);
-        controlPanel.updateUI(debugMode, signedIn, signedIn, true);
+        controlPanel.update(signedIn, debugMode, true, true, true);
         // show the task text as a notification
         toastr.clear();
         toastr.info(marked(currentTask.data.instruction), '', { positionClass: getNotificationClass(), timeOut: 0 });
@@ -450,9 +509,9 @@ var MRManager = (function() {
     var addTaskToMap = function(parentId, taskId) {
         if (typeof taskId === 'undefined' || taskId == -1) {
             currentSearchParameters.challengeId = parentId;
-            currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);   
+            currentTask.getRandomNextTask(currentSearchParameters);   
         } else {
-            currentTask.updateTask(taskId, updateTaskDisplay, Utils.handleError);
+            currentTask.updateTask(taskId);
         }
     };
 
@@ -462,9 +521,9 @@ var MRManager = (function() {
      */
     var getNextTask = function() {
         if (debugMode) {
-            currentTask.getNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+            currentTask.getNextTask(currentSearchParameters);
         } else {
-            currentTask.getRandomNextTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+            currentTask.getRandomNextTask(currentSearchParameters);
         }
     };
 
@@ -474,8 +533,12 @@ var MRManager = (function() {
      */
     var getPreviousTask = function() {
         if (debugMode) {
-            currentTask.getPreviousTask(currentSearchParameters, updateTaskDisplay, Utils.handleError);
+            currentTask.getPreviousTask(currentSearchParameters);
         }
+    };
+    
+    var setTaskStatus = function(status) {
+        currentTask.setTaskStatus(status, currentSearchParameters);
     };
 
     // registers a series of hotkeys for quick access to functions
@@ -515,12 +578,19 @@ var MRManager = (function() {
         return JSON.stringify(currentTask.data.geometry);
     };
 
+    var isTaskLocked = function() {
+        return currentTask.isLocked();
+    };
+
     return {
         init: init,
         addTaskToMap: addTaskToMap,
+        updateDisplayTask: updateTaskDisplay,
         getCurrentTaskGeoJSON: getCurrentTaskGeoJSON,
         getNextTask: getNextTask,
-        getPreviousTask: getPreviousTask
+        getPreviousTask: getPreviousTask,
+        setTaskStatus: setTaskStatus,
+        isTaskLocked: isTaskLocked
     };
 
 }());

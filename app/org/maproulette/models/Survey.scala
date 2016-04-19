@@ -2,9 +2,8 @@ package org.maproulette.models
 
 import play.api.data._
 import play.api.data.Forms._
-import com.google.inject.Inject
-import org.maproulette.models.dal.ProjectDAL
-import play.api.libs.json.{Reads, Json, Writes}
+import org.maproulette.actions.Actions
+import play.api.libs.json.{Json, Reads, Writes}
 
 case class Answer(id:Long=(-1), answer:String)
 
@@ -26,6 +25,7 @@ case class Survey(challenge:Challenge, answers:List[Answer]) extends ChildObject
   override def id: Long = challenge.id
   def question = challenge.instruction
   override lazy val tags: List[Tag] = challenge.tags
+  override val itemType: Int = Actions.ITEM_TYPE_SURVEY
 }
 
 object Survey {
