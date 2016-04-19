@@ -63,6 +63,7 @@ PUT     /task/:id/fixed                             @org.maproulette.controllers
 PUT     /task/:id/skipped                           @org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(id:String)
 PUT     /task/:id/falsepositive                     @org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(id:String)
 PUT     /task/:id/deleted                           @org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(id:String)
+PUT     /task/:id/alreadyfixed                      @org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(id:String)
 # Tag API
 POST    /tag                                        @org.maproulette.controllers.api.TagController.create
 POST    /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPost

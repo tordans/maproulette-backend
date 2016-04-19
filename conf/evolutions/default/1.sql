@@ -60,7 +60,7 @@ CREATE EXTENSION IF NOT EXISTS HSTORE;
 -- The user table contains all users that have logged into Map Roulette.
 CREATE TABLE IF NOT EXISTS users
 (
-  id serial NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   osm_id integer NOT NULL UNIQUE,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
@@ -71,8 +71,7 @@ CREATE TABLE IF NOT EXISTS users
   api_key character varying UNIQUE,
   oauth_token character varying NOT NULL,
   oauth_secret character varying NOT NULL,
-  theme character varying DEFAULT('skin-blue'),
-  CONSTRAINT users_pkey PRIMARY KEY(id)
+  theme character varying DEFAULT('skin-blue')
 );
 
 SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);
@@ -84,13 +83,12 @@ CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
 -- Top level object that contains all challenges and surveys
 CREATE TABLE IF NOT EXISTS projects
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL,
   description character varying DEFAULT '',
-  enabled BOOLEAN DEFAULT(true),
-  CONSTRAINT projects_pkey PRIMARY KEY (id)
+  enabled BOOLEAN DEFAULT(true)
 );
 
 SELECT create_index_if_not_exists('projects', 'name', '(lower(name))', true);
@@ -102,15 +100,14 @@ CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
 -- Groups for user role management
 CREATE TABLE IF NOT EXISTS groups
 (
-  id serial NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   project_id integer NOT NULL,
   name character varying NOT NULL,
   group_type integer NOT NULL,
   CONSTRAINT groups_project_id_fkey FOREIGN KEY (project_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-    DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT groups_pkey PRIMARY KEY(id)
+    DEFERRABLE INITIALLY DEFERRED
 );
 
 SELECT create_index_if_not_exists('groups', 'name', '(lower(name))', true);
@@ -118,17 +115,16 @@ SELECT create_index_if_not_exists('groups', 'name', '(lower(name))', true);
 -- Table to map users to groups
 CREATE TABLE IF NOT EXISTS user_groups
 (
-  id serial NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   osm_user_id integer NOT NULL,
   group_id integer NOT NULL,
   CONSTRAINT ug_user_id_fkey FOREIGN KEY (osm_user_id)
     REFERENCES users(osm_id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-    DEFERRABLE,
+    DEFERRABLE INITIALLY DEFERRED,
   CONSTRAINT ug_group_id_fkey FOREIGN KEY (group_id)
     REFERENCES groups(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT ug_pkey PRIMARY KEY(id)
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 SELECT create_index_if_not_exists('user_groups', 'osm_user_id_group_id', '(osm_user_id, group_id)', true);
@@ -136,7 +132,7 @@ SELECT create_index_if_not_exists('user_groups', 'osm_user_id_group_id', '(osm_u
 -- Table for all challenges, which is a child of Project, Surveys are also stored in this table
 CREATE TABLE IF NOT EXISTS challenges
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL,
@@ -150,8 +146,7 @@ CREATE TABLE IF NOT EXISTS challenges
   featured BOOLEAN DEFAULT(false),
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT challenges_pkey PRIMARY KEY (id)
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 DROP TRIGGER IF EXISTS update_challenges_modified ON challenges;
@@ -164,7 +159,7 @@ SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, l
 -- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
   survey_id integer NOT NULL,
@@ -172,8 +167,7 @@ CREATE TABLE IF NOT EXISTS answers
   CONSTRAINT answers_survey_id_fkey FOREIGN KEY (survey_id)
     REFERENCES challenges(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-    DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT answers_pkey PRIMARY KEY(id)
+    DEFERRABLE INITIALLY DEFERRED
 );
 
 DROP TRIGGER IF EXISTS update_answers_modified ON answers;
@@ -185,20 +179,16 @@ SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');
 -- All the tasks for a specific challenge or survey
 CREATE TABLE IF NOT EXISTS tasks
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   modified timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL,
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
-  locked_by integer,
-  CONSTRAINT tasks_pkey PRIMARY KEY(id),
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
-    ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT tasks_locked_by_fkey FOREIGN KEY (locked_by)
-    REFERENCES users(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
@@ -208,7 +198,6 @@ CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
 SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);
-SELECT create_index_if_not_exists('tasks', 'locked_by', '(locked_by)');
 
 DROP TRIGGER IF EXISTS update_tasks_locked_by ON users;
 CREATE TRIGGER update_tasks_locked_by BEFORE DELETE ON users
@@ -217,7 +206,7 @@ CREATE TRIGGER update_tasks_locked_by BEFORE DELETE ON users
 -- The answers for a survey from a user
 CREATE TABLE IF NOT EXISTS survey_answers
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   user_id integer NOT NULL DEFAULT(-999),
   survey_id integer NOT NULL,
@@ -230,8 +219,7 @@ CREATE TABLE IF NOT EXISTS survey_answers
   CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
-    REFERENCES answers(id) MATCH SIMPLE,
-  CONSTRAINT survey_answers_pkey PRIMARY KEY(id)
+    REFERENCES answers(id) MATCH SIMPLE
 );
 
 SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
@@ -239,11 +227,10 @@ SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
 -- The tags that can be applied to a task
 CREATE TABLE IF NOT EXISTS tags
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL,
-  description character varying DEFAULT '',
-  CONSTRAINT tag_pkey PRIMARY KEY(id)
+  description character varying DEFAULT ''
 );
 -- index has the potentially to slow down inserts badly
 SELECT create_index_if_not_exists('tags', 'name', '(lower(name))', true);
@@ -251,10 +238,9 @@ SELECT create_index_if_not_exists('tags', 'name', '(lower(name))', true);
 -- The tags associated with challenges
 CREATE TABLE IF NOT EXISTS tags_on_challenges
 (
-  id           SERIAL  NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   challenge_id INTEGER NOT NULL,
-  tag_id       INTEGER NOT NULL,
-  CONSTRAINT tags_on_challenges_pkey PRIMARY KEY (id),
+  tag_id INTEGER NOT NULL,
   CONSTRAINT challenges_tags_on_challenges_id_fkey FOREIGN KEY (challenge_id)
   REFERENCES challenges (id) MATCH SIMPLE
   ON UPDATE CASCADE ON DELETE CASCADE,
@@ -271,10 +257,9 @@ SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id_tag_id', '
 -- The tags associated with a task
 CREATE TABLE IF NOT EXISTS tags_on_tasks
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   task_id integer NOT NULL,
   tag_id integer NOT NULL,
-  CONSTRAINT tags_on_tasks_pkey PRIMARY KEY(id),
   CONSTRAINT tasks_tags_on_tasks_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -291,10 +276,9 @@ SELECT create_index_if_not_exists('tags_on_tasks', 'task_id_tag_id', '(task_id, 
 -- Geometries for a specific task
 CREATE TABLE IF NOT EXISTS task_geometries
 (
-  id SERIAL NOT NULL,
+  id SERIAL NOT NULL PRIMARY KEY,
   task_id integer NOT NULL,
   properties HSTORE,
-  CONSTRAINT task_geometries_pkey PRIMARY KEY(id),
   CONSTRAINT task_geometries_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -307,7 +291,7 @@ CREATE INDEX idx_task_geometries_geom ON task_geometries USING GIST (geom);
 -- Actions that are taken in the system, like set the status of a task to 'fixed'
 CREATE TABLE IF NOT EXISTS actions
 (
-  id serial NOT NULL,
+  id serial NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   user_id integer DEFAULT(-999),
   type_id integer,
@@ -316,14 +300,28 @@ CREATE TABLE IF NOT EXISTS actions
   status integer NOT NULL,
   extra character varying,
   CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE,
-  CONSTRAINT actions_pkey PRIMARY KEY (id)
+    REFERENCES users(id) MATCH SIMPLE
 );
 
 SELECT create_index_if_not_exists('actions', 'status', '(status)');
 SELECT create_index_if_not_exists('actions', 'item_id', '(item_id)');
 SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
 select create_index_if_not_exists('actions', 'created', '(created)');
+
+-- Table handling locks for any of the objects
+CREATE TABLE IF NOT EXISTS locked
+(
+  id serial NOT NULL PRIMARY KEY,
+  date timestamp without time zone DEFAULT NOW(),
+  item_type integer NOT NULL,
+  item_id integer NOT NULL,
+  user_id integer NOT NULL,
+  CONSTRAINT locked_locked_by FOREIGN KEY (user_id)
+    REFERENCES users(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+SELECT create_index_if_not_exists('locked', 'item_type_item_id', '(item_type, item_id)', true);
 
 -- Insert the default root, used for migration and those using the old API
 INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');

@@ -6,6 +6,7 @@ import javax.inject.Inject
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.Config
+import org.maproulette.actions.Actions
 import org.maproulette.models.BaseObject
 import org.maproulette.session.dal.UserDAL
 import play.api.libs.Crypto
@@ -71,6 +72,8 @@ case class User (override val id:Long,
                  guest:Boolean=false) extends BaseObject[Long] {
   // for users the display name is always retrieved from OSM
   override def name = osmProfile.displayName
+
+  override val itemType: Int = Actions.ITEM_TYPE_USER
 
   def homeLocation = osmProfile.homeLocation.name match {
     case Some(name) => name

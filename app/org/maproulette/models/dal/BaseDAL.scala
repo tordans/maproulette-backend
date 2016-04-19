@@ -1,11 +1,14 @@
 package org.maproulette.models.dal
 
-import java.sql.PreparedStatement
+import java.sql.{Connection, PreparedStatement}
 
 import anorm._
 import anorm.SqlParser._
+import org.joda.time.DateTime
+import org.maproulette.actions.ItemType
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.BaseObject
+import org.maproulette.exception.LockedException
+import org.maproulette.models.{BaseObject, Lock}
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.User
 import play.api.db.Database
@@ -35,6 +38,16 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
   val extraFilters:String = ""
 
   def clearCaches = cacheManager.clearCaches
+
+  implicit val lockedParser:RowParser[Lock] = {
+    get[DateTime]("locked.date") ~
+    get[Int]("locked.item_type") ~
+    get[Long]("locked.item_id") ~
+    get[Long]("locked.user_id") map {
+      case date ~ itemType ~ itemId ~ userId =>
+        Lock(date, itemType, itemId, userId)
+    }
+  }
 
   /**
     * Our key for our objects are current Long, but can support String if need be. This function
@@ -303,4 +316,73 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
       }
     }
   }
+
+  /**
+    * Locks an item in the database.
+    *
+    * @param user The user requesting the lock
+    * @param item The item wanting to be locked
+    * @param c A sql connection that is implicitly passed in from the calling function, this is an
+    *          implicit function because this will always be called from within the code and never
+    *          directly from an API call
+    * @return true if successful
+    */
+  def lockItem(user:User, item:T)(implicit c:Connection) : Int = {
+    // first check to see if the item is already locked
+    val checkQuery = s"""SELECT user_id FROM locked
+          WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+    SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      case Some(id) =>
+        if (id == user.id) {
+          val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"
+          SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+        } else {
+          0
+          //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
+        }
+      case None =>
+        val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType}, {itemId}, ${user.id})"
+        SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+    }
+  }
+
+  /**
+    * Unlocks an item in the database
+    *
+    * @param user The user requesting to unlock the item
+    * @param item The item being unlocked
+    * @param c A sql connection that is implicitly passed in from the calling function, this is an
+    *          implicit function because this will always be called from within the code and never
+    *          directly from an API call
+    * @return true if successful
+    */
+  def unlockItem(user:User, item:T)(implicit c:Connection) : Int = {
+    val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+    SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      case Some(id) =>
+        if (id == user.id) {
+          val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"""
+          SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+        } else {
+          throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
+        }
+      case None => throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
+    }
+  }
+
+  /**
+    * Unlocks all the items that are associated with the current user
+    *
+    * @param user The user
+    * @param c an implicit connection, this function should generally be executed in conjunction
+    *          with other requests
+    * @return Number of locks removed
+    */
+  def unlockAllItems(user:User, itemType:Option[ItemType]=None)(implicit c:Connection) : Int =
+    itemType match {
+      case Some(it) =>
+        SQL"""DELETE FROM locked WHERE user_id = ${user.id} AND item_type = ${it.typeId}""".executeUpdate()
+      case None =>
+        SQL"""DELETE FROM locked WHERE user_id = ${user.id}""".executeUpdate()
+    }
 }

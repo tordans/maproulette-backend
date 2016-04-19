@@ -6,9 +6,10 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
+import org.maproulette.actions.TaskType
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.Task
-import org.maproulette.exception.InvalidException
+import org.maproulette.models.{Lock, Task}
+import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
@@ -178,20 +179,61 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
   }
 
   /**
+    * Sets the task for a given user. The user cannot set the status of a task unless the object has
+    * been locked by the same user before hand.
+    * Will throw an InvalidException if the task status cannot be set due to the current task status
+    * Will throw an IllegalAccessException if the user is a guest user, or if the task is locked by
+    * a different user.
+    *
+    * @param task The task to set the status for
+    * @param status The status to set
+    * @param user The user setting the status
+    * @return The number of rows updated, should only ever be 1
+    */
+  def setTaskStatus(task:Task, status:Int, user:User) : Int = {
+    if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
+      throw new InvalidException("Invalid task status supplied.")
+    } else if (user.guest) {
+      throw new IllegalAccessException("Guest users cannot make edits to tasks.")
+    }
+
+    db.withTransaction { implicit c =>
+      val updatedRows = SQL"""UPDATE tasks t SET status = $status
+          FROM tasks t2
+          LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType} AND l.user_id = ${user.id}
+          WHERE l.item_id = ${task.id} AND t.id = ${task.id}""".executeUpdate()
+      // if returning 0, then this is because the item is locked by a different user
+      if (updatedRows == 0) {
+        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
+      }
+      // if you set the status successfully on a task you will lose the lock of that task
+      unlockItem(user, task)
+      updatedRows
+    }
+  }
+
+  /**
     * Simple query to retrieve the next task in the sequence
     *
     * @param parentId The parent of the task
     * @param currentTaskId The current task that we are basing our query from
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
-  def getNextTaskInSequence(parentId:Long, currentTaskId:Long) : Option[Task] = {
+  def getNextTaskInSequence(parentId:Long, currentTaskId:Long) : Option[(Task, Lock)] = {
     db.withConnection { implicit c =>
-      SQL"""SELECT * FROM tasks WHERE id > $currentTaskId AND parent_id = $parentId
-            ORDER BY id ASC LIMIT 1""".as(parser.*).headOption match {
+      val lp = for {
+        task <- parser
+        lock <- lockedParser
+      } yield task -> lock
+      SQL"""SELECT * FROM tasks
+            INNER JOIN locked ON locked.item_id = tasks.id
+            WHERE id > $currentTaskId AND parent_id = $parentId
+            ORDER BY id ASC LIMIT 1""".as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
           SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
-                ORDER BY id ASC LIMIT 1""".as(parser.*).headOption
+                INNER JOIN locked ON locked.item_id = tasks.id
+                ORDER BY id ASC LIMIT 1""".as(lp.*).headOption
       }
     }
   }
@@ -203,14 +245,22 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     * @param currentTaskId The current task that we are basing our query from
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
-  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long) : Option[Task] = {
+  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long) : Option[(Task, Lock)] = {
     db.withConnection { implicit c =>
-      SQL"""SELECT * FROM tasks WHERE id < $currentTaskId AND parent_id = $parentId
-            ORDER BY id DESC LIMIT 1""".as(parser.*).headOption match {
+      val lp = for {
+        task <- parser
+        lock <- lockedParser
+      } yield task -> lock
+      SQL"""SELECT * FROM tasks
+            INNER JOIN locked ON locked.item_id = tasks.id
+            WHERE id < $currentTaskId AND parent_id = $parentId
+            ORDER BY id DESC LIMIT 1""".as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
-          SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
-                ORDER BY id DESC LIMIT 1""".as(parser.*).headOption
+          SQL"""SELECT * FROM tasks
+                INNER JOIN locked ON locked.item_id = tasks.id
+                WHERE parent_id = $parentId
+                ORDER BY id DESC LIMIT 1""".as(lp.*).headOption
       }
     }
   }
@@ -222,29 +272,37 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     * the criteria and the second time to get an accurate random offset to choose a random tasks from
     * all the matching tasks in the set. This will most likely always be called with a limit of 1.
     *
+    * @param user The user executing the request
     * @param params The search parameters that will define the filters for the random selection
     * @param limit The amount of tags that should be returned
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasks(params: SearchParameters,
+  def getRandomTasks(user:User, params: SearchParameters,
                      limit:Int=(-1)) : List[Task] = {
-
     val taskTagIds = tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
     val challengeTagIds = tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
     val firstQuery =
       s"""SELECT $retrieveColumns FROM tasks
           INNER JOIN challenges c ON c.id = tasks.parent_id
           INNER JOIN projects p ON p.id = c.parent_id
+          LEFT JOIN locked l ON l.item_id = tasks.id
        """.stripMargin
     val secondQuery =
       """SELECT COUNT(*) FROM tasks
          INNER JOIN challenges c ON c.id = tasks.parent_id
          INNER JOIN projects p ON p.id = c.parent_id
+         LEFT JOIN locked l ON l.item_id = tasks.id
       """.stripMargin
 
     val parameters = new ListBuffer[NamedParameter]()
     val queryBuilder = new StringBuilder
-    val whereClause = new StringBuilder("WHERE c.enabled = TRUE AND p.enabled = TRUE")
+    // The default where clause will check to see if the parents are enabled, that the task is
+    // not locked (or if it is, it is locked by the current user) and that the status of the task
+    // is either Created or Skipped
+    val whereClause = new StringBuilder(
+      s"""WHERE c.enabled = TRUE AND p.enabled = TRUE AND
+              (l.id IS NULL OR l.user_id = ${user.id}) AND
+              tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}, ${Task.STATUS_AVAILABLE})""")
 
     params.challengeId match {
       case Some(id) =>
@@ -291,11 +349,27 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
 
     implicit val ids = List[Long]()
     cacheManager.withIDListCaching { implicit cachedItems =>
-      db.withConnection { implicit c =>
-        if (parameters.nonEmpty) {
+      db.withTransaction { implicit c =>
+        // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
+        // task can be locked at a time
+        unlockAllItems(user, Some(TaskType()))
+        val tasks = if (parameters.nonEmpty) {
           SQL(query).on(parameters:_*).as(parser.*)
         } else {
           SQL(query).as(parser.*)
+        }
+        // once we have the tasks, we need to lock each one, if any fail to lock we just remove
+        // them from the list. A guest user will not lock any tasks, but when logged in will be
+        // required to refetch the current task, and if it is locked, then will have to get another
+        // task
+        if (!user.guest) {
+          val taskList = tasks.filter(lockItem(user, _) > 0)
+          if (taskList.isEmpty) {
+            throw new NotFoundException("No tasks found.")
+          }
+          taskList
+        } else {
+          tasks
         }
       }
     }

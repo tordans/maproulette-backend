@@ -1,5 +1,6 @@
 package org.maproulette.models
 
+import org.maproulette.actions.Actions
 import play.api.data._
 import play.api.data.Forms._
 import org.maproulette.session.{Group, User}
@@ -17,6 +18,8 @@ case class Project(override val id: Long,
                    override val description: Option[String]=None,
                    groups:List[Group]=List.empty,
                    enabled:Boolean=true) extends BaseObject[Long] {
+
+  override val itemType: Int = Actions.ITEM_TYPE_PROJECT
 
   /**
     * Checks whether the user currently has admin access to this project

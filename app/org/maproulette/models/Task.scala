@@ -2,6 +2,7 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
+import org.maproulette.actions.Actions
 import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -37,8 +38,8 @@ case class Task(override val id:Long,
   @Inject val tagDAL:TagDAL = null
   @Inject val challengeDAL:ChallengeDAL = null
 
+  override val itemType: Int = Actions.ITEM_TYPE_TASK
   override lazy val tags = tagDAL.listByTask(id)
-
   override def getParent = challengeDAL.retrieveById(parent).get
 }
 
@@ -58,6 +59,17 @@ object Task {
   val STATUS_DELETED_NAME = "Deleted"
   val STATUS_ALREADY_FIXED = 5
   val STATUS_ALREADY_FIXED_NAME = "Already_Fixed"
+  val STATUS_AVAILABLE = 6
+  val STATUS_AVAILABLE_NAME = "Available"
+  val statusMap = Map(
+    STATUS_CREATED -> STATUS_CREATED_NAME,
+    STATUS_FIXED -> STATUS_FIXED_NAME,
+    STATUS_SKIPPED -> STATUS_SKIPPED_NAME,
+    STATUS_FALSE_POSITIVE -> STATUS_FALSE_POSITIVE_NAME,
+    STATUS_DELETED -> STATUS_DELETED_NAME,
+    STATUS_ALREADY_FIXED -> STATUS_ALREADY_FIXED_NAME,
+    STATUS_AVAILABLE -> STATUS_AVAILABLE_NAME
+  )
 
   /**
     * Based on the status id, will return a boolean stating whether it is a valid id or not
@@ -65,7 +77,7 @@ object Task {
     * @param status The id to check for validity
     * @return true if status id is valid
     */
-  def isValidStatus(status:Int) : Boolean = status >= STATUS_CREATED && status <= STATUS_DELETED
+  def isValidStatus(status:Int) : Boolean = statusMap.contains(status)
 
   /**
     * A Task must have a valid progression between status. The following rules apply:
@@ -84,11 +96,11 @@ object Task {
       true
     } else {
       current match {
-        case STATUS_CREATED => toSet > STATUS_CREATED && toSet <= STATUS_DELETED
+        case STATUS_CREATED => true
         case STATUS_FIXED => false
         case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
-        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_DELETED
-        case STATUS_DELETED => toSet == STATUS_CREATED
+        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_DELETED || toSet == STATUS_AVAILABLE
+        case STATUS_DELETED => toSet == STATUS_CREATED || toSet == STATUS_AVAILABLE
       }
     }
   }

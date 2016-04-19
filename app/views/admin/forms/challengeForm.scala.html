@@ -1,7 +1,8 @@
 @import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
-@(parentId:Long, challengeForm:Form[Challenge])(implicit messages: Messages)
+@import org.maproulette.session.User
+@(user:User, parentId:Long, challengeForm:Form[Challenge])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null,
     Map("Challenges" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)))
@@ -17,13 +18,15 @@
         <!-- form start -->
         @helper.form(routes.FormEditController.challengeFormPost(parentId, challengeForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
             <div class="box-body">
-                <div class="form-group">
-                @checkbox(challengeForm("featured"),
-                    label = "Featured",
-                    default = false,
-                    readOnly = false
-                )
-                </div>
+                @if(user.isSuperUser) {
+                    <div class="form-group">
+                    @checkbox(challengeForm("featured"),
+                        label = "Featured",
+                        default = false,
+                        readOnly = false
+                    )
+                    </div>
+                }
                 <div class="form-group" style="display:none;">
                     @text(challengeForm("id"),
                         label = "id",

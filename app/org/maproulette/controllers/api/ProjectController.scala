@@ -6,7 +6,7 @@ import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Project}
-import org.maproulette.session.{SearchParameters, SessionManager}
+import org.maproulette.session.{SearchParameters, SessionManager, User}
 import play.api.libs.json._
 import play.api.mvc.Action
 
@@ -61,7 +61,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
         taskSearch = taskSearch,
         taskTags = tags.split(",").toList
       )
-      val result = taskDAL.getRandomTasks(params, limit)
+      val result = taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
       result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }

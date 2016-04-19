@@ -8,7 +8,9 @@ import org.specs2.runner.JUnitRunner
 /**
   * @author cuthbertm
   */
-case class TestBaseObject(override val id:Long, override val name:String) extends BaseObject[Long]
+case class TestBaseObject(override val id:Long, override val name:String) extends BaseObject[Long] {
+  override val itemType: Int = ???
+}
 
 @RunWith(classOf[JUnitRunner])
 class CacheSpec extends Specification {

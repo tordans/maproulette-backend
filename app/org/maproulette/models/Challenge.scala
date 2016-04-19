@@ -38,8 +38,8 @@ case class Challenge(override val id: Long,
   @Inject val projectDAL:ProjectDAL = null
   @Inject val tagDAL:TagDAL = null
 
+  override val itemType = challengeType
   override def getParent = projectDAL.retrieveById(parent).get
-
   override lazy val tags: List[Tag] = tagDAL.listByChallenge(id)
 }
 

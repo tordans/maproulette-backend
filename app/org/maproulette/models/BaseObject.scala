@@ -1,8 +1,5 @@
 package org.maproulette.models
 
-import javax.inject.Inject
-
-import org.maproulette.models.dal.TagDALMixin
 import org.maproulette.session.User
 
 /**
@@ -17,6 +14,8 @@ trait BaseObject[Key] {
   def name:String
   def id:Key
   def description:Option[String] = None
+
+  val itemType:Int
 
   /**
     * Whether a user has write access to an object or not.

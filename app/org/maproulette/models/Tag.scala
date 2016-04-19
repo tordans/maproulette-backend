@@ -3,6 +3,7 @@ package org.maproulette.models
 import javax.inject.Inject
 
 import com.fasterxml.jackson.databind.JsonMappingException
+import org.maproulette.actions.Actions
 import org.maproulette.models.dal.TagDAL
 import org.maproulette.session.User
 import play.api.libs.json._
@@ -16,7 +17,9 @@ import play.api.libs.json._
   */
 case class Tag(override val id: Long,
                override val name: String,
-               override val description: Option[String] = None) extends BaseObject[Long]
+               override val description: Option[String] = None) extends BaseObject[Long] {
+  override val itemType: Int = Actions.ITEM_TYPE_TAG
+}
 
 object Tag {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]
