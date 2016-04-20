@@ -161,6 +161,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
       }
       dal.setTaskStatus(task, status, user)
+      actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
       NoContent
     }
   }

@@ -6,7 +6,7 @@ import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.Survey
-import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL, TaskDAL}
+import org.maproulette.models.dal._
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -21,21 +21,18 @@ import scala.util.{Failure, Success}
 class Application @Inject() (val messagesApi: MessagesApi,
                              override val webJarAssets: WebJarAssets,
                              sessionManager:SessionManager,
-                             userDAL: UserDAL,
-                             projectDAL: ProjectDAL,
-                             override val challengeDAL: ChallengeDAL,
-                             surveyDAL: SurveyDAL,
-                             taskDAL: TaskDAL,
+                             override val dalManager: DALManager,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   def clearCaches = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       if (user.isSuperUser) {
-        userDAL.clearCaches
-        projectDAL.clearCaches
-        challengeDAL.clearCaches
-        surveyDAL.clearCaches
-        taskDAL.clearCaches
+        dalManager.user.clearCaches
+        dalManager.project.clearCaches
+        dalManager.challenge.clearCaches
+        dalManager.survey.clearCaches
+        dalManager.task.clearCaches
+        dalManager.tag.clearCaches
         Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
       } else {
         throw new IllegalAccessException("Only super users can clear the caches.")
@@ -96,9 +93,9 @@ class Application @Inject() (val messagesApi: MessagesApi,
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, projectDAL.listManagedProjects(user, limitIgnore, offsetIgnore, false))
+            views.html.admin.project(user, dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false))
           case ChallengeType() | SurveyType() =>
-            val projectChildren = projectDAL.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
+            val projectChildren = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
             val surveys = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_SURVEY).map(Survey(_, List.empty))
             val challenges = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_CHALLENGE)
             views.html.admin.projectChildren(user, parentId.get, surveys, challenges,
@@ -128,8 +125,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       getOkIndex("MapRoulette Users", user,
         views.html.admin.users.users(user,
-          userDAL.list(limit, offset, false, q),
-          projectDAL.listManagedProjects(user)
+          dalManager.user.list(limit, offset, false, q),
+          dalManager.project.listManagedProjects(user)
         )
       )
     }
@@ -180,8 +177,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedRequest { implicit user =>
       val parentDAL = Actions.getItemType(parentType) match {
         case Some(pt) => pt match {
-          case ChallengeType() => Some(challengeDAL)
-          case SurveyType() => Some(surveyDAL)
+          case ChallengeType() => Some(dalManager.challenge)
+          case SurveyType() => Some(dalManager.survey)
         }
         case None => None
       }
@@ -246,6 +243,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusSkipped,
         org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFalsePositive,
         org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusAlreadyFixed,
+        org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummary,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,

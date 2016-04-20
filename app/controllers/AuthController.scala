@@ -3,9 +3,10 @@ package controllers
 import com.google.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.actions.ActionManager
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception.{InvalidException, MPExceptionUtil, NotFoundException}
-import org.maproulette.models.dal.ChallengeDAL
+import org.maproulette.models.dal.{ChallengeDAL, DALManager}
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.session.dal.UserDAL
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -23,8 +24,7 @@ import scala.util.{Failure, Success}
 class AuthController @Inject() (val messagesApi: MessagesApi,
                                 override val webJarAssets: WebJarAssets,
                                 sessionManager:SessionManager,
-                                userDAL: UserDAL,
-                                override val challengeDAL:ChallengeDAL,
+                                override val dalManager:DALManager,
                                 val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -35,7 +35,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Redirects back to the index page containing a valid session
     */
   def authenticate() = Action.async { implicit request =>
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       val p = Promise[Result]
       request.getQueryString("oauth_verifier").map { verifier =>
         sessionManager.retrieveUser(verifier) onComplete {
@@ -78,7 +78,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
   def deleteUser(userId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       if (user.isSuperUser) {
-        Ok(Json.obj("message" -> s"${userDAL.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
+        Ok(Json.obj("message" -> s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
       } else {
         throw new IllegalAccessException(s"User ${user.name} [${user.id} does not have super user access to delete other users")
       }
@@ -113,12 +113,12 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     */
   def addUserToProject(userId:Long, projectId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      userDAL.retrieveById(userId) match {
+      dalManager.user.retrieveById(userId) match {
         case Some(addUser) =>
           if (addUser.groups.exists(_.projectId == projectId)) {
             throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
           }
-          userDAL.addUserToProject(addUser, projectId)
+          dalManager.user.addUserToProject(addUser, projectId)
           Ok(Json.obj("status" -> "Ok", "message" -> s"User ${addUser.name} added to project $projectId"))
         case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }

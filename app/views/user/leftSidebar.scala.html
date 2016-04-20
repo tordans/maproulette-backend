@@ -1,8 +1,10 @@
-@import org.maproulette.session.User
-@(user:User)
+@import org.maproulette.actions.ActionItem
+@import org.maproulette.models.Task
+@(userActivity:List[ActionItem])
 
 <ul class="nav nav-tabs nav-justified control-sidebar-tabs">
   <li class="active"><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-home"></i></a></li>
+  <li><a href="#control-sidebar-activity-tab" data-toggle="tab"><i class="fa fa-bars"></i></a></li>
   <li><a href="#control-sidebar-settings-tab" data-toggle="tab"><i class="fa fa-gears"></i></a></li>
 </ul>
   <!-- Tab panes -->
@@ -14,11 +16,11 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Curent Challenge
-            <span class="label label-danger pull-right">70%</span>
+            Curent Challenge: <br/><span id="challenge_name">...</span>
+            <span id="challenge_complete_percent" class="label label-danger pull-right">0%</span>
           </h4>
           <div class="progress progress-xxs">
-            <div class="progress-bar progress-bar-danger" style="width: 70%"></div>
+            <div id="challenge_complete_percent_bar" class="progress-bar progress-bar-danger" style="width: 0%"></div>
           </div>
         </a>
       </li>
@@ -26,15 +28,23 @@
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
             Total Tasks
-            <span class="label label-info pull-right">1342</span>
+            <span id="challenge_total_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
       </li>
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Completed Tasks
-            <span class="label label-info pull-right">500 (45%)</span>
+            Still Available Tasks
+            <span id="challenge_available_tasks" class="label label-info pull-right">0 (0%)</span>
+          </h4>
+        </a>
+      </li>
+      <li>
+        <a href="javascript::;">
+          <h4 class="control-sidebar-subheading">
+            Fixed Tasks
+            <span id="challenge_fixed_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
       </li>
@@ -42,7 +52,7 @@
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
             Skipped Tasks
-            <span class="label label-info pull-right">5 (1%)</span>
+            <span id="challenge_skipped_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
       </li>
@@ -50,26 +60,42 @@
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
             False Positive Tasks
-            <span class="label label-info pull-right">124 (10%)</span>
+            <span id="challenge_fp_tasks" class="label label-info pull-right">0 (0%)</span>
+          </h4>
+        </a>
+      </li>
+      <li>
+        <a href="javascript::;">
+          <h4 class="control-sidebar-subheading">
+            Already Fixed Tasks
+            <span id="challenge_af_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
       </li>
     </ul>
+  </div>
+  <div class="tab-pane" id="control-sidebar-activity-tab">
     <h3 class="control-sidebar-heading">Recent Activity</h3>
     <ul class="control-sidebar-menu">
-      <li>
-        <a href="javascript::;">
-          <i class="menu-icon fa fa-check-square-o bg-red"></i>
+      @for(ua <- userActivity) {
+        <li>
+          <i class="activity-icon fa fa-check-square-o bg-green"></i>
           <div class="menu-info">
-            <h4 class="control-sidebar-subheading">Completed Task "Test Task"</h4>
-            <p><b>Project:</b> Test Project<br/><b>Challenge:</b> Test Challenge</p>
+            <h4 class="control-sidebar-subheading">Completed Task
+              @ua.itemId match {
+                case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                case None => {NOT FOUND}
+              }
+            </h4>
+            <p>
+              <b>Updated Status to:</b> @{Task.getStatusName(ua.status.getOrElse(-1)).getOrElse("Undefined")}<br/>
+              <b>Date: </b> @{ua.created}
+            </p>
           </div>
-        </a>
-      </li>
+        </li>
+      }
     </ul><!-- /.control-sidebar-menu -->
   </div>
-    <!-- Stats tab content -->
-  <div class="tab-pane" id="control-sidebar-stats-tab">Stats Tab Content</div>
     <!-- Settings tab content -->
   <div class="tab-pane" id="control-sidebar-settings-tab">
     <form method="post">
@@ -86,3 +112,49 @@
     </form>
   </div>
 </div>
+<script type="application/javascript">
+  var currentChallengeId = -1;
+
+  function updateChallengeInfo(challengeId) {
+    if (currentChallengeId != challengeId) {
+      currentChallengeId = challengeId;
+      jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId)
+              .ajax({
+                success: function (data) {
+                  $("#challenge_name").text(data.name);
+                  var createdTasks = getCountValue(data.statusCounts.Created);
+                  var fixedTasks = getCountValue(data.statusCounts.Fixed);
+                  var falsePositiveTasks = getCountValue(data.statusCounts.False_Positive);
+                  var skippedTasks = getCountValue(data.statusCounts.Skipped);
+                  var alreadyFixedTasks = getCountValue(data.statusCounts.Already_Fixed);
+                  var totalTasks = createdTasks + fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks;
+                  $("#challenge_total_tasks").text(totalTasks);
+                  var availableTasks = createdTasks + skippedTasks;
+                  $("#challenge_available_tasks").text(getShowValue(availableTasks, totalTasks));
+                  $("#challenge_fixed_tasks").text(getShowValue(fixedTasks, totalTasks));
+                  $("#challenge_fp_tasks").text(getShowValue(falsePositiveTasks, totalTasks));
+                  $("#challenge_skipped_tasks").text(getShowValue(skippedTasks, totalTasks));
+                  $("#challenge_af_tasks").text(getShowValue(alreadyFixedTasks, totalTasks));
+                  var percentComplete = (((availableTasks / totalTasks) * 100) - 100) * -1;
+                  $("#challenge_complete_percent").text(percentComplete + "%");
+                  $("#challenge_complete_percent_bar").css("width", percentComplete + "%")
+                },
+                error: Utils.handleError
+              });
+    }
+  }
+
+  function getCountValue(value) {
+    if (typeof value === 'undefined') {
+      return 0;
+    }
+    return value;
+  }
+
+  function getShowValue(value, total) {
+    if (value == 0) {
+      return "0 (0%)";
+    }
+    return value + " (" + ((value / total) * 100) + "%)";
+  }
+</script>

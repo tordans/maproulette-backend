@@ -2,6 +2,7 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.Actions
 import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
 import play.api.data.Form
@@ -59,16 +60,13 @@ object Task {
   val STATUS_DELETED_NAME = "Deleted"
   val STATUS_ALREADY_FIXED = 5
   val STATUS_ALREADY_FIXED_NAME = "Already_Fixed"
-  val STATUS_AVAILABLE = 6
-  val STATUS_AVAILABLE_NAME = "Available"
   val statusMap = Map(
     STATUS_CREATED -> STATUS_CREATED_NAME,
     STATUS_FIXED -> STATUS_FIXED_NAME,
     STATUS_SKIPPED -> STATUS_SKIPPED_NAME,
     STATUS_FALSE_POSITIVE -> STATUS_FALSE_POSITIVE_NAME,
     STATUS_DELETED -> STATUS_DELETED_NAME,
-    STATUS_ALREADY_FIXED -> STATUS_ALREADY_FIXED_NAME,
-    STATUS_AVAILABLE -> STATUS_AVAILABLE_NAME
+    STATUS_ALREADY_FIXED -> STATUS_ALREADY_FIXED_NAME
   )
 
   /**
@@ -99,8 +97,8 @@ object Task {
         case STATUS_CREATED => true
         case STATUS_FIXED => false
         case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
-        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_DELETED || toSet == STATUS_AVAILABLE
-        case STATUS_DELETED => toSet == STATUS_CREATED || toSet == STATUS_AVAILABLE
+        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_DELETED
+        case STATUS_DELETED => toSet == STATUS_CREATED
       }
     }
   }
@@ -111,14 +109,7 @@ object Task {
     * @param status The status id
     * @return None if status id is invalid, otherwise the name of the status
     */
-  def getStatusName(status:Int) : Option[String] = status match {
-    case STATUS_CREATED => Some(STATUS_CREATED_NAME)
-    case STATUS_FIXED => Some(STATUS_FIXED_NAME)
-    case STATUS_FALSE_POSITIVE => Some(STATUS_FALSE_POSITIVE_NAME)
-    case STATUS_SKIPPED => Some(STATUS_SKIPPED_NAME)
-    case STATUS_DELETED => Some(STATUS_DELETED_NAME)
-    case _ => None
-  }
+  def getStatusName(status:Int) : Option[String] = statusMap.get(status)
 
   /**
     * Gets the status id based on the status name
@@ -126,14 +117,11 @@ object Task {
     * @param status The status name
     * @return None if status name is invalid, otherwise the id of the status
     */
-  def getStatusID(status:String) : Option[Int] = status.toLowerCase match {
-    case t if t.equalsIgnoreCase(STATUS_CREATED_NAME.toLowerCase) => Some(STATUS_CREATED)
-    case t if t.equalsIgnoreCase(STATUS_FIXED_NAME.toLowerCase) => Some(STATUS_FIXED)
-    case t if t.equalsIgnoreCase(STATUS_FALSE_POSITIVE_NAME.toLowerCase) => Some(STATUS_FALSE_POSITIVE)
-    case t if t.equalsIgnoreCase(STATUS_SKIPPED_NAME.toLowerCase) => Some(STATUS_SKIPPED)
-    case t if t.equalsIgnoreCase(STATUS_DELETED_NAME.toLowerCase) => Some(STATUS_DELETED)
-    case _ => None
+  def getStatusID(status:String) : Option[Int] = statusMap.find(_._2.equalsIgnoreCase(status)) match {
+    case Some(a) => Some(a._1)
+    case None => None
   }
+
 
   val taskForm = Form(
     mapping(

@@ -1,6 +1,6 @@
 package org.maproulette.session.dal
 
-import javax.inject.Inject
+import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
@@ -14,6 +14,7 @@ import play.api.db.Database
   *
   * @author cuthbertm
   */
+@Singleton
 class UserGroupDAL @Inject() (db:Database) {
 
   // The cache manager for the users

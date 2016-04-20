@@ -11,7 +11,7 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.models.dal.ChallengeDAL
+import org.maproulette.models.dal.{ChallengeDAL, DALManager}
 import play.api.i18n.Messages
 import play.api.{Application, Logger}
 import play.api.libs.Crypto
@@ -29,7 +29,7 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:ChallengeDAL, application:Application, config:Config) {
+class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, application:Application, config:Config) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
@@ -147,7 +147,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:Chall
             } else {
               try {
                 val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-                userDAL.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+                dalManager.user.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
                   case Some(user) => p success Some(user)
                   case None => p success None
                 }
@@ -178,8 +178,8 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:Chall
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        userDAL.matchByRequestTokenAndId(accessToken)(sessionId.toLong)
-      case None => userDAL.matchByRequestToken(accessToken)
+        dalManager.user.matchByRequestTokenAndId(accessToken)(sessionId.toLong)
+      case None => dalManager.user.matchByRequestToken(accessToken)
     }
     storedUser match {
       case Some(u) =>
@@ -213,7 +213,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:Chall
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
           val newUser = User(detailsResponse.body, accessToken, config)
-          p success Some(userDAL.insert(newUser, user))
+          p success Some(dalManager.user.insert(newUser, user))
         } catch {
           case e:Exception => p failure e
         }
@@ -238,7 +238,7 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:Chall
     */
   def userAwareUIRequest(block:Option[User] => Result)
                         (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       userAware(block)
     }
   }
@@ -283,14 +283,14 @@ class SessionManager @Inject() (ws:WSClient, userDAL:UserDAL, challengeDAL:Chall
     */
   def authenticatedUIRequest(block:User => Result)
                             (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       authenticated(Left(block))
     }
   }
 
   def authenticatedFutureUIRequest(block:User => Future[Result])
                                   (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, challengeDAL) { () =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       authenticated(Right(block))
     }
   }

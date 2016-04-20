@@ -100,16 +100,18 @@ L.Control.ControlPanel = L.Control.extend({
         });
     },
     updateEditControl: function() {
+        var locked = MRManager.isTaskLocked();
         this.updateControl(1, "controlpanel_edit", "Edit", "fa-pencil",
-            MRManager.isTaskLocked() || !this.options.signedIn, function(e) {
+            locked || !this.options.signedIn, function(e) {
             if (!locked) {
                 $("#editoptions").fadeIn('slow');
             }
         });
     },
     updateFPControl: function() {
+        var locked = MRManager.isTaskLocked();
         this.updateControl(2, "controlpanel_fp", "False Positive", "fa-warning",
-            MRManager.isTaskLocked() || !this.options.signedIn, function(e) {
+            locked || !this.options.signedIn, function(e) {
             if (!locked) {
                 MRManager.setTaskStatus(TaskStatus.FALSEPOSITIVE);
             }
@@ -461,6 +463,7 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
+        updateChallengeInfo(currentTask.data.parentId);
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.data.geometry);
         map.fitBounds(geojsonLayer.getBounds());
@@ -523,7 +526,7 @@ var MRManager = (function() {
         if (debugMode) {
             currentTask.getNextTask(currentSearchParameters);
         } else {
-            currentTask.getRandomNextTask(currentSearchParameters);
+            currentTask.setTaskStatus(TaskStatus.SKIPPED, currentSearchParameters);
         }
     };
 
