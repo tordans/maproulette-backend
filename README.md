@@ -5,10 +5,6 @@ Version 2 of MapRoulette
 
 [![Heroku](http://heroku-badge.herokuapp.com/?app=maproulette2&style=flat&svg=1)](http://maproulette2.herokuapp.com/)
 
-
-
-Click [here](docs/api.md) for API documentation.
-
 Welcome to New MapRoulette, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
 
 This README deals with development related topics only. If you are interested in contributing to OpenStreetMap by fixing some bugs through MapRoulette, just head over to [the MapRoulette web site](http://maproulette.org) and get started - it should be pretty self explanatory.
@@ -34,6 +30,8 @@ Coming Soon...
 ## Creating new Challenges
 
 Coming Soon...
+
+In the mean time see [here](docs/api.md) for current API documentation (not guaranteed to be stable yet).
 
 ## Contact
 
