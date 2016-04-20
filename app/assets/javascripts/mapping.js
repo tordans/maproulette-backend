@@ -31,19 +31,68 @@ L.Control.Help = L.Control.extend({
     }
 });
 
+// Survey Questionaire control
+L.Control.SurveyControl = L.Control.extend({
+    options: {
+       position: 'bottomright'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'mp-survey-control hidden');
+        container.id = "survey_container";
+        var questionP = L.DomUtil.create('p', 'mp-control-component', container);
+        questionP.id = "survey_question";
+        var answerDiv = L.DomUtil.create('div', 'mp-control-component', container);
+        answerDiv.id = "survey_answers";
+        return container;
+    },
+    updateSurvey: function(question, answers) {
+        L.DomUtil.get("survey_question").innerHTML = question;
+        var answerDiv = L.DomUtil.get("survey_answers");
+        answerDiv.innerHTML = "";
+        for (var i = 0; i < answers.length; i++) {
+            this.buildAnswer(answerDiv, answers[i].id, answers[i].answer);
+        }
+    },
+    buildAnswer: function(answerDiv, id, answer) {
+        var answerButton = L.DomUtil.create('button', 'btn-xs btn-block btn-default', answerDiv);
+        answerButton.innerHTML = answer;
+        L.DomEvent.on(answerButton, 'click', L.DomEvent.stopPropagation)
+            .on(answerButton, 'click', L.DomEvent.preventDefault)
+            .on(answerButton, 'click', function() {
+                MRManager.answerSurveyQuestion(id);
+            });
+    },
+    hide: function() {
+        L.DomUtil.addClass(L.DomUtil.get("survey_container"), "hidden");
+    },
+    show: function() {
+        L.DomUtil.removeClass(L.DomUtil.get("survey_container"), "hidden");
+    }
+});
+
+// Edit Control - When user clicks on edit this will show up in the center of the screen
+L.Control.EditControl = L.Control.extend({
+    options: {
+       position: 'bottomright'
+    },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'mp-control');
+
+    }
+});
+
 // Control panel for all the task functions
 L.Control.ControlPanel = L.Control.extend({
     options: {
         position: 'bottomright',
         controls:[false, false, false, false],
         showText:true,
-        signedIn:false,
+        signedIn:false
     },
     onAdd: function(map) {
         // we create all the containers first so that the ordering will always be consistent
         // no matter what controls a user decides to put on the map
         var container = L.DomUtil.create('div', 'mp-control');
-        container.id = "controlpanel_container";
         var prevDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
         prevDiv.id = "controlpanel_previous";
         var editDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
@@ -79,9 +128,9 @@ L.Control.ControlPanel = L.Control.extend({
                     .on(controlDiv, 'click', clickHandler);
             }
             if (locked) {
-                L.DomUtil.addClass(controlDiv, "mp-control-locked");
+                L.DomUtil.addClass(controlDiv, "mp-control-component-locked");
             } else {
-                L.DomUtil.removeClass(controlDiv, "mp-control-locked");
+                L.DomUtil.removeClass(controlDiv, "mp-control-component-locked");
             }
         } else {
             $("#" + controlName).innerHTML = "";
@@ -195,6 +244,75 @@ var TaskStatus = {
     AVAILABLE:6
 };
 
+function Challenge() {
+    var data = {id:-1};
+    this.getData = function() {
+        return data;
+    };
+    
+    this.resetTask = function() {
+        this.data = {id:-1};
+    };
+
+    /**
+     * Updates this object to the challenge with the provided ID
+     *
+     * @param challengeId ID of the new challenge
+     * @param success handler for successful results
+     * @param error handler for failed results
+     */
+    this.updateChallenge = function(challengeId, success, error) {
+        if (data.id != challengeId) {
+            var self = this;
+            jsRoutes.org.maproulette.controllers.api.ChallengeController.getChallenge(challengeId).ajax({
+                success: function (update) {
+                    if (typeof update.challenge === 'undefined') {
+                        data = update;
+                        // remove the survey panel from the map
+                    } else {
+                        data = update.challenge;
+                        data.answers = update.answers;
+                        // if it is a survey we need to add the survey control panel to the map
+                    }
+                    MRManager.updateSurveyPanel();
+                    if (typeof success != 'undefined') {
+                        success();
+                    }
+                },
+                error: function () {
+                    if (typeof error != 'undefined') {
+                        error();
+                    }
+                }
+            });
+        }
+    };
+
+    /**
+     * Answers a survey question, will do nothing if the current challenge is not a survey
+     *
+     * @param taskId ID of the task for the answer
+     * @param answerId The id for the answer
+     * @param success success handler
+     * @param error error handler
+     */
+    this.answerQuestion = function(taskId, answerId, success, error) {
+        // See Actions.scala which contains ID's for items. 4 = Survey
+        if (data.challengeType == 4) {
+            jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
+                success: function() {
+                    if (typeof success === 'undefined') {
+                        MRManager.getNextTask();
+                    } else {
+                        success();
+                    }
+                },
+                error: MRManager.getErrorHandler(error)
+            });
+        }
+    };
+}
+
 /**
  * The Task class contains all relevent information regarding the current task loaded on the map.
  * Also contains functionality to get next, previous and random tasks.
@@ -210,59 +328,68 @@ var TaskStatus = {
  *  }
  * @constructor
  */
-function Task(data) {
-    this.parentData = {};
-    this.data = data;
+function Task() {
+    var challenge = new Challenge();
+    this.getChallenge = function() {
+        return challenge;
+    };
+    var data = {id:-1};
+    this.getData = function() {
+        return data;
+    };
+
+    var updateData = function(update) {
+        data = update;
+        if (challenge.getData().id != data.parentId) {
+            challenge.updateChallenge(data.parentId);
+        }
+    };
 
     this.resetTask = function() {
         this.data = {id:-1};
     };
 
     this.isLocked = function() {
-        return this.data.locked || this.data.status == TaskStatus.FIXED ||
-            this.data.status == TaskStatus.FALSEPOSITIVE || this.data.status == TaskStatus.DELETED ||
-            this.data.status == TaskStatus.ALREADYFIXED;
+        return data.locked || data.status == TaskStatus.FIXED ||
+            data.status == TaskStatus.FALSEPOSITIVE || data.status == TaskStatus.DELETED ||
+            data.status == TaskStatus.ALREADYFIXED;
     };
 
     this.updateTask = function(taskId, success, error) {
-        var self = this;
         jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax({
-            success:function(data) {
-                self.data = data;
-                self.getSuccessHandler(success)();
+            success:function(update) {
+                updateData(update);
+                MRManager.getSuccessHandler(success)();
             },
-            error:error
+            error:MRManager.getErrorHandler(error)
         });
     };
 
     this.getNextTask = function(params, success, error) {
-        var self = this;
         jsRoutes.controllers.MappingController
-            .getSequentialNextTask(this.data.parentId, this.data.id)
+            .getSequentialNextTask(data.parentId, data.id)
             .ajax({
-                success:function(data) {
-                    self.data = data;
-                    self.getSuccessHandler(success)();
+                success:function(update) {
+                    updateData(update);
+                    MRManager.getSuccessHandler(success)();
                 },
-                error:this.getErrorHandler(error)
+                error:MRManager.getErrorHandler(error)
             });
     };
 
     this.getPreviousTask = function(params, success, error) {
-        var self = this;
         jsRoutes.controllers.MappingController
-            .getSequentialPreviousTask(this.data.parentId, this.data.id)
+            .getSequentialPreviousTask(data.parentId, data.id)
             .ajax({
-                success: function (data) {
-                    self.data = data;
-                    self.getSuccessHandler(success)();
+                success: function (update) {
+                    updateData(update);
+                    MRManager.getSuccessHandler(success)();
                 },
-                error:this.getErrorHandler(error)
+                error:MRManager.getErrorHandler(error)
             });
     };
 
     this.getRandomNextTask = function(params, success, error) {
-        var self = this;
         jsRoutes.controllers.MappingController.getRandomNextTask(params.projectId,
             params.projectSeach,
             params.challengeId,
@@ -271,58 +398,42 @@ function Task(data) {
             params.taskSearch,
             params.taskTags)
             .ajax({
-                success:function(data) {
-                    self.data = data;
-                    self.getSuccessHandler(success)();
+                success:function(update) {
+                    updateData(update);
+                    MRManager.getSuccessHandler(success)();
                 },
-                error:this.getErrorHandler(error)
+                error:MRManager.getErrorHandler(error)
             }
         );
     };
     
     this.setTaskStatus = function(status, params, success, error) {
         var self = this;
-        var errorHandler = this.getErrorHandler(error);
+        var errorHandler = MRManager.getErrorHandler(error);
         var statusSetSuccess = function () {
-            self.getRandomNextTask(params, self.getSuccessHandler(success), errorHandler);
+            self.getRandomNextTask(params, MRManager.getSuccessHandler(success), errorHandler);
         };
         switch (status) {
             case TaskStatus.FIXED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(this.data.id)
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.FALSEPOSITIVE:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(this.data.id)
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.SKIPPED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(this.data.id)
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.DELETED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(this.data.id)
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.ALREADYFIXED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(this.data.id)
+                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
-        }
-    };
-    
-    this.getSuccessHandler = function(success) {
-        if (typeof success === 'undefined') {
-            return MRManager.updateDisplayTask;
-        } else {
-            return success;
-        }
-    };
-    
-    this.getErrorHandler = function(error) {
-        if (typeof error === 'undefined') {
-            return Utils.handleError;
-        } else {
-            return error;
         }
     };
 }
@@ -368,9 +479,10 @@ var MRManager = (function() {
     var map;
     var geojsonLayer;
     var layerControl;
+    var currentTask = new Task();
     // controls
     var controlPanel = new L.Control.ControlPanel({});
-    var currentTask = new Task({id:-1});
+    var surveyPanel = new L.Control.SurveyControl({});
     // In debug mode tasks will not be edited and the previous button is displayed in the control panel
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters();
@@ -437,6 +549,7 @@ var MRManager = (function() {
         map.addControl(new L.Control.Help({}));
         map.addControl(layerControl);
         map.addControl(controlPanel);
+        map.addControl(surveyPanel);
 
         // handles click events that are executed when submitting the custom geojson from the geojson viewer
         $('#geojson_submit').on('click', function() {
@@ -463,16 +576,29 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
-        updateChallengeInfo(currentTask.data.parentId);
+        updateChallengeInfo(currentTask.getData().parentId);
         geojsonLayer.clearLayers();
-        geojsonLayer.addData(currentTask.data.geometry);
+        geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(signedIn, debugMode, true, true, true);
         // show the task text as a notification
         toastr.clear();
-        toastr.info(marked(currentTask.data.instruction), '', { positionClass: getNotificationClass(), timeOut: 0 });
+        toastr.info(marked(currentTask.getData().instruction), '', { positionClass: getNotificationClass(), timeOut: 0 });
         // let the user know where they are
         displayAdminArea();
+    };
+
+    /**
+     * Based on the challenge type (4 is Survey) will add or remove the survey panel from the map
+     */
+    var updateSurveyPanel = function() {
+        if (currentTask.getChallenge().getData().challengeType == 4) {
+            surveyPanel.updateSurvey(currentTask.getChallenge().getData().instruction,
+                currentTask.getChallenge().getData().answers);
+            surveyPanel.show();
+        } else {
+           surveyPanel.hide();
+        }
     };
 
     /**
@@ -539,9 +665,23 @@ var MRManager = (function() {
             currentTask.getPreviousTask(currentSearchParameters);
         }
     };
-    
+
+    /**
+     * Sets the status for the current task
+     *
+     * @param status The status to set see Task.scala for information on the status ID's
+     */
     var setTaskStatus = function(status) {
         currentTask.setTaskStatus(status, currentSearchParameters);
+    };
+
+    /**
+     * Answers the question for a survey.
+     *
+     * @param answerId
+     */
+    var answerSurveyQuestion = function(answerId) {
+        currentTask.getChallenge().answerQuestion(currentTask.getData().id, answerId);
     };
 
     // registers a series of hotkeys for quick access to functions
@@ -575,14 +715,30 @@ var MRManager = (function() {
     
     // This funtion returns the geoJSON of the currently displayed Task
     var getCurrentTaskGeoJSON = function() {
-        if (currentTask.data.id == -1) {
+        if (currentTask.getData().id == -1) {
             return "{}";
         }
-        return JSON.stringify(currentTask.data.geometry);
+        return JSON.stringify(currentTask.getData().geometry);
     };
 
     var isTaskLocked = function() {
         return currentTask.isLocked();
+    };
+
+    var getSuccessHandler = function(success) {
+        if (typeof success === 'undefined') {
+            return MRManager.updateDisplayTask;
+        } else {
+            return success;
+        }
+    };
+
+    var getErrorHandler = function(error) {
+        if (typeof error === 'undefined') {
+            return Utils.handleError;
+        } else {
+            return error;
+        }
     };
 
     return {
@@ -593,7 +749,11 @@ var MRManager = (function() {
         getNextTask: getNextTask,
         getPreviousTask: getPreviousTask,
         setTaskStatus: setTaskStatus,
-        isTaskLocked: isTaskLocked
+        isTaskLocked: isTaskLocked,
+        getSuccessHandler: getSuccessHandler,
+        getErrorHandler: getErrorHandler,
+        answerSurveyQuestion: answerSurveyQuestion,
+        updateSurveyPanel: updateSurveyPanel
     };
 
 }());

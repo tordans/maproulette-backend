@@ -34,6 +34,7 @@ class ItemType(id:Int) {
       case t:TaskType => new TaskItem(itemId)
       case ta:TagType => new TagItem(itemId)
       case u:UserType => new UserItem(itemId)
+      case s:SurveyType => new SurveyItem(itemId)
     }
   }
 }
@@ -55,6 +56,7 @@ class ChallengeItem(override val itemId:Long) extends ChallengeType with Item
 class TaskItem(override val itemId:Long) extends TaskType with Item
 class TagItem(override val itemId:Long) extends TagType with Item
 class UserItem(override val itemId:Long) extends UserType with Item
+class SurveyItem(override val itemId:Long) extends SurveyType with Item
 
 case class Updated() extends ActionType(Actions.ACTION_TYPE_UPDATED, Actions.ACTION_LEVEL_2)
 case class Created() extends ActionType(Actions.ACTION_TYPE_CREATED, Actions.ACTION_LEVEL_2)
@@ -63,7 +65,7 @@ case class TaskViewed() extends ActionType(Actions.ACTION_TYPE_TASK_VIEWED, Acti
 case class TaskStatusSet(status:Int) extends ActionType(Actions.ACTION_TYPE_TASK_STATUS_SET, Actions.ACTION_LEVEL_1)
 case class TagAdded() extends ActionType(Actions.ACTION_TYPE_TAG_ADDED, Actions.ACTION_LEVEL_2)
 case class TagRemoved() extends ActionType(Actions.ACTION_TYPE_TAG_REMOVED, Actions.ACTION_LEVEL_2)
-case class QuestionAnswered() extends ActionType(Actions.ACTION_TYPE_QUESTION_ANSWERED, Actions.ACTION_LEVEL_1)
+case class QuestionAnswered(answerId:Long) extends ActionType(Actions.ACTION_TYPE_QUESTION_ANSWERED, Actions.ACTION_LEVEL_1)
 
 object Actions {
   val ACTION_LEVEL_1 = 1

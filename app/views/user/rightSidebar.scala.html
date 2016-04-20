@@ -1,5 +1,6 @@
 @import org.maproulette.actions.ActionItem
 @import org.maproulette.models.Task
+@import org.maproulette.actions.Actions
 @(userActivity:List[ActionItem])
 
 <ul class="nav nav-tabs nav-justified control-sidebar-tabs">
@@ -79,19 +80,34 @@
     <ul class="control-sidebar-menu">
       @for(ua <- userActivity) {
         <li>
-          <i class="activity-icon fa fa-check-square-o bg-green"></i>
-          <div class="menu-info">
-            <h4 class="control-sidebar-subheading">Completed Task
-              @ua.itemId match {
-                case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
-                case None => {NOT FOUND}
-              }
-            </h4>
-            <p>
-              <b>Updated Status to:</b> @{Task.getStatusName(ua.status.getOrElse(-1)).getOrElse("Undefined")}<br/>
-              <b>Date: </b> @{ua.created}
-            </p>
-          </div>
+          @if(ua.action.getOrElse(Actions.ACTION_TYPE_TASK_STATUS_SET) == Actions.ACTION_TYPE_QUESTION_ANSWERED) {
+            <i class="activity-icon fa fa-edit bg-green"></i>
+            <div class="menu-info">
+              <h4 class="control-sidebar-subheading">Answered Question
+                @ua.itemId match {
+                  case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case None => {NOT FOUND}
+                }
+              </h4>
+              <p>
+                <b>Date: </b> @{ua.created}
+              </p>
+            </div>
+          } else {
+            <i class="activity-icon fa fa-check-square-o bg-green"></i>
+            <div class="menu-info">
+              <h4 class="control-sidebar-subheading">Completed Task
+                @ua.itemId match {
+                  case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case None => {NOT FOUND}
+                }
+              </h4>
+              <p>
+                <b>Updated Status to:</b> @{Task.getStatusName(ua.status.getOrElse(-1)).getOrElse("Undefined")}<br/>
+                <b>Date: </b> @{ua.created}
+              </p>
+            </div>
+          }
         </li>
       }
     </ul><!-- /.control-sidebar-menu -->

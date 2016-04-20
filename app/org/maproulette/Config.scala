@@ -10,14 +10,14 @@ import play.api.Application
   */
 @Singleton
 class Config @Inject() (implicit val application:Application) {
-  lazy val logoURL = application.configuration.getString("maproulette.logo") match {
+  lazy val logoURL = application.configuration.getString(Config.KEY_LOGO) match {
     case Some(logo) => logo
     case None => "/assets/images/logo.png"// default to the Map Roulette Icon
   }
 
-  lazy val superKey : Option[String] = application.configuration.getString("maproulette.super.key")
+  lazy val superKey : Option[String] = application.configuration.getString(Config.KEY_SUPER_KEY)
 
-  lazy val superAccounts : List[String] = application.configuration.getString("maproulette.super.accounts") match {
+  lazy val superAccounts : List[String] = application.configuration.getString(Config.KEY_SUPER_ACCOUNTS) match {
     case Some(accs) => accs.split(",").toList
     case None => List.empty
   }
@@ -36,10 +36,13 @@ class Config @Inject() (implicit val application:Application) {
 }
 
 object Config {
+  val KEY_LOGO = "maproulette.logo"
+  val KEY_SUPER_KEY = "maproulette.super.key"
+  val KEY_SUPER_ACCOUNTS = "maproulette.super.accounts"
   val KEY_DEBUG = "maproulette.debug"
   val KEY_ACTION_LEVEL = "maproulette.action.level"
   val KEY_NUM_OF_CHALLENGES = "maproulette.limits.challenges"
-  val KEY_RECENT_ACTIVITY = "maproulette.limits.activity"
+  val KEY_RECENT_ACTIVITY = "maproulette.limits.activities"
 
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5

@@ -2,11 +2,12 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import org.maproulette.actions.{ActionManager, ChallengeType, TaskViewed}
+import org.maproulette.actions.{ActionManager, Actions, ChallengeType, TaskViewed}
 import org.maproulette.controllers.ParentController
-import org.maproulette.models.dal.{ChallengeDAL, TagDAL, TaskDAL}
-import org.maproulette.models.{Challenge, Task}
+import org.maproulette.models.dal.{ChallengeDAL, SurveyDAL, TagDAL, TaskDAL}
+import org.maproulette.models.{Challenge, Survey, Task}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json, Reads, Writes}
 import play.api.mvc.Action
 
@@ -22,6 +23,7 @@ class ChallengeController @Inject() (override val childController:TaskController
                                      override val sessionManager: SessionManager,
                                      override val actionManager: ActionManager,
                                      override val dal: ChallengeDAL,
+                                     surveyDAL: SurveyDAL,
                                      taskDAL: TaskDAL,
                                      override val tagDAL: TagDAL)
   extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
@@ -30,6 +32,8 @@ class ChallengeController @Inject() (override val childController:TaskController
   override implicit val tReads: Reads[Challenge] = Challenge.challengeReads
   // json writes for automatically writing Challenges to a json body response
   override implicit val tWrites: Writes[Challenge] = Challenge.challengeWrites
+  // json writes for automatically writing surveys to a json body response
+  implicit val sWrites:Writes[Survey] = Survey.surveyWrites
   // json writes for automatically writing Tasks to a json body response
   override protected val cWrites: Writes[Task] = Task.taskWrites
   // json reads for automatically reading tasks from a posted json body
@@ -62,6 +66,35 @@ class ChallengeController @Inject() (override val childController:TaskController
   def getTagsForChallenge(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(Challenge(id, "", None, -1, "").tags))
+    }
+  }
+
+  /**
+    * Only slightly different from the base read function, if it detects that this is a survey
+    * get the answers for the survey and wrap it up in a Survey object
+    *
+    * @param id The id of the object that is being retrieved
+    * @return 200 Ok, 204 NoContent if not found
+    */
+  def getChallenge(implicit id:String) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      val matched = if (Utils.isDigit(id)) {
+        dal.retrieveById(id.toLong)
+      } else {
+        dal.retrieveByName
+      }
+
+      matched match {
+        case Some(value) =>
+          if (value.challengeType == Actions.ITEM_TYPE_SURVEY) {
+            val answers = surveyDAL.getAnswers(value.id)
+            Ok(Json.toJson(Survey(value, answers)))
+          } else {
+            Ok(Json.toJson(value))
+          }
+        case None =>
+          NoContent
+      }
     }
   }
 

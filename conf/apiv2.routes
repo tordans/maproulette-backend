@@ -18,6 +18,7 @@ POST    /challenges                                 @org.maproulette.controllers
 PUT     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.update(id:String)
 PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
 GET     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.read(id:String)
+GET     /challengeOrSurvey/:id                      @org.maproulette.controllers.api.ChallengeController.getChallenge(id:String)
 DELETE  /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.delete(id:String)
 GET     /challenges/find                            @org.maproulette.controllers.api.ChallengeController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 GET     /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.getTagsForChallenge(id:Long)

@@ -35,7 +35,7 @@ GET     /mapping/nextTask/:parentId/:id                                 @control
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
 GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask(pid:Long ?= (-1), ps:String ?= "", cid:Long ?= (-1), ct:String ?= "", cs:String ?= "", tags:String ?= "", s:String ?= "")
 # DATA ROUTES
-GET     /data/activity                                                  @controllers.DataController.getRecentUserActivity(limit:Int ?= 5, offset:Int ?= 0)
+GET     /data/activity                                                  @controllers.DataController.getRecentUserActivity(limit:Int ?= (-1), offset:Int ?= 0)
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
 GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)

@@ -217,7 +217,10 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     * @return
     */
   def getRecentActivity(userId:Long, limit:Int=10, offset:Int=0) : List[ActionItem] =
-    getActivityList(limit, offset, ActionLimits(userLimit = List(userId), actionLimit = List(Actions.ACTION_TYPE_TASK_STATUS_SET)))
+    getActivityList(limit, offset,
+      ActionLimits(userLimit = List(userId),
+        actionLimit = List(Actions.ACTION_TYPE_TASK_STATUS_SET,
+          Actions.ACTION_TYPE_QUESTION_ANSWERED)))
 
   /**
     * Gets the activity list from the actions table
