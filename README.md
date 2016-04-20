@@ -1,4 +1,4 @@
-# MapRoulette Version 2
+# New MapRoulette
 Version 2 of MapRoulette
 
 [![Build Status](https://travis-ci.org/maproulette/maproulette2.svg?branch=master)](https://travis-ci.org/maproulette/maproulette2)
@@ -9,7 +9,7 @@ Version 2 of MapRoulette
 
 Click [here](docs/api.md) for API documentation.
 
-Welcome to MapRoulette version 2, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
+Welcome to New MapRoulette, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
 
 This README deals with development related topics only. If you are interested in contributing to OpenStreetMap by fixing some bugs through MapRoulette, just head over to [the MapRoulette web site](http://maproulette.org) and get started - it should be pretty self explanatory.
 
@@ -21,7 +21,7 @@ Please fork the project and submit a pull request.
 
 ### Frameworks used
 
-MapRoulette version 2 is built upon the Play Framework using Scala. You can find more information about the Play Framework at https://www.playframework.com
+New MapRoulette is built upon the Play Framework using Scala. You can find more information about the Play Framework at https://www.playframework.com
 It uses the following core technologies:
 
 * Postgres 9.5 with PostGIS 2.2.1
