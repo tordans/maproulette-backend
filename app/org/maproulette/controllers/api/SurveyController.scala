@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
+import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Challenge, Survey, Task}
 import org.maproulette.models.dal.{SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
@@ -104,9 +105,19 @@ class SurveyController @Inject() (override val childController:TaskController,
         case Some(u) => Some(u.id)
         case None => None
       }
-      dal.answerQuestion(surveyId, taskId, answerId, user)
-      actionManager.setAction(user, itemType.convertToItem(taskId), QuestionAnswered(), "")
-      NoContent
+      // make sure that the survey and answer exists first
+      dal.retrieveById(surveyId) match {
+        case Some(survey) =>
+          survey.answers.find(_.id == answerId) match {
+            case Some(a) =>
+              dal.answerQuestion(surveyId, taskId, answerId, user)
+              actionManager.setAction(user, itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
+              NoContent
+            case None =>
+              throw new NotFoundException(s"Requested answer [$answerId] for survey does not exist.")
+          }
+        case None => throw new NotFoundException(s"Requested survey [$surveyId] to answer question from does not exist.")
+      }
     }
   }
 }

@@ -118,8 +118,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     */
   def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
     db.withConnection { implicit c =>
-      val query = s"""SELECT * FROM challenges
+      val query = s"""SELECT * FROM challenges c
                       WHERE featured = TRUE ${enabled(enabledOnly)}
+                      AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       LIMIT ${sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(parser.*)
     }

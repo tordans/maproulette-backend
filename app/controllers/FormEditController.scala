@@ -3,10 +3,10 @@ package controllers
 import javax.inject.Inject
 
 import org.maproulette.Config
-import org.maproulette.actions.Actions
+import org.maproulette.actions.{ActionManager, Actions}
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.{Challenge, Project, Survey, Task}
-import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, SurveyDAL, TaskDAL}
+import org.maproulette.models.dal._
 import org.maproulette.session.SessionManager
 import org.maproulette.session.dal.UserDAL
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -19,17 +19,13 @@ import play.api.mvc.{Action, Controller}
 class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     override val webJarAssets: WebJarAssets,
                                     sessionManager:SessionManager,
-                                    userDAL: UserDAL,
-                                    projectDAL: ProjectDAL,
-                                    override val challengeDAL: ChallengeDAL,
-                                    surveyDAL: SurveyDAL,
-                                    taskDAL: TaskDAL,
+                                    override val dalManager: DALManager,
                                     val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   def projectFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       val project:Project = if (itemId > -1) {
-        projectDAL.retrieveById(itemId) match {
+        dalManager.project.retrieveById(itemId) match {
           case Some(proj) => proj
           case None => Project.emptyProject
         }
@@ -51,10 +47,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         project => {
           val id = if (itemId > -1) {
             implicit val groupWrites = Project.groupWrites
-            projectDAL.update(Json.toJson(project)(Project.projectWrites), user)(itemId)
+            dalManager.project.update(Json.toJson(project)(Project.projectWrites), user)(itemId)
             itemId
           } else {
-            val newProject = projectDAL.insert(project, user)
+            val newProject = dalManager.project.insert(project, user)
             newProject.id
           }
           Redirect(routes.Application.adminUIProjectList()).flashing("success" -> "Project saved!")
@@ -66,7 +62,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   def challengeFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       val challenge:Challenge = if (itemId > -1) {
-        challengeDAL.retrieveById(itemId) match {
+        dalManager.challenge.retrieveById(itemId) match {
           case Some(chal) => chal
           case None => Challenge.emptyChallenge(parentId)
         }
@@ -90,10 +86,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         },
         challenge => {
           val id = if (itemId > -1) {
-            challengeDAL.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId)
+            dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId)
             itemId
           } else {
-            val newChallenge = challengeDAL.insert(challenge, user)
+            val newChallenge = dalManager.challenge.insert(challenge, user)
             newChallenge.id
           }
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
@@ -105,7 +101,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   def surveyFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       val survey:Survey = if (itemId > -1) {
-        surveyDAL.retrieveById(itemId) match {
+        dalManager.survey.retrieveById(itemId) match {
           case Some(sur) => sur
           case None => Survey.emptySurvey(parentId)
         }
@@ -130,10 +126,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         survey => {
           val id = if (itemId > -1) {
             implicit val answerWrites = Survey.answerWrites
-            surveyDAL.update(Json.toJson(survey)(Survey.surveyWrites), user)(itemId)
+            dalManager.survey.update(Json.toJson(survey)(Survey.surveyWrites), user)(itemId)
             itemId
           } else {
-            val newSurvey = surveyDAL.insert(survey, user)
+            val newSurvey = dalManager.survey.insert(survey, user)
             newSurvey.challenge.id
           }
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)).flashing("success" -> "Project saved!")
@@ -145,7 +141,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   def taskFormUI(projectId:Long, parentId:Long, parentType:String, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       val task:Task = if (itemId > -1) {
-        taskDAL.retrieveById(itemId) match {
+        dalManager.task.retrieveById(itemId) match {
           case Some(t) => t
           case None => Task.emptyTask(parentId)
         }
@@ -169,10 +165,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         },
         task => {
           val id = if (itemId > -1) {
-            taskDAL.update(Json.toJson(task), user)(itemId)
+            dalManager.task.update(Json.toJson(task), user)(itemId)
             itemId
           } else {
-            val newTask = taskDAL.insert(task, user)
+            val newTask = dalManager.task.insert(task, user)
             newTask.id
           }
           Redirect(routes.Application.adminUITaskList(projectId, parentType, parentId)).flashing("success" -> "Project saved!")

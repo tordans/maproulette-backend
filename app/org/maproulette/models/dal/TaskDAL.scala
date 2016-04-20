@@ -282,7 +282,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     val taskTagIds = tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
     val challengeTagIds = tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
     val firstQuery =
-      s"""SELECT $retrieveColumns FROM tasks
+      s"""SELECT tasks.$retrieveColumns FROM tasks
           INNER JOIN challenges c ON c.id = tasks.parent_id
           INNER JOIN projects p ON p.id = c.parent_id
           LEFT JOIN locked l ON l.item_id = tasks.id
@@ -302,7 +302,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     val whereClause = new StringBuilder(
       s"""WHERE c.enabled = TRUE AND p.enabled = TRUE AND
               (l.id IS NULL OR l.user_id = ${user.id}) AND
-              tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}, ${Task.STATUS_AVAILABLE})""")
+              tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED})""")
 
     params.challengeId match {
       case Some(id) =>
@@ -353,11 +353,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
         // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
         // task can be locked at a time
         unlockAllItems(user, Some(TaskType()))
-        val tasks = if (parameters.nonEmpty) {
-          SQL(query).on(parameters:_*).as(parser.*)
-        } else {
-          SQL(query).as(parser.*)
-        }
+        val tasks = SQLWithParameters(query, parameters).as(parser.*)
         // once we have the tasks, we need to lock each one, if any fail to lock we just remove
         // them from the list. A guest user will not lock any tasks, but when logged in will be
         // required to refetch the current task, and if it is locked, then will have to get another

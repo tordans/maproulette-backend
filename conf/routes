@@ -3,8 +3,6 @@
 # ~~~~
 # Home page
 GET     /                                                               @controllers.Application.index
-GET     /map/:parentId/:taskId                                          @controllers.Application.map(parentId:Long, taskId:Long)
-GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)
 GET     /ui/admin/list/project                                          @controllers.Application.adminUIProjectList
 GET     /ui/admin/list/:itemType/:parentId                              @controllers.Application.adminUIChildList(itemType, parentId:Long)
 GET     /ui/admin/list/:projectId/:parentType/tasks/:parentId           @controllers.Application.adminUITaskList(projectId:Long, parentType:String, parentId:Long)
@@ -30,10 +28,14 @@ GET     /refreshProfile                                                 @control
 GET     /clearCaches                                                    @controllers.Application.clearCaches
 GET     /javascriptRoutes                                               @controllers.Application.javascriptRoutes
 # MAPPING ROUTES
+GET     /map/:parentId/:taskId                                          @controllers.Application.map(parentId:Long, taskId:Long)
+GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
 GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask(pid:Long ?= (-1), ps:String ?= "", cid:Long ?= (-1), ct:String ?= "", cs:String ?= "", tags:String ?= "", s:String ?= "")
+# DATA ROUTES
+GET     /data/activity                                                  @controllers.DataController.getRecentUserActivity(limit:Int ?= (-1), offset:Int ?= 0)
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
 GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)

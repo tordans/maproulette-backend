@@ -23,12 +23,6 @@ body, html {
   z-index: 9999999999;
 }
 
-.mp-control-locked {
-  //color: #dd4b39;
-  pointer-events: none;
-  opacity: 0.4;
-}
-
 .mp-control {
   display: block;
   padding: 3px;
@@ -41,8 +35,20 @@ body, html {
   background-color: #FFFFFF;
 }
 
+.mp-survey-control {
+  .mp-control;
+  min-width: 200px;
+  max-width: 400px;
+}
+
 .mp-control-component {
   padding: 2px;
+}
+
+.mp-control-component-locked {
+  //color: #dd4b39;
+  pointer-events: none;
+  opacity: 0.4;
 }
 
 .mp-control-component:hover {
@@ -69,4 +75,15 @@ body, html {
 .toast-info {
   background-color: #fff!important;
   color: #000!important;
+}
+
+.activity-icon {
+  float: left;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 25px;
+  align-content: center;
+  margin-left: 10px;
 }

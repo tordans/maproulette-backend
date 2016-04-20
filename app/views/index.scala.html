@@ -1,8 +1,11 @@
 @import org.maproulette.session.User
 @import org.maproulette.Config
 @import org.maproulette.models.Challenge
+@import org.maproulette.actions.ActionSummary
+@import org.maproulette.actions.ActionItem
 @(title:String, user:User, config:Config, hotChallenges:List[Challenge],
-        newChallenges:List[Challenge], featuredChallenges:List[Challenge])(content:Html)(implicit req: play.api.mvc.RequestHeader,
+        newChallenges:List[Challenge], featuredChallenges:List[Challenge],
+        recentActivity:List[ActionItem])(content:Html)(implicit req: play.api.mvc.RequestHeader,
         messages: Messages, webJarAssets: WebJarAssets)
 <!DOCTYPE html>
 <html>
@@ -61,7 +64,7 @@
                 <!-- Control Sidebar -->
             <aside class="control-sidebar control-sidebar-dark">
                     <!-- Create the tabs -->
-                @views.html.user.leftSidebar(user)
+                @views.html.user.rightSidebar(recentActivity)
             </aside>
             <!-- Add the sidebar's background. This div must be placed
            immediately after the control sidebar -->

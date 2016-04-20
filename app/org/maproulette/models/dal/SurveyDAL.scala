@@ -52,7 +52,7 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param surveyId The id for the survey
     * @return List of answers for the survey
     */
-  private def getAnswers(surveyId:Long) = {
+  def getAnswers(surveyId:Long) : List[Answer] = {
     db.withTransaction { implicit c =>
       SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(answerParser.*)
     }
@@ -141,7 +141,7 @@ class SurveyDAL @Inject() (override val db:Database,
         case Some(u) => Some(u.id)
         case None => None
       }
-      SQL"""INSERT INTO survey_answers (userId, survey_id, task_id, answer_id)
+      SQL"""INSERT INTO survey_answers (user_id, survey_id, task_id, answer_id)
             VALUES ($userId, $surveyId, $taskId, $answerId)""".executeInsert()
     }
   }

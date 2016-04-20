@@ -108,7 +108,11 @@
                         <div class="col-lg-9">
                         @text(surveyForm(answerField.name.toString + ".answer"),
                             label = "Answer",
-                            placeholder = "Survey Answer"
+                            placeholder = "Survey Answer",
+                            readOnly = surveyForm("challenge.id").value match {
+                                case Some(v) => v.toLong != -1
+                                case None => false
+                            }
                         )
                         </div>
                     </div>

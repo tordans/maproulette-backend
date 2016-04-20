@@ -18,6 +18,7 @@ POST    /challenges                                 @org.maproulette.controllers
 PUT     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.update(id:String)
 PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
 GET     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.read(id:String)
+GET     /challengeOrSurvey/:id                      @org.maproulette.controllers.api.ChallengeController.getChallenge(id:String)
 DELETE  /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.delete(id:String)
 GET     /challenges/find                            @org.maproulette.controllers.api.ChallengeController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 GET     /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.getTagsForChallenge(id:Long)
@@ -74,6 +75,8 @@ DELETE  /tag/:id                                    @org.maproulette.controllers
 GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 # Action Controller
 GET     /action/summary                             @org.maproulette.controllers.api.ActionController.getFullSummary()
+# Data Controller
+GET     /data/challenge/:id                         @org.maproulette.controllers.api.DataController.getChallengeSummary(id:String)
 # Handles invalid paths that use the  prefix
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
 PUT     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
