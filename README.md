@@ -5,6 +5,8 @@ Version 2 of MapRoulette
 
 [![Heroku](http://heroku-badge.herokuapp.com/?app=maproulette2&style=flat&svg=1)](http://maproulette2.herokuapp.com/)
 
+
+
 Click [here](docs/api.md) for API documentation.
 
 Welcome to MapRoulette version 2, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
@@ -15,9 +17,7 @@ That said, read on if you want to contribute to MapRoulette development and are 
 
 ## Contributing
 
-Please fork the project and submit pull requests on the `develop` branch.
-
-See the code style conventions at https://github.com/osmlab/maproulette/wiki/Code-style-conventions
+Please fork the project and submit a pull request.
 
 ### Frameworks used
 
