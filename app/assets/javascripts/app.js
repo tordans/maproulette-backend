@@ -31,8 +31,7 @@ toastr.options = {
     "tapToDismiss" : false
 };
 
-// Basic namespace for some Util functions used in this js lib
-var Utils = {
+var ToastUtils = {
     /**
      * Gets the notification class based on the sidebar, whether it is collapsed or not
      *
@@ -50,23 +49,36 @@ var Utils = {
         }
     },
     showToast: function(type, msg, options) {
-        toastr[type](msg, '', options);
-    },
-    handleInfo: function(info, options) {
         if (typeof options === 'undefined' || options === null) {
             options = {};
         }
         if (typeof options.positionClass === 'undefined') {
-            options.positionClass = Utils.getPositionClass();
+            options.positionClass = ToastUtils.getPositionClass();
+        }
+        toastr[type](msg, '', options);
+    },
+    Info: function(info, options) {
+        if (typeof options === 'undefined' || options === null) {
+            options = {};
         }
         options.toastClass = 'notification-info toast-info';
-        Utils.showToast('info', '<table><tr><td><i class="fa fa-info-circle fa-2x" style="padding-right: 10px;"></i></td><td>' + info + '</td></tr></table>', options);
+        ToastUtils.showToast('info', '<table><tr><td><i class="fa fa-info-circle fa-2x" style="padding-right: 10px;"></i></td><td>' + info + '</td></tr></table>', options);
+    },
+    Warning: function(warning, options) {
+        ToastUtils.showToast('warning', warning, options);
+    },
+    Error: function(error, options) {
+        ToastUtils.showToast('error', error, options);
     },
     // handles any javascript errors by popping a toast up at the top.
-    handleError: function(error, options) {
+    handleError: function(error) {
         var jsonMsg = JSON.parse(error.responseText);
-        Utils.showToast('error', jsonMsg.status + " : " + jsonMsg.message, options);
-    },
+        ToastUtils.Error('error', jsonMsg.status + " : " + jsonMsg.message);
+    }
+};
+
+// Basic namespace for some Util functions used in this js lib
+var Utils = {
     addComma: function (str) {
         return (str.match(/\,\s+$/) || str.match(/in\s+$/)) ? '' : ', ';
     },

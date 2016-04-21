@@ -92,24 +92,20 @@ L.Control.EditControl = L.Control.extend({
         editInID.innerHTML = "Edit in iD";
         L.DomEvent.on(editInID, 'click', L.DomEvent.stopPropagation)
             .on(editInID, 'click', L.DomEvent.preventDefault)
-            .on(editInID, 'click', function() {
-                self.setAsResult();
-            });
+            .on(editInID, 'click',  MRManager.openTaskInId);
 
         var editInJOSM = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
         editInJOSM.innerHTML = "Edit in JOSM";
         L.DomEvent.on(editInJOSM, 'click', L.DomEvent.stopPropagation)
             .on(editInJOSM, 'click', L.DomEvent.preventDefault)
-            .on(editInJOSM, 'click', function() {
-                self.setAsResult();
-            });
+            .on(editInJOSM, 'click', MRManager.openTaskInJosm);
 
         var editInJOSMLayer = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
         editInJOSMLayer.innerHTML = "Edit in new JOSM Layer";
         L.DomEvent.on(editInJOSMLayer, 'click', L.DomEvent.stopPropagation)
             .on(editInJOSMLayer, 'click', L.DomEvent.preventDefault)
             .on(editInJOSMLayer, 'click', function() {
-                self.setAsResult();
+                MRManager.openTaskInJosm(true);
             });
 
         var closeEdit = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
@@ -478,7 +474,7 @@ function Task() {
 
     this.getNextTask = function(params, success, error) {
         if (data.parentId == -1 && data.id == -1) {
-            Utils.handleInfo('You are in debug mode, select a challenge to debug.');
+            ToastUtils.Info('You are in debug mode, select a challenge to debug.');
         } else {
             jsRoutes.controllers.MappingController
                 .getSequentialNextTask(data.parentId, data.id)
@@ -494,7 +490,7 @@ function Task() {
 
     this.getPreviousTask = function(params, success, error) {
         if (data.parentId == -1 && data.id == -1) {
-            Utils.handleInfo('You are in debug mode, select a challenge to debug.');
+            ToastUtils.Info('You are in debug mode, select a challenge to debug.');
         } else {
             jsRoutes.controllers.MappingController
                 .getSequentialPreviousTask(data.parentId, data.id)
@@ -697,6 +693,8 @@ var MRManager = (function() {
         $("#sidebar_toggle").on("click", resizeMap);
         $("#map").css("left", $("#sidebar").width());
         signedIn = userSignedIn;
+        //register the keyboard shortcuts
+        registerHotKeys();
     };
 
     /**
@@ -704,20 +702,23 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
-        editPanel.setAsEdit();
-        editPanel.hide();
         updateChallengeInfo(currentTask.getData().parentId);
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(signedIn, debugMode, true, true, true);
-        updateMRControls();
+        resetEditControls();
         // show the task text as a notification
         toastr.clear();
-        Utils.handleInfo(marked(currentTask.getData().instruction), {timeOut: 0});
-        //toastr.info(marked(currentTask.getData().instruction), '', { positionClass: Utils.getNotificationClass(), timeOut: 0 });
+        ToastUtils.Info(marked(currentTask.getData().instruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
+    };
+
+    var resetEditControls = function() {
+        editPanel.setAsEdit();
+        editPanel.hide();
+        updateMRControls();
     };
 
     /**
@@ -749,7 +750,7 @@ var MRManager = (function() {
             url: mqurl,
             jsonp: "json_callback",
             success: function (data) {
-                Utils.handleInfo(Utils.mqResultToString(data.address));
+                ToastUtils.Info(Utils.mqResultToString(data.address));
             }
         });
     };
@@ -822,24 +823,146 @@ var MRManager = (function() {
             switch(e.keyCode) {
                 case 81: //q
                     // Get next task, set current task to false positive
+                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+                        setTaskStatus(TaskStatus.FALSEPOSITIVE);
+                    }
                     break;
                 case 87: //w
                     // Get next task, skip current task
+                    MRManager.getNextTask();
                     break;
                 case 69: //e
                     // open task in ID
+                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+                        openTaskInId();
+                    }
                     break;
                 case 82: //r
                     // open task in JSOM in current layer
+                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+                        openTaskInJosm(false);
+                    }
                     break;
-                case 84: //y
+                case 84: //t
                     // open task in JSOM in new layer
+                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+                        openTaskInJosm(true);
+                    }
                     break;
                 case 27: //esc
                     // remove open dialog
+                    resetEditControls();
                     break;
                 default:
                     break;
+            }
+        });
+    };
+
+    var constructIdUri = function () {
+        var zoom = map.getZoom();
+        var center = map.getCenter();
+        var lat = center.lat;
+        var lon = center.lng;
+        var baseUriComponent = "http://osm.org/edit?editor=id#";
+        var idUriComponent = "id=";
+        var mapUriComponent = "map=" + [zoom, lat, lon].join('/');
+        // http://openstreetmap.us/iD/release/#background=Bing&id=w238383695,w238383626,&desmap=20.00/-77.02271/38.90085
+        // https://www.openstreetmap.org/edit?editor=id&way=decode274204300#map=18/40.78479/-111.88787
+        // https://www.openstreetmap.org/edit?editor=id#map=19/53.30938/-0.98069
+        var currentGeometry = currentTask.getData().geometry;
+        for (var i in currentGeometry.features) {
+            var feature = currentGeometry.features[i];
+            if (!feature.properties.osmid) {
+                continue;
+            }
+            switch (feature.geometry.type) {
+                case 'Point':
+                    idUriComponent += "n" + feature.properties.osmid + ",";
+                    break;
+                case 'LineString':
+                    idUriComponent += "w" + feature.properties.osmid + ",";
+                    break;
+                case 'Polygon':
+                    idUriComponent += "w" + feature.properties.osmid + ",";
+                    break;
+                case 'MultiPolygon':
+                    idUriComponent += "r" + feature.properties.osmid + ",";
+                    break;
+            }
+        }
+        // remove trailing comma - iD won't play ball with it
+        idUriComponent = idUriComponent.replace(/,$/, "");
+        return baseUriComponent + [idUriComponent, mapUriComponent].join('&');
+    };
+
+    var openTaskInId = function () {
+        // this opens a new tab and focuses the browser on it.
+        // We may want to consider http://stackoverflow.com/a/11389138 to
+        // open a tab in the background - seems like that trick does not
+        // work in all browsers.
+        window.open(constructIdUri(), 'MRIdWindow');
+        ToastUtils.Info('Your task is being loaded in iD in a separate tab. Please return here after you completed your fixes!', {timeOut:10000});
+        editPanel.setAsResult();
+        setTimeout(editPanel.show(), 4000);
+    };
+
+    var constructJosmUri = function (new_layer) {
+        var bounds = map.getBounds();
+        var nodes = [];
+        var ways = [];
+        var relations = [];
+        var sw = bounds.getSouthWest();
+        var ne = bounds.getNorthEast();
+        var uri = 'http://127.0.0.1:8111/load_and_zoom?left=' + sw.lng + '&right=' + ne.lng + '&top=' + ne.lat + '&bottom=' + sw.lat + '&new_layer=' + (new_layer?'true':'false') + '&select=';
+        var selects = [];
+        var currentGeometry = currentTask.getData().geometry;
+        for (var f in currentGeometry.features) {
+            var feature = currentGeometry.features[f];
+            if (!feature.properties.osmid) {
+                continue;
+            }
+            switch (feature.geometry.type) {
+                case 'Point':
+                    selects.push('node' + feature.properties.osmid);
+                    break;
+                case 'LineString':
+                    selects.push('way' + feature.properties.osmid);
+                    break;
+                case 'Polygon':
+                    selects.push('way' + feature.properties.osmid);
+                    break;
+                case 'MultiPolygon':
+                    selects.push('relation' + feature.properties.osmid);
+                    break;
+            }
+        }
+
+        uri += selects.join(',');
+        return uri;
+    };
+
+    var openTaskInJosm = function (new_layer) {
+        new_layer = typeof new_layer !== 'undefined' ? new_layer : true;
+
+        if (map.getZoom() < 14) {
+            ToastUtils.Warning("Please zoom in a little so we don\'t have to load a huge area from the API.");
+            return false;
+        }
+        var josmUri = constructJosmUri(new_layer);
+        // Use the .ajax JQ method to load the JOSM link unobtrusively and alert when the JOSM plugin is not running.
+        $.ajax({
+            url: josmUri,
+            success: function (t) {
+                if (t.indexOf('OK') === -1) {
+                    ToastUtils.Error('JOSM remote control did not respond. Do you have JOSM running with Remote Control enabled?');
+                } else {
+                    editPanel.setAsResult();
+                    setTimeout(editPanel.show(), 4000);
+                }
+            },
+            error: function (e) {
+                ToastUtils.Error('JOSM remote control did not respond. Do you have JOSM running with Remote Control enabled?');
             }
         });
     };
@@ -870,7 +993,7 @@ var MRManager = (function() {
 
     var getErrorHandler = function(error) {
         if (typeof error === 'undefined') {
-            return Utils.handleError;
+            return ToastUtils.handleError;
         } else {
             return error;
         }
@@ -889,7 +1012,9 @@ var MRManager = (function() {
         getErrorHandler: getErrorHandler,
         answerSurveyQuestion: answerSurveyQuestion,
         updateMRControls: updateMRControls,
-        isChallengeSurvey: isChallengeSurvey
+        isChallengeSurvey: isChallengeSurvey,
+        openTaskInId: openTaskInId,
+        openTaskInJosm: openTaskInJosm
     };
 
 }());

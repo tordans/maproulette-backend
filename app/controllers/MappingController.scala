@@ -2,6 +2,7 @@ package controllers
 
 import javax.inject.Inject
 
+import org.apache.commons.lang3.StringEscapeUtils
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Lock, Task}
 import org.maproulette.models.dal.TaskDAL
@@ -109,7 +110,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
            |   "id":${t._1.id},
            |   "parentId":${t._1.parent},
            |   "name":"${t._1.name}",
-           |   "instruction":"${t._1.instruction}",
+           |   "instruction":"${StringEscapeUtils.escapeJson(t._1.instruction)}",
            |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
            |   "status":$currentStatus,
            |   "geometry":${t._1.geometries},
