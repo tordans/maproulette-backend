@@ -90,15 +90,16 @@ object Task {
     * @return True if the status can be set without violating any of the above rules
     */
   def isValidStatusProgression(current:Int, toSet:Int) : Boolean = {
-    if (current == toSet) {
+    if (current == toSet || toSet == STATUS_DELETED) {
       true
     } else {
       current match {
         case STATUS_CREATED => true
         case STATUS_FIXED => false
         case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
-        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_DELETED
+        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED
         case STATUS_DELETED => toSet == STATUS_CREATED
+        case STATUS_ALREADY_FIXED => false
       }
     }
   }

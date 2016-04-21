@@ -1,4 +1,3 @@
-toastr.options.toastClass = "notification";
 toastr.options.positionClass = "notification-position";
 
 L.TileLayer.Common = L.TileLayer.extend({
@@ -76,8 +75,94 @@ L.Control.EditControl = L.Control.extend({
        position: 'bottomright'
     },
     onAdd: function(map) {
-        var container = L.DomUtil.create('div', 'mp-control');
+        var container = L.DomUtil.create('div', 'mp-edit-control hidden');
+        container.id = "edit_container";
+        var information = L.DomUtil.create('p', 'mp-control-component', container);
+        information.id = "edit_information";
+        var options = L.DomUtil.create('div', 'mp-control-component', container);
+        options.id = "edit_options";
+        return container;
+    },
+    setAsEdit: function() {
+        var self = this;
+        L.DomUtil.get("edit_information").innerHTML = "Please select how you would like to fix this task.";
+        var options = L.DomUtil.get("edit_options");
+        options.innerHTML = "";
+        var editInID = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        editInID.innerHTML = "Edit in iD";
+        L.DomEvent.on(editInID, 'click', L.DomEvent.stopPropagation)
+            .on(editInID, 'click', L.DomEvent.preventDefault)
+            .on(editInID, 'click', function() {
+                self.setAsResult();
+            });
 
+        var editInJOSM = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        editInJOSM.innerHTML = "Edit in JOSM";
+        L.DomEvent.on(editInJOSM, 'click', L.DomEvent.stopPropagation)
+            .on(editInJOSM, 'click', L.DomEvent.preventDefault)
+            .on(editInJOSM, 'click', function() {
+                self.setAsResult();
+            });
+
+        var editInJOSMLayer = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        editInJOSMLayer.innerHTML = "Edit in new JOSM Layer";
+        L.DomEvent.on(editInJOSMLayer, 'click', L.DomEvent.stopPropagation)
+            .on(editInJOSMLayer, 'click', L.DomEvent.preventDefault)
+            .on(editInJOSMLayer, 'click', function() {
+                self.setAsResult();
+            });
+
+        var closeEdit = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        closeEdit.innerHTML = "Nevermind close this";
+        L.DomEvent.on(closeEdit, 'click', L.DomEvent.stopPropagation)
+            .on(closeEdit, 'click', L.DomEvent.preventDefault)
+            .on(closeEdit, 'click', function() {
+                self.hide();
+            });
+    },
+    setAsResult: function() {
+        L.DomUtil.get("edit_information").innerHTML = "The area is now loaded in your OSM editor. See if you can fix it, and then return to MapRoulette.<br/><i>Please make sure you save (iD) or upload (JSOM) your work after each fix!<i/>";
+        var options = L.DomUtil.get("edit_options");
+        options.innerHTML = "";
+        var fixed = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        fixed.innerHTML = "I fixed it!";
+        L.DomEvent.on(fixed, 'click', L.DomEvent.stopPropagation)
+            .on(fixed, 'click', L.DomEvent.preventDefault)
+            .on(fixed, 'click', function() {
+                MRManager.setTaskStatus(TaskStatus.FIXED);
+            });
+
+        var difficult = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        difficult.innerHTML = "Too difficult/Couldn't see";
+        L.DomEvent.on(difficult, 'click', L.DomEvent.stopPropagation)
+            .on(difficult, 'click', L.DomEvent.preventDefault)
+            .on(difficult, 'click', function() {
+                MRManager.setTaskStatus(TaskStatus.SKIPPED);
+            });
+
+        var error = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        error.innerHTML = "It was not an error";
+        L.DomEvent.on(error, 'click', L.DomEvent.stopPropagation)
+            .on(error, 'click', L.DomEvent.preventDefault)
+            .on(error, 'click', function() {
+                MRManager.setTaskStatus(TaskStatus.FALSEPOSITIVE);
+            });
+
+        var alreadyFixed = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
+        alreadyFixed.innerHTML = "Someone beat me to it";
+        L.DomEvent.on(alreadyFixed, 'click', L.DomEvent.stopPropagation)
+            .on(alreadyFixed, 'click', L.DomEvent.preventDefault)
+            .on(alreadyFixed, 'click', function() {
+                MRManager.setTaskStatus(TaskStatus.ALREADYFIXED);
+            });
+    },
+    hide: function() {
+        MRManager.updateMRControls();
+        L.DomUtil.addClass(L.DomUtil.get("edit_container"), "hidden");
+    },
+    show: function() {
+        MRManager.updateMRControls();
+        L.DomUtil.removeClass(L.DomUtil.get("edit_container"), "hidden");
     }
 });
 
@@ -87,7 +172,8 @@ L.Control.ControlPanel = L.Control.extend({
         position: 'bottomright',
         controls:[false, false, false, false],
         showText:true,
-        signedIn:false
+        signedIn:false,
+        editClick:function() {}
     },
     onAdd: function(map) {
         // we create all the containers first so that the ordering will always be consistent
@@ -149,16 +235,17 @@ L.Control.ControlPanel = L.Control.extend({
         });
     },
     updateEditControl: function() {
-        var locked = MRManager.isTaskLocked();
+        var self = this;
+        var locked = MRManager.isTaskLocked() || MRManager.isChallengeSurvey();
         this.updateControl(1, "controlpanel_edit", "Edit", "fa-pencil",
             locked || !this.options.signedIn, function(e) {
             if (!locked) {
-                $("#editoptions").fadeIn('slow');
+                self.options.editClick();
             }
         });
     },
     updateFPControl: function() {
-        var locked = MRManager.isTaskLocked();
+        var locked = MRManager.isTaskLocked() || MRManager.isChallengeSurvey();
         this.updateControl(2, "controlpanel_fp", "False Positive", "fa-warning",
             locked || !this.options.signedIn, function(e) {
             if (!locked) {
@@ -170,6 +257,14 @@ L.Control.ControlPanel = L.Control.extend({
         this.updateControl(3, "controlpanel_next", "Next", "fa-forward", false, function(e) {
             MRManager.getNextTask();
         });
+    },
+    disableControls: function() {
+        L.DomUtil.addClass(L.DomUtil.get("controlpanel_edit"), "mp-control-component-locked");
+        L.DomUtil.addClass(L.DomUtil.get("controlpanel_fp"), "mp-control-component-locked");
+    },
+    enableControls: function() {
+        L.DomUtil.removeClass(L.DomUtil.get("controlpanel_edit"), "mp-control-component-locked");
+        L.DomUtil.removeClass(L.DomUtil.get("controlpanel_fp"), "mp-control-component-locked");
     }
 });
 // -----------------------------------------------------
@@ -244,6 +339,11 @@ var TaskStatus = {
     AVAILABLE:6
 };
 
+/**
+ * Challenge class to handle anything related to challenges
+ *
+ * @constructor
+ */
 function Challenge() {
     var data = {id:-1};
     this.getData = function() {
@@ -252,6 +352,10 @@ function Challenge() {
     
     this.resetTask = function() {
         this.data = {id:-1};
+    };
+
+    this.isSurvey = function() {
+        return data.challengeType == 4;
     };
 
     /**
@@ -263,7 +367,6 @@ function Challenge() {
      */
     this.updateChallenge = function(challengeId, success, error) {
         if (data.id != challengeId) {
-            var self = this;
             jsRoutes.org.maproulette.controllers.api.ChallengeController.getChallenge(challengeId).ajax({
                 success: function (update) {
                     if (typeof update.challenge === 'undefined') {
@@ -272,9 +375,9 @@ function Challenge() {
                     } else {
                         data = update.challenge;
                         data.answers = update.answers;
-                        // if it is a survey we need to add the survey control panel to the map
                     }
-                    MRManager.updateSurveyPanel();
+                    // if it is a survey we need to add the survey control panel to the map
+                    MRManager.updateMRControls();
                     if (typeof success != 'undefined') {
                         success();
                     }
@@ -298,7 +401,7 @@ function Challenge() {
      */
     this.answerQuestion = function(taskId, answerId, success, error) {
         // See Actions.scala which contains ID's for items. 4 = Survey
-        if (data.challengeType == 4) {
+        if (this.isSurvey()) {
             jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
                 success: function() {
                     if (typeof success === 'undefined') {
@@ -333,9 +436,17 @@ function Task() {
     this.getChallenge = function() {
         return challenge;
     };
-    var data = {id:-1};
+    var data = {id:-1, parentId:-1};
     this.getData = function() {
         return data;
+    };
+    this.setSeedData = function(parentId, taskId) {
+        if (typeof parentId !== 'undefined') {
+            data.parentId = parentId;
+        }
+        if (typeof taskId !== 'undefined') {
+            data.id = taskId;
+        }
     };
 
     var updateData = function(update) {
@@ -346,7 +457,7 @@ function Task() {
     };
 
     this.resetTask = function() {
-        this.data = {id:-1};
+        data = {id:-1, parentId:-1};
     };
 
     this.isLocked = function() {
@@ -366,27 +477,35 @@ function Task() {
     };
 
     this.getNextTask = function(params, success, error) {
-        jsRoutes.controllers.MappingController
-            .getSequentialNextTask(data.parentId, data.id)
-            .ajax({
-                success:function(update) {
-                    updateData(update);
-                    MRManager.getSuccessHandler(success)();
-                },
-                error:MRManager.getErrorHandler(error)
-            });
+        if (data.parentId == -1 && data.id == -1) {
+            Utils.handleInfo('You are in debug mode, select a challenge to debug.');
+        } else {
+            jsRoutes.controllers.MappingController
+                .getSequentialNextTask(data.parentId, data.id)
+                .ajax({
+                    success: function (update) {
+                        updateData(update);
+                        MRManager.getSuccessHandler(success)();
+                    },
+                    error: MRManager.getErrorHandler(error)
+                });
+        }
     };
 
     this.getPreviousTask = function(params, success, error) {
-        jsRoutes.controllers.MappingController
-            .getSequentialPreviousTask(data.parentId, data.id)
-            .ajax({
-                success: function (update) {
-                    updateData(update);
-                    MRManager.getSuccessHandler(success)();
-                },
-                error:MRManager.getErrorHandler(error)
-            });
+        if (data.parentId == -1 && data.id == -1) {
+            Utils.handleInfo('You are in debug mode, select a challenge to debug.');
+        } else {
+            jsRoutes.controllers.MappingController
+                .getSequentialPreviousTask(data.parentId, data.id)
+                .ajax({
+                    success: function (update) {
+                        updateData(update);
+                        MRManager.getSuccessHandler(success)();
+                    },
+                    error: MRManager.getErrorHandler(error)
+                });
+        }
     };
 
     this.getRandomNextTask = function(params, success, error) {
@@ -481,8 +600,15 @@ var MRManager = (function() {
     var layerControl;
     var currentTask = new Task();
     // controls
-    var controlPanel = new L.Control.ControlPanel({});
+    var controlPanel = new L.Control.ControlPanel({
+        editClick:function() {
+            editPanel.setAsEdit();
+            editPanel.show();
+            controlPanel.disableControls();
+        }
+    });
     var surveyPanel = new L.Control.SurveyControl({});
+    var editPanel = new L.Control.EditControl({});
     // In debug mode tasks will not be edited and the previous button is displayed in the control panel
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters();
@@ -514,6 +640,7 @@ var MRManager = (function() {
         map = new L.Map(element, {
             center: new L.LatLng(point.x, point.y),
             zoom: 13,
+            minZoom: 3,
             layers: [
                 osm_layer
             ]
@@ -550,6 +677,7 @@ var MRManager = (function() {
         map.addControl(layerControl);
         map.addControl(controlPanel);
         map.addControl(surveyPanel);
+        map.addControl(editPanel);
 
         // handles click events that are executed when submitting the custom geojson from the geojson viewer
         $('#geojson_submit').on('click', function() {
@@ -576,14 +704,18 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
+        editPanel.setAsEdit();
+        editPanel.hide();
         updateChallengeInfo(currentTask.getData().parentId);
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(signedIn, debugMode, true, true, true);
+        updateMRControls();
         // show the task text as a notification
         toastr.clear();
-        toastr.info(marked(currentTask.getData().instruction), '', { positionClass: getNotificationClass(), timeOut: 0 });
+        Utils.handleInfo(marked(currentTask.getData().instruction), {timeOut: 0});
+        //toastr.info(marked(currentTask.getData().instruction), '', { positionClass: Utils.getNotificationClass(), timeOut: 0 });
         // let the user know where they are
         displayAdminArea();
     };
@@ -591,26 +723,20 @@ var MRManager = (function() {
     /**
      * Based on the challenge type (4 is Survey) will add or remove the survey panel from the map
      */
-    var updateSurveyPanel = function() {
-        if (currentTask.getChallenge().getData().challengeType == 4) {
+    var updateMRControls = function() {
+        if (!debugMode && currentTask.getChallenge().isSurvey()) {
             surveyPanel.updateSurvey(currentTask.getChallenge().getData().instruction,
                 currentTask.getChallenge().getData().answers);
             surveyPanel.show();
         } else {
-           surveyPanel.hide();
+            surveyPanel.hide();
         }
-    };
 
-    /**
-     * Gets the notification class based on the sidebar, whether it is collapsed or not
-     *
-     * @returns {*}
-     */
-    var getNotificationClass = function() {
-        if ($("#sidebar").width() == 50) {
-            return 'notification-position';
+        if (debugMode || currentTask.getChallenge().isSurvey()) {
+            // disable the edit and false positive buttons in control if it is a survey
+            controlPanel.disableControls();
         } else {
-            return 'notification-position-menuopen';
+            controlPanel.enableControls();
         }
     };
 
@@ -623,7 +749,7 @@ var MRManager = (function() {
             url: mqurl,
             jsonp: "json_callback",
             success: function (data) {
-                toastr.info(Utils.mqResultToString(data.address), '', {positionClass: getNotificationClass()});
+                Utils.handleInfo(Utils.mqResultToString(data.address));
             }
         });
     };
@@ -636,7 +762,10 @@ var MRManager = (function() {
      * @param taskId The taskId if you are looking for a specific task
      */
     var addTaskToMap = function(parentId, taskId) {
-        if (typeof taskId === 'undefined' || taskId == -1) {
+        currentTask.setSeedData(parentId, taskId);
+        if (debugMode) {
+            currentTask.getNextTask(currentSearchParameters);
+        } else if (typeof taskId === 'undefined' || taskId == -1) {
             currentSearchParameters.challengeId = parentId;
             currentTask.getRandomNextTask(currentSearchParameters);   
         } else {
@@ -651,6 +780,8 @@ var MRManager = (function() {
     var getNextTask = function() {
         if (debugMode) {
             currentTask.getNextTask(currentSearchParameters);
+        } else if (currentTask.getChallenge().isSurvey()) {
+            currentTask.getRandomNextTask(currentSearchParameters);
         } else {
             currentTask.setTaskStatus(TaskStatus.SKIPPED, currentSearchParameters);
         }
@@ -725,6 +856,10 @@ var MRManager = (function() {
         return currentTask.isLocked();
     };
 
+    var isChallengeSurvey = function() {
+        return currentTask.getChallenge().isSurvey();
+    };
+
     var getSuccessHandler = function(success) {
         if (typeof success === 'undefined') {
             return MRManager.updateDisplayTask;
@@ -753,7 +888,8 @@ var MRManager = (function() {
         getSuccessHandler: getSuccessHandler,
         getErrorHandler: getErrorHandler,
         answerSurveyQuestion: answerSurveyQuestion,
-        updateSurveyPanel: updateSurveyPanel
+        updateMRControls: updateMRControls,
+        isChallengeSurvey: isChallengeSurvey
     };
 
 }());

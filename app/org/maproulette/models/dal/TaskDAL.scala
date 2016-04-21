@@ -225,15 +225,18 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
         task <- parser
         lock <- lockedParser
       } yield task -> lock
-      SQL"""SELECT * FROM tasks
-            INNER JOIN locked ON locked.item_id = tasks.id
-            WHERE id > $currentTaskId AND parent_id = $parentId
-            ORDER BY id ASC LIMIT 1""".as(lp.*).headOption match {
+      val query = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+                      LEFT JOIN locked ON locked.item_id = tasks.id
+                      WHERE tasks.id > $currentTaskId AND tasks.parent_id = $parentId
+                      ORDER BY tasks.id ASC LIMIT 1"""
+      SQL(query).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
-          SQL"""SELECT * FROM tasks WHERE parent_id = $parentId
-                INNER JOIN locked ON locked.item_id = tasks.id
-                ORDER BY id ASC LIMIT 1""".as(lp.*).headOption
+          val loopQuery = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+                              LEFT JOIN locked ON locked.item_id = tasks.id
+                              WHERE tasks.parent_id = $parentId
+                              ORDER BY tasks.id ASC LIMIT 1"""
+          SQL(loopQuery).as(lp.*).headOption
       }
     }
   }
@@ -251,16 +254,18 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
         task <- parser
         lock <- lockedParser
       } yield task -> lock
-      SQL"""SELECT * FROM tasks
-            INNER JOIN locked ON locked.item_id = tasks.id
-            WHERE id < $currentTaskId AND parent_id = $parentId
-            ORDER BY id DESC LIMIT 1""".as(lp.*).headOption match {
+      val query = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+                      LEFT JOIN locked ON locked.item_id = tasks.id
+                      WHERE tasks.id < $currentTaskId AND tasks.parent_id = $parentId
+                      ORDER BY tasks.id DESC LIMIT 1"""
+      SQL(query).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
-          SQL"""SELECT * FROM tasks
-                INNER JOIN locked ON locked.item_id = tasks.id
-                WHERE parent_id = $parentId
-                ORDER BY id DESC LIMIT 1""".as(lp.*).headOption
+          val loopQuery = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+                              LEFT JOIN locked ON locked.item_id = tasks.id
+                              WHERE tasks.parent_id = $parentId
+                              ORDER BY tasks.id DESC LIMIT 1"""
+          SQL(loopQuery).as(lp.*).headOption
       }
     }
   }

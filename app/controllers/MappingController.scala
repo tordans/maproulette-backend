@@ -90,7 +90,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
   }
 
   private def getResponseJSONNoLock(task:Option[Task]) : JsValue = task match {
-    case Some(t) => getResponseJSON(Some(t, Lock(null, -1, -1, -1)))
+    case Some(t) => getResponseJSON(Some(t, Lock.emptyLock))
     case None => getResponseJSON(None)
   }
 
