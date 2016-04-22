@@ -9,12 +9,12 @@ import org.specs2.runner.JUnitRunner
   * @author cuthbertm
   */
 case class TestBaseObject(override val id:Long, override val name:String) extends BaseObject[Long] {
-  override val itemType: Int = ???
+  override val itemType: Int = -1
 }
 
 @RunWith(classOf[JUnitRunner])
 class CacheSpec extends Specification {
-  implicit val manager = new CacheManager[Long, TestBaseObject]
+  implicit val manager = new CacheManager[Long, TestBaseObject](6, 10)
   val theCache = manager.cache
 
   sequential
@@ -133,6 +133,37 @@ class CacheSpec extends Specification {
       val cachedObj = theCache.get(3)
       cachedObj.isDefined mustEqual true
       cachedObj.get.name mustEqual "updated"
+    }
+
+    "cache must handle size limits correctly" in {
+      implicit val id = 5L
+      theCache.clear
+      cacheObject(25L, "test1")
+      Thread.sleep(100)
+      cacheObject(26L, "test2")
+      Thread.sleep(100)
+      cacheObject(27L, "test3")
+      Thread.sleep(100)
+      cacheObject(28L, "test4")
+      Thread.sleep(100)
+      cacheObject(29L, "test5")
+      Thread.sleep(100)
+      cacheObject(30L, "test6")
+      println("TEST1: ");theCache.cache.foreach(t => print(t._1 + " -> " + t._2.value.name + "; "));println
+      // at this point we should be at the cache limit, the next one should add new and remove test1
+      Thread.sleep(100)
+      cacheObject(31L, "test7")
+      println("TEST2: ");theCache.cache.foreach(t => print(t._1 + " -> " + t._2.value.name + "; "));println
+      theCache.size mustEqual 6
+      theCache.get(25L).isEmpty mustEqual true
+      // by getting cache object 26L we should renew access time and so next entry would remove test3 instead of test2
+      theCache.get(26L)
+      Thread.sleep(100)
+      cacheObject(32L, "test8")
+      println("TEST3: ");theCache.cache.foreach(t => print(t._1 + " -> " + t._2.value.name + "; "));println
+      theCache.size mustEqual 6
+      theCache.get(26L).isDefined mustEqual true
+      theCache.get(27L).isEmpty mustEqual true
     }
   }
 

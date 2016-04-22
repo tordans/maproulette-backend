@@ -167,10 +167,25 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   def read(implicit id:Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       dal.retrieveById match {
-        case Some(value) =>
-          Ok(Json.toJson(value))
-        case None =>
-          NoContent
+        case Some(value) => Ok(Json.toJson(value))
+        case None => NoContent
+      }
+    }
+  }
+
+  /**
+    * Given the name of the object and the id of the objects parent, the object will be retrieved
+    * from the database and returned to the user in JSON form
+    *
+    * @param id The id of the parent of the object
+    * @param name The name of the object
+    * @return 200 Ok, 204 NoContent if not found
+    */
+  def readByName(id:Long, name:String) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      dal.retrieveByName(name, id) match {
+        case Some(value) => Ok(Json.toJson(value))
+        case None => NoContent
       }
     }
   }
@@ -295,9 +310,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param onlyEnabled only enabled objects if true
     * @return A list of the requested items in JSON format
     */
-  def find(search:String, limit:Int, offset:Int, onlyEnabled:Boolean) = Action.async { implicit request =>
+  def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dal.find(search, limit, offset, onlyEnabled, "name", "DESC")))
+      Ok(Json.toJson(dal.find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId)))
     }
   }
 }

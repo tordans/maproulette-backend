@@ -8,7 +8,7 @@ import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Project}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import play.api.libs.json._
-import play.api.mvc.Action
+import play.api.mvc.{Action, AnyContent}
 
 /**
   * The project controller handles all operations for the Project objects.
@@ -35,6 +35,12 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   override protected val cReads: Reads[Challenge] = Challenge.challengeReads
   // The type of object that this controller deals with.
   override implicit val itemType = ProjectType()
+
+
+  /**
+    * We override the base function and force -1 as the parent, as projects do not have parents.
+    */
+  override def readByName(id: Long, name: String): Action[AnyContent] = super.readByName(-1, name)
 
   /**
     * Gets a random task that is an descendant of the project.
