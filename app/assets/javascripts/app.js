@@ -1,13 +1,84 @@
 /**
  * Created by cuthbertm on 3/21/16.
  */
-// Basic namespace for some Util functions used in this js lib
-var Utils = {
+marked.setOptions({
+    gfm: true,
+    tables: true,
+    breaks: false,
+    pedantic: false,
+    sanitize: true,
+    smartLists: true,
+    smartypants: true
+});
+
+toastr.options = {
+    "positionClass": "toast-top-center",
+    "toastClass": "notification",
+    "closeButton": false,
+    "debug": false,
+    "newestOnTop": false,
+    "progressBar": false,
+    "preventDuplicates": false,
+    "onclick": null,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": "3000",
+    "extendedTimeOut": "0",
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut",
+    "tapToDismiss" : false
+};
+
+var ToastUtils = {
+    /**
+     * Gets the notification class based on the sidebar, whether it is collapsed or not
+     *
+     * @returns {*}
+     */
+    getPositionClass: function(positionClass) {
+        if (typeof positionClass !== 'undefined') {
+            return positionClass;
+        } else if (!$("#map").length) {
+            return 'toast-top-center';
+        } else if ($("#sidebar").width() == 50) {
+            return 'notification-position';
+        } else {
+            return 'notification-position-menuopen';
+        }
+    },
+    showToast: function(type, msg, options) {
+        if (typeof options === 'undefined' || options === null) {
+            options = {};
+        }
+        if (typeof options.positionClass === 'undefined') {
+            options.positionClass = ToastUtils.getPositionClass();
+        }
+        toastr[type](msg, '', options);
+    },
+    Info: function(info, options) {
+        if (typeof options === 'undefined' || options === null) {
+            options = {};
+        }
+        options.toastClass = 'notification-info toast-info';
+        ToastUtils.showToast('info', '<table><tr><td><i class="fa fa-info-circle fa-2x" style="padding-right: 10px;"></i></td><td>' + info + '</td></tr></table>', options);
+    },
+    Warning: function(warning, options) {
+        ToastUtils.showToast('warning', warning, options);
+    },
+    Error: function(error, options) {
+        ToastUtils.showToast('error', error, options);
+    },
     // handles any javascript errors by popping a toast up at the top.
     handleError: function(error) {
         var jsonMsg = JSON.parse(error.responseText);
-        toastr.error(jsonMsg.status + " : " + jsonMsg.message);
-    },
+        ToastUtils.Error('error', jsonMsg.status + " : " + jsonMsg.message);
+    }
+};
+
+// Basic namespace for some Util functions used in this js lib
+var Utils = {
     addComma: function (str) {
         return (str.match(/\,\s+$/) || str.match(/in\s+$/)) ? '' : ', ';
     },
@@ -65,35 +136,6 @@ var Utils = {
         }    
         return url + "?" + queryString;
     }
-};
-
-marked.setOptions({
-    gfm: true,
-    tables: true,
-    breaks: false,
-    pedantic: false,
-    sanitize: true,
-    smartLists: true,
-    smartypants: true
-});
-
-toastr.options = {
-    "positionClass": "toast-top-center",
-    "closeButton": false,
-    "debug": false,
-    "newestOnTop": false,
-    "progressBar": false,
-    "preventDuplicates": false,
-    "onclick": null,
-    "showDuration": "300",
-    "hideDuration": "1000",
-    "timeOut": "3000",
-    "extendedTimeOut": "0",
-    "showEasing": "swing",
-    "hideEasing": "linear",
-    "showMethod": "fadeIn",
-    "hideMethod": "fadeOut",
-    "tapToDismiss" : false
 };
 
 /**
@@ -249,9 +291,9 @@ var addItemToMap = function(parentId, taskId) {
         MRManager.addTaskToMap(parentId, taskId);    
     } else {
         if (typeof taskId === 'undefined' || taskId == -1) {
-            location.href = Utils.appendQueryString("/map/" + parentId + "/" + taskId);
-        } else {
             location.href = Utils.appendQueryString("/map/" + parentId);
+        } else {
+            location.href = Utils.appendQueryString("/map/" + parentId + "/" + taskId);
         }
     }
 };

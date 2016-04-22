@@ -33,6 +33,13 @@ body, html {
   cursor: auto;
   text-align: center;
   background-color: #FFFFFF;
+  opacity:0.9;
+}
+
+.mp-edit-control {
+  .mp-control;
+  min-width: 200px;
+  max-width: 400px;
 }
 
 .mp-survey-control {
@@ -58,7 +65,6 @@ body, html {
 .notification {
   font-size:12px;
   opacity: 0.9!important;
-  padding: 10px!important;
 }
 
 .notification-position {
@@ -72,9 +78,11 @@ body, html {
   left:270px;
 }
 
-.toast-info {
+.notification-info {
+  .notification;
   background-color: #fff!important;
   color: #000!important;
+  padding: 10px!important;
 }
 
 .activity-icon {

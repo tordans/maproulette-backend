@@ -69,9 +69,9 @@
         <div class="form-group">
         @select(taskForm("status"),
           label = "Status",
-          optionList = Task.statusMap.map(e => (e._1+"", e._2)).toList,
+          optionList = Task.statusMap.map(e => (e._2, e._1+"")).toList,
           isMultiple = false,
-          help = "Please enter the difficulty level for the challenge",
+          help = "Please enter the status level for the challenge",
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
         </div>
