@@ -47,7 +47,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * The base create function that most controllers will run through to create the object. The
     * actual work will be passed on to the internalCreate function. This is so that if you want
     * to create your object differently you can keep the standard http functionality around and
-    * not have to reproduce a lot of the work done in this function.
+    * not have to reproduce a lot of the work done in this function. If the id is supplied in the
+    * json body it will pass off the workload to the update function. If no id is supplied then it
+    * will check the name to see if it can find any items in the database that match the name.
     * Must be authenticated to perform operation
     *
     * @return 201 Created with the json body of the created object
@@ -61,14 +63,15 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
         },
         element => {
           MPExceptionUtil.internalExceptionCatcher { () =>
-            if (element.id < 0) {
-              Created(Json.toJson(internalCreate(request.body, element, user)))
-            } else {
+            if (element.id > -1) {
               // if you provide the ID in the post method we will send you to the update path
-              internalUpdate(request.body, user)(element.id.toString) match {
+              internalUpdate(request.body, user)(element.id.toString, -1) match {
                 case Some(value) => Ok(Json.toJson(value))
                 case None => NotModified
               }
+            } else {
+              // TODO: check if name and parent is available to update instead of create or at least attempt too
+              Created(Json.toJson(internalCreate(request.body, element, user)))
             }
           }
         }
@@ -117,10 +120,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  def update(implicit id:String) = Action.async(BodyParsers.parse.json) { implicit request =>
+  def update(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       try {
-        internalUpdate(request.body, user) match {
+        internalUpdate(request.body, user)(id.toString, -1) match {
           case Some(value) => Ok(Json.toJson(value))
           case None =>  NotModified
         }
@@ -141,7 +144,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String) : Option[T] = {
+  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long) : Option[T] = {
     val updatedObject = if (Utils.isDigit(id)) {
       dal.update(requestBody, user)(id.toLong)
     } else {
@@ -161,15 +164,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id of the object that is being retrieved
     * @return 200 Ok, 204 NoContent if not found
     */
-  def read(implicit id:String) = Action.async { implicit request =>
+  def read(implicit id:Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val matched = if (Utils.isDigit(id)) {
-        dal.retrieveById(id.toLong)
-      } else {
-        dal.retrieveByName
-      }
-
-      matched match {
+      dal.retrieveById match {
         case Some(value) =>
           Ok(Json.toJson(value))
         case None =>
@@ -185,16 +182,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param id The id of the object to delete
     * @return 204 NoContent
     */
-  def delete(id:String) = Action.async { implicit request =>
+  def delete(id:Long) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      if (Utils.isDigit(id)) {
-        dal.delete(id.toLong, user)
-        actionManager.setAction(Some(user), itemType.convertToItem(id.toLong), Deleted(), "")
-      } else {
-        dal.deleteFromStringList(user)(List(id))
-        // TODO if deleting by name get the id from the deleted object
-        //actionManager.setAction(Some(user), itemType.convertToItem(id), Deleted(), "")
-      }
+      dal.delete(id.toLong, user)
+      actionManager.setAction(Some(user), itemType.convertToItem(id.toLong), Deleted(), "")
       Ok(Json.obj("message" -> s"Task $id deleted by user ${user.id}."))
     }
   }
@@ -270,13 +261,29 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     * @param update Whether to update the object if a matching object is found, if false will simply do nothing
     */
   def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], user:User, update:Boolean=false) : Unit = {
-    arr.foreach(element => (element \ "id").asOpt[String] match {
-      case Some(itemID) => if (update) internalUpdate(element, user)(itemID)
-      case None => Utils.insertJsonID(element).validate[T].fold(
-        errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-        validT => internalCreate(requestBody, validT, user)
-      )
-    })
+    dal.getDatabase.withTransaction { implicit c =>
+      arr.foreach(element => (element \ "id").asOpt[String] match {
+        case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
+        case None =>
+          // if doesn't exist lets look for it based on the name
+          // TODO This needs to be checked for performance, if we are uploading 100,000 objects and
+          // have to check the name for each one then this could be incredibly slow. A big performance
+          // improvement could be just to ignore insert on unique constraint violation. But there are
+          // other considerations to take into account when doing something like that.
+          val matchedNameElement = (element \ "name").asOpt[String]
+          val matchedParentElement = (element \ "parent").asOpt[Long] match {
+            case Some(mpe) => matchedNameElement match {
+              case Some(mne) => if (update) internalUpdate(element, user)(mne, mpe)
+              case None =>
+                Utils.insertJsonID(element).validate[T].fold(
+                  errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+                  validT => internalCreate(requestBody, validT, user)
+                )
+            }
+            case None =>
+          }
+      })
+    }
   }
 
   /**

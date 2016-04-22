@@ -1,5 +1,6 @@
 package org.maproulette.models.dal
 
+import java.sql.Connection
 import javax.inject.{Inject, Singleton}
 
 import anorm._
@@ -65,12 +66,12 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param survey The survey to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(survey: Survey, user:User): Survey = {
+  override def insert(survey: Survey, user:User)(implicit c:Connection=null): Survey = {
     if (survey.answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
     survey.challenge.hasWriteAccess(user)
-    db.withTransaction { implicit c =>
+    withMRTransaction { implicit c =>
       val newChallenge = challengeDAL.insert(survey.challenge, user)
       // insert the answers into the table
       val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newChallenge.id}, {answer})"""
@@ -90,8 +91,8 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long): Option[Survey] = {
-    db.withTransaction { implicit c =>
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Survey] = {
+    withMRTransaction { implicit c =>
       val updatedChallenge = (updates \ "challenge").asOpt[JsValue] match {
         case Some(c) => challengeDAL.update(c, user)
         case None => challengeDAL.update(Json.parse(s"""{"id":$id}"""), user)
@@ -135,8 +136,8 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param user The user answering the question, if none will default to a guest user on the database
     * @return
     */
-  def answerQuestion(surveyId:Long, taskId:Long, answerId:Long, user:Option[User]=None) = {
-    db.withConnection { implicit c =>
+  def answerQuestion(surveyId:Long, taskId:Long, answerId:Long, user:Option[User]=None)(implicit c:Connection=null) = {
+    withMRTransaction { implicit c =>
       val userId = user match {
         case Some(u) => Some(u.id)
         case None => None

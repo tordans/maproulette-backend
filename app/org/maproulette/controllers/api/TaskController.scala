@@ -8,7 +8,6 @@ import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.NotFoundException
 import org.maproulette.session.{SearchParameters, SessionManager, User}
-import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
 
@@ -99,7 +98,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusDeleted(id: String) = setTaskStatus(id, Task.STATUS_DELETED)
+  def setTaskStatusDeleted(id: Long) = setTaskStatus(id, Task.STATUS_DELETED)
 
   /**
     * Sets the task status to false positive, this is the case where the task is incorrect in
@@ -109,7 +108,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id the id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusFalsePositive(id: String) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
+  def setTaskStatusFalsePositive(id: Long) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
 
   /**
     * Sets the task to fixed, this is the case where the user fixed the data in OSM.
@@ -118,7 +117,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id the id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusFixed(id: String) = setTaskStatus(id, Task.STATUS_FIXED)
+  def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
 
   /**
     * Sets the task to skipped, this is the case where a user either doesn't know how to fix the
@@ -128,7 +127,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id the id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusSkipped(id: String) = setTaskStatus(id, Task.STATUS_SKIPPED)
+  def setTaskStatusSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
 
   /**
     * Sets the task to already fixed, this is the case where when looking at the base OSM data it
@@ -137,7 +136,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task
     * @return See (@see this#setTaskStatus} for information
     */
-  def setTaskStatusAlreadyFixed(id:String) = setTaskStatus(id, Task.STATUS_ALREADY_FIXED)
+  def setTaskStatusAlreadyFixed(id:Long) = setTaskStatus(id, Task.STATUS_ALREADY_FIXED)
 
   /**
     * This is the generic function that is leveraged by all the specific functions above. So it
@@ -149,14 +148,9 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  private def setTaskStatus(id: String, status: Int) = Action.async { implicit request =>
+  private def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val taskOption = if (Utils.isDigit(id)) {
-        dal.retrieveById(id.toLong)
-      } else {
-        dal.retrieveByName(id)
-      }
-      val task = taskOption match {
+      val task = dal.retrieveById(id) match {
         case Some(t) => t
         case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
       }

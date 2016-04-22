@@ -201,7 +201,8 @@ L.Control.ControlPanel = L.Control.extend({
             if (!controlDiv.hasChildNodes()) {
                 var control = L.DomUtil.create('a', 'fa ' + icon + ' fa-2x', controlDiv);
                 control.href = "#";
-                var text = L.DomUtil.create('span', '', controlDiv);
+                var text = L.DomUtil.create('a', '', controlDiv);
+                text.href = "#";
                 if (this.options.showText) {
                     text.innerHTML = " " + friendlyName;
                 }

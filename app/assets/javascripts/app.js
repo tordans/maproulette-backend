@@ -73,7 +73,7 @@ var ToastUtils = {
     // handles any javascript errors by popping a toast up at the top.
     handleError: function(error) {
         var jsonMsg = JSON.parse(error.responseText);
-        ToastUtils.Error('error', jsonMsg.status + " : " + jsonMsg.message);
+        ToastUtils.Error(jsonMsg.status + " : " + jsonMsg.message);
     }
 };
 

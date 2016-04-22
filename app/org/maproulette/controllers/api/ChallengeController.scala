@@ -7,7 +7,6 @@ import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ChallengeDAL, SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Survey, Task}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
-import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json, Reads, Writes}
 import play.api.mvc.Action
 
@@ -76,15 +75,9 @@ class ChallengeController @Inject() (override val childController:TaskController
     * @param id The id of the object that is being retrieved
     * @return 200 Ok, 204 NoContent if not found
     */
-  def getChallenge(implicit id:String) = Action.async { implicit request =>
+  def getChallenge(implicit id:Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val matched = if (Utils.isDigit(id)) {
-        dal.retrieveById(id.toLong)
-      } else {
-        dal.retrieveByName
-      }
-
-      matched match {
+      dal.retrieveById match {
         case Some(value) =>
           if (value.challengeType == Actions.ITEM_TYPE_SURVEY) {
             val answers = surveyDAL.getAnswers(value.id)

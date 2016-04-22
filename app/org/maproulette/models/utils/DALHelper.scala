@@ -106,4 +106,10 @@ trait DALHelper {
       SQL(query).asSimple[Row]()
     }
   }
+
+  def parentFilter(parentId:Long, conjunction:String="AND") : String = if (parentId != -1) {
+    s"$conjunction parent_id = $parentId"
+  } else {
+    ""
+  }
 }

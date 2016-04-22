@@ -30,7 +30,7 @@ import play.api.libs.json._
   */
 case class Task(override val id:Long,
                 override val name: String,
-                parent: Long,
+                override val parent: Long,
                 instruction: String,
                 location: Option[String]=None,
                 geometries:String,

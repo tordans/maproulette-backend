@@ -1,5 +1,6 @@
 package org.maproulette.models.dal
 
+import java.sql.Connection
 import javax.inject.{Inject, Singleton}
 
 import anorm._
@@ -49,10 +50,10 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param project The project to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(project: Project, user:User): Project = {
+  override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
     project.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
-      val newProject = db.withTransaction { implicit c =>
+      val newProject = withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description, enabled)
               VALUES (${project.name}, ${project.description}, ${project.enabled}) RETURNING *""".as(parser.*).head
       }
@@ -72,10 +73,10 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating.
     * @return An optional object, it will return None if no object found with a matching id that was supplied.
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long): Option[Project] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Project] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       cachedItem.hasWriteAccess(user)
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
@@ -108,27 +109,6 @@ class ProjectDAL @Inject() (override val db:Database,
           'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
           .as(parser.*)
       }
-    }
-  }
-
-  /**
-    * Adds a user as a admin of a project. Although on the backend there is support in place for
-    * multiple groups which in theory would enable different levels of access to the project, currently
-    * there is only a requirement for administrators of the project, and implementing more would simply
-    * add way too much complexity for little to no gain. In the future the base support is there
-    * however to move in that direction if a valid use case arises.
-    *
-    * @param projectId The project to add the user too
-    * @param userId The id of the user to add to the project
-    * @param user The user executing the request, for this action a super user is required
-    */
-  def addUserToProject(projectId:Long, userId:Long, user:User) : Unit = {
-    if (user.isSuperUser) {
-      db.withConnection { implicit c =>
-
-      }
-    } else {
-      throw new IllegalAccessException(s"User ${user.name} does not have access to add users to projects.")
     }
   }
 }
