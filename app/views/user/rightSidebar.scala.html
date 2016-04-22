@@ -129,11 +129,8 @@
   </div>
 </div>
 <script type="application/javascript">
-  var currentChallengeId = -1;
 
   function updateChallengeInfo(challengeId) {
-    if (currentChallengeId != challengeId) {
-      currentChallengeId = challengeId;
       jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId)
               .ajax({
                 success: function (data) {
@@ -157,7 +154,6 @@
                 },
                 error: Utils.handleError
               });
-    }
   }
 
   function getCountValue(value) {

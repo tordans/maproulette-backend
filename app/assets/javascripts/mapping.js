@@ -399,6 +399,7 @@ function Challenge() {
     this.answerQuestion = function(taskId, answerId, success, error) {
         // See Actions.scala which contains ID's for items. 4 = Survey
         if (this.isSurvey()) {
+            ToastUtils.Success("Answered question [" + data.instruction + "]");
             jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
                 success: function() {
                     if (typeof success === 'undefined') {
@@ -531,22 +532,27 @@ function Task() {
         };
         switch (status) {
             case TaskStatus.FIXED:
+                ToastUtils.Success("Set Task [" + data.name + "] status to FIXED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.FALSEPOSITIVE:
+                ToastUtils.Success("Set Task [" + data.name + "] status to FALSE POSITIVE");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.SKIPPED:
+                ToastUtils.Success("Set Task [" + data.name + "] status to SKIPPED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.DELETED:
+                ToastUtils.Success("Set Task [" + data.name + "] status to DELETED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.ALREADYFIXED:
+                ToastUtils.Success("Set Task [" + data.name + "] status to ALREADY FIXED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
@@ -703,7 +709,6 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
-        updateChallengeInfo(currentTask.getData().parentId);
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
@@ -714,6 +719,7 @@ var MRManager = (function() {
         ToastUtils.Info(marked(currentTask.getData().instruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
+        updateChallengeInfo(currentTask.getData().parentId);
     };
 
     var resetEditControls = function() {
