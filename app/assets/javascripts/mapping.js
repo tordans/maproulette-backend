@@ -327,13 +327,23 @@ function Point(x, y) {
 }
 
 var TaskStatus = {
+    CREATED:0,
     FIXED:1,
     FALSEPOSITIVE:2,
     SKIPPED:3,
     DELETED:4,
     ALREADYFIXED:5,
-    CREATED:0,
-    AVAILABLE:6
+    getStatusName:function(status) {
+        switch(status) {
+            case TaskStatus.CREATED: return "Created";
+            case TaskStatus.FIXED: return "Fixed";
+            case TaskStatus.FALSEPOSITIVE: return "False Positive";
+            case TaskStatus.SKIPPED: return "Skipped";
+            case TaskStatus.DELETED: return "Deleted";
+            case TaskStatus.ALREADYFIXED: return "Already Fixed";
+            default: return "Unknown";
+        }
+    }
 };
 
 /**
@@ -528,31 +538,27 @@ function Task() {
         var self = this;
         var errorHandler = MRManager.getErrorHandler(error);
         var statusSetSuccess = function () {
+            ToastUtils.Success("Set Task [" + data.name + "] status to " + TaskStatus.getStatusName(status));
             self.getRandomNextTask(params, MRManager.getSuccessHandler(success), errorHandler);
         };
         switch (status) {
             case TaskStatus.FIXED:
-                ToastUtils.Success("Set Task [" + data.name + "] status to FIXED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.FALSEPOSITIVE:
-                ToastUtils.Success("Set Task [" + data.name + "] status to FALSE POSITIVE");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.SKIPPED:
-                ToastUtils.Success("Set Task [" + data.name + "] status to SKIPPED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.DELETED:
-                ToastUtils.Success("Set Task [" + data.name + "] status to DELETED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
             case TaskStatus.ALREADYFIXED:
-                ToastUtils.Success("Set Task [" + data.name + "] status to ALREADY FIXED");
                 jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(data.id)
                     .ajax({success: statusSetSuccess, error: errorHandler});
                 break;
@@ -732,7 +738,7 @@ var MRManager = (function() {
      * Based on the challenge type (4 is Survey) will add or remove the survey panel from the map
      */
     var updateMRControls = function() {
-        if (!debugMode && currentTask.getChallenge().isSurvey()) {
+        if (signedIn && !debugMode && currentTask.getChallenge().isSurvey()) {
             surveyPanel.updateSurvey(currentTask.getChallenge().getData().instruction,
                 currentTask.getChallenge().getData().answers);
             surveyPanel.show();
@@ -740,7 +746,7 @@ var MRManager = (function() {
             surveyPanel.hide();
         }
 
-        if (debugMode || currentTask.getChallenge().isSurvey()) {
+        if (!signedIn || debugMode || currentTask.getChallenge().isSurvey()) {
             // disable the edit and false positive buttons in control if it is a survey
             controlPanel.disableControls();
         } else {
@@ -786,7 +792,7 @@ var MRManager = (function() {
      * retrieve the next task sequentially, in non-debug mode it will retrieve the next random task
      */
     var getNextTask = function() {
-        if (debugMode) {
+        if (!signedIn || debugMode) {
             currentTask.getNextTask(currentSearchParameters);
         } else if (currentTask.getChallenge().isSurvey()) {
             currentTask.getRandomNextTask(currentSearchParameters);
