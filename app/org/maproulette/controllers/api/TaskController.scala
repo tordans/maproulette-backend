@@ -8,6 +8,7 @@ import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
 import org.maproulette.exception.NotFoundException
 import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
 
@@ -34,6 +35,54 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   implicit val tagReads: Reads[Tag] = Tag.tagReads
   override def dalWithTags = dal
 
+  private def updateGeometryData(body: JsValue) : JsValue = {
+    (body \ "geometries").asOpt[String] match {
+      case Some(value) =>
+        // if it is a string, then it is either GeoJSON or a WKB
+        // just check to see if { is the first character and then we can assume it is GeoJSON
+        if (value.charAt(0) != '{') {
+          // TODO:
+          body
+        } else {
+          // just return the body because it handles this case correctly
+          body
+        }
+      case None =>
+        // if it maps to None then it simply could be that it is a JSON object
+        (body \ "geometries").asOpt[JsValue] match {
+          case Some(value) =>
+            // need to convert to a string for the case class otherwise validation will fail
+            Utils.insertIntoJson(body, "geometries", value.toString(), true)
+          case None =>
+            // if the geometries are not supplied then just leave it
+            body
+        }
+    }
+  }
+
+  /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  override def updateCreateBody(body: JsValue): JsValue = {
+    // We need to update the geometries to make sure that we handle all the different types of
+    // geometries that you can deal with like WKB or GeoJSON
+    updateGeometryData(super.updateCreateBody(body))
+  }
+
+
+  /**
+    * In the case where you need to update the update body, usually you would not update it, but
+    * just in case.
+    *
+    * @param body The request body
+    * @return The updated request body
+    */
+  override def updateUpdateBody(body: JsValue): JsValue =
+    updateGeometryData(super.updateUpdateBody(body))
 
   /**
     * Function can be implemented to extract more information than just the default create data,

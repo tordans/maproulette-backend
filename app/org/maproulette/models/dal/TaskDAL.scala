@@ -166,7 +166,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
       val parameters = indexedValues.flatMap { case (featureJson, i) =>
         val geometry = ()
         val props = (featureJson \ "properties").asOpt[JsValue] match {
-          case Some(p) => p.as[Map[String, String]].map(v => s""""${v._1}"=>"${v._2}"""").mkString(",")
+          case Some(p) => p.as[Map[String, String]].map(v => s""""${v._1}"=>"${v._2.replaceAll("\\\"", "\\\\\"")}"""").mkString(",")
           case None => ""
         }
         Seq(

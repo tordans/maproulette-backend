@@ -763,7 +763,7 @@ var MRManager = (function() {
             url: mqurl,
             jsonp: "json_callback",
             success: function (data) {
-                ToastUtils.Info(Utils.mqResultToString(data.address));
+                ToastUtils.Info(Utils.mqResultToString(data.address), {timeOut:10000});
             }
         });
     };

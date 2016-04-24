@@ -18,7 +18,7 @@ import play.api.mvc.{Action, BodyParsers, Controller}
   *
   * @author cuthbertm
   */
-trait CRUDController[T<:BaseObject[Long]] extends Controller {
+trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites {
   // Data access layer that has to be instantiated by the class that mixes in the trait
   protected val dal:BaseDAL[Long, T]
   // The default reads that allows the class to read the json from a posted json body
@@ -44,6 +44,24 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   def extractAndCreate(body:JsValue, createdObject:T, user:User) : Unit = { }
 
   /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  def updateCreateBody(body:JsValue) : JsValue = Utils.insertJsonID(body)
+
+  /**
+    * In the case where you need to update the update body, usually you would not update it, but
+    * just in case.
+    *
+    * @param body The request body
+    * @return The updated request body
+    */
+  def updateUpdateBody(body:JsValue) : JsValue = body
+
+  /**
     * The base create function that most controllers will run through to create the object. The
     * actual work will be passed on to the internalCreate function. This is so that if you want
     * to create your object differently you can keep the standard http functionality around and
@@ -56,7 +74,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
     */
   def create() = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val result = Utils.insertJsonID(request.body).validate[T]
+      val result = updateCreateBody(request.body).validate[T]
       result.fold(
         errors => {
           BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
@@ -123,7 +141,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
   def update(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       try {
-        internalUpdate(request.body, user)(id.toString, -1) match {
+        internalUpdate(updateUpdateBody(request.body), user)(id.toString, -1) match {
           case Some(value) => Ok(Json.toJson(value))
           case None =>  NotModified
         }
@@ -288,14 +306,18 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller {
           val matchedNameElement = (element \ "name").asOpt[String]
           val matchedParentElement = (element \ "parent").asOpt[Long] match {
             case Some(mpe) => matchedNameElement match {
-              case Some(mne) => if (update) internalUpdate(element, user)(mne, mpe)
-              case None =>
-                Utils.insertJsonID(element).validate[T].fold(
-                  errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-                  validT => internalCreate(requestBody, validT, user)
-                )
+              case Some(mne) =>
+                dal.retrieveByName(mne, mpe) match {
+                  case Some(item) => if (update) internalUpdate(element, user)(mne, mpe)
+                  case None =>
+                    updateCreateBody(element).validate[T].fold(
+                      errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+                      validT => internalCreate(requestBody, validT, user)
+                    )
+                }
+              case None => // TODO: we should probably handle this failure case in some fashion
             }
-            case None =>
+            case None => // TODO: we should probably handle this failure case in some fashion
           }
       })
     }

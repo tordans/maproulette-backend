@@ -7,6 +7,7 @@ import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Project}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent}
 
@@ -36,6 +37,18 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   // The type of object that this controller deals with.
   override implicit val itemType = ProjectType()
 
+  /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  override def updateCreateBody(body: JsValue): JsValue = {
+    var jsonBody = super.updateCreateBody(body)
+    jsonBody = Utils.insertIntoJson(jsonBody, "groups", Array.emptyShortArray)(arrayWrites[Short])
+    Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
+  }
 
   /**
     * We override the base function and force -1 as the parent, as projects do not have parents.
