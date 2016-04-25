@@ -28,7 +28,8 @@ trait BaseObject[Key] {
 }
 
 trait ChildObject[Key, P <: BaseObject[Key]] extends BaseObject[Key] {
-  def getParent : P
+  def parent:Key
+  def getParent:P
 
   /**
     * Whether a user has write access to an object or not.

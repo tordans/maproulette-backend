@@ -7,7 +7,6 @@ import org.maproulette.exception.NotFoundException
 import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.SessionManager
-import org.maproulette.utils.Utils
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json.{JsNumber, JsValue, Json, Writes}
 import play.api.mvc.{Action, Controller}
@@ -26,14 +25,9 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
       }.toSeq:_*)
   }
 
-  def getChallengeSummary(id:String) = Action.async { implicit request =>
+  def getChallengeSummary(id:Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val challenge = if (Utils.isDigit(id)) {
-        challengeDAL.retrieveById(id.toLong)
-      } else {
-        challengeDAL.retrieveByName(id)
-      }
-      challenge match {
+      challengeDAL.retrieveById(id) match {
         case Some(c) =>
           val summary = dataManager.getChallengeSummary(c).map(v => Task.getStatusName(v._1).getOrElse("Unknown") -> v._2)
           Ok(Json.obj(

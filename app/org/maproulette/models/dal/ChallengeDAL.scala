@@ -1,5 +1,6 @@
 package org.maproulette.models.dal
 
+import java.sql.Connection
 import javax.inject.{Inject, Singleton}
 
 import anorm._
@@ -61,10 +62,10 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @param challenge The challenge to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(challenge: Challenge, user:User): Challenge = {
+  override def insert(challenge: Challenge, user:User)(implicit c:Connection=null): Challenge = {
     challenge.hasWriteAccess(user)
     cacheManager.withOptionCaching { () =>
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
                                       instruction, enabled, challenge_type, featured)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
@@ -82,10 +83,10 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long): Option[Challenge] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Challenge] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       cachedItem.hasWriteAccess(user)
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))

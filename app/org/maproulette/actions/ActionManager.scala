@@ -71,10 +71,10 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
   val MONTH = 3
   val YEAR = 4
 
-  implicit val actionSummaryWrites: Writes[ActionSummary] = Json.writes[ActionSummary]
-  implicit val actionSummaryReads: Reads[ActionSummary] = Json.reads[ActionSummary]
   implicit val actionItemWrites: Writes[ActionItem] = Json.writes[ActionItem]
   implicit val actionItemReads: Reads[ActionItem] = Json.reads[ActionItem]
+  implicit val actionSummaryWrites: Writes[ActionSummary] = Json.writes[ActionSummary]
+  implicit val actionSummaryReads: Reads[ActionSummary] = Json.reads[ActionSummary]
 
   /**
     * A anorm row parser for the actions table

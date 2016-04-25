@@ -14,8 +14,8 @@ import scala.collection.mutable
   *
   * @author cuthbertm
   */
-class CacheManager[Key, A<:BaseObject[Key]] {
-  val cache = new CacheStorage[Key, A]()
+class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:Int=900) {
+  val cache = new CacheStorage[Key, A](cacheLimit, cacheExpiry)
   val nameCache = mutable.Map[String, Key]()
 
   def clearCaches = {

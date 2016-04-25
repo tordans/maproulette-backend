@@ -70,10 +70,13 @@ var ToastUtils = {
     Error: function(error, options) {
         ToastUtils.showToast('error', error, options);
     },
+    Success: function(msg, options) {
+        ToastUtils.showToast('success', msg, options);  
+    },
     // handles any javascript errors by popping a toast up at the top.
     handleError: function(error) {
         var jsonMsg = JSON.parse(error.responseText);
-        ToastUtils.Error('error', jsonMsg.status + " : " + jsonMsg.message);
+        ToastUtils.Error(jsonMsg.status + " : " + jsonMsg.message);
     }
 };
 

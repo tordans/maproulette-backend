@@ -9,7 +9,7 @@ import org.maproulette.actions.ItemType
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.LockedException
 import org.maproulette.models.{BaseObject, Lock}
-import org.maproulette.models.utils.DALHelper
+import org.maproulette.models.utils.{DALHelper, TransactionManager}
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -20,7 +20,7 @@ import play.api.libs.json.JsValue
   *
   * @author cuthbertm
   */
-trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
+trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager {
   // Manager to handle all the caching for this particular layer
   val cacheManager:CacheManager[Key, T]
   // The name of the table in the database
@@ -73,6 +73,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     }
   }
 
+  def getDatabase = db
+
   /**
     * Insert function that must be implemented by the class that mixes in this trait
     *
@@ -80,7 +82,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param user The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  def insert(element: T, user:User): T
+  def insert(element: T, user:User)(implicit c:Connection=null): T
 
   /**
     * Update function that must be implemented by the class that mixes in this trait
@@ -90,7 +92,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  def update(updates:JsValue, user:User)(implicit id:Key): Option[T]
+  def update(updates:JsValue, user:User)(implicit id:Key, c:Connection=null): Option[T]
 
   /**
     * Update function that must be implemented by the class that mixes in this trait. This update
@@ -101,7 +103,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param name The name of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  def updateByName(updates:JsValue, user:User)(implicit name:String): Option[T] =
+  def updateByName(updates:JsValue, user:User)(implicit name:String, parentId:Long=(-1), c:Connection=null): Option[T] =
     cacheManager.updateNameCache(String => retrieveByName) match {
       case Some(objID) => update(updates, user)(objID)
       case None => None
@@ -115,7 +117,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param user The user executing the task
     * @return Count of deleted row(s)
     */
-  def delete(id: Key, user:User): Int = deleteFromIdList(user)(List(id))
+  def delete(id: Key, user:User)(implicit c:Connection=null): Int = deleteFromIdList(user)(List(id))
 
   /**
     * Deletes all the objects in the supplied id list. With caching, so after
@@ -125,10 +127,10 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param ids The list of ids that will be deleted
     * @return Count of deleted row(s)
     */
-  def deleteFromIdList(user:User)(implicit ids: List[Key]): Int = {
+  def deleteFromIdList(user:User)(implicit ids: List[Key], c:Connection=null): Int = {
     // todo: add access checks here
     cacheManager.withCacheIDDeletion { () =>
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         val query = s"DELETE FROM $tableName WHERE id IN ({ids})"
         SQL(query).on('ids -> ParameterValue.toParameterValue(ids)(p = keyToStatement)).executeUpdate()
       }
@@ -143,11 +145,11 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param names The names to match and delete
     * @return Count of deleted row(s)
     */
-  def deleteFromStringList(user:User)(implicit names: List[String]): Int = {
+  def deleteFromStringList(user:User)(implicit names: List[String], parentId:Long=(-1), c:Connection=null): Int = {
     // todo: add access checks here
     cacheManager.withCacheNameDeletion { () =>
-      db.withTransaction { implicit c =>
-        val query = s"DELETE FROM $tableName WHERE name IN ({names})"
+      withMRTransaction { implicit c =>
+        val query = s"DELETE FROM $tableName WHERE name IN ({names}) ${parentFilter(parentId)}"
         SQL(query).on('names -> ParameterValue.toParameterValue(names)).executeUpdate()
       }
     }
@@ -177,38 +179,14 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * the object in the cache it will return that object without checking the database, otherwise
     * will hit the database directly.
     *
-    * TODO: fix this function, it will not work quite right. The parent id should probably be supplied
-    * if you want to look it up by name.
-    *
     * @param name The name you are looking up by
     * @return The object that you are looking up, None if not found
     */
-  def retrieveByName(implicit name:String) : Option[T] = {
+  def retrieveByName(implicit name:String, parentId:Long=(-1)) : Option[T] = {
     cacheManager.withOptionCaching { () =>
       db.withConnection { implicit c =>
-        val query = s"SELECT $retrieveColumns FROM $tableName WHERE name = {name}"
+        val query = s"SELECT $retrieveColumns FROM $tableName WHERE name = {name} ${parentFilter(parentId)}"
         SQL(query).on('name -> name).as(parser.singleOpt)
-      }
-    }
-  }
-
-  /**
-    * Retrieves an object based on the identifier. With caching, so if it finds the object in the
-    * cache it will return that object without checking the database, otherwise will hit the
-    * database directly.
-    *
-    * TODO: This, and the concept of an identifier, should probably be removed. The name of the
-    * object can handle this better, plus the database doesn't force the value to be unique so
-    * it would cause issues.
-    *
-    * @param identifer
-    * @return
-    */
-  def retrieveByIdentifier(implicit identifer:String) : Option[T] = {
-    cacheManager.withOptionCaching { () =>
-      db.withConnection { implicit c =>
-        val query = s"SELECT $retrieveColumns FROM $tableName WHERE identifier = {identifier}"
-        SQL(query).on('identifier -> identifer).as(parser.singleOpt)
       }
     }
   }
@@ -248,13 +226,13 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @param names The names to be retrieved
     * @return List of objects, empty list if none found
     */
-  def retrieveListByName(implicit names: List[String]): List[T] = {
+  def retrieveListByName(implicit names: List[String], parentId:Long=(-1)): List[T] = {
     if (names.isEmpty) {
       List.empty
     } else {
       cacheManager.withNameListCaching { implicit uncachedNames =>
         db.withConnection { implicit c =>
-          val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString})"
+          val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString}) ${parentFilter(parentId)}"
           SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedNames)).as(parser.*)
         }
       }
@@ -272,7 +250,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @return A list of tags that contain the supplied prefix
     */
   def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0, onlyEnabled:Boolean=false,
-                           orderColumn:String="id", orderDirection:String="ASC"): List[T] =
+                           orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)): List[T] =
     _find(s"$prefix%", limit, offset, onlyEnabled, orderColumn, orderDirection)
 
   /**
@@ -285,14 +263,15 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * @return A list of tags that contain the supplied prefix
     */
   def find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
-           orderColumn:String="id", orderDirection:String="ASC") : List[T] =
+           orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)) : List[T] =
     _find(s"%$searchString%", limit, offset, onlyEnabled, orderColumn, orderDirection)
 
   def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
-            orderColumn:String="id", orderDirection:String="ASC") : List[T] = {
+            orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)) : List[T] = {
     db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM $tableName
                       WHERE ${searchField("name")} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
+                      ${parentFilter(parentId)}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
@@ -304,13 +283,13 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     * a lot of memory
     */
   def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
-           orderColumn:String="id", orderDirection:String="ASC") : List[T] = {
+           orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)) : List[T] = {
     implicit val ids = List.empty
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       db.withConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
                         WHERE ${searchField("name")}
-                        ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
+                        ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)} ${parentFilter(parentId)}
                         ${order(Some(orderColumn), orderDirection)}
                         LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> search(searchString),
@@ -330,24 +309,26 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     *          directly from an API call
     * @return true if successful
     */
-  def lockItem(user:User, item:T)(implicit c:Connection) : Int = {
-    // first check to see if the item is already locked
-    val checkQuery = s"""SELECT user_id FROM locked
+  def lockItem(user:User, item:T)(implicit c:Connection=null) : Int =
+    withMRTransaction { implicit c =>
+      // first check to see if the item is already locked
+      val checkQuery =
+        s"""SELECT user_id FROM locked
           WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
-    SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
-      case Some(id) =>
-        if (id == user.id) {
-          val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"
+      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+        case Some(id) =>
+          if (id == user.id) {
+            val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"
+            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+          } else {
+            0
+            //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
+          }
+        case None =>
+          val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType}, {itemId}, ${user.id})"
           SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
-        } else {
-          0
-          //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
-        }
-      case None =>
-        val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType}, {itemId}, ${user.id})"
-        SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+      }
     }
-  }
 
   /**
     * Unlocks an item in the database
@@ -359,19 +340,20 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     *          directly from an API call
     * @return true if successful
     */
-  def unlockItem(user:User, item:T)(implicit c:Connection) : Int = {
-    val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
-    SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
-      case Some(id) =>
-        if (id == user.id) {
-          val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"""
-          SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
-        } else {
-          throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
-        }
-      case None => throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
+  def unlockItem(user:User, item:T)(implicit c:Connection=null) : Int =
+    withMRTransaction { implicit c =>
+      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+        case Some(id) =>
+          if (id == user.id) {
+            val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"""
+            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+          } else {
+            throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
+          }
+        case None => throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
+      }
     }
-  }
 
   /**
     * Unlocks all the items that are associated with the current user
@@ -381,11 +363,13 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper {
     *          with other requests
     * @return Number of locks removed
     */
-  def unlockAllItems(user:User, itemType:Option[ItemType]=None)(implicit c:Connection) : Int =
-    itemType match {
-      case Some(it) =>
-        SQL"""DELETE FROM locked WHERE user_id = ${user.id} AND item_type = ${it.typeId}""".executeUpdate()
-      case None =>
-        SQL"""DELETE FROM locked WHERE user_id = ${user.id}""".executeUpdate()
+  def unlockAllItems(user:User, itemType:Option[ItemType]=None)(implicit c:Connection=null) : Int =
+    withMRTransaction { implicit c =>
+      itemType match {
+        case Some(it) =>
+          SQL"""DELETE FROM locked WHERE user_id = ${user.id} AND item_type = ${it.typeId}""".executeUpdate()
+        case None =>
+          SQL"""DELETE FROM locked WHERE user_id = ${user.id}""".executeUpdate()
+      }
     }
 }

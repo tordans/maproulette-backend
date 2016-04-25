@@ -145,9 +145,9 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param user The user to update
     * @return None if failed to update or create.
     */
-  override def insert(item:User, user: User): User = cacheManager.withOptionCaching { () =>
+  override def insert(item:User, user: User)(implicit c:Connection=null): User = cacheManager.withOptionCaching { () =>
     hasAccess(user)
-    db.withTransaction { implicit c =>
+    withMRTransaction { implicit c =>
       val ewkt = new WKTWriter().write(
         new GeometryFactory().createPoint(
           new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
@@ -206,11 +206,11 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param id The id of the user to update
     * @return The user that was updated, None if no user was found with the id
     */
-  override def update(value:JsValue, user:User)(implicit id:Long): Option[User] = {
+  override def update(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[User] = {
     hasAccess(user)
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       cachedItem.hasWriteAccess(user)
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse(""))
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
@@ -263,11 +263,11 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param id The user to delete
     * @return The rows that were deleted
     */
-  override def delete(id: Long, user:User) : Int = {
+  override def delete(id: Long, user:User)(implicit c:Connection=null) : Int = {
     hasAccess(user)
     implicit val ids = List(id)
     cacheManager.withCacheIDDeletion { () =>
-      db.withConnection { implicit c =>
+      withMRTransaction { implicit c =>
         SQL"""DELETE FROM users WHERE id = $id""".executeUpdate()
       }
     }
@@ -280,11 +280,11 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param user The user deleting the user
     * @return
     */
-  def deleteByOsmID(osmId:Long, user:User) : Int = {
+  def deleteByOsmID(osmId:Long, user:User)(implicit c:Connection=null) : Int = {
     hasAccess(user)
     implicit val ids = List(osmId)
     cacheManager.withCacheIDDeletion { () =>
-      db.withConnection { implicit c =>
+      withMRTransaction { implicit c =>
         SQL"""DELETE FROM users WHERE osm_id = $osmId""".executeUpdate()
       }
     }
@@ -296,9 +296,9 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param user The user that is adding the user to the project
     * @param projectId The project that user is being added too
     */
-  def addUserToProject(user:User, projectId:Long) : Unit = {
+  def addUserToProject(user:User, projectId:Long)(implicit c:Connection=null) : Unit = {
     hasAccess(user)
-    db.withConnection { implicit c =>
+    withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id)
             SELECT ${user.osmProfile.id}, id FROM groups
             WHERE group_type = 1 AND project_id = $projectId
@@ -312,9 +312,9 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param user The user that is adding the user to the project
     * @param group The group that user is being added too
     */
-  def addUserToGroup(user:User, group:Group) : Unit = {
+  def addUserToGroup(user:User, group:Group)(implicit c:Connection=null) : Unit = {
     hasAccess(user)
-    db.withConnection { implicit c =>
+    withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES (${user.id}, ${group.id})""".executeUpdate()
     }
   }

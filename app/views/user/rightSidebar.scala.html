@@ -17,8 +17,9 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Curent Challenge: <br/><span id="challenge_name">...</span>
+            Curent Challenge:
             <span id="challenge_complete_percent" class="label label-danger pull-right">0%</span>
+            <br/><span id="challenge_name">...</span>
           </h4>
           <div class="progress progress-xxs">
             <div id="challenge_complete_percent_bar" class="progress-bar progress-bar-danger" style="width: 0%"></div>
@@ -129,11 +130,8 @@
   </div>
 </div>
 <script type="application/javascript">
-  var currentChallengeId = -1;
 
   function updateChallengeInfo(challengeId) {
-    if (currentChallengeId != challengeId) {
-      currentChallengeId = challengeId;
       jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId)
               .ajax({
                 success: function (data) {
@@ -151,13 +149,12 @@
                   $("#challenge_fp_tasks").text(getShowValue(falsePositiveTasks, totalTasks));
                   $("#challenge_skipped_tasks").text(getShowValue(skippedTasks, totalTasks));
                   $("#challenge_af_tasks").text(getShowValue(alreadyFixedTasks, totalTasks));
-                  var percentComplete = (((availableTasks / totalTasks) * 100) - 100) * -1;
+                  var percentComplete = parseFloat((((availableTasks / totalTasks) * 100) - 100) * -1).toFixed(0);
                   $("#challenge_complete_percent").text(percentComplete + "%");
                   $("#challenge_complete_percent_bar").css("width", percentComplete + "%")
                 },
                 error: Utils.handleError
               });
-    }
   }
 
   function getCountValue(value) {
@@ -171,6 +168,6 @@
     if (value == 0) {
       return "0 (0%)";
     }
-    return value + " (" + ((value / total) * 100) + "%)";
+    return value + " (" + parseFloat((value / total) * 100).toFixed(0) + "%)";
   }
 </script>

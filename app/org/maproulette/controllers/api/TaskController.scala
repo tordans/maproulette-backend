@@ -35,6 +35,54 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   implicit val tagReads: Reads[Tag] = Tag.tagReads
   override def dalWithTags = dal
 
+  private def updateGeometryData(body: JsValue) : JsValue = {
+    (body \ "geometries").asOpt[String] match {
+      case Some(value) =>
+        // if it is a string, then it is either GeoJSON or a WKB
+        // just check to see if { is the first character and then we can assume it is GeoJSON
+        if (value.charAt(0) != '{') {
+          // TODO:
+          body
+        } else {
+          // just return the body because it handles this case correctly
+          body
+        }
+      case None =>
+        // if it maps to None then it simply could be that it is a JSON object
+        (body \ "geometries").asOpt[JsValue] match {
+          case Some(value) =>
+            // need to convert to a string for the case class otherwise validation will fail
+            Utils.insertIntoJson(body, "geometries", value.toString(), true)
+          case None =>
+            // if the geometries are not supplied then just leave it
+            body
+        }
+    }
+  }
+
+  /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  override def updateCreateBody(body: JsValue): JsValue = {
+    // We need to update the geometries to make sure that we handle all the different types of
+    // geometries that you can deal with like WKB or GeoJSON
+    updateGeometryData(super.updateCreateBody(body))
+  }
+
+
+  /**
+    * In the case where you need to update the update body, usually you would not update it, but
+    * just in case.
+    *
+    * @param body The request body
+    * @return The updated request body
+    */
+  override def updateUpdateBody(body: JsValue): JsValue =
+    updateGeometryData(super.updateUpdateBody(body))
 
   /**
     * Function can be implemented to extract more information than just the default create data,
@@ -99,7 +147,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusDeleted(id: String) = setTaskStatus(id, Task.STATUS_DELETED)
+  def setTaskStatusDeleted(id: Long) = setTaskStatus(id, Task.STATUS_DELETED)
 
   /**
     * Sets the task status to false positive, this is the case where the task is incorrect in
@@ -109,7 +157,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id the id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusFalsePositive(id: String) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
+  def setTaskStatusFalsePositive(id: Long) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
 
   /**
     * Sets the task to fixed, this is the case where the user fixed the data in OSM.
@@ -118,7 +166,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id the id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusFixed(id: String) = setTaskStatus(id, Task.STATUS_FIXED)
+  def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
 
   /**
     * Sets the task to skipped, this is the case where a user either doesn't know how to fix the
@@ -128,7 +176,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id the id of the task
     * @return See {@see this#setTaskStatus} for information
     */
-  def setTaskStatusSkipped(id: String) = setTaskStatus(id, Task.STATUS_SKIPPED)
+  def setTaskStatusSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
 
   /**
     * Sets the task to already fixed, this is the case where when looking at the base OSM data it
@@ -137,7 +185,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task
     * @return See (@see this#setTaskStatus} for information
     */
-  def setTaskStatusAlreadyFixed(id:String) = setTaskStatus(id, Task.STATUS_ALREADY_FIXED)
+  def setTaskStatusAlreadyFixed(id:Long) = setTaskStatus(id, Task.STATUS_ALREADY_FIXED)
 
   /**
     * This is the generic function that is leveraged by all the specific functions above. So it
@@ -149,14 +197,9 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  private def setTaskStatus(id: String, status: Int) = Action.async { implicit request =>
+  private def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val taskOption = if (Utils.isDigit(id)) {
-        dal.retrieveById(id.toLong)
-      } else {
-        dal.retrieveByName(id)
-      }
-      val task = taskOption match {
+      val task = dal.retrieveById(id) match {
         case Some(t) => t
         case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
       }

@@ -8,6 +8,7 @@ import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Challenge, Survey, Task}
 import org.maproulette.models.dal.{SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json, Reads, Writes}
 import play.api.mvc.Action
 
@@ -39,6 +40,22 @@ class SurveyController @Inject() (override val childController:TaskController,
   override implicit val itemType = SurveyType()
 
   override def dalWithTags = dal
+
+  /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  override def updateCreateBody(body: JsValue): JsValue = {
+    val jsonBody = super.updateCreateBody(body)
+    var challengeBody = (jsonBody \ "challenge").as[JsValue]
+    challengeBody = Utils.insertIntoJson(challengeBody, "enabled", true)(BooleanWrites)
+    challengeBody = Utils.insertIntoJson(challengeBody, "challengeType", Actions.ITEM_TYPE_SURVEY)(IntWrites)
+    challengeBody = Utils.insertIntoJson(challengeBody, "featured", false)(BooleanWrites)
+    Utils.insertIntoJson(jsonBody, "challenge", challengeBody, true)(JsValueWrites)
+  }
 
   /**
     * Function can be implemented to extract more information than just the default create data,

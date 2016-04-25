@@ -27,7 +27,7 @@ import play.api.libs.json.{Json, Reads, Writes}
 case class Challenge(override val id: Long,
                      override val name: String,
                      override val description:Option[String]=None,
-                     parent:Long,
+                     override val parent:Long,
                      instruction:String,
                      difficulty:Option[Int]=None,
                      blurb:Option[String]=None,

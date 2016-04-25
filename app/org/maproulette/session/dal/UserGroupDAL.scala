@@ -40,7 +40,7 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param groupType current only 1 (Admin) however currently no restriction on what you can supply here
     * @return The new group
     */
-  def createGroup(projectId:Long, name:String, groupType:Int) : Group = db.withConnection { implicit c =>
+  def createGroup(projectId:Long, name:String, groupType:Int) : Group = db.withTransaction { implicit c =>
     SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(parser.*).head
   }
 
@@ -52,7 +52,7 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param newName The new name of the group
     * @return The updated group
     */
-  def updateGroup(groupId:Long, newName:String) : Group = db.withConnection { implicit c =>
+  def updateGroup(groupId:Long, newName:String) : Group = db.withTransaction { implicit c =>
     SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(parser.*).head
   }
 
@@ -62,7 +62,7 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param groupId The id of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with id found to delete
     */
-  def deleteGroup(groupId:Long) : Int = db.withConnection { implicit c =>
+  def deleteGroup(groupId:Long) : Int = db.withTransaction { implicit c =>
     SQL"""DELETE FROM groups WHERE id = $groupId""".executeUpdate()
   }
 
@@ -72,7 +72,7 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param name The name of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with name found to delete
     */
-  def deleteGroupByName(name:String) : Int = db.withConnection { implicit c =>
+  def deleteGroupByName(name:String) : Int = db.withTransaction { implicit c =>
     SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
   }
 

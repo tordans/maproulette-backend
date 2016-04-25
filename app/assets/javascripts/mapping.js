@@ -201,7 +201,8 @@ L.Control.ControlPanel = L.Control.extend({
             if (!controlDiv.hasChildNodes()) {
                 var control = L.DomUtil.create('a', 'fa ' + icon + ' fa-2x', controlDiv);
                 control.href = "#";
-                var text = L.DomUtil.create('span', '', controlDiv);
+                var text = L.DomUtil.create('a', '', controlDiv);
+                text.href = "#";
                 if (this.options.showText) {
                     text.innerHTML = " " + friendlyName;
                 }
@@ -326,13 +327,23 @@ function Point(x, y) {
 }
 
 var TaskStatus = {
+    CREATED:0,
     FIXED:1,
     FALSEPOSITIVE:2,
     SKIPPED:3,
     DELETED:4,
     ALREADYFIXED:5,
-    CREATED:0,
-    AVAILABLE:6
+    getStatusName:function(status) {
+        switch(status) {
+            case TaskStatus.CREATED: return "Created";
+            case TaskStatus.FIXED: return "Fixed";
+            case TaskStatus.FALSEPOSITIVE: return "False Positive";
+            case TaskStatus.SKIPPED: return "Skipped";
+            case TaskStatus.DELETED: return "Deleted";
+            case TaskStatus.ALREADYFIXED: return "Already Fixed";
+            default: return "Unknown";
+        }
+    }
 };
 
 /**
@@ -398,6 +409,7 @@ function Challenge() {
     this.answerQuestion = function(taskId, answerId, success, error) {
         // See Actions.scala which contains ID's for items. 4 = Survey
         if (this.isSurvey()) {
+            ToastUtils.Success("Answered question [" + data.instruction + "]");
             jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
                 success: function() {
                     if (typeof success === 'undefined') {
@@ -526,6 +538,7 @@ function Task() {
         var self = this;
         var errorHandler = MRManager.getErrorHandler(error);
         var statusSetSuccess = function () {
+            ToastUtils.Success("Set Task [" + data.name + "] status to " + TaskStatus.getStatusName(status));
             self.getRandomNextTask(params, MRManager.getSuccessHandler(success), errorHandler);
         };
         switch (status) {
@@ -702,7 +715,6 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
-        updateChallengeInfo(currentTask.getData().parentId);
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
@@ -713,6 +725,7 @@ var MRManager = (function() {
         ToastUtils.Info(marked(currentTask.getData().instruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
+        updateChallengeInfo(currentTask.getData().parentId);
     };
 
     var resetEditControls = function() {
@@ -725,7 +738,7 @@ var MRManager = (function() {
      * Based on the challenge type (4 is Survey) will add or remove the survey panel from the map
      */
     var updateMRControls = function() {
-        if (!debugMode && currentTask.getChallenge().isSurvey()) {
+        if (signedIn && !debugMode && currentTask.getChallenge().isSurvey()) {
             surveyPanel.updateSurvey(currentTask.getChallenge().getData().instruction,
                 currentTask.getChallenge().getData().answers);
             surveyPanel.show();
@@ -733,7 +746,7 @@ var MRManager = (function() {
             surveyPanel.hide();
         }
 
-        if (debugMode || currentTask.getChallenge().isSurvey()) {
+        if (!signedIn || debugMode || currentTask.getChallenge().isSurvey()) {
             // disable the edit and false positive buttons in control if it is a survey
             controlPanel.disableControls();
         } else {
@@ -750,7 +763,7 @@ var MRManager = (function() {
             url: mqurl,
             jsonp: "json_callback",
             success: function (data) {
-                ToastUtils.Info(Utils.mqResultToString(data.address));
+                ToastUtils.Info(Utils.mqResultToString(data.address), {timeOut:10000});
             }
         });
     };
@@ -779,7 +792,7 @@ var MRManager = (function() {
      * retrieve the next task sequentially, in non-debug mode it will retrieve the next random task
      */
     var getNextTask = function() {
-        if (debugMode) {
+        if (!signedIn || debugMode) {
             currentTask.getNextTask(currentSearchParameters);
         } else if (currentTask.getChallenge().isSurvey()) {
             currentTask.getRandomNextTask(currentSearchParameters);

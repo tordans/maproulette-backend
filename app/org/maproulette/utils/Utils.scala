@@ -1,8 +1,9 @@
 package org.maproulette.utils
 
 import play.api.mvc.Results._
-import play.api.libs.json.{Json, JsObject, JsValue}
+import play.api.libs.json._
 import play.api.mvc.Result
+
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
@@ -12,7 +13,7 @@ import scala.reflect.runtime.universe._
   *
   * @author cuthbertm
   */
-object Utils {
+object Utils extends DefaultWrites {
 
   /**
     * Checks to see if a string is a number
@@ -39,9 +40,11 @@ object Utils {
     * @param json The json that you want to add the id into
     * @return
     */
-  def insertJsonID(json:JsValue, overwrite:Boolean=false) : JsValue = insertIDIntoJson(json, "id", -1L)
+  def insertJsonID(json:JsValue, overwrite:Boolean=false) : JsValue =
+    insertIntoJson(json, "id", -1L)(LongWrites)
 
-  def insertIDIntoJson[Value](json:JsValue, key:String, value:Long, overwrite:Boolean=false) : JsValue = {
+  def insertIntoJson[Value](json:JsValue, key:String, value:Value, overwrite:Boolean=false)
+                           (implicit writes:Writes[Value]) : JsValue = {
     if (overwrite) {
       json.as[JsObject] + (key -> Json.toJson(value))
     } else {

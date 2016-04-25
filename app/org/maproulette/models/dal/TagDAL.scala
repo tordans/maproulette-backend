@@ -1,6 +1,7 @@
 package org.maproulette.models.dal
 
-import javax.inject.{Provider, Inject, Singleton}
+import java.sql.Connection
+import javax.inject.{Inject, Provider, Singleton}
 
 import anorm._
 import anorm.SqlParser._
@@ -37,9 +38,9 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @param tag The tag object to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(tag: Tag, user:User): Tag = {
+  override def insert(tag: Tag, user:User)(implicit c:Connection=null): Tag = {
     cacheManager.withOptionCaching { () =>
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) RETURNING *")
           .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser.*).headOption
       }
@@ -53,9 +54,9 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(tag:JsValue, user:User)(implicit id:Long): Option[Tag] = {
+  override def update(tag:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Tag] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedTag = Tag(id, name, Some(description))
@@ -110,10 +111,10 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @return Returns the list of tags that were inserted, this would include any newly created
     *         ids of tags.
     */
-  def updateTagList(tags: List[Tag]): List[Tag] = {
+  def updateTagList(tags: List[Tag])(implicit c:Connection=null): List[Tag] = {
     implicit val names = tags.map(_.name)
     cacheManager.withCacheNameDeletion { () =>
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         val sqlQuery = s"""WITH upsert AS (UPDATE tags SET name = {name}, description = {description}
                                             WHERE id = {id} OR name = {name} RETURNING *)
                             INSERT INTO tags (name, description) SELECT {name}, {description}

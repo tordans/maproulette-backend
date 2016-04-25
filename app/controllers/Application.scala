@@ -5,7 +5,7 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.models.Survey
+import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
@@ -98,7 +98,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
             val projectChildren = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
             val surveys = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_SURVEY).map(Survey(_, List.empty))
             val challenges = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_CHALLENGE)
-            views.html.admin.projectChildren(user, parentId.get, surveys, challenges,
+            val challengeData = challenges.map(c => {
+              val summary = dalManager.challenge.getSummary(c.id)
+              (c,
+                summary.valuesIterator.sum,
+                summary.filter(_._1 == Task.STATUS_FIXED).values.headOption.getOrElse(0),
+                summary.filter(_._1 == Task.STATUS_FALSE_POSITIVE).values.headOption.getOrElse(0)
+              )
+            })
+            views.html.admin.projectChildren(user, parentId.get, surveys, challengeData,
               if (it == ChallengeType()) { 0 } else { 1 }
             )
           case _ => views.html.error.error("Invalid item type requested.")

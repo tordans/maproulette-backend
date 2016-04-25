@@ -1,5 +1,7 @@
 package org.maproulette.models.dal
 
+import java.sql.Connection
+
 import anorm._
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.{BaseObject, Tag}
@@ -23,12 +25,12 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags A list of tags to add to the task
     * @param user The user executing the task
     */
-  def updateItemTags(id:Long, tags:List[Long], user:User) : Unit = {
+  def updateItemTags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
     this.retrieveById(id) match {
       case Some(item) =>
         item.hasWriteAccess(user)
         if (tags.nonEmpty) {
-          db.withTransaction { implicit c =>
+          withMRTransaction { implicit c =>
             val indexedValues = tags.zipWithIndex
             val rows = indexedValues.map{ case (_, i) =>
               s"({itemid_$i}, {tagid_$i})"
@@ -58,9 +60,9 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags that are being removed from the item
     * @param user The user executing the item
     */
-  def deleteItemags(id:Long, tags:List[Long], user:User) : Unit = {
+  def deleteItemags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
     if (tags.nonEmpty) {
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_$tableName WHERE ${name}_id = {$id} AND tag_id IN ($tags)""".execute()
       }
     }
@@ -74,10 +76,10 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags to be removed from the item
     * @param user The user executing the item
     */
-  def deleteItemStringTags(id:Long, tags:List[String], user:User) : Unit = {
+  def deleteItemStringTags(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
     if (tags.nonEmpty) {
       val lowerTags = tags.map(_.toLowerCase)
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_$tableName tt USING tags t
               WHERE tt.tag_id = t.id AND
                     tt.${name}_id = $id AND

@@ -44,6 +44,20 @@ class ChallengeController @Inject() (override val childController:TaskController
   override def dalWithTags = dal
 
   /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  override def updateCreateBody(body: JsValue): JsValue = {
+    var jsonBody = super.updateCreateBody(body)
+    jsonBody = Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
+    Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
+  }
+
+  /**
     * Function can be implemented to extract more information than just the default create data,
     * to build other objects with the current object at the core. No data will be returned from this
     * function, it purely does work in the background AFTER creating the current object
@@ -76,15 +90,9 @@ class ChallengeController @Inject() (override val childController:TaskController
     * @param id The id of the object that is being retrieved
     * @return 200 Ok, 204 NoContent if not found
     */
-  def getChallenge(implicit id:String) = Action.async { implicit request =>
+  def getChallenge(implicit id:Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val matched = if (Utils.isDigit(id)) {
-        dal.retrieveById(id.toLong)
-      } else {
-        dal.retrieveByName
-      }
-
-      matched match {
+      dal.retrieveById match {
         case Some(value) =>
           if (value.challengeType == Actions.ITEM_TYPE_SURVEY) {
             val answers = surveyDAL.getAnswers(value.id)
