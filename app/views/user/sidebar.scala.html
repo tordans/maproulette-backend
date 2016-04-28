@@ -149,14 +149,14 @@
         $("#search_tags").addClass("hidden");
       } else {
         // get Challenges that match the search query
-        findChallenges(q, 5, 0, true,
+        findChallenges(q, -1, 5, 0, true,
                 function(data) {
                   console.log(data);
                   updateSearch(data, "challenges");
                 }, Utils.handleError
         );
         // get surveys that match the search query
-        findSurveys(q, 5, 0, true,
+        findSurveys(q, -1, 5, 0, true,
                 function(data) {
                   console.log(data);
                   updateSearch(data, "surveys");

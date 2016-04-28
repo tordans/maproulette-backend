@@ -3,24 +3,30 @@ package controllers
 import javax.inject.Inject
 
 import org.maproulette.Config
-import org.maproulette.actions.{ActionManager, Actions}
+import org.maproulette.actions.Actions
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.{Challenge, Project, Survey, Task}
 import org.maproulette.models.dal._
-import org.maproulette.session.SessionManager
-import org.maproulette.session.dal.UserDAL
+import org.maproulette.session.{SessionManager, User}
+import play.api.Logger
 import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.libs.json.Json
+import play.api.libs.json.{DefaultReads, JsValue, Json}
+import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, Controller}
+
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 /**
   * @author cuthbertm
   */
 class FormEditController @Inject() (val messagesApi: MessagesApi,
+                                    ws:WSClient,
                                     override val webJarAssets: WebJarAssets,
                                     sessionManager:SessionManager,
                                     override val dalManager: DALManager,
-                                    val config:Config) extends Controller with I18nSupport with ControllerHelper {
+                                    val config:Config) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   def projectFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
@@ -87,14 +93,93 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         challenge => {
           val id = if (itemId > -1) {
             dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId)
+            Future { buildOverpassQLTasks(challenge, user) }
             itemId
           } else {
             val newChallenge = dalManager.challenge.insert(challenge, user)
+            Future { buildOverpassQLTasks(newChallenge, user) }
             newChallenge.id
           }
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
         }
       )
+    }
+  }
+
+  /**
+    * Based on the supplied overpass query this will generate the tasks for the challenge
+    *
+    * @param challenge The challenge to create the tasks under
+    * @param user The user executing the query
+    */
+  def buildOverpassQLTasks(challenge:Challenge, user:User) = {
+    challenge.overpassQL match {
+      case Some(ql) =>
+        // run the query and then create the tasks
+        val osmQLProvider = config.getOSMQLProvider
+        val query = s"[out:json];${ql.split('\n').map(_.trim.filter(_ >= ' ')).mkString}out body geom;"
+        val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(osmQLProvider.requestTimeout).post(query).map { _.json }
+
+        jsonFuture onComplete {
+          case Success(s) =>
+            // parse the results
+            val elements = (s \ "elements").as[List[JsValue]]
+
+            elements.foreach {
+              element =>
+                try {
+                  val geometry = (element \ "type").asOpt[String] match {
+                    case Some("way") =>
+                      val points = (element \ "geometry").as[List[JsValue]].map {
+                        geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
+                      }
+                      Some(Json.obj("type" -> "LineString", "coordinates" -> points))
+                    case Some("node") =>
+                      Some(Json.obj(
+                        "type" -> "Point",
+                        "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
+                      ))
+                    case _ => None
+                  }
+
+                  geometry match {
+                    case Some(geom) =>
+                      val props = (element \ "tags").asOpt[JsValue] match {
+                        case Some(tags) => tags
+                        case None => Json.obj()
+                      }
+                      val newTask = Task(-1,
+                        (element \ "id").as[Int]+"",
+                        challenge.id,
+                        challenge.instruction,
+                        None,
+                        Json.obj(
+                          "type" -> "FeatureCollection",
+                          "features" -> Json.arr(Json.obj(
+                            "id" -> (element \ "id").as[Int],
+                            "geometry" -> geom,
+                            "properties" -> props
+                          ))
+                        ).toString
+                      )
+
+                      try {
+                        dalManager.task.insert(newTask, user)
+                      } catch {
+                        // this task could fail on unique key violation, we need to ignore them
+                        case e:Exception =>
+                          Logger.error(e.getMessage)
+                      }
+                    case None => None
+                  }
+                } catch {
+                  case e:Exception =>
+                    Logger.error(e.getMessage, e)
+                }
+            }
+          case Failure(f) => throw f
+        }
+      case None => // just ignore, we don't have to do anything if it wasn't set
     }
   }
 

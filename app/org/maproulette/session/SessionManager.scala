@@ -4,16 +4,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import controllers.WebJarAssets
-import dal.UserDAL
 import io.netty.handler.codec.http.HttpResponseStatus
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.models.dal.{ChallengeDAL, DALManager}
+import org.maproulette.models.dal.DALManager
 import play.api.i18n.Messages
-import play.api.{Application, Logger}
+import play.api.Logger
 import play.api.libs.Crypto
 import play.api.libs.oauth._
 import play.api.libs.ws.WSClient
@@ -29,20 +28,15 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, application:Application, config:Config) {
+class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Config) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
-  private val userDetailsURL = application.configuration.getString("osm.userDetails").get
-  private val requestTokenURL = application.configuration.getString("osm.requestTokenURL").get
-  private val accessTokenURL = application.configuration.getString("osm.accessTokenURL").get
-  private val authorizationURL = application.configuration.getString("osm.authorizationURL").get
-  // the consumer key and secret for the Map Roulette application
-  private val consumerKey = ConsumerKey(application.configuration.getString("osm.consumerKey").get,
-    application.configuration.getString("osm.consumerSecret").get)
+  private val osmOAuth = config.getOSMOauth
 
   // The OAuth object used to make the requests to the OpenStreetMap servers
-  private val oauth = OAuth(ServiceInfo(requestTokenURL, accessTokenURL, authorizationURL, consumerKey), true)
+  private val oauth = OAuth(ServiceInfo(osmOAuth.requestTokenURL, osmOAuth.accessTokenURL,
+    osmOAuth.authorizationURL, osmOAuth.consumerKey), true)
 
   /**
     * Retrieves the user based on the verifier query string values from the authorization request to
@@ -208,7 +202,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, application
   def refreshProfile(accessToken:RequestToken, user:User) : Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
-    val details = ws.url(userDetailsURL).sign(OAuthCalculator(consumerKey, accessToken))
+    val details = ws.url(osmOAuth.userDetailsURL).sign(OAuthCalculator(osmOAuth.consumerKey, accessToken))
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {

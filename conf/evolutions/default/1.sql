@@ -37,13 +37,6 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
--- Function to add a user to a project
-CREATE OR REPLACE FUNCTION add_user_to_project(projectId integer, userId integer) RETURNS void AS $$
-BEGIN
-END
-$$
-LANGUAGE plpgsql VOLATILE;;
-
 -- Function to remove locks when a user is deleted
 CREATE OR REPLACE FUNCTION update_task_locks() RETURNS TRIGGER AS $$
 BEGIN
@@ -144,6 +137,7 @@ CREATE TABLE IF NOT EXISTS challenges
   enabled BOOLEAN DEFAULT(true),
   challenge_type integer NOT NULL DEFAULT(1),
   featured BOOLEAN DEFAULT(false),
+  overpassQL character varying DEFAULT '',
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -287,6 +281,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
 
 SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
 CREATE INDEX idx_task_geometries_geom ON task_geometries USING GIST (geom);
+SELECT create_index_if_not_exists('task_geometries', 'task_id', '(task_id)');
 
 -- Actions that are taken in the system, like set the status of a task to 'fixed'
 CREATE TABLE IF NOT EXISTS actions

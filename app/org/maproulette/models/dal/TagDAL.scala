@@ -6,7 +6,7 @@ import javax.inject.{Inject, Provider, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.{CacheManager, TagCacheManager}
-import org.maproulette.models.Tag
+import org.maproulette.models.{Project, Tag}
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -64,6 +64,24 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
         SQL"""UPDATE tags SET name = ${updatedTag.name.toLowerCase}, description = ${updatedTag.description}
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
+    }
+  }
+
+  /**
+    * This is a merge update function that will update the function if it exists otherwise it will
+    * insert a new item.
+    *
+    * @param element The element that needs to be inserted or updated. Although it could be updated,
+    *                it requires the element itself in case it needs to be inserted
+    * @param user    The user that is executing the function
+    * @param id      The id of the element that is being updated/inserted
+    * @param c       A connection to execute against
+    * @return
+    */
+  override def mergeUpdate(element: Tag, user: User)(implicit id: Long, c: Connection): Option[Tag] = {
+    element.hasWriteAccess(user)
+    withMRTransaction { implicit c =>
+      None
     }
   }
 

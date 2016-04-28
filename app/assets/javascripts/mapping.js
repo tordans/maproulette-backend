@@ -622,6 +622,7 @@ var MRManager = (function() {
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters();
     var signedIn = false;
+    var searchInFocus = false;
 
     // Function that handles the resizing of the map when the menu is toggled
     var resizeMap = function() {
@@ -707,6 +708,12 @@ var MRManager = (function() {
         $("#map").css("left", $("#sidebar").width());
         signedIn = userSignedIn;
         //register the keyboard shortcuts
+        $('#searchQ').on('focus', function() {
+            searchInFocus = true;
+        });
+        $('#searchQ').on('focusout', function() {
+            searchInFocus = false;
+        });
         registerHotKeys();
     };
 
@@ -832,6 +839,9 @@ var MRManager = (function() {
     // registers a series of hotkeys for quick access to functions
     var registerHotKeys = function() {
         $(document).keydown(function(e) {
+            if (searchInFocus) {
+                return;
+            }
             e.preventDefault();
             switch(e.keyCode) {
                 case 81: //q
@@ -906,7 +916,12 @@ var MRManager = (function() {
         }
         // remove trailing comma - iD won't play ball with it
         idUriComponent = idUriComponent.replace(/,$/, "");
-        return baseUriComponent + [idUriComponent, mapUriComponent].join('&');
+        return baseUriComponent + [idUriComponent, mapUriComponent, "comment=" + getCommentHashtags()].join('&');
+    };
+
+    var getCommentHashtags = function() {
+        // add comment specific to challenge, make sure the name has no whitespace
+        return "#maproulette%20" + currentTask.getChallenge().getData().name.replace(/ /g, "_");
     };
 
     var openTaskInId = function () {
@@ -927,7 +942,9 @@ var MRManager = (function() {
         var relations = [];
         var sw = bounds.getSouthWest();
         var ne = bounds.getNorthEast();
-        var uri = 'http://127.0.0.1:8111/load_and_zoom?left=' + sw.lng + '&right=' + ne.lng + '&top=' + ne.lat + '&bottom=' + sw.lat + '&new_layer=' + (new_layer?'true':'false') + '&select=';
+        var uri = 'http://127.0.0.1:8111/load_and_zoom?left=' + sw.lng + '&right=' + ne.lng +
+            '&top=' + ne.lat + '&bottom=' + sw.lat + '&new_layer=' + (new_layer?'true':'false') +
+            '&changeset_comment=' + getCommentHashtags() + '&select=';
         var selects = [];
         var currentGeometry = currentTask.getData().geometry;
         for (var f in currentGeometry.features) {

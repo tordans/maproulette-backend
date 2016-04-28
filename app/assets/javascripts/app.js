@@ -229,29 +229,29 @@ var deleteItem = function(itemType, itemId) {
 /**
  * Helper function to specifically find projects, see generic find function for information on parameters
  */
-var findProjects = function(search, limit, offset, onlyEnabled, handler, errorHandler) {
-    findItem("Project", search, limit, offset, onlyEnabled, handler, errorHandler);  
+var findProjects = function(search, parentId, limit, offset, onlyEnabled, handler, errorHandler) {
+    findItem("Project", search, parentId, limit, offset, onlyEnabled, handler, errorHandler);  
 };
 
 /**
  * Helper function to specifically find challenges, see generic find function for information on parameters
  */
-var findChallenges = function(search, limit, offset, onlyEnabled, handler, errorHandler) {
-    findItem("Challenge", search, limit, offset, onlyEnabled, handler, errorHandler);
+var findChallenges = function(search, parentId, limit, offset, onlyEnabled, handler, errorHandler) {
+    findItem("Challenge", search, parentId, limit, offset, onlyEnabled, handler, errorHandler);
 };
 
 /**
  * Helper function to specifically find surveys, see generic find function for information on parameters
  */
-var findSurveys = function(search, limit, offset, onlyEnabled, handler, errorHandler) {
-    findItem("Survey", search, limit, offset, onlyEnabled, handler, errorHandler);
+var findSurveys = function(search, parentId, limit, offset, onlyEnabled, handler, errorHandler) {
+    findItem("Survey", search, parentId, limit, offset, onlyEnabled, handler, errorHandler);
 };
 
 /**
  * Helper function to specifically find tags, see generic find function for information on parameters
  */
 var findTags = function(search, limit, offset, handler, errorHandler) {
-    findItem("Tag", search, limit, offset, true, handler, errorHandler);
+    findItem("Tag", search, -1, limit, offset, true, handler, errorHandler);
 };
 
 /**
@@ -266,17 +266,17 @@ var findTags = function(search, limit, offset, handler, errorHandler) {
  * @param handler The javascript handler that will handle the results
  * @param errorHandler The javascript handler that will handle any failure
  */
-var findItem = function(itemType, search, limit, offset, onlyEnabled, handler, errorHandler) {
+var findItem = function(itemType, search, parentId, limit, offset, onlyEnabled, handler, errorHandler) {
     var apiCallback = {
         success: handler,
         error: errorHandler
     };
     if (itemType == "Project") {
-        jsRoutes.org.maproulette.controllers.api.ProjectController.find(search, limit, offset, onlyEnabled).ajax(apiCallback);
+        jsRoutes.org.maproulette.controllers.api.ProjectController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback);
     } else if (itemType == "Challenge") {
-        jsRoutes.org.maproulette.controllers.api.ChallengeController.find(search, limit, offset, onlyEnabled).ajax(apiCallback);
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback);
     } else if (itemType == "Survey") {
-        jsRoutes.org.maproulette.controllers.api.SurveyController.find(search, limit, offset, onlyEnabled).ajax(apiCallback); 
+        jsRoutes.org.maproulette.controllers.api.SurveyController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback); 
     } else if (itemType == "Tag") {
         jsRoutes.org.maproulette.controllers.api.TagController.getTags(search, limit, offset).ajax(apiCallback);
     }
