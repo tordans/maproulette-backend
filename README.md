@@ -37,9 +37,14 @@ It uses the following core technologies:
 * Create a PostgreSQL superuser `osm`: `createuser -sW osm`. Use `osm` as the password.
 * Create a new PostgreSQL database `mp_dev` owned by `osm`: `createdb -O osm mp_dev`.
 * Set the database connection JDBC string as environment variable `DATABASE_URL`: `export DATABASE_URL=jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm`
+* Set the consumer_key and consumer_secret variables `CONSUMER_KEY`: `export CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`, `CONSUMER_SECRET`: `export CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`. This is the key and secret that is generated when you build your application in maproulette.org.
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
+
+#### Using dev.conf
+
+Another way to handle dev related configuration variables is to use the [dev.conf](conf/dev.conf) file which has a couple of prepopulated variables that would be beneficial for a test/development environment. To use this file you simply need to add the file as a jvm parameter, eg. -Dconfig.resource=dev.conf
 
 ## Creating new Challenges
 
