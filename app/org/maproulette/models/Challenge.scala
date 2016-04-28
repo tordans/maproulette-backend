@@ -33,7 +33,8 @@ case class Challenge(override val id: Long,
                      blurb:Option[String]=None,
                      enabled:Boolean=true,
                      challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
-                     featured:Boolean=false) extends ChildObject[Long, Project] with TagObject[Long] {
+                     featured:Boolean=false,
+                     overpassQL:Option[String]=None) extends ChildObject[Long, Project] with TagObject[Long] {
 
   @Inject val projectDAL:ProjectDAL = null
   @Inject val tagDAL:TagDAL = null
@@ -58,7 +59,8 @@ object Challenge {
       "blurb" -> optional(text),
       "enabled" -> boolean,
       "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
-      "featured" -> default(boolean, false)
+      "featured" -> default(boolean, false),
+      "overpassQL" -> optional(text)
     )(Challenge.apply)(Challenge.unapply)
   )
 

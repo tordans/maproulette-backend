@@ -99,6 +99,18 @@
                         defaultSelected = Some("1")
                     )
                 </div>
+                <div class="form-group">
+                    @textarea(challengeForm("overpassQL"),
+                        label = "Overpass API",
+                        rows = "5",
+                        placeholder = "Enter overpass API here...",
+                        help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
+                                "By entering information here it will generate the tasks in the background. " +
+                                "Please provide a suitable bounding box when inserting an overpass query, " +
+                                "this can potentially generate larges amount of data and bog the system down.",
+                        readOnly = !user.isSuperUser
+                    )
+                </div>
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>

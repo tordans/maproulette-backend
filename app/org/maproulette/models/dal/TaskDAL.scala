@@ -149,6 +149,24 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
   }
 
   /**
+    * This is a merge update function that will update the function if it exists otherwise it will
+    * insert a new item.
+    *
+    * @param element The element that needs to be inserted or updated. Although it could be updated,
+    *                it requires the element itself in case it needs to be inserted
+    * @param user    The user that is executing the function
+    * @param id      The id of the element that is being updated/inserted
+    * @param c       A connection to execute against
+    * @return
+    */
+  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Connection): Option[Task] = {
+    element.hasWriteAccess(user)
+    withMRTransaction { implicit c =>
+      None
+    }
+  }
+
+  /**
     * Function that updates the geometries for the task, either during an insert or update
     *
     * @param taskId The task Id to update the geometries for

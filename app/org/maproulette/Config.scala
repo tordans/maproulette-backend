@@ -4,6 +4,14 @@ import javax.inject.{Inject, Singleton}
 
 import org.maproulette.actions.Actions
 import play.api.Application
+import play.api.libs.oauth.ConsumerKey
+
+import scala.concurrent.duration.Duration
+
+case class OSMOAuth(userDetailsURL:String, requestTokenURL:String, accessTokenURL:String,
+                    authorizationURL:String, consumerKey:ConsumerKey)
+
+case class OSMQLProvider(providerURL:String, requestTimeout:Duration)
 
 /**
   * @author cuthbertm
@@ -33,6 +41,23 @@ class Config @Inject() (implicit val application:Application) {
 
   def numberOfActivities : Int =
     application.configuration.getInt(Config.KEY_RECENT_ACTIVITY).getOrElse(Config.DEFAULT_RECENT_ACTIVITY)
+
+  def getOSMOauth : OSMOAuth = {
+    val osmServer = application.configuration.getString(Config.KEY_OSM_SERVER).get
+    OSMOAuth(
+      osmServer + application.configuration.getString(Config.KEY_OSM_USER_DETAILS_URL).get,
+      osmServer + application.configuration.getString(Config.KEY_OSM_REQUEST_TOKEN_URL).get,
+      osmServer + application.configuration.getString(Config.KEY_OSM_ACCESS_TOKEN_URL).get,
+      osmServer + application.configuration.getString(Config.KEY_OSM_AUTHORIZATION_URL).get,
+      ConsumerKey(application.configuration.getString(Config.KEY_OSM_CONSUMER_KEY).get,
+        application.configuration.getString(Config.KEY_OSM_CONSUMER_SECRET).get)
+    )
+  }
+
+  def getOSMQLProvider : OSMQLProvider = OSMQLProvider(
+    application.configuration.getString(Config.KEY_OSM_QL_PROVIDER).get,
+    Duration(application.configuration.getInt(Config.KEY_OSM_QL_TIMEOUT).getOrElse(Config.DEFAULT_OSM_QL_TIMEOUT), "s")
+  )
 }
 
 object Config {
@@ -44,6 +69,18 @@ object Config {
   val KEY_NUM_OF_CHALLENGES = "maproulette.limits.challenges"
   val KEY_RECENT_ACTIVITY = "maproulette.limits.activities"
 
+  val KEY_OSM_SERVER = "osm.server"
+  val KEY_OSM_USER_DETAILS_URL = "osm.userDetails"
+  val KEY_OSM_REQUEST_TOKEN_URL = "osm.requestTokenURL"
+  val KEY_OSM_ACCESS_TOKEN_URL = "osm.accessTokenURL"
+  val KEY_OSM_AUTHORIZATION_URL = "osm.authorizationURL"
+  val KEY_OSM_CONSUMER_KEY = "osm.consumerKey"
+  val KEY_OSM_CONSUMER_SECRET = "osm.consumerSecret"
+
+  val KEY_OSM_QL_PROVIDER = "osm.ql.provider"
+  val KEY_OSM_QL_TIMEOUT = "osm.ql.timeout"
+
+  val DEFAULT_OSM_QL_TIMEOUT = 25
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5
 }

@@ -47,11 +47,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
       get[Int]("challenges.challenge_type") ~
-      get[Boolean]("challenges.featured") map {
+      get[Boolean]("challenges.featured") ~
+      get[Option[String]]("challenges.overpassql") map {
       case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
-        enabled ~ challenge_type ~ featured =>
+        enabled ~ challenge_type ~ featured ~ overpassql =>
         new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
-          enabled, challenge_type, featured)
+          enabled, challenge_type, featured, overpassql)
     }
   }
 
@@ -67,10 +68,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
-                                      instruction, enabled, challenge_type, featured)
+                                      instruction, enabled, challenge_type, featured, overpassql)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
-                      ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured}) RETURNING *""".as(parser.*).headOption
+                      ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
+                      ${challenge.overpassQL}
+                      ) RETURNING *""".as(parser.*).headOption
       }
     }.get
   }
@@ -95,6 +98,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
         val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
         val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.featured)
+        val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.overpassQL.getOrElse(""))
 
         SQL"""UPDATE challenges SET name = $name,
                                     parent_id = $parentId,
@@ -103,9 +107,28 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
                                     blurb = $blurb,
                                     instruction = $instruction,
                                     enabled = $enabled,
-                                    featured = $featured
+                                    featured = $featured,
+                                    overpassql = $overpassQL
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
+    }
+  }
+
+  /**
+    * This is a merge update function that will update the function if it exists otherwise it will
+    * insert a new item.
+    *
+    * @param element The element that needs to be inserted or updated. Although it could be updated,
+    *                it requires the element itself in case it needs to be inserted
+    * @param user    The user that is executing the function
+    * @param id      The id of the element that is being updated/inserted
+    * @param c       A connection to execute against
+    * @return
+    */
+  override def mergeUpdate(element: Challenge, user: User)(implicit id: Long, c: Connection): Option[Challenge] = {
+    element.hasWriteAccess(user)
+    withMRTransaction { implicit c =>
+      None
     }
   }
 
