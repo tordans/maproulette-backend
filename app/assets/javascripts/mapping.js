@@ -1029,6 +1029,14 @@ var MRManager = (function() {
         }
     };
 
+    /**
+     * This will get the URL for the current item that is being displayed in the map
+     * Search Parameters will be lost if you just refresh with this URL
+     */
+    var getCurrentMapURL = function() {
+        return "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id;
+    };
+
     return {
         init: init,
         addTaskToMap: addTaskToMap,
@@ -1044,7 +1052,8 @@ var MRManager = (function() {
         updateMRControls: updateMRControls,
         isChallengeSurvey: isChallengeSurvey,
         openTaskInId: openTaskInId,
-        openTaskInJosm: openTaskInJosm
+        openTaskInJosm: openTaskInJosm,
+        getCurrentMapURL: getCurrentMapURL
     };
 
 }());
