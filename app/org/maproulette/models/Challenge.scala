@@ -34,7 +34,8 @@ case class Challenge(override val id: Long,
                      enabled:Boolean=true,
                      challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                      featured:Boolean=false,
-                     overpassQL:Option[String]=None) extends ChildObject[Long, Project] with TagObject[Long] {
+                     overpassQL:Option[String]=None,
+                     overpassStatus:Option[Int]=None) extends ChildObject[Long, Project] with TagObject[Long] {
 
   @Inject val projectDAL:ProjectDAL = null
   @Inject val tagDAL:TagDAL = null
@@ -42,6 +43,20 @@ case class Challenge(override val id: Long,
   override val itemType = challengeType
   override def getParent = projectDAL.retrieveById(parent).get
   override lazy val tags: List[Tag] = tagDAL.listByChallenge(id)
+
+  def getOverpassFriendlyStatus = {
+    overpassStatus match {
+      case Some(status) =>
+        status match {
+          case Challenge.OVERPASS_STATUS_FAILED => "Failed"
+          case Challenge.OVERPASS_STATUS_PARTIALLY_LOADED => "Partially Loaded"
+          case Challenge.OVERPASS_STATUS_BUILDING => "Loading Tasks"
+          case Challenge.OVERPASS_STATUS_COMPLETE => "Complete"
+          case _ => "Not Applicable"
+        }
+      case None => "Not Applicable"
+    }
+  }
 }
 
 object Challenge {
@@ -60,7 +75,8 @@ object Challenge {
       "enabled" -> boolean,
       "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
       "featured" -> default(boolean, false),
-      "overpassQL" -> optional(text)
+      "overpassQL" -> optional(text),
+      "overpassStatus" -> default(optional(number), None)
     )(Challenge.apply)(Challenge.unapply)
   )
 
@@ -69,4 +85,10 @@ object Challenge {
   val DIFFICULTY_EASY = 1
   val DIFFICULTY_NORMAL = 2
   val DIFFICULTY_EXPERT = 3
+
+  val OVERPASS_STATUS_NA = 0
+  val OVERPASS_STATUS_BUILDING = 1
+  val OVERPASS_STATUS_FAILED = 2
+  val OVERPASS_STATUS_COMPLETE = 3
+  val OVERPASS_STATUS_PARTIALLY_LOADED = 4
 }

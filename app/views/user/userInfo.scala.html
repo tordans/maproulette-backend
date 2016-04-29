@@ -33,7 +33,7 @@
         <li class="dropdown user user-menu">
                 <!-- Menu Toggle Button -->
             @if(user.guest) {
-                <a href="@routes.AuthController.authenticate()" class="dropdown-toggle">
+                <a href="#" onclick="signIn();" class="dropdown-toggle">
             } else {
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown">
             }
@@ -86,3 +86,14 @@
         </li>
     </ul>
 </div>
+<script type="application/javascript">
+    function signIn() {
+        var redirectURL;
+        if (typeof MRManager !== 'undefined') {
+            redirectURL = MRManager.getCurrentMapURL();
+        } else {
+            redirectURL = "";
+        }
+        location.href = "@{routes.AuthController.authenticate()}?redirect=" + redirectURL;
+    }
+</script>

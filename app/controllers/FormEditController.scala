@@ -1,10 +1,13 @@
 package controllers
 
+import java.util.regex.Pattern
 import javax.inject.Inject
 
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
 import org.maproulette.actions.Actions
 import org.maproulette.controllers.ControllerHelper
+import org.maproulette.exception.InvalidException
 import org.maproulette.models.{Challenge, Project, Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.session.{SessionManager, User}
@@ -15,6 +18,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, Controller}
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
 /**
@@ -91,15 +95,16 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           )
         },
         challenge => {
-          val id = if (itemId > -1) {
-            dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId)
-            Future { buildOverpassQLTasks(challenge, user) }
-            itemId
-          } else {
-            val newChallenge = dalManager.challenge.insert(challenge, user)
-            Future { buildOverpassQLTasks(newChallenge, user) }
-            newChallenge.id
+          val overpassChallenge = challenge.overpassQL match {
+            case Some(ql) if StringUtils.isNotEmpty(ql) => challenge.copy(overpassStatus = Some(Challenge.OVERPASS_STATUS_BUILDING))
+            case None => challenge
           }
+          val newChallenge = if (itemId > -1) {
+            dalManager.challenge.update(Json.toJson(overpassChallenge)(Challenge.challengeWrites), user)(itemId).get
+          } else {
+            dalManager.challenge.insert(overpassChallenge, user)
+          }
+          Future { buildOverpassQLTasks(newChallenge, user) }
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
         }
       )
@@ -112,75 +117,114 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
     * @param challenge The challenge to create the tasks under
     * @param user The user executing the query
     */
-  def buildOverpassQLTasks(challenge:Challenge, user:User) = {
+  private def buildOverpassQLTasks(challenge:Challenge, user:User) = {
     challenge.overpassQL match {
-      case Some(ql) =>
+      case Some(ql) if StringUtils.isNotEmpty(ql) =>
         // run the query and then create the tasks
         val osmQLProvider = config.getOSMQLProvider
-        val query = s"[out:json];${ql.split('\n').map(_.trim.filter(_ >= ' ')).mkString}out body geom;"
-        val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(osmQLProvider.requestTimeout).post(query).map { _.json }
+        val timeoutPattern = "\\[timeout:([\\d]*)\\]".r
+        val timeout = timeoutPattern.findAllIn(ql).matchData.toList.headOption match {
+          case Some(m) => Duration(m.group(1).toInt, "seconds")
+          case None => osmQLProvider.requestTimeout
+        }
+
+        val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(timeout).post(parseQuery(ql))
 
         jsonFuture onComplete {
-          case Success(s) =>
-            // parse the results
-            val elements = (s \ "elements").as[List[JsValue]]
+          case Success(result) =>
+            if (result.status == OK) {
+              var partial = false;
+              val payload = result.json
+              // parse the results
+              val elements = (payload \ "elements").as[List[JsValue]]
+              elements.foreach {
+                element =>
+                  try {
+                    val geometry = (element \ "type").asOpt[String] match {
+                      case Some("way") =>
+                        val points = (element \ "geometry").as[List[JsValue]].map {
+                          geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
+                        }
+                        Some(Json.obj("type" -> "LineString", "coordinates" -> points))
+                      case Some("node") =>
+                        Some(Json.obj(
+                          "type" -> "Point",
+                          "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
+                        ))
+                      case _ => None
+                    }
 
-            elements.foreach {
-              element =>
-                try {
-                  val geometry = (element \ "type").asOpt[String] match {
-                    case Some("way") =>
-                      val points = (element \ "geometry").as[List[JsValue]].map {
-                        geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
-                      }
-                      Some(Json.obj("type" -> "LineString", "coordinates" -> points))
-                    case Some("node") =>
-                      Some(Json.obj(
-                        "type" -> "Point",
-                        "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
-                      ))
-                    case _ => None
+                    geometry match {
+                      case Some(geom) =>
+                        val props = (element \ "tags").asOpt[JsValue] match {
+                          case Some(tags) => tags
+                          case None => Json.obj()
+                        }
+                        val newTask = Task(-1,
+                          (element \ "id").as[Int]+"",
+                          challenge.id,
+                          challenge.instruction,
+                          None,
+                          Json.obj(
+                            "type" -> "FeatureCollection",
+                            "features" -> Json.arr(Json.obj(
+                              "id" -> (element \ "id").as[Int],
+                              "geometry" -> geom,
+                              "properties" -> props
+                            ))
+                          ).toString
+                        )
+
+                        try {
+                          dalManager.task.insert(newTask, user)
+                        } catch {
+                          // this task could fail on unique key violation, we need to ignore them
+                          case e:Exception =>
+                            Logger.error(e.getMessage)
+                        }
+                      case None => None
+                    }
+                  } catch {
+                    case e:Exception =>
+                      partial = true
+                      Logger.error(e.getMessage, e)
                   }
-
-                  geometry match {
-                    case Some(geom) =>
-                      val props = (element \ "tags").asOpt[JsValue] match {
-                        case Some(tags) => tags
-                        case None => Json.obj()
-                      }
-                      val newTask = Task(-1,
-                        (element \ "id").as[Int]+"",
-                        challenge.id,
-                        challenge.instruction,
-                        None,
-                        Json.obj(
-                          "type" -> "FeatureCollection",
-                          "features" -> Json.arr(Json.obj(
-                            "id" -> (element \ "id").as[Int],
-                            "geometry" -> geom,
-                            "properties" -> props
-                          ))
-                        ).toString
-                      )
-
-                      try {
-                        dalManager.task.insert(newTask, user)
-                      } catch {
-                        // this task could fail on unique key violation, we need to ignore them
-                        case e:Exception =>
-                          Logger.error(e.getMessage)
-                      }
-                    case None => None
-                  }
-                } catch {
-                  case e:Exception =>
-                    Logger.error(e.getMessage, e)
-                }
+              }
+              partial match {
+                case true =>
+                  dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_PARTIALLY_LOADED), user)(challenge.id)
+                case false =>
+                  dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_COMPLETE), user)(challenge.id)
+              }
+            } else {
+              dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_FAILED), user)(challenge.id)
+              throw new InvalidException(s"Bad Request: ${result.body}")
             }
-          case Failure(f) => throw f
+          case Failure(f) =>
+            dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_FAILED), user)(challenge.id)
+            throw f
         }
       case None => // just ignore, we don't have to do anything if it wasn't set
     }
+  }
+
+  /**
+    * parse the query, replace various extended overpass query parameters see http://wiki.openstreetmap.org/wiki/Overpass_turbo/Extended_Overpass_Queries
+      Currently do not support {{bbox}} or {{center}}
+    *
+    * @param query The query to parse
+    * @return
+    */
+  private def parseQuery(query:String) : String = {
+    val osmQLProvider = config.getOSMQLProvider
+    // User can set their own custom timeout if the want
+    var replacedQuery = if (query.indexOf("[timeout:") == 0) {
+      s"[out:json]$query"
+    } else {
+      s"[out:json][timeout:${osmQLProvider.requestTimeout.toSeconds}];$query"
+    }
+    // execute regex matching against {{data:string}}, {{geocodeId:name}}, {{geocodeArea:name}}, {{geocodeBbox:name}}, {{geocodeCoords:name}}
+    replacedQuery
   }
 
   def surveyFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>

@@ -3,8 +3,7 @@ package org.maproulette.controllers
 import controllers.WebJarAssets
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.actions.ActionManager
-import org.maproulette.models.dal.{ChallengeDAL, DALManager}
+import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.Messages
 import play.api.mvc.{Controller, Request, Result}
@@ -37,7 +36,6 @@ trait ControllerHelper {
   protected def getOkIndex(title:String, user:User, content:Html)
                           (implicit request:Request[Any], messages:Messages) : Result = {
     getIndex(Ok, title, user, content)
-      .addingToSession(SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString)
   }
 
   /**
@@ -54,12 +52,17 @@ trait ControllerHelper {
     */
   protected def getIndex(status:Status, title:String, user:User, content:Html)
                         (implicit request:Request[Any], messages:Messages) : Result = {
-    status(views.html.index(title, user, config,
+    val result = status(views.html.index(title, user, config,
       dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0),
       dalManager.challenge.getNewChallenges(config.numberOfChallenges, 0),
       dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0),
       dalManager.action.getRecentActivity(user.id, config.numberOfActivities, 0)
     )(content))
-      .addingToSession(SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString)
+
+    // only modify the user tick if it is an authenticated user
+    if (!user.guest) {
+      result.addingToSession(SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString)
+    }
+    result
   }
 }
