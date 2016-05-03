@@ -53,8 +53,8 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param surveyId The id for the survey
     * @return List of answers for the survey
     */
-  def getAnswers(surveyId:Long) : List[Answer] = {
-    db.withTransaction { implicit c =>
+  def getAnswers(surveyId:Long)(implicit c:Connection=null) : List[Answer] = {
+    withMRConnection { implicit c =>
       SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(answerParser.*)
     }
   }

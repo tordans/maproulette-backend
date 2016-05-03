@@ -7,6 +7,7 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.actions.Actions
 import org.maproulette.cache.CacheManager
+import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.User
 import play.api.db.Database
@@ -74,9 +75,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
                       ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
                       ${challenge.overpassQL}, ${challenge.overpassStatus}
-                      ) RETURNING *""".as(parser.*).headOption
+                      ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
-    }.get
+    } match {
+      case Some(value) => value
+      case None => throw new UniqueViolationException(s"Challenge with name ${challenge.name} already exists in the database")
+    }
   }
 
   /**
@@ -143,8 +147,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @param enabledOnly if true will only return enabled challenges
     * @return list of challenges
     */
-  def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
-    db.withConnection { implicit c =>
+  def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
+    withMRConnection { implicit c =>
       val query = s"""SELECT * FROM challenges c
                       WHERE featured = TRUE ${enabled(enabledOnly)}
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
@@ -161,7 +165,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @param enabledOnly if true will only return enabled challenges
     * @return List of challenges
     */
-  def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
+  def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     List.empty
   }
 
@@ -173,8 +177,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @param enabledOnly if true will only return enabled challenges
     * @return list of challenges
     */
-  def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true) : List[Challenge] = {
-    db.withConnection { implicit c =>
+  def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
+    withMRConnection { implicit c =>
       val query = s"""SELECT * FROM challenges
                       WHERE ${enabled(enabledOnly, "", "")}
                       ${order(Some("created"), "DESC")}
@@ -190,8 +194,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @param id The id for the challenge
     * @return Map of status codes mapped to task counts
     */
-  def getSummary(id:Long) : Map[Int, Int] = {
-    db.withConnection { implicit c =>
+  def getSummary(id:Long)(implicit c:Connection=null) : Map[Int, Int] = {
+    withMRConnection { implicit c =>
       val summaryParser = int("count") ~ get[Option[Int]]("tasks.status") map {
         case count ~ status => status.getOrElse(0) -> count
       }

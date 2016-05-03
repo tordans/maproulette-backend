@@ -1,5 +1,6 @@
 package org.maproulette.controllers.api
 
+import java.sql.Connection
 import javax.inject.Inject
 
 import org.maproulette.actions._
@@ -66,7 +67,7 @@ class SurveyController @Inject() (override val childController:TaskController,
     * @param createdObject The object that was created by the create function
     * @param user          The user that is executing the function
     */
-  override def extractAndCreate(body: JsValue, createdObject: Survey, user: User): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: Survey, user: User)(implicit c:Connection=null): Unit = {
     super.extractAndCreate(body, createdObject, user)
     extractTags(body, createdObject, user)
   }

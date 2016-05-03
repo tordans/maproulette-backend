@@ -1,5 +1,6 @@
 package org.maproulette.controllers.api
 
+import java.sql.Connection
 import javax.inject.Inject
 
 import org.maproulette.actions._
@@ -93,7 +94,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param createdObject The object that was created by the create function
     * @param user          The user that is executing the function
     */
-  override def extractAndCreate(body: JsValue, createdObject: Task, user: User): Unit = extractTags(body, createdObject, user)
+  override def extractAndCreate(body: JsValue, createdObject: Task, user: User)(implicit c:Connection=null): Unit = extractTags(body, createdObject, user)
 
   /**
     * Gets a json list of tags of the task

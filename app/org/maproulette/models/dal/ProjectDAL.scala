@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
+import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models.{Challenge, Project}
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
@@ -55,13 +56,19 @@ class ProjectDAL @Inject() (override val db:Database,
     cacheManager.withOptionCaching { () =>
       val newProject = withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description, enabled)
-              VALUES (${project.name}, ${project.description}, ${project.enabled}) RETURNING *""".as(parser.*).head
+              VALUES (${project.name}, ${project.description}, ${project.enabled})
+              ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
-      // todo: this should be in the above transaction, but for some reason the fkey won't allow it
-      db.withTransaction { implicit c =>
-        // Every new project needs to have a admin group created for them
-        userGroupDAL.createGroup(newProject.id, newProject.name + "_Admin", Group.TYPE_ADMIN)
-        Some(newProject)
+      newProject match {
+        case Some(proj) =>
+          // todo: this should be in the above transaction, but for some reason the fkey won't allow it
+          db.withTransaction { implicit c =>
+            // Every new project needs to have a admin group created for them
+            userGroupDAL.createGroup(proj.id, proj.name + "_Admin", Group.TYPE_ADMIN)
+            Some(proj)
+          }
+        case None =>
+          throw new UniqueViolationException(s"Project with name ${project.name} already exists in the database.")
       }
     }.get
   }
@@ -114,11 +121,12 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param user The user executing the request
     * @return A list of projects managed by the user
     */
-  def listManagedProjects(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="") : List[Project] = {
+  def listManagedProjects(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+                          searchString:String="")(implicit c:Connection=null) : List[Project] = {
     if (user.isSuperUser) {
       list(limit, offset, onlyEnabled, searchString)
     } else {
-      db.withConnection { implicit c =>
+      withMRConnection { implicit c =>
         val query =
           s"""SELECT * FROM projects p
             INNER JOIN projects_group_mapping pgm ON pgm.project_id = p.id

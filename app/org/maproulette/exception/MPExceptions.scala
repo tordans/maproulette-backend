@@ -23,3 +23,10 @@ class NotFoundException(message:String) extends Exception(message)
   * @param message The message to send with the exception
   */
 class LockedException(message:String) extends Exception(message)
+
+/**
+  * Exception for handling the unique violations when trying to insert objects into the database
+  *
+  * @param message The message to send with the exception
+  */
+class UniqueViolationException(message:String) extends Exception(message)

@@ -6,6 +6,7 @@ import javax.inject.{Inject, Provider, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.{CacheManager, TagCacheManager}
+import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models.{Project, Tag}
 import org.maproulette.session.User
 import play.api.db.Database
@@ -41,10 +42,13 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
   override def insert(tag: Tag, user:User)(implicit c:Connection=null): Tag = {
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
-        SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) RETURNING *")
+        SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *")
           .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser.*).headOption
       }
-    }.get
+    } match {
+      case Some(t) => t
+      case None => throw new UniqueViolationException(s"Tag with name ${tag.name} already exists in the database")
+    }
   }
 
   /**
@@ -78,7 +82,7 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @param c       A connection to execute against
     * @return
     */
-  override def mergeUpdate(element: Tag, user: User)(implicit id: Long, c: Connection): Option[Tag] = {
+  override def mergeUpdate(element: Tag, user: User)(implicit id: Long, c: Connection=null): Option[Tag] = {
     element.hasWriteAccess(user)
     withMRTransaction { implicit c =>
       None
@@ -91,10 +95,10 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @param id The id fo the task
     * @return List of tags for the task
     */
-  def listByTask(id:Long) : List[Tag] = {
+  def listByTask(id:Long)(implicit c:Connection=null) : List[Tag] = {
     implicit val ids:List[Long] = List()
     cacheManager.withIDListCaching { implicit uncached =>
-      db.withConnection { implicit c =>
+      withMRConnection { implicit c =>
         SQL"""SELECT * FROM tags AS t
               INNER JOIN tags_on_tasks AS tt ON t.id = tt.tag_id
               WHERE tt.task_id = $id""".as(parser.*)
@@ -108,10 +112,10 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @param id The id of the challenge
     * @return List of tags for the challenge
     */
-  def listByChallenge(id:Long) : List[Tag] = {
+  def listByChallenge(id:Long)(implicit c:Connection=null) : List[Tag] = {
     implicit val ids:List[Long] = List()
     cacheManager.withIDListCaching { implicit uncached =>
-      db.withConnection { implicit c =>
+      withMRConnection { implicit c =>
         SQL"""SELECT * FROM tags AS t
               INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id
               WHERE tc.challenge_id = $id""".as(parser.*)

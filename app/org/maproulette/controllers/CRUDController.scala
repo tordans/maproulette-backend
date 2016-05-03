@@ -1,11 +1,14 @@
 package org.maproulette.controllers
 
+import java.sql.Connection
+
 import com.fasterxml.jackson.databind.JsonMappingException
 import org.maproulette.actions.{Created => ActionCreated, _}
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
-import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.session.{User, SessionManager}
+import org.maproulette.exception.{MPExceptionUtil, UniqueViolationException}
+import org.maproulette.metrics.Metrics
+import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
@@ -41,7 +44,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param createdObject The object that was created by the create function
     * @param user The user that is executing the function
     */
-  def extractAndCreate(body:JsValue, createdObject:T, user:User) : Unit = { }
+  def extractAndCreate(body:JsValue, createdObject:T, user:User)(implicit c:Connection=null) : Unit = { }
 
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
@@ -108,7 +111,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param user The user that is executing this request
     * @return The createdObject (not any of it's children if creating multiple objects, only top level)
     */
-  def internalCreate(requestBody:JsValue, element:T, user:User) : T = {
+  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Connection=null) : T = {
     val createdObject = dal.insert(element, user)
     extractAndCreate(requestBody, createdObject, user)
     actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), ActionCreated(), "")
@@ -162,7 +165,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long) : Option[T] = {
+  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long, c:Connection=null) : Option[T] = {
     val updatedObject = if (Utils.isDigit(id)) {
       dal.update(requestBody, user)(id.toLong)
     } else {
@@ -295,31 +298,49 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], user:User, update:Boolean=false) : Unit = {
     dal.getDatabase.withTransaction { implicit c =>
-      arr.foreach(element => (element \ "id").asOpt[String] match {
-        case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
-        case None =>
-          // if doesn't exist lets look for it based on the name
-          // TODO This needs to be checked for performance, if we are uploading 100,000 objects and
-          // have to check the name for each one then this could be incredibly slow. A big performance
-          // improvement could be just to ignore insert on unique constraint violation. But there are
-          // other considerations to take into account when doing something like that.
-          val matchedNameElement = (element \ "name").asOpt[String]
-          val matchedParentElement = (element \ "parent").asOpt[Long] match {
-            case Some(mpe) => matchedNameElement match {
-              case Some(mne) =>
-                dal.retrieveByName(mne, mpe) match {
-                  case Some(item) => if (update) internalUpdate(element, user)(mne, mpe)
-                  case None =>
-                    updateCreateBody(element).validate[T].fold(
-                      errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-                      validT => internalCreate(requestBody, validT, user)
-                    )
+      Metrics.timer("BatchUpload LOOP") { () =>
+        var numberOfCreateFailures = 0
+        arr.foreach(element => (element \ "id").asOpt[String] match {
+          case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
+          case None =>
+            // if doesn't exist lets look for it based on the name
+            // TODO This needs to be checked for performance, if we are uploading 100,000 objects and
+            // have to check the name for each one then this could be incredibly slow. A big performance
+            // improvement could be just to ignore insert on unique constraint violation. But there are
+            // other considerations to take into account when doing something like that.
+            if (update) {
+              val matchedNameElement = (element \ "name").asOpt[String]
+              val matchedParentElement = (element \ "parent").asOpt[Long] match {
+                case Some(mpe) => matchedNameElement match {
+                  case Some(mne) =>
+                    dal.retrieveByName(mne, mpe) match {
+                      case Some(item) => internalUpdate(element, user)(mne, mpe)
+                      case None =>
+                        updateCreateBody(element).validate[T].fold(
+                          errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+                          validT => internalCreate(element, validT, user)
+                        )
+                    }
+                  case None => // TODO: we should probably handle this failure case in some fashion
                 }
-              case None => // TODO: we should probably handle this failure case in some fashion
+                case None => // TODO: we should probably handle this failure case in some fashion
+              }
+            } else {
+              // just update no matter what, and let the unique constraints handle duplicates
+              updateCreateBody(element).validate[T].fold(
+                errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+                validT =>
+                  try {
+                    internalCreate(element, validT, user)
+                  } catch {
+                    case u: UniqueViolationException => numberOfCreateFailures += 1
+                    case e: Exception => throw e
+                  }
+              )
             }
-            case None => // TODO: we should probably handle this failure case in some fashion
-          }
-      })
+        })
+        Logger.debug(s"$numberOfCreateFailures failed to upload out of ${arr.size}")
+      }
     }
   }
 
