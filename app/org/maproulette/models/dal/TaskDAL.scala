@@ -9,7 +9,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.TaskType
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Lock, Task}
-import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
@@ -53,8 +53,8 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     * @param id Id for the task
     * @return A feature collection geojson of all the task geometries
     */
-  private def getTaskGeometries(id:Long) : String = {
-    db.withConnection { implicit c =>
+  private def getTaskGeometries(id:Long)(implicit c:Connection=null) : String = {
+    withMRConnection { implicit c =>
       SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
                    FROM ( SELECT 'Feature' As type,
@@ -91,13 +91,19 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
         }
         // status is ignored on insert and always set to CREATED
         val query = s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status)
-                        VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}
-                        ) RETURNING id"""
-        val newTaskId = SQL(query).on(parameters: _*).as(long("id").*).head
-        updateGeometries(newTaskId, Json.parse(task.geometries))
-        Some(task.copy(id = newTaskId))
+                      VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}
+                      ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING id"""
+        SQL(query).on(parameters: _*).as(long("id").*).headOption match {
+          case Some(id) =>
+            updateGeometries(id, Json.parse(task.geometries), false, true)
+            Some(task.copy(id = id))
+          case None => None
+        }
       }
-    }.get
+    } match {
+      case Some(t) => t
+      case None => throw new UniqueViolationException(s"Task with name ${task.name} already exists in the database")
+    }
   }
 
   /**
@@ -121,7 +127,6 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
           throw new InvalidException(s"Could not set status for task [$id], " +
             s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
         }
-        val geometries = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
 
         var parameters = Seq(
           NamedParameter("name", ParameterValue.toParameterValue(name)),
@@ -138,11 +143,16 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
         }
 
         val query = s"""UPDATE tasks SET name = {name}, parent_id = {parentId},
-                          instruction = {instruction}, $locationInfo status = {status}
-                        WHERE id = {id}"""
+                        instruction = {instruction}, $locationInfo status = {status}
+                      WHERE id = {id}"""
 
         SQL(query).on(parameters: _*).executeUpdate()
-        updateGeometries(id, Json.parse(geometries))
+        val geometries = (value \ "geometries").asOpt[String] match {
+          case Some(geom) =>
+            updateGeometries(id, Json.parse(geom))
+            geom
+          case None => cachedItem.geometries
+        }
         Some(Task(id, name, parentId, instruction, Some(location), geometries, Some(status)))
       }
     }
@@ -167,15 +177,30 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
   }
 
   /**
+    * Uploads tasks in a batch instead of one at a time
+    *
+    * @param challengeId The parent challenge to upload the elements too
+    * @param elements The list of elements to upload
+    * @param user The user uploading the elements
+    * @param c The connection being used to upload the elements too
+    * @return The number of tasks uploaded
+    */
+  def batchUpload(challengeId:Long, elements:List[Task], user:User, update:Boolean=false)(implicit c:Connection) : Int = {
+    0
+  }
+
+  /**
     * Function that updates the geometries for the task, either during an insert or update
     *
     * @param taskId The task Id to update the geometries for
     * @param value The geojson that contains the geometries/features
     * @param setLocation Whether to set the location based on the geometries or not
     */
-  private def updateGeometries(taskId:Long, value:JsValue, setLocation:Boolean=false)(implicit c:Connection=null) : Unit = {
+  private def updateGeometries(taskId:Long, value:JsValue, setLocation:Boolean=false, isNew:Boolean=false)(implicit c:Connection=null) : Unit = {
     withMRTransaction { implicit c =>
-      SQL"""DELETE FROM task_geometries WHERE task_id = $taskId""".executeUpdate()
+      if (!isNew) {
+        SQL"""DELETE FROM task_geometries WHERE task_id = $taskId""".executeUpdate()
+      }
       val features = (value \ "features").as[List[JsValue]]
       val indexedValues = features.zipWithIndex
       val rows = indexedValues.map {
@@ -239,8 +264,8 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     * @param currentTaskId The current task that we are basing our query from
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
-  def getNextTaskInSequence(parentId:Long, currentTaskId:Long) : Option[(Task, Lock)] = {
-    db.withConnection { implicit c =>
+  def getNextTaskInSequence(parentId:Long, currentTaskId:Long)(implicit c:Connection=null) : Option[(Task, Lock)] = {
+    withMRConnection { implicit c =>
       val lp = for {
         task <- parser
         lock <- lockedParser
@@ -268,8 +293,8 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     * @param currentTaskId The current task that we are basing our query from
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
-  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long) : Option[(Task, Lock)] = {
-    db.withConnection { implicit c =>
+  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long)(implicit c:Connection=null) : Option[(Task, Lock)] = {
+    withMRConnection { implicit c =>
       val lp = for {
         task <- parser
         lock <- lockedParser
@@ -303,7 +328,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
   def getRandomTasks(user:User, params: SearchParameters,
-                     limit:Int=(-1)) : List[Task] = {
+                     limit:Int=(-1))(implicit c:Connection=null) : List[Task] = {
     val taskTagIds = tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
     val challengeTagIds = tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
     val firstQuery =
@@ -374,7 +399,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
 
     implicit val ids = List[Long]()
     cacheManager.withIDListCaching { implicit cachedItems =>
-      db.withTransaction { implicit c =>
+      withMRTransaction { implicit c =>
         // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
         // task can be locked at a time
         unlockAllItems(user, Some(TaskType()))

@@ -1,10 +1,10 @@
-name := "PlayMapRouletteV2"
+name := "MapRouletteV2"
 
 version := "1.0"
 
 scalaVersion := "2.11.8"
 
-lazy val `playmaproulettev2` = (project in file("."))
+lazy val `MapRouletteV2` = (project in file("."))
   .enablePlugins(PlayScala)
   .enablePlugins(SbtWeb)
 

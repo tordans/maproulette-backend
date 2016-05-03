@@ -1,12 +1,14 @@
 package org.maproulette.controllers
 
+import java.sql.Connection
+
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.ParentDAL
 import org.maproulette.session.User
 import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
-import play.api.mvc.{BodyParsers, Action}
+import play.api.mvc.{Action, BodyParsers}
 
 /**
   * Base controller for parent objects, namely Projects and Challenges. This controller helps in
@@ -38,7 +40,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param createdObject The object that was created by the create function
     * @param user the user executing the request
     */
-  override def extractAndCreate(body: JsValue, createdObject: T, user:User): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: T, user:User)(implicit c:Connection=null): Unit = {
     implicit val reads:Reads[C] = cReads
     (body \ "children").asOpt[List[JsValue]] match {
       case Some(children) => children map { child =>

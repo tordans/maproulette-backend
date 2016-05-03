@@ -35,7 +35,7 @@ case class Challenge(override val id: Long,
                      challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                      featured:Boolean=false,
                      overpassQL:Option[String]=None,
-                     overpassStatus:Option[Int]=None) extends ChildObject[Long, Project] with TagObject[Long] {
+                     overpassStatus:Option[Int]=Some(0)) extends ChildObject[Long, Project] with TagObject[Long] {
 
   @Inject val projectDAL:ProjectDAL = null
   @Inject val tagDAL:TagDAL = null

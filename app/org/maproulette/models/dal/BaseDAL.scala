@@ -176,9 +176,9 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @param id The id of the object to be retrieved
     * @return The object, None if not found
     */
-  def retrieveById(implicit id:Key) : Option[T] = {
+  def retrieveById(implicit id:Key, c:Connection=null) : Option[T] = {
     cacheManager.withCaching { () =>
-      db.withConnection { implicit c =>
+      withMRConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE id = {id}"
         SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).as(parser.singleOpt)
       }
@@ -195,9 +195,9 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @param name The name you are looking up by
     * @return The object that you are looking up, None if not found
     */
-  def retrieveByName(implicit name:String, parentId:Long=(-1)) : Option[T] = {
+  def retrieveByName(implicit name:String, parentId:Long=(-1), c:Connection=null) : Option[T] = {
     cacheManager.withOptionCaching { () =>
-      db.withConnection { implicit c =>
+      withMRConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM $tableName WHERE name = {name} ${parentFilter(parentId)}"
         SQL(query).on('name -> name).as(parser.singleOpt)
       }
@@ -215,12 +215,12 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @param ids The list of ids to be retrieved
     * @return A list of objects, empty list if none found
     */
-  def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key]): List[T] = {
+  def retrieveListById(limit: Int = (-1), offset: Int = 0)(implicit ids:List[Key], c:Connection=null): List[T] = {
     if (ids.isEmpty) {
       List.empty
     } else {
       cacheManager.withIDListCaching { implicit uncachedIDs =>
-        db.withConnection { implicit c =>
+        withMRConnection { implicit c =>
           val query =
             s"""SELECT $retrieveColumns FROM $tableName
                           WHERE id IN ({inString})
@@ -239,12 +239,12 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @param names The names to be retrieved
     * @return List of objects, empty list if none found
     */
-  def retrieveListByName(implicit names: List[String], parentId:Long=(-1)): List[T] = {
+  def retrieveListByName(implicit names: List[String], parentId:Long=(-1), c:Connection=null): List[T] = {
     if (names.isEmpty) {
       List.empty
     } else {
       cacheManager.withNameListCaching { implicit uncachedNames =>
-        db.withConnection { implicit c =>
+        withMRConnection { implicit c =>
           val query = s"SELECT $retrieveColumns FROM $tableName WHERE name in ({inString}) ${parentFilter(parentId)}"
           SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedNames)).as(parser.*)
         }
@@ -263,7 +263,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @return A list of tags that contain the supplied prefix
     */
   def retrieveListByPrefix(prefix: String, limit: Int = 10, offset: Int = 0, onlyEnabled:Boolean=false,
-                           orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)): List[T] =
+                           orderColumn:String="id", orderDirection:String="ASC")
+                          (implicit parentId:Long=(-1), c:Connection=null): List[T] =
     _find(s"$prefix%", limit, offset, onlyEnabled, orderColumn, orderDirection)
 
   /**
@@ -276,12 +277,14 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @return A list of tags that contain the supplied prefix
     */
   def find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
-           orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)) : List[T] =
+           orderColumn:String="id", orderDirection:String="ASC")
+          (implicit parentId:Long=(-1), c:Connection=null) : List[T] =
     _find(s"%$searchString%", limit, offset, onlyEnabled, orderColumn, orderDirection)
 
   def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
-            orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)) : List[T] = {
-    db.withConnection { implicit c =>
+            orderColumn:String="id", orderDirection:String="ASC")
+           (implicit parentId:Long=(-1), c:Connection=null) : List[T] = {
+    withMRConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM $tableName
                       WHERE ${searchField("name")} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
                       ${parentFilter(parentId)}
@@ -296,10 +299,11 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * a lot of memory
     */
   def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
-           orderColumn:String="id", orderDirection:String="ASC")(implicit parentId:Long=(-1)) : List[T] = {
+           orderColumn:String="id", orderDirection:String="ASC")
+          (implicit parentId:Long=(-1), c:Connection=null) : List[T] = {
     implicit val ids = List.empty
     cacheManager.withIDListCaching { implicit uncachedIDs =>
-      db.withConnection { implicit c =>
+      withMRConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
                         WHERE ${searchField("name")}
                         ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)} ${parentFilter(parentId)}

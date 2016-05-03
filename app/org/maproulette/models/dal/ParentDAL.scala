@@ -1,5 +1,7 @@
 package org.maproulette.models.dal
 
+import java.sql.Connection
+
 import anorm._
 import org.maproulette.models.BaseObject
 import org.maproulette.models.utils.DALHelper
@@ -28,9 +30,9 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @return A list of children objects
     */
   def listChildren(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key) : List[C] = {
+                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key, c:Connection=null) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
-    db.withConnection { implicit c =>
+    withMRConnection { implicit c =>
       val query = s"""SELECT $childColumns FROM $childTable
                       WHERE parent_id = {id} ${enabled(onlyEnabled)}
                       ${searchField("name", "AND")}
@@ -52,9 +54,9 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @return A list of children objects
     */
   def listChildrenByName(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String) : List[C] = {
+                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String, c:Connection=null) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
-    db.withConnection { implicit c =>
+    withMRConnection { implicit c =>
       // TODO currently it will only check if the parent is enabled and not the child, this is because
       // there is the case where a Task is a child of challenge and so there is no enabled column on that table
       val query = s"""SELECT $childColumns FROM $childTable c
@@ -77,8 +79,8 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param id The id for the parent
     * @return A integer value representing the total number of children
     */
-  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key) : Int = {
-    db.withConnection { implicit c =>
+  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key, c:Connection=null) : Int = {
+    withMRConnection { implicit c =>
       val query =
         s"""SELECT COUNT(*) as TotalChildren FROM $childTable
            |WHERE ${searchField("name")} AND parent_id = {id}

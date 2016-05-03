@@ -108,9 +108,9 @@ trait TagsMixin[T<:BaseObject[Long]] {
       case _ => List.empty
     }
 
-    // now we have the ids for the supplied tags, then lets map them to the task created
-    dalWithTags.updateItemTags(createdObject.id, tagIds, user)
     if (tagIds.nonEmpty) {
+      // now we have the ids for the supplied tags, then lets map them to the task created
+      dalWithTags.updateItemTags(createdObject.id, tagIds, user)
       actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
   }

@@ -96,7 +96,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags to be applied to the item
     * @param user The user executing the item
     */
-  def updateItemTagNames(id:Long, tags:List[String], user:User) : Unit = {
+  def updateItemTagNames(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
     val tagIds = tags.flatMap { tag => {
       tagDAL.retrieveByName(tag) match {
         case Some(t) => Some(t.id)
@@ -114,9 +114,9 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param offset For paging, where 0 is the first page
     * @return A list of tags that have the tags
     */
-  def getItemsBasedOnTags(tags:List[String], limit:Int, offset:Int) : List[T] = {
+  def getItemsBasedOnTags(tags:List[String], limit:Int, offset:Int)(implicit c:Connection=null) : List[T] = {
     val lowerTags = tags.map(_.toLowerCase)
-    db.withConnection { implicit c =>
+    withMRConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit+""
       val query = s"""SELECT $retrieveColumns FROM $tableName
                       INNER JOIN challenges c ON c.id = $tableName.parent_id
