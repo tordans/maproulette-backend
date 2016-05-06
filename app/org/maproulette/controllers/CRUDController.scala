@@ -91,8 +91,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
                 case None => NotModified
               }
             } else {
-              // TODO: check if name and parent is available to update instead of create or at least attempt too
-              Created(Json.toJson(internalCreate(request.body, element, user)))
+              internalCreate(request.body, element, user) match {
+                case Some(value) => Created(Json.toJson(value))
+                case None => NotModified
+              }
             }
           }
         }
@@ -111,11 +113,14 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param user The user that is executing this request
     * @return The createdObject (not any of it's children if creating multiple objects, only top level)
     */
-  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Connection=null) : T = {
-    val createdObject = dal.insert(element, user)
-    extractAndCreate(requestBody, createdObject, user)
-    actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), ActionCreated(), "")
-    createdObject
+  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Connection=null) : Option[T] = {
+    dal.mergeUpdate(element, user)(element.id) match {
+      case Some(created) =>
+        extractAndCreate(requestBody, created, user)
+        actionManager.setAction(Some(user), itemType.convertToItem(created.id), ActionCreated(), "")
+        Some(created)
+      case None => None
+    }
   }
 
   /**
@@ -303,41 +308,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
         arr.foreach(element => (element \ "id").asOpt[String] match {
           case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
           case None =>
-            // if doesn't exist lets look for it based on the name
-            // TODO This needs to be checked for performance, if we are uploading 100,000 objects and
-            // have to check the name for each one then this could be incredibly slow. A big performance
-            // improvement could be just to ignore insert on unique constraint violation. But there are
-            // other considerations to take into account when doing something like that.
-            if (update) {
-              val matchedNameElement = (element \ "name").asOpt[String]
-              val matchedParentElement = (element \ "parent").asOpt[Long] match {
-                case Some(mpe) => matchedNameElement match {
-                  case Some(mne) =>
-                    dal.retrieveByName(mne, mpe) match {
-                      case Some(item) => internalUpdate(element, user)(mne, mpe)
-                      case None =>
-                        updateCreateBody(element).validate[T].fold(
-                          errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-                          validT => internalCreate(element, validT, user)
-                        )
-                    }
-                  case None => // TODO: we should probably handle this failure case in some fashion
-                }
-                case None => // TODO: we should probably handle this failure case in some fashion
-              }
-            } else {
-              // just update no matter what, and let the unique constraints handle duplicates
-              updateCreateBody(element).validate[T].fold(
-                errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-                validT =>
-                  try {
-                    internalCreate(element, validT, user)
-                  } catch {
-                    case u: UniqueViolationException => numberOfCreateFailures += 1
-                    case e: Exception => throw e
-                  }
-              )
-            }
+            updateCreateBody(element).validate[T].fold(
+              errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+              validT => internalCreate(element, validT, user)
+            )
         })
         Logger.debug(s"$numberOfCreateFailures failed to upload out of ${arr.size}")
       }
