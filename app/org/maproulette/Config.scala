@@ -63,6 +63,10 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val getSemanticVersion : String =
     this.config.getString(Config.KEY_SEMANTIC_VERSION).getOrElse("N/A")
+
+  lazy val sessionTimeout : Long = this.config.getLong(Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
+
+  lazy val taskReset : Int = this.config.getInt(Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
 }
 
 object Config {
@@ -75,6 +79,8 @@ object Config {
   val KEY_NUM_OF_CHALLENGES = s"$GROUP_MAPROULETTE.limits.challenges"
   val KEY_RECENT_ACTIVITY = s"$GROUP_MAPROULETTE.limits.activities"
   val KEY_SEMANTIC_VERSION = s"$GROUP_MAPROULETTE.version"
+  val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
+  val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
 
   val GROUP_OSM = "osm"
   val KEY_OSM_SERVER = s"$GROUP_OSM.server"
@@ -88,6 +94,8 @@ object Config {
   val KEY_OSM_QL_PROVIDER = s"$GROUP_OSM.ql.provider"
   val KEY_OSM_QL_TIMEOUT = s"$GROUP_OSM.ql.timeout"
 
+  val DEFAULT_SESSION_TIMEOUT = 3600000L
+  val DEFAULT_TASK_RESET= 7
   val DEFAULT_OSM_QL_TIMEOUT = 25
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5

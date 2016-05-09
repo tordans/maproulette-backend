@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
+import org.maproulette.Config
 import org.maproulette.actions.TaskType
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Lock, Task}
@@ -23,7 +24,7 @@ import scala.collection.mutable.ListBuffer
   * @author cuthbertm
   */
 @Singleton
-class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
+class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, config:Config)
     extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
@@ -172,7 +173,20 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL)
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Connection): Option[Task] = {
     element.hasWriteAccess(user)
     withMRTransaction { implicit c =>
-      None
+      val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {reset})"
+
+      val updatedTaskId = SQL(query).on(
+        NamedParameter("name", ParameterValue.toParameterValue(element.name)),
+        NamedParameter("parentId", ParameterValue.toParameterValue(element.parent)),
+        NamedParameter("instruction", ParameterValue.toParameterValue(element.instruction)),
+        NamedParameter("status", ParameterValue.toParameterValue(element.status.getOrElse(Task.STATUS_CREATED))),
+        NamedParameter("id", ParameterValue.toParameterValue(element.id)),
+        NamedParameter("reset", ParameterValue.toParameterValue(config.taskReset + " days"))
+      ).as(long("create_update_task").*).head
+      if (StringUtils.isNotEmpty(element.geometries)) {
+        updateGeometries(updatedTaskId, Json.parse(element.geometries))
+      }
+      Some(element.copy(id = updatedTaskId))
     }
   }
 

@@ -96,7 +96,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
 
   /**
     * This is a merge update function that will update the function if it exists otherwise it will
-    * insert a new item.
+    * insert a new item. By default unless the implementing class overrides this function, the
+    * mergeUpdate will simply attempt an insert
     *
     * @param element The element that needs to be inserted or updated. Although it could be updated,
     *                it requires the element itself in case it needs to be inserted
@@ -105,11 +106,15 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     * @param c A connection to execute against
     * @return
     */
-  def mergeUpdate(element: T, user:User)(implicit id:Key, c:Connection=null) : Option[T]
+  def mergeUpdate(element: T, user:User)(implicit id:Key, c:Connection=null) : Option[T] =
+    Some(insert(element, user))
 
   /**
     * Update function that must be implemented by the class that mixes in this trait. This update
-    * function updates based on the name instead of the id
+    * function updates based on the name instead of the id. This is the default update function,
+    * the downside of this function is that it will first retrieve the item from cache and then
+    * attempt to update it. For a more efficient method, the implementing class would need to
+    * override this and then execute the update function filtering on the name and parentId.
     *
     * @param updates The updates in json form
     * @param user The user executing the update

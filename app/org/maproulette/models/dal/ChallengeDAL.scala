@@ -122,24 +122,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
   }
 
   /**
-    * This is a merge update function that will update the function if it exists otherwise it will
-    * insert a new item.
-    *
-    * @param element The element that needs to be inserted or updated. Although it could be updated,
-    *                it requires the element itself in case it needs to be inserted
-    * @param user    The user that is executing the function
-    * @param id      The id of the element that is being updated/inserted
-    * @param c       A connection to execute against
-    * @return
-    */
-  override def mergeUpdate(element: Challenge, user: User)(implicit id: Long, c: Connection): Option[Challenge] = {
-    element.hasWriteAccess(user)
-    withMRTransaction { implicit c =>
-      None
-    }
-  }
-
-  /**
     * Gets the featured challenges
     *
     * @param limit The number of challenges to retrieve

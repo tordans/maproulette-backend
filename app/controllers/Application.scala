@@ -206,7 +206,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
             "name" -> task.name,
             "instruction" -> task.instruction,
             "location" -> task.location.toString,
-            "status" -> task.status.getOrElse(0).toString,
+            "status" -> Task.getStatusName(task.status.getOrElse(0)).getOrElse("Unknown"),
             "actions" -> task.id.toString
           ))
 
