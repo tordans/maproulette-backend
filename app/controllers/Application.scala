@@ -134,7 +134,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
       getOkIndex("MapRoulette Users", user,
         views.html.admin.users.users(user,
           dalManager.user.list(limit, offset, false, q),
-          dalManager.project.listManagedProjects(user)
+          dalManager.project.listManagedProjects(user),
+          dalManager.project
         )
       )
     }

@@ -191,19 +191,6 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, 
   }
 
   /**
-    * Uploads tasks in a batch instead of one at a time
-    *
-    * @param challengeId The parent challenge to upload the elements too
-    * @param elements The list of elements to upload
-    * @param user The user uploading the elements
-    * @param c The connection being used to upload the elements too
-    * @return The number of tasks uploaded
-    */
-  def batchUpload(challengeId:Long, elements:List[Task], user:User, update:Boolean=false)(implicit c:Connection) : Int = {
-    0
-  }
-
-  /**
     * Function that updates the geometries for the task, either during an insert or update
     *
     * @param taskId The task Id to update the geometries for

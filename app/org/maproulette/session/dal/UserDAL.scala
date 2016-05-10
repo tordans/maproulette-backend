@@ -1,6 +1,7 @@
 package org.maproulette.session.dal
 
 import java.sql.Connection
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,7 +15,8 @@ import org.maproulette.models.dal.BaseDAL
 import org.maproulette.session.{Group, Location, OSMProfile, User}
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
-import play.api.libs.json.JsValue
+import play.api.libs.Crypto
+import play.api.libs.json.{JsValue, Json}
 import play.api.libs.oauth.RequestToken
 
 /**
@@ -140,7 +142,10 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   /**
     * "Upsert" function that will insert a new user into the database, if the user already exists in
     * the database it will simply update the user with new information. A user is considered to exist
-    * in the database if the id or osm_id is found in the users table.
+    * in the database if the id or osm_id is found in the users table. During an insert any groups
+    * for the user will be ignored, to update groups or add/remove groups, the specific functions
+    * for that must be used. Or the update method which has a specific mechanism for updating
+    * groups
     *
     * @param user The user to update
     * @return None if failed to update or create.
@@ -176,19 +181,6 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         'wkt -> s"SRID=4326;$ewkt",
         'id -> item.id
       ).executeUpdate()
-      // if we are updating a user, then get rid of his group associations and recreate
-      SQL"""DELETE FROM user_groups WHERE osm_user_id = ${item.osmProfile.id}""".executeUpdate()
-      if (item.groups.nonEmpty) {
-        val ugQuery = s"""INSERT INTO user_groups (osm_user_id, group_id) VALUES (${item.osmProfile.id}, {groupId})"""
-        val parameters = item.groups.map(group => {
-            Seq[NamedParameter]("groupId" -> group.id)
-        })
-        if (parameters.tail.nonEmpty) {
-          BatchSql(ugQuery, parameters.head, parameters.tail: _*).execute()
-        } else {
-          BatchSql(ugQuery, parameters.head).execute()
-        }
-      }
     }
     // We do this separately from the transaction because if we don't the user_group mappings
     // wont be accessible just yet.
@@ -258,24 +250,6 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   }
 
   /**
-    * This is a merge update function that will update the function if it exists otherwise it will
-    * insert a new item.
-    *
-    * @param element The element that needs to be inserted or updated. Although it could be updated,
-    *                it requires the element itself in case it needs to be inserted
-    * @param user    The user that is executing the function
-    * @param id      The id of the element that is being updated/inserted
-    * @param c       A connection to execute against
-    * @return
-    */
-  override def mergeUpdate(element: User, user: User)(implicit id: Long, c: Connection): Option[User] = {
-    element.hasWriteAccess(user)
-    withMRTransaction { implicit c =>
-      None
-    }
-  }
-
-  /**
     * Deletes a user from the database based on a specific user id
     *
     * @param id The user to delete
@@ -311,14 +285,15 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   /**
     * Adds a user to a project
     *
-    * @param user The user that is adding the user to the project
+    * @param osmID The OSM ID of the user to add to the project
     * @param projectId The project that user is being added too
+    * @param user The user that is adding the user to the project
     */
-  def addUserToProject(user:User, projectId:Long)(implicit c:Connection=null) : Unit = {
+  def addUserToProject(osmID:Long, projectId:Long, user:User)(implicit c:Connection=null) : Unit = {
     hasAccess(user)
     withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id)
-            SELECT ${user.osmProfile.id}, id FROM groups
+            SELECT $osmID, id FROM groups
             WHERE group_type = 1 AND project_id = $projectId
          """.executeUpdate()
     }
@@ -327,14 +302,41 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
   /**
     * Add a user to a group
     *
-    * @param user The user that is adding the user to the project
+    * @param osmID The OSM ID of the user to add to the project
     * @param group The group that user is being added too
+    * @param user The user that is adding the user to the project
     */
-  def addUserToGroup(user:User, group:Group)(implicit c:Connection=null) : Unit = {
+  def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
     hasAccess(user)
     withMRTransaction { implicit c =>
-      SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES (${user.id}, ${group.id})""".executeUpdate()
+      SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES ($osmID, ${group.id})""".executeUpdate()
     }
+  }
+
+  /**
+    * Removes a user from a group
+    *
+    * @param osmID The OSM ID of the user
+    * @param group The group that you are removing from the user
+    * @param user The user executing the request
+    * @param c An implicit connection if applicable
+    */
+  def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
+    hasAccess(user)
+    withMRTransaction { implicit c =>
+      SQL"""DELETE FROM user_groups WHERE osm_user_id = $osmID AND group_id = ${group.id}""".executeUpdate()
+    }
+  }
+
+  /**
+    * Generates a new API key for the user
+    *
+    * @param userId The user that is requesting that their key be updated.
+    * @return An optional variable that will contain the updated user if successful
+    */
+  def generateAPIKey(userId:Long) : Option[User] = {
+    val newAPIKey = Crypto.encryptAES(userId + "|" + UUID.randomUUID())
+    this.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), User.superUser)(userId)
   }
 
   /**

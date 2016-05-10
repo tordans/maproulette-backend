@@ -104,10 +104,15 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Will return NoContent if cannot create the key (which most likely means that no user was
     *         found, or will return the api key as plain text.
     */
-  def generateAPIKey() = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      user match {
-        case Some(u) => u.generateAPIKey.apiKey match {
+  def generateAPIKey(userId:Long=(-1)) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      val userIdToUse = if (user.isSuperUser && userId != -1) {
+        userId
+      } else {
+        user.id
+      }
+      dalManager.user.generateAPIKey(userIdToUse) match {
+        case Some(updated) => updated.apiKey match {
           case Some(api) => Ok(api)
           case None => NoContent
         }
@@ -129,7 +134,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
           if (addUser.groups.exists(_.projectId == projectId)) {
             throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
           }
-          dalManager.user.addUserToProject(addUser, projectId)
+          dalManager.user.addUserToProject(addUser.osmProfile.id, projectId, user)
           Ok(Json.obj("status" -> "Ok", "message" -> s"User ${addUser.name} added to project $projectId"))
         case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }

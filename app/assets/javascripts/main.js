@@ -301,15 +301,19 @@ var addItemToMap = function(parentId, taskId) {
     }
 };
 
-var generateAPIKey = function() {
+var generateAPIKey = function(success, userId) {
     var apiCallback = {
         success : function(data) {
             currentAPIKey = data;
-            showAPIKey();
+            if (typeof success === 'undefined') {
+                showAPIKey();   
+            } else {
+                success(data);
+            }
         },
         error : Utils.handleError
     };
-    jsRoutes.controllers.AuthController.generateAPIKey().ajax(apiCallback);
+    jsRoutes.controllers.AuthController.generateAPIKey(userId).ajax(apiCallback);
 };
 
 var showAPIKey = function() {

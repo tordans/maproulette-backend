@@ -1,6 +1,8 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Project
-@(user:User, userList:List[User], projects:List[Project])(implicit messages: Messages)
+@import org.maproulette.models.dal.ProjectDAL
+@import org.maproulette.actions.Actions
+@(user:User, userList:List[User], projects:List[Project], projectDAL: ProjectDAL)(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -27,11 +29,21 @@
                                 <td>@u.id</td>
                                 <td>@u.osmProfile.id</td>
                                 <td>@u.osmProfile.displayName</td>
-                                <td>@if(u.isSuperUser) { ALL } else {}</td>
-                                <td>@u.apiKey</td>
+                                <td>
+                                    @if(u.isSuperUser) {
+                                        ALL
+                                    } else {
+                                        @for(p <- projectDAL.listManagedProjects(u)) {
+                                            <a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p.id)">@p.name</a>
+                                        }
+                                    }
+                                </td>
+                                <td id="apiKey_@{u.id}">@u.apiKey</td>
                                 <td>
                                     <div class="pull-left">
-                                        <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
+                                        <a href="#" onclick="regenerateKey(@{u.id});">
+                                            <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
+                                        </a>
                                     </div>
                                     @if(user.isSuperUser) {
                                         <div class="pull-left">
@@ -74,5 +86,11 @@
     var addUserToProject = function(userId) {
         $("#userId").val(userId);
         $("#addtoproject_modal").modal("show");
-    }
+    };
+
+    var regenerateKey = function(userId) {
+        generateAPIKey(function(data) {
+            $("#apiKey_" + userId).html(data);
+        }, userId);
+    };
 </script>

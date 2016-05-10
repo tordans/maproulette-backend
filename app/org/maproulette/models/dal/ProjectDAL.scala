@@ -108,14 +108,18 @@ class ProjectDAL @Inject() (override val db:Database,
       list(limit, offset, onlyEnabled, searchString)
     } else {
       withMRConnection { implicit c =>
-        val query =
-          s"""SELECT * FROM projects p
-            INNER JOIN projects_group_mapping pgm ON pgm.project_id = p.id
-            WHERE ${searchField("name")} AND pgm.group_id IN ({ids}) ${enabled(onlyEnabled)}
-            LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
-        SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
-          'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
-          .as(parser.*)
+        if (user.groups.isEmpty) {
+          List.empty
+        } else {
+          val query =
+            s"""SELECT p.* FROM projects p
+              INNER JOIN groups g ON g.project_id = p.id
+              WHERE g.id IN ({ids}) ${searchField("p.name")} ${enabled(onlyEnabled)}
+              LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
+          SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
+            'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
+            .as(parser.*)
+        }
       }
     }
   }

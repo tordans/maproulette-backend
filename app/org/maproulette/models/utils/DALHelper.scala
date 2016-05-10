@@ -35,13 +35,8 @@ trait DALHelper {
     * @return
     */
   def enabled(value:Boolean, tablePrefix:String="", conjunction:String="AND") : String = {
-    val prefix = if (tablePrefix.nonEmpty) {
-      tablePrefix + "."
-    } else {
-      ""
-    }
     if (value) {
-      s"$conjunction ${prefix}enabled = TRUE"
+      s"$conjunction ${getPrefix(tablePrefix)}enabled = TRUE"
     } else {
       ""
     }
@@ -52,11 +47,11 @@ trait DALHelper {
     * with LOWER to make sure that match is case insensitive
     *
     * @param column The column that you are searching against
-    * @param conjunction Default is empty, but can use AND or OR
+    * @param conjunction Default is AND, but can use AND or OR
     * @param key The search string that you are testing against
     * @return
     */
-  def searchField(column:String, conjunction:String="", key:String="ss") : String =
+  def searchField(column:String, conjunction:String="AND", key:String="ss") : String =
     s"$conjunction LOWER($column) LIKE LOWER({$key})"
 
   /**
@@ -78,18 +73,13 @@ trait DALHelper {
     */
   def order(orderColumn:Option[String]=None, orderDirection:String="ASC", tablePrefix:String="") : String = orderColumn match {
     case Some(column) =>
-      val trueColumnName = if (tablePrefix.nonEmpty) {
-        s"$tablePrefix.$column"
-      } else {
-        column
-      }
       val direction = orderDirection match {
         case "DESC" => "DESC"
         case _ => "ASC"
       }
       // sanitize the column name to prevent sql injection. Only allow underscores and A-Za-z
-      if (trueColumnName.forall(ordinary.contains(_))) {
-        s"ORDER BY $trueColumnName $direction"
+      if (column.forall(ordinary.contains(_))) {
+        s"ORDER BY ${getPrefix(tablePrefix)}$column $direction"
       } else {
         ""
       }
@@ -112,4 +102,12 @@ trait DALHelper {
   } else {
     ""
   }
+
+  /**
+    * Just appends the period at the end of the table prefix if the provided string is not empty
+    *
+    * @param prefix The table prefix that is being used in the query
+    * @return
+    */
+  private def getPrefix(prefix:String) : String = if (StringUtils.isEmpty(prefix)) "" else s"$prefix."
 }

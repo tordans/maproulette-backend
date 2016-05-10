@@ -21,7 +21,7 @@ GET     /ui/error/:errorString                                          @control
 GET     /ui/user/profile                                                @controllers.Application.profile
 GET     /auth/authenticate                                              @controllers.AuthController.authenticate
 GET     /auth/signout                                                   @controllers.AuthController.signOut
-GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey
+GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey(userId:Long ?= -1)
 DELETE  /auth/deleteUser/userId                                         @controllers.AuthController.deleteUser(userId:Long)
 GET     /auth/addUser/:userId/toProject/:projectId                      @controllers.AuthController.addUserToProject(userId:Long, projectId:Long)
 GET     /refreshProfile                                                 @controllers.Application.refreshProfile
@@ -33,9 +33,9 @@ GET     /map/:parentId                                                  @control
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
-GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask(pid:Long ?= (-1), ps:String ?= "", cid:Long ?= (-1), ct:String ?= "", cs:String ?= "", tags:String ?= "", s:String ?= "")
+GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask(pid:Long ?= -1, ps:String ?= "", cid:Long ?= -1, ct:String ?= "", cs:String ?= "", tags:String ?= "", s:String ?= "")
 # DATA ROUTES
-GET     /data/activity                                                  @controllers.DataController.getRecentUserActivity(limit:Int ?= (-1), offset:Int ?= 0)
+GET     /data/activity                                                  @controllers.DataController.getRecentUserActivity(limit:Int ?= -1, offset:Int ?= 0)
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
 GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)
