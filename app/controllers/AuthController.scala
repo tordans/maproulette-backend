@@ -87,12 +87,9 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
   }
 
   def deleteUser(userId:Long) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
-      if (user.isSuperUser) {
-        Ok(Json.obj("message" -> s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
-      } else {
-        throw new IllegalAccessException(s"User ${user.name} [${user.id} does not have super user access to delete other users")
-      }
+      Ok(Json.obj("message" -> s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
     }
   }
 
@@ -128,6 +125,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return NoContent
     */
   def addUserToProject(userId:Long, projectId:Long) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.user.retrieveById(userId) match {
         case Some(addUser) =>

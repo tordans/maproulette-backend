@@ -276,14 +276,16 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @return
     */
   def authenticatedUIRequest(block:User => Result)
-                            (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
+                            (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets,
+                             requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       authenticated(Left(block))
     }
   }
 
   def authenticatedFutureUIRequest(block:User => Future[Result])
-                                  (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
+                                  (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets,
+                                   requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       authenticated(Right(block))
     }
@@ -298,31 +300,35 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @return The result from the block of code
     */
   def authenticatedRequest(block:User => Result)
-                          (implicit request:Request[Any]) : Future[Result] = {
+                          (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       authenticated(Left(block))
     }
   }
 
   protected def authenticated(execute:Either[User => Result, User => Future[Result]])
-                             (implicit request:Request[Any]) : Future[Result] = {
+                             (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
     val p = Promise[Result]
     try {
       sessionUser(sessionTokenPair) onComplete {
         case Success(result) => result match {
           case Some(user) => try {
-            execute match {
-              case Left(block) => Try(block(user)) match {
-                case Success(s) => p success s
-                case Failure(f) => p failure f
-              }
-              case Right(block) => Try(block(user)) match {
-                case Success(s) => s onComplete {
+            if (requireSuperUser && !user.isSuperUser) {
+              p failure new IllegalAccessException("Only a super user can make this request")
+            } else {
+              execute match {
+                case Left(block) => Try(block(user)) match {
                   case Success(s) => p success s
                   case Failure(f) => p failure f
                 }
-                case Failure(f) => p failure f
-              }
+                case Right(block) => Try(block(user)) match {
+                  case Success(s) => s onComplete {
+                    case Success(s) => p success s
+                    case Failure(f) => p failure f
+                  }
+                  case Failure(f) => p failure f
+                }
+              } 
             }
           } catch {
             case e:Exception => p failure e

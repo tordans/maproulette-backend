@@ -7,7 +7,6 @@ import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal._
-import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{JsNumber, Json}
@@ -25,18 +24,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   def clearCaches = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
-      if (user.isSuperUser) {
-        dalManager.user.clearCaches
-        dalManager.project.clearCaches
-        dalManager.challenge.clearCaches
-        dalManager.survey.clearCaches
-        dalManager.task.clearCaches
-        dalManager.tag.clearCaches
-        Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
-      } else {
-        throw new IllegalAccessException("Only super users can clear the caches.")
-      }
+      dalManager.user.clearCaches
+      dalManager.project.clearCaches
+      dalManager.challenge.clearCaches
+      dalManager.survey.clearCaches
+      dalManager.task.clearCaches
+      dalManager.tag.clearCaches
+      Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
     }
   }
 
@@ -130,6 +126,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
   }
 
   def users(limit:Int, offset:Int, q:String) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedUIRequest { implicit user =>
       getOkIndex("MapRoulette Users", user,
         views.html.admin.users.users(user,

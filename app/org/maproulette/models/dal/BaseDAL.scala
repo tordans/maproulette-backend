@@ -335,7 +335,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     withMRTransaction { implicit c =>
       // first check to see if the item is already locked
       val checkQuery =
-        s"""SELECT FOR UPDATE user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
@@ -363,7 +363,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     */
   def unlockItem(user:User, item:T)(implicit c:Connection=null) : Int =
     withMRTransaction { implicit c =>
-      val checkQuery = s"""SELECT FOR UPDATE user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
