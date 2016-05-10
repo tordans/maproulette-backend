@@ -114,7 +114,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
            |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
            |   "status":$currentStatus,
            |   "geometry":${t._1.geometries},
-           |   "locked":${if(t._2.date == null) "false" else "true"}
+           |   "locked":${if(t._2.lockedTime == null) "false" else "true"}
            |}
             """.stripMargin)
     case None => throw new NotFoundException(s"Could not find task")

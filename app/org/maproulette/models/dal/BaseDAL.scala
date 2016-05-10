@@ -40,13 +40,13 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
   def clearCaches = cacheManager.clearCaches
 
   implicit val lockedParser:RowParser[Lock] = {
-    get[Option[DateTime]]("locked.date") ~
+    get[Option[DateTime]]("locked.locked_time") ~
     get[Option[Int]]("locked.item_type") ~
     get[Option[Long]]("locked.item_id") ~
     get[Option[Long]]("locked.user_id") map {
-      case date ~ itemType ~ itemId ~ userId =>
-        date match {
-          case Some(d) => Lock(date.get, itemType.get, itemId.get, userId.get)
+      case locked_time ~ itemType ~ itemId ~ userId =>
+        locked_time match {
+          case Some(d) => Lock(locked_time.get, itemType.get, itemId.get, userId.get)
           case None => Lock.emptyLock
         }
     }
