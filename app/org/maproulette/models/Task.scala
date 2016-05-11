@@ -1,10 +1,6 @@
 package org.maproulette.models
 
-import javax.inject.Inject
-
-import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions.Actions
-import org.maproulette.models.dal.{ChallengeDAL, TagDAL}
+import org.maproulette.actions.{ItemType, TaskType}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -30,18 +26,12 @@ import play.api.libs.json._
   */
 case class Task(override val id:Long,
                 override val name: String,
-                override val parent: Long,
+                parent: Long,
                 instruction: String,
                 location: Option[String]=None,
                 geometries:String,
-                status:Option[Int]=None) extends ChildObject[Long, Challenge] with TagObject[Long] {
-
-  @Inject val tagDAL:TagDAL = null
-  @Inject val challengeDAL:ChallengeDAL = null
-
-  override val itemType: Int = Actions.ITEM_TYPE_TASK
-  override lazy val tags = tagDAL.listByTask(id)
-  override def getParent = challengeDAL.retrieveById(parent).get
+                status:Option[Int]=None) extends BaseObject[Long] {
+  override val itemType: ItemType = TaskType()
 }
 
 object Task {

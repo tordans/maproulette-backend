@@ -1,6 +1,6 @@
 package org.maproulette.models
 
-import org.maproulette.session.User
+import org.maproulette.actions.ItemType
 
 /**
   * Every object in the system uses this trait, with exception to the User object. This enables
@@ -15,34 +15,5 @@ trait BaseObject[Key] {
   def id:Key
   def description:Option[String] = None
 
-  val itemType:Int
-
-  /**
-    * Whether a user has write access to an object or not.
-    * By default it will assume that it does
-    *
-    * @param user The user to check
-    * @return true if user can update the object
-    */
-  def hasWriteAccess(user:User) : Boolean = true
-}
-
-trait ChildObject[Key, P <: BaseObject[Key]] extends BaseObject[Key] {
-  def parent:Key
-  def getParent:P
-
-  /**
-    * Whether a user has write access to an object or not.
-    * By default it will assume that it does
-    *
-    * @param user The user to check
-    * @return true if user can update the object
-    */
-  override def hasWriteAccess(user: User): Boolean =
-    user.isSuperUser || getParent.hasWriteAccess(user)
-}
-
-trait TagObject[Key] {
-  this: BaseObject[Key] =>
-  val tags:List[Tag]
+  val itemType:ItemType
 }

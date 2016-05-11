@@ -9,6 +9,7 @@ import org.maproulette.actions.Actions
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.InvalidException
 import org.maproulette.models._
+import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.{JsValue, Json}
@@ -20,7 +21,8 @@ import play.api.libs.json.{JsValue, Json}
 class SurveyDAL @Inject() (override val db:Database,
                            taskDAL: TaskDAL,
                            challengeDAL: ChallengeDAL,
-                           override val tagDAL: TagDAL)
+                           override val tagDAL: TagDAL,
+                           override val permission:Permission)
   extends ParentDAL[Long, Survey, Task] with TagDALMixin[Survey] {
 
   // The manager for the survey cache
@@ -47,6 +49,25 @@ class SurveyDAL @Inject() (override val db:Database,
     }
   }
 
+
+  /**
+    * This will retrieve the root object in the hierarchy of the object, by default the root
+    * object is itself.
+    *
+    * @param obj This is either the id of the object, or the object itself
+    * @param user
+    * @param c   The connection if any
+    * @return The object that it is retrieving
+    */
+  override def retrieveRootObject(obj: Either[Long, Survey], user: User)
+                                 (implicit c: Connection): Option[Project] = {
+    obj match {
+      case Left(id) => challengeDAL.retrieveRootObject(Left(id), user)
+      case Right(obj) => challengeDAL.retrieveRootObject(Right(obj.challenge), user)
+    }
+  }
+
+
   /**
     * Retrieves the answers for the survey given the survey id
     *
@@ -70,7 +91,7 @@ class SurveyDAL @Inject() (override val db:Database,
     if (survey.answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
-    survey.challenge.hasWriteAccess(user)
+    permission.hasWriteAccess(survey.challenge, user)
     withMRTransaction { implicit c =>
       val newChallenge = challengeDAL.insert(survey.challenge, user)
       // insert the answers into the table

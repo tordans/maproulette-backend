@@ -68,6 +68,6 @@ class TagController @Inject() (override val sessionManager: SessionManager,
         value => Some(value)
       )
     })
-    dal.updateTagList(tagList)
+    dal.updateTagList(tagList, user)
   }
 }

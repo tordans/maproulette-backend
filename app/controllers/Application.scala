@@ -7,6 +7,7 @@ import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal._
+import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{JsNumber, Json}
@@ -21,6 +22,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              override val webJarAssets: WebJarAssets,
                              sessionManager:SessionManager,
                              override val dalManager: DALManager,
+                             permission: Permission,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper {
 
   def clearCaches = Action.async { implicit request =>
@@ -91,6 +93,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
           case ProjectType() =>
             views.html.admin.project(user, dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false))
           case ChallengeType() | SurveyType() =>
+            permission.hasWriteAccess(ProjectType(), user)(parentId.get)
             val projectChildren = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
             val surveys = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_SURVEY).map(Survey(_, List.empty))
             val challenges = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_CHALLENGE)
@@ -115,6 +118,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
 
   def adminUITaskList(projectId:Long, parentType:String, parentId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(projectId)
       getOkIndex("MapRoulette Administration", user, views.html.admin.task(user, projectId, parentType, parentId))
     }
   }

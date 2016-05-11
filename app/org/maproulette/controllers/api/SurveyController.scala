@@ -80,7 +80,7 @@ class SurveyController @Inject() (override val childController:TaskController,
     */
   def getTagsForSurvey(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(Survey(Challenge(id, "", None, -1, ""), List.empty).tags))
+      Ok(Json.toJson(getTags(id)))
     }
   }
 

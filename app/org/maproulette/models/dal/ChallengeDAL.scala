@@ -1,14 +1,15 @@
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Singleton}
+import javax.inject.{Inject, Provider, Singleton}
 
 import anorm._
 import anorm.SqlParser._
-import org.maproulette.actions.Actions
+import org.maproulette.actions.{Actions, ChallengeType}
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.UniqueViolationException
-import org.maproulette.models.{Challenge, Task}
+import org.maproulette.models.{Challenge, Project, Task}
+import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -21,7 +22,10 @@ import play.api.libs.json.JsValue
   * @author cuthbertm
   */
 @Singleton
-class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, override val tagDAL: TagDAL)
+class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
+                              override val tagDAL: TagDAL,
+                              projectDAL: Provider[ProjectDAL],
+                              override val permission:Permission)
   extends ParentDAL[Long, Challenge, Task] with TagDALMixin[Challenge] {
   // The manager for the challenge cache
   override val cacheManager = new CacheManager[Long, Challenge]
@@ -58,6 +62,37 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     }
   }
 
+
+  /**
+    * This will retrieve the root object in the hierarchy of the object, by default the root
+    * object is itself.
+    *
+    * @param obj Either a id for the challenge, or the challenge itself
+    * @param c  The connection if any
+    * @return The object that it is retrieving
+    */
+  override def retrieveRootObject(obj:Either[Long, Challenge], user:User)(implicit c: Connection): Option[Project] = {
+    obj match {
+      case Left(id) =>
+        permission.hasReadAccess(ChallengeType(), user)(id)
+        projectDAL.get().cacheManager.withOptionCaching { () =>
+          withMRConnection { implicit c =>
+            SQL"""SELECT p.* FROM projects p
+             INNER JOIN challenges c ON c.parent_id = p.id
+             WHERE c.id = $id
+           """.as(projectDAL.get().parser.*).headOption
+          }
+        }
+      case Right(challenge) =>
+        permission.hasReadAccess(challenge, user)
+        projectDAL.get().cacheManager.withOptionCaching { () =>
+          withMRConnection { implicit c =>
+            SQL"""SELECT * FROM projects WHERE id = ${challenge.parent}""".as(projectDAL.get().parser.*).headOption
+          }
+        }
+    }
+  }
+
   /**
     * Inserts a new Challenge object into the database. It will also place it in the cache after
     * inserting the object.
@@ -66,7 +101,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(challenge: Challenge, user:User)(implicit c:Connection=null): Challenge = {
-    challenge.hasWriteAccess(user)
+    permission.hasWriteAccess(challenge, user)
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
@@ -93,7 +128,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL, overri
     */
   override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Challenge] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      cachedItem.hasWriteAccess(user)
+      permission.hasWriteAccess(cachedItem, user)
       withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)

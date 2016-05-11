@@ -2,7 +2,7 @@ package org.maproulette.models
 
 import play.api.data._
 import play.api.data.Forms._
-import org.maproulette.actions.Actions
+import org.maproulette.actions.{ItemType, SurveyType}
 import play.api.libs.json.{Json, Reads, Writes}
 
 case class Answer(id:Long=(-1), answer:String)
@@ -19,14 +19,11 @@ case class Answer(id:Long=(-1), answer:String)
   *
   * @author cuthbertm
   */
-case class Survey(challenge:Challenge, answers:List[Answer]) extends ChildObject[Long, Project] with TagObject[Long] {
-  override def parent:Long = challenge.parent
-  override def getParent: Project = challenge.getParent
+case class Survey(challenge:Challenge, answers:List[Answer]) extends BaseObject[Long] {
   override def name: String = challenge.name
   override def id: Long = challenge.id
   def question = challenge.instruction
-  override lazy val tags: List[Tag] = challenge.tags
-  override val itemType: Int = Actions.ITEM_TYPE_SURVEY
+  override val itemType: ItemType = SurveyType()
 }
 
 object Survey {

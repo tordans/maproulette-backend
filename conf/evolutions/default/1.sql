@@ -38,9 +38,11 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 -- Function to remove locks when a user is deleted
-CREATE OR REPLACE FUNCTION update_task_locks() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION on_user_delete() RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE tasks SET locked_by = NULL WHERE locked_by = old.id;;
+  DELETE FROM user_groups WHERE osm_user_id = old.osm_id;;
+  DELETE FROM locked WHERE user_id = old.id;;
+  RETURN old;;
 END
 $$
 LANGUAGE plpgsql VOLATILE;;
@@ -66,6 +68,10 @@ CREATE TABLE IF NOT EXISTS users
   oauth_secret character varying NOT NULL,
   theme character varying DEFAULT('skin-blue')
 );
+
+DROP TRIGGER IF EXISTS on_user_delete ON users;
+CREATE TRIGGER on_user_delete BEFORE DELETE ON users
+  FOR EACH ROW EXECUTE PROCEDURE on_user_delete();
 
 SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);
 
@@ -194,10 +200,6 @@ SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);
 
-DROP TRIGGER IF EXISTS update_tasks_locked_by ON users;
-CREATE TRIGGER update_tasks_locked_by BEFORE DELETE ON users
-  FOR EACH ROW EXECUTE PROCEDURE update_task_locks();
-
 -- The answers for a survey from a user
 CREATE TABLE IF NOT EXISTS survey_answers
 (
@@ -312,7 +314,7 @@ CREATE TABLE IF NOT EXISTS locked
   item_type integer NOT NULL,
   item_id integer NOT NULL,
   user_id integer NOT NULL,
-  CONSTRAINT locked_locked_by FOREIGN KEY (user_id)
+  CONSTRAINT locked_users_user_id FOREIGN KEY (user_id)
     REFERENCES users(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
 );
@@ -320,7 +322,7 @@ CREATE TABLE IF NOT EXISTS locked
 SELECT create_index_if_not_exists('locked', 'item_type_item_id', '(item_type, item_id)', true);
 
 -- Creates or updates and task. Will also check if task status needs to be updated
-CREATE OR REPLACE FUNCTION create_update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint DEFAULT -1, reset_interval INTERVAL DEFAULT '7 days') RETURNS integer as $$
+CREATE OR REPLACE FUNCTION create_update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint DEFAULT -1, reset_interval text DEFAULT '7 days') RETURNS integer as $$
 DECLARE
   return_id integer;;
 BEGIN
@@ -339,7 +341,7 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
-CREATE OR REPLACE FUNCTION update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint DEFAULT -1, reset_interval INTERVAL DEFAULT '7 days') RETURNS integer as $$
+CREATE OR REPLACE FUNCTION update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint DEFAULT -1, reset_interval text DEFAULT '7 days') RETURNS integer as $$
 DECLARE
   update_id integer;;
   update_modified timestamp without time zone;;

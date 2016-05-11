@@ -2,13 +2,13 @@ package org.maproulette.models.utils
 
 import java.sql.Connection
 
-import org.maproulette.models.dal.BaseDAL
+import play.api.db.Database
 
 /**
   * @author cuthbertm
   */
 trait TransactionManager {
-  this:BaseDAL[_, _] =>
+  implicit val db:Database
 
   def withMRConnection[T](block:Connection => T)(implicit conn:Connection=null): T = {
     conn match {

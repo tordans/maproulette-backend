@@ -1,11 +1,8 @@
 package org.maproulette.models
 
-import javax.inject.Inject
-
 import play.api.data._
 import play.api.data.Forms._
-import org.maproulette.actions.Actions
-import org.maproulette.models.dal.{ProjectDAL, TagDAL}
+import org.maproulette.actions.{Actions, ChallengeType, ItemType}
 import play.api.libs.json.{Json, Reads, Writes}
 
 /**
@@ -27,7 +24,7 @@ import play.api.libs.json.{Json, Reads, Writes}
 case class Challenge(override val id: Long,
                      override val name: String,
                      override val description:Option[String]=None,
-                     override val parent:Long,
+                     val parent:Long,
                      instruction:String,
                      difficulty:Option[Int]=None,
                      blurb:Option[String]=None,
@@ -35,14 +32,10 @@ case class Challenge(override val id: Long,
                      challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                      featured:Boolean=false,
                      overpassQL:Option[String]=None,
-                     overpassStatus:Option[Int]=Some(0)) extends ChildObject[Long, Project] with TagObject[Long] {
+                     overpassStatus:Option[Int]=Some(0)) extends BaseObject[Long] {
 
-  @Inject val projectDAL:ProjectDAL = null
-  @Inject val tagDAL:TagDAL = null
 
-  override val itemType = challengeType
-  override def getParent = projectDAL.retrieveById(parent).get
-  override lazy val tags: List[Tag] = tagDAL.listByChallenge(id)
+  override val itemType: ItemType = ChallengeType()
 
   def getOverpassFriendlyStatus = {
     overpassStatus match {

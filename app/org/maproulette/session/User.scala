@@ -1,17 +1,10 @@
 package org.maproulette.session
 
-import java.util.UUID
-import javax.inject.Inject
-
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.Config
-import org.maproulette.actions.Actions
-import org.maproulette.models.dal.ProjectDAL
-import org.maproulette.models.{BaseObject, Project}
-import org.maproulette.session.dal.UserDAL
-import play.api.libs.Crypto
-import play.api.libs.json.Json
+import org.maproulette.actions.{ItemType, UserType}
+import org.maproulette.models.BaseObject
 import play.api.libs.oauth.RequestToken
 
 import scala.xml.{Elem, XML}
@@ -74,7 +67,7 @@ case class User (override val id:Long,
   // for users the display name is always retrieved from OSM
   override def name = osmProfile.displayName
 
-  override val itemType: Int = Actions.ITEM_TYPE_USER
+  override val itemType: ItemType = UserType()
 
   def homeLocation = osmProfile.homeLocation.name match {
     case Some(name) => name

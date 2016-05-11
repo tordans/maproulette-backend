@@ -108,7 +108,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
       } else {
         user.id
       }
-      dalManager.user.generateAPIKey(userIdToUse) match {
+      dalManager.user.generateAPIKey(userIdToUse, user) match {
         case Some(updated) => updated.apiKey match {
           case Some(api) => Ok(api)
           case None => NoContent

@@ -1,11 +1,13 @@
 package org.maproulette.session.dal
 
+import java.sql.Connection
 import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
-import org.maproulette.session.Group
+import org.maproulette.models.utils.TransactionManager
+import org.maproulette.session.{Group, User}
 import play.api.db.Database
 
 /**
@@ -15,7 +17,7 @@ import play.api.db.Database
   * @author cuthbertm
   */
 @Singleton
-class UserGroupDAL @Inject() (db:Database) {
+class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
 
   // The cache manager for the users
   val cacheManager = new CacheManager[Long, Group]
@@ -40,8 +42,11 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param groupType current only 1 (Admin) however currently no restriction on what you can supply here
     * @return The new group
     */
-  def createGroup(projectId:Long, name:String, groupType:Int) : Group = db.withTransaction { implicit c =>
-    SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(parser.*).head
+  def createGroup(projectId:Long, name:String, groupType:Int, user:User)(implicit c:Connection=null) : Group = {
+    hasAccess(user)
+    withMRTransaction { implicit c =>
+      SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(parser.*).head
+    }
   }
 
   /**
@@ -52,8 +57,11 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param newName The new name of the group
     * @return The updated group
     */
-  def updateGroup(groupId:Long, newName:String) : Group = db.withTransaction { implicit c =>
-    SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(parser.*).head
+  def updateGroup(groupId:Long, newName:String, user:User)(implicit c:Connection=null) : Group = {
+    hasAccess(user)
+    withMRTransaction { implicit c =>
+      SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(parser.*).head
+    }
   }
 
   /**
@@ -62,8 +70,11 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param groupId The id of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with id found to delete
     */
-  def deleteGroup(groupId:Long) : Int = db.withTransaction { implicit c =>
-    SQL"""DELETE FROM groups WHERE id = $groupId""".executeUpdate()
+  def deleteGroup(groupId:Long, user:User)(implicit c:Connection=null) : Int = {
+    hasAccess(user)
+    withMRTransaction { implicit c =>
+      SQL"""DELETE FROM groups WHERE id = $groupId""".executeUpdate()
+    }
   }
 
   /**
@@ -72,8 +83,11 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param name The name of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with name found to delete
     */
-  def deleteGroupByName(name:String) : Int = db.withTransaction { implicit c =>
-    SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
+  def deleteGroupByName(name:String, user:User)(implicit c:Connection=null) : Int = {
+    hasAccess(user)
+    withMRTransaction { implicit c =>
+      SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
+    }
   }
 
   /**
@@ -82,10 +96,13 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param osmUserId The osm id of the user
     * @return A list of groups the user belongs too
     */
-  def getGroups(osmUserId:Long) : List[Group] = db.withConnection { implicit c =>
-    SQL"""SELECT * FROM groups g
-          INNER JOIN user_groups ug ON ug.group_id = g.id
-          WHERE ug.osm_user_id = $osmUserId""".as(parser.*)
+  def getGroups(osmUserId:Long, user:User)(implicit c:Connection=null) : List[Group] = {
+    hasAccess(user)
+    withMRConnection { implicit c =>
+      SQL"""SELECT * FROM groups g
+            INNER JOIN user_groups ug ON ug.group_id = g.id
+            WHERE ug.osm_user_id = $osmUserId""".as(parser.*)
+    }
   }
 
   /**
@@ -94,7 +111,21 @@ class UserGroupDAL @Inject() (db:Database) {
     * @param projectId The project id
     * @return
     */
-  def getProjectGroups(projectId:Long) : List[Group] = db.withConnection { implicit c =>
-    SQL"""SELECT * FROM groups g WHERE project_id = $projectId""".as(parser.*)
+  def getProjectGroups(projectId:Long, user:User)(implicit c:Connection=null) : List[Group] = {
+    hasAccess(user)
+    withMRConnection { implicit c =>
+      SQL"""SELECT * FROM groups g WHERE project_id = $projectId""".as(parser.*)
+    }
+  }
+
+  /**
+    * Access for user functions are limited to super users
+    *
+    * @param user A super user
+    */
+  private def hasAccess(user:User) : Unit = {
+    if (!user.isSuperUser) {
+      throw new IllegalAccessException("Only super users have access to group objects.")
+    }
   }
 }

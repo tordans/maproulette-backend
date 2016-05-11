@@ -1,6 +1,6 @@
 package org.maproulette.session
 
-import org.maproulette.actions.Actions
+import org.maproulette.actions.{GroupType, ItemType}
 import org.maproulette.models.BaseObject
 
 /**
@@ -10,7 +10,7 @@ case class Group(override val id:Long,
                  override val name:String,
                  projectId:Long,
                  groupType:Int) extends BaseObject[Long] {
-  override val itemType: Int = Actions.ITEM_TYPE_GROUP
+  override val itemType: ItemType = GroupType()
 }
 
 object Group {

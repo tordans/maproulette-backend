@@ -83,7 +83,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     withMRConnection { implicit c =>
       val query =
         s"""SELECT COUNT(*) as TotalChildren FROM $childTable
-           |WHERE ${searchField("name")} AND parent_id = {id}
+           |WHERE parent_id = {id} ${searchField("name")}
            |${enabled(onlyEnabled)}""".stripMargin
       SQL(query).on(
         'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),

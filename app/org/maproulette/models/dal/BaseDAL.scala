@@ -10,6 +10,7 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.exception.LockedException
 import org.maproulette.models.{BaseObject, Lock}
 import org.maproulette.models.utils.{DALHelper, TransactionManager}
+import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -21,6 +22,8 @@ import play.api.libs.json.JsValue
   * @author cuthbertm
   */
 trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager {
+  // Service that handles all the permissions for the objects
+  val permission:Permission
   // Manager to handle all the caching for this particular layer
   val cacheManager:CacheManager[Key, T]
   // The name of the table in the database
@@ -170,6 +173,22 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
         val query = s"DELETE FROM $tableName WHERE name IN ({names}) ${parentFilter(parentId)}"
         SQL(query).on('names -> ParameterValue.toParameterValue(names)).executeUpdate()
       }
+    }
+  }
+
+  /**
+    * This will retrieve the root object in the hierarchy of the object, by default the root
+    * object is itself.
+    *
+    * @param obj This is either the id of the object, or the object itself
+    * @param user
+    * @param c The connection if any
+    * @return The object that it is retrieving
+    */
+  def retrieveRootObject(obj:Either[Key, T], user:User)(implicit c:Connection=null) : Option[_<:BaseObject[Key]] = {
+    obj match {
+      case Left(id) => retrieveById(id, c)
+      case Right(obj) => Some(obj)
     }
   }
 
@@ -335,18 +354,18 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     withMRTransaction { implicit c =>
       // first check to see if the item is already locked
       val checkQuery =
-        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType} FOR UPDATE"""
+        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
-            val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"
+            val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
             SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
           } else {
             0
             //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
           }
         case None =>
-          val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType}, {itemId}, ${user.id})"
+          val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType.typeId}, {itemId}, ${user.id})"
           SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
       }
     }
@@ -363,11 +382,11 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     */
   def unlockItem(user:User, item:T)(implicit c:Connection=null) : Int =
     withMRTransaction { implicit c =>
-      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType} FOR UPDATE"""
+      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
-            val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType}"""
+            val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
             SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
           } else {
             throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
