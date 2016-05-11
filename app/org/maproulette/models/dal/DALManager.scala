@@ -2,7 +2,7 @@ package org.maproulette.models.dal
 
 import javax.inject.{Inject, Singleton}
 
-import org.maproulette.actions.ActionManager
+import org.maproulette.actions._
 import org.maproulette.data.DataManager
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 
@@ -30,4 +30,15 @@ class DALManager @Inject() (tagDAL: TagDAL,
   def userGroup = userGroupDAL
   def action = actionManager
   def data = dataManager
+
+  def getManager(itemType:ItemType) : BaseDAL[Long, _] = {
+    itemType match {
+      case ProjectType() => projectDAL
+      case ChallengeType() => challengeDAL
+      case SurveyType() => surveyDAL
+      case TaskType() => taskDAL
+      case UserType() => userDAL
+      case TagType() => tagDAL
+    }
+  }
 }

@@ -8,6 +8,7 @@ import anorm.SqlParser._
 import org.maproulette.cache.{CacheManager, TagCacheManager}
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models.{Project, Tag}
+import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -18,7 +19,9 @@ import play.api.libs.json.JsValue
   * @author cuthbertm
   */
 @Singleton
-class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[TagCacheManager]) extends BaseDAL[Long, Tag] {
+class TagDAL @Inject() (override val db:Database,
+                        tagCacheProvider: Provider[TagCacheManager],
+                        override val permission:Permission) extends BaseDAL[Long, Tag] {
   // the name of the table in the database for tags
   override val tableName: String = "tags"
 
@@ -40,6 +43,7 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(tag: Tag, user:User)(implicit c:Connection=null): Tag = {
+    permission.hasWriteAccess(tag, user)
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *")
@@ -60,6 +64,7 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     */
   override def update(tag:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Tag] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      permission.hasWriteAccess(cachedItem, user)
       withMRTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
@@ -115,7 +120,8 @@ class TagDAL @Inject() (override val db:Database, tagCacheProvider: Provider[Tag
     * @return Returns the list of tags that were inserted, this would include any newly created
     *         ids of tags.
     */
-  def updateTagList(tags: List[Tag])(implicit c:Connection=null): List[Tag] = {
+  def updateTagList(tags: List[Tag], user:User)(implicit c:Connection=null): List[Tag] = {
+    permission.hasSuperAccess(user)
     implicit val names = tags.map(_.name)
     cacheManager.withCacheNameDeletion { () =>
       withMRTransaction { implicit c =>

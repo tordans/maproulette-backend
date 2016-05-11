@@ -3,6 +3,7 @@ package org.maproulette.models.dal
 import java.sql.Connection
 
 import anorm._
+import org.maproulette.actions.{ChallengeType, ItemType, TaskType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.{BaseObject, Tag}
 import org.maproulette.session.User
@@ -28,7 +29,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
   def updateItemTags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
     this.retrieveById(id) match {
       case Some(item) =>
-        item.hasWriteAccess(user)
+        permission.hasWriteAccess(item, user)
         if (tags.nonEmpty) {
           withMRTransaction { implicit c =>
             val indexedValues = tags.zipWithIndex
@@ -60,8 +61,9 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags that are being removed from the item
     * @param user The user executing the item
     */
-  def deleteItemags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
+  def deleteItemTags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
     if (tags.nonEmpty) {
+      permission.hasWriteAccess(getItemTypeBasedOnTableName, user)(id)
       withMRTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_$tableName WHERE ${name}_id = {$id} AND tag_id IN ($tags)""".execute()
       }
@@ -78,6 +80,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     */
   def deleteItemStringTags(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
     if (tags.nonEmpty) {
+      permission.hasWriteAccess(getItemTypeBasedOnTableName, user)(id)
       val lowerTags = tags.map(_.toLowerCase)
       withMRTransaction { implicit c =>
         SQL"""DELETE FROM tags_on_$tableName tt USING tags t
@@ -126,6 +129,13 @@ trait TagDALMixin[T<:BaseObject[Long]] {
                       WHERE c.enabled = TRUE AND p.enabled = TRUE AND tg.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""
       SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser.*)
+    }
+  }
+
+  private def getItemTypeBasedOnTableName : ItemType = {
+    tableName match {
+      case "challenge" => ChallengeType()
+      case "task" => TaskType()
     }
   }
 }

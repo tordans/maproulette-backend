@@ -13,6 +13,7 @@ import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.models.dal.DALManager
 import play.api.i18n.Messages
 import play.api.Logger
+import play.api.db.Database
 import play.api.libs.Crypto
 import play.api.libs.oauth._
 import play.api.libs.ws.WSClient
@@ -28,7 +29,7 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Config) {
+class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Config, db:Database) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
@@ -141,7 +142,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
             } else {
               try {
                 val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-                dalManager.user.retrieveByAPIKey(apiKey)(decryptedKey(0).toLong) match {
+                dalManager.user.retrieveByAPIKey(apiKey, User.superUser)(decryptedKey(0).toLong) match {
                   case Some(user) => p success Some(user)
                   case None => p success None
                 }
@@ -172,8 +173,8 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        dalManager.user.matchByRequestTokenAndId(accessToken)(sessionId.toLong)
-      case None => dalManager.user.matchByRequestToken(accessToken)
+        dalManager.user.matchByRequestTokenAndId(accessToken, User.superUser)(sessionId.toLong)
+      case None => dalManager.user.matchByRequestToken(accessToken, User.superUser)
     }
     storedUser match {
       case Some(u) =>
@@ -328,7 +329,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                   }
                   case Failure(f) => p failure f
                 }
-              } 
+              }
             }
           } catch {
             case e:Exception => p failure e

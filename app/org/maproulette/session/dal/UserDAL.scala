@@ -11,10 +11,12 @@ import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory, Point}
 import com.vividsolutions.jts.io.{WKTReader, WKTWriter}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
+import org.maproulette.actions.UserType
 import org.maproulette.models.dal.BaseDAL
 import org.maproulette.session.{Group, Location, OSMProfile, User}
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
+import org.maproulette.permissions.Permission
 import play.api.libs.Crypto
 import play.api.libs.json.{JsValue, Json}
 import play.api.libs.oauth.RequestToken
@@ -31,7 +33,9 @@ import play.api.libs.oauth.RequestToken
   * @author cuthbertm
   */
 @Singleton
-class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) extends BaseDAL[Long, User] {
+class UserDAL @Inject() (override val db:Database,
+                         userGroupDAL: UserGroupDAL,
+                         override val permission:Permission) extends BaseDAL[Long, User] {
 
   import org.maproulette.utils.AnormExtension._
 
@@ -65,7 +69,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         new User(id, created, modified, theme,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
-            userGroupDAL.getGroups(osmId), apiKey)
+            userGroupDAL.getGroups(osmId, User.superUser), apiKey)
     }
   }
 
@@ -76,10 +80,15 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param id The user's osm ID
     * @return The matched user, None if User not found
     */
-  def retrieveByOSMID(implicit id: Long): Option[User] = cacheManager.withOptionCaching { () =>
+  def retrieveByOSMID(implicit id: Long, user:User): Option[User] = cacheManager.withOptionCaching { () =>
     db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM users WHERE osm_id = {id}"""
-      SQL(query).on('id -> id).as(parser.*).headOption
+      SQL(query).on('id -> id).as(parser.*).headOption match {
+        case Some(u) =>
+          permission.hasReadAccess(u, user)
+          Some(u)
+        case None => None
+      }
     }
   }
 
@@ -90,10 +99,15 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param id The id of the user
     * @return The matched user, None if User not found
     */
-  def retrieveByAPIKey(apiKey:String)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
+  def retrieveByAPIKey(apiKey:String, user:User)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
     db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM users WHERE id = {id} AND api_key = {apiKey}"""
-      SQL(query).on('id -> id, 'apiKey -> apiKey).as(parser.*).headOption
+      SQL(query).on('id -> id, 'apiKey -> apiKey).as(parser.*).headOption match {
+        case Some(u) =>
+          permission.hasReadAccess(u, user)
+          Some(u)
+        case None => None
+      }
     }
   }
 
@@ -104,19 +118,20 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param requestToken The request token containing the access token and secret
     * @return The matched user, None if User not found
     */
-  def matchByRequestTokenAndId(requestToken: RequestToken)(implicit id:Long): Option[User] = {
-    val user = cacheManager.withCaching { () =>
+  def matchByRequestTokenAndId(requestToken: RequestToken, user:User)(implicit id:Long): Option[User] = {
+    val requestedUser = cacheManager.withCaching { () =>
       db.withConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM users
                         WHERE id = {id} AND oauth_token = {token} AND oauth_secret = {secret}"""
         SQL(query).on('id -> id, 'token -> requestToken.token, 'secret -> requestToken.secret).as(parser.*).headOption
       }
     }
-    user match {
+    requestedUser match {
       case Some(u) =>
         // double check that the token and secret still match, in case it came from the cache
         if (StringUtils.equals(u.osmProfile.requestToken.token, requestToken.token) &&
           StringUtils.equals(u.osmProfile.requestToken.secret, requestToken.secret)) {
+          permission.hasReadAccess(u, user)
           Some(u)
         } else {
           None
@@ -131,7 +146,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param requestToken The request token containing the access token and secret
     * @return The matched user, None if User not found
     */
-  def matchByRequestToken(requestToken: RequestToken): Option[User] = {
+  def matchByRequestToken(requestToken: RequestToken, user:User): Option[User] = {
     db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM users
                       WHERE oauth_token = {token} AND oauth_secret = {secret}"""
@@ -151,7 +166,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @return None if failed to update or create.
     */
   override def insert(item:User, user: User)(implicit c:Connection=null): User = cacheManager.withOptionCaching { () =>
-    hasAccess(user)
+    permission.hasWriteAccess(item, user)
     withMRTransaction { implicit c =>
       val ewkt = new WKTWriter().write(
         new GeometryFactory().createPoint(
@@ -184,10 +199,18 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     }
     // We do this separately from the transaction because if we don't the user_group mappings
     // wont be accessible just yet.
-    db.withConnection { implicit c =>
+    val retUser = db.withConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM users WHERE osm_id = {id}"""
-      SQL(query).on('id -> item.osmProfile.id).as(parser.*).headOption
+      SQL(query).on('id -> item.osmProfile.id).as(parser.*).head
     }
+
+    // now update the groups by adding any new groups, from the supplied user
+    val nuGroups = db.withTransaction { implicit c =>
+      val newGroups = item.groups.filter(g => !retUser.groups.exists(_.id == g.id))
+      newGroups.foreach(g => addUserToGroup(item.osmProfile.id, g, User.superUser))
+      retUser.groups ++ newGroups
+    }
+    Some(retUser.copy(groups = nuGroups))
   }.get
 
   /**
@@ -199,9 +222,8 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @return The user that was updated, None if no user was found with the id
     */
   override def update(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[User] = {
-    hasAccess(user)
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      cachedItem.hasWriteAccess(user)
+      permission.hasWriteAccess(cachedItem, user)
       withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse(""))
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
@@ -215,20 +237,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
         val longitude = (value \ "osmProfile" \ "homeLocation" \ "longitude").asOpt[Double].getOrElse(cachedItem.osmProfile.homeLocation.longitude)
         val ewkt = new WKTWriter().write(new GeometryFactory().createPoint(new Coordinate(latitude, longitude)))
 
-        // list of grousp to delete
-        (value \ "groups" \ "delete").asOpt[List[Long]] match {
-          case Some(values) => SQL"""DELETE FROM user_groups WHERE group_id IN ($values)""".execute()
-          case None => //ignore
-        }
-        (value \ "groups" \ "add").asOpt[List[Long]] match {
-          case Some(values) =>
-            val sqlQuery = s"""INSERT INTO user_groups (user_id, group_id) VALUES ($id, {groupId})"""
-            val parameters = values.map(groupId => {
-              Seq[NamedParameter]("groupId" -> groupId)
-            })
-            BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
-          case None => //ignore
-        }
+        updateGroups(value, user)
 
         val query = s"""UPDATE users SET api_key = {apiKey}, name = {name}, description = {description},
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
@@ -249,6 +258,26 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     }
   }
 
+  def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Unit = {
+    permission.hasSuperAccess(user)
+    withMRTransaction { implicit c =>
+      // list of grousp to delete
+      (value \ "groups" \ "delete").asOpt[List[Long]] match {
+        case Some(values) => SQL"""DELETE FROM user_groups WHERE group_id IN ($values)""".execute()
+        case None => //ignore
+      }
+      (value \ "groups" \ "add").asOpt[List[Long]] match {
+        case Some(values) =>
+          val sqlQuery = s"""INSERT INTO user_groups (user_id, group_id) VALUES ($id, {groupId})"""
+          val parameters = values.map(groupId => {
+            Seq[NamedParameter]("groupId" -> groupId)
+          })
+          BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+        case None => //ignore
+      }
+    }
+  }
+
   /**
     * Deletes a user from the database based on a specific user id
     *
@@ -256,7 +285,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @return The rows that were deleted
     */
   override def delete(id: Long, user:User)(implicit c:Connection=null) : Int = {
-    hasAccess(user)
+    permission.hasSuperAccess(user)
     implicit val ids = List(id)
     cacheManager.withCacheIDDeletion { () =>
       withMRTransaction { implicit c =>
@@ -273,7 +302,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @return
     */
   def deleteByOsmID(osmId:Long, user:User)(implicit c:Connection=null) : Int = {
-    hasAccess(user)
+    permission.hasSuperAccess(user)
     implicit val ids = List(osmId)
     cacheManager.withCacheIDDeletion { () =>
       withMRTransaction { implicit c =>
@@ -290,7 +319,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param user The user that is adding the user to the project
     */
   def addUserToProject(osmID:Long, projectId:Long, user:User)(implicit c:Connection=null) : Unit = {
-    hasAccess(user)
+    permission.hasSuperAccess(user)
     withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id)
             SELECT $osmID, id FROM groups
@@ -307,7 +336,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param user The user that is adding the user to the project
     */
   def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
-    hasAccess(user)
+    permission.hasSuperAccess(user)
     withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES ($osmID, ${group.id})""".executeUpdate()
     }
@@ -322,7 +351,7 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param c An implicit connection if applicable
     */
   def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
-    hasAccess(user)
+    permission.hasSuperAccess(user)
     withMRTransaction { implicit c =>
       SQL"""DELETE FROM user_groups WHERE osm_user_id = $osmID AND group_id = ${group.id}""".executeUpdate()
     }
@@ -334,19 +363,9 @@ class UserDAL @Inject() (override val db:Database, userGroupDAL: UserGroupDAL) e
     * @param userId The user that is requesting that their key be updated.
     * @return An optional variable that will contain the updated user if successful
     */
-  def generateAPIKey(userId:Long) : Option[User] = {
+  def generateAPIKey(userId:Long, user:User) : Option[User] = {
+    permission.hasWriteAccess(UserType(), user)(userId)
     val newAPIKey = Crypto.encryptAES(userId + "|" + UUID.randomUUID())
     this.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), User.superUser)(userId)
-  }
-
-  /**
-    * Access for user functions are limited to super users
-    *
-    * @param user A super user
-    */
-  private def hasAccess(user:User) = {
-    if (!user.isSuperUser) {
-      throw new IllegalAccessException("Only super users have access to user objects.")
-    }
   }
 }

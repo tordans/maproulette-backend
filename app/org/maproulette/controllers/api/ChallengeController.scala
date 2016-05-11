@@ -80,7 +80,7 @@ class ChallengeController @Inject() (override val childController:TaskController
     */
   def getTagsForChallenge(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(Challenge(id, "", None, -1, "").tags))
+      Ok(Json.toJson(getTags(id)))
     }
   }
 

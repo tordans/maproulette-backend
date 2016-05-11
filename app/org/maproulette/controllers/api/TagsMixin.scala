@@ -1,7 +1,7 @@
 package org.maproulette.controllers.api
 
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions.{TagAdded, TagRemoved}
+import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.models.dal.{TagDAL, TagDALMixin}
@@ -112,6 +112,21 @@ trait TagsMixin[T<:BaseObject[Long]] {
       // now we have the ids for the supplied tags, then lets map them to the task created
       dalWithTags.updateItemTags(createdObject.id, tagIds, user)
       actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+    }
+  }
+
+  /**
+    * Gets the tags for either the challenge or the task depending on what controller is using the mixin
+    *
+    * @param id The id of the object you are looking for
+    * @return A list of tags associated with the item
+    */
+  def getTags(id:Long) : List[Tag] = {
+    itemType match {
+      case ChallengeType() => tagDAL.listByChallenge(id)
+      case SurveyType() => tagDAL.listByChallenge(id)
+      case TaskType() => tagDAL.listByTask(id)
+      case _ => List.empty
     }
   }
 }

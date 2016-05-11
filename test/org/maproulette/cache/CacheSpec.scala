@@ -1,6 +1,7 @@
 package org.maproulette.cache
 
 import org.junit.runner.RunWith
+import org.maproulette.actions.{ItemType, ProjectType}
 import org.maproulette.models.BaseObject
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -9,7 +10,7 @@ import org.specs2.runner.JUnitRunner
   * @author cuthbertm
   */
 case class TestBaseObject(override val id:Long, override val name:String) extends BaseObject[Long] {
-  override val itemType: Int = -1
+  override val itemType: ItemType = ProjectType()
 }
 
 @RunWith(classOf[JUnitRunner])

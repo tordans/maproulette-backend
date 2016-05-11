@@ -1,15 +1,15 @@
 package controllers
 
-import java.util.regex.Pattern
 import javax.inject.Inject
 
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
-import org.maproulette.actions.Actions
+import org.maproulette.actions.{Actions, ProjectType}
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.{Challenge, Project, Survey, Task}
 import org.maproulette.models.dal._
+import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
 import play.api.Logger
 import play.api.i18n.{I18nSupport, MessagesApi}
@@ -29,10 +29,12 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     override val webJarAssets: WebJarAssets,
                                     sessionManager:SessionManager,
                                     override val dalManager: DALManager,
-                                    val config:Config) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
+                                    val config:Config,
+                                    permission: Permission) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def projectFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedUIRequest { implicit user =>
       val project:Project = if (itemId > -1) {
         dalManager.project.retrieveById(itemId) match {
@@ -48,6 +50,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   }
 
   def projectFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedUIRequest { implicit user =>
       Project.projectForm.bindFromRequest.fold(
         formWithErrors => {
@@ -71,6 +74,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   def challengeFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(parentId)
       val challenge:Challenge = if (itemId > -1) {
         dalManager.challenge.retrieveById(itemId) match {
           case Some(chal) => chal
@@ -88,6 +92,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   def challengeFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(parentId)
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,
@@ -229,6 +234,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   def surveyFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(parentId)
       val survey:Survey = if (itemId > -1) {
         dalManager.survey.retrieveById(itemId) match {
           case Some(sur) => sur
@@ -246,6 +252,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   def surveyFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(parentId)
       Survey.surveyForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,
@@ -269,6 +276,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   def taskFormUI(projectId:Long, parentId:Long, parentType:String, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(projectId)
       val task:Task = if (itemId > -1) {
         dalManager.task.retrieveById(itemId) match {
           case Some(t) => t
@@ -286,6 +294,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   def taskFormPost(projectId:Long, parentId:Long, parentType:String, itemId:Long) = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(projectId)
       Task.taskForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,

@@ -8,6 +8,7 @@ import anorm.SqlParser._
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models.{Challenge, Project}
+import org.maproulette.permissions.Permission
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
 import play.api.db.Database
@@ -22,7 +23,8 @@ import play.api.libs.json.JsValue
 class ProjectDAL @Inject() (override val db:Database,
                             childDAL:ChallengeDAL,
                             surveyDAL:SurveyDAL,
-                            userGroupDAL: UserGroupDAL)
+                            userGroupDAL: UserGroupDAL,
+                            override val permission:Permission)
   extends ParentDAL[Long, Project, Challenge] {
 
   // manager for the cache of the projects
@@ -41,7 +43,7 @@ class ProjectDAL @Inject() (override val db:Database,
       get[Option[String]]("projects.description") ~
       get[Boolean]("projects.enabled") map {
       case id ~ name ~ description ~ enabled =>
-        new Project(id, name, description, userGroupDAL.getProjectGroups(id), enabled)
+        new Project(id, name, description, userGroupDAL.getProjectGroups(id, User.superUser), enabled)
     }
   }
 
@@ -52,7 +54,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
-    project.hasWriteAccess(user)
+    permission.hasWriteAccess(project, user)
     cacheManager.withOptionCaching { () =>
       val newProject = withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description, enabled)
@@ -64,7 +66,7 @@ class ProjectDAL @Inject() (override val db:Database,
           // todo: this should be in the above transaction, but for some reason the fkey won't allow it
           db.withTransaction { implicit c =>
             // Every new project needs to have a admin group created for them
-            userGroupDAL.createGroup(proj.id, proj.name + "_Admin", Group.TYPE_ADMIN)
+            userGroupDAL.createGroup(proj.id, proj.name + "_Admin", Group.TYPE_ADMIN, User.superUser)
             Some(proj)
           }
         case None =>
@@ -82,7 +84,7 @@ class ProjectDAL @Inject() (override val db:Database,
     */
   override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Project] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      cachedItem.hasWriteAccess(user)
+      permission.hasWriteAccess(cachedItem, user)
       withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))

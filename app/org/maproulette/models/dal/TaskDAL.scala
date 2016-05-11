@@ -1,7 +1,7 @@
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Singleton}
+import javax.inject.{Inject, Provider, Singleton}
 
 import anorm._
 import anorm.SqlParser._
@@ -9,10 +9,12 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
 import org.maproulette.actions.TaskType
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Lock, Task}
+import org.maproulette.models.{Lock, Project, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.models.utils.DALHelper
+import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchParameters, User}
+import play.api.Logger
 import play.api.db.Database
 import play.api.libs.json._
 
@@ -24,7 +26,10 @@ import scala.collection.mutable.ListBuffer
   * @author cuthbertm
   */
 @Singleton
-class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, config:Config)
+class TaskDAL @Inject() (override val db:Database,
+                         override val tagDAL: TagDAL, config:Config,
+                         override val permission:Permission,
+                         projectDAL: Provider[ProjectDAL])
     extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
@@ -45,6 +50,40 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, 
       get[Option[Int]]("tasks.status") map {
       case id ~ name ~ parent_id ~ instruction ~ location ~ status =>
         Task(id, name, parent_id, instruction, location, getTaskGeometries(id), status)
+    }
+  }
+
+  /**
+    * This will retrieve the root object in the hierarchy of the object, by default the root
+    * object is itself.
+    *
+    * @param obj Either a id for the challenge, or the challenge itself
+    * @param c  The connection if any
+    * @return The object that it is retrieving
+    */
+  override def retrieveRootObject(obj:Either[Long, Task], user:User)(implicit c: Connection): Option[Project] = {
+    obj match {
+      case Left(id) =>
+        permission.hasReadAccess(TaskType(), user)(id)
+        projectDAL.get().cacheManager.withOptionCaching { () =>
+          withMRConnection { implicit c =>
+            SQL"""SELECT p.* FROM projects p
+             INNER JOIN challenges c ON c.parent_id = p.id
+             INNER JOIN task t ON t.parent_id = c.id
+             WHERE t.id = $id
+           """.as(projectDAL.get().parser.*).headOption
+          }
+        }
+      case Right(task) =>
+        permission.hasReadAccess(task, user)
+        projectDAL.get().cacheManager.withOptionCaching { () =>
+          withMRConnection { implicit c =>
+            SQL"""SELECT p.* FROM projects p
+             INNER JOIN challenges c ON c.parent_id = p.id
+             WHERE c.id = ${task.parent}
+           """.as(projectDAL.get().parser.*).headOption
+          }
+        }
     }
   }
 
@@ -76,7 +115,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, 
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(task:Task, user:User)(implicit c:Connection=null) : Task = {
-    task.hasWriteAccess(user)
+    permission.hasWriteAccess(task, user)
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         var parameters = Seq(
@@ -117,7 +156,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, 
     */
   override def update(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Task] = {
     cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      cachedItem.hasWriteAccess(user)
+      permission.hasWriteAccess(cachedItem, user)
       withMRTransaction { implicit c =>
         val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -171,7 +210,7 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, 
     * @return
     */
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Connection): Option[Task] = {
-    element.hasWriteAccess(user)
+    permission.hasWriteAccess(element, user)
     withMRTransaction { implicit c =>
       val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {reset})"
 
@@ -246,14 +285,18 @@ class TaskDAL @Inject() (override val db:Database, override val tagDAL: TagDAL, 
     withMRTransaction { implicit c =>
       val updatedRows = SQL"""UPDATE tasks t SET status = $status
           FROM tasks t2
-          LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType} AND l.user_id = ${user.id}
-          WHERE l.item_id = ${task.id} AND t.id = ${task.id}""".executeUpdate()
+          LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
+          WHERE t.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)""".executeUpdate()
       // if returning 0, then this is because the item is locked by a different user
       if (updatedRows == 0) {
         throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
       }
       // if you set the status successfully on a task you will lose the lock of that task
-      unlockItem(user, task)
+      try {
+        unlockItem(user, task)
+      } catch {
+        case e:Exception => Logger.warn(e.getMessage)
+      }
       updatedRows
     }
   }

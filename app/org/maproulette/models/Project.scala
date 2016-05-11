@@ -1,9 +1,9 @@
 package org.maproulette.models
 
-import org.maproulette.actions.Actions
+import org.maproulette.actions.{ItemType, ProjectType}
 import play.api.data._
 import play.api.data.Forms._
-import org.maproulette.session.{Group, User}
+import org.maproulette.session.Group
 import play.api.libs.json.{Json, Reads, Writes}
 
 /**
@@ -19,16 +19,7 @@ case class Project(override val id: Long,
                    groups:List[Group]=List.empty,
                    enabled:Boolean=true) extends BaseObject[Long] {
 
-  override val itemType: Int = Actions.ITEM_TYPE_PROJECT
-
-  /**
-    * Checks whether the user currently has admin access to this project
-    *
-    * @param user
-    * @return
-    */
-  override def hasWriteAccess(user:User) =
-    user.isSuperUser || groups.exists(g => user.groups.exists(ugid => g.id == ugid.id))
+  override val itemType: ItemType = ProjectType()
 }
 
 object Project {
