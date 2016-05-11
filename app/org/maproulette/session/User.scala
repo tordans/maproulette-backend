@@ -7,7 +7,8 @@ import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.Config
 import org.maproulette.actions.Actions
-import org.maproulette.models.BaseObject
+import org.maproulette.models.dal.ProjectDAL
+import org.maproulette.models.{BaseObject, Project}
 import org.maproulette.session.dal.UserDAL
 import play.api.libs.Crypto
 import play.api.libs.json.Json
@@ -82,16 +83,6 @@ case class User (override val id:Long,
 
   def formattedOSMCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(osmProfile.created)
   def formattedMPCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(created)
-
-  /**
-    * Generate (or regenerate) api key for the user, set it in the database
-    */
-  def generateAPIKey : User = {
-    @Inject() val userDAL:UserDAL = null
-    val newAPIKey = Crypto.encryptAES(id + "|" + UUID.randomUUID())
-    userDAL.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), this)(id)
-    this.copy(apiKey = Some(newAPIKey))
-  }
 
   /**
     * Checks to see if this user is part of the special super user group

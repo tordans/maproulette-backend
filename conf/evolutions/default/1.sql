@@ -308,7 +308,7 @@ select create_index_if_not_exists('actions', 'created', '(created)');
 CREATE TABLE IF NOT EXISTS locked
 (
   id serial NOT NULL PRIMARY KEY,
-  date timestamp without time zone DEFAULT NOW(),
+  locked_time timestamp without time zone DEFAULT NOW(),
   item_type integer NOT NULL,
   item_id integer NOT NULL,
   user_id integer NOT NULL,

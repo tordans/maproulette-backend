@@ -87,12 +87,9 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
   }
 
   def deleteUser(userId:Long) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
-      if (user.isSuperUser) {
-        Ok(Json.obj("message" -> s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
-      } else {
-        throw new IllegalAccessException(s"User ${user.name} [${user.id} does not have super user access to delete other users")
-      }
+      Ok(Json.obj("message" -> s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
     }
   }
 
@@ -104,10 +101,15 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Will return NoContent if cannot create the key (which most likely means that no user was
     *         found, or will return the api key as plain text.
     */
-  def generateAPIKey() = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      user match {
-        case Some(u) => u.generateAPIKey.apiKey match {
+  def generateAPIKey(userId:Long=(-1)) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      val userIdToUse = if (user.isSuperUser && userId != -1) {
+        userId
+      } else {
+        user.id
+      }
+      dalManager.user.generateAPIKey(userIdToUse) match {
+        case Some(updated) => updated.apiKey match {
           case Some(api) => Ok(api)
           case None => NoContent
         }
@@ -123,13 +125,14 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return NoContent
     */
   def addUserToProject(userId:Long, projectId:Long) = Action.async { implicit request =>
+    implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.user.retrieveById(userId) match {
         case Some(addUser) =>
           if (addUser.groups.exists(_.projectId == projectId)) {
             throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
           }
-          dalManager.user.addUserToProject(addUser, projectId)
+          dalManager.user.addUserToProject(addUser.osmProfile.id, projectId, user)
           Ok(Json.obj("status" -> "Ok", "message" -> s"User ${addUser.name} added to project $projectId"))
         case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }

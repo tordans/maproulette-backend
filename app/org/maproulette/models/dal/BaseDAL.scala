@@ -40,13 +40,13 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
   def clearCaches = cacheManager.clearCaches
 
   implicit val lockedParser:RowParser[Lock] = {
-    get[Option[DateTime]]("locked.date") ~
+    get[Option[DateTime]]("locked.locked_time") ~
     get[Option[Int]]("locked.item_type") ~
     get[Option[Long]]("locked.item_id") ~
     get[Option[Long]]("locked.user_id") map {
-      case date ~ itemType ~ itemId ~ userId =>
-        date match {
-          case Some(d) => Lock(date.get, itemType.get, itemId.get, userId.get)
+      case locked_time ~ itemType ~ itemId ~ userId =>
+        locked_time match {
+          case Some(d) => Lock(locked_time.get, itemType.get, itemId.get, userId.get)
           case None => Lock.emptyLock
         }
     }
@@ -291,7 +291,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
            (implicit parentId:Long=(-1), c:Connection=null) : List[T] = {
     withMRConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM $tableName
-                      WHERE ${searchField("name")} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
+                      WHERE ${searchField("name", "")} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
                       ${parentFilter(parentId)}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
@@ -310,7 +310,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       withMRConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
-                        WHERE ${searchField("name")}
+                        WHERE ${searchField("name", "")}
                         ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)} ${parentFilter(parentId)}
                         ${order(Some(orderColumn), orderDirection)}
                         LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
@@ -335,8 +335,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     withMRTransaction { implicit c =>
       // first check to see if the item is already locked
       val checkQuery =
-        s"""SELECT user_id FROM locked
-          WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
@@ -364,7 +363,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     */
   def unlockItem(user:User, item:T)(implicit c:Connection=null) : Int =
     withMRTransaction { implicit c =>
-      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType}"""
+      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {

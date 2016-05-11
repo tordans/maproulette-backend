@@ -35,7 +35,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     withMRConnection { implicit c =>
       val query = s"""SELECT $childColumns FROM $childTable
                       WHERE parent_id = {id} ${enabled(onlyEnabled)}
-                      ${searchField("name", "AND")}
+                      ${searchField("name")}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> search(searchString),
@@ -62,7 +62,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
       val query = s"""SELECT $childColumns FROM $childTable c
                       INNER JOIN $tableName p ON p.id = c.parent_id
                       WHERE p.name = LOWER({name}) ${enabled(onlyEnabled, "p")}
-                      ${searchField("c.name", "AND")}
+                      ${searchField("c.name")}
                       ${order(Some(orderColumn), orderDirection, "c")}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> search(searchString),
