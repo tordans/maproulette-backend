@@ -6,7 +6,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
 import org.maproulette.actions.{Actions, ProjectType}
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.InvalidException
+import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.models.{Challenge, Project, Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
@@ -69,6 +69,22 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           Redirect(routes.Application.adminUIProjectList()).flashing("success" -> "Project saved!")
         }
       )
+    }
+  }
+
+  def cloneChallengeFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(parentId)
+      dalManager.challenge.retrieveById(itemId) match {
+        case Some(c) =>
+          val clonedChallenge = c.copy(id = -1)
+          val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
+          getOkIndex("MapRoulette Administration", user,
+            views.html.admin.forms.challengeForm(user, parentId, challengeForm)
+          )
+        case None =>
+          throw new NotFoundException(s"No challenge found to clone matching the given id [$itemId]")
+      }
     }
   }
 
