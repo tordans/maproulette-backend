@@ -727,6 +727,8 @@ var MRManager = (function() {
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(signedIn, debugMode, true, true, true);
         resetEditControls();
+        // update the browser url to reflect the current task
+        window.history.pushState("", "", "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
         // show the task text as a notification
         toastr.clear();
         ToastUtils.Info(marked(currentTask.getData().instruction), {timeOut: 0});
@@ -937,9 +939,6 @@ var MRManager = (function() {
 
     var constructJosmUri = function (new_layer) {
         var bounds = map.getBounds();
-        var nodes = [];
-        var ways = [];
-        var relations = [];
         var sw = bounds.getSouthWest();
         var ne = bounds.getNorthEast();
         var uri = 'http://127.0.0.1:8111/load_and_zoom?left=' + sw.lng + '&right=' + ne.lng +
@@ -1036,9 +1035,17 @@ var MRManager = (function() {
     var getCurrentMapURL = function() {
         return "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id;
     };
+    
+    var getCurrentTaskData = function() {
+        return currentTask.getData();  
+    };
+    
+    var getCurrentChallengeData = function() {
+        return currentTask.getChallenge().getData();
+    };
 
     return {
-        init: init,
+        init: init, 
         addTaskToMap: addTaskToMap,
         updateDisplayTask: updateTaskDisplay,
         getCurrentTaskGeoJSON: getCurrentTaskGeoJSON,
@@ -1053,7 +1060,9 @@ var MRManager = (function() {
         isChallengeSurvey: isChallengeSurvey,
         openTaskInId: openTaskInId,
         openTaskInJosm: openTaskInJosm,
-        getCurrentMapURL: getCurrentMapURL
+        getCurrentMapURL: getCurrentMapURL,
+        getCurrentTaskData: getCurrentTaskData,
+        getCurrentChallengeData: getCurrentChallengeData
     };
 
 }());

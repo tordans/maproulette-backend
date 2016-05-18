@@ -123,9 +123,18 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def stats = Action.async { implicit request =>
-    sessionManager.authenticatedUIRequest { implicit user =>
-      getOkIndex("MapRoulette Statistics", user, views.html.admin.stats(user))
+  def metrics = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      val mockedUser = User.userOrMocked(user)
+      getOkIndex("MapRoulette Metrics", mockedUser, views.html.metrics.metrics(mockedUser, config))
+    }
+  }
+
+  def challengeMetrics(challengeId:Long, projects:String) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      val mockedUser = User.userOrMocked(user)
+      getOkIndex("MapRoulette Metrics", mockedUser,
+        views.html.metrics.metrics(mockedUser, config, dalManager.challenge.retrieveById(challengeId), projects))
     }
   }
 
@@ -240,6 +249,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         routes.javascript.AuthController.deleteUser,
         routes.javascript.AuthController.addUserToProject,
         routes.javascript.Application.error,
+        routes.javascript.Application.challengeMetrics,
         org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
         org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
@@ -259,6 +269,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusAlreadyFixed,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummary,
         org.maproulette.controllers.api.routes.javascript.SurveyController.answerSurveyQuestion,
+        org.maproulette.controllers.api.routes.javascript.DataController.getChallengeActivity,
+        org.maproulette.controllers.api.routes.javascript.DataController.getProjectActivity,
+        org.maproulette.controllers.api.routes.javascript.DataController.getProjectSummary,
+        org.maproulette.controllers.api.routes.javascript.DataController.getUserSummary,
+        org.maproulette.controllers.api.routes.javascript.DataController.getUserChallengeSummary,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,

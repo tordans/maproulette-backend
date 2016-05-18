@@ -6,7 +6,7 @@ import javax.inject.Inject
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.{Challenge, Survey, Task}
+import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal.{SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
