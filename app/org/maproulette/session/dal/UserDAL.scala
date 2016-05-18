@@ -284,14 +284,9 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The user to delete
     * @return The rows that were deleted
     */
-  override def delete(id: Long, user:User)(implicit c:Connection=null) : Int = {
+  override def delete(id: Long, user:User)(implicit c:Connection=null) : User = {
     permission.hasSuperAccess(user)
-    implicit val ids = List(id)
-    cacheManager.withCacheIDDeletion { () =>
-      withMRTransaction { implicit c =>
-        SQL"""DELETE FROM users WHERE id = $id""".executeUpdate()
-      }
-    }
+    this.delete(id, user)
   }
 
   /**

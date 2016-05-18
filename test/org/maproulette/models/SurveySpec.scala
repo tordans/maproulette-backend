@@ -53,8 +53,7 @@ class SurveySpec @Inject() (projectDAL: ProjectDAL, surveyDAL: SurveyDAL) extend
     }
 
     "delete challenge object in database" in new WithApplication {
-      implicit val ids = List(surveyID)
-      surveyDAL.deleteFromIdList(User.superUser)
+      surveyDAL.delete(surveyID, User.superUser)
       surveyDAL.retrieveById mustEqual None
     }
   }

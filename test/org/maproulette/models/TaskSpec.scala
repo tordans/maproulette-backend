@@ -52,8 +52,7 @@ class TaskSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL, ta
     }
 
     "delete tasks object in database" in new WithApplication {
-      implicit val ids = List(taskID)
-      taskDAL.deleteFromIdList(User.superUser)
+      taskDAL.delete(taskID, User.superUser)
       taskDAL.retrieveById mustEqual None
     }
   }

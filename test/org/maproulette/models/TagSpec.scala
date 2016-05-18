@@ -49,18 +49,8 @@ class TagSpec @Inject() (tagDAL: TagDAL) extends Specification {
     }
 
     "delete tag object in database" in new WithApplication {
-      implicit val ids = List(tagID)
-      tagDAL.deleteFromIdList(User.superUser)
+      tagDAL.delete(tagID, User.superUser)
       tagDAL.retrieveById mustEqual None
-    }
-
-    "delete multiple tag objects from database based on name" in new WithApplication {
-      tagDAL.insert(Tag(-1, "tag1"), User.superUser)
-      tagDAL.insert(Tag(-1, "tag2"), User.superUser)
-      tagDAL.insert(Tag(-1, "tag3"), User.superUser)
-      tagDAL.deleteFromStringList(User.superUser)(List("tag1", "tag2")) mustEqual 2
-      tagDAL.retrieveByName("tag1") mustEqual None
-      tagDAL.retrieveByName("tag2") mustEqual None
     }
   }
 }

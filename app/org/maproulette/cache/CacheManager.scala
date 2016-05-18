@@ -119,7 +119,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     * @return An optional base object that has been updated and cached.
     */
   def withUpdatingCache(retrieve:Key => Option[A])(block:A => Option[A])
-                       (implicit id:Key, caching:Boolean=true) : Option[A] = {
+                       (implicit id:Key, caching:Boolean=true, delete:Boolean=false) : Option[A] = {
     val cachedItem = caching match {
       case true =>
         cache.get(id) match {
@@ -137,13 +137,31 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
       case Some(item) =>
         block(item) match {
           case Some(updatedItem) =>
-            if (caching) cache.add(updatedItem)
+            if (caching) {
+              if (delete) {
+                cache.remove(updatedItem.id)
+              } else {
+                cache.add(updatedItem)
+              }
+            }
             Some(updatedItem)
           case None => None
         }
       case None => None
     }
   }
+
+  /**
+    * Will retrieve the object from the cache, and delete it afterwards
+    *
+    * @param retrieve The function to retrieve from external storage if not in cache
+    * @param block The block of code to execute
+    * @param id The id of the object
+    * @param caching Whether caching is enabled or not
+    * @return
+    */
+  def withDeletingCache(retrieve:Key => Option[A])(block:A => Option[A])
+                     (implicit id:Key, caching:Boolean=true) : Option[A] = withUpdatingCache(retrieve)(block)(id, caching, true)
 
   /**
     * This will pull the items out of the cache that have been cached, and send the rest of the id's

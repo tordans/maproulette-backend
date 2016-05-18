@@ -50,8 +50,7 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
     }
 
     "delete challenge object in database" in new WithApplication {
-      implicit val ids = List(challengeID)
-      challengeDAL.deleteFromIdList(User.superUser)
+      challengeDAL.delete(challengeID, User.superUser)
       challengeDAL.retrieveById mustEqual None
     }
   }

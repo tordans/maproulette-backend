@@ -7,7 +7,7 @@ import anorm.SqlParser._
 import org.joda.time.DateTime
 import org.maproulette.actions.ItemType
 import org.maproulette.cache.CacheManager
-import org.maproulette.exception.LockedException
+import org.maproulette.exception.{LockedException, NotFoundException}
 import org.maproulette.models.{BaseObject, Lock}
 import org.maproulette.models.utils.{DALHelper, TransactionManager}
 import org.maproulette.permissions.Permission
@@ -131,48 +131,26 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     }
 
   /**
-    * Helper function that takes a single key to delete and pushes the workload off to the deleteFromIdList
-    * function that takes a list. This just creates a list with a single element
+    * Deletes an item from the database
     *
     * @param id The id that you want to delete
     * @param user The user executing the task
     * @return Count of deleted row(s)
     */
-  def delete(id: Key, user:User)(implicit c:Connection=null): Int = deleteFromIdList(user)(List(id))
-
-  /**
-    * Deletes all the objects in the supplied id list. With caching, so after
-    * it has deleted the objects from the database it will delete the same objects from the cache.
-    *
-    * @param user The user executing the task
-    * @param ids The list of ids that will be deleted
-    * @return Count of deleted row(s)
-    */
-  def deleteFromIdList(user:User)(implicit ids: List[Key], c:Connection=null): Int = {
-    // todo: add access checks here
-    cacheManager.withCacheIDDeletion { () =>
+  def delete(id: Key, user:User)(implicit c:Connection=null): T = {
+    implicit val key = id
+    val deletedItem = cacheManager.withDeletingCache(Long => retrieveById) { implicit deletedItem =>
+      permission.hasWriteAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
       withMRTransaction { implicit c =>
-        val query = s"DELETE FROM $tableName WHERE id IN ({ids})"
-        SQL(query).on('ids -> ParameterValue.toParameterValue(ids)(p = keyToStatement)).executeUpdate()
+        val query = s"DELETE FROM $tableName WHERE id = {id}"
+        SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).executeUpdate()
+        Some(deletedItem)
       }
     }
-  }
 
-  /**
-    * Deletes all the objects found matching names in the supplied list. With caching, so after
-    * it has deleted the objects from the database it will delete the same objects from the cache.
-    *
-    * @param user The user executing the task
-    * @param names The names to match and delete
-    * @return Count of deleted row(s)
-    */
-  def deleteFromStringList(user:User)(implicit names: List[String], parentId:Long=(-1), c:Connection=null): Int = {
-    // todo: add access checks here
-    cacheManager.withCacheNameDeletion { () =>
-      withMRTransaction { implicit c =>
-        val query = s"DELETE FROM $tableName WHERE name IN ({names}) ${parentFilter(parentId)}"
-        SQL(query).on('names -> ParameterValue.toParameterValue(names)).executeUpdate()
-      }
+    deletedItem match {
+      case Some(item) => item
+      case None => throw new NotFoundException(s"No object with id $id found to delete")
     }
   }
 
