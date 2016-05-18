@@ -4,7 +4,7 @@
 @(userActivity:List[ActionItem])
 
 <ul class="nav nav-tabs nav-justified control-sidebar-tabs">
-  <li class="active"><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-home"></i></a></li>
+  <li class="active" id="control-sidebar-home-upper-tab"><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-wrench"></i></a></li>
   <li><a href="#control-sidebar-activity-tab" data-toggle="tab"><i class="fa fa-bars"></i></a></li>
   <li><a href="#control-sidebar-settings-tab" data-toggle="tab"><i class="fa fa-gears"></i></a></li>
 </ul>
@@ -12,7 +12,7 @@
 <div class="tab-content">
     <!-- Home tab content -->
   <div class="tab-pane active" id="control-sidebar-home-tab">
-    <h3 class="control-sidebar-heading">Tasks Progress</h3>
+    <h3 class="control-sidebar-heading">Challenge Progress</h3>
     <ul class="control-sidebar-menu">
       <li>
         <a href="javascript::;">
@@ -74,6 +74,13 @@
           </h4>
         </a>
       </li>
+      <li>
+        <div class="pull-right">
+          <a href="#" onclick="viewMetrics();">
+            <button class="btn-xs btn-block btn-primary">View Metrics</button>
+          </a>
+        </div>
+      </li>
     </ul>
   </div>
   <div class="tab-pane" id="control-sidebar-activity-tab">
@@ -130,17 +137,27 @@
   </div>
 </div>
 <script type="application/javascript">
+  if (typeof MRManager === 'undefined') {
+    $("#control-sidebar-home-upper-tab").remove();
+    $("#control-sidebar-home-tab").remove();
+    $("#control-sidebar-activity-tab").addClass("active");
+  }
+
+  function viewMetrics() {
+    location.href = "/ui/metrics/" + MRManager.getCurrentChallengeData().id;
+  }
 
   function updateChallengeInfo(challengeId) {
       jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId)
               .ajax({
-                success: function (data) {
+                success: function (listData) {
+                  var data = listData[0];
                   $("#challenge_name").text(data.name);
-                  var createdTasks = getCountValue(data.statusCounts.Created);
-                  var fixedTasks = getCountValue(data.statusCounts.Fixed);
-                  var falsePositiveTasks = getCountValue(data.statusCounts.False_Positive);
-                  var skippedTasks = getCountValue(data.statusCounts.Skipped);
-                  var alreadyFixedTasks = getCountValue(data.statusCounts.Already_Fixed);
+                  var createdTasks = getCountValue(data.available);
+                  var fixedTasks = getCountValue(data.fixed);
+                  var falsePositiveTasks = getCountValue(data.falsePositive);
+                  var skippedTasks = getCountValue(data.skipped);
+                  var alreadyFixedTasks = getCountValue(data.alreadyFixed);
                   var totalTasks = createdTasks + fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks;
                   $("#challenge_total_tasks").text(totalTasks);
                   var availableTasks = createdTasks + skippedTasks;

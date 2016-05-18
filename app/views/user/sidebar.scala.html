@@ -61,7 +61,7 @@
       <li class="header">Administration</li>
         <!-- Optionally, you can add icons to the links -->
       <li><a href="@routes.Application.adminUIProjectList()"><i class="fa fa-folder-open"></i> <span>Projects</span></a></li>
-      <li><a href="@routes.Application.stats()"><i class="fa fa-pie-chart"></i> <span>Metrics</span></a></li>
+      <li><a href="@routes.Application.metrics()"><i class="fa fa-pie-chart"></i> <span>Metrics</span></a></li>
       @if(user.isSuperUser) {
         <li><a href="@routes.Application.users()"><i class="fa fa-users"></i> <span>Users</span></a></li>
       }

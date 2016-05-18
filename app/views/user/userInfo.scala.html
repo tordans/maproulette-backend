@@ -42,7 +42,7 @@
                     <!-- hidden-xs hides the username on small devices so only the image appears. -->
                 <span class="hidden-xs">
                 @if(user.guest){
-                    Sign in to Edit
+                    Sign in
                 } else {
                     @user.name
                 }
@@ -70,9 +70,9 @@
                     </li>
                         <!-- Menu Footer-->
                     <li class="user-footer">
-                        <div class="pull-left">
+                        <!--div class="pull-left">
                             <a href="@routes.Application.profile()" class="btn btn-default btn-flat">Profile</a>
-                        </div>
+                        </div-->
                         <div class="pull-right">
                             <a href="@routes.AuthController.signOut()" class="btn btn-default btn-flat">Sign out</a>
                         </div>

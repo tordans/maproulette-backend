@@ -7,7 +7,7 @@ import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
-import org.maproulette.actions.TaskType
+import org.maproulette.actions.{ActionManager, TaskType}
 import org.maproulette.cache.CacheManager
 import org.maproulette.models.{Lock, Project, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
@@ -29,7 +29,8 @@ import scala.collection.mutable.ListBuffer
 class TaskDAL @Inject() (override val db:Database,
                          override val tagDAL: TagDAL, config:Config,
                          override val permission:Permission,
-                         projectDAL: Provider[ProjectDAL])
+                         projectDAL: Provider[ProjectDAL],
+                         actions:ActionManager)
     extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
@@ -283,7 +284,7 @@ class TaskDAL @Inject() (override val db:Database,
     }
 
     withMRTransaction { implicit c =>
-      val updatedRows = SQL"""UPDATE tasks t SET status = $status
+      val updatedRows = SQL"""UPDATE tasks t SET status = $status, user_id = ${user.id}
           FROM tasks t2
           LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
           WHERE t.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)""".executeUpdate()
@@ -291,6 +292,8 @@ class TaskDAL @Inject() (override val db:Database,
       if (updatedRows == 0) {
         throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
       }
+      actions.setStatusAction(user, task, status)
+
       // if you set the status successfully on a task you will lose the lock of that task
       try {
         unlockItem(user, task)

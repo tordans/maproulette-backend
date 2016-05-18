@@ -227,7 +227,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     sessionManager.authenticatedRequest { implicit user =>
       dal.delete(id.toLong, user)
       actionManager.setAction(Some(user), itemType.convertToItem(id.toLong), Deleted(), "")
-      Ok(Json.obj("message" -> s"Task $id deleted by user ${user.id}."))
+      Ok(Json.obj("message" -> s"${Actions.getTypeName(itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."))
     }
   }
 
@@ -304,7 +304,6 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], user:User, update:Boolean=false) : Unit = {
     dal.getDatabase.withTransaction { implicit c =>
       Metrics.timer("BatchUpload LOOP") { () =>
-        var numberOfCreateFailures = 0
         arr.foreach(element => (element \ "id").asOpt[String] match {
           case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
           case None =>
@@ -313,7 +312,6 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
               validT => internalCreate(element, validT, user)
             )
         })
-        Logger.debug(s"$numberOfCreateFailures failed to upload out of ${arr.size}")
       }
     }
   }

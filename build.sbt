@@ -30,11 +30,16 @@ libraryDependencies ++= Seq(
   "org.webjars" % "jquery" % "2.2.1",
   "org.webjars" % "leaflet" % "0.7.7",
   "org.webjars" % "toastr" % "2.1.1",
+  "org.webjars" % "bootstrap-daterangepicker" % "2.1.19",
+  "org.webjars" % "momentjs" % "2.12.0",
   "joda-time" % "joda-time" % "2.9.2",
   "org.webjars" % "datatables" % "1.10.11",
   "org.webjars.bower" % "marked" % "0.3.5",
+  "org.webjars.bower" % "chartjs" % "2.1.0",
   "com.vividsolutions" % "jts" % "1.13"
 )
+
+dependencyOverrides += "org.webjars" % "bootstrap" % "3.3.6"
 
 unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )  
 

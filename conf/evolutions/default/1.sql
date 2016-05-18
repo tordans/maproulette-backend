@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS tasks
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
+  user_id integer,
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -301,10 +302,34 @@ CREATE TABLE IF NOT EXISTS actions
     REFERENCES users(id) MATCH SIMPLE
 );
 
-SELECT create_index_if_not_exists('actions', 'status', '(status)');
 SELECT create_index_if_not_exists('actions', 'item_id', '(item_id)');
 SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
 select create_index_if_not_exists('actions', 'created', '(created)');
+
+-- This contains only the actions related to setting the status of a task
+CREATE TABLE IF NOT EXISTS status_actions
+(
+  id serial NOT NULL PRIMARY KEY,
+  created timestamp without time zone DEFAULT NOW(),
+  user_id integer NOT NULL,
+  project_id integer NOT NULL,
+  challenge_id integer NOT NULL,
+  task_id integer NOT NULL,
+  old_status integer NOT NULL,
+  status integer NOT NULL,
+  CONSTRAINT status_actions_project_id_fkey FOREIGN KEY (project_id)
+    REFERENCES projects(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT status_actions_challenge_id_fkey FOREIGN KEY (challenge_id)
+    REFERENCES challenges(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT status_actions_task_id_fkey FOREIGN KEY (task_id)
+    REFERENCES tasks(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+SELECT create_index_if_not_exists('status_actions', 'challenge_id', '(challenge_id)');
+SELECT create_index_if_not_exists('status_actions', 'challenge_id,status', '(challenge_id,status)');
 
 -- Table handling locks for any of the objects
 CREATE TABLE IF NOT EXISTS locked
