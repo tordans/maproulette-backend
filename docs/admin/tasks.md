@@ -17,22 +17,19 @@ Here is an example task:
     {
         "name": "ExampleTask",
         "identifier": "Custom_Identifier",
-        "parent": 1,
+        "parent": {{challenge_id}},
         "instruction": "Task instruction",
-        "location": {
-            "geometries": {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [77.6255107,40.5872232]
-                        },
-                        "properties": {}
-                    }
-                ]
-            }
+        "geometries": {
+            "type": "FeatureCollection",
+            "features":
+                [{
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [77.6255107,40.5872232]
+                    },
+                    "properties": {}
+                }]
         },
         "status": 0
     }
