@@ -49,8 +49,7 @@ class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
     }
 
     "delete project object in database" in new WithApplication {
-      implicit val ids = List(projectID)
-      projectDAL.deleteFromIdList(User.superUser)
+      projectDAL.delete(projectID, User.superUser)
       projectDAL.retrieveById mustEqual None
     }
   }
