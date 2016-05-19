@@ -4,8 +4,9 @@
 
 @views.html.admin.common.header("Administration", null,
   Map(
-    parentType -> routes.Application.adminUIChildList(parentType, projectId),
-    "Tasks" -> routes.Application.adminUITaskList(projectId, parentType, parentId)
+    "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
+    "Challenges" -> ("", routes.Application.adminUIChildList(parentType, projectId)),
+    "Tasks" -> ("", routes.Application.adminUITaskList(projectId, parentType, parentId))
   )
 )
 <section class="content">
