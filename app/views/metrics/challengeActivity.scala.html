@@ -311,15 +311,15 @@
     }
 
     function updateUserData(data) {
-        $("#actions").html(data.avgActionsPerUser.fixed + " <small>Fixed</small></br>" +
-                            data.avgActionsPerUser.falsePositive + " <small>False Positives</small></br>" +
-                            data.avgActionsPerUser.skipped + " <small>Too hard / Skipped</small></br>" +
-                            data.avgActionsPerUser.alreadyFixed + " <small>Already Fixed</small></br>"
+        $("#actions").html(parseFloat(data.avgActionsPerUser.fixed).toFixed(2) + " <small>Fixed</small></br>" +
+                parseFloat(data.avgActionsPerUser.falsePositive).toFixed(2) + " <small>False Positives</small></br>" +
+                parseFloat(data.avgActionsPerUser.skipped).toFixed(2) + " <small>Too hard / Skipped</small></br>" +
+                parseFloat(data.avgActionsPerUser.alreadyFixed).toFixed(2) + " <small>Already Fixed</small></br>"
         );
-        $("#actions_per_challenge").html(data.avgActionsPerChallengePerUser.fixed + " <small>Fixed</small></br>" +
-                                        data.avgActionsPerChallengePerUser.falsePositive + " <small>False Positives</small></br>" +
-                                        data.avgActionsPerChallengePerUser.skipped + " <small>Too hard / Skipped</small></br>" +
-                                        data.avgActionsPerChallengePerUser.alreadyFixed + " <small>Already Fixed</small></br>"
+        $("#actions_per_challenge").html(parseFloat(data.avgActionsPerChallengePerUser.fixed).toFixed(2) + " <small>Fixed</small></br>" +
+                parseFloat(data.avgActionsPerChallengePerUser.falsePositive).toFixed(2) + " <small>False Positives</small></br>" +
+                parseFloat(data.avgActionsPerChallengePerUser.skipped).toFixed(2) + " <small>Too hard / Skipped</small></br>" +
+                parseFloat(data.avgActionsPerChallengePerUser.alreadyFixed).toFixed(2) + " <small>Already Fixed</small></br>"
         );
         $("#users_per_challenge").html(data.avgUsersPerChallenge);
         $("#active_users").html(data.activeUsers);

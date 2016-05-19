@@ -187,7 +187,6 @@ CREATE TABLE IF NOT EXISTS tasks
   instruction character varying NOT NULL,
   parent_id integer NOT NULL,
   status integer DEFAULT 0 NOT NULL,
-  user_id integer,
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -206,12 +205,10 @@ CREATE TABLE IF NOT EXISTS survey_answers
 (
   id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
-  user_id integer NOT NULL DEFAULT(-999),
+  osm_user_id integer NOT NULL,
   survey_id integer NOT NULL,
   task_id integer NOT NULL,
   answer_id integer NOT NULL,
-  CONSTRAINT survey_answers_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
     REFERENCES challenges(id) MATCH SIMPLE,
   CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
@@ -292,18 +289,16 @@ CREATE TABLE IF NOT EXISTS actions
 (
   id serial NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
-  user_id integer DEFAULT(-999),
+  osm_user_id integer,
   type_id integer,
   item_id integer,
   action integer NOT NULL,
   status integer NOT NULL,
-  extra character varying,
-  CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id)
-    REFERENCES users(id) MATCH SIMPLE
+  extra character varying
 );
 
 SELECT create_index_if_not_exists('actions', 'item_id', '(item_id)');
-SELECT create_index_if_not_exists('actions', 'user_id', '(user_id)');
+SELECT create_index_if_not_exists('actions', 'osm_user_id', '(osm_user_id)');
 select create_index_if_not_exists('actions', 'created', '(created)');
 
 -- This contains only the actions related to setting the status of a task
@@ -311,7 +306,7 @@ CREATE TABLE IF NOT EXISTS status_actions
 (
   id serial NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
-  user_id integer NOT NULL,
+  osm_user_id integer NOT NULL,
   project_id integer NOT NULL,
   challenge_id integer NOT NULL,
   task_id integer NOT NULL,
@@ -396,3 +391,24 @@ INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, them
 INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
 
 # --- !Downs
+
+DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);
+DROP FUNCTION IF EXISTS update_modified();
+DROP FUNCTION IF EXISTS on_user_delete();
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS projects CASCADE;
+DROP TABLE IF EXISTS groups CASCADE;
+DROP TABLE IF EXISTS user_groups CASCADE;
+DROP TABLE IF EXISTS challenges CASCADE;
+DROP TABLE IF EXISTS answers CASCADE;
+DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS survey_answers CASCADE;
+DROP TABLE IF EXISTS tags CASCADE;
+DROP TABLE IF EXISTS tags_on_challenges CASCADE;
+DROP TABLE IF EXISTS tags_on_tasks CASCADE;
+DROP TABLE IF EXISTS task_geometries CASCADE;
+DROP TABLE IF EXISTS actions CASCADE;
+DROP TABLE IF EXISTS status_actions CASCADE;
+DROP TABLE IF EXISTS locked CASCADE;
+DROP FUNCTION IF EXISTS create_update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint, reset_interval text);
+DROP FUNCTION IF EXISTS update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint, reset_interval text)

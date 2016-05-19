@@ -284,7 +284,7 @@ class TaskDAL @Inject() (override val db:Database,
     }
 
     withMRTransaction { implicit c =>
-      val updatedRows = SQL"""UPDATE tasks t SET status = $status, user_id = ${user.id}
+      val updatedRows = SQL"""UPDATE tasks t SET status = $status
           FROM tasks t2
           LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
           WHERE t.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)""".executeUpdate()
