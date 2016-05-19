@@ -56,7 +56,7 @@ trait ControllerHelper {
       dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0),
       dalManager.challenge.getNewChallenges(config.numberOfChallenges, 0),
       dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0),
-      dalManager.action.getRecentActivity(user.id, config.numberOfActivities, 0)
+      dalManager.action.getRecentActivity(user, config.numberOfActivities, 0)
     )(content))
 
     // only modify the user tick if it is an authenticated user

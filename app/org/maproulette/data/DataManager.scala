@@ -12,15 +12,15 @@ import org.maproulette.models.utils.DALHelper
 import play.api.Application
 import play.api.db.Database
 
-case class ActionSummary(available:Int,
-                             fixed:Int,
-                             falsePositive:Int,
-                             skipped:Int,
-                             deleted:Int,
-                             alreadyFixed:Int)
+case class ActionSummary(available:Double,
+                             fixed:Double,
+                             falsePositive:Double,
+                             skipped:Double,
+                             deleted:Double,
+                             alreadyFixed:Double)
 case class UserSummary(distinctTotalUsers:Int,
-                       avgUsersPerChallenge:Int,
-                       activeUsers:Int,
+                       avgUsersPerChallenge:Double,
+                       activeUsers:Double,
                        avgActionsPerUser:ActionSummary,
                        avgActionsPerChallengePerUser:ActionSummary)
 case class ChallengeSummary(id:Long, name:String, actions:ActionSummary)
@@ -43,49 +43,51 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         }
       }
 
-      val distinctUserQuery = s"SELECT COUNT(DISTINCT user_id) AS count FROM status_actions $challengeProjectFilter"
+      val distinctUserQuery = s"SELECT COUNT(DISTINCT osm_user_id) AS count FROM status_actions $challengeProjectFilter"
       val distinctUsers = SQL(distinctUserQuery).as(int("count").*).head
       val distinctUsersPerChallengeQuery = s"""SELECT AVG(count) AS count FROM (
-                                                SELECT challenge_id, COUNT(DISTINCT user_id) AS count
+                                                SELECT challenge_id, COUNT(DISTINCT osm_user_id) AS count
                                                 FROM status_actions $challengeProjectFilter
                                                 GROUP BY challenge_id
                                               ) as t"""
       val distinctUsersPerChallenge = SQL(distinctUsersPerChallengeQuery).as(int("count").*).head
-      val activeUserQuery = s"""SELECT COUNT(DISTINCT user_id) AS count
+      val activeUserQuery = s"""SELECT COUNT(DISTINCT osm_user_id) AS count
                                 FROM status_actions $challengeProjectFilter
                                 ${if (challengeProjectFilter.isEmpty) { "WHERE" } else { "AND" } }
                                   created BETWEEN current_date - INTERVAL '2 days' AND current_date"""
       val activeUsers = SQL(activeUserQuery).as(int("count").*).head
       val actionParser = for {
-        available <- int("available")
-        fixed <- int("fixed")
-        falsePositive <- int("false_positive")
-        skipped <- int("skipped")
-        deleted <- int("deleted")
-        alreadyFixed <- int("already_fixed")
+        available <- double("available")
+        fixed <- double("fixed")
+        falsePositive <- double("false_positive")
+        skipped <- double("skipped")
+        deleted <- double("deleted")
+        alreadyFixed <- double("already_fixed")
       } yield ActionSummary(available, fixed, falsePositive, skipped, deleted, alreadyFixed)
       val perUserQuery = s"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                   AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
                               FROM (
-                                SELECT user_id, SUM(CASE status WHEN 0 THEN 1 ELSE 0 END) AS available,
+                                SELECT osm_user_id,
+                                    SUM(CASE status WHEN 0 THEN 1 ELSE 0 END) AS available,
                                     SUM(CASE status WHEN 1 THEN 1 ELSE 0 END) AS fixed,
                                     SUM(CASE status WHEN 2 THEN 1 ELSE 0 END) AS false_positive,
                                     SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                     SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                     SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
-                                FROM status_actions $challengeProjectFilter GROUP BY user_id
+                                FROM status_actions $challengeProjectFilter GROUP BY osm_user_id
                               ) AS t"""
       val perUser = SQL(perUserQuery).as(actionParser.*).head
       val perChallengeQuery = s"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                         AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
                                   FROM (
-                                    SELECT user_id, challenge_id, SUM(CASE status WHEN 0 THEN 1 ELSE 0 END) AS available,
+                                    SELECT osm_user_id, challenge_id,
+                                        SUM(CASE status WHEN 0 THEN 1 ELSE 0 END) AS available,
                                         SUM(CASE status WHEN 1 THEN 1 ELSE 0 END) AS fixed,
                                         SUM(CASE status WHEN 2 THEN 1 ELSE 0 END) AS false_positive,
                                         SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                         SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                         SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
-                                    FROM status_actions $challengeProjectFilter GROUP BY user_id, challenge_id
+                                    FROM status_actions $challengeProjectFilter GROUP BY osm_user_id, challenge_id
                                   ) AS t"""
       val perChallenge = SQL(perChallengeQuery).as(actionParser.*).head
       UserSummary(distinctUsers, distinctUsersPerChallenge, activeUsers, perUser, perChallenge)
@@ -181,7 +183,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
            |	SELECT created::date, status, COUNT(status) AS count
            |  FROM status_actions
            |	WHERE status IN (0, 1, 2, 3, 5) AND
-           |    created BETWEEN '$startDate' AND '$endDate'
+           |    created::date BETWEEN '$startDate' AND '$endDate'
            |    $challengeProjectFilter
            |	GROUP BY created::date, status
            |  ORDER BY created::date, status ASC

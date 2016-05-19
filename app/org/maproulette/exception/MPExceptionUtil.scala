@@ -61,7 +61,7 @@ object MPExceptionUtil {
     val featuredChallenges = dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0)
     val hotChallenges = dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0)
     val newChallenges = dalManager.challenge.getNewChallenges(config.numberOfChallenges, 0)
-    val activity = dalManager.action.getRecentActivity(user.id, config.numberOfActivities, 0)
+    val activity = dalManager.action.getRecentActivity(user, config.numberOfActivities, 0)
     try {
       block()
     } catch {
@@ -148,7 +148,7 @@ object MPExceptionUtil {
     val featuredChallenges = dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0)
     val hotChallenges = dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0)
     val newChallenges = dalManager.challenge.getNewChallenges(config.numberOfChallenges, 0)
-    val activities = dalManager.action.getRecentActivity(user.id, config.numberOfChallenges, 0)
+    val activities = dalManager.action.getRecentActivity(user, config.numberOfChallenges, 0)
     e match {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)

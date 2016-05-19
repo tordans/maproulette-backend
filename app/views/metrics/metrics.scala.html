@@ -17,7 +17,7 @@
                     } else {
                         <span class="info-box-text">Number of Tasks</span>
                     }
-                    <span id="numOfChallenges" class="info-box-number"></span>
+                    <span id="top_numOfChallenges" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
             </div><!-- /.info-box -->
         </div><!-- /.col -->
@@ -30,7 +30,7 @@
                     } else {
                         <span class="info-box-text">Fixed</span>
                     }
-                    <span id="fixed" class="info-box-number"></span>
+                    <span id="top_fixed" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
             </div><!-- /.info-box -->
         </div><!-- /.col -->
@@ -47,7 +47,7 @@
                     } else {
                         <span class="info-box-text">False Positives</span>
                     }
-                    <span id="fps" class="info-box-number"></span>
+                    <span id="top_fps" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
             </div><!-- /.info-box -->
         </div><!-- /.col -->
@@ -56,7 +56,7 @@
                 <span class="info-box-icon bg-yellow"><i class="ion ion-ios-people-outline"></i></span>
                 <div class="info-box-content">
                     <span class="info-box-text">Users</span>
-                    <span id="users" class="info-box-number"></span>
+                    <span id="top_users" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
             </div><!-- /.info-box -->
         </div><!-- /.col -->
@@ -86,7 +86,7 @@
     }
 
     function receiveUserData(data) {
-        $("#users").html(data.distinctTotalUsers);
+        $("#top_users").html(data.distinctTotalUsers);
         updateUserData(data);
     }
 
@@ -124,14 +124,14 @@
         $("#skipped_bar").width((skippedTasks / totalTasks) * 100 + "%");
         // update information in the top bar
         @if(challenge.isEmpty) {
-            $("#numOfChallenges").html(numOfChallenges + "</br><small>(" + totalTasks + " Tasks)</small>");
+            $("#top_numOfChallenges").html(numOfChallenges + "</br><small>(" + totalTasks + " Tasks)</small>");
             var fixed = 0;
-            $("#fixed").html(parseFloat((completionRate / numOfChallenges) * 100).toFixed(2) + "%");
-            $("#fps").html(parseFloat((falsePositiveRate / numOfChallenges) * 100).toFixed(2) + "%");
+            $("#top_fixed").html(parseFloat((completionRate / numOfChallenges) * 100).toFixed(2) + "%");
+            $("#top_fps").html(parseFloat((falsePositiveRate / numOfChallenges) * 100).toFixed(2) + "%");
         } else {
-            $("#numOfChallenges").html(totalTasks);
-            $("#fixed").html(fixedTasks);
-            $("#fps").html(falsePositiveTasks);
+            $("#top_numOfChallenges").html(totalTasks);
+            $("#top_fixed").html(fixedTasks);
+            $("#top_fps").html(falsePositiveTasks);
         }
     }
 

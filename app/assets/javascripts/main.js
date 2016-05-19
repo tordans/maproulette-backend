@@ -222,7 +222,7 @@ var deleteItem = function(itemType, itemId) {
     } else if (itemType == "Task") {
         jsRoutes.org.maproulette.controllers.api.TaskController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "User") {
-        jsRoutes.AuthController.deleteUser(itemid).ajax(apiCallback);
+        jsRoutes.controllers.AuthController.deleteUser(itemId).ajax(apiCallback);
     }
 };
 

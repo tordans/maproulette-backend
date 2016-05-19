@@ -27,7 +27,7 @@ import scala.concurrent.Future
   * @author cuthbertm
   */
 case class ActionItem(created:Option[DateTime]=None,
-                      userId:Option[Long]=None,
+                      osmUserId:Option[Long]=None,
                       typeId:Option[Int]=None,
                       itemId:Option[Long]=None,
                       action:Option[Int]=None,
@@ -37,7 +37,7 @@ case class ActionItem(created:Option[DateTime]=None,
 /**
   * @param columns The columns that you want returned limited to UserId = 0, typeId = 1, itemId = 2, action = 3 and status = 4
   * @param timeframe You can specify whether you want the data returned per Hour = 0, Day = 1, Week = 2, Month = 3 and Year = 4
-  * @param userLimit Filter the query based on a set of user id's
+  * @param osmUserLimit Filter the query based on a set of user id's
   * @param typeLimit Filter the query based on the type of item Project = 0, Challenge = 1, Task = 2
   * @param itemLimit Filter the query based on a set of item id's
   * @param statusLimit Filter the query based on status Created = 0, Fixed = 1, FalsePositive = 2, Skipped = 3, Deleted = 4
@@ -47,7 +47,7 @@ case class ActionItem(created:Option[DateTime]=None,
   */
 case class ActionLimits(columns:List[Int]=List.empty,
                         timeframe:Option[Int]=None,
-                        userLimit:List[Long]=List.empty,
+                        osmUserLimit:List[Long]=List.empty,
                         typeLimit:List[Int]=List.empty,
                         itemLimit:List[Long]=List.empty,
                         statusLimit:List[Int]=List.empty,
@@ -79,14 +79,14 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     */
   implicit val parser: RowParser[ActionItem] = {
       get[Option[DateTime]]("created") ~
-      get[Option[Long]]("actions.user_id") ~
+      get[Option[Long]]("actions.osm_user_id") ~
       get[Option[Int]]("actions.type_id") ~
       get[Option[Long]]("actions.item_id") ~
       get[Option[Int]]("actions.action") ~
       get[Option[Int]]("actions.status") ~
       get[Option[String]]("actions.extra") map {
-      case created ~ userId ~ typeId ~ itemId ~ action ~ status ~ extra => {
-        new ActionItem(created, userId, typeId, itemId, action, status, extra)
+      case created ~ osmUserId ~ typeId ~ itemId ~ action ~ status ~ extra => {
+        new ActionItem(created, osmUserId, typeId, itemId, action, status, extra)
       }
     }
   }
@@ -112,10 +112,10 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
             case _ => 0
           }
           val userId = user match {
-            case Some(u) => Some(u.id)
+            case Some(u) => Some(u.osmProfile.id)
             case None => None
           }
-          SQL"""INSERT INTO actions (user_id, type_id, item_id, action, status, extra)
+          SQL"""INSERT INTO actions (osm_user_id, type_id, item_id, action, status, extra)
                 VALUES ($userId, ${item.typeId}, ${item.itemId}, ${action.getId},
                           $statusId, $extra)""".execute()
         }
@@ -134,8 +134,8 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
   def setStatusAction(user:User, task:Task, status:Int) : Future[Boolean] = {
     Future {
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO status_actions (user_id, project_id, challenge_id, task_id, old_status, status)
-                SELECT ${user.id}, parent_id, ${task.parent}, ${task.id}, ${task.status}, $status
+        SQL"""INSERT INTO status_actions (osm_user_id, project_id, challenge_id, task_id, old_status, status)
+                SELECT ${user.osmProfile.id}, parent_id, ${task.parent}, ${task.id}, ${task.status}, $status
                 FROM challenges WHERE id = ${task.parent}
           """.execute()
       }
@@ -146,14 +146,14 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     * Helper function for getActivity list that gets the recent activity for a specific user, and
     * will only retrieve activity where status was set for tasks.
     *
-    * @param userId The user to get the activity for
+    * @param user The user to get the activity for
     * @param limit limit the number of returned items
     * @param offset paging, starting at 0
     * @return
     */
-  def getRecentActivity(userId:Long, limit:Int=10, offset:Int=0) : List[ActionItem] =
+  def getRecentActivity(user:User, limit:Int=10, offset:Int=0) : List[ActionItem] =
     getActivityList(limit, offset,
-      ActionLimits(userLimit = List(userId),
+      ActionLimits(osmUserLimit = List(user.osmProfile.id),
         actionLimit = List(Actions.ACTION_TYPE_TASK_STATUS_SET,
           Actions.ACTION_TYPE_QUESTION_ANSWERED)))
 
@@ -189,12 +189,12 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
       whereClause ++= "action IN ({actions})"
     }
 
-    val userQuery = if (actionLimits.userLimit.nonEmpty) {
-      parameters += ('userIds -> actionLimits.userLimit)
+    val userQuery = if (actionLimits.osmUserLimit.nonEmpty) {
+      parameters += ('userIds -> actionLimits.osmUserLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "
       }
-      whereClause ++= "user_id IN ({userIds})"
+      whereClause ++= "osm_user_id IN ({userIds})"
     }
 
     val query =

@@ -286,7 +286,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   override def delete(id: Long, user:User)(implicit c:Connection=null) : User = {
     permission.hasSuperAccess(user)
-    this.delete(id, user)
+    super.delete(id, user)
   }
 
   /**

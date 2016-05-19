@@ -49,7 +49,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
       limit
     }
     sessionManager.authenticatedRequest { user =>
-      Ok(Json.toJson(actionManager.getRecentActivity(user.id, actualLimit, offset)))
+      Ok(Json.toJson(actionManager.getRecentActivity(user, actualLimit, offset)))
     }
   }
 
