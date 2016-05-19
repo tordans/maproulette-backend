@@ -153,11 +153,11 @@
                 success: function (listData) {
                   var data = listData[0];
                   $("#challenge_name").text(data.name);
-                  var createdTasks = getCountValue(data.available);
-                  var fixedTasks = getCountValue(data.fixed);
-                  var falsePositiveTasks = getCountValue(data.falsePositive);
-                  var skippedTasks = getCountValue(data.skipped);
-                  var alreadyFixedTasks = getCountValue(data.alreadyFixed);
+                  var createdTasks = getCountValue(data.actions.available);
+                  var fixedTasks = getCountValue(data.actions.fixed);
+                  var falsePositiveTasks = getCountValue(data.actions.falsePositive);
+                  var skippedTasks = getCountValue(data.actions.skipped);
+                  var alreadyFixedTasks = getCountValue(data.actions.alreadyFixed);
                   var totalTasks = createdTasks + fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks;
                   $("#challenge_total_tasks").text(totalTasks);
                   var availableTasks = createdTasks + skippedTasks;
