@@ -139,9 +139,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       getOkIndex("MapRoulette Users", user,
         views.html.admin.users.users(user,
-          dalManager.user.list(limit, offset, false, q),
-          dalManager.project.listManagedProjects(user),
-          dalManager.project
+          dalManager.user.list(limit, offset, false, q).map(u => {
+            val projectList = if (u.isSuperUser) {
+              List.empty
+            } else {
+              dalManager.project.listManagedProjects(u)
+            }
+            (u, projectList)
+          }),
+          dalManager.project.listManagedProjects(user)
         )
       )
     }

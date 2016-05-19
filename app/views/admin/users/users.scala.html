@@ -1,8 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Project
-@import org.maproulette.models.dal.ProjectDAL
 @import org.maproulette.actions.Actions
-@(user:User, userList:List[User], projects:List[Project], projectDAL: ProjectDAL)(implicit messages: Messages)
+@(user:User, userList:List[(User, List[Project])], projects:List[Project])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -26,33 +25,33 @@
                     @if(userList.nonEmpty) {
                         @for(u <- userList) {
                             <tr>
-                                <td>@u.id</td>
-                                <td>@u.osmProfile.id</td>
-                                <td>@u.osmProfile.displayName</td>
+                                <td>@u._1.id</td>
+                                <td>@u._1.osmProfile.id</td>
+                                <td>@u._1.osmProfile.displayName</td>
                                 <td>
-                                    @if(u.isSuperUser) {
+                                    @if(u._1.isSuperUser) {
                                         ALL
                                     } else {
-                                        @for(p <- projectDAL.listManagedProjects(u)) {
-                                            <a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p.id)">@p.name</a>
+                                        @for(p <- u._2) {
+                                            <a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p.id)">@p.name</a></br>
                                         }
                                     }
                                 </td>
-                                <td id="apiKey_@{u.id}">@u.apiKey</td>
+                                <td id="apiKey_@{u._1.id}">@u._1.apiKey</td>
                                 <td>
                                     <div class="pull-left">
-                                        <a href="#" onclick="regenerateKey(@{u.id});">
+                                        <a href="#" onclick="regenerateKey(@{u._1.id});">
                                             <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
                                         </a>
                                     </div>
                                     @if(user.isSuperUser) {
                                         <div class="pull-left">
-                                            <button class="btn-xs btn-block btn-danger" onclick="deleteUser(@u.id);">
+                                            <button class="btn-xs btn-block btn-danger" onclick="deleteUser(@u._1.id);">
                                                 Delete</button>
                                         </div>
                                     }
                                     <div class="pull-left">
-                                        <a href="#" id="addtoproject" onclick="addUserToProject(@u.id);">
+                                        <a href="#" id="addtoproject" onclick="addUserToProject(@u._1.id);">
                                             <button class="btn-xs btn-block btn-primary>">Add Project</button>
                                         </a>
                                     </div>

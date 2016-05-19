@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS status_actions
 );
 
 SELECT create_index_if_not_exists('status_actions', 'challenge_id', '(challenge_id)');
-SELECT create_index_if_not_exists('status_actions', 'challenge_id,status', '(challenge_id,status)');
+SELECT create_index_if_not_exists('status_actions', 'challenge_id_status', '(challenge_id,status)');
 
 -- Table handling locks for any of the objects
 CREATE TABLE IF NOT EXISTS locked
