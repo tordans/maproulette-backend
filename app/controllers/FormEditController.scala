@@ -12,6 +12,7 @@ import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
 import play.api.Logger
+import play.api.db.Database
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{DefaultReads, JsValue, Json}
 import play.api.libs.ws.WSClient
@@ -30,6 +31,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     sessionManager:SessionManager,
                                     override val dalManager: DALManager,
                                     val config:Config,
+                                    db:Database,
                                     permission: Permission) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -78,10 +80,17 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       dalManager.challenge.retrieveById(itemId) match {
         case Some(c) =>
           val clonedChallenge = c.copy(id = -1)
-          val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
-          getOkIndex("MapRoulette Administration", user,
-            views.html.admin.forms.challengeForm(user, parentId, challengeForm)
-          )
+          if (c.challengeType == Actions.ITEM_TYPE_SURVEY) {
+            val surveyForm = Survey.surveyForm.fill(Survey(clonedChallenge, dalManager.survey.getAnswers(c.id)))
+            getOkIndex("MapRoulette Administration", user,
+              views.html.admin.forms.surveyForm(user, parentId, surveyForm)
+            )
+          } else {
+            val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
+            getOkIndex("MapRoulette Administration", user,
+              views.html.admin.forms.challengeForm(user, parentId, challengeForm)
+            )
+          }
         case None =>
           throw new NotFoundException(s"No challenge found to clone matching the given id [$itemId]")
       }
@@ -154,68 +163,70 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         jsonFuture onComplete {
           case Success(result) =>
             if (result.status == OK) {
-              var partial = false;
-              val payload = result.json
-              // parse the results
-              val elements = (payload \ "elements").as[List[JsValue]]
-              elements.foreach {
-                element =>
-                  try {
-                    val geometry = (element \ "type").asOpt[String] match {
-                      case Some("way") =>
-                        val points = (element \ "geometry").as[List[JsValue]].map {
-                          geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
-                        }
-                        Some(Json.obj("type" -> "LineString", "coordinates" -> points))
-                      case Some("node") =>
-                        Some(Json.obj(
-                          "type" -> "Point",
-                          "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
-                        ))
-                      case _ => None
-                    }
+              db.withTransaction { implicit c =>
+                var partial = false
+                val payload = result.json
+                // parse the results
+                val elements = (payload \ "elements").as[List[JsValue]]
+                elements.foreach {
+                  element =>
+                    try {
+                      val geometry = (element \ "type").asOpt[String] match {
+                        case Some("way") =>
+                          val points = (element \ "geometry").as[List[JsValue]].map {
+                            geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
+                          }
+                          Some(Json.obj("type" -> "LineString", "coordinates" -> points))
+                        case Some("node") =>
+                          Some(Json.obj(
+                            "type" -> "Point",
+                            "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
+                          ))
+                        case _ => None
+                      }
 
-                    geometry match {
-                      case Some(geom) =>
-                        val props = (element \ "tags").asOpt[JsValue] match {
-                          case Some(tags) => tags
-                          case None => Json.obj()
-                        }
-                        val newTask = Task(-1,
-                          (element \ "id").as[Int]+"",
-                          challenge.id,
-                          challenge.instruction,
-                          None,
-                          Json.obj(
-                            "type" -> "FeatureCollection",
-                            "features" -> Json.arr(Json.obj(
-                              "id" -> (element \ "id").as[Int],
-                              "geometry" -> geom,
-                              "properties" -> props
-                            ))
-                          ).toString
-                        )
+                      geometry match {
+                        case Some(geom) =>
+                          val props = (element \ "tags").asOpt[JsValue] match {
+                            case Some(tags) => tags
+                            case None => Json.obj()
+                          }
+                          val newTask = Task(-1,
+                            (element \ "id").as[Int]+"",
+                            challenge.id,
+                            challenge.instruction,
+                            None,
+                            Json.obj(
+                              "type" -> "FeatureCollection",
+                              "features" -> Json.arr(Json.obj(
+                                "id" -> (element \ "id").as[Int],
+                                "geometry" -> geom,
+                                "properties" -> props
+                              ))
+                            ).toString
+                          )
 
-                        try {
-                          dalManager.task.insert(newTask, user)
-                        } catch {
-                          // this task could fail on unique key violation, we need to ignore them
-                          case e:Exception =>
-                            Logger.error(e.getMessage)
-                        }
-                      case None => None
+                          try {
+                            dalManager.task.mergeUpdate(newTask, user)(newTask.id)
+                          } catch {
+                            // this task could fail on unique key violation, we need to ignore them
+                            case e:Exception =>
+                              Logger.error(e.getMessage)
+                          }
+                        case None => None
+                      }
+                    } catch {
+                      case e:Exception =>
+                        partial = true
+                        Logger.error(e.getMessage, e)
                     }
-                  } catch {
-                    case e:Exception =>
-                      partial = true
-                      Logger.error(e.getMessage, e)
-                  }
-              }
-              partial match {
-                case true =>
-                  dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_PARTIALLY_LOADED), user)(challenge.id)
-                case false =>
-                  dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_COMPLETE), user)(challenge.id)
+                }
+                partial match {
+                  case true =>
+                    dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_PARTIALLY_LOADED), user)(challenge.id)
+                  case false =>
+                    dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_COMPLETE), user)(challenge.id)
+                }
               }
             } else {
               dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_FAILED), user)(challenge.id)
@@ -231,7 +242,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
 
   /**
     * parse the query, replace various extended overpass query parameters see http://wiki.openstreetmap.org/wiki/Overpass_turbo/Extended_Overpass_Queries
-      Currently do not support {{bbox}} or {{center}}
+    * Currently do not support {{bbox}} or {{center}}
     *
     * @param query The query to parse
     * @return
@@ -261,7 +272,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       }
       val surveyForm = Survey.surveyForm.fill(survey)
       getOkIndex("MapRoulette Administration", user,
-        views.html.admin.forms.surveyForm(parentId, surveyForm)
+        views.html.admin.forms.surveyForm(user, parentId, surveyForm)
       )
     }
   }
@@ -272,7 +283,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       Survey.surveyForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,
-            views.html.admin.forms.surveyForm(parentId, formWithErrors)
+            views.html.admin.forms.surveyForm(user, parentId, formWithErrors)
           )
         },
         survey => {

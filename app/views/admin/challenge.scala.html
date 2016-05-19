@@ -3,86 +3,99 @@
 @import org.maproulette.actions.Actions
 @(user:User, parentId:Long, challenges:List[(Challenge, Int, Int, Int)])(implicit messages: Messages)
 
-<div class="box-body">
-    <div class="pull-right">
-        <a href="@routes.FormEditController.challengeFormUI(parentId, -1)">
-            <button class="btn-xs btn-block btn-primary">New Challenge</button>
-        </a>
-    </div>
-    <table id="challengeTable" class="table table-bordered table-hover">
-        <thead>
-            <tr>
-                <th>Enabled</th>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Tasks All/Fixed/FalsePositive</th>
-                <th>Overpass Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        @if(challenges.nonEmpty) {
-            @for(c <- challenges) {
-                <tr>
-                    <td>
-                    @if(c._1.enabled) {
-                        <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
-                    } else {
-                        <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
+@views.html.admin.common.header("Administration")
+<section class="content">
+    <div class="box">
+        <div class="box-header">
+            <h3 class="box-title">Challenges</h3>
+            <div class="pull-right">
+                <a href="@routes.FormEditController.challengeFormUI(parentId, -1)">
+                    <button class="btn-xs btn-block btn-primary">New Challenge</button>
+                </a>
+            </div>
+            <div class="pull-right">
+                <a href="@routes.FormEditController.surveyFormUI(parentId, -1)">
+                    <button class="btn-xs btn-block btn-primary">New Survey</button>
+                </a>
+            </div>
+        </div><!-- /.box-header -->
+        <div class="box-body">
+            <table id="challengeTable" class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Enabled</th>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Tasks All/Fixed/FalsePositive</th>
+                        <th>Overpass Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if(challenges.nonEmpty) {
+                    @for(c <- challenges) {
+                        <tr>
+                            <td>
+                                @if(c._1.challengeType == Actions.ITEM_TYPE_SURVEY) {
+                                    <i class="fa fa-edit fa-2x" style="color:@if(c._1.enabled) { green } else { red }"/>
+                                } else {
+                                    <i class="fa fa-wrench fa-2x" style="color:@if(c._1.enabled) { green } else { red }"/>
+                                }
+                            </td>
+                            <td>@c._1.id</td>
+                            <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c._1.id)">@c._1.name</a></td>
+                            <td>@{c._2}/@{c._3}/@{c._4}</td>
+                            <td>@c._1.getOverpassFriendlyStatus</td>
+                            <td>
+                                <div class="pull-left">
+                                    <a href="@routes.FormEditController.challengeFormUI(c._1.parent, c._1.id)">
+                                        <button class="btn-xs btn-block btn-warning">Edit</button>
+                                    </a>
+                                </div>
+                                <div class="pull-left">
+                                    <a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">
+                                        <button class="btn-xs btn-block btn-primary">New Task</button>
+                                    </a>
+                                </div>
+                                <div class="pull-left">
+                                    <button class="btn-xs btn-block btn-danger" onclick="deleteChallenge(@c._1.id);">Delete</button>
+                                </div>
+                                <div class="pull-left">
+                                    <a href="@routes.Application.mapChallenge(c._1.id)">
+                                        <button class="btn-xs btn-block btn-success">Start</button>
+                                    </a>
+                                </div>
+                                <div class="pull-left">
+                                    <a href="@routes.FormEditController.cloneChallengeFormUI(c._1.parent, c._1.id)">
+                                        <button class="btn-xs btn-block btn-default">Clone</button>
+                                    </a>
+                                </div>
+                                <div class="pull-left">
+                                    <a href="@routes.Application.challengeMetrics(c._1.id, "")">
+                                        <button class="btn-xs btn-block btn-primary">View Metrics</button>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
                     }
-                    </td>
-                    <td>@c._1.id</td>
-                    <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c._1.id)">@c._1.name</a></td>
-                    <td>@{c._2}/@{c._3}/@{c._4}</td>
-                    <td>@c._1.getOverpassFriendlyStatus</td>
-                    <td>
-                        <div class="pull-left">
-                            <a href="@routes.FormEditController.challengeFormUI(c._1.parent, c._1.id)">
-                                <button class="btn-xs btn-block btn-warning">Edit</button>
-                            </a>
-                        </div>
-                        <div class="pull-left">
-                            <a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">
-                                <button class="btn-xs btn-block btn-primary">New Task</button>
-                            </a>
-                        </div>
-                        <div class="pull-left">
-                            <button class="btn-xs btn-block btn-danger" onclick="deleteChallenge(@c._1.id);">Delete</button>
-                        </div>
-                        <div class="pull-left">
-                            <a href="@routes.Application.mapChallenge(c._1.id)">
-                                <button class="btn-xs btn-block btn-success">Start</button>
-                            </a>
-                        </div>
-                        <div class="pull-left">
-                            <a href="@routes.FormEditController.cloneChallengeFormUI(c._1.parent, c._1.id)">
-                                <button class="btn-xs btn-block btn-default">Clone</button>
-                            </a>
-                        </div>
-                        <div class="pull-left">
-                            <a href="@routes.Application.challengeMetrics(c._1.id, "")">
-                                <button class="btn-xs btn-block btn-primary">View Metrics</button>
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-            }
-        } else {
-            <td>No Challenges Found</td>
-        }
-        </tbody>
-        <tfoot>
-            <tr>
-                <th>Enabled</th>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Tasks All/Fixed/FalsePositive</th>
-                <th>Overpass Status</th>
-                <th>Actions</th>
-            </tr>
-        </tfoot>
-    </table>
-</div>
+                } else {
+                    <td>No Challenges Found</td>
+                }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Enabled</th>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Tasks All/Fixed/FalsePositive</th>
+                        <th>Overpass Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div><!-- /.box -->
+</section>
 <script>
     $(function() {
        $("#challengeTable").DataTable();

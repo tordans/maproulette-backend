@@ -94,9 +94,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
             views.html.admin.project(user, dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false))
           case ChallengeType() | SurveyType() =>
             permission.hasWriteAccess(ProjectType(), user)(parentId.get)
-            val projectChildren = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
-            val surveys = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_SURVEY).map(Survey(_, List.empty))
-            val challenges = projectChildren.filter(_.challengeType == Actions.ITEM_TYPE_CHALLENGE)
+            val challenges = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
             val challengeData = challenges.map(c => {
               val summary = dalManager.challenge.getSummary(c.id)
               (c,
@@ -105,9 +103,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                 summary.filter(_._1 == Task.STATUS_FALSE_POSITIVE).values.headOption.getOrElse(0)
               )
             })
-            views.html.admin.projectChildren(user, parentId.get, surveys, challengeData,
-              if (it == ChallengeType()) { 0 } else { 1 }
-            )
+            views.html.admin.challenge(user, parentId.get, challengeData)
           case _ => views.html.error.error("Invalid item type requested.")
         }
         case None => views.html.error.error("Invalid item type requested.")

@@ -93,7 +93,7 @@ class SurveyDAL @Inject() (override val db:Database,
     }
     permission.hasWriteAccess(survey.challenge, user)
     withMRTransaction { implicit c =>
-      val newChallenge = challengeDAL.insert(survey.challenge, user)
+      val newChallenge = challengeDAL.insert(survey.challenge.copy(challengeType = Actions.ITEM_TYPE_SURVEY), user)
       // insert the answers into the table
       val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newChallenge.id}, {answer})"""
       val parameters = survey.answers.map(answer => {
@@ -160,10 +160,10 @@ class SurveyDAL @Inject() (override val db:Database,
   def answerQuestion(surveyId:Long, taskId:Long, answerId:Long, user:Option[User]=None)(implicit c:Connection=null) = {
     withMRTransaction { implicit c =>
       val userId = user match {
-        case Some(u) => Some(u.id)
+        case Some(u) => Some(u.osmProfile.id)
         case None => None
       }
-      SQL"""INSERT INTO survey_answers (user_id, survey_id, task_id, answer_id)
+      SQL"""INSERT INTO survey_answers (osm_user_id, survey_id, task_id, answer_id)
             VALUES ($userId, $surveyId, $taskId, $answerId)""".executeInsert()
     }
   }
