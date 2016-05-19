@@ -52,6 +52,13 @@
                                 <div id="skipped_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
                             </div>
                         </div><!-- /.progress-group -->
+                        <div>
+                            <p class="text-center"><strong>Status Distribution</strong></p>
+                            <div id="distContainer" class="chart">
+                                    <!-- Sales Chart Canvas -->
+                                <canvas id="statusPieChart" style="height: 180px;"></canvas>
+                            </div><!-- /.chart-responsive -->
+                        </div>
                     </div><!-- /.col -->
                 </div><!-- /.row -->
             </div><!-- ./box-body -->
@@ -154,8 +161,6 @@
     }
 
     getActivityMetrics(moment().subtract(6, 'days').format(dateFormat), moment().format(dateFormat));
-
-    // Get context with jQuery - using jQuery's .get() method.
     var activityChartData = {
         labels: [],
         datasets: [
@@ -323,6 +328,28 @@
         );
         $("#users_per_challenge").html(data.avgUsersPerChallenge);
         $("#active_users").html(data.activeUsers);
+    }
+
+    function updatePieChart(available, fixed, falsePositive, skipped, alreadyFixed) {
+        $("#statusPieChart").remove();
+        $('#distContainer').append("<canvas id=\"statusPieChart\"></canvas>");
+        var pieChart = new Chart($("#statusPieChart"), {
+            type:"doughnut",
+            data: {
+                labels: ["Available", "Fixed", "False Positives", "Skipped/Too Hard", "Already Fixed"],
+                datasets: [
+                    {
+                        data: [available, fixed, falsePositive, skipped, alreadyFixed],
+                        backgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)"],
+                        hoverBackgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)"]
+                    }
+                ]
+            },
+            animation:{
+                animateScale:true
+            }
+        });
+        pieChart.update();
     }
 
     function updateChart(flow) {
