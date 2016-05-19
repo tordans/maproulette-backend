@@ -133,6 +133,8 @@
             $("#top_fixed").html(fixedTasks);
             $("#top_fps").html(falsePositiveTasks);
         }
+        updatePieChart(totalTasks - fixedTasks - falsePositiveTasks - alreadyFixedTasks,
+                fixedTasks, falsePositiveTasks, skippedTasks, alreadyFixedTasks);
     }
 
     function summaryDataErrorHandler(data) {
