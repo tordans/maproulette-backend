@@ -43,28 +43,29 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         }
       }
 
-      val distinctUserQuery = s"SELECT COUNT(DISTINCT osm_user_id) AS count FROM status_actions $challengeProjectFilter"
-      val distinctUsers = SQL(distinctUserQuery).as(int("count").*).head
-      val distinctUsersPerChallengeQuery = s"""SELECT AVG(count) AS count FROM (
+      val distinctUsers =
+        SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
+             FROM status_actions #$challengeProjectFilter""".as(get[Option[Int]]("count").*).headOption.getOrElse(Some(0)).getOrElse(0)
+      val distinctUsersPerChallenge = SQL"""SELECT AVG(count) AS count FROM (
                                                 SELECT challenge_id, COUNT(DISTINCT osm_user_id) AS count
-                                                FROM status_actions $challengeProjectFilter
+                                                FROM status_actions #$challengeProjectFilter
                                                 GROUP BY challenge_id
-                                              ) as t"""
-      val distinctUsersPerChallenge = SQL(distinctUsersPerChallengeQuery).as(int("count").*).head
-      val activeUserQuery = s"""SELECT COUNT(DISTINCT osm_user_id) AS count
-                                FROM status_actions $challengeProjectFilter
-                                ${if (challengeProjectFilter.isEmpty) { "WHERE" } else { "AND" } }
+                                              ) as t""".as(get[Option[Int]]("count").*).headOption.getOrElse(Some(0)).getOrElse(0)
+      val activeUsers = SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
+                                FROM status_actions #$challengeProjectFilter
+                                #${if (challengeProjectFilter.isEmpty) { "WHERE" } else { "AND" } }
                                   created BETWEEN current_date - INTERVAL '2 days' AND current_date"""
-      val activeUsers = SQL(activeUserQuery).as(int("count").*).head
+        .as(get[Option[Int]]("count").*).headOption.getOrElse(Some(0)).getOrElse(0)
       val actionParser = for {
-        available <- double("available")
-        fixed <- double("fixed")
-        falsePositive <- double("false_positive")
-        skipped <- double("skipped")
-        deleted <- double("deleted")
-        alreadyFixed <- double("already_fixed")
-      } yield ActionSummary(available, fixed, falsePositive, skipped, deleted, alreadyFixed)
-      val perUserQuery = s"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
+        available <- get[Option[Double]]("available")
+        fixed <- get[Option[Double]]("fixed")
+        falsePositive <- get[Option[Double]]("false_positive")
+        skipped <- get[Option[Double]]("skipped")
+        deleted <- get[Option[Double]]("deleted")
+        alreadyFixed <- get[Option[Double]]("already_fixed")
+      } yield ActionSummary(available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
+                            skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0))
+      val perUser = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                   AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
                               FROM (
                                 SELECT osm_user_id,
@@ -74,10 +75,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                     SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                     SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
-                                FROM status_actions $challengeProjectFilter GROUP BY osm_user_id
-                              ) AS t"""
-      val perUser = SQL(perUserQuery).as(actionParser.*).head
-      val perChallengeQuery = s"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
+                                FROM status_actions #$challengeProjectFilter GROUP BY osm_user_id
+                              ) AS t""".as(actionParser.*).head
+      val perChallenge = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                         AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
                                   FROM (
                                     SELECT osm_user_id, challenge_id,
@@ -87,9 +87,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                         SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                         SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                         SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
-                                    FROM status_actions $challengeProjectFilter GROUP BY osm_user_id, challenge_id
-                                  ) AS t"""
-      val perChallenge = SQL(perChallengeQuery).as(actionParser.*).head
+                                    FROM status_actions #$challengeProjectFilter GROUP BY osm_user_id, challenge_id
+                                  ) AS t""".as(actionParser.*).head
       UserSummary(distinctUsers, distinctUsersPerChallenge, activeUsers, perUser, perChallenge)
     }
   }
@@ -120,7 +119,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           case None => ""
         }
       }
-      val query =  s"""SELECT t.parent_id, c.name,
+      SQL"""SELECT t.parent_id, c.name,
                           SUM(CASE t.status WHEN 0 THEN 1 ELSE 0 END) as available,
                         	SUM(CASE t.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
                         	SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
@@ -129,9 +128,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                         	SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed
                         FROM tasks t
                         INNER JOIN challenges c ON c.id = t.parent_id
-                        $challengeFilter
-                        GROUP BY t.parent_id, c.name"""
-      SQL(query).as(parser.*)
+                        #$challengeFilter
+                        GROUP BY t.parent_id, c.name""".as(parser.*)
     }
   }
 

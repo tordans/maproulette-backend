@@ -1,10 +1,15 @@
 @import org.maproulette.models.Survey
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
-@(parentId:Long, surveyForm:Form[Survey])(implicit messages: Messages)
+@import org.maproulette.session.User
+@(user:User, parentId:Long, surveyForm:Form[Survey])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null,
-    Map("Surveys" -> routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)))
+    Map(
+        "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
+        "Challenges" -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId))
+    )
+)
 <section class="content">
     <div class="box box-primary">
         <div class="box-header with-border">

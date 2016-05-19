@@ -1,9 +1,11 @@
 @import org.maproulette.models.Project
 @import views.html.admin.forms.elements._
 @import org.maproulette.session.User
-@(user:User, parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, Call])(implicit messages: Messages)
+@(user:User, parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, (String, Call)])(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration", null, breadcrumbs)
+@views.html.admin.common.header("Administration", null,
+    Map("Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()))
+)
 <section class="content">
     <div class="box box-primary">
         <div class="box-header with-border">

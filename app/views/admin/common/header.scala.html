@@ -1,4 +1,4 @@
-@(title:String, subtitle:String=null, breadcrumbs:Map[String, Call]=Map.empty)(implicit messages: Messages)
+@(title:String, subtitle:String=null, breadcrumbs:Map[String, (String, Call)]=Map.empty)(implicit messages: Messages)
 
 <section class="content-header">
     <h1>
@@ -8,12 +8,8 @@
         }
     </h1>
     <ol class="breadcrumb">
-        <li>
-            <a href="@routes.Application.adminUIProjectList()">
-                <i class="fa fa-folder"></i> Project Admin</a>
-        </li>
         @for(b <- breadcrumbs) {
-            <li><a href="@b._2"><i></i>@b._1</a></li>
+            <li><a href="@b._2._2"><i class="@b._2._1"></i> @b._1</a></li>
         }
     </ol>
 </section>
