@@ -17,14 +17,25 @@ Here is an example task:
     {
         "name": "ExampleTask",
         "identifier": "Custom_Identifier",
-        "parent": 1,
+        "parent": {{challenge_id}},
         "instruction": "Task instruction",
-        "location": {"type":"Point","coordinates":[77.6255107,40.5872232]},
+        "geometries": {
+            "type": "FeatureCollection",
+            "features":
+                [{
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [77.6255107,40.5872232]
+                    },
+                    "properties": {}
+                }]
+        },
         "status": 0
     }
-    
+
 #### Response
- 
+
 POST `201 Created`
 PUT `200 OK`
 
@@ -37,7 +48,7 @@ PUT `200 OK`
         "location": {"type":"Point","coordinates":[77.6255107,40.5872232]},
         "status": 0
     }
-    
+
 #### Properties
 
 * **name** - The name of the task _required_
@@ -63,15 +74,15 @@ Any task that is created or updated can have tags applied to them during the cre
             ...
         ]
     }
-    
+
 #### Comma separated string list example
 
-    { 
+    {
         "tags": "tag1,tag2,tag3"
     }
-    
+
 The above two examples should be injected into the Task JSON object.
- 
+
 ***
 ### Deleting Tags from a Task
 
@@ -111,7 +122,7 @@ Will update a batch of tasks supplied in a json array. Only the required propert
         },
         ...
     ]
-    
+
 The only limitation on this batch upload is the file size of the payload, which is limited to 2048K.
 
 ***
@@ -135,7 +146,7 @@ This will retrieve a specific task with all it's information
 #### Example Response
 
 `200 OK`
-   
+
     {
         "id": 1,
         "name": "ExampleTask",
@@ -165,7 +176,7 @@ Returns a list of tag objects that are associated with the task.
         },
         ...
     ]
-    
+
 For more information about tagging see [Tagging API](tags.md)
 
 ***
@@ -226,5 +237,5 @@ Will retrieve a random tasks based on any task found in the system.
         },
         ...
     ]
-    
+
 ***
