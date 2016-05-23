@@ -119,18 +119,25 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def metrics = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val mockedUser = User.userOrMocked(user)
-      getOkIndex("MapRoulette Metrics", mockedUser, views.html.metrics.metrics(mockedUser, config))
+  def metrics(survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      if (survey == 1) {
+        getOkIndex("MapRoulette Metrics", user, views.html.metrics.surveyMetrics(user, config, None, ""))
+      } else {
+        getOkIndex("MapRoulette Metrics", user, views.html.metrics.challengeMetrics(user, config, None, ""))
+      }
     }
   }
 
-  def challengeMetrics(challengeId:Long, projects:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val mockedUser = User.userOrMocked(user)
-      getOkIndex("MapRoulette Metrics", mockedUser,
-        views.html.metrics.metrics(mockedUser, config, dalManager.challenge.retrieveById(challengeId), projects))
+  def challengeMetrics(challengeId:Long, projects:String, survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      if (survey == 1) {
+        getOkIndex("MapRoulette Metrics", user,
+          views.html.metrics.surveyMetrics(user, config, dalManager.survey.retrieveById(challengeId), projects))
+      } else {
+        getOkIndex("MapRoulette Metrics", user,
+          views.html.metrics.challengeMetrics(user, config, dalManager.challenge.retrieveById(challengeId), projects))
+      }
     }
   }
 

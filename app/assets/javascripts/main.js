@@ -149,7 +149,6 @@ var Utils = {
  */
 var deleteProject = function(itemId) {
     deleteItem("Project", itemId);
-    toastr.success("Project [" + itemId + "] deleted");
 };
 
 /**
@@ -160,7 +159,6 @@ var deleteProject = function(itemId) {
  */
 var deleteChallenge = function(itemId) {
     deleteItem("Challenge", itemId);
-    toastr.success("Challenge [" + itemId + "] deleted");
 };
 
 /**
@@ -171,7 +169,6 @@ var deleteChallenge = function(itemId) {
  */
 var deleteSurvey = function(itemId) {
     deleteItem("Survey", itemId);
-    toastr.success("Survey [" + itemId + "] deleted");
 };
 
 /**
@@ -182,7 +179,6 @@ var deleteSurvey = function(itemId) {
  */
 var deleteTask = function(itemId) {
     deleteItem("Task", itemId);
-    toastr.success("Task [" + itemId + "] deleted");
 };
 
 /**
@@ -193,7 +189,6 @@ var deleteTask = function(itemId) {
  */
 var deleteUser = function(itemId) {
     deleteItem("User", itemId);
-    toastr.success("User [" + itemId + "] deleted");
 };
 
 /**
@@ -209,7 +204,7 @@ var deleteItem = function(itemType, itemId) {
             location.reload();
         },
         error : function(error) {
-            location.href = jsRoutes.controllers.Application.error(error.toString());
+            ToastUtils.Error(error.responseJSON.message);
         }
     };
 

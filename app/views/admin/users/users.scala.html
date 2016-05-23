@@ -39,21 +39,17 @@
                                 </td>
                                 <td id="apiKey_@{u._1.id}">@u._1.apiKey</td>
                                 <td>
-                                    <div class="pull-left">
-                                        <a href="#" onclick="regenerateKey(@{u._1.id});">
-                                            <button class="btn-xs btn-block btn-warning">Regenerate Key</button>
-                                        </a>
-                                    </div>
-                                    @if(user.isSuperUser) {
-                                        <div class="pull-left">
-                                            <button class="btn-xs btn-block btn-danger" onclick="deleteUser(@u._1.id);">
-                                                Delete</button>
-                                        </div>
-                                    }
-                                    <div class="pull-left">
-                                        <a href="#" id="addtoproject" onclick="addUserToProject(@u._1.id);">
-                                            <button class="btn-xs btn-block btn-primary>">Add Project</button>
-                                        </a>
+                                    <div class="btn-group pull-left">
+                                        <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
+                                        <button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">
+                                            <span class="caret"></span>
+                                            <span class="sr-only">Toggle Dropdown</span>
+                                        </button>
+                                        <ul class="dropdown-menu" role="menu">
+                                            <li><a href="#" onclick="regenerateKey(@{u._1.id});">Regenerate Key</a></li>
+                                            <li><a href="#" onclick="addUserToProject(@u._1.id);">Add To Project</a></li>
+                                            <li><a href="#" onclick="deleteUser(@u._1.id);">Delete</a></li>
+                                        </ul>
                                     </div>
                                 </td>
                             </tr>
