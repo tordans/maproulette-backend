@@ -17,7 +17,7 @@ Here is an example task:
     {
         "name": "ExampleTask",
         "identifier": "Custom_Identifier",
-        "parent": {{challenge_id}},
+        "parent": 1,
         "instruction": "Task instruction",
         "geometries": {
             "type": "FeatureCollection",
