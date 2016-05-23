@@ -121,7 +121,7 @@ This will delete a challenge and all the tasks associated with the challenge
 `204 NoContent`
 
 ***
-### Get a project
+### Get a challenge
 
 `GET /api/v2/challenge/:id`
 
