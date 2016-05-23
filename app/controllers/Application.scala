@@ -119,18 +119,25 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def metrics = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val mockedUser = User.userOrMocked(user)
-      getOkIndex("MapRoulette Metrics", mockedUser, views.html.metrics.metrics(mockedUser, config))
+  def metrics(survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      if (survey == 1) {
+        getOkIndex("MapRoulette Metrics", user, views.html.metrics.surveyMetrics(user, config, None, ""))
+      } else {
+        getOkIndex("MapRoulette Metrics", user, views.html.metrics.challengeMetrics(user, config, None, ""))
+      }
     }
   }
 
-  def challengeMetrics(challengeId:Long, projects:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val mockedUser = User.userOrMocked(user)
-      getOkIndex("MapRoulette Metrics", mockedUser,
-        views.html.metrics.metrics(mockedUser, config, dalManager.challenge.retrieveById(challengeId), projects))
+  def challengeMetrics(challengeId:Long, projects:String, survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      if (survey == 1) {
+        getOkIndex("MapRoulette Metrics", user,
+          views.html.metrics.surveyMetrics(user, config, dalManager.survey.retrieveById(challengeId), projects))
+      } else {
+        getOkIndex("MapRoulette Metrics", user,
+          views.html.metrics.challengeMetrics(user, config, dalManager.challenge.retrieveById(challengeId), projects))
+      }
     }
   }
 
@@ -139,9 +146,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       getOkIndex("MapRoulette Users", user,
         views.html.admin.users.users(user,
-          dalManager.user.list(limit, offset, false, q),
-          dalManager.project.listManagedProjects(user),
-          dalManager.project
+          dalManager.user.list(limit, offset, false, q).map(u => {
+            val projectList = if (u.isSuperUser) {
+              List.empty
+            } else {
+              dalManager.project.listManagedProjects(u)
+            }
+            (u, projectList)
+          }),
+          dalManager.project.listManagedProjects(user)
         )
       )
     }

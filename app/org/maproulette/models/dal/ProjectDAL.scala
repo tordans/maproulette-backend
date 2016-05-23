@@ -119,7 +119,7 @@ class ProjectDAL @Inject() (override val db:Database,
               WHERE g.id IN ({ids}) ${searchField("p.name")} ${enabled(onlyEnabled)}
               LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
           SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
-            'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
+            'ids -> user.groups.map(_.id))
             .as(parser.*)
         }
       }

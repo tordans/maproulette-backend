@@ -1,5 +1,6 @@
 package org.maproulette.data
 
+import java.sql.Connection
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
 import javax.inject.{Inject, Singleton}
@@ -7,6 +8,7 @@ import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.Config
+import org.maproulette.actions.Actions
 import org.maproulette.models.Task
 import org.maproulette.models.utils.DALHelper
 import play.api.Application
@@ -23,6 +25,11 @@ case class UserSummary(distinctTotalUsers:Int,
                        activeUsers:Double,
                        avgActionsPerUser:ActionSummary,
                        avgActionsPerChallengePerUser:ActionSummary)
+case class UserSurveySummary(distinctTotalUsers:Int,
+                             avgUsersPerChallenge:Double,
+                             activeUsers:Double,
+                             answerPerUser:Double,
+                             answersPerChallenge:Double)
 case class ChallengeSummary(id:Long, name:String, actions:ActionSummary)
 case class ChallengeActivity(date:Date, status:Int, statusName:String, count:Int)
 
@@ -33,29 +40,75 @@ case class ChallengeActivity(date:Date, status:Int, statusName:String, count:Int
 class DataManager @Inject()(config: Config, db:Database)(implicit application:Application) extends DALHelper {
   private val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
 
-  def getUserSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None) : UserSummary = {
+  private def getDistinctUsers(projectFilter:String, survey:Boolean=false,
+                               start:Option[Date]=None, end:Option[Date]=None)(implicit c:Connection) : Int = {
+    SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
+             FROM #${if (survey) {"survey_answers"} else {"status_actions"}}
+             #${getDateClause(start, end)} #$projectFilter""".as(get[Option[Int]]("count").single).getOrElse(0)
+  }
+
+  private def getDistinctUsersPerChallenge(projectFilter:String, survey:Boolean=false,
+                                           start:Option[Date]=None, end:Option[Date]=None)(implicit c:Connection) : Int = {
+    SQL"""SELECT AVG(count) AS count FROM (
+            SELECT #${if (survey) {"survey_id"} else {"challenge_id"}}, COUNT(DISTINCT osm_user_id) AS count
+            FROM #${if (survey) {"survey_answers"} else {"status_actions"}}
+            #${getDateClause(start, end)} #$projectFilter
+            GROUP BY #${if (survey) {"survey_id"} else {"challenge_id"}}
+          ) as t""".as(get[Option[Int]]("count").single).getOrElse(0)
+  }
+
+  private def getActiveUsers(projectFilter:String, survey:Boolean=false,
+                             start:Option[Date]=None, end:Option[Date]=None)(implicit c:Connection) : Int = {
+    SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
+          FROM #${if (survey) {"survey_answers"} else {"status_actions"}}
+          #${getDateClause(start, end)} #$projectFilter
+          AND created::date BETWEEN current_date - INTERVAL '2 days' AND current_date"""
+      .as(get[Option[Int]]("count").single).getOrElse(0)
+  }
+
+  def getUserSurveySummary(projectList:Option[List[Long]]=None, surveyId:Option[Long]=None,
+                           start:Option[Date]=None, end:Option[Date]=None) = {
     db.withConnection { implicit c =>
-      val challengeProjectFilter = challengeId match {
-        case Some(id) => s"WHERE challenge_id = $id"
+      val surveyProjectFilter = surveyId match {
+        case Some(id) => s"AND survey_id = $id"
         case None => projectList match {
-          case Some(pl) => s"WHERE project_id IN (${pl.mkString(",")})"
+          case Some(pl) => s"AND project_id IN (${pl.mkString(",")})"
           case None => ""
         }
       }
 
-      val distinctUsers =
-        SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
-             FROM status_actions #$challengeProjectFilter""".as(get[Option[Int]]("count").*).headOption.getOrElse(Some(0)).getOrElse(0)
-      val distinctUsersPerChallenge = SQL"""SELECT AVG(count) AS count FROM (
-                                                SELECT challenge_id, COUNT(DISTINCT osm_user_id) AS count
-                                                FROM status_actions #$challengeProjectFilter
-                                                GROUP BY challenge_id
-                                              ) as t""".as(get[Option[Int]]("count").*).headOption.getOrElse(Some(0)).getOrElse(0)
-      val activeUsers = SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
-                                FROM status_actions #$challengeProjectFilter
-                                #${if (challengeProjectFilter.isEmpty) { "WHERE" } else { "AND" } }
-                                  created BETWEEN current_date - INTERVAL '2 days' AND current_date"""
-        .as(get[Option[Int]]("count").*).headOption.getOrElse(Some(0)).getOrElse(0)
+      val perUser:Double = SQL"""SELECT AVG(answered) AS answered FROM (
+                            SELECT osm_user_id, COUNT(DISTINCT answer_id) AS answered
+                            FROM survey_answers
+                            #${getDateClause(start, end)} #$surveyProjectFilter
+                            GROUP BY osm_user_id
+                          ) AS t""".as(get[Option[Double]]("answered").single).getOrElse(0)
+      val perSurvey:Double = SQL"""SELECT AVG(answered) AS answered FROM (
+                              SELECT osm_user_id, survey_id, COUNT(DISTINCT answer_id) AS answered
+                              FROM survey_answers
+                              #${getDateClause(start, end)} #$surveyProjectFilter
+                              GROUP BY osm_user_id, survey_id
+                            ) AS t""".as(get[Option[Double]]("answered").single).getOrElse(0)
+
+      UserSurveySummary(getDistinctUsers(surveyProjectFilter, true),
+        getDistinctUsersPerChallenge(surveyProjectFilter, true),
+        getActiveUsers(surveyProjectFilter, true),
+        perUser,
+        perSurvey
+      )
+    }
+  }
+
+  def getUserChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
+                              start:Option[Date]=None, end:Option[Date]=None) : UserSummary = {
+    db.withConnection { implicit c =>
+      val challengeProjectFilter = challengeId match {
+        case Some(id) => s"AND challenge_id = $id"
+        case None => projectList match {
+          case Some(pl) => s"AND project_id IN (${pl.mkString(",")})"
+          case None => ""
+        }
+      }
       val actionParser = for {
         available <- get[Option[Double]]("available")
         fixed <- get[Option[Double]]("fixed")
@@ -65,6 +118,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         alreadyFixed <- get[Option[Double]]("already_fixed")
       } yield ActionSummary(available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
                             skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0))
+
       val perUser = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                   AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
                               FROM (
@@ -75,7 +129,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                     SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                     SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
-                                FROM status_actions #$challengeProjectFilter GROUP BY osm_user_id
+                                FROM status_actions
+                                #${getDateClause(start, end)} #$challengeProjectFilter
+                                GROUP BY osm_user_id
                               ) AS t""".as(actionParser.*).head
       val perChallenge = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                         AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
@@ -87,9 +143,15 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                         SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                         SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                         SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
-                                    FROM status_actions #$challengeProjectFilter GROUP BY osm_user_id, challenge_id
+                                    FROM status_actions
+                                    #${getDateClause(start, end)} #$challengeProjectFilter
+                                    GROUP BY osm_user_id, challenge_id
                                   ) AS t""".as(actionParser.*).head
-      UserSummary(distinctUsers, distinctUsersPerChallenge, activeUsers, perUser, perChallenge)
+      UserSummary(getDistinctUsers(challengeProjectFilter),
+        getDistinctUsersPerChallenge(challengeProjectFilter),
+        getActiveUsers(challengeProjectFilter),
+        perUser,
+        perChallenge)
     }
   }
 
@@ -100,7 +162,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     * @param challengeId The challenge to filter by default None, if set will ignore the projects parameter
     * @return
     */
-  def getChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None) : List[ChallengeSummary] = {
+  def getChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
+                          start:Option[Date]=None, end:Option[Date]=None) : List[ChallengeSummary] = {
     db.withConnection { implicit c =>
       val parser = for {
         id <- int("tasks.parent_id")
@@ -113,9 +176,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         alreadyFixed <- int("already_fixed")
       } yield ChallengeSummary(id, name, ActionSummary(available, fixed, falsePositive, skipped, deleted, alreadyFixed))
       val challengeFilter = challengeId match {
-        case Some(id) if id != -1 => s"WHERE t.parent_id = $id"
+        case Some(id) if id != -1 => s"AND t.parent_id = $id"
         case _ => projectList match {
-          case Some(pl) => s"WHERE c.parent_id IN (${pl.mkString(",")})"
+          case Some(pl) => s"AND c.parent_id IN (${pl.mkString(",")})"
           case None => ""
         }
       }
@@ -128,7 +191,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                         	SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed
                         FROM tasks t
                         INNER JOIN challenges c ON c.id = t.parent_id
-                        #$challengeFilter
+                        WHERE challenge_type = #${Actions.ITEM_TYPE_CHALLENGE} #$challengeFilter
                         GROUP BY t.parent_id, c.name""".as(parser.*)
     }
   }
@@ -158,36 +221,42 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           case None => ""
         }
       }
-      val startDate = start match {
-        case Some(s) => dateFormat.format(s)
-        case None =>
-          val cal = Calendar.getInstance()
-          cal.add(Calendar.DATE, -7)
-          dateFormat.format(cal.getTime)
-      }
-      val endDate = end match {
-        case Some(e) => dateFormat.format(e)
-        case None => dateFormat.format(new Date())
-      }
-
-      val query =
-        s"""
-           |SELECT series_date,
-           |	CASE WHEN status IS NULL THEN 0 ELSE status END AS status,
-           |	CASE WHEN count IS NULL THEN 0 ELSE count END AS count
-           |FROM (SELECT CURRENT_DATE + i AS series_date
-           |	FROM generate_series(date '$startDate' - CURRENT_DATE, date '$endDate' - CURRENT_DATE) i) d
-           |LEFT JOIN (
-           |	SELECT created::date, status, COUNT(status) AS count
-           |  FROM status_actions
-           |	WHERE status IN (0, 1, 2, 3, 5) AND
-           |    created::date BETWEEN '$startDate' AND '$endDate'
-           |    $challengeProjectFilter
-           |	GROUP BY created::date, status
-           |  ORDER BY created::date, status ASC
-           |) sa ON d.series_date = sa.created
-         """.stripMargin
-      SQL(query).as(parser.*)
+      val dates = getDates(start, end)
+      SQL"""
+          SELECT series_date,
+	          CASE WHEN status IS NULL THEN 0 ELSE status END AS status,
+	          CASE WHEN count IS NULL THEN 0 ELSE count END AS count
+          FROM (SELECT CURRENT_DATE + i AS series_date
+	              FROM generate_series(date '#${dates._1}' - CURRENT_DATE, date '#${dates._2}' - CURRENT_DATE) i) d
+          LEFT JOIN (
+	          SELECT created::date, status, COUNT(status) AS count
+            FROM status_actions
+	          WHERE status IN (0, 1, 2, 3, 5) AND
+              created::date BETWEEN '#${dates._1}' AND '#${dates._2}'
+              #$challengeProjectFilter
+	          GROUP BY created::date, status
+            ORDER BY created::date, status ASC
+          ) sa ON d.series_date = sa.created""".as(parser.*)
     }
+  }
+
+  private def getDates(start:Option[Date]=None, end:Option[Date]=None) : (String, String) = {
+    val startDate = start match {
+      case Some(s) => dateFormat.format(s)
+      case None =>
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DATE, -7)
+        dateFormat.format(cal.getTime)
+    }
+    val endDate = end match {
+      case Some(e) => dateFormat.format(e)
+      case None => dateFormat.format(new Date())
+    }
+    (startDate, endDate)
+  }
+
+  private def getDateClause(start:Option[Date]=None, end:Option[Date]=None) : String = {
+    val dates = getDates(start, end)
+    s"WHERE created::date BETWEEN '${dates._1}' AND '${dates._2}'"
   }
 }

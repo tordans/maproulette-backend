@@ -22,6 +22,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
 
   implicit val actionWrites = actionManager.actionItemWrites
   implicit val dateWrites = Writes.dateWrites("yyyy-MM-dd")
+  implicit val userSurveySummaryWrites = Json.writes[UserSurveySummary]
   implicit val actionSummaryWrites = Json.writes[ActionSummary]
   implicit val userSummaryWrites = Json.writes[UserSummary]
   implicit val challengeSummaryWrites = Json.writes[ChallengeSummary]
@@ -53,36 +54,44 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getUserChallengeSummary(challengeId:Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dataManager.getUserSummary(None, Some(challengeId))))
+  def getUserChallengeSummary(challengeId:Long, start:String, end:String, survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      if (survey == 1) {
+        Ok(Json.toJson(dataManager.getUserSurveySummary(None, Some(challengeId), getDate(start), getDate(end))))
+      } else {
+        Ok(Json.toJson(dataManager.getUserChallengeSummary(None, Some(challengeId), getDate(start), getDate(end))))
+      }
     }
   }
 
-  def getUserSummary(projects:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dataManager.getUserSummary(getProjectList(projects), None)))
+  def getUserSummary(projects:String, start:String, end:String, survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      if (survey == 1) {
+        Ok(Json.toJson(dataManager.getUserSurveySummary(getProjectList(projects), None, getDate(start), getDate(end))))
+      } else {
+        Ok(Json.toJson(dataManager.getUserChallengeSummary(getProjectList(projects), None, getDate(start), getDate(end))))
+      }
     }
   }
 
-  def getChallengeSummary(id:Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getChallengeSummary(id:Long, start:String, end:String) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
-        dataManager.getChallengeSummary(None, Some(id))
+        dataManager.getChallengeSummary(None, Some(id), getDate(start), getDate(end))
       ))
     }
   }
 
-  def getProjectSummary(projects:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getProjectSummary(projects:String, start:String, end:String) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
-        dataManager.getChallengeSummary(getProjectList(projects), None)
+        dataManager.getChallengeSummary(getProjectList(projects), None, getDate(start), getDate(end))
       ))
     }
   }
 
   def getChallengeActivity(challengeId:Long, start:String, end:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
         dataManager.getChallengeActivity(None, Some(challengeId), getDate(start), getDate(end))
       ))
@@ -90,7 +99,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   }
 
   def getProjectActivity(projects:String, start:String, end:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+    sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
         dataManager.getChallengeActivity(getProjectList(projects), None, getDate(start), getDate(end))
       ))

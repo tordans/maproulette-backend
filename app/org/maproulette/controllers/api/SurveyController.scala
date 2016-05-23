@@ -128,7 +128,7 @@ class SurveyController @Inject() (override val childController:TaskController,
         case Some(survey) =>
           survey.answers.find(_.id == answerId) match {
             case Some(a) =>
-              dal.answerQuestion(surveyId, taskId, answerId, user)
+              dal.answerQuestion(survey, taskId, answerId, user)
               actionManager.setAction(user, itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
               NoContent
             case None =>

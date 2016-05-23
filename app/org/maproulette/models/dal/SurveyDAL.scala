@@ -151,20 +151,20 @@ class SurveyDAL @Inject() (override val db:Database,
     * to answer the question for the same task multiple times. This way you will get an idea of the
     * answers based on multiple users feedback
     *
-    * @param surveyId The survey that is being evaluated
+    * @param survey The survey that is being evaluated
     * @param taskId The id of the task that is viewed when answering the question
     * @param answerId The id for the selected answer
     * @param user The user answering the question, if none will default to a guest user on the database
     * @return
     */
-  def answerQuestion(surveyId:Long, taskId:Long, answerId:Long, user:Option[User]=None)(implicit c:Connection=null) = {
+  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:Option[User]=None)(implicit c:Connection=null) = {
     withMRTransaction { implicit c =>
       val userId = user match {
         case Some(u) => Some(u.osmProfile.id)
         case None => None
       }
-      SQL"""INSERT INTO survey_answers (osm_user_id, survey_id, task_id, answer_id)
-            VALUES ($userId, $surveyId, $taskId, $answerId)""".executeInsert()
+      SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
+            VALUES ($userId, ${survey.challenge.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
     }
   }
 }
