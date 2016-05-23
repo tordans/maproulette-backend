@@ -155,7 +155,7 @@ CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
 SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, lower(name))', true);
+SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id', 'lower(name))', true);
 
 -- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
