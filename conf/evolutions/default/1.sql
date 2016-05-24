@@ -393,8 +393,8 @@ INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
 # --- !Downs
 
 DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);
-DROP FUNCTION IF EXISTS update_modified();
-DROP FUNCTION IF EXISTS on_user_delete();
+DROP FUNCTION IF EXISTS update_modified() CASCADE;
+DROP FUNCTION IF EXISTS on_user_delete() CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS projects CASCADE;
 DROP TABLE IF EXISTS groups CASCADE;
