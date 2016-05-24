@@ -53,9 +53,11 @@
                                             <span class="sr-only">Toggle Dropdown</span>
                                         </button>
                                         <ul class="dropdown-menu" role="menu">
-                                            <li><a href="@routes.FormEditController.projectFormUI(-1, p.id)">Edit</a></li>
-                                            <li><a href="#" onclick="javascript:deleteProject(@p.id);">Delete</a></li>
-                                            <li class="divider"></li>
+                                            @if(user.isSuperUser) {
+                                                <li><a href="@routes.FormEditController.projectFormUI(-1, p.id)">Edit</a></li>
+                                                <li><a href="#" onclick="javascript:deleteProject(@p.id);">Delete</a></li>
+                                                <li class="divider"></li>
+                                            }
                                             <li><a href="@routes.FormEditController.challengeFormUI(p.id, -1)">New Challenge</a></li>
                                             <li><a href="@routes.FormEditController.surveyFormUI(p.id, -1)">New Survey</a></li>
                                             <li class="divider"></li>

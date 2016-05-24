@@ -12,10 +12,11 @@ import com.vividsolutions.jts.io.{WKTReader, WKTWriter}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.actions.UserType
-import org.maproulette.models.dal.BaseDAL
+import org.maproulette.models.dal.{BaseDAL, ProjectDAL}
 import org.maproulette.session.{Group, Location, OSMProfile, User}
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
+import org.maproulette.models.Project
 import org.maproulette.permissions.Permission
 import play.api.libs.Crypto
 import play.api.libs.json.{JsValue, Json}
@@ -35,6 +36,7 @@ import play.api.libs.oauth.RequestToken
 @Singleton
 class UserDAL @Inject() (override val db:Database,
                          userGroupDAL: UserGroupDAL,
+                         projectDAL:ProjectDAL,
                          override val permission:Permission) extends BaseDAL[Long, User] {
 
   import org.maproulette.utils.AnormExtension._
@@ -313,14 +315,19 @@ class UserDAL @Inject() (override val db:Database,
     * @param projectId The project that user is being added too
     * @param user The user that is adding the user to the project
     */
-  def addUserToProject(osmID:Long, projectId:Long, user:User)(implicit c:Connection=null) : Unit = {
+  def addUserToProject(osmID:Long, projectId:Long, user:User)(implicit c:Connection=null) : User = {
     permission.hasSuperAccess(user)
-    withMRTransaction { implicit c =>
-      SQL"""INSERT INTO user_groups (osm_user_id, group_id)
+    implicit val osmKey = osmID
+    implicit val superUser = user
+    cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
+      withMRTransaction { implicit c =>
+        SQL"""INSERT INTO user_groups (osm_user_id, group_id)
             SELECT $osmID, id FROM groups
             WHERE group_type = 1 AND project_id = $projectId
          """.executeUpdate()
-    }
+      }
+      Some(cachedUser.copy(groups = userGroupDAL.getGroups(osmID, superUser)))
+    }.get
   }
 
   /**
@@ -362,5 +369,31 @@ class UserDAL @Inject() (override val db:Database,
     permission.hasWriteAccess(UserType(), user)(userId)
     val newAPIKey = Crypto.encryptAES(userId + "|" + UUID.randomUUID())
     this.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), User.superUser)(userId)
+  }
+
+  /**
+    * Initializes the home project for the user. If the project already exists, then we are
+    * good.
+    *
+    * @param user
+    */
+  def initializeHomeProject(user:User) : User = {
+    val homeName = s"Home_${user.osmProfile.id}"
+    val homeProjectId = projectDAL.retrieveByName(homeName) match {
+      case Some(project) => project.id
+      case None =>
+        projectDAL.insert(Project(id = -1,
+          name = homeName,
+          description = Some(s"Home project for user ${user.name}"),
+          enabled = false
+        ), User.superUser).id
+    }
+    // make sure the user is an admin of this project
+    if (!user.groups.exists(g => g.projectId == homeProjectId)) {
+      addUserToProject(user.osmProfile.id, homeProjectId, User.superUser)
+    } else {
+      user
+    }
+
   }
 }

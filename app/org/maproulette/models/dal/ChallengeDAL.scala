@@ -36,7 +36,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
-  override val extraFilters: String = s"challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}"
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -156,6 +155,57 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     }
   }
 
+  override def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+            orderColumn:String="id", orderDirection:String="ASC")
+           (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] =
+    _findByType(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection)
+
+  def _findByType(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+            orderColumn:String="id", orderDirection:String="ASC", challengeType:Int=Actions.ITEM_TYPE_CHALLENGE)
+           (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] = {
+    withMRConnection { implicit c =>
+      val query = s"""SELECT $retrieveColumns FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE challenge_type = $challengeType
+                      ${searchField("c.name")}
+                      ${enabled(onlyEnabled, "p")} ${enabled(onlyEnabled, "c")}
+                      ${parentFilter(parentId)}
+                      ${order(Some(orderColumn), orderDirection, "c")}
+                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
+    }
+  }
+
+  override def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
+                    orderColumn:String="id", orderDirection:String="ASC")
+                   (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] =
+    this.listByType(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection)
+
+  /**
+    * This is a dangerous function as it will return all the objects available, so it could take up
+    * a lot of memory
+    */
+  def listByType(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
+           orderColumn:String="id", orderDirection:String="ASC", challengeType:Int=Actions.ITEM_TYPE_CHALLENGE)
+          (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] = {
+    implicit val ids = List.empty
+    cacheManager.withIDListCaching { implicit uncachedIDs =>
+      withMRConnection { implicit c =>
+        val query = s"""SELECT $retrieveColumns FROM challenges c
+                        INNER JOIN projects p ON p.id = c.parent.id
+                        WHERE challenge_type = $challengeType
+                        ${searchField("name")}
+                        ${enabled(onlyEnabled, "p")} ${enabled(onlyEnabled, "c")}
+                        ${parentFilter(parentId)}
+                        ${order(Some(orderColumn), orderDirection, "c")}
+                        LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+        SQL(query).on('ss -> search(searchString),
+          'offset -> ParameterValue.toParameterValue(offset)
+        ).as(parser.*)
+      }
+    }
+  }
+
   /**
     * Gets the featured challenges
     *
@@ -167,7 +217,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     withMRConnection { implicit c =>
       val query = s"""SELECT * FROM challenges c
-                      WHERE featured = TRUE ${enabled(enabledOnly)}
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE featured = TRUE ${enabled(enabledOnly, "c")} ${enabled(enabledOnly, "p")}
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       LIMIT ${sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(parser.*)
@@ -196,9 +247,10 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     */
   def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     withMRConnection { implicit c =>
-      val query = s"""SELECT * FROM challenges
-                      WHERE ${enabled(enabledOnly, "", "")}
-                      ${order(Some("created"), "DESC")}
+      val query = s"""SELECT * FROM challenges c
+                      INNER JOIN projects p ON c.parent_id = p.id
+                      WHERE ${enabled(enabledOnly, "c", "")} ${enabled(enabledOnly, "p")}
+                      ${order(Some("created"), "DESC", "c")}
                       LIMIT ${sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(parser.*)
     }
