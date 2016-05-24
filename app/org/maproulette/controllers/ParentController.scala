@@ -48,8 +48,9 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
         child.transform(parentAddition(createdObject.id)) match {
           case JsSuccess(value, _) =>
             (value \ "id").asOpt[String] match {
-              case Some(identifier) => childController.internalUpdate(value, user)(identifier, -1)
-              case None => Utils.insertJsonID(value).validate[C].fold(
+              case Some(identifier) =>
+                childController.internalUpdate(childController.updateUpdateBody(value), user)(identifier, -1)
+              case None => childController.updateCreateBody(value).validate[C].fold(
                 errors => {
                   throw new Exception(JsError.toJson(errors).toString)
                 },

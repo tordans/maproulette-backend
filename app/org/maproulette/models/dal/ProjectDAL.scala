@@ -11,6 +11,7 @@ import org.maproulette.models.{Challenge, Project}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
+import play.api.Logger
 import play.api.db.Database
 import play.api.libs.json.JsValue
 
@@ -56,9 +57,16 @@ class ProjectDAL @Inject() (override val db:Database,
   override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
     permission.hasWriteAccess(project, user)
     cacheManager.withOptionCaching { () =>
+      // only super users can enable or disable projects
+      val setProject = if (!user.isSuperUser) {
+        Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
+        project.copy(enabled = false)
+      } else {
+        project
+      }
       val newProject = withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description, enabled)
-              VALUES (${project.name}, ${project.description}, ${project.enabled})
+              VALUES (${setProject.name}, ${setProject.description}, ${setProject.enabled})
               ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
       newProject match {
@@ -88,7 +96,13 @@ class ProjectDAL @Inject() (override val db:Database,
       withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
-        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
+        val enabled = (updates \ "enabled").asOpt[Boolean] match {
+          case Some(e) if !user.isSuperUser =>
+            Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
+            cachedItem.enabled
+          case Some(e) => e
+          case None => cachedItem.enabled
+        }
 
         SQL"""UPDATE projects SET name = $name,
               description = $description,
