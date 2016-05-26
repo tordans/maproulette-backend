@@ -105,10 +105,17 @@
                                 </div>
                             </div><!-- /.progress-group -->
                             <div class="progress-group">
-                                <span class="progress-text">Too hard to fix</span>
+                                <span class="progress-text">Skipped</span>
                                 <span id="skipped" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="skipped_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
+                                </div>
+                            </div><!-- /.progress-group -->
+                            <div class="progress-group">
+                                <span class="progress-text">Too hard to fix</span>
+                                <span id="too_hard" class="progress-number"><b>0</b>/0</span>
+                                <div class="progress sm">
+                                    <div id="too_hard_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
                                 </div>
                             </div><!-- /.progress-group -->
                             <div>
@@ -188,13 +195,15 @@
         $("#top_users").html(data.distinctTotalUsers);
         $("#actions").html(parseFloat(data.avgActionsPerUser.fixed).toFixed(2) + " <small>Fixed</small></br>" +
                 parseFloat(data.avgActionsPerUser.falsePositive).toFixed(2) + " <small>False Positives</small></br>" +
-                parseFloat(data.avgActionsPerUser.skipped).toFixed(2) + " <small>Too hard / Skipped</small></br>" +
+                parseFloat(data.avgActionsPerUser.skipped).toFixed(2) + " <small>Skipped</small></br>" +
+                parseFloat(data.avgActionsPerUser.tooHard).toFixed(2) + " <small>Too Hard</small></br>" +
                 parseFloat(data.avgActionsPerUser.alreadyFixed).toFixed(2) + " <small>Already Fixed</small></br>"
         );
         @if(challenge.isEmpty) {
         $("#actions_per_challenge").html(parseFloat(data.avgActionsPerChallengePerUser.fixed).toFixed(2) + " <small>Fixed</small></br>" +
                 parseFloat(data.avgActionsPerChallengePerUser.falsePositive).toFixed(2) + " <small>False Positives</small></br>" +
-                parseFloat(data.avgActionsPerChallengePerUser.skipped).toFixed(2) + " <small>Too hard / Skipped</small></br>" +
+                parseFloat(data.avgActionsPerChallengePerUser.skipped).toFixed(2) + " <small>Skipped</small></br>" +
+                parseFloat(data.avgActionsPerChallengePerUser.tooHard).toFixed(2) + " <small>Too Hard</small></br>" +
                 parseFloat(data.avgActionsPerChallengePerUser.alreadyFixed).toFixed(2) + " <small>Already Fixed</small></br>"
         );
         }
@@ -209,6 +218,7 @@
         var falsePositiveTasks = 0;
         var skippedTasks = 0;
         var alreadyFixedTasks = 0;
+        var tooHardTasks = 0;
         var completionRate = 0;
         var falsePositiveRate = 0;
         for (var i = 0; i < data.length; i++) {
@@ -217,7 +227,8 @@
             falsePositiveTasks += data[i].actions.falsePositive;
             skippedTasks += data[i].actions.skipped;
             alreadyFixedTasks += data[i].actions.alreadyFixed;
-            totalTasks += fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks + availableTasks;
+            tooHardTasks += data[i].actions.tooHard;
+            totalTasks += fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks + availableTasks + tooHardTasks;
             if (totalTasks > 0) {
                 completionRate += (fixedTasks + alreadyFixedTasks) / totalTasks;
             }
@@ -234,6 +245,8 @@
         $("#already_fixed_bar").width((alreadyFixedTasks / totalTasks) * 100 + "%");
         $("#skipped").html("<b>" + skippedTasks + "</b>/" + totalTasks);
         $("#skipped_bar").width((skippedTasks / totalTasks) * 100 + "%");
+        $("#too_hard").html("<b>" + tooHardTasks + "</b>/" + totalTasks);
+        $("#too_hard_bar").width((tooHardTasks / totalTasks) * 100 + "%");
         // update information in the top bar
         @if(challenge.isEmpty) {
             $("#top_numOfChallenges").html(numOfChallenges + "</br><small>(" + totalTasks + " Tasks)</small>");
@@ -244,8 +257,8 @@
             $("#top_fixed").html(fixedTasks);
             $("#top_fps").html(falsePositiveTasks);
         }
-        updatePieChart(totalTasks - fixedTasks - falsePositiveTasks - alreadyFixedTasks,
-                fixedTasks, falsePositiveTasks, skippedTasks, alreadyFixedTasks);
+        updatePieChart(totalTasks - fixedTasks - falsePositiveTasks - alreadyFixedTasks - tooHardTasks,
+                fixedTasks, falsePositiveTasks, skippedTasks, tooHardTasks, alreadyFixedTasks);
     }
 
     $('.daterange').daterangepicker({
@@ -270,6 +283,7 @@
         var falsePositiveTasks = 0;
         var skippedTasks = 0;
         var alreadyFixedTasks = 0;
+        var tooHardTasks = 0;
         for (var i = 0; i < data.length; i++) {
             var currentStatus = data[i].status;
             var dataset = currentStatus;
@@ -290,6 +304,10 @@
                 case 5:
                     dataset = 4;
                     alreadyFixedTasks += count;
+                    break;
+                case 6:
+                    dataset = 5;
+                    tooHardTasks += count;
                     break;
             }
             addToSource(moment(data[i].date, dateFormat), dataset, count);
@@ -358,7 +376,7 @@
                 data: []
             },
             {
-                label: "Skipped/Too Hard",
+                label: "Skipped",
                 fill: false,
                 lineTension: 0.1,
                 backgroundColor: "rgba(243, 156, 18, 0.4)",
@@ -389,6 +407,25 @@
                 pointBorderWidth: 1,
                 pointHoverRadius: 5,
                 pointHoverBackgroundColor: "rgba(0, 192, 239, 1)",
+                pointHoverBorderColor: "rgba(220,220,220,1)",
+                pointHoverBorderWidth: 2,
+                pointRadius: 1,
+                pointHitRadius: 10,
+                data: []
+            },
+            {
+                label: "Too Hard",
+                fill: false,
+                lineTension: 0.1,
+                backgroundColor: "rgba(160, 32, 240, 0.4)",
+                borderColor: "rgba(160, 32, 240, 1)",
+                borderCapStyle: 'butt',
+                borderJoinStyle: 'miter',
+                pointBorderColor: "rgba(160, 32, 240, 1)",
+                pointBackgroundColor: "#fff",
+                pointBorderWidth: 1,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: "rgba(160, 32, 240, 1)",
                 pointHoverBorderColor: "rgba(220,220,220,1)",
                 pointHoverBorderWidth: 2,
                 pointRadius: 1,
@@ -435,15 +472,15 @@
     }
 
     // initialize the matrix dataset that will hold our status counts to dates
-    var source = new Array(5);
+    var source = new Array(6);
     function resetSource() {
-        for (var i = 0; i < 5; i++) {
+        for (var i = 0; i < 6; i++) {
             source[i] = [];
         }
     }
 
     function addToSource(date, status, count) {
-        for (var i = 0; i < 5; i++) {
+        for (var i = 0; i < 6; i++) {
             if (typeof source[i][date] === 'undefined') {
                 source[i][date] = 0;
             }
@@ -451,18 +488,18 @@
         source[status][date] += count;
     }
 
-    function updatePieChart(available, fixed, falsePositive, skipped, alreadyFixed) {
+    function updatePieChart(available, fixed, falsePositive, skipped, tooHard, alreadyFixed) {
         $("#statusPieChart").remove();
         $('#distContainer').append("<canvas id=\"statusPieChart\"></canvas>");
         var pieChart = new Chart($("#statusPieChart"), {
             type:"doughnut",
             data: {
-                labels: ["Available", "Fixed", "False Positives", "Skipped/Too Hard", "Already Fixed"],
+                labels: ["Available", "Fixed", "False Positives", "Skipped", "Too Hard", "Already Fixed"],
                 datasets: [
                     {
-                        data: [available, fixed, falsePositive, skipped, alreadyFixed],
-                        backgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)"],
-                        hoverBackgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)"]
+                        data: [available, fixed, falsePositive, skipped, tooHard, alreadyFixed],
+                        backgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(160, 32, 240, 1)", "rgba(0, 192, 239, 1)"],
+                        hoverBackgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(160, 32, 240, 1)", "rgba(0, 192, 239, 1)"]
                     }
                 ]
             },
@@ -487,7 +524,7 @@
             $('#chartButton').unbind().click(function() { updateChart(true); });
             $('#chartButton').html("<i class=\"fa fa-line-chart\"></i>");
         }
-        for (var i = 1; i < 5; i++) {
+        for (var i = 1; i < 6; i++) {
             var activityData = activityChart.data.datasets[i-1];
             activityData.data = [];
             var dateKeys = Object.keys(source[i]);

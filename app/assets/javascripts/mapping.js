@@ -133,15 +133,7 @@ L.Control.EditControl = L.Control.extend({
         L.DomEvent.on(difficult, 'click', L.DomEvent.stopPropagation)
             .on(difficult, 'click', L.DomEvent.preventDefault)
             .on(difficult, 'click', function() {
-                MRManager.setTaskStatus(TaskStatus.SKIPPED);
-            });
-
-        var error = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        error.innerHTML = "It was not an error";
-        L.DomEvent.on(error, 'click', L.DomEvent.stopPropagation)
-            .on(error, 'click', L.DomEvent.preventDefault)
-            .on(error, 'click', function() {
-                MRManager.setTaskStatus(TaskStatus.FALSEPOSITIVE);
+                MRManager.setTaskStatus(TaskStatus.TOOHARD);
             });
 
         var alreadyFixed = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
@@ -251,7 +243,13 @@ L.Control.ControlPanel = L.Control.extend({
         });
     },
     updateNextControl: function() {
-        this.updateControl(3, "controlpanel_next", "Next", "fa-forward", false, function(e) {
+        var nextName = "Skip";
+        // this checks to see if the previous button is being shown, if it is then we know that
+        // we are in debug mode and makes sense to call the button "Next" instead of "Skip"
+        if (this.options.controls[0]) {
+            nextName = "Next";
+        }
+        this.updateControl(3, "controlpanel_next", nextName, "fa-forward", false, function(e) {
             MRManager.getNextTask();
         });
     },
@@ -333,6 +331,7 @@ var TaskStatus = {
     SKIPPED:3,
     DELETED:4,
     ALREADYFIXED:5,
+    TOOHARD:6,
     getStatusName:function(status) {
         switch(status) {
             case TaskStatus.CREATED: return "Created";
@@ -341,6 +340,7 @@ var TaskStatus = {
             case TaskStatus.SKIPPED: return "Skipped";
             case TaskStatus.DELETED: return "Deleted";
             case TaskStatus.ALREADYFIXED: return "Already Fixed";
+            case TaskStatus.TOOHARD: return "Too Hard";
             default: return "Unknown";
         }
     }
@@ -541,28 +541,8 @@ function Task() {
             ToastUtils.Success("Set Task [" + data.name + "] status to " + TaskStatus.getStatusName(status));
             self.getRandomNextTask(params, MRManager.getSuccessHandler(success), errorHandler);
         };
-        switch (status) {
-            case TaskStatus.FIXED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.FALSEPOSITIVE:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.SKIPPED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.DELETED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.ALREADYFIXED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-        }
+        jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatus(data.id, status)
+            .ajax({success: statusSetSuccess, error: errorHandler});
     };
 }
 
