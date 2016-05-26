@@ -91,7 +91,13 @@ class Application @Inject() (val messagesApi: MessagesApi,
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false))
+            val projectCounts = dalManager.project.getChildrenCounts(user, -1)
+            views.html.admin.project(user,
+              dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false).map(p => {
+                val pCounts = projectCounts.getOrElse(p.id, (0, 0))
+                (p, pCounts._1, pCounts._2)
+              }
+            ))
           case ChallengeType() | SurveyType() =>
             permission.hasWriteAccess(ProjectType(), user)(parentId.get)
             val challenges = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
@@ -271,11 +277,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.read,
         org.maproulette.controllers.api.routes.javascript.SurveyController.read,
         org.maproulette.controllers.api.routes.javascript.TagController.getTags,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusDeleted,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFixed,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusSkipped,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFalsePositive,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusAlreadyFixed,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatus,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummary,
         org.maproulette.controllers.api.routes.javascript.SurveyController.answerSurveyQuestion,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeActivity,

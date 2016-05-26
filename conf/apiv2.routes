@@ -64,11 +64,7 @@ GET     /task/:id/tags                              @org.maproulette.controllers
 GET     /tasks/tags                                 @org.maproulette.controllers.api.TaskController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 DELETE  /task/:id/tags                              @org.maproulette.controllers.api.TaskController.deleteTagsFromItem(id:Long, tags:String ?= "")
 GET     /tasks/random                               @org.maproulette.controllers.api.TaskController.getRandomTasks(ps:String ?= "", cs:String ?= "", ct:String ?= "", tags:String ?= "", ts:String ?= "", limit:Int ?= 1)
-PUT     /task/:id/fixed                             @org.maproulette.controllers.api.TaskController.setTaskStatusFixed(id:Long)
-PUT     /task/:id/skipped                           @org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(id:Long)
-PUT     /task/:id/falsepositive                     @org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(id:Long)
-PUT     /task/:id/deleted                           @org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(id:Long)
-PUT     /task/:id/alreadyfixed                      @org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(id:Long)
+PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int)
 # Tag API
 POST    /tag                                        @org.maproulette.controllers.api.TagController.create
 POST    /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPost

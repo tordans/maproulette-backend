@@ -131,12 +131,46 @@ class ProjectDAL @Inject() (override val db:Database,
             s"""SELECT p.* FROM projects p
               INNER JOIN groups g ON g.project_id = p.id
               WHERE g.id IN ({ids}) ${searchField("p.name")} ${enabled(onlyEnabled)}
-              LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
+              LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
           SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
             'ids -> user.groups.map(_.id))
             .as(parser.*)
         }
       }
+    }
+  }
+
+  /**
+    * Gets all the counts of challenges and surveys for each available project
+    *
+    * @param user The user executing the request, will limit the response to only accesible projects
+    * @param limit To limit the number of project counts to return
+    * @param offset Paging starting at 0
+    * @param onlyEnabled Whether to list only enabled projects
+    * @param searchString To search by project name
+    * @param c implicit connection, if not supplied will open new connection
+    * @return A map of project ids to tuple with number of challenge and survey children for the project
+    */
+  def getChildrenCounts(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+                        searchString:String="")(implicit c:Connection=null) : Map[Long, (Int, Int)] = {
+    withMRConnection { implicit c =>
+      val parser = for {
+        id <- long("id")
+        challenges <- int("challenges")
+        surveys <- int("surveys")
+      } yield (id, challenges, surveys)
+      val query = s"""SELECT p.id,
+                      SUM(CASE c.challenge_type WHEN 1 THEN 1 ELSE 0 END) AS challenges,
+                      SUM(CASE c.challenge_type WHEN 4 THEN 1 ELSE 0 END) AS surveys
+                    FROM projects p
+                    INNER JOIN groups g ON g.project_id = p.id
+                    INNER JOIN challenges c ON c.parent_id = p.id
+                    WHERE (1=${if (user.isSuperUser) { 1 } else { 0 }} OR g.id IN ({ids}))
+                    ${searchField("p.name")} ${enabled(onlyEnabled, "p")}
+                    GROUP BY p.id
+                    LIMIT ${sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).on('ss -> search(searchString), 'ids -> user.groups.map(_.id)).as(parser.*)
+        .map(v => v._1 -> (v._2, v._3)).toMap
     }
   }
 }

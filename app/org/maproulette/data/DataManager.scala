@@ -19,7 +19,8 @@ case class ActionSummary(available:Double,
                              falsePositive:Double,
                              skipped:Double,
                              deleted:Double,
-                             alreadyFixed:Double)
+                             alreadyFixed:Double,
+                             tooHard:Double)
 case class UserSummary(distinctTotalUsers:Int,
                        avgUsersPerChallenge:Double,
                        activeUsers:Double,
@@ -116,11 +117,13 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         skipped <- get[Option[Double]]("skipped")
         deleted <- get[Option[Double]]("deleted")
         alreadyFixed <- get[Option[Double]]("already_fixed")
+        tooHard <- get[Option[Double]]("too_hard")
       } yield ActionSummary(available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
-                            skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0))
+                            skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0), tooHard.getOrElse(0))
 
       val perUser = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
-                                  AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
+                                  AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
+                                  AVG(too_hard) AS too_hard
                               FROM (
                                 SELECT osm_user_id,
                                     SUM(CASE status WHEN 0 THEN 1 ELSE 0 END) AS available,
@@ -128,13 +131,15 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     SUM(CASE status WHEN 2 THEN 1 ELSE 0 END) AS false_positive,
                                     SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                     SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
-                                    SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
+                                    SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
+                                    SUM(CASE status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
                                 FROM status_actions
                                 #${getDateClause(start, end)} #$challengeProjectFilter
                                 GROUP BY osm_user_id
                               ) AS t""".as(actionParser.*).head
       val perChallenge = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
-                                        AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed
+                                        AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
+                                        AVG(too_hard) as too_hard
                                   FROM (
                                     SELECT osm_user_id, challenge_id,
                                         SUM(CASE status WHEN 0 THEN 1 ELSE 0 END) AS available,
@@ -142,7 +147,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                         SUM(CASE status WHEN 2 THEN 1 ELSE 0 END) AS false_positive,
                                         SUM(CASE status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                         SUM(CASE status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
-                                        SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed
+                                        SUM(CASE status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
+                                        SUM(CASE status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
                                     FROM status_actions
                                     #${getDateClause(start, end)} #$challengeProjectFilter
                                     GROUP BY osm_user_id, challenge_id
@@ -174,7 +180,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         skipped <- int("skipped")
         deleted <- int("deleted")
         alreadyFixed <- int("already_fixed")
-      } yield ChallengeSummary(id, name, ActionSummary(available, fixed, falsePositive, skipped, deleted, alreadyFixed))
+        tooHard <- int("too_hard")
+      } yield ChallengeSummary(id, name, ActionSummary(available, fixed, falsePositive, skipped, deleted, alreadyFixed, tooHard))
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND t.parent_id = $id"
         case _ => projectList match {
@@ -188,7 +195,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                         	SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
                         	SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
                         	SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
-                        	SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed
+                        	SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
+                          SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
                         FROM tasks t
                         INNER JOIN challenges c ON c.id = t.parent_id
                         WHERE challenge_type = #${Actions.ITEM_TYPE_CHALLENGE} #$challengeFilter
