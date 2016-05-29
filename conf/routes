@@ -12,6 +12,7 @@ POST    /ui/admin/form/project/:parentId/:itemId                        @control
 GET     /ui/admin/form/challenge/:parentId/:itemId                      @controllers.FormEditController.challengeFormUI(parentId:Long, itemId:Long)
 POST    /ui/admin/form/challenge/:parentId/:itemId                      @controllers.FormEditController.challengeFormPost(parentId:Long, itemId:Long)
 GET     /ui/admin/form/cloneChallenge/:parentId/:itemId                 @controllers.FormEditController.cloneChallengeFormUI(parentId:Long, itemId:Long)
+GET     /ui/admin/form/rebuildChallenge/:parentId/:itemId               @controllers.FormEditController.rebuildChallenge(parentId:Long, itemId:Long)
 GET     /ui/admin/form/survey/:parentId/:itemId                         @controllers.FormEditController.surveyFormUI(parentId:Long, itemId:Long)
 POST    /ui/admin/form/survey/:parentId/:itemId                         @controllers.FormEditController.surveyFormPost(parentId:Long, itemId:Long)
 GET     /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormUI(projectId:Long, parentId:Long, parentType:String, itemId:Long)

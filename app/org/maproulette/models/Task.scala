@@ -27,7 +27,7 @@ import play.api.libs.json._
 case class Task(override val id:Long,
                 override val name: String,
                 parent: Long,
-                instruction: String,
+                instruction: Option[String]=None,
                 location: Option[String]=None,
                 geometries:String,
                 status:Option[Int]=None) extends BaseObject[Long] {
@@ -122,12 +122,12 @@ object Task {
       "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
       "parent" -> longNumber,
-      "instruction" -> nonEmptyText,
+      "instruction" -> optional(text),
       "location" -> optional(text),
       "geometries" -> nonEmptyText,
       "status" -> optional(number)
     )(Task.apply)(Task.unapply)
   )
 
-  def emptyTask(parentId:Long) = Task(-1, "", parentId, "", None, "")
+  def emptyTask(parentId:Long) = Task(-1, "", parentId, Some(""), None, "")
 }

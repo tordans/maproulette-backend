@@ -29,7 +29,8 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>Tasks All/Fixed/FalsePositive</th>
-                        <th>Overpass Status</th>
+                        <th>Challenge Type</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -47,7 +48,14 @@
                             <td>@c._1.id</td>
                             <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c._1.id)">@c._1.name</a></td>
                             <td>@{c._2}/@{c._3}/@{c._4}</td>
-                            <td>@c._1.getOverpassFriendlyStatus</td>
+                            <td>
+                                @if(!c._1.overpassQL.getOrElse("").isEmpty) { Overpass } else {
+                                    @if(!c._1.remoteGeoJson.getOrElse("").isEmpty) { Remote GeoJson } else {
+                                        Not Applicable
+                                    }
+                                }
+                            </td>
+                            <td>@c._1.getFriendlyStatus</td>
                             <td>
                                 <div class="btn-group pull-left">
                                     <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
@@ -72,6 +80,9 @@
                                             <li><a href="@routes.Application.challengeMetrics(c._1.id, "", 1)">View Metrics</a></li>
                                         }
                                         <li class="divider"></li>
+                                        @if(!c._1.overpassQL.getOrElse("").isEmpty || !c._1.remoteGeoJson.getOrElse("").isEmpty) {
+                                            <li><a href="#" onclick="rebuildChallenge(@c._1.parent, @c._1.id);">Rebuild</a></li>
+                                        }
                                         <li><a href="@routes.Application.mapChallenge(c._1.id)">Start</a></li>
                                     </ul>
                                 </div>
@@ -88,6 +99,7 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>Tasks All/Fixed/FalsePositive</th>
+                        <th>Challenge Type</th>
                         <th>Overpass Status</th>
                         <th>Actions</th>
                     </tr>

@@ -2,123 +2,154 @@
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
 @import org.maproulette.session.User
-@(user:User, parentId:Long, challengeForm:Form[Challenge])(implicit messages: Messages)
-
+@(user:User, parentId:Long, challengeForm:Form[Challenge])(implicit messages: Messages, webJarAssets: WebJarAssets)
 @views.html.admin.common.header("Administration", null,
     Map(
         "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
         "Challenges" -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId))
     )
 )
-<section class="content">
-    <div class="box box-primary">
-        <div class="box-header with-border">
-        @if(challengeForm("id").value.getOrElse("-1").toInt == -1)  {
-            <h3 class="box-title">Create New Challenge</h3>
-        } else {
-            <h3 class="box-title">Edit Challenge</h3>
-        }
-        </div><!-- /.box-header -->
-        <!-- form start -->
-        @helper.form(routes.FormEditController.challengeFormPost(parentId, challengeForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
-            <div class="box-body">
-                @if(user.isSuperUser) {
-                    <div class="form-group">
-                    @checkbox(challengeForm("featured"),
-                        label = "Featured",
-                        default = false,
-                        readOnly = false
-                    )
-                    </div>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/js/fuelux.min.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery.validate.min.js"))"></script>
+<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/css/fuelux.min.css"))"/>
+
+@defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
+    <section class="content fuelux">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                @if(!isInEdit)  {
+                    <h3 class="box-title">Create New Challenge</h3>
+                } else {
+                    <h3 class="box-title">Edit Challenge</h3>
                 }
-                <div class="form-group" style="display:none;">
-                    @text(challengeForm("id"),
-                        label = "id",
-                        placeholder = "-1",
-                        default = "-1",
-                        readOnly = true
-                    )
+            </div><!-- /.box-header -->
+
+            <!-- form start -->
+            @helper.form(routes.FormEditController.challengeFormPost(parentId, challengeForm("id").value.getOrElse("-1").toLong),
+                'id -> "challengeForm", 'enctype -> "multipart/form-data", 'class -> "form-horizontal") {
+                <div class="box-body">
+                    <div class="wizard" data-initialize="wizard" id="challengeWizard">
+                        <div class="steps-container">
+                            <ul class="steps">
+                                <li data-step="1" data-name="campaign" class="active">
+                                    <span class="badge">1</span>General
+                                    <span class="chevron"></span>
+                                </li>
+                                <li data-step="2">
+                                    <span class="badge">2</span>GeoJSON
+                                    <span class="chevron"></span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="actions">
+                            <button type="button" class="btn btn-default btn-prev">
+                                <span class="glyphicon glyphicon-arrow-left"></span>Prev</button>
+                            <button type="button" class="btn btn-primary btn-next" data-last="Complete">Next
+                                <span class="glyphicon glyphicon-arrow-right btn-next"></span></button>
+                        </div>
+                        <div class="step-content">
+                            <div class="step-pane active sample-pane alert" data-step="1">
+                                <h4>General</h4>
+                                @if(user.isSuperUser) {
+                                    <div class="form-group">
+                                    @checkbox(challengeForm("featured"),
+                                        label = "Featured",
+                                        default = false,
+                                        readOnly = false
+                                    )
+                                    </div>
+                                }
+                                <div class="form-group" style="display:none;">
+                                @text(challengeForm("id"),
+                                    label = "id",
+                                    placeholder = "-1",
+                                    default = "-1",
+                                    readOnly = true
+                                )
+                                </div>
+                                <div class="form-group" style="display:none;">
+                                @text(challengeForm("parent"),
+                                    label = "Parent ID",
+                                    placeholder = "-1",
+                                    default = parentId+"",
+                                    readOnly = true
+                                )
+                                </div>
+                                <div class="form-group" style="display:none;">
+                                @text(challengeForm("challengeType"),
+                                    label = "Challenge Type",
+                                    placeholder = Actions.ITEM_TYPE_CHALLENGE+"",
+                                    default = Actions.ITEM_TYPE_CHALLENGE+"",
+                                    readOnly = true
+                                )
+                                </div>
+                                <div class="form-group">
+                                @select(challengeForm("enabled"),
+                                    label = "Enabled",
+                                    optionList = List(("true", "true"), ("false", "false")),
+                                    isMultiple = false,
+                                    help = "Please set whether the challenge is enabled or not.",
+                                    defaultSelected = Some("true")
+                                )
+                                </div>
+                                <div class="form-group">
+                                @text(challengeForm("name"),
+                                    label = "Name",
+                                    placeholder = "Challenge Name",
+                                    help = "Please enter the challenge name. (required)"
+                                )
+                                </div>
+                                <div class="form-group">
+                                @textarea(challengeForm("description"),
+                                    label = "Description",
+                                    rows = "5",
+                                    placeholder = "Challenge Description",
+                                    help = "Please enter the description for the challenge. (optional)"
+                                )
+                                </div>
+                                <div class="form-group">
+                                @textarea(challengeForm("blurb"),
+                                    label = "Blurb",
+                                    rows = "5",
+                                    placeholder = "Challenge Blurb",
+                                    help = "Please enter the blurb for the challenge. (optional)"
+                                )
+                                </div>
+                                <div class="form-group">
+                                @text(challengeForm("instruction"),
+                                    label = "Instruction",
+                                    placeholder = "Challenge Instruction",
+                                    help = "Please enter the instruction for the challenge."
+                                )
+                                </div>
+                                <div class="form-group">
+                                @select(challengeForm("difficulty"),
+                                    label = "Difficulty",
+                                    optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
+                                    isMultiple = false,
+                                    help = "Please enter the difficulty level for the challenge",
+                                    defaultSelected = Some("1")
+                                )
+                                </div>
+                            </div>
+                            <div class="step-pane sample-pane bg-info alert" data-step="2">
+                                <h4>GeoJSON</h4>
+                                @views.html.admin.forms.elements.challengeCreation(challengeForm)
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /.box-body -->
+                <div class="box-footer">
+                    <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Challenge", parentId)">Cancel</a>
                 </div>
-                <div class="form-group" style="display:none;">
-                    @text(challengeForm("parent"),
-                        label = "Parent ID",
-                        placeholder = "-1",
-                        default = parentId+"",
-                        readOnly = true
-                    )
-                </div>
-                <div class="form-group" style="display:none;">
-                    @text(challengeForm("challengeType"),
-                        label = "Challenge Type",
-                        placeholder = Actions.ITEM_TYPE_CHALLENGE+"",
-                        default = Actions.ITEM_TYPE_CHALLENGE+"",
-                        readOnly = true
-                    )
-                </div>
-                <div class="form-group">
-                    @select(challengeForm("enabled"),
-                        label = "Enabled",
-                        optionList = List(("true", "true"), ("false", "false")),
-                        isMultiple = false,
-                        help = "Please set whether the challenge is enabled or not.",
-                        defaultSelected = Some("true")
-                    )
-                </div>
-                <div class="form-group">
-                    @text(challengeForm("name"),
-                        label = "Name",
-                        placeholder = "Challenge Name",
-                        help = "Please enter the challenge name. (required)"
-                    )
-                </div>
-                <div class="form-group">
-                    @textarea(challengeForm("description"),
-                        label = "Description",
-                        rows = "5",
-                        placeholder = "Challenge Description",
-                        help = "Please enter the description for the challenge. (optional)"
-                    )
-                </div>
-                <div class="form-group">
-                    @textarea(challengeForm("blurb"),
-                        label = "Blurb",
-                        rows = "5",
-                        placeholder = "Challenge Blurb",
-                        help = "Please enter the blurb for the challenge. (optional)"
-                    )
-                </div>
-                <div class="form-group">
-                    @text(challengeForm("instruction"),
-                        label = "Instruction",
-                        placeholder = "Challenge Instruction",
-                        help = "Please enter the instruction for the challenge."
-                    )
-                </div>
-                <div class="form-group">
-                    @select(challengeForm("difficulty"),
-                        label = "Difficulty",
-                        optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
-                        isMultiple = false,
-                        help = "Please enter the difficulty level for the challenge",
-                        defaultSelected = Some("1")
-                    )
-                </div>
-                <div class="form-group">
-                    @textarea(challengeForm("overpassQL"),
-                        label = "Overpass API",
-                        rows = "5",
-                        placeholder = "Enter overpass API here...",
-                        help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
-                                "By entering information here it will generate the tasks in the background. " +
-                                "Please provide a suitable bounding box when inserting an overpass query, " +
-                                "this can potentially generate larges amount of data and bog the system down."
-                    )
-                </div>
-            </div><!-- /.box-body -->
-            <div class="box-footer">
-                <button type="submit" class="btn btn-primary">Submit</button>
-                <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Challenge", parentId)">Cancel</a>
-            </div>
-        }
-    </div><!-- /.box -->
-</section>
+            }
+        </div><!-- /.box -->
+    </section>
+}
+<script type="application/javascript">
+$().ready(function() {
+    $("#challengeWizard").wizard().on('finished.fu.wizard', function (e, data) {
+        $("#challengeForm").submit();
+    });
+});
+</script>

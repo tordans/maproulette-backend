@@ -208,6 +208,7 @@ var deleteItem = function(itemType, itemId) {
         }
     };
 
+    ToastUtils.Info("Deleting " + itemType + " [" + itemId + "]");
     if (itemType == "Project") {
         jsRoutes.org.maproulette.controllers.api.ProjectController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "Challenge") {
@@ -308,7 +309,22 @@ var generateAPIKey = function(success, userId) {
         },
         error : Utils.handleError
     };
+    ToastUtils.Info("Generating API Key for user [" + userId + "]");
     jsRoutes.controllers.AuthController.generateAPIKey(userId).ajax(apiCallback);
+};
+
+var rebuildChallenge = function(parentId, challengeId, success) {
+    ToastUtils.Info("Rebuilding challenge [" + challengeId + "]");
+  jsRoutes.controllers.FormEditController.rebuildChallenge(parentId, challengeId).ajax({
+      success: function(data) {
+          if (typeof success === 'undefined') {
+            location.reload();
+          } else {
+            success(data);   
+          }
+      },
+      error : Utils.handleError
+  });
 };
 
 var showAPIKey = function() {
