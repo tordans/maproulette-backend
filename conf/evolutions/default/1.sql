@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS challenges
   challenge_type integer NOT NULL DEFAULT(1),
   featured BOOLEAN DEFAULT(false),
   overpass_ql character varying DEFAULT '',
-  overpass_status integer DEFAULT 0,
+  remote_geo_json CHARACTER VARYING DEFAULT '',
+  status integer DEFAULT 0,
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE

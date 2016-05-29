@@ -53,11 +53,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
       get[Option[String]]("challenges.overpass_ql") ~
-      get[Option[Int]]("challenges.overpass_status") map {
+      get[Option[String]]("challenges.remote_geo_json") ~
+      get[Option[Int]]("challenges.status") map {
       case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
-        enabled ~ challenge_type ~ featured ~ overpassql ~ overpassStatus=>
+        enabled ~ challenge_type ~ featured ~ overpassql ~ remoteGeoJson ~ status =>
         new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
-          enabled, challenge_type, featured, overpassql, overpassStatus)
+          enabled, challenge_type, featured, overpassql, remoteGeoJson, status)
     }
   }
 
@@ -104,11 +105,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
-                                      instruction, enabled, challenge_type, featured, overpass_ql, overpass_status)
+                                      instruction, enabled, challenge_type, featured, overpass_ql,
+                                      remote_geo_json, status)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
                       ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
-                      ${challenge.overpassQL}, ${challenge.overpassStatus}
+                      ${challenge.overpassQL}, ${challenge.remoteGeoJson}, ${challenge.status}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
     } match {
@@ -138,7 +140,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
         val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.featured)
         val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.overpassQL.getOrElse(""))
-        val overpassStatus = (updates \ "overpassStatus").asOpt[Int].getOrElse(cachedItem.overpassStatus.getOrElse(Challenge.OVERPASS_STATUS_NA))
+        val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.remoteGeoJson.getOrElse(""))
+        val overpassStatus = (updates \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(Challenge.STATUS_NA))
 
         SQL"""UPDATE challenges SET name = $name,
                                     parent_id = $parentId,
@@ -149,7 +152,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                                     enabled = $enabled,
                                     featured = $featured,
                                     overpass_ql = $overpassQL,
-                                    overpass_status = $overpassStatus
+                                    remote_geo_json = $remoteGeoJson,
+                                    status = $overpassStatus
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }

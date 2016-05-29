@@ -6,21 +6,19 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
 import org.maproulette.actions.{Actions, ProjectType}
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Challenge, Project, Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{SessionManager, User}
-import play.api.Logger
+import org.maproulette.services.ChallengeService
+import org.maproulette.session.SessionManager
 import play.api.db.Database
 import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.libs.json.{DefaultReads, JsValue, Json}
+import play.api.libs.json.{DefaultReads, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, Controller}
 
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
+import scala.io.Source
 
 /**
   * @author cuthbertm
@@ -30,10 +28,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     override val webJarAssets: WebJarAssets,
                                     sessionManager:SessionManager,
                                     override val dalManager: DALManager,
+                                    challengeService: ChallengeService,
                                     val config:Config,
                                     db:Database,
                                     permission: Permission) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   def projectFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
     implicit val requireSuperUser = true
@@ -115,7 +113,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def challengeFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
+  def challengeFormPost(parentId:Long, itemId:Long) = Action.async(parse.multipartFormData) { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       permission.hasWriteAccess(ProjectType(), user)(parentId)
       Challenge.challengeForm.bindFromRequest.fold(
@@ -125,138 +123,40 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           )
         },
         challenge => {
-          val overpassChallenge = challenge.overpassQL match {
-            case Some(ql) if StringUtils.isNotEmpty(ql) => challenge.copy(overpassStatus = Some(Challenge.OVERPASS_STATUS_BUILDING))
-            case None => challenge
+          val updatedChallenge = challenge.overpassQL match {
+            case Some(ql) if StringUtils.isNotEmpty(ql) => challenge.copy(status = Some(Challenge.STATUS_BUILDING))
+            case None => challenge.remoteGeoJson match {
+              case Some(url) if StringUtils.isNotEmpty(url) => challenge.copy(status = Some(Challenge.STATUS_BUILDING))
+              case None => challenge
+            }
           }
-          val newChallenge = if (itemId > -1) {
-            dalManager.challenge.update(Json.toJson(overpassChallenge)(Challenge.challengeWrites), user)(itemId).get
+          if (itemId > -1) {
+            dalManager.challenge.update(Json.toJson(updatedChallenge)(Challenge.challengeWrites), user)(itemId).get
           } else {
-            dalManager.challenge.insert(overpassChallenge, user)
+            val newChallenge = dalManager.challenge.insert(updatedChallenge, user)
+
+            val uploadData = request.body.file("localGeoJSON") match {
+              case Some(f) if StringUtils.isNotEmpty(f.filename) => Some(Source.fromFile(f.ref.file).getLines().mkString)
+              case _ => None
+            }
+            challengeService.buildChallengeTasks(user, newChallenge, uploadData)
           }
-          Future { buildOverpassQLTasks(newChallenge, user) }
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
         }
       )
     }
   }
 
-  /**
-    * Based on the supplied overpass query this will generate the tasks for the challenge
-    *
-    * @param challenge The challenge to create the tasks under
-    * @param user The user executing the query
-    */
-  private def buildOverpassQLTasks(challenge:Challenge, user:User) = {
-    challenge.overpassQL match {
-      case Some(ql) if StringUtils.isNotEmpty(ql) =>
-        // run the query and then create the tasks
-        val osmQLProvider = config.getOSMQLProvider
-        val timeoutPattern = "\\[timeout:([\\d]*)\\]".r
-        val timeout = timeoutPattern.findAllIn(ql).matchData.toList.headOption match {
-          case Some(m) => Duration(m.group(1).toInt, "seconds")
-          case None => osmQLProvider.requestTimeout
-        }
-
-        val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(timeout).post(parseQuery(ql))
-
-        jsonFuture onComplete {
-          case Success(result) =>
-            if (result.status == OK) {
-              db.withTransaction { implicit c =>
-                var partial = false
-                val payload = result.json
-                // parse the results
-                val elements = (payload \ "elements").as[List[JsValue]]
-                elements.foreach {
-                  element =>
-                    try {
-                      val geometry = (element \ "type").asOpt[String] match {
-                        case Some("way") =>
-                          val points = (element \ "geometry").as[List[JsValue]].map {
-                            geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
-                          }
-                          Some(Json.obj("type" -> "LineString", "coordinates" -> points))
-                        case Some("node") =>
-                          Some(Json.obj(
-                            "type" -> "Point",
-                            "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
-                          ))
-                        case _ => None
-                      }
-
-                      geometry match {
-                        case Some(geom) =>
-                          val props = (element \ "tags").asOpt[JsValue] match {
-                            case Some(tags) => tags
-                            case None => Json.obj()
-                          }
-                          val newTask = Task(-1,
-                            (element \ "id").as[Int]+"",
-                            challenge.id,
-                            challenge.instruction,
-                            None,
-                            Json.obj(
-                              "type" -> "FeatureCollection",
-                              "features" -> Json.arr(Json.obj(
-                                "id" -> (element \ "id").as[Int],
-                                "geometry" -> geom,
-                                "properties" -> props
-                              ))
-                            ).toString
-                          )
-
-                          try {
-                            dalManager.task.mergeUpdate(newTask, user)(newTask.id)
-                          } catch {
-                            // this task could fail on unique key violation, we need to ignore them
-                            case e:Exception =>
-                              Logger.error(e.getMessage)
-                          }
-                        case None => None
-                      }
-                    } catch {
-                      case e:Exception =>
-                        partial = true
-                        Logger.error(e.getMessage, e)
-                    }
-                }
-                partial match {
-                  case true =>
-                    dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_PARTIALLY_LOADED), user)(challenge.id)
-                  case false =>
-                    dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_COMPLETE), user)(challenge.id)
-                }
-              }
-            } else {
-              dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_FAILED), user)(challenge.id)
-              throw new InvalidException(s"Bad Request: ${result.body}")
-            }
-          case Failure(f) =>
-            dalManager.challenge.update(Json.obj("overpassStatus" -> Challenge.OVERPASS_STATUS_FAILED), user)(challenge.id)
-            throw f
-        }
-      case None => // just ignore, we don't have to do anything if it wasn't set
+  def rebuildChallenge(parentId:Long, challengeId:Long) = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      permission.hasWriteAccess(ProjectType(), user)(parentId)
+      dalManager.challenge.retrieveById(challengeId) match {
+        case Some(c) =>
+          challengeService.rebuildChallengeTasks(user, c)
+          Ok
+        case None => throw new NotFoundException(s"No challenge found with id $challengeId")
+      }
     }
-  }
-
-  /**
-    * parse the query, replace various extended overpass query parameters see http://wiki.openstreetmap.org/wiki/Overpass_turbo/Extended_Overpass_Queries
-    * Currently do not support {{bbox}} or {{center}}
-    *
-    * @param query The query to parse
-    * @return
-    */
-  private def parseQuery(query:String) : String = {
-    val osmQLProvider = config.getOSMQLProvider
-    // User can set their own custom timeout if the want
-    var replacedQuery = if (query.indexOf("[timeout:") == 0) {
-      s"[out:json]$query"
-    } else {
-      s"[out:json][timeout:${osmQLProvider.requestTimeout.toSeconds}];$query"
-    }
-    // execute regex matching against {{data:string}}, {{geocodeId:name}}, {{geocodeArea:name}}, {{geocodeBbox:name}}, {{geocodeCoords:name}}
-    replacedQuery
   }
 
   def surveyFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>

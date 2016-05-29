@@ -32,19 +32,20 @@ case class Challenge(override val id: Long,
                      challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                      featured:Boolean=false,
                      overpassQL:Option[String]=None,
-                     overpassStatus:Option[Int]=Some(0)) extends BaseObject[Long] {
+                     remoteGeoJson:Option[String]=None,
+                     status:Option[Int]=Some(0)) extends BaseObject[Long] {
 
 
   override val itemType: ItemType = ChallengeType()
 
-  def getOverpassFriendlyStatus = {
-    overpassStatus match {
+  def getFriendlyStatus = {
+    status match {
       case Some(status) =>
         status match {
-          case Challenge.OVERPASS_STATUS_FAILED => "Failed"
-          case Challenge.OVERPASS_STATUS_PARTIALLY_LOADED => "Partially Loaded"
-          case Challenge.OVERPASS_STATUS_BUILDING => "Loading Tasks"
-          case Challenge.OVERPASS_STATUS_COMPLETE => "Complete"
+          case Challenge.STATUS_FAILED => "Failed"
+          case Challenge.STATUS_PARTIALLY_LOADED => "Partially Loaded"
+          case Challenge.STATUS_BUILDING => "Loading Tasks"
+          case Challenge.STATUS_COMPLETE => "Complete"
           case _ => "Not Applicable"
         }
       case None => "Not Applicable"
@@ -69,7 +70,8 @@ object Challenge {
       "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
       "featured" -> default(boolean, false),
       "overpassQL" -> optional(text),
-      "overpassStatus" -> default(optional(number), None)
+      "remoteGeoJson" -> optional(text),
+      "status" -> default(optional(number), None)
     )(Challenge.apply)(Challenge.unapply)
   )
 
@@ -79,9 +81,9 @@ object Challenge {
   val DIFFICULTY_NORMAL = 2
   val DIFFICULTY_EXPERT = 3
 
-  val OVERPASS_STATUS_NA = 0
-  val OVERPASS_STATUS_BUILDING = 1
-  val OVERPASS_STATUS_FAILED = 2
-  val OVERPASS_STATUS_COMPLETE = 3
-  val OVERPASS_STATUS_PARTIALLY_LOADED = 4
+  val STATUS_NA = 0
+  val STATUS_BUILDING = 1
+  val STATUS_FAILED = 2
+  val STATUS_COMPLETE = 3
+  val STATUS_PARTIALLY_LOADED = 4
 }

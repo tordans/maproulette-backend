@@ -444,7 +444,7 @@ function Task() {
     this.getChallenge = function() {
         return challenge;
     };
-    var data = {id:-1, parentId:-1};
+    var data = {id:-1, parentId:-2};
     this.getData = function() {
         return data;
     };
@@ -457,10 +457,12 @@ function Task() {
         }
     };
 
-    var updateData = function(update) {
+    var updateData = function(update, success) {
         data = update;
         if (challenge.getData().id != data.parentId) {
-            challenge.updateChallenge(data.parentId);
+            challenge.updateChallenge(data.parentId, success);
+        } else {
+            success();
         }
     };
 
@@ -477,8 +479,7 @@ function Task() {
     this.updateTask = function(taskId, success, error) {
         jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax({
             success:function(update) {
-                updateData(update);
-                MRManager.getSuccessHandler(success)();
+                updateData(update, MRManager.getSuccessHandler(success));
             },
             error:MRManager.getErrorHandler(error)
         });
@@ -492,8 +493,7 @@ function Task() {
                 .getSequentialNextTask(data.parentId, data.id)
                 .ajax({
                     success: function (update) {
-                        updateData(update);
-                        MRManager.getSuccessHandler(success)();
+                        updateData(update, MRManager.getSuccessHandler(success));
                     },
                     error: MRManager.getErrorHandler(error)
                 });
@@ -508,8 +508,7 @@ function Task() {
                 .getSequentialPreviousTask(data.parentId, data.id)
                 .ajax({
                     success: function (update) {
-                        updateData(update);
-                        MRManager.getSuccessHandler(success)();
+                        updateData(update, MRManager.getSuccessHandler(success));
                     },
                     error: MRManager.getErrorHandler(error)
                 });
@@ -526,8 +525,7 @@ function Task() {
             params.taskTags)
             .ajax({
                 success:function(update) {
-                    updateData(update);
-                    MRManager.getSuccessHandler(success)();
+                    updateData(update, MRManager.getSuccessHandler(success));
                 },
                 error:MRManager.getErrorHandler(error)
             }
@@ -711,7 +709,11 @@ var MRManager = (function() {
         window.history.pushState("", "", "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
         // show the task text as a notification
         toastr.clear();
-        ToastUtils.Info(marked(currentTask.getData().instruction), {timeOut: 0});
+        var taskInstruction = currentTask.getData().instruction;
+        if (taskInstruction === "") {
+            taskInstruction = currentTask.getChallenge().getData().instruction;
+        }
+        ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
         updateChallengeInfo(currentTask.getData().parentId);

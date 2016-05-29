@@ -46,7 +46,7 @@ class TaskDAL @Inject() (override val db:Database,
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
       get[Long]("parent_id") ~
-      get[String]("tasks.instruction") ~
+      get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") map {
       case id ~ name ~ parent_id ~ instruction ~ location ~ status =>
@@ -124,7 +124,7 @@ class TaskDAL @Inject() (override val db:Database,
           NamedParameter("parent", ParameterValue.toParameterValue(task.parent)),
           NamedParameter("instruction", ParameterValue.toParameterValue(task.instruction))
         )
-        val locationValue = if (!task.location.isDefined || StringUtils.isEmpty(task.location.get)) {
+        val locationValue = if (task.location.isEmpty || StringUtils.isEmpty(task.location.get)) {
           ("", "")
         } else {
           parameters = parameters :+ NamedParameter("location", ParameterValue.toParameterValue(task.location.get.toString))
@@ -161,7 +161,7 @@ class TaskDAL @Inject() (override val db:Database,
       withMRTransaction { implicit c =>
         val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-        val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
+        val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
         val location = (value \ "location").asOpt[String].getOrElse(cachedItem.location.getOrElse(""))
         val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
         if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
@@ -194,7 +194,7 @@ class TaskDAL @Inject() (override val db:Database,
             geom
           case None => cachedItem.geometries
         }
-        Some(Task(id, name, parentId, instruction, Some(location), geometries, Some(status)))
+        Some(Task(id, name, parentId, Some(instruction), Some(location), geometries, Some(status)))
       }
     }
   }
