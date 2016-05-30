@@ -213,7 +213,6 @@
 
     function receiveSummaryData(data) {
         var numOfChallenges = data.length;
-        var availableTasks = 0;
         var totalTasks = 0;
         var fixedTasks = 0;
         var falsePositiveTasks = 0;
@@ -223,21 +222,20 @@
         var completionRate = 0;
         var falsePositiveRate = 0;
         for (var i = 0; i < data.length; i++) {
-            availableTasks = data[i].actions.available;
+            var availableTasks = data[i].actions.available;
             fixedTasks += data[i].actions.fixed;
             falsePositiveTasks += data[i].actions.falsePositive;
             skippedTasks += data[i].actions.skipped;
             alreadyFixedTasks += data[i].actions.alreadyFixed;
             tooHardTasks += data[i].actions.tooHard;
+            totalTasks += fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks + availableTasks + tooHardTasks;
+            if (totalTasks > 0) {
+                completionRate += (fixedTasks + alreadyFixedTasks) / totalTasks;
+            }
+            if (totalTasks > 0) {
+                falsePositiveRate += falsePositiveTasks / totalTasks;
+            }
         }
-        totalTasks += fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks + availableTasks + tooHardTasks;
-        if (totalTasks > 0) {
-            completionRate += (fixedTasks + alreadyFixedTasks) / totalTasks;
-        }
-        if (totalTasks > 0) {
-            falsePositiveRate += falsePositiveTasks / totalTasks;
-        }
-
         // update the activity chart information on the side
         $("#fixed").html("<b>" + fixedTasks + "</b>/" + totalTasks);
         $("#fixed_bar").width((fixedTasks / totalTasks) * 100 + "%");
