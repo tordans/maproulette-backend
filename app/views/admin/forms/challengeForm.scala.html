@@ -10,7 +10,6 @@
     )
 )
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/js/fuelux.min.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery.validate.min.js"))"></script>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/css/fuelux.min.css"))"/>
 
 @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
