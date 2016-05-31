@@ -105,7 +105,10 @@ object User {
     val osmAccountCreated = userXML \@ "account_created"
     val osmId = userXML \@ "id"
     val description = (userXML \ "description").head.text
-    val avatarURL = (userXML \ "img").head \@ "href"
+    val avatarURL = (userXML \ "img").headOption match {
+      case Some(img) => img \@ "href"
+      case None => "/assets/images/user_no_image.png"
+    }
     // todo currently setting to 0,0 lat,lon but will need to set a default or null or something
     val location = (userXML \ "home").headOption match {
       case Some(loc) => Location((loc \@ "lat").toDouble, (loc \@ "lon").toDouble)
