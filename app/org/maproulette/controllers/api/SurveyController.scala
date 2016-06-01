@@ -3,6 +3,7 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
+import io.swagger.annotations.Api
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
@@ -21,6 +22,7 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
+@Api(value = "/Survey", description = "Operations for Surveys", protocols = "http")
 class SurveyController @Inject() (override val childController:TaskController,
                                   override val sessionManager: SessionManager,
                                   override val actionManager: ActionManager,

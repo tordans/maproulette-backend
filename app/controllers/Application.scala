@@ -2,20 +2,23 @@ package controllers
 
 import javax.inject.Inject
 
+import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
+import org.maproulette.exception.{StatusMessage, StatusMessages}
 import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.libs.json.{JsNumber, Json}
+import play.api.libs.json.{JsNumber, JsString, Json}
 import play.api.mvc._
 import play.api.routing._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
+import scala.util.parsing.json.JSONObject
 import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
@@ -23,7 +26,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              sessionManager:SessionManager,
                              override val dalManager: DALManager,
                              permission: Permission,
-                             val config:Config) extends Controller with I18nSupport with ControllerHelper {
+                             val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
 
   def clearCaches = Action.async { implicit request =>
     implicit val requireSuperUser = true
@@ -34,7 +37,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
       dalManager.survey.clearCaches
       dalManager.task.clearCaches
       dalManager.tag.clearCaches
-      Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
+      Ok(Json.toJson(StatusMessage("OK", JsString("All caches cleared."))))
     }
   }
 

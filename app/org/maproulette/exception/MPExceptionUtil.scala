@@ -3,12 +3,11 @@ package org.maproulette.exception
 import controllers.WebJarAssets
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.Config
-import org.maproulette.actions.ActionManager
-import org.maproulette.models.dal.{ChallengeDAL, DALManager}
+import org.maproulette.models.dal.DALManager
 import org.maproulette.session.User
 import play.api.Logger
 import play.api.i18n.Messages
-import play.api.libs.json.Json
+import play.api.libs.json.{JsString, Json}
 import play.api.mvc.{Request, Result}
 import play.api.mvc.Results._
 
@@ -35,16 +34,16 @@ object MPExceptionUtil {
     } catch {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
-        BadRequest(Json.obj("status" -> "KO", "message" -> e.getMessage))
+        BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
-        Forbidden(Json.obj("status" -> "Forbidden", "Message" -> e.getMessage))
+        Forbidden(Json.toJson(StatusMessage("Forbidden", JsString(e.getMessage))))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(Json.obj("status" -> "NotFound", "message" -> e.getMessage))
+        NotFound(Json.toJson(StatusMessage("NotFound", JsString(e.getMessage))))
       case e:Exception =>
         Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+        InternalServerError(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
     }
   }
 
@@ -112,19 +111,19 @@ object MPExceptionUtil {
     e match {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
-        BadRequest(Json.obj("status" -> "KO", "message" -> e.getMessage))
+        BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
       case e:OAuthNotAuthorizedException =>
         Logger.error(e.getMessage, e)
-        Unauthorized(Json.obj("status" -> "NotAuthorized", "message" -> e.getMessage)).withNewSession
+        Unauthorized(Json.toJson(StatusMessage("NotAuthorized", JsString(e.getMessage)))).withNewSession
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
-        Forbidden(Json.obj("status" -> "Forbidden", "message" -> e.getMessage))
+        Forbidden(Json.toJson(StatusMessage("Forbidden", JsString(e.getMessage))))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(Json.obj("status" -> "NotFound", "message" -> e.getMessage))
+        NotFound(Json.toJson(StatusMessage("NotFound", JsString(e.getMessage))))
       case e:Throwable =>
         Logger.error(e.getMessage, e)
-        InternalServerError(Json.obj("status" -> "KO", "message" -> e.getMessage))
+        InternalServerError(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
     }
   }
 
