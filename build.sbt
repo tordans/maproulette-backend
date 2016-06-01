@@ -5,8 +5,10 @@ version := "1.0"
 scalaVersion := "2.11.8"
 
 lazy val `MapRouletteV2` = (project in file("."))
-  .enablePlugins(PlayScala)
+  .enablePlugins(PlayScala).dependsOn(swagger)
   .enablePlugins(SbtWeb)
+
+lazy val swagger = RootProject(uri("ssh://git@github.com/CreditCardsCom/swagger-play.git"))
 
 pipelineStages := Seq(rjs, digest, gzip)
 
@@ -23,6 +25,7 @@ libraryDependencies ++= Seq(
   "net.postgis" % "postgis-jdbc" % "2.2.0",
   "joda-time" % "joda-time" % "2.9.2",
   "com.vividsolutions" % "jts" % "1.13",
+  "io.swagger" %% "swagger-play2" % "1.5.2-SNAPSHOT",
   "org.webjars" %% "webjars-play" % "2.5.0",
   "org.webjars" % "bootstrap" % "3.3.6",
   "org.webjars" % "font-awesome" % "4.5.0",

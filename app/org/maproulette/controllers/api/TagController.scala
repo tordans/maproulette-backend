@@ -2,11 +2,12 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
+import io.swagger.annotations.Api
 import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
-import org.maproulette.models.Tag
+import org.maproulette.models.{Tag}
 import org.maproulette.models.dal.TagDAL
-import org.maproulette.session.{User, SessionManager}
+import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.Action
@@ -18,6 +19,7 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
+@Api(value = "/Tag", description = "Operations for Tags", protocols = "http")
 class TagController @Inject() (override val sessionManager: SessionManager,
                                override val actionManager: ActionManager,
                                override val dal:TagDAL)

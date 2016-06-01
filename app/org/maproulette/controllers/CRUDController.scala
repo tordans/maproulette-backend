@@ -3,10 +3,11 @@ package org.maproulette.controllers
 import java.sql.Connection
 
 import com.fasterxml.jackson.databind.JsonMappingException
+import io.swagger.annotations.{ApiOperation, ApiResponse, ApiResponses}
 import org.maproulette.actions.{Created => ActionCreated, _}
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
-import org.maproulette.exception.{MPExceptionUtil, UniqueViolationException}
+import org.maproulette.exception.{MPExceptionUtil, StatusMessage, StatusMessages, UniqueViolationException}
 import org.maproulette.metrics.Metrics
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
@@ -21,7 +22,7 @@ import play.api.mvc.{Action, BodyParsers, Controller}
   *
   * @author cuthbertm
   */
-trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites {
+trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites with StatusMessages {
   // Data access layer that has to be instantiated by the class that mixes in the trait
   protected val dal:BaseDAL[Long, T]
   // The default reads that allows the class to read the json from a posted json body
@@ -75,12 +76,31 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     *
     * @return 201 Created with the json body of the created object
     */
+  @ApiOperation(
+    nickname = "create",
+    value = "Create object from json body payload",
+    notes =
+      """The create method will assume that the json payload contains all the required
+         parameters for the object it wishes to create. If the 'id' variable is supplied it will
+         rather look up the object and then update it instead. If the 'id' is supplied but no object
+         matching it is found, a 404 NotFound will be returned.""",
+    httpMethod = "POST",
+    produces = "application/json",
+    consumes = "application/json",
+    protocols = "http",
+    code = 200
+  )
+  @ApiResponses(Array(
+    new ApiResponse(code = 304, message = "Not updated responding with empty payload if object already exists and nothing to update"),
+    new ApiResponse(code = 400, message = "Invalid json payload for object", response = classOf[StatusMessage]),
+    new ApiResponse(code = 404, message = "ID field supplied but no object found matching the id", response = classOf[StatusMessage])
+  ))
   def create() = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val result = updateCreateBody(request.body).validate[T]
       result.fold(
         errors => {
-          BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
+          BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
         },
         element => {
           MPExceptionUtil.internalExceptionCatcher { () =>
@@ -156,7 +176,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
       } catch {
         case e:JsonMappingException =>
           Logger.error(e.getMessage, e)
-          BadRequest(Json.obj("status" -> "KO", "message" -> Json.parse(e.getMessage)))
+          BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
       }
     }
   }
@@ -227,7 +247,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     sessionManager.authenticatedRequest { implicit user =>
       dal.delete(id.toLong, user)
       actionManager.setAction(Some(user), itemType.convertToItem(id.toLong), Deleted(), "")
-      Ok(Json.obj("message" -> s"${Actions.getTypeName(itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."))
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"${Actions.getTypeName(itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."))))
     }
   }
 
@@ -283,11 +303,11 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     sessionManager.authenticatedRequest { implicit user =>
       request.body.validate[List[JsValue]].fold(
         errors => {
-          BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
+          BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
         },
         items => {
           internalBatchUpload(request.body, items, user, update)
-          Ok(Json.obj("status" -> "OK", "message" -> "Items created and updated"))
+          Ok(Json.toJson(StatusMessage("OK", JsString("Items created and updated"))))
         }
       )
     }

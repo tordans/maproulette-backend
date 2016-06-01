@@ -3,6 +3,7 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
+import io.swagger.annotations.Api
 import org.maproulette.actions.{ActionManager, Actions, ChallengeType, TaskViewed}
 import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ChallengeDAL, SurveyDAL, TagDAL, TaskDAL}
@@ -20,6 +21,7 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
+@Api(value = "/Challenge", description = "Operations for Challenges", protocols = "http")
 class ChallengeController @Inject() (override val childController:TaskController,
                                      override val sessionManager: SessionManager,
                                      override val actionManager: ActionManager,

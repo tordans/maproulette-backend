@@ -3,6 +3,7 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
+import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
@@ -20,6 +21,7 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
+@Api(value = "/Task", description = "Operations for Tasks", protocols = "http")
 class TaskController @Inject() (override val sessionManager: SessionManager,
                                 override val actionManager: ActionManager,
                                 override val dal:TaskDAL,
@@ -103,6 +105,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task containing the tags
     * @return The html Result containing json array of tags
     */
+  @ApiOperation(value = "Gets the tags for ta task", nickname = "getTagsForTask", httpMethod = "GET")
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(getTags(id)))

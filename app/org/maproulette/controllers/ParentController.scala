@@ -2,10 +2,10 @@ package org.maproulette.controllers
 
 import java.sql.Connection
 
+import org.maproulette.exception.StatusMessage
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.ParentDAL
 import org.maproulette.session.User
-import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers}
@@ -119,7 +119,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
         case None =>
           val message = s"Bad id, no parent found with supplied id [$id]"
           Logger.error(message)
-          BadRequest(Json.obj("status" -> "KO", "message" -> message))
+          BadRequest(Json.toJson(StatusMessage("KO", JsString(message))))
       }
     }
   }
@@ -169,7 +169,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
         case JsSuccess(value, _) => Ok(value)
         case JsError(errors) =>
           Logger.error(JsError.toJson(errors).toString)
-          InternalServerError(Json.obj("status" -> "KO", "message" -> JsError.toJson(errors)))
+          InternalServerError(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
       }
     }
   }

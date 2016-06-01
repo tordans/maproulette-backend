@@ -39,6 +39,8 @@ GET     /mapping/previousTask/:parentId/:id                             @control
 GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask(pid:Long ?= -1, ps:String ?= "", cid:Long ?= -1, ct:String ?= "", cs:String ?= "", tags:String ?= "", s:String ?= "")
 # DATA ROUTES
 
+# Swagger route
+GET     /api/v2/docs                                                    @controllers.ApiHelpController.getResources
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
 GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)
