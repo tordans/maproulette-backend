@@ -129,7 +129,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
                       geometry match {
                         case Some(geom) =>
-                          createNewTask(user, (element \ "id").as[Int]+"", challenge, geom, getProperties(element, "tags"))
+                          createNewTask(user, (element \ "id").as[Long]+"", challenge, geom, getProperties(element, "tags"))
                         case None => None
                       }
                     } catch {
@@ -194,7 +194,9 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   private def parseQuery(query:String) : String = {
     val osmQLProvider = config.getOSMQLProvider
     // User can set their own custom timeout if the want
-    var replacedQuery = if (query.indexOf("[timeout:") == 0) {
+    var replacedQuery = if (query.indexOf("[out:json]") == 0) {
+      query
+    } else if (query.indexOf("[timeout:") == 0) {
       s"[out:json]$query"
     } else {
       s"[out:json][timeout:${osmQLProvider.requestTimeout.toSeconds}];$query"

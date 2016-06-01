@@ -10,8 +10,10 @@ package org.maproulette.session
   */
 case class SearchParameters(projectId:Option[Long]=None,
                             projectSearch:String="",
+                            projectEnabled:Boolean=true,
                             challengeId:Option[Long]=None,
                             challengeTags:List[String]=List.empty,
                             challengeSearch:String="",
+                            challengeEnabled:Boolean=true,
                             taskTags:List[String]=List.empty,
                             taskSearch:String="")
