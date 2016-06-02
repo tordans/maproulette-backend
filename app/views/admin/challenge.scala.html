@@ -55,7 +55,10 @@
                                     }
                                 }
                             </td>
-                            <td>@c._1.getFriendlyStatus</td>
+                            <td>
+                                <span id="statusName">@c._1.getFriendlyStatus</span>
+                                <a href="#" onclick="refreshStatus(@c._1.id);" class="fa fa-refresh"/>
+                            </td>
                             <td>
                                 <div class="btn-group pull-left">
                                     <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
@@ -112,4 +115,20 @@
     $(function() {
        $("#challengeTable").DataTable();
     });
+
+    function refreshStatus(itemId) {
+        getChallenge(itemId, function(data) {
+            if (data.status == "@{Challenge.STATUS_BUILDING}") {
+                $("#statusName").html("@{Challenge.STATUS_BUILDING_NAME}");
+            } else if (data.status == "@{Challenge.STATUS_COMPLETE}") {
+                $("#statusName").html("@{Challenge.STATUS_COMPLETE_NAME}");
+            } else if (data.status == "@{Challenge.STATUS_FAILED}") {
+                $("#statusName").html("@{Challenge.STATUS_FAILED_NAME}");
+            } else if (data.status == "@{Challenge.STATUS_PARTIALLY_LOADED}") {
+                $("#statusName").html("@{Challenge.STATUS_PARTIALLY_LOADED_NAME}");
+            } else {
+                $("#statusName").html("@{Challenge.STATUS_NA_NAME}");
+            }
+        }, Utils.handleError)
+    }
 </script>

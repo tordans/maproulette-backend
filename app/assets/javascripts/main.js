@@ -279,6 +279,49 @@ var findItem = function(itemType, search, parentId, limit, offset, onlyEnabled, 
 };
 
 /**
+ * Helper function to specifically get a project, see generic get function for information on parameters
+ */
+var getProject = function(projectId, handler, errorHandler) {
+    getItem("Project", projectId, handler, errorHandler);
+};
+
+/**
+ * Helper function to specifically get a challenge, see generic get function for information on parameters
+ */
+var getChallenge = function(challengeId, handler, errorHandler) {
+    getItem("Challenge", challengeId, handler, errorHandler);
+};
+
+/**
+ * Helper function to specifically get a survey, see generic get function for information on parameters
+ */
+var getSurvey = function(surveyId, handler, errorHandler) {
+    getItem("Survey", surveyId, handler, errorHandler);
+};
+
+/**
+ * A generic get function that will make an API call to the server to get a specific object
+ *
+ * @param itemType The type of object you are trying to retrieve
+ * @param itemId The id of the object
+ * @param handler The javascript handler that will handle the results
+ * @param errorHandler The javascript handler that will handle any failure
+ */
+var getItem = function(itemType, itemId, handler, errorHandler) {
+    var apiCallback = {
+        success: handler,
+        error: errorHandler
+    };
+    if (itemType == "Project") {
+        jsRoutes.org.maproulette.controllers.api.ProjectController.read(itemId).ajax(apiCallback);
+    } else if (itemType == "Challenge") {
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.read(itemId).ajax(apiCallback);
+    } else if (itemType == "Survey") {
+        jsRoutes.org.maproulette.controllers.api.SurveyController.read(itemId).ajax(apiCallback);
+    }
+};
+
+/**
  * Adds a task to the map, if the map is not on the current page it will load that page by 
  * redirecting, if it is on the page then it will simply load it dynamically.
  * 
