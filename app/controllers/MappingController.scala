@@ -44,18 +44,22 @@ class MappingController @Inject() (sessionManager:SessionManager,
     */
   def getRandomNextTask(projectId:Long,
                         projectSearch:String,
+                        projectEnabled:Boolean,
                         challengeId:Long,
                         challengeTags:String,
                         challengeSearch:String,
+                        challengeEnabled:Boolean,
                         taskTags:String,
                         taskSearch:String) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         if (projectId == -1) None else Some(projectId),
         projectSearch,
+        projectEnabled,
         if (challengeId == -1) None else Some(challengeId),
         challengeTags.split(",").toList,
         challengeSearch,
+        challengeEnabled,
         taskTags.split(",").toList,
         taskSearch
       )

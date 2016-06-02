@@ -148,6 +148,9 @@
 <script type="application/javascript">
 $().ready(function() {
     $("#challengeWizard").wizard().on('finished.fu.wizard', function (e, data) {
+        // make sure the overpass query is clean first
+        var opquery = $("#overpassQL").val();
+        $('#overpassQL').val(opquery.replace(/[^\x20-\x7E\x0A]+/g, ''));
         $("#challengeForm").submit();
     });
 });

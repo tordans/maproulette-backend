@@ -374,8 +374,13 @@ class TaskDAL @Inject() (override val db:Database,
     * @param limit The amount of tags that should be returned
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasks(user:User, params: SearchParameters,
-                     limit:Int=(-1))(implicit c:Connection=null) : List[Task] = {
+  def getRandomTasks(user:User, params: SearchParameters, limit:Int=(-1))
+                    (implicit c:Connection=null) : List[Task] = {
+    val enabledClause = if (params.projectEnabled || (params.projectEnabled && params.challengeEnabled)) {
+      "c.enabled = TRUE AND p.enabled = TRUE AND"
+    } else {
+      ""
+    }
     val taskTagIds = tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
     val challengeTagIds = tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
     val firstQuery =
@@ -397,7 +402,7 @@ class TaskDAL @Inject() (override val db:Database,
     // not locked (or if it is, it is locked by the current user) and that the status of the task
     // is either Created or Skipped
     val whereClause = new StringBuilder(
-      s"""WHERE c.enabled = TRUE AND p.enabled = TRUE AND
+      s"""WHERE $enabledClause
               (l.id IS NULL OR l.user_id = ${user.id}) AND
               tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED})""")
 

@@ -8,7 +8,7 @@
                 You can optionally select how to create tasks for you challenge, using either an overpass query, a local GeoJSON file or a remote GeoJSON file.</span>
             <div class="nav-tabs-custom">
                 <ul class="nav nav-tabs">
-                    <li @if(isOverpass) { class="active" } @if(isRemote) { class="disabled" }>
+                    <li @if(isOverpass || !isRemote) { class="active" } @if(isRemote) { class="disabled" }>
                         <a href="#overpass" @if(!isRemote) { data-toggle="tab" }>Overpass</a>
                     </li>
                     <li @if(isOverpass || isRemote ) { class="disabled" }>
@@ -20,16 +20,22 @@
                 </ul>
                 <div class="tab-content">
                     <div class="@if(isOverpass || !isRemote) { active }tab-pane" id="overpass">
+                        <span class="help-block">
+                            It is very important that we get all the information that is required
+                            to build the tasks correctly. Please include <b>'out body geom qt;'</b> as the first
+                            out statement in your query. Ultimately we need to the full geometry for each
+                            node, way and relation object returned in the json response.
+                        </span>
                         <div class="form-group">
-                        @textarea(challengeForm("overpassQL"),
-                            label = "Overpass API",
-                            rows = "5",
-                            placeholder = "Enter overpass API here...",
-                            help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
-                                    "By entering information here it will generate the tasks in the background. " +
-                                    "Please provide a suitable bounding box when inserting an overpass query, " +
-                                    "this can potentially generate larges amount of data and bog the system down."
-                        )
+                            @textarea(challengeForm("overpassQL"),
+                                label = "Overpass API",
+                                rows = "5",
+                                placeholder = "Enter overpass API here...",
+                                help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
+                                        "By entering information here it will generate the tasks in the background. " +
+                                        "Please provide a suitable bounding box when inserting an overpass query, " +
+                                        "this can potentially generate larges amount of data and bog the system down."
+                            )
                         </div>
                     </div>
                     <div class="tab-pane" id="local">

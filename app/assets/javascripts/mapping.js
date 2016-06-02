@@ -518,9 +518,11 @@ function Task() {
     this.getRandomNextTask = function(params, success, error) {
         jsRoutes.controllers.MappingController.getRandomNextTask(params.projectId,
             params.projectSeach,
+            params.projectEnabled,
             params.challengeId,
             params.challengeSearch,
             params.challengeTags,
+            params.challengeEnabled,
             params.taskSearch,
             params.taskTags)
             .ajax({
@@ -561,8 +563,10 @@ function Task() {
 function SearchParameters() {
     this.projectId = Utils.getQSParameterByName("pid");
     this.projectSeach = Utils.getQSParameterByName("ps");
+    this.projectEnabled = Utils.getQSParameterByName("pe");
     this.challengeId = Utils.getQSParameterByName("cid");
     this.challengeSearch = Utils.getQSParameterByName("cs");
+    this.challengeEnabled = Utils.getQSParameterByName("ce");
     var ctQS = Utils.getQSParameterByName("ct");
     if (ctQS === null) {
         this.challengeTags = null;
@@ -577,7 +581,9 @@ function SearchParameters() {
         this.taskTags = tagsQS.split(",");
     }
     this.getQueryString = function() {
-        return "pid="+this.projectId+"&ps="+this.projectSeach+"&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&s="+this.taskSearch+"&tags="+this.taskTags;
+        return "pid="+this.projectId+"&ps="+this.projectSeach+"&pe="+this.projectEnabled+
+            "&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&ce="+this.challengeEnabled+
+            "&s="+this.taskSearch+"&tags="+this.taskTags;
     };
 }
 
@@ -772,6 +778,9 @@ var MRManager = (function() {
             currentTask.getNextTask(currentSearchParameters);
         } else if (typeof taskId === 'undefined' || taskId == -1) {
             currentSearchParameters.challengeId = parentId;
+            // if we are mapping directly using the challenge ID, then ignore whether it is enabled or not
+            currentSearchParameters.projectEnabled = false;
+            currentSearchParameters.challengeEnabled = false;
             currentTask.getRandomNextTask(currentSearchParameters);   
         } else {
             currentTask.updateTask(taskId);
