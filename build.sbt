@@ -8,7 +8,7 @@ lazy val `MapRouletteV2` = (project in file("."))
   .enablePlugins(PlayScala).dependsOn(swagger)
   .enablePlugins(SbtWeb)
 
-lazy val swagger = RootProject(uri("ssh://git@github.com/CreditCardsCom/swagger-play.git"))
+lazy val swagger = RootProject(uri("https://github.com/CreditCardsCom/swagger-play.git"))
 
 pipelineStages := Seq(rjs, digest, gzip)
 
