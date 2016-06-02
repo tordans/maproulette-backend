@@ -101,7 +101,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         }
 
         val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(timeout).post(parseQuery(ql))
-
+        challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
         jsonFuture onComplete {
           case Success(result) =>
             if (result.status == Status.OK) {

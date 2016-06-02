@@ -123,17 +123,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           )
         },
         challenge => {
-          val updatedChallenge = challenge.overpassQL match {
-            case Some(ql) if StringUtils.isNotEmpty(ql) => challenge.copy(status = Some(Challenge.STATUS_BUILDING))
-            case None => challenge.remoteGeoJson match {
-              case Some(url) if StringUtils.isNotEmpty(url) => challenge.copy(status = Some(Challenge.STATUS_BUILDING))
-              case None => challenge
-            }
-          }
           if (itemId > -1) {
-            dalManager.challenge.update(Json.toJson(updatedChallenge)(Challenge.challengeWrites), user)(itemId).get
+            dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId).get
           } else {
-            val newChallenge = dalManager.challenge.insert(updatedChallenge, user)
+            val newChallenge = dalManager.challenge.insert(challenge, user)
 
             val uploadData = request.body.file("localGeoJSON") match {
               case Some(f) if StringUtils.isNotEmpty(f.filename) => Some(Source.fromFile(f.ref.file).getLines().mkString)
