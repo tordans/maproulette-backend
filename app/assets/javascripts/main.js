@@ -92,11 +92,11 @@ var Utils = {
             return 'We are somewhere on earth..';
         }
         out = 'We are ';
-        if (addr.city !== null) {
+        if (typeof addr.city !== 'undefined' && addr.city !== null) {
             out += 'in ' + addr.city;
-        } else if (addr.town !== null) {
+        } else if (typeof addr.town !== 'undefined' && addr.town !== null) {
             out += 'in ' + addr.town;
-        } else if (addr.hamlet !== null) {
+        } else if (typeof addr.hamlet !== 'undefined' && addr.hamlet !== null) {
             out += 'in ' + addr.hamlet;
         } else {
             out += 'somewhere in ';
