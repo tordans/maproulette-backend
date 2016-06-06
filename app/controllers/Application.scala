@@ -59,7 +59,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param parentId The parent chalenge ID
     * @return
     */
-  def mapChallenge(parentId:Long) = map(parentId, -1)
+  def mapChallenge(parentId:Long) = map(parentId, -1, false)
+
+  def viewChallenge(parentId:Long) = map(parentId, -1, true)
+
+  def mapTask(parentId:Long, taskId:Long) = map(parentId, taskId, false)
 
   /**
     * Only slightly different to the index page, this one shows the geojson of a specific item on the
@@ -69,10 +73,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param taskId The task itself
     * @return The html view to show the user
     */
-  def map(parentId:Long, taskId:Long) = Action.async { implicit request =>
+  def map(parentId:Long, taskId:Long, view:Boolean) = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId))
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId, view))
     }
   }
 
@@ -289,6 +293,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.DataController.getProjectSummary,
         org.maproulette.controllers.api.routes.javascript.DataController.getUserSummary,
         org.maproulette.controllers.api.routes.javascript.DataController.getUserChallengeSummary,
+        org.maproulette.controllers.api.routes.javascript.ChallengeController.getChallengeGeoJSON,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,

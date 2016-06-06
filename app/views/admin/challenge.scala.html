@@ -82,6 +82,7 @@
                                         } else {
                                             <li><a href="@routes.Application.challengeMetrics(c._1.id, "", 1)">View Metrics</a></li>
                                         }
+                                        <li><a href="@routes.Application.viewChallenge(c._1.id)">View</a></li>
                                         <li class="divider"></li>
                                         @if(!c._1.overpassQL.getOrElse("").isEmpty || !c._1.remoteGeoJson.getOrElse("").isEmpty) {
                                             <li><a href="#" onclick="rebuildChallenge(@c._1.parent, @c._1.id);">Rebuild</a></li>
