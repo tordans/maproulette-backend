@@ -25,11 +25,12 @@
             <table id="challengeTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
-                        <th>Enabled</th>
+                        <th>Visible</th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Tasks All/Fixed/FalsePositive</th>
-                        <th>Overpass Status</th>
+                        <th>Challenge Type</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -47,35 +48,47 @@
                             <td>@c._1.id</td>
                             <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c._1.id)">@c._1.name</a></td>
                             <td>@{c._2}/@{c._3}/@{c._4}</td>
-                            <td>@c._1.getOverpassFriendlyStatus</td>
                             <td>
-                                <div class="pull-left">
-                                    <a href="@routes.FormEditController.challengeFormUI(c._1.parent, c._1.id)">
-                                        <button class="btn-xs btn-block btn-warning">Edit</button>
-                                    </a>
-                                </div>
-                                <div class="pull-left">
-                                    <a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">
-                                        <button class="btn-xs btn-block btn-primary">New Task</button>
-                                    </a>
-                                </div>
-                                <div class="pull-left">
-                                    <button class="btn-xs btn-block btn-danger" onclick="deleteChallenge(@c._1.id);">Delete</button>
-                                </div>
-                                <div class="pull-left">
-                                    <a href="@routes.Application.mapChallenge(c._1.id)">
-                                        <button class="btn-xs btn-block btn-success">Start</button>
-                                    </a>
-                                </div>
-                                <div class="pull-left">
-                                    <a href="@routes.FormEditController.cloneChallengeFormUI(c._1.parent, c._1.id)">
-                                        <button class="btn-xs btn-block btn-default">Clone</button>
-                                    </a>
-                                </div>
-                                <div class="pull-left">
-                                    <a href="@routes.Application.challengeMetrics(c._1.id, "")">
-                                        <button class="btn-xs btn-block btn-primary">View Metrics</button>
-                                    </a>
+                                @if(!c._1.overpassQL.getOrElse("").isEmpty) { Overpass } else {
+                                    @if(!c._1.remoteGeoJson.getOrElse("").isEmpty) { Remote GeoJson } else {
+                                        Not Applicable
+                                    }
+                                }
+                            </td>
+                            <td>
+                                <span id="statusName">@c._1.getFriendlyStatus</span>
+                                <a href="#" onclick="refreshStatus(@c._1.id);" class="fa fa-refresh"/>
+                            </td>
+                            <td>
+                                <div class="btn-group pull-left">
+                                    <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
+                                    <button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">
+                                        <span class="caret"></span>
+                                        <span class="sr-only">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu" role="menu">
+                                        @if(c._1.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
+                                            <li><a href="@routes.FormEditController.challengeFormUI(c._1.parent, c._1.id)">Edit</a></li>
+                                        } else {
+                                            <li><a href="@routes.FormEditController.surveyFormUI(c._1.parent, c._1.id)">Edit</a></li>
+                                        }
+                                        <li><a href="@routes.FormEditController.cloneChallengeFormUI(c._1.parent, c._1.id)">Clone</a></li>
+                                        <li><a href="#" onclick="deleteChallenge(@c._1.id);">Delete</a></li>
+                                        <li class="divider"></li>
+                                        <li><a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">New Task</a></li>
+                                        <li class="divider"></li>
+                                        @if(c._1.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
+                                            <li><a href="@routes.Application.challengeMetrics(c._1.id, "")">View Metrics</a></li>
+                                        } else {
+                                            <li><a href="@routes.Application.challengeMetrics(c._1.id, "", 1)">View Metrics</a></li>
+                                        }
+                                        <li><a href="@routes.Application.viewChallenge(c._1.id)">View</a></li>
+                                        <li class="divider"></li>
+                                        @if(!c._1.overpassQL.getOrElse("").isEmpty || !c._1.remoteGeoJson.getOrElse("").isEmpty) {
+                                            <li><a href="#" onclick="rebuildChallenge(@c._1.parent, @c._1.id);">Rebuild</a></li>
+                                        }
+                                        <li><a href="@routes.Application.mapChallenge(c._1.id)">Start</a></li>
+                                    </ul>
                                 </div>
                             </td>
                         </tr>
@@ -86,10 +99,11 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <th>Enabled</th>
+                        <th>Visible</th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Tasks All/Fixed/FalsePositive</th>
+                        <th>Challenge Type</th>
                         <th>Overpass Status</th>
                         <th>Actions</th>
                     </tr>
@@ -102,4 +116,20 @@
     $(function() {
        $("#challengeTable").DataTable();
     });
+
+    function refreshStatus(itemId) {
+        getChallenge(itemId, function(data) {
+            if (data.status == "@{Challenge.STATUS_BUILDING}") {
+                $("#statusName").html("@{Challenge.STATUS_BUILDING_NAME}");
+            } else if (data.status == "@{Challenge.STATUS_COMPLETE}") {
+                $("#statusName").html("@{Challenge.STATUS_COMPLETE_NAME}");
+            } else if (data.status == "@{Challenge.STATUS_FAILED}") {
+                $("#statusName").html("@{Challenge.STATUS_FAILED_NAME}");
+            } else if (data.status == "@{Challenge.STATUS_PARTIALLY_LOADED}") {
+                $("#statusName").html("@{Challenge.STATUS_PARTIALLY_LOADED_NAME}");
+            } else {
+                $("#statusName").html("@{Challenge.STATUS_NA_NAME}");
+            }
+        }, Utils.handleError)
+    }
 </script>

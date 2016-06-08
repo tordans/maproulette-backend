@@ -133,15 +133,7 @@ L.Control.EditControl = L.Control.extend({
         L.DomEvent.on(difficult, 'click', L.DomEvent.stopPropagation)
             .on(difficult, 'click', L.DomEvent.preventDefault)
             .on(difficult, 'click', function() {
-                MRManager.setTaskStatus(TaskStatus.SKIPPED);
-            });
-
-        var error = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        error.innerHTML = "It was not an error";
-        L.DomEvent.on(error, 'click', L.DomEvent.stopPropagation)
-            .on(error, 'click', L.DomEvent.preventDefault)
-            .on(error, 'click', function() {
-                MRManager.setTaskStatus(TaskStatus.FALSEPOSITIVE);
+                MRManager.setTaskStatus(TaskStatus.TOOHARD);
             });
 
         var alreadyFixed = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
@@ -251,7 +243,13 @@ L.Control.ControlPanel = L.Control.extend({
         });
     },
     updateNextControl: function() {
-        this.updateControl(3, "controlpanel_next", "Next", "fa-forward", false, function(e) {
+        var nextName = "Skip";
+        // this checks to see if the previous button is being shown, if it is then we know that
+        // we are in debug mode and makes sense to call the button "Next" instead of "Skip"
+        if (this.options.controls[0]) {
+            nextName = "Next";
+        }
+        this.updateControl(3, "controlpanel_next", nextName, "fa-forward", false, function(e) {
             MRManager.getNextTask();
         });
     },
@@ -333,6 +331,7 @@ var TaskStatus = {
     SKIPPED:3,
     DELETED:4,
     ALREADYFIXED:5,
+    TOOHARD:6,
     getStatusName:function(status) {
         switch(status) {
             case TaskStatus.CREATED: return "Created";
@@ -341,6 +340,7 @@ var TaskStatus = {
             case TaskStatus.SKIPPED: return "Skipped";
             case TaskStatus.DELETED: return "Deleted";
             case TaskStatus.ALREADYFIXED: return "Already Fixed";
+            case TaskStatus.TOOHARD: return "Too Hard";
             default: return "Unknown";
         }
     }
@@ -422,6 +422,19 @@ function Challenge() {
             });
         }
     };
+    
+    this.view = function(challengeId, filters, success, error) {
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(challengeId, filters).ajax({
+            success: function(data) {
+                if (typeof success === 'undefined') {
+                    MRManager.viewGeoJsonData(data);
+                } else {
+                    success();
+                }
+            },
+            error: MRManager.getErrorHandler(error)
+        });
+    };
 }
 
 /**
@@ -444,7 +457,7 @@ function Task() {
     this.getChallenge = function() {
         return challenge;
     };
-    var data = {id:-1, parentId:-1};
+    var data = {id:-1, parentId:-2};
     this.getData = function() {
         return data;
     };
@@ -457,10 +470,12 @@ function Task() {
         }
     };
 
-    var updateData = function(update) {
+    var updateData = function(update, success) {
         data = update;
         if (challenge.getData().id != data.parentId) {
-            challenge.updateChallenge(data.parentId);
+            challenge.updateChallenge(data.parentId, success);
+        } else {
+            success();
         }
     };
 
@@ -477,8 +492,7 @@ function Task() {
     this.updateTask = function(taskId, success, error) {
         jsRoutes.controllers.MappingController.getTaskDisplayGeoJSON(taskId).ajax({
             success:function(update) {
-                updateData(update);
-                MRManager.getSuccessHandler(success)();
+                updateData(update, MRManager.getSuccessHandler(success));
             },
             error:MRManager.getErrorHandler(error)
         });
@@ -492,8 +506,7 @@ function Task() {
                 .getSequentialNextTask(data.parentId, data.id)
                 .ajax({
                     success: function (update) {
-                        updateData(update);
-                        MRManager.getSuccessHandler(success)();
+                        updateData(update, MRManager.getSuccessHandler(success));
                     },
                     error: MRManager.getErrorHandler(error)
                 });
@@ -508,8 +521,7 @@ function Task() {
                 .getSequentialPreviousTask(data.parentId, data.id)
                 .ajax({
                     success: function (update) {
-                        updateData(update);
-                        MRManager.getSuccessHandler(success)();
+                        updateData(update, MRManager.getSuccessHandler(success));
                     },
                     error: MRManager.getErrorHandler(error)
                 });
@@ -519,15 +531,16 @@ function Task() {
     this.getRandomNextTask = function(params, success, error) {
         jsRoutes.controllers.MappingController.getRandomNextTask(params.projectId,
             params.projectSeach,
+            params.projectEnabled,
             params.challengeId,
             params.challengeSearch,
             params.challengeTags,
+            params.challengeEnabled,
             params.taskSearch,
             params.taskTags)
             .ajax({
                 success:function(update) {
-                    updateData(update);
-                    MRManager.getSuccessHandler(success)();
+                    updateData(update, MRManager.getSuccessHandler(success));
                 },
                 error:MRManager.getErrorHandler(error)
             }
@@ -541,28 +554,8 @@ function Task() {
             ToastUtils.Success("Set Task [" + data.name + "] status to " + TaskStatus.getStatusName(status));
             self.getRandomNextTask(params, MRManager.getSuccessHandler(success), errorHandler);
         };
-        switch (status) {
-            case TaskStatus.FIXED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFixed(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.FALSEPOSITIVE:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusFalsePositive(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.SKIPPED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusSkipped(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.DELETED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusDeleted(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-            case TaskStatus.ALREADYFIXED:
-                jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatusAlreadyFixed(data.id)
-                    .ajax({success: statusSetSuccess, error: errorHandler});
-                break;
-        }
+        jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatus(data.id, status)
+            .ajax({success: statusSetSuccess, error: errorHandler});
     };
 }
 
@@ -583,8 +576,10 @@ function Task() {
 function SearchParameters() {
     this.projectId = Utils.getQSParameterByName("pid");
     this.projectSeach = Utils.getQSParameterByName("ps");
+    this.projectEnabled = Utils.getQSParameterByName("pe");
     this.challengeId = Utils.getQSParameterByName("cid");
     this.challengeSearch = Utils.getQSParameterByName("cs");
+    this.challengeEnabled = Utils.getQSParameterByName("ce");
     var ctQS = Utils.getQSParameterByName("ct");
     if (ctQS === null) {
         this.challengeTags = null;
@@ -599,12 +594,15 @@ function SearchParameters() {
         this.taskTags = tagsQS.split(",");
     }
     this.getQueryString = function() {
-        return "pid="+this.projectId+"&ps="+this.projectSeach+"&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&s="+this.taskSearch+"&tags="+this.taskTags;
+        return "pid="+this.projectId+"&ps="+this.projectSeach+"&pe="+this.projectEnabled+
+            "&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&ce="+this.challengeEnabled+
+            "&s="+this.taskSearch+"&tags="+this.taskTags;
     };
 }
 
 var MRManager = (function() {
     var map;
+    var currentGeoJSON = "";
     var geojsonLayer;
     var layerControl;
     var currentTask = new Task();
@@ -622,7 +620,7 @@ var MRManager = (function() {
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters();
     var signedIn = false;
-    var searchInFocus = false;
+    var disableKeys = false;
 
     // Function that handles the resizing of the map when the menu is toggled
     var resizeMap = function() {
@@ -691,17 +689,13 @@ var MRManager = (function() {
 
         // handles click events that are executed when submitting the custom geojson from the geojson viewer
         $('#geojson_submit').on('click', function() {
+            disableKeys = false;
             if ($('#geojson_text').val().length < 1) {
                 $('#geoJsonViewer').modal("hide");
                 return;
             }
-            geojsonLayer.clearLayers();
-            geojsonLayer.addData(JSON.parse($('#geojson_text').val()));
-            map.fitBounds(geojsonLayer.getBounds());
+            viewGeoJsonData(JSON.parse($('#geojson_text').val()));
             $('#geoJsonViewer').modal("hide");
-            // in this scenario the task needs to be reset
-            currentTask.resetTask();
-            controlPanel.updateUI(false, false, false, false);
         });
         // handles the click event from the sidebar toggle
         $("#sidebar_toggle").on("click", resizeMap);
@@ -715,6 +709,18 @@ var MRManager = (function() {
             searchInFocus = false;
         });
         registerHotKeys();
+    };
+
+    var viewGeoJsonData = function(data) {
+        currentGeoJSON = data;
+        geojsonLayer.clearLayers();
+        geojsonLayer.addData(currentGeoJSON);
+        map.fitBounds(geojsonLayer.getBounds());
+        // in this scenario the task needs to be reset
+        currentTask.resetTask();
+        window.history.pushState("", "", "");
+        toastr.clear();
+        controlPanel.update(signedIn, debugMode, false, false, false);
     };
 
     /**
@@ -731,7 +737,11 @@ var MRManager = (function() {
         window.history.pushState("", "", "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
         // show the task text as a notification
         toastr.clear();
-        ToastUtils.Info(marked(currentTask.getData().instruction), {timeOut: 0});
+        var taskInstruction = currentTask.getData().instruction;
+        if (taskInstruction === "") {
+            taskInstruction = currentTask.getChallenge().getData().instruction;
+        }
+        ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
         updateChallengeInfo(currentTask.getData().parentId);
@@ -790,6 +800,9 @@ var MRManager = (function() {
             currentTask.getNextTask(currentSearchParameters);
         } else if (typeof taskId === 'undefined' || taskId == -1) {
             currentSearchParameters.challengeId = parentId;
+            // if we are mapping directly using the challenge ID, then ignore whether it is enabled or not
+            currentSearchParameters.projectEnabled = false;
+            currentSearchParameters.challengeEnabled = false;
             currentTask.getRandomNextTask(currentSearchParameters);   
         } else {
             currentTask.updateTask(taskId);
@@ -841,7 +854,7 @@ var MRManager = (function() {
     // registers a series of hotkeys for quick access to functions
     var registerHotKeys = function() {
         $(document).keydown(function(e) {
-            if (searchInFocus) {
+            if (disableKeys) {
                 return;
             }
             e.preventDefault();
@@ -999,7 +1012,7 @@ var MRManager = (function() {
     // This funtion returns the geoJSON of the currently displayed Task
     var getCurrentTaskGeoJSON = function() {
         if (currentTask.getData().id == -1) {
-            return "{}";
+            return JSON.stringify(currentGeoJSON);
         }
         return JSON.stringify(currentTask.getData().geometry);
     };
@@ -1044,6 +1057,15 @@ var MRManager = (function() {
         return currentTask.getChallenge().getData();
     };
 
+    var updateGeoJsonViewer = function() {
+        disableKeys = true;
+        $("#geojson_text").val(getCurrentTaskGeoJSON());
+    };
+    
+    var viewChallenge = function(challengeId, filters) {
+        currentTask.getChallenge().view(challengeId, filters);      
+    };
+
     return {
         init: init, 
         addTaskToMap: addTaskToMap,
@@ -1062,7 +1084,10 @@ var MRManager = (function() {
         openTaskInJosm: openTaskInJosm,
         getCurrentMapURL: getCurrentMapURL,
         getCurrentTaskData: getCurrentTaskData,
-        getCurrentChallengeData: getCurrentChallengeData
+        getCurrentChallengeData: getCurrentChallengeData,
+        updateGeoJsonViewer: updateGeoJsonViewer,
+        viewGeoJsonData: viewGeoJsonData,
+        viewChallenge: viewChallenge
     };
 
 }());

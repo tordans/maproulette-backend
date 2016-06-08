@@ -86,9 +86,6 @@ trait DALHelper {
     case None => ""
   }
 
-  def addExtraFilters(extra:String, conjunction:String="AND") : String =
-    if (StringUtils.isNotEmpty(extra)) s"$conjunction ($extra)" else ""
-
   def SQLWithParameters(query:String, parameters:ListBuffer[NamedParameter]) = {
     if (parameters.nonEmpty) {
       SQL(query).on(parameters:_*)

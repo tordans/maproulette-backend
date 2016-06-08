@@ -3,11 +3,12 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
+import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TaskDAL}
 import org.maproulette.models.{Tag, Task}
-import org.maproulette.exception.NotFoundException
+import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -20,6 +21,7 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
+@Api(value = "/Task", description = "Operations for Tasks", protocols = "http")
 class TaskController @Inject() (override val sessionManager: SessionManager,
                                 override val actionManager: ActionManager,
                                 override val dal:TaskDAL,
@@ -103,6 +105,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task containing the tags
     * @return The html Result containing json array of tags
     */
+  @ApiOperation(value = "Gets the tags for ta task", nickname = "getTagsForTask", httpMethod = "GET")
   def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(getTags(id)))
@@ -141,55 +144,6 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   }
 
   /**
-    * Sets the task status to Deleted, this is a case where a task is deleted by the project admin,
-    * or user within the admin group for that project. The task will not be deleted in the
-    * database but flagged and then ignored. It will continue to be used for statistics.
-    * Must be authenticated to perform operation
-    *
-    * @param id The id of the task
-    * @return See {@see this#setTaskStatus} for information
-    */
-  def setTaskStatusDeleted(id: Long) = setTaskStatus(id, Task.STATUS_DELETED)
-
-  /**
-    * Sets the task status to false positive, this is the case where the task is incorrect in
-    * stating that a problem exists. Ie. the task really isn't a task
-    * Must be authenticated to perform operation
-    *
-    * @param id the id of the task
-    * @return See {@see this#setTaskStatus} for information
-    */
-  def setTaskStatusFalsePositive(id: Long) = setTaskStatus(id, Task.STATUS_FALSE_POSITIVE)
-
-  /**
-    * Sets the task to fixed, this is the case where the user fixed the data in OSM.
-    * Must be authenticated to perform operation
-    *
-    * @param id the id of the task
-    * @return See {@see this#setTaskStatus} for information
-    */
-  def setTaskStatusFixed(id: Long) = setTaskStatus(id, Task.STATUS_FIXED)
-
-  /**
-    * Sets the task to skipped, this is the case where a user either doesn't know how to fix the
-    * issue or doesn't want to fix it.
-    * Must be authenticated to perform operation
-    *
-    * @param id the id of the task
-    * @return See {@see this#setTaskStatus} for information
-    */
-  def setTaskStatusSkipped(id: Long) = setTaskStatus(id, Task.STATUS_SKIPPED)
-
-  /**
-    * Sets the task to already fixed, this is the case where when looking at the base OSM data it
-    * is found that someone has already fixed the issue
-    *
-    * @param id The id of the task
-    * @return See (@see this#setTaskStatus} for information
-    */
-  def setTaskStatusAlreadyFixed(id:Long) = setTaskStatus(id, Task.STATUS_ALREADY_FIXED)
-
-  /**
     * This is the generic function that is leveraged by all the specific functions above. So it
     * sets the task status to the specific status ID's provided by those functions.
     * Must be authenticated to perform operation
@@ -199,8 +153,11 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  private def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
+  def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
+      if (!Task.isValidStatus(status)) {
+        throw new InvalidException(s"Cannot set task [$id] to invalid status [$status]")
+      }
       val task = dal.retrieveById(id) match {
         case Some(t) => t
         case None => throw new NotFoundException(s"Task with $id not found, can not set status.")

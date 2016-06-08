@@ -2,20 +2,23 @@ package controllers
 
 import javax.inject.Inject
 
+import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
+import org.maproulette.exception.{StatusMessage, StatusMessages}
 import org.maproulette.models.{Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.libs.json.{JsNumber, Json}
+import play.api.libs.json.{JsNumber, JsString, Json}
 import play.api.mvc._
 import play.api.routing._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
+import scala.util.parsing.json.JSONObject
 import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
@@ -23,7 +26,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              sessionManager:SessionManager,
                              override val dalManager: DALManager,
                              permission: Permission,
-                             val config:Config) extends Controller with I18nSupport with ControllerHelper {
+                             val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
 
   def clearCaches = Action.async { implicit request =>
     implicit val requireSuperUser = true
@@ -34,7 +37,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
       dalManager.survey.clearCaches
       dalManager.task.clearCaches
       dalManager.tag.clearCaches
-      Ok(Json.obj("status" -> "OK", "message" -> "All caches cleared"))
+      Ok(Json.toJson(StatusMessage("OK", JsString("All caches cleared."))))
     }
   }
 
@@ -56,7 +59,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param parentId The parent chalenge ID
     * @return
     */
-  def mapChallenge(parentId:Long) = map(parentId, -1)
+  def mapChallenge(parentId:Long) = map(parentId, -1, false)
+
+  def viewChallenge(parentId:Long) = map(parentId, -1, true)
+
+  def mapTask(parentId:Long, taskId:Long) = map(parentId, taskId, false)
 
   /**
     * Only slightly different to the index page, this one shows the geojson of a specific item on the
@@ -66,10 +73,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param taskId The task itself
     * @return The html view to show the user
     */
-  def map(parentId:Long, taskId:Long) = Action.async { implicit request =>
+  def map(parentId:Long, taskId:Long, view:Boolean) = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId))
+      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId, view))
     }
   }
 
@@ -91,7 +98,13 @@ class Application @Inject() (val messagesApi: MessagesApi,
       val view = Actions.getItemType(itemType) match {
         case Some(it) => it match {
           case ProjectType() =>
-            views.html.admin.project(user, dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false))
+            val projectCounts = dalManager.project.getChildrenCounts(user, -1)
+            views.html.admin.project(user,
+              dalManager.project.listManagedProjects(user, limitIgnore, offsetIgnore, false).map(p => {
+                val pCounts = projectCounts.getOrElse(p.id, (0, 0))
+                (p, pCounts._1, pCounts._2)
+              }
+            ))
           case ChallengeType() | SurveyType() =>
             permission.hasWriteAccess(ProjectType(), user)(parentId.get)
             val challenges = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
@@ -119,18 +132,25 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def metrics = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val mockedUser = User.userOrMocked(user)
-      getOkIndex("MapRoulette Metrics", mockedUser, views.html.metrics.metrics(mockedUser, config))
+  def metrics(survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      if (survey == 1) {
+        getOkIndex("MapRoulette Metrics", user, views.html.metrics.surveyMetrics(user, config, None, ""))
+      } else {
+        getOkIndex("MapRoulette Metrics", user, views.html.metrics.challengeMetrics(user, config, None, ""))
+      }
     }
   }
 
-  def challengeMetrics(challengeId:Long, projects:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val mockedUser = User.userOrMocked(user)
-      getOkIndex("MapRoulette Metrics", mockedUser,
-        views.html.metrics.metrics(mockedUser, config, dalManager.challenge.retrieveById(challengeId), projects))
+  def challengeMetrics(challengeId:Long, projects:String, survey:Int) = Action.async { implicit request =>
+    sessionManager.authenticatedUIRequest { implicit user =>
+      if (survey == 1) {
+        getOkIndex("MapRoulette Metrics", user,
+          views.html.metrics.surveyMetrics(user, config, dalManager.survey.retrieveById(challengeId), projects))
+      } else {
+        getOkIndex("MapRoulette Metrics", user,
+          views.html.metrics.challengeMetrics(user, config, dalManager.challenge.retrieveById(challengeId), projects))
+      }
     }
   }
 
@@ -139,9 +159,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       getOkIndex("MapRoulette Users", user,
         views.html.admin.users.users(user,
-          dalManager.user.list(limit, offset, false, q),
-          dalManager.project.listManagedProjects(user),
-          dalManager.project
+          dalManager.user.list(limit, offset, false, q).map(u => {
+            val projectList = if (u.isSuperUser) {
+              List.empty
+            } else {
+              dalManager.project.listManagedProjects(u)
+            }
+            (u, projectList)
+          }),
+          dalManager.project.listManagedProjects(user)
         )
       )
     }
@@ -211,7 +237,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
           val taskMap = tasks.map(task => Map(
             "id" -> task.id.toString,
             "name" -> task.name,
-            "instruction" -> task.instruction,
+            "instruction" -> task.instruction.getOrElse(""),
             "location" -> task.location.toString,
             "status" -> Task.getStatusName(task.status.getOrElse(0)).getOrElse("Unknown"),
             "actions" -> task.id.toString
@@ -246,6 +272,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         routes.javascript.AuthController.addUserToProject,
         routes.javascript.Application.error,
         routes.javascript.Application.challengeMetrics,
+        routes.javascript.FormEditController.rebuildChallenge,
         org.maproulette.controllers.api.routes.javascript.ProjectController.delete,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.delete,
         org.maproulette.controllers.api.routes.javascript.SurveyController.delete,
@@ -258,11 +285,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.read,
         org.maproulette.controllers.api.routes.javascript.SurveyController.read,
         org.maproulette.controllers.api.routes.javascript.TagController.getTags,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusDeleted,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFixed,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusSkipped,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusFalsePositive,
-        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatusAlreadyFixed,
+        org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatus,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummary,
         org.maproulette.controllers.api.routes.javascript.SurveyController.answerSurveyQuestion,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeActivity,
@@ -270,6 +293,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.DataController.getProjectSummary,
         org.maproulette.controllers.api.routes.javascript.DataController.getUserSummary,
         org.maproulette.controllers.api.routes.javascript.DataController.getUserChallengeSummary,
+        org.maproulette.controllers.api.routes.javascript.ChallengeController.getChallengeGeoJSON,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,

@@ -61,6 +61,14 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
+            Tasks too Hard
+            <span id="challenge_too_hard_tasks" class="label label-info pull-right">0 (0%)</span>
+          </h4>
+        </a>
+      </li>
+      <li>
+        <a href="javascript::;">
+          <h4 class="control-sidebar-subheading">
             False Positive Tasks
             <span id="challenge_fp_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
@@ -81,6 +89,13 @@
           </a>
         </div>
       </li>
+      <li>
+        <div class="pull-right">
+          <a href="#" onclick="viewChallenge();">
+            <button class="btn-xs btn-block btn-primary">View Challenge</button>
+          </a>
+        </div>
+      </li>
     </ul>
   </div>
   <div class="tab-pane" id="control-sidebar-activity-tab">
@@ -93,7 +108,7 @@
             <div class="menu-info">
               <h4 class="control-sidebar-subheading">Answered Question
                 @ua.itemId match {
-                  case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>
@@ -106,7 +121,7 @@
             <div class="menu-info">
               <h4 class="control-sidebar-subheading">Completed Task
                 @ua.itemId match {
-                  case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>
@@ -143,6 +158,10 @@
     $("#control-sidebar-activity-tab").addClass("active");
   }
 
+  function viewChallenge() {
+    location.href = "/view/" + MRManager.getCurrentChallengeData().id;
+  }
+
   function viewMetrics() {
     location.href = "/ui/metrics/" + MRManager.getCurrentChallengeData().id;
   }
@@ -157,14 +176,16 @@
                   var fixedTasks = getCountValue(data.actions.fixed);
                   var falsePositiveTasks = getCountValue(data.actions.falsePositive);
                   var skippedTasks = getCountValue(data.actions.skipped);
+                  var tooHardTasks = getCountValue(data.actions.tooHard);
                   var alreadyFixedTasks = getCountValue(data.actions.alreadyFixed);
-                  var totalTasks = createdTasks + fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks;
+                  var totalTasks = createdTasks + fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks + tooHardTasks;
                   $("#challenge_total_tasks").text(totalTasks);
-                  var availableTasks = createdTasks + skippedTasks;
+                  var availableTasks = createdTasks + skippedTasks + tooHardTasks;
                   $("#challenge_available_tasks").text(getShowValue(availableTasks, totalTasks));
                   $("#challenge_fixed_tasks").text(getShowValue(fixedTasks, totalTasks));
                   $("#challenge_fp_tasks").text(getShowValue(falsePositiveTasks, totalTasks));
                   $("#challenge_skipped_tasks").text(getShowValue(skippedTasks, totalTasks));
+                  $("#challenge_too_hard_tasks").text(getShowValue(tooHardTasks, totalTasks));
                   $("#challenge_af_tasks").text(getShowValue(alreadyFixedTasks, totalTasks));
                   var percentComplete = parseFloat((((availableTasks / totalTasks) * 100) - 100) * -1).toFixed(0);
                   $("#challenge_complete_percent").text(percentComplete + "%");

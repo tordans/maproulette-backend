@@ -2,6 +2,7 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
+import io.swagger.annotations.Api
 import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
@@ -19,6 +20,7 @@ import play.api.mvc.{Action, AnyContent}
   *
   * @author cuthbertm
   */
+@Api(value = "/Project", description = "Operations for Projects", protocols = "http")
 class ProjectController @Inject() (override val childController:ChallengeController,
                                    override val sessionManager:SessionManager,
                                    override val actionManager: ActionManager,

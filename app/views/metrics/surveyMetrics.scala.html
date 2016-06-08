@@ -1,0 +1,172 @@
+@import org.maproulette.session.User
+@import org.maproulette.Config
+@import org.maproulette.models.Survey
+@import org.maproulette.models.Challenge
+@(user:User, config:Config, survey:Option[Survey], projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
+@colSize() = {@{if (survey.isEmpty) { "3" } else { "4" }}}
+@views.html.includes.metricsIncludes(config.isDebugMode)
+@views.html.admin.common.header("Metrics", survey.getOrElse(Challenge(-1, if (projects.isEmpty) { "All Surveys" } else { s"Projects ($projects)" }, None, -1, "")).name)
+<section class="content">
+        <!-- Info boxes -->
+    <div class="row">
+        <div class="col-md-4 col-sm-6 col-xs-12">
+            <div class="info-box">
+                <span class="info-box-icon bg-aqua"><i class="fa fa-wrench"></i></span>
+                <div class="info-box-content">
+                    @if(survey.isEmpty) {
+                        <span class="info-box-text">Number of Surveys</span>
+                    } else {
+                        <span class="info-box-text">Number of Tasks</span>
+                    }
+                    <span id="top_numOfSurveys" class="info-box-number"></span>
+                </div><!-- /.info-box-content -->
+            </div><!-- /.info-box -->
+        </div><!-- /.col -->
+        <div class="col-md-4 col-sm-6 col-xs-12">
+            <div class="info-box">
+                <span class="info-box-icon bg-green"><i class="fa fa-line-chart"></i></span>
+                <div class="info-box-content">
+                    @if(survey.isEmpty) {
+                        <span class="info-box-text">Average Completion %</span>
+                    } else {
+                        <span class="info-box-text">Answered</span>
+                    }
+                    <span id="top_answered" class="info-box-number"></span>
+                </div><!-- /.info-box-content -->
+            </div><!-- /.info-box -->
+        </div><!-- /.col -->
+
+        <!-- fix for small devices only -->
+        <div class="clearfix visible-sm-block"></div>
+        <div class="col-md-4 col-sm-6 col-xs-12">
+            <div class="info-box">
+                <span class="info-box-icon bg-yellow"><i class="ion ion-ios-people-outline"></i></span>
+                <div class="info-box-content">
+                    <span class="info-box-text">Users</span>
+                    <span id="top_users" class="info-box-number"></span>
+                </div><!-- /.info-box-content -->
+            </div><!-- /.info-box -->
+        </div><!-- /.col -->
+    </div><!-- /.row -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Survey Activity</h3>
+                    <div class="box-tools pull-right">
+                        <button id="chartButton" class="btn btn-box-tool"></button>
+                        <button class="btn btn-box-tool daterange"><i class="fa fa-calendar"></i></button>
+                        <button class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-minus"></i></button>
+                    </div>
+                </div><!-- /.box-header -->
+                <div class="box-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div id="surveyCanvasContainer" class="chart">
+                                <canvas id="surveyActivityChart" style="height: 180px;"></canvas>
+                            </div><!-- /.chart-responsive -->
+                        </div><!-- /.col -->
+                        @if(survey.nonEmpty) {
+                            <div class="col-md-4">
+                                <p class="text-center">
+                                    <strong>Survey Questions</strong></br>
+                                    <small>@survey.get.challenge.instruction</small>
+                                </p>
+                                @for(a <- survey.get.answers) {
+                                    <div class="progress-group">
+                                        <span class="progress-text">@a.answer</span>
+                                        <span id="@{a.id}" class="progress-number"><b>0</b>/0</span>
+                                        <div class="progress sm">
+                                            <div id="@{a.id}_bar" class="progress-bar progress-bar-green" style="width: 0%"></div>
+                                        </div>
+                                    </div> <!-- /.progress-group -->
+                                }
+                                <div>
+                                    <p class="text-center"><strong>Answer Distribution</strong></p>
+                                    <div id="surveyDistContainer" class="chart">
+                                        <canvas id="answerPieChart" style="height: 180px;"></canvas>
+                                    </div><!-- /.chart-responsive -->
+                                </div>
+                            </div><!-- /.col -->
+                        }
+                    </div><!-- /.row -->
+                </div><!-- ./box-body -->
+                <div class="box-footer">
+                    <div class="row">
+                        <div class="col-sm-@colSize() col-xs-6">
+                            <div class="description-block border-right">
+                                <h5 id="active_users" class="description-header"></h5>
+                                <span class="description-text">ACTIVE USERS*</br><small>*Users with 2 or more edits in the last 2 days</small></span>
+                            </div>
+                        </div><!-- /.col -->
+                        <div class="col-sm-@colSize() col-xs-6">
+                            <div class="description-block border-right">
+                                <h5 id="answers" class="description-header"></h5>
+                                <span class="description-text">QUESTIONS ANSWERED PER USER</span>
+                            </div><!-- /.description-block -->
+                        </div><!-- /.col -->
+                        @if(survey.isEmpty) {
+                            <div class="col-sm-@colSize() col-xs-6">
+                                <div class="description-block">
+                                    <h5 id="answers_per_user" class="description-header"></h5>
+                                    <span class="description-text">QUESTIONS ANSWERED PER USER PER SURVEY</span>
+                                </div><!-- /.description-block -->
+                            </div>
+                        }
+                        <div class="col-sm-@colSize() col-xs-6">
+                            <div class="description-block border-right">
+                                <h5 id="users_per_survey" class="description-header"></h5>
+                                <span class="description-text">USERS PER SURVEY</span>
+                            </div>
+                        </div><!-- /.col -->
+                    </div><!-- /.row -->
+                </div><!-- /.box-footer -->
+            </div><!-- /.box -->
+        </div><!-- /.col -->
+    </div><!-- /.row -->
+</section>
+<script type="application/javascript">
+    var dateFormat = "YYYY-MM-DD";
+    function getMetrics(start, end) {
+        var userCallback = {
+            success:receiveUserData,
+            error:dataErrorHandler
+        };
+        @survey match {
+            case Some(s) => {
+                jsRoutes.org.maproulette.controllers.api.DataController.getUserChallengeSummary(@s.id, start, end, 1).ajax(userCallback);
+            }
+            case None => {
+                jsRoutes.org.maproulette.controllers.api.DataController.getUserSummary("@projects", start, end, 1).ajax(userCallback);
+            }
+        }
+    }
+    getMetrics(moment().subtract(6, 'days').format(dateFormat), moment().format(dateFormat));
+
+    function receiveUserData(data) {
+        $("#top_users").html(data.distinctTotalUsers);
+        $("#users_per_survey").html(data.avgUsersPerChallenge);
+        $("#active_users").html(data.activeUsers);
+        $("#answers").html(data.answerPerUser);
+        $("#answers_per_user").html(data.answersPerChallenge);
+    }
+
+    $('.daterange').daterangepicker({
+        ranges: {
+            'Today': [moment(), moment()],
+            'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+            'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+            'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+            'This Month': [moment().startOf('month'), moment().endOf('month')],
+            'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+        },
+        startDate: moment().subtract(6, 'days'),
+        endDate: moment()
+    }, function (start, end) {
+        getMetrics(moment(start).format(dateFormat), moment(end).format(dateFormat));
+    });
+
+    function dataErrorHandler(data) {
+        ToastUtils.Error("Unable to retrieve data for activity chart.\n" + data);
+    }
+</script>

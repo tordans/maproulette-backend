@@ -90,19 +90,18 @@
                 title: "Actions",
                 render: function ( data, type, full, meta ) {
                   var editHref = '/ui/admin/form/@projectId/@parentType/@parentId/task/';
-                  var viewHref = '/map/@parentId/'
-                  return '<div class="pull-left">' +
-                            '<a href="' + editHref + data + '">' +
-                              '<button class="btn-xs btn-block btn-warning">Edit</button>' +
-                            '</a>' +
-                          '</div>' +
-                          '<div class="pull-left">' +
-                            '<a href="' + viewHref + data + '?debug=true">' +
-                              '<button class="btn-xs btn-block btn-success">View</button>' +
-                            '</a>' +
-                          '</div>' +
-                          '<div class="pull-left">' +
-                            '<button class="btn-xs btn-block btn-danger" onclick="javascript:deleteTask(' + data + ');">Delete</button>' +
+                  var viewHref = '/map/@parentId/';
+                  return '<div class="btn-group pull-left">' +
+                            '<button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>' +
+                            '<button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">' +
+                              '<span class="caret"></span>' +
+                              '<span class="sr-only">Toggle Dropdown</span>' +
+                            '</button>' +
+                            '<ul class="dropdown-menu" role="menu">' +
+                              '<li><a href="' + editHref + data + '">Edit</a></li>' +
+                              '<li><a href="' + viewHref + data + '?debug=true">View</a></li>' +
+                              '<li><a href="#" onclick="javascript:deleteTask(' + data + ');">Delete</a></li>' +
+                            '</ul>' +
                           '</div>';
                 }
               }

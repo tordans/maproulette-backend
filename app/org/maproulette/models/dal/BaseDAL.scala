@@ -36,9 +36,6 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
   val retrieveColumns:String = "*"
   // Database that should be injected in any implementing classes
   val db:Database
-  // extra filters that will be applied to all queries. It is very important to not allow any user
-  // inputed string values in this field, as this could lead to sql injection
-  val extraFilters:String = ""
 
   def clearCaches = cacheManager.clearCaches
 
@@ -288,7 +285,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
            (implicit parentId:Long=(-1), c:Connection=null) : List[T] = {
     withMRConnection { implicit c =>
       val query = s"""SELECT $retrieveColumns FROM $tableName
-                      WHERE ${searchField("name", "")} ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)}
+                      WHERE ${searchField("name", "")} ${enabled(onlyEnabled)}
                       ${parentFilter(parentId)}
                       ${order(Some(orderColumn), orderDirection)}
                       LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
@@ -308,7 +305,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
       withMRConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM $tableName
                         WHERE ${searchField("name", "")}
-                        ${enabled(onlyEnabled)} ${addExtraFilters(extraFilters)} ${parentFilter(parentId)}
+                        ${enabled(onlyEnabled)} ${parentFilter(parentId)}
                         ${order(Some(orderColumn), orderDirection)}
                         LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> search(searchString),

@@ -1,0 +1,65 @@
+@import org.maproulette.models.Challenge
+@import views.html.admin.forms.elements._
+@(challengeForm:Form[Challenge])(implicit messages: Messages)
+@defining(!challengeForm("overpassQL").value.getOrElse("").isEmpty) { isOverpass =>
+    @defining(!challengeForm("remoteGeoJson").value.getOrElse("").isEmpty) { isRemote =>
+        @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
+            <span class="help-block">
+                You can optionally select how to create tasks for you challenge, using either an overpass query, a local GeoJSON file or a remote GeoJSON file.</span>
+            <div class="nav-tabs-custom">
+                <ul class="nav nav-tabs">
+                    <li @if(isOverpass || !isRemote) { class="active" } @if(isRemote) { class="disabled" }>
+                        <a href="#overpass" @if(!isRemote) { data-toggle="tab" }>Overpass</a>
+                    </li>
+                    <li @if(isOverpass || isRemote ) { class="disabled" }>
+                        <a href="#local" @if(!isOverpass && !isRemote) { data-toggle="tab" }>Local GeoJSON</a>
+                    </li>
+                    <li @if(isRemote) { class="active" } @if(isOverpass) { class="disabled" }>
+                        <a href="#remote" @if(!isOverpass) { data-toggle="tab" }>Remote GeoJSON</a>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="@if(isOverpass || !isRemote) { active }tab-pane" id="overpass">
+                        <span class="help-block">
+                            It is very important that we get all the information that is required
+                            to build the tasks correctly. Please include <b>'out body geom qt;'</b> as the first
+                            out statement in your query. Ultimately we need to the full geometry for each
+                            node, way and relation object returned in the json response.
+                        </span>
+                        <div class="form-group">
+                            @textarea(challengeForm("overpassQL"),
+                                label = "Overpass API",
+                                rows = "5",
+                                placeholder = "Enter overpass API here...",
+                                help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
+                                        "By entering information here it will generate the tasks in the background. " +
+                                        "Please provide a suitable bounding box when inserting an overpass query, " +
+                                        "this can potentially generate larges amount of data and bog the system down."
+                            )
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="local">
+                        <div class="form-group">
+                            <label class="col-sm-2 control-label">Upload GeoJSON file</label>
+                            <div class="col-sm-8">
+                                <input type="file"
+                                class="form-control"
+                                name="localGeoJSON"/>
+                                <span class="help-block">Please upload the local GeoJSON file.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="@if(isRemote) { active }tab-pane" id="remote">
+                        <div class="form-group">
+                        @text(challengeForm("remoteGeoJson"),
+                            label = "Remote GeoJSON URL",
+                            placeholder = "Remote GeoJSON URL",
+                            help = "Please enter the remote URL location to retrieve the GeoJSON from."
+                        )
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+}

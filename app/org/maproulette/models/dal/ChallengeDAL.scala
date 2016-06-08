@@ -36,7 +36,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
-  override val extraFilters: String = s"challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}"
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -54,11 +53,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
       get[Option[String]]("challenges.overpass_ql") ~
-      get[Option[Int]]("challenges.overpass_status") map {
+      get[Option[String]]("challenges.remote_geo_json") ~
+      get[Option[Int]]("challenges.status") map {
       case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
-        enabled ~ challenge_type ~ featured ~ overpassql ~ overpassStatus=>
+        enabled ~ challenge_type ~ featured ~ overpassql ~ remoteGeoJson ~ status =>
         new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
-          enabled, challenge_type, featured, overpassql, overpassStatus)
+          enabled, challenge_type, featured, overpassql, remoteGeoJson, status)
     }
   }
 
@@ -105,11 +105,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
-                                      instruction, enabled, challenge_type, featured, overpass_ql, overpass_status)
+                                      instruction, enabled, challenge_type, featured, overpass_ql,
+                                      remote_geo_json, status)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
                       ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
-                      ${challenge.overpassQL}, ${challenge.overpassStatus}
+                      ${challenge.overpassQL}, ${challenge.remoteGeoJson}, ${challenge.status}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
     } match {
@@ -139,7 +140,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
         val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.featured)
         val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.overpassQL.getOrElse(""))
-        val overpassStatus = (updates \ "overpassStatus").asOpt[Int].getOrElse(cachedItem.overpassStatus.getOrElse(Challenge.OVERPASS_STATUS_NA))
+        val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.remoteGeoJson.getOrElse(""))
+        val overpassStatus = (updates \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(Challenge.STATUS_NA))
 
         SQL"""UPDATE challenges SET name = $name,
                                     parent_id = $parentId,
@@ -150,8 +152,60 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                                     enabled = $enabled,
                                     featured = $featured,
                                     overpass_ql = $overpassQL,
-                                    overpass_status = $overpassStatus
+                                    remote_geo_json = $remoteGeoJson,
+                                    status = $overpassStatus
               WHERE id = $id RETURNING *""".as(parser.*).headOption
+      }
+    }
+  }
+
+  override def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+            orderColumn:String="id", orderDirection:String="ASC")
+           (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] =
+    _findByType(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection)
+
+  def _findByType(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+            orderColumn:String="id", orderDirection:String="ASC", challengeType:Int=Actions.ITEM_TYPE_CHALLENGE)
+           (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] = {
+    withMRConnection { implicit c =>
+      val query = s"""SELECT $retrieveColumns FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE challenge_type = $challengeType
+                      ${searchField("c.name")}
+                      ${enabled(onlyEnabled, "p")} ${enabled(onlyEnabled, "c")}
+                      ${parentFilter(parentId)}
+                      ${order(Some(orderColumn), orderDirection, "c")}
+                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> searchString, 'offset -> offset).as(parser.*)
+    }
+  }
+
+  override def list(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
+                    orderColumn:String="id", orderDirection:String="ASC")
+                   (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] =
+    this.listByType(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection)
+
+  /**
+    * This is a dangerous function as it will return all the objects available, so it could take up
+    * a lot of memory
+    */
+  def listByType(limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
+           orderColumn:String="id", orderDirection:String="ASC", challengeType:Int=Actions.ITEM_TYPE_CHALLENGE)
+          (implicit parentId:Long=(-1), c:Connection=null) : List[Challenge] = {
+    implicit val ids = List.empty
+    cacheManager.withIDListCaching { implicit uncachedIDs =>
+      withMRConnection { implicit c =>
+        val query = s"""SELECT $retrieveColumns FROM challenges c
+                        INNER JOIN projects p ON p.id = c.parent.id
+                        WHERE challenge_type = $challengeType
+                        ${searchField("name")}
+                        ${enabled(onlyEnabled, "p")} ${enabled(onlyEnabled, "c")}
+                        ${parentFilter(parentId)}
+                        ${order(Some(orderColumn), orderDirection, "c")}
+                        LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
+        SQL(query).on('ss -> search(searchString),
+          'offset -> ParameterValue.toParameterValue(offset)
+        ).as(parser.*)
       }
     }
   }
@@ -167,7 +221,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     withMRConnection { implicit c =>
       val query = s"""SELECT * FROM challenges c
-                      WHERE featured = TRUE ${enabled(enabledOnly)}
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE featured = TRUE ${enabled(enabledOnly, "c")} ${enabled(enabledOnly, "p")}
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       LIMIT ${sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(parser.*)
@@ -196,11 +251,39 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     */
   def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     withMRConnection { implicit c =>
-      val query = s"""SELECT * FROM challenges
-                      WHERE ${enabled(enabledOnly, "", "")}
-                      ${order(Some("created"), "DESC")}
+      val query = s"""SELECT * FROM challenges c
+                      INNER JOIN projects p ON c.parent_id = p.id
+                      WHERE ${enabled(enabledOnly, "c", "")} ${enabled(enabledOnly, "p")}
+                      ${order(Some("created"), "DESC", "c")}
                       LIMIT ${sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(parser.*)
+    }
+  }
+
+  /**
+    * Gets the combined geometry of all the tasks that are associated with the challenge
+    *
+    * @param challengeId The id for the challenge
+    * @param statusFilter To view the geojson for only challenges with a specific status
+    * @param c
+    * @return
+    */
+  def getChallengeGeometry(challengeId:Long, statusFilter:Option[List[Int]]=None)(implicit c:Connection=null) : String = {
+    withMRConnection { implicit c =>
+      val filter = statusFilter match {
+        case Some(s) => s"AND status IN (${s.mkString(",")}"
+        case None => ""
+      }
+      SQL"""SELECT row_to_json(fc)::text as geometries
+            FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
+                   FROM ( SELECT 'Feature' As type,
+                                  ST_AsGeoJSON(lg.geom)::json As geometry,
+                                  hstore_to_json(lg.properties) As properties
+                          FROM task_geometries As lg
+                          WHERE task_id IN
+                          (SELECT DISTINCT id FROM tasks WHERE parent_id = $challengeId) #$filter
+                    ) As f
+            )  As fc""".as(SqlParser.str("geometries").single)
     }
   }
 

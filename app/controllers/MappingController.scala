@@ -44,18 +44,22 @@ class MappingController @Inject() (sessionManager:SessionManager,
     */
   def getRandomNextTask(projectId:Long,
                         projectSearch:String,
+                        projectEnabled:Boolean,
                         challengeId:Long,
                         challengeTags:String,
                         challengeSearch:String,
+                        challengeEnabled:Boolean,
                         taskTags:String,
                         taskSearch:String) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         if (projectId == -1) None else Some(projectId),
         projectSearch,
+        projectEnabled,
         if (challengeId == -1) None else Some(challengeId),
         challengeTags.split(",").toList,
         challengeSearch,
+        challengeEnabled,
         taskTags.split(",").toList,
         taskSearch
       )
@@ -110,7 +114,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
            |   "id":${t._1.id},
            |   "parentId":${t._1.parent},
            |   "name":"${t._1.name}",
-           |   "instruction":"${StringEscapeUtils.escapeJson(t._1.instruction)}",
+           |   "instruction":"${StringEscapeUtils.escapeJson(t._1.instruction.getOrElse(""))}",
            |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
            |   "status":$currentStatus,
            |   "geometry":${t._1.geometries},
