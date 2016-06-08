@@ -89,6 +89,13 @@
           </a>
         </div>
       </li>
+      <li>
+        <div class="pull-right">
+          <a href="#" onclick="viewChallenge();">
+            <button class="btn-xs btn-block btn-primary">View Challenge</button>
+          </a>
+        </div>
+      </li>
     </ul>
   </div>
   <div class="tab-pane" id="control-sidebar-activity-tab">
@@ -101,7 +108,7 @@
             <div class="menu-info">
               <h4 class="control-sidebar-subheading">Answered Question
                 @ua.itemId match {
-                  case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>
@@ -114,7 +121,7 @@
             <div class="menu-info">
               <h4 class="control-sidebar-subheading">Completed Task
                 @ua.itemId match {
-                  case Some(value) => {<a href="@routes.Application.map(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>
@@ -149,6 +156,10 @@
     $("#control-sidebar-home-upper-tab").remove();
     $("#control-sidebar-home-tab").remove();
     $("#control-sidebar-activity-tab").addClass("active");
+  }
+
+  function viewChallenge() {
+    location.href = "/view/" + MRManager.getCurrentChallengeData().id;
   }
 
   function viewMetrics() {

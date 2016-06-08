@@ -42,13 +42,13 @@ case class Challenge(override val id: Long,
     status match {
       case Some(status) =>
         status match {
-          case Challenge.STATUS_FAILED => "Failed"
-          case Challenge.STATUS_PARTIALLY_LOADED => "Partially Loaded"
-          case Challenge.STATUS_BUILDING => "Loading Tasks"
-          case Challenge.STATUS_COMPLETE => "Complete"
-          case _ => "Not Applicable"
+          case Challenge.STATUS_FAILED => Challenge.STATUS_FAILED_NAME
+          case Challenge.STATUS_PARTIALLY_LOADED => Challenge.STATUS_PARTIALLY_LOADED_NAME
+          case Challenge.STATUS_BUILDING => Challenge.STATUS_BUILDING_NAME
+          case Challenge.STATUS_COMPLETE => Challenge.STATUS_COMPLETE_NAME
+          case _ => Challenge.STATUS_NA_NAME
         }
-      case None => "Not Applicable"
+      case None => Challenge.STATUS_NA_NAME
     }
   }
 }
@@ -86,4 +86,10 @@ object Challenge {
   val STATUS_FAILED = 2
   val STATUS_COMPLETE = 3
   val STATUS_PARTIALLY_LOADED = 4
+
+  val STATUS_NA_NAME = "Not Applicable"
+  val STATUS_FAILED_NAME = "Failed"
+  val STATUS_PARTIALLY_LOADED_NAME = "Partially Loaded"
+  val STATUS_BUILDING_NAME = "Loading Tasks"
+  val STATUS_COMPLETE_NAME = "Complete"
 }

@@ -7,11 +7,11 @@ import io.swagger.annotations.Api
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.{Survey, Task}
+import org.maproulette.models.{Answer, Survey, Task}
 import org.maproulette.models.dal.{SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
-import play.api.libs.json.{JsValue, Json, Reads, Writes}
+import play.api.libs.json._
 import play.api.mvc.Action
 
 /**
@@ -44,6 +44,8 @@ class SurveyController @Inject() (override val childController:TaskController,
 
   override def dalWithTags = dal
 
+  private implicit val answerWrites = Survey.answerWrites
+
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
     * default elements into the body that shouldn't have to be required to create an object.
@@ -54,10 +56,15 @@ class SurveyController @Inject() (override val childController:TaskController,
   override def updateCreateBody(body: JsValue): JsValue = {
     val jsonBody = super.updateCreateBody(body)
     var challengeBody = (jsonBody \ "challenge").as[JsValue]
+    challengeBody = Utils.insertJsonID(challengeBody)
     challengeBody = Utils.insertIntoJson(challengeBody, "enabled", true)(BooleanWrites)
     challengeBody = Utils.insertIntoJson(challengeBody, "challengeType", Actions.ITEM_TYPE_SURVEY)(IntWrites)
     challengeBody = Utils.insertIntoJson(challengeBody, "featured", false)(BooleanWrites)
-    Utils.insertIntoJson(jsonBody, "challenge", challengeBody, true)(JsValueWrites)
+
+    val returnBody = Utils.insertIntoJson(jsonBody, "challenge", challengeBody, true)(JsValueWrites)
+    //if answers are supplied in a simple json string array, then convert to the answer types
+    val answerArray = (challengeBody \ "answers").as[List[String]].map(a => Answer(answer = a))
+    Utils.insertIntoJson(returnBody, "answers", answerArray, true)
   }
 
   /**
@@ -120,18 +127,14 @@ class SurveyController @Inject() (override val childController:TaskController,
     * @return
     */
   def answerSurveyQuestion(surveyId:Long, taskId:Long, answerId:Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val userId = user match {
-        case Some(u) => Some(u.id)
-        case None => None
-      }
+    sessionManager.authenticatedRequest { implicit user =>
       // make sure that the survey and answer exists first
       dal.retrieveById(surveyId) match {
         case Some(survey) =>
           survey.answers.find(_.id == answerId) match {
             case Some(a) =>
               dal.answerQuestion(survey, taskId, answerId, user)
-              actionManager.setAction(user, itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
+              actionManager.setAction(Some(user), itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
               NoContent
             case None =>
               throw new NotFoundException(s"Requested answer [$answerId] for survey does not exist.")

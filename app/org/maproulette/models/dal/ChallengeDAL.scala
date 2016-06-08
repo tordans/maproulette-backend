@@ -261,6 +261,33 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   }
 
   /**
+    * Gets the combined geometry of all the tasks that are associated with the challenge
+    *
+    * @param challengeId The id for the challenge
+    * @param statusFilter To view the geojson for only challenges with a specific status
+    * @param c
+    * @return
+    */
+  def getChallengeGeometry(challengeId:Long, statusFilter:Option[List[Int]]=None)(implicit c:Connection=null) : String = {
+    withMRConnection { implicit c =>
+      val filter = statusFilter match {
+        case Some(s) => s"AND status IN (${s.mkString(",")}"
+        case None => ""
+      }
+      SQL"""SELECT row_to_json(fc)::text as geometries
+            FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
+                   FROM ( SELECT 'Feature' As type,
+                                  ST_AsGeoJSON(lg.geom)::json As geometry,
+                                  hstore_to_json(lg.properties) As properties
+                          FROM task_geometries As lg
+                          WHERE task_id IN
+                          (SELECT DISTINCT id FROM tasks WHERE parent_id = $challengeId) #$filter
+                    ) As f
+            )  As fc""".as(SqlParser.str("geometries").single)
+    }
+  }
+
+  /**
     * The summary for a challenge is the status with the number of tasks associated with each status
     * underneath the given challenge
     *

@@ -1,5 +1,5 @@
 @import org.maproulette.session.User
-@(user:User, debugMode:Boolean, parentId:Long=(-1), taskId:Long=(-1))(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
+@(user:User, debugMode:Boolean, parentId:Long=(-1), taskId:Long=(-1), challengeView:Boolean=false)(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
 <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/mapping.css")"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.css"))"/>
@@ -22,7 +22,32 @@
 <script src="@routes.Assets.versioned("javascripts/mapping.js")"></script>
 <script>
     $(document).ready(function() {
-        MRManager.init(@{ if (!user.guest) {"true"} else {"false"}}, 'map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}))
-        MRManager.addTaskToMap(@parentId, @taskId);
+        MRManager.init(@{ if (!user.guest) {"true"} else {"false"}}, 'map', new Point(@{user.osmProfile.homeLocation.latitude}, @{user.osmProfile.homeLocation.longitude}));
+        if (@challengeView) {
+            var filters = Utils.getQSParameterByName("statusFilters");
+            MRManager.viewChallenge(@parentId, filters);
+        } else {
+            MRManager.addTaskToMap(@parentId, @taskId);
+        }
     });
 </script>
+
+    <!-- Modal -->
+<div id="geoJsonViewer" class="modal fade modal-primary" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="box box-solid box-primary" align="center">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <!--iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe-->
+                <div class="box-body">
+                    <label>GeoJson Viewer</label>
+                    <textarea id="geojson_text" class="form-control" rows="10" placeholder=""></textarea>
+                </div>
+                <div class="box-footer">
+                    <button id="geojson_submit" class="btn btn-primary btn-large btn-action pull-left">Submit</button>
+                    <p>For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

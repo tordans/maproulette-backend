@@ -92,11 +92,11 @@ var Utils = {
             return 'We are somewhere on earth..';
         }
         out = 'We are ';
-        if (addr.city !== null) {
+        if (typeof addr.city !== 'undefined' && addr.city !== null) {
             out += 'in ' + addr.city;
-        } else if (addr.town !== null) {
+        } else if (typeof addr.town !== 'undefined' && addr.town !== null) {
             out += 'in ' + addr.town;
-        } else if (addr.hamlet !== null) {
+        } else if (typeof addr.hamlet !== 'undefined' && addr.hamlet !== null) {
             out += 'in ' + addr.hamlet;
         } else {
             out += 'somewhere in ';
@@ -275,6 +275,49 @@ var findItem = function(itemType, search, parentId, limit, offset, onlyEnabled, 
         jsRoutes.org.maproulette.controllers.api.SurveyController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback); 
     } else if (itemType == "Tag") {
         jsRoutes.org.maproulette.controllers.api.TagController.getTags(search, limit, offset).ajax(apiCallback);
+    }
+};
+
+/**
+ * Helper function to specifically get a project, see generic get function for information on parameters
+ */
+var getProject = function(projectId, handler, errorHandler) {
+    getItem("Project", projectId, handler, errorHandler);
+};
+
+/**
+ * Helper function to specifically get a challenge, see generic get function for information on parameters
+ */
+var getChallenge = function(challengeId, handler, errorHandler) {
+    getItem("Challenge", challengeId, handler, errorHandler);
+};
+
+/**
+ * Helper function to specifically get a survey, see generic get function for information on parameters
+ */
+var getSurvey = function(surveyId, handler, errorHandler) {
+    getItem("Survey", surveyId, handler, errorHandler);
+};
+
+/**
+ * A generic get function that will make an API call to the server to get a specific object
+ *
+ * @param itemType The type of object you are trying to retrieve
+ * @param itemId The id of the object
+ * @param handler The javascript handler that will handle the results
+ * @param errorHandler The javascript handler that will handle any failure
+ */
+var getItem = function(itemType, itemId, handler, errorHandler) {
+    var apiCallback = {
+        success: handler,
+        error: errorHandler
+    };
+    if (itemType == "Project") {
+        jsRoutes.org.maproulette.controllers.api.ProjectController.read(itemId).ajax(apiCallback);
+    } else if (itemType == "Challenge") {
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.read(itemId).ajax(apiCallback);
+    } else if (itemType == "Survey") {
+        jsRoutes.org.maproulette.controllers.api.SurveyController.read(itemId).ajax(apiCallback);
     }
 };
 

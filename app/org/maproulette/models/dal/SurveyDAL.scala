@@ -156,14 +156,10 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param user The user answering the question, if none will default to a guest user on the database
     * @return
     */
-  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:Option[User]=None)(implicit c:Connection=null) = {
+  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:User)(implicit c:Connection=null) = {
     withMRTransaction { implicit c =>
-      val userId = user match {
-        case Some(u) => Some(u.osmProfile.id)
-        case None => None
-      }
       SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
-            VALUES ($userId, ${survey.challenge.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
+            VALUES (${user.osmProfile.id}, ${survey.challenge.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
     }
   }
 

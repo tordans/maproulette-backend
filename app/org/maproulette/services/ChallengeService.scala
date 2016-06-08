@@ -31,6 +31,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
   def buildChallengeTasks(user:User, challenge:Challenge, json:Option[String]=None) = {
     if (!challenge.overpassQL.getOrElse("").isEmpty) {
+      challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
       Future {
         Logger.debug("Creating tasks for overpass query: " + challenge.overpassQL.get)
         buildOverpassQLTasks(challenge, user)
@@ -38,6 +39,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     } else {
       val usingLocalJson = json match {
         case Some(value) if StringUtils.isNotEmpty(value) =>
+          challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
           Future {
             Logger.debug("Creating tasks from local GeoJSON file")
             createTasksFromFeatures(user, challenge, Json.parse(value))
@@ -49,6 +51,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         // lastly try remote
         challenge.remoteGeoJson match {
           case Some(url) if StringUtils.isNotEmpty(url) =>
+            challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
             ws.url(url).withRequestTimeout(config.getOSMQLProvider.requestTimeout).get() onComplete {
               case Success(resp) =>
                 Logger.debug("Creating tasks from remote GeoJSON file")
@@ -63,7 +66,6 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   }
 
   private def createTasksFromFeatures(user:User, parent:Challenge, jsonData:JsValue) = {
-    challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(parent.id)
     val featureList = (jsonData \ "features").as[List[JsValue]]
     featureList.map { value =>
       val name = (value \ "id").asOpt[String] match {
@@ -101,7 +103,6 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         }
 
         val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(timeout).post(parseQuery(ql))
-        challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
         jsonFuture onComplete {
           case Success(result) =>
             if (result.status == Status.OK) {

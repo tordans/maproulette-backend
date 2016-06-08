@@ -422,6 +422,19 @@ function Challenge() {
             });
         }
     };
+    
+    this.view = function(challengeId, filters, success, error) {
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(challengeId, filters).ajax({
+            success: function(data) {
+                if (typeof success === 'undefined') {
+                    MRManager.viewGeoJsonData(data);
+                } else {
+                    success();
+                }
+            },
+            error: MRManager.getErrorHandler(error)
+        });
+    };
 }
 
 /**
@@ -589,6 +602,7 @@ function SearchParameters() {
 
 var MRManager = (function() {
     var map;
+    var currentGeoJSON = "";
     var geojsonLayer;
     var layerControl;
     var currentTask = new Task();
@@ -606,7 +620,7 @@ var MRManager = (function() {
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters();
     var signedIn = false;
-    var searchInFocus = false;
+    var disableKeys = false;
 
     // Function that handles the resizing of the map when the menu is toggled
     var resizeMap = function() {
@@ -675,17 +689,13 @@ var MRManager = (function() {
 
         // handles click events that are executed when submitting the custom geojson from the geojson viewer
         $('#geojson_submit').on('click', function() {
+            disableKeys = false;
             if ($('#geojson_text').val().length < 1) {
                 $('#geoJsonViewer').modal("hide");
                 return;
             }
-            geojsonLayer.clearLayers();
-            geojsonLayer.addData(JSON.parse($('#geojson_text').val()));
-            map.fitBounds(geojsonLayer.getBounds());
+            viewGeoJsonData(JSON.parse($('#geojson_text').val()));
             $('#geoJsonViewer').modal("hide");
-            // in this scenario the task needs to be reset
-            currentTask.resetTask();
-            controlPanel.updateUI(false, false, false, false);
         });
         // handles the click event from the sidebar toggle
         $("#sidebar_toggle").on("click", resizeMap);
@@ -699,6 +709,18 @@ var MRManager = (function() {
             searchInFocus = false;
         });
         registerHotKeys();
+    };
+
+    var viewGeoJsonData = function(data) {
+        currentGeoJSON = data;
+        geojsonLayer.clearLayers();
+        geojsonLayer.addData(currentGeoJSON);
+        map.fitBounds(geojsonLayer.getBounds());
+        // in this scenario the task needs to be reset
+        currentTask.resetTask();
+        window.history.pushState("", "", "");
+        toastr.clear();
+        controlPanel.update(signedIn, debugMode, false, false, false);
     };
 
     /**
@@ -832,7 +854,7 @@ var MRManager = (function() {
     // registers a series of hotkeys for quick access to functions
     var registerHotKeys = function() {
         $(document).keydown(function(e) {
-            if (searchInFocus) {
+            if (disableKeys) {
                 return;
             }
             e.preventDefault();
@@ -990,7 +1012,7 @@ var MRManager = (function() {
     // This funtion returns the geoJSON of the currently displayed Task
     var getCurrentTaskGeoJSON = function() {
         if (currentTask.getData().id == -1) {
-            return "{}";
+            return JSON.stringify(currentGeoJSON);
         }
         return JSON.stringify(currentTask.getData().geometry);
     };
@@ -1035,6 +1057,15 @@ var MRManager = (function() {
         return currentTask.getChallenge().getData();
     };
 
+    var updateGeoJsonViewer = function() {
+        disableKeys = true;
+        $("#geojson_text").val(getCurrentTaskGeoJSON());
+    };
+    
+    var viewChallenge = function(challengeId, filters) {
+        currentTask.getChallenge().view(challengeId, filters);      
+    };
+
     return {
         init: init, 
         addTaskToMap: addTaskToMap,
@@ -1053,7 +1084,10 @@ var MRManager = (function() {
         openTaskInJosm: openTaskInJosm,
         getCurrentMapURL: getCurrentMapURL,
         getCurrentTaskData: getCurrentTaskData,
-        getCurrentChallengeData: getCurrentChallengeData
+        getCurrentChallengeData: getCurrentChallengeData,
+        updateGeoJsonViewer: updateGeoJsonViewer,
+        viewGeoJsonData: viewGeoJsonData,
+        viewChallenge: viewChallenge
     };
 
 }());
