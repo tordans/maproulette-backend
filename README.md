@@ -36,7 +36,7 @@ It uses the following core technologies:
 * Install the [Play Framework activator](https://www.playframework.com/documentation/2.5.x/Installing): `brew install typesafe-activator`.
 * Create a PostgreSQL superuser `osm`: `createuser -sW osm`. Use `osm` as the password.
 * Create a new PostgreSQL database `mp_dev` owned by `osm`: `createdb -O osm mp_dev`.
-* Set the database connection JDBC string as environment variable `DATABASE_URL`: `export DATABASE_URL=jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm`
+* Set the database connection JDBC string as environment variable `DATABASE_URL`: `export DATABASE_URL='jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm'`
 * Set the consumer_key and consumer_secret variables `CONSUMER_KEY`: `export CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`, `CONSUMER_SECRET`: `export CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`. This is the key and secret that is generated when you build your application in maproulette.org.
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
@@ -56,7 +56,7 @@ It uses the following core technologies:
 * Install PostgreSQL and PostGIS: `sudo apt-get install postgresql postgis`
 * Create a PostgreSQL superuser: `osm`: `sudo -u postgres createuser -sW osm`. Use `osm` as the password
 * Create a new PostgreSQL database `mp_dev` owned by `osm`: `sudo -u postgres createdb -O osm mp_dev`
-* Set the database connection JDBC string as an environment variable: `DATABASE_URL='jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm`
+* Set the database connection JDBC string as an environment variable: `DATABASE_URL='jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm'`
 * Set the consumer_key and consumer_secret variables `CONSUMER_KEY`: `export CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`, `CONSUMER_SECRET`: `export CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`. This is the key and secret that is generated when you build your application in maproulette.org.
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
