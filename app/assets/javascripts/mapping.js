@@ -620,7 +620,7 @@ var MRManager = (function() {
     var debugMode = Boolean(Utils.getQSParameterByName("debug"));
     var currentSearchParameters = new SearchParameters();
     var signedIn = false;
-    var disableKeys = false;
+    var disableKeys = true;
 
     // Function that handles the resizing of the map when the menu is toggled
     var resizeMap = function() {
