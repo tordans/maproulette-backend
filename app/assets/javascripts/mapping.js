@@ -498,7 +498,7 @@ function Task() {
         });
     };
 
-    this.getNextTask = function(params, success, error) {
+    this.getNextTask = function(success, error) {
         if (data.parentId == -1 && data.id == -1) {
             ToastUtils.Info('You are in debug mode, select a challenge to debug.');
         } else {
@@ -513,7 +513,7 @@ function Task() {
         }
     };
 
-    this.getPreviousTask = function(params, success, error) {
+    this.getPreviousTask = function(success, error) {
         if (data.parentId == -1 && data.id == -1) {
             ToastUtils.Info('You are in debug mode, select a challenge to debug.');
         } else {
@@ -528,75 +528,24 @@ function Task() {
         }
     };
 
-    this.getRandomNextTask = function(params, success, error) {
-        jsRoutes.controllers.MappingController.getRandomNextTask(params.projectId,
-            params.projectSeach,
-            params.projectEnabled,
-            params.challengeId,
-            params.challengeSearch,
-            params.challengeTags,
-            params.challengeEnabled,
-            params.taskSearch,
-            params.taskTags)
-            .ajax({
-                success:function(update) {
-                    updateData(update, MRManager.getSuccessHandler(success));
-                },
-                error:MRManager.getErrorHandler(error)
-            }
-        );
+    this.getRandomNextTask = function(success, error) {
+        jsRoutes.controllers.MappingController.getRandomNextTask().ajax({
+            success:function(update) {
+                updateData(update, MRManager.getSuccessHandler(success));
+            },
+            error:MRManager.getErrorHandler(error)
+        });
     };
     
-    this.setTaskStatus = function(status, params, success, error) {
+    this.setTaskStatus = function(status, success, error) {
         var self = this;
         var errorHandler = MRManager.getErrorHandler(error);
         var statusSetSuccess = function () {
             ToastUtils.Success("Set Task [" + data.name + "] status to " + TaskStatus.getStatusName(status));
-            self.getRandomNextTask(params, MRManager.getSuccessHandler(success), errorHandler);
+            self.getRandomNextTask(MRManager.getSuccessHandler(success), errorHandler);
         };
         jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatus(data.id, status)
             .ajax({success: statusSetSuccess, error: errorHandler});
-    };
-}
-
-/**
- * The search parameters allow tasks to be executed over multiple different projects, challenges
- * and tags. It allows searching of those elements and the next random task retrieved will remain
- * in the bounds of the search parameters.
- *
- * projectId If wanting to limit to a specific project set this value
- * projectSearch Will filter based on the name of the project
- * challengeId If wanting to limit to a specific challenge set this value
- * challengeSearch Will filter based on the name of the challenge. eg. All challenges starting with "c"
- * challengeTags Will filter based on the supplied tags for the challenge
- * taskSearch Will filter based on the name of the task (probably wouldn't be used a lot
- * taskTags Will filter based on the tags of the task
- * @constructor
- */
-function SearchParameters() {
-    this.projectId = Utils.getQSParameterByName("pid");
-    this.projectSeach = Utils.getQSParameterByName("ps");
-    this.projectEnabled = Utils.getQSParameterByName("pe");
-    this.challengeId = Utils.getQSParameterByName("cid");
-    this.challengeSearch = Utils.getQSParameterByName("cs");
-    this.challengeEnabled = Utils.getQSParameterByName("ce");
-    var ctQS = Utils.getQSParameterByName("ct");
-    if (ctQS === null) {
-        this.challengeTags = null;
-    } else {
-        this.challengeTags = ctQS.split(",");
-    }
-    this.taskSearch = Utils.getQSParameterByName("s");
-    var tagsQS = Utils.getQSParameterByName("tags");
-    if (tagsQS === null) {
-        this.taskTags = null;
-    } else {
-        this.taskTags = tagsQS.split(",");
-    }
-    this.getQueryString = function() {
-        return "pid="+this.projectId+"&ps="+this.projectSeach+"&pe="+this.projectEnabled+
-            "&cid="+this.challengeId+"&cs="+this.challengeSearch+"&ct="+this.challengeTags+"&ce="+this.challengeEnabled+
-            "&s="+this.taskSearch+"&tags="+this.taskTags;
     };
 }
 
@@ -797,13 +746,19 @@ var MRManager = (function() {
     var addTaskToMap = function(parentId, taskId) {
         currentTask.setSeedData(parentId, taskId);
         if (debugMode) {
-            currentTask.getNextTask(currentSearchParameters);
+            currentTask.getNextTask();
         } else if (typeof taskId === 'undefined' || taskId == -1) {
-            currentSearchParameters.challengeId = parentId;
             // if we are mapping directly using the challenge ID, then ignore whether it is enabled or not
-            currentSearchParameters.projectEnabled = false;
-            currentSearchParameters.challengeEnabled = false;
-            currentTask.getRandomNextTask(currentSearchParameters);   
+            if (typeof parentId !== 'undefined' && parentId != -1) {
+                currentSearchParameters.setChallengeId(parentId);
+                currentSearchParameters.setProjectEnabled(false);
+                currentSearchParameters.setChallengeEnabled(false);
+            } else {
+                currentSearchParameters.setChallengeId(-1);
+                currentSearchParameters.setProjectEnabled(true);
+                currentSearchParameters.setChallengeEnabled(true);
+            }
+            currentTask.getRandomNextTask();   
         } else {
             currentTask.updateTask(taskId);
         }
@@ -815,11 +770,11 @@ var MRManager = (function() {
      */
     var getNextTask = function() {
         if (!signedIn || debugMode) {
-            currentTask.getNextTask(currentSearchParameters);
+            currentTask.getNextTask();
         } else if (currentTask.getChallenge().isSurvey()) {
-            currentTask.getRandomNextTask(currentSearchParameters);
+            currentTask.getRandomNextTask();
         } else {
-            currentTask.setTaskStatus(TaskStatus.SKIPPED, currentSearchParameters);
+            currentTask.setTaskStatus(TaskStatus.SKIPPED);
         }
     };
 
@@ -829,7 +784,7 @@ var MRManager = (function() {
      */
     var getPreviousTask = function() {
         if (debugMode) {
-            currentTask.getPreviousTask(currentSearchParameters);
+            currentTask.getPreviousTask();
         }
     };
 
@@ -839,7 +794,7 @@ var MRManager = (function() {
      * @param status The status to set see Task.scala for information on the status ID's
      */
     var setTaskStatus = function(status) {
-        currentTask.setTaskStatus(status, currentSearchParameters);
+        currentTask.setTaskStatus(status);
     };
 
     /**

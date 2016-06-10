@@ -142,6 +142,127 @@ var Utils = {
 };
 
 /**
+ * The search parameters allow tasks to be executed over multiple different projects, challenges
+ * and tags. It allows searching of those elements and the next random task retrieved will remain
+ * in the bounds of the search parameters. This will be stored in a session cookie to be shared
+ * with any requests that go to the server
+ *
+ * projectId If wanting to limit to a specific project set this value
+ * projectSearch Will filter based on the name of the project
+ * challengeId If wanting to limit to a specific challenge set this value
+ * challengeSearch Will filter based on the name of the challenge. eg. All challenges starting with "c"
+ * challengeTags Will filter based on the supplied tags for the challenge
+ * taskSearch Will filter based on the name of the task (probably wouldn't be used a lot
+ * taskTags Will filter based on the tags of the task
+ * props Will filter on the properties of features in the task
+ * @constructor
+ */
+function SearchParameters() {
+    var search = Cookies.getJSON('search');
+    if (typeof search === 'undefined' || search == {}) {
+        search = {
+            projectId: -1, 
+            projectSearch: '',
+            projectEnabled: true, 
+            challengeId: -1, 
+            challengeEnabled: true, 
+            challengeSearch: '', 
+            challengeTags: [],
+            taskSearch: '',
+            taskTags: [],
+            props: {},
+            priority: -1
+        };
+    }
+
+    var update = function() {
+        Cookies.set('search', search);
+    };
+
+    var getValue = function(key) {
+        return search[key];
+    };
+
+    var setValue = function(key, value) {
+        search[key] = value;
+        update();
+    };
+
+    this.getProjectId = function() {
+        return getValue("projectId");
+    };
+    this.setProjectId = function(id) {
+        setValue("projectId", id);
+    };
+    this.getProjectSearch = function() {
+        return getValue("projectSearch");
+    };
+    this.setProjectSearch = function(search) {
+        setValue("projectSearch", search);
+    };
+    this.getProjectEnabled = function() {
+        return getValue("projectEnabled");
+    };
+    this.setProjectEnabled = function(enabled) {
+        setValue("projectEnabled", enabled);
+    };
+    this.getChallengeId = function() {
+        return getValue("challengeId");
+    };
+    this.setChallengeId = function(id) {
+        setValue("challengeId", id);
+    };
+    this.getChallengeSearch = function() {
+        return getValue("challengeSearch");
+    };
+    this.setChallengeSearch = function(search) {
+        setValue("challengeSearch", search);
+    };
+    this.getChallengeEnabled = function() {
+        return getValue("challengeEnabled");
+    };
+    this.setChallengeEnabled = function(enabled) {
+        setValue("challengeEnabled", enabled);
+    };
+    this.getChallengeTags = function() {
+        return getValue("challengeTags");
+    };
+    this.setChallengeTags = function(tags) {
+        if (typeof tags === 'string') {
+            tags = tags.split(",");
+        }
+        setValue("challengeTags", tags);
+    };
+    this.getTaskSearch = function() {
+        return getValue("taskSearch");
+    };
+    this.setTaskSearch = function(search) {
+        setValue("taskSearch", search);
+    };
+    this.getTaskTags = function() {
+        return getValue("taskTags");    
+    };
+    this.setTaskTags = function(tags) {
+        if (typeof tags === 'string') {
+            tags = tags.split(",");
+        }
+        setValue("taskTags", tags);
+    };
+    this.getOSMProperties = function() {
+        return getValue("props");
+    };
+    this.setOSMProperties = function(props) {
+        setValue("props", props);
+    };
+    this.getPriority = function() {
+        return getValue("priority");
+    };
+    this.setPriority = function(priority) {
+        setValue("priority", priority);
+    };
+}
+
+/**
  * Helper for the generic delete function, this will delete a specific project
  * Only an Admin user for the specific project will be able to delete the project or Super user
  * 
