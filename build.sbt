@@ -38,6 +38,7 @@ libraryDependencies ++= Seq(
   "org.webjars" % "bootstrap-daterangepicker" % "2.1.19",
   "org.webjars" % "momentjs" % "2.12.0",
   "org.webjars" % "datatables" % "1.10.11",
+  "org.webjars" % "js-cookie" % "2.1.0",
   "org.webjars.bower" % "fuelux" % "3.14.2"
     exclude("org.webjars.bower", "jquery") exclude("org.webjars.bower", "moment")
     exclude("org.webjars.bower", "requirejs") exclude("org.webjars.bower", "bootstrap"),
