@@ -777,7 +777,7 @@ var MRManager = (function() {
      * Will display the current location that you are working in
      */
     var displayAdminArea = function () {
-        var mqurl = 'http://open.mapquestapi.com/nominatim/v1/reverse.php?key=Nj8oRSldMF8mjcsqp2JtTIcYHTDMDMuq&format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
+        var mqurl = 'http://nominatim.openstreetmap.org/reverse?format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
         $.ajax({
             url: mqurl,
             jsonp: "json_callback",
