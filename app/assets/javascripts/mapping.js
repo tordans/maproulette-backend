@@ -677,7 +677,7 @@ var MRManager = (function() {
         map.addLayer(geojsonLayer);
         layerControl = L.control.layers(
             {'OSM': osm_layer, 'Open Cycle': opencycle_layer, 'MapQuest Roads': road_layer,
-                'MapQuest': mapquest_layer, 'Bing': bing_layer},
+                'MapQuest Open Aerial': mapquest_layer, 'Bing Aerial': bing_layer},
             {'GeoJSON': geojsonLayer},
             {position:"topright"}
         );
