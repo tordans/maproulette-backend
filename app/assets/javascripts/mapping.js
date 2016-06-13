@@ -676,8 +676,8 @@ var MRManager = (function() {
 
         map.addLayer(geojsonLayer);
         layerControl = L.control.layers(
-            {'OSM': osm_layer, 'Open Cycle': opencycle_layer, 'MapQuest Roads': road_layer,
-                'MapQuest': mapquest_layer, 'Bing': bing_layer},
+            {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'MapQuest Roads': road_layer,
+                'MapQuest Open Aerial': mapquest_layer, 'Bing Aerial': bing_layer},
             {'GeoJSON': geojsonLayer},
             {position:"topright"}
         );
@@ -777,7 +777,7 @@ var MRManager = (function() {
      * Will display the current location that you are working in
      */
     var displayAdminArea = function () {
-        var mqurl = 'http://open.mapquestapi.com/nominatim/v1/reverse.php?key=Nj8oRSldMF8mjcsqp2JtTIcYHTDMDMuq&format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
+        var mqurl = 'http://nominatim.openstreetmap.org/reverse?format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
         $.ajax({
             url: mqurl,
             jsonp: "json_callback",
