@@ -24,7 +24,7 @@
             <header id="header" class="main-header">
 
                     <!-- Logo -->
-                <a class="logo">
+                <a href="/" class="logo">
                         <!-- mini logo for sidebar mini 50x50 pixels -->
                     <span class="logo-mini"><img style="height:25px;width:25px" src="@config.logoURL" alt="logo"></span>
                         <!-- logo for regular state and mobile devices -->
@@ -54,7 +54,7 @@
             <footer id="footer" class="main-footer">
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
-                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='$("#geojson_text").val(MRManager.getCurrentTaskGeoJSON());'>&pi;</a>
+                    <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='MRManager.updateGeoJsonViewer();'>&pi;</a>
                 </div>
                     <!-- Default to the left -->
                 <strong>Copyright &copy; 2016 <a href="#">MapRoulette Version @{config.getSemanticVersion}</a>.</strong> All rights reserved.
@@ -69,30 +69,10 @@
            immediately after the control sidebar -->
             <div class="control-sidebar-bg"></div>
         </div>
-
-        <!-- Modal -->
-        <div id="geoJsonViewer" class="modal fade modal-primary" role="dialog">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="box box-solid box-primary" align="center">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                            <!--iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe-->
-                        <div class="box-body">
-                            <label>GeoJson Viewer</label>
-                            <textarea id="geojson_text" class="form-control" rows="10" placeholder=""></textarea>
-                        </div>
-                        <div class="box-footer">
-                            <button id="geojson_submit" class="btn btn-primary btn-large btn-action pull-left">Submit</button>
-                            <p>For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html">read the spec</a>.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-            <!-- Optionally, you can add Slimscroll and FastClick plugins.
-         Both of these plugins are recommended to enhance the
-         user experience. Slimscroll is required when using the
-         fixed layout. -->
     </body>
 </html>
+<script type="application/javascript">
+    if (typeof MRManager === 'undefined') {
+        $("#pi").remove();
+    }
+</script>

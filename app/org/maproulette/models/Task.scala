@@ -27,7 +27,7 @@ import play.api.libs.json._
 case class Task(override val id:Long,
                 override val name: String,
                 parent: Long,
-                instruction: String,
+                instruction: Option[String]=None,
                 location: Option[String]=None,
                 geometries:String,
                 status:Option[Int]=None) extends BaseObject[Long] {
@@ -50,13 +50,16 @@ object Task {
   val STATUS_DELETED_NAME = "Deleted"
   val STATUS_ALREADY_FIXED = 5
   val STATUS_ALREADY_FIXED_NAME = "Already_Fixed"
+  val STATUS_TOO_HARD = 6
+  val STATUS_TOO_HARD_NAME = "Too_Hard"
   val statusMap = Map(
     STATUS_CREATED -> STATUS_CREATED_NAME,
     STATUS_FIXED -> STATUS_FIXED_NAME,
     STATUS_SKIPPED -> STATUS_SKIPPED_NAME,
     STATUS_FALSE_POSITIVE -> STATUS_FALSE_POSITIVE_NAME,
     STATUS_DELETED -> STATUS_DELETED_NAME,
-    STATUS_ALREADY_FIXED -> STATUS_ALREADY_FIXED_NAME
+    STATUS_ALREADY_FIXED -> STATUS_ALREADY_FIXED_NAME,
+    STATUS_TOO_HARD -> STATUS_TOO_HARD_NAME
   )
 
   /**
@@ -87,7 +90,7 @@ object Task {
         case STATUS_CREATED => true
         case STATUS_FIXED => false
         case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
-        case STATUS_SKIPPED => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED
+        case STATUS_SKIPPED | STATUS_TOO_HARD => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED
         case STATUS_DELETED => toSet == STATUS_CREATED
         case STATUS_ALREADY_FIXED => false
       }
@@ -119,12 +122,12 @@ object Task {
       "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
       "parent" -> longNumber,
-      "instruction" -> nonEmptyText,
+      "instruction" -> optional(text),
       "location" -> optional(text),
       "geometries" -> nonEmptyText,
       "status" -> optional(number)
     )(Task.apply)(Task.unapply)
   )
 
-  def emptyTask(parentId:Long) = Task(-1, "", parentId, "", None, "")
+  def emptyTask(parentId:Long) = Task(-1, "", parentId, Some(""), None, "")
 }

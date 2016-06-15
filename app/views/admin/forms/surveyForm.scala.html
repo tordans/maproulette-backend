@@ -91,7 +91,11 @@
                     @text(surveyForm("challenge.instruction"),
                         label = "Question",
                         placeholder = "Survey Question",
-                        help = "Please enter the question for the survey. (optional)"
+                        help = "Please enter the question for the survey. (optional)",
+                        readOnly = surveyForm("challenge.id").value match {
+                            case Some(v) => v.toLong != -1
+                            case None => false
+                        }
                     )
                 </div>
                 <!--

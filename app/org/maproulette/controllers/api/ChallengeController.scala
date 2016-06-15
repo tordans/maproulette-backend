@@ -3,8 +3,11 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
+import io.swagger.annotations.Api
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{ActionManager, Actions, ChallengeType, TaskViewed}
 import org.maproulette.controllers.ParentController
+import org.maproulette.exception.NotFoundException
 import org.maproulette.models.dal.{ChallengeDAL, SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Survey, Task}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
@@ -20,6 +23,7 @@ import play.api.mvc.Action
   *
   * @author cuthbertm
   */
+@Api(value = "/Challenge", description = "Operations for Challenges", protocols = "http")
 class ChallengeController @Inject() (override val childController:TaskController,
                                      override val sessionManager: SessionManager,
                                      override val actionManager: ActionManager,
@@ -103,6 +107,28 @@ class ChallengeController @Inject() (override val childController:TaskController
           }
         case None =>
           NoContent
+      }
+    }
+  }
+
+  /**
+    * Gets the geo json for all the tasks associated with the challenge
+    *
+    * @param challengeId The challenge with the geojson
+    * @param statusFilter Filtering by status of the tasks
+    * @return
+    */
+  def getChallengeGeoJSON(challengeId:Long, statusFilter:String) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      dal.retrieveById(challengeId) match {
+        case Some(c) =>
+          val filter = if (StringUtils.isEmpty(statusFilter)) {
+            None
+          } else {
+            Some(statusFilter.split(",").map(_.toInt).toList)
+          }
+          Ok(Json.parse(dal.getChallengeGeometry(challengeId, filter)))
+        case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
       }
     }
   }

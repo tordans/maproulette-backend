@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Project
 @import org.maproulette.actions.Actions
-@(user:User, projects:List[Project])(implicit messages: Messages)
+@(user:User, projects:List[(Project, Int, Int)])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration")
 <section class="content">
@@ -20,7 +20,7 @@
             <table id="projectTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
-                        <th>Enabled</th>
+                        <th>Visible</th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Admins</th>
@@ -34,43 +34,36 @@
                         @for(p <- projects) {
                             <tr>
                                 <td>
-                                @if(p.enabled) {
-                                    <i class="fa fa-check-circle-o fa-2x" style="color:green"/>
+                                @if(p._1.enabled) {
+                                    <i class="fa fa-eye fa-2x" style="color:green"/>
                                 } else {
-                                    <i class="fa fa-times-circle-o fa-2x" style="color:red"/>
+                                    <i class="fa fa-eye-slash fa-2x" style="color:red"/>
                                 }
                                 </td>
-                                <td>@p.id</td>
-                                <td><a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p.id)">@p.name</a></td>
+                                <td>@p._1.id</td>
+                                <td><a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p._1.id)">@p._1.name</a></td>
                                 <td></td>
-                                <td>0</td>
-                                <td>0</td>
+                                <td>@p._2</td>
+                                <td>@p._3</td>
                                 <td>
-                                    <div class="pull-left">
-                                        <a href="@routes.FormEditController.projectFormUI(-1, p.id)">
-                                            <button class="btn-xs btn-block btn-warning">Edit</button>
-                                        </a>
-                                    </div>
-                                    <div class="pull-left">
-                                        <a href="@routes.FormEditController.challengeFormUI(p.id, -1)">
-                                            <button class="btn-xs btn-block btn-primary">New Challenge</button>
-                                        </a>
-                                    </div>
-                                    <div class="pull-left">
-                                        <a href="@routes.FormEditController.surveyFormUI(p.id, -1)">
-                                            <button class="btn-xs btn-block btn-primary">New Survey</button>
-                                        </a>
-                                    </div>
-                                    @if(user.isSuperUser) {
-                                        <div class="pull-left">
-                                            <button class="btn-xs btn-block btn-danger" onclick="javascript:deleteProject(@p.id);">
-                                                Delete</button>
-                                        </div>
-                                    }
-                                    <div class="pull-left">
-                                        <a href="@routes.Application.challengeMetrics(-1, p.id+"")">
-                                            <button class="btn-xs btn-block btn-primary">View Metrics</button>
-                                        </a>
+                                    <div class="btn-group pull-left">
+                                        <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
+                                        <button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">
+                                            <span class="caret"></span>
+                                            <span class="sr-only">Toggle Dropdown</span>
+                                        </button>
+                                        <ul class="dropdown-menu" role="menu">
+                                            @if(user.isSuperUser) {
+                                                <li><a href="@routes.FormEditController.projectFormUI(-1, p._1.id)">Edit</a></li>
+                                                <li><a href="#" onclick="javascript:deleteProject(@p._1.id);">Delete</a></li>
+                                                <li class="divider"></li>
+                                            }
+                                            <li><a href="@routes.FormEditController.challengeFormUI(p._1.id, -1)">New Challenge</a></li>
+                                            <li><a href="@routes.FormEditController.surveyFormUI(p._1.id, -1)">New Survey</a></li>
+                                            <li class="divider"></li>
+                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"")">View Challenge Metrics</a></li>
+                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"", 1)">View Survey Metrics</a></li>
+                                        </ul>
                                     </div>
                                 </td>
                             </tr>
@@ -81,7 +74,7 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <th>Enabled</th>
+                        <th>Visible</th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Admins</th>

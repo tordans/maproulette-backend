@@ -11,6 +11,7 @@ import org.maproulette.models.{Challenge, Project}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{Group, User}
 import org.maproulette.session.dal.UserGroupDAL
+import play.api.Logger
 import play.api.db.Database
 import play.api.libs.json.JsValue
 
@@ -56,9 +57,16 @@ class ProjectDAL @Inject() (override val db:Database,
   override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
     permission.hasWriteAccess(project, user)
     cacheManager.withOptionCaching { () =>
+      // only super users can enable or disable projects
+      val setProject = if (!user.isSuperUser) {
+        Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
+        project.copy(enabled = false)
+      } else {
+        project
+      }
       val newProject = withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description, enabled)
-              VALUES (${project.name}, ${project.description}, ${project.enabled})
+              VALUES (${setProject.name}, ${setProject.description}, ${setProject.enabled})
               ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
       newProject match {
@@ -88,7 +96,13 @@ class ProjectDAL @Inject() (override val db:Database,
       withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
-        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
+        val enabled = (updates \ "enabled").asOpt[Boolean] match {
+          case Some(e) if !user.isSuperUser =>
+            Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
+            cachedItem.enabled
+          case Some(e) => e
+          case None => cachedItem.enabled
+        }
 
         SQL"""UPDATE projects SET name = $name,
               description = $description,
@@ -117,12 +131,46 @@ class ProjectDAL @Inject() (override val db:Database,
             s"""SELECT p.* FROM projects p
               INNER JOIN groups g ON g.project_id = p.id
               WHERE g.id IN ({ids}) ${searchField("p.name")} ${enabled(onlyEnabled)}
-              LIMIT ${sqlLimit(limit)} OFFSET {offset}""".stripMargin
+              LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
           SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
-            'ids -> ParameterValue.toParameterValue(user.groups.map(_.id))(p = keyToStatement))
+            'ids -> user.groups.map(_.id))
             .as(parser.*)
         }
       }
+    }
+  }
+
+  /**
+    * Gets all the counts of challenges and surveys for each available project
+    *
+    * @param user The user executing the request, will limit the response to only accesible projects
+    * @param limit To limit the number of project counts to return
+    * @param offset Paging starting at 0
+    * @param onlyEnabled Whether to list only enabled projects
+    * @param searchString To search by project name
+    * @param c implicit connection, if not supplied will open new connection
+    * @return A map of project ids to tuple with number of challenge and survey children for the project
+    */
+  def getChildrenCounts(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
+                        searchString:String="")(implicit c:Connection=null) : Map[Long, (Int, Int)] = {
+    withMRConnection { implicit c =>
+      val parser = for {
+        id <- long("id")
+        challenges <- int("challenges")
+        surveys <- int("surveys")
+      } yield (id, challenges, surveys)
+      val query = s"""SELECT p.id,
+                      SUM(CASE c.challenge_type WHEN 1 THEN 1 ELSE 0 END) AS challenges,
+                      SUM(CASE c.challenge_type WHEN 4 THEN 1 ELSE 0 END) AS surveys
+                    FROM projects p
+                    INNER JOIN groups g ON g.project_id = p.id
+                    INNER JOIN challenges c ON c.parent_id = p.id
+                    WHERE (1=${if (user.isSuperUser) { 1 } else { 0 }} OR g.id IN ({ids}))
+                    ${searchField("p.name")} ${enabled(onlyEnabled, "p")}
+                    GROUP BY p.id
+                    LIMIT ${sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).on('ss -> search(searchString), 'ids -> user.groups.map(_.id)).as(parser.*)
+        .map(v => v._1 -> (v._2, v._3)).toMap
     }
   }
 }

@@ -5,11 +5,11 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.{InvalidException, MPExceptionUtil, NotFoundException}
+import org.maproulette.exception._
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.libs.json.Json
+import play.api.libs.json.{JsString, Json}
 import play.api.mvc.{Action, Controller, Result}
 
 import scala.concurrent.Promise
@@ -24,7 +24,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
                                 override val webJarAssets: WebJarAssets,
                                 sessionManager:SessionManager,
                                 override val dalManager:DALManager,
-                                val config:Config) extends Controller with I18nSupport with ControllerHelper {
+                                val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -89,7 +89,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
   def deleteUser(userId:Long) = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.obj("message" -> s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))))
     }
   }
 
@@ -133,7 +133,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
             throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
           }
           dalManager.user.addUserToProject(addUser.osmProfile.id, projectId, user)
-          Ok(Json.obj("status" -> "Ok", "message" -> s"User ${addUser.name} added to project $projectId"))
+          Ok(Json.toJson(StatusMessage("OK", JsString(s"User ${addUser.name} added to project $projectId"))))
         case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }
     }

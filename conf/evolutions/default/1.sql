@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS challenges
   challenge_type integer NOT NULL DEFAULT(1),
   featured BOOLEAN DEFAULT(false),
   overpass_ql character varying DEFAULT '',
-  overpass_status integer DEFAULT 0,
+  remote_geo_json CHARACTER VARYING DEFAULT '',
+  status integer DEFAULT 0,
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
@@ -206,15 +207,22 @@ CREATE TABLE IF NOT EXISTS survey_answers
   id SERIAL NOT NULL PRIMARY KEY,
   created timestamp without time zone DEFAULT NOW(),
   osm_user_id integer NOT NULL,
+  project_id integer NOT NULL,
   survey_id integer NOT NULL,
   task_id integer NOT NULL,
   answer_id integer NOT NULL,
+  CONSTRAINT survey_answers_project_id_fkey FOREIGN KEY (project_id)
+    REFERENCES projects(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT survey_answers_survey_id_fkey FOREIGN KEY (survey_id)
-    REFERENCES challenges(id) MATCH SIMPLE,
+    REFERENCES challenges(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT survey_answers_task_id_fkey FOREIGN KEY (task_id)
-    REFERENCES tasks(id) MATCH SIMPLE,
+    REFERENCES tasks(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
     REFERENCES answers(id) MATCH SIMPLE
+    ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
@@ -374,7 +382,7 @@ BEGIN
     SELECT id, modified, status INTO update_id, update_modified, update_status FROM tasks WHERE id = task_id;;
   END IF;;
   new_status := task_status;;
-  IF update_status = task_status AND (SELECT AGE(NOW(), update_modified)) > reset_interval THEN
+  IF update_status = task_status AND (SELECT AGE(NOW(), update_modified)) > reset_interval::INTERVAL THEN
     new_status := 0;;
   END IF;;
   UPDATE tasks SET name = task_name, instruction = task_instruction, status = new_status WHERE id = update_id;;

@@ -34,7 +34,6 @@ class SurveyDAL @Inject() (override val db:Database,
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
-  override val extraFilters: String = s"challenge_type = ${Actions.ITEM_TYPE_SURVEY}"
 
   override val parser: RowParser[Survey] = {
     challengeDAL.parser map {
@@ -151,20 +150,32 @@ class SurveyDAL @Inject() (override val db:Database,
     * to answer the question for the same task multiple times. This way you will get an idea of the
     * answers based on multiple users feedback
     *
-    * @param surveyId The survey that is being evaluated
+    * @param survey The survey that is being evaluated
     * @param taskId The id of the task that is viewed when answering the question
     * @param answerId The id for the selected answer
     * @param user The user answering the question, if none will default to a guest user on the database
     * @return
     */
-  def answerQuestion(surveyId:Long, taskId:Long, answerId:Long, user:Option[User]=None)(implicit c:Connection=null) = {
+  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:User)(implicit c:Connection=null) = {
     withMRTransaction { implicit c =>
-      val userId = user match {
-        case Some(u) => Some(u.osmProfile.id)
-        case None => None
-      }
-      SQL"""INSERT INTO survey_answers (osm_user_id, survey_id, task_id, answer_id)
-            VALUES ($userId, $surveyId, $taskId, $answerId)""".executeInsert()
+      SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
+            VALUES (${user.osmProfile.id}, ${survey.challenge.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
     }
   }
+
+  override def _find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean,
+                     orderColumn: String, orderDirection: String)
+                    (implicit parentId: Long, c: Connection): List[Survey] =
+    challengeDAL._findByType(searchString, limit, offset, onlyEnabled, orderColumn,
+      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, getAnswers(c.id)))
+
+  /**
+    * This is a dangerous function as it will return all the objects available, so it could take up
+    * a lot of memory
+    */
+  override def list(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String,
+                    orderColumn: String, orderDirection: String)
+                   (implicit parentId: Long, c: Connection): List[Survey] =
+    challengeDAL.listByType(limit, offset, onlyEnabled, searchString, orderColumn,
+      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, getAnswers(c.id)))
 }
