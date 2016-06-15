@@ -37,7 +37,7 @@ GET     /view/:parentId                                                 @control
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
-GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask(pid:Long ?= -1, ps:String ?= "", pe:Boolean ?= true, cid:Long ?= -1, ct:String ?= "", cs:String ?= "", ce:Boolean ?= true, tags:String ?= "", s:String ?= "")
+GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTask
 # DATA ROUTES
 
 # Swagger route

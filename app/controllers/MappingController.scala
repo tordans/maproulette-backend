@@ -32,39 +32,13 @@ class MappingController @Inject() (sessionManager:SessionManager,
     * Gets a random next task based on the user selection criteria, which contains a lot of
     * different criteria for the search.
     *
-    * @param projectId filter by a project Id, use -1 if want to ignore project id
-    * @param projectSearch filter by the name of the project, ignored if project Id set
-    * @param challengeId filter by a challenge Id, use -1 if want to ignore challenge id
-    * @param challengeTags filter by the tags on the challenge, ignored if challenge Id set
-    * @param challengeSearch filter by the name of the challenge, ignored if challenge Id set
-    * @param taskTags filter by the tags on the task
-    * @param taskSearch filter by the name of the task
-    *
     * @return
     */
-  def getRandomNextTask(projectId:Long,
-                        projectSearch:String,
-                        projectEnabled:Boolean,
-                        challengeId:Long,
-                        challengeTags:String,
-                        challengeSearch:String,
-                        challengeEnabled:Boolean,
-                        taskTags:String,
-                        taskSearch:String) = Action.async { implicit request =>
+  def getRandomNextTask() = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      val params = SearchParameters(
-        if (projectId == -1) None else Some(projectId),
-        projectSearch,
-        projectEnabled,
-        if (challengeId == -1) None else Some(challengeId),
-        challengeTags.split(",").toList,
-        challengeSearch,
-        challengeEnabled,
-        taskTags.split(",").toList,
-        taskSearch
-      )
-
-      Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1).headOption))
+      SearchParameters.withSearch { params =>
+        Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1).headOption))
+      }
     }
   }
 

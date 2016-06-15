@@ -196,9 +196,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     cacheManager.withIDListCaching { implicit uncachedIDs =>
       withMRConnection { implicit c =>
         val query = s"""SELECT $retrieveColumns FROM challenges c
-                        INNER JOIN projects p ON p.id = c.parent.id
+                        INNER JOIN projects p ON p.id = c.parent_id
                         WHERE challenge_type = $challengeType
-                        ${searchField("name")}
+                        ${searchField("c.name")}
                         ${enabled(onlyEnabled, "p")} ${enabled(onlyEnabled, "c")}
                         ${parentFilter(parentId)}
                         ${order(Some(orderColumn), orderDirection, "c")}

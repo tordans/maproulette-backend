@@ -406,10 +406,10 @@ class TaskDAL @Inject() (override val db:Database,
               (l.id IS NULL OR l.user_id = ${user.id}) AND
               tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED})""")
 
-    params.challengeId match {
+    params.getChallengeId match {
       case Some(id) =>
         whereClause ++= " AND tasks.parent_id = {parentId} "
-        parameters += ('parentId -> ParameterValue.toParameterValue(params.challengeId))
+        parameters += ('parentId -> ParameterValue.toParameterValue(id))
       case None =>
         if (challengeTagIds.nonEmpty) {
           queryBuilder ++= "INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id "
@@ -422,10 +422,10 @@ class TaskDAL @Inject() (override val db:Database,
         }
     }
 
-    params.projectId match {
+    params.getProjectId match {
       case Some(id) =>
         whereClause ++= " AND p.id = {projectId} "
-        parameters += ('projectId -> ParameterValue.toParameterValue(params.projectId))
+        parameters += ('projectId -> ParameterValue.toParameterValue(id))
       case None =>
         if (params.projectSearch.nonEmpty) {
           whereClause ++= s" ${searchField("p.name", "AND", "projectSearch")}"
