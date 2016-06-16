@@ -73,8 +73,7 @@ DROP TRIGGER IF EXISTS on_user_delete ON users;
 CREATE TRIGGER on_user_delete BEFORE DELETE ON users
   FOR EACH ROW EXECUTE PROCEDURE on_user_delete();
 
-SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2)
-WHERE NOT EXISTS(SELECT 1 FROM information_schema.columns where TABLE_NAME = 'users' AND COLUMN_NAME = 'home_location');
+SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);
 
 DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
@@ -198,8 +197,7 @@ DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
-SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2)
-WHERE NOT EXISTS(SELECT 1 FROM information_schema.columns where TABLE_NAME = 'tasks' AND COLUMN_NAME = 'location');
+SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);
 
@@ -290,8 +288,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
     DEFERRABLE INITIALLY DEFERRED
 );
 
-SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2)
-WHERE NOT EXISTS(SELECT 1 FROM information_schema.columns where TABLE_NAME = 'task_geometries' AND COLUMN_NAME = 'geom');
+SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
 CREATE INDEX idx_task_geometries_geom ON task_geometries USING GIST (geom);
 SELECT create_index_if_not_exists('task_geometries', 'task_id', '(task_id)');
 
