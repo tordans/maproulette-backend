@@ -29,11 +29,10 @@
                 <div class="form-group">
                     @select(projectForm("enabled"),
                         label = "Visible",
-                        readOnly = !user.isSuperUser,
                         optionList = List(("true", "true"), ("false", "false")),
                         isMultiple = false,
                         help = "Please set whether the project is visible or not.",
-                        defaultSelected = Some("true")
+                        defaultSelected = Some("false")
                     )
                 </div>
                 <div class="form-group">

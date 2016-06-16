@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
 @import org.maproulette.actions.Actions
+@import org.maproulette.models.Challenge
 @(user:User, projectId:Long, parentType:String, parentId:Long)(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null,
@@ -23,6 +24,7 @@
         <thead>
           <tr>
             <th>ID</th>
+            <th>Priority</th>
             <th>Name</th>
             <th>Instruction</th>
             <th>Location</th>
@@ -35,6 +37,7 @@
         <tfoot>
           <tr>
             <th>ID</th>
+            <th>Priority</th>
             <th>Name</th>
             <th>Instruction</th>
             <th>Location</th>
@@ -60,6 +63,20 @@
                 data: "id",
                 name: "id",
                 title: "ID"
+              },
+              {
+                data: "priority",
+                name: "priority",
+                title: "Priority",
+                render: function ( data, type, full, meta ) {
+                  if (data == "@Challenge.PRIORITY_HIGH") {
+                    return "High";
+                  } else if (data == "@Challenge.PRIORITY_MEDIUM") {
+                    return "Medium";
+                  } else {
+                    return "Low";
+                  }
+                }
               },
               {
                 data: "name",

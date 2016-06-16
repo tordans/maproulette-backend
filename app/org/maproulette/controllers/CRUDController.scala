@@ -52,18 +52,20 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * default elements into the body that shouldn't have to be required to create an object.
     *
     * @param body The incoming body from the request
+    * @param user The user executing the request
     * @return
     */
-  def updateCreateBody(body:JsValue) : JsValue = Utils.insertJsonID(body)
+  def updateCreateBody(body:JsValue, user:User) : JsValue = Utils.insertJsonID(body)
 
   /**
     * In the case where you need to update the update body, usually you would not update it, but
     * just in case.
     *
     * @param body The request body
+    * @param user The user executing the request
     * @return The updated request body
     */
-  def updateUpdateBody(body:JsValue) : JsValue = body
+  def updateUpdateBody(body:JsValue, user:User) : JsValue = body
 
   /**
     * The base create function that most controllers will run through to create the object. The
@@ -97,7 +99,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   ))
   def create() = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val result = updateCreateBody(request.body).validate[T]
+      val result = updateCreateBody(request.body, user).validate[T]
       result.fold(
         errors => {
           BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
@@ -169,7 +171,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   def update(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       try {
-        internalUpdate(updateUpdateBody(request.body), user)(id.toString, -1) match {
+        internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
           case Some(value) => Ok(Json.toJson(value))
           case None =>  NotModified
         }
@@ -327,7 +329,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
         arr.foreach(element => (element \ "id").asOpt[String] match {
           case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
           case None =>
-            updateCreateBody(element).validate[T].fold(
+            updateCreateBody(element, user).validate[T].fold(
               errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
               validT => internalCreate(element, validT, user)
             )

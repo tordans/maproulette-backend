@@ -32,6 +32,7 @@ POST    /challenge/:id/tasks                        @org.maproulette.controllers
 PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
 GET     /challenge/:id/children                     @org.maproulette.controllers.api.ChallengeController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
 GET     /challenge/:cid/tasks/random                @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
+GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
 GET     /challenge/view/:id                         @org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(id:Long, filter:String ?= "")
 # Survey API
 POST    /survey                                     @org.maproulette.controllers.api.SurveyController.create

@@ -9,7 +9,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
 import org.maproulette.actions.{ActionManager, TaskType}
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Lock, Project, Task}
+import org.maproulette.models.{Challenge, Lock, Project, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
@@ -30,6 +30,7 @@ class TaskDAL @Inject() (override val db:Database,
                          override val tagDAL: TagDAL, config:Config,
                          override val permission:Permission,
                          projectDAL: Provider[ProjectDAL],
+                         challengeDAL: Provider[ChallengeDAL],
                          actions:ActionManager)
     extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
   // The cache manager for that tasks
@@ -48,9 +49,10 @@ class TaskDAL @Inject() (override val db:Database,
       get[Long]("parent_id") ~
       get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("location") ~
-      get[Option[Int]]("tasks.status") map {
-      case id ~ name ~ parent_id ~ instruction ~ location ~ status =>
-        Task(id, name, parent_id, instruction, location, getTaskGeometries(id), status)
+      get[Option[Int]]("tasks.status") ~
+      get[Int]("tasks.priority") map {
+      case id ~ name ~ parent_id ~ instruction ~ location ~ status ~ priority =>
+        Task(id, name, parent_id, instruction, location, getTaskGeometries(id), status, priority)
     }
   }
 
@@ -122,7 +124,8 @@ class TaskDAL @Inject() (override val db:Database,
         var parameters = Seq(
           NamedParameter("name", ParameterValue.toParameterValue(task.name)),
           NamedParameter("parent", ParameterValue.toParameterValue(task.parent)),
-          NamedParameter("instruction", ParameterValue.toParameterValue(task.instruction))
+          NamedParameter("instruction", ParameterValue.toParameterValue(task.instruction)),
+          NamedParameter("priority", ParameterValue.toParameterValue(task.priority))
         )
         val locationValue = if (task.location.isEmpty || StringUtils.isEmpty(task.location.get)) {
           ("", "")
@@ -131,8 +134,8 @@ class TaskDAL @Inject() (override val db:Database,
           ("location,", s"ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),")
         }
         // status is ignored on insert and always set to CREATED
-        val query = s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status)
-                      VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}
+        val query = s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status, priority)
+                      VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}, {priority}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING id"""
         SQL(query).on(parameters: _*).as(long("id").*).headOption match {
           case Some(id) =>
@@ -168,13 +171,15 @@ class TaskDAL @Inject() (override val db:Database,
           throw new InvalidException(s"Could not set status for task [$id], " +
             s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
         }
+        val priority = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
 
         var parameters = Seq(
           NamedParameter("name", ParameterValue.toParameterValue(name)),
           NamedParameter("parentId", ParameterValue.toParameterValue(parentId)),
           NamedParameter("instruction", ParameterValue.toParameterValue(instruction)),
           NamedParameter("status", ParameterValue.toParameterValue(status)),
-          NamedParameter("id", ParameterValue.toParameterValue(id))
+          NamedParameter("id", ParameterValue.toParameterValue(id)),
+          NamedParameter("priority", ParameterValue.toParameterValue(priority))
         )
         val locationInfo = if (StringUtils.isEmpty(location)) {
           ""
@@ -184,7 +189,8 @@ class TaskDAL @Inject() (override val db:Database,
         }
 
         val query = s"""UPDATE tasks SET name = {name}, parent_id = {parentId},
-                        instruction = {instruction}, $locationInfo status = {status}
+                        instruction = {instruction}, $locationInfo status = {status},
+                        priority = {priority}
                       WHERE id = {id}"""
 
         SQL(query).on(parameters: _*).executeUpdate()
@@ -194,7 +200,7 @@ class TaskDAL @Inject() (override val db:Database,
             geom
           case None => cachedItem.geometries
         }
-        Some(Task(id, name, parentId, Some(instruction), Some(location), geometries, Some(status)))
+        Some(Task(id, name, parentId, Some(instruction), Some(location), geometries, Some(status), priority))
       }
     }
   }
@@ -212,21 +218,24 @@ class TaskDAL @Inject() (override val db:Database,
     */
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Connection): Option[Task] = {
     permission.hasWriteAccess(element, user)
-    withMRTransaction { implicit c =>
-      val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {reset})"
+    cacheManager.withOptionCaching { () =>
+      withMRTransaction { implicit c =>
+        val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {priority}, {reset})"
 
-      val updatedTaskId = SQL(query).on(
-        NamedParameter("name", ParameterValue.toParameterValue(element.name)),
-        NamedParameter("parentId", ParameterValue.toParameterValue(element.parent)),
-        NamedParameter("instruction", ParameterValue.toParameterValue(element.instruction)),
-        NamedParameter("status", ParameterValue.toParameterValue(element.status.getOrElse(Task.STATUS_CREATED))),
-        NamedParameter("id", ParameterValue.toParameterValue(element.id)),
-        NamedParameter("reset", ParameterValue.toParameterValue(config.taskReset + " days"))
-      ).as(long("create_update_task").*).head
-      if (StringUtils.isNotEmpty(element.geometries)) {
-        updateGeometries(updatedTaskId, Json.parse(element.geometries))
+        val updatedTaskId = SQL(query).on(
+          NamedParameter("name", ParameterValue.toParameterValue(element.name)),
+          NamedParameter("parentId", ParameterValue.toParameterValue(element.parent)),
+          NamedParameter("instruction", ParameterValue.toParameterValue(element.instruction)),
+          NamedParameter("status", ParameterValue.toParameterValue(element.status.getOrElse(Task.STATUS_CREATED))),
+          NamedParameter("id", ParameterValue.toParameterValue(element.id)),
+          NamedParameter("priority", ParameterValue.toParameterValue(element.priority)),
+          NamedParameter("reset", ParameterValue.toParameterValue(config.taskReset + " days"))
+        ).as(long("create_update_task").*).head
+        if (StringUtils.isNotEmpty(element.geometries)) {
+          updateGeometries(updatedTaskId, Json.parse(element.geometries))
+        }
+        Some(element.copy(id = updatedTaskId))
       }
-      Some(element.copy(id = updatedTaskId))
     }
   }
 
@@ -265,6 +274,61 @@ class TaskDAL @Inject() (override val db:Database,
   }
 
   /**
+    * This function will update the tasks priority based on the parent challenge information. It will
+    * check first to see if it falls inside the HIGH priority bucket, then MEDIUM then LOW. If it doesn't
+    * fall into any priority bucket, it will then set the priority to the default priority defined
+    * in the parent challenge
+    *
+    * @param taskId The id for the task to update the priority for
+    * @param c The database connection
+    */
+  def updateTaskPriority(taskId:Long, user:User)(implicit c:Connection=null) : Unit = {
+    withMRTransaction{ implicit c =>
+      implicit val id = taskId
+      cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
+        permission.hasWriteAccess(task, user)
+        // get the parent challenge, as we need the priority information
+        val parentChallenge = challengeDAL.get().retrieveById(task.parent) match {
+          case Some(c) => c
+          case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
+        }
+        val newPriority = getTaskPriority(task, parentChallenge)
+        update(Json.obj("priority" -> newPriority), user)
+      }
+    }
+  }
+
+  /**
+    * Gets the task priority
+    *
+    * @param task The task
+    * @param parent The parent Challenge
+    * @return Priority HIGH = 0, MEDIUM = 1, LOW = 2
+    */
+  def getTaskPriority(task:Task, parent:Challenge) : Int = {
+    val matchingList = task.getGeometryProperties().flatMap {
+      props => if (parent.isHighPriority(props)) {
+        Some(Challenge.PRIORITY_HIGH)
+      } else if (parent.isMediumPriority(props)) {
+        Some(Challenge.PRIORITY_MEDIUM)
+      } else if (parent.isLowRulePriority(props)) {
+        Some(Challenge.PRIORITY_LOW)
+      } else {
+        None
+      }
+    }
+    if (matchingList.isEmpty) {
+      parent.defaultPriority
+    } else if (matchingList.contains(Challenge.PRIORITY_HIGH)) {
+      Challenge.PRIORITY_HIGH
+    } else if (matchingList.contains(Challenge.PRIORITY_MEDIUM)) {
+      Challenge.PRIORITY_MEDIUM
+    } else {
+      Challenge.PRIORITY_LOW
+    }
+  }
+
+  /**
     * Sets the task for a given user. The user cannot set the status of a task unless the object has
     * been locked by the same user before hand.
     * Will throw an InvalidException if the task status cannot be set due to the current task status
@@ -283,7 +347,7 @@ class TaskDAL @Inject() (override val db:Database,
       throw new IllegalAccessException("Guest users cannot make edits to tasks.")
     }
 
-    withMRTransaction { implicit c =>
+    val updatedRows = withMRTransaction { implicit c =>
       val updatedRows = SQL"""UPDATE tasks t SET status = $status
           FROM tasks t2
           LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
@@ -302,6 +366,9 @@ class TaskDAL @Inject() (override val db:Database,
       }
       updatedRows
     }
+
+    cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status))) }
+    updatedRows
   }
 
   /**
@@ -362,6 +429,21 @@ class TaskDAL @Inject() (override val db:Database,
     }
   }
 
+  def getRandomTasksWithPriority(user:User, params:SearchParameters, limit:Int=(-1))
+                                (implicit c:Connection=null) : List[Task] = {
+    val highPriorityTasks = getRandomTasks(user, params, limit)
+    if (highPriorityTasks.isEmpty) {
+      val mediumPriorityTasks = getRandomTasks(user, params, limit, Challenge.PRIORITY_MEDIUM)
+      if (mediumPriorityTasks.isEmpty) {
+        getRandomTasks(user, params, limit, Challenge.PRIORITY_LOW)
+      } else {
+        mediumPriorityTasks
+      }
+    } else {
+      highPriorityTasks
+    }
+  }
+
   /**
     * Gets a random task based on the tags, and can include project and challenge restrictions as well.
     * The sql query that is built to execute this could be costly on larger datasets, the reason being is
@@ -374,7 +456,7 @@ class TaskDAL @Inject() (override val db:Database,
     * @param limit The amount of tags that should be returned
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasks(user:User, params: SearchParameters, limit:Int=(-1))
+  def getRandomTasks(user:User, params: SearchParameters, limit:Int=(-1), priority:Int=Challenge.PRIORITY_HIGH)
                     (implicit c:Connection=null) : List[Task] = {
     val enabledClause = if (params.projectEnabled || (params.projectEnabled && params.challengeEnabled)) {
       "c.enabled = TRUE AND p.enabled = TRUE AND"
@@ -402,7 +484,7 @@ class TaskDAL @Inject() (override val db:Database,
     // not locked (or if it is, it is locked by the current user) and that the status of the task
     // is either Created or Skipped
     val whereClause = new StringBuilder(
-      s"""WHERE $enabledClause
+      s"""WHERE $enabledClause tasks.priority = $priority AND
               (l.id IS NULL OR l.user_id = ${user.id}) AND
               tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED})""")
 

@@ -1,0 +1,84 @@
+@import org.maproulette.models.Challenge
+@import views.html.admin.forms.elements._
+@(challengeForm:Form[Challenge])(implicit messages: Messages)
+<span class="help-block">The priority of tasks can be defined by High, Medium and Low. All high priority tasks will be shown first, then medium and finally low. This can be useful if you have a large number of tasks and wish to have certain sets of tasks fixed first.</span>
+<div class="form-group">
+    @select(challengeForm("defaultPriority"),
+        label = "Default Priority",
+        optionList = List(("High", "0"), ("Medium", "1"), ("Low", "2")),
+        isMultiple = false,
+        help = "Please enter the default priority level for the tasks in this challenge",
+        defaultSelected = Some("0")
+    )
+</div>
+<span class="help-block">Use the expression builders below to define the tasks to be placed in HIGH, MEDIUM and LOW priorities.</span>
+<div class="form-group">
+    <label class="col-sm-2 control-label">High</label>
+    <div id="priority-high-builder" class="col-sm-8"></div>
+</div>
+<input type="text" readonly="readonly" id="highPriorityRule" name="highPriorityRule" style="display:none"/>
+<div class="form-group">
+    <label class="col-sm-2 control-label">Medium</label>
+    <div id="priority-medium-builder" class="col-sm-8"></div>
+</div>
+<input type="text" readonly="readonly" id="mediumPriorityRule" name="mediumPriorityRule" style="display:none"/>
+<div class="form-group">
+    <label class="col-sm-2 control-label">Low</label>
+    <div id="priority-low-builder" class="col-sm-8"></div>
+</div>
+<input type="text" readonly="readonly" id="lowPriorityRule" name="lowPriorityRule" style="display:none"/>
+<script type="application/javascript">
+$().ready(function() {
+    var highRule = '@challengeForm("highPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
+    if (highRule != "") {
+        $('#priority-high-builder').queryBuilder('setRules', JSON.parse(highRule));
+    }
+    var mediumRule = '@challengeForm("mediumPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
+    if (mediumRule != "") {
+        $('#priority-medium-builder').queryBuilder('setRules', JSON.parse(mediumRule));
+    }
+    var lowRule = '@challengeForm("lowPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
+    if (lowRule != "") {
+        $('#priority-low-builder').queryBuilder('setRules', JSON.parse(lowRule));
+    }
+});
+
+var generalFilters = [{
+    id: 'tag',
+    label: 'Tag',
+    operators:['equal', 'not_equal', 'contains', 'not_contains', 'is_empty', 'is_not_empty'],
+    input: function(rule, name) {
+        return '\
+                <input type="text" class="form-control top-item" name="' + name + '_key" placeholder="Key"/> \
+                <input type="text" class="form-control top-item" name="' + name + '_value" placeholder="Value"/>';
+    },
+    valueGetter: function(rule) {
+        return rule.$el.find('.rule-value-container [name$=_key]').val()
+                +'.'+ rule.$el.find('.rule-value-container [name$=_value]').val();
+    },
+    valueSetter: function(rule, value) {
+        if (rule.operator.nb_inputs > 0) {
+            var val = value.split('.');
+
+            rule.$el.find('.rule-value-container [name$=_key]').val(val[0]).trigger('change');
+            rule.$el.find('.rule-value-container [name$=_value]').val(val[1]).trigger('change');
+        }
+    }
+}];
+
+$('#priority-high-builder').queryBuilder({
+    plugins: ['bt-tooltip-errors'],
+    allow_groups:false,
+    filters:generalFilters
+});
+$('#priority-medium-builder').queryBuilder({
+    plugins: ['bt-tooltip-errors'],
+    allow_groups:false,
+    filters:generalFilters
+});
+$('#priority-low-builder').queryBuilder({
+    plugins: ['bt-tooltip-errors'],
+    allow_groups:false,
+    filters:generalFilters
+});
+</script>

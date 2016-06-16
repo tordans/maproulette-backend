@@ -529,7 +529,11 @@ function Task() {
     };
 
     this.getRandomNextTask = function(success, error) {
-        jsRoutes.controllers.MappingController.getRandomNextTask().ajax({
+        var taskFunction = jsRoutes.controllers.MappingController.getRandomNextTask;
+        if (MRManager.usingPriority()) {
+            taskFunction = jsRoutes.controllers.MappingController.getRandomNextTaskWithPriority;
+        }
+        taskFunction().ajax({
             success:function(update) {
                 updateData(update, MRManager.getSuccessHandler(success));
             },
@@ -1021,6 +1025,10 @@ var MRManager = (function() {
         currentTask.getChallenge().view(challengeId, filters);      
     };
 
+    var usingPriority = function() {
+        return true;
+    };
+
     return {
         init: init, 
         addTaskToMap: addTaskToMap,
@@ -1042,7 +1050,8 @@ var MRManager = (function() {
         getCurrentChallengeData: getCurrentChallengeData,
         updateGeoJsonViewer: updateGeoJsonViewer,
         viewGeoJsonData: viewGeoJsonData,
-        viewChallenge: viewChallenge
+        viewChallenge: viewChallenge,
+        usingPriority: usingPriority
     };
 
 }());

@@ -46,8 +46,8 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     * @param body The incoming body from the request
     * @return
     */
-  override def updateCreateBody(body: JsValue): JsValue = {
-    var jsonBody = super.updateCreateBody(body)
+  override def updateCreateBody(body: JsValue, user:User): JsValue = {
+    var jsonBody = super.updateCreateBody(body, user)
     jsonBody = Utils.insertIntoJson(jsonBody, "groups", Array.emptyShortArray)(arrayWrites[Short])
     Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
   }

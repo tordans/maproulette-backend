@@ -70,10 +70,10 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param body The incoming body from the request
     * @return
     */
-  override def updateCreateBody(body: JsValue): JsValue = {
+  override def updateCreateBody(body: JsValue, user:User): JsValue = {
     // We need to update the geometries to make sure that we handle all the different types of
     // geometries that you can deal with like WKB or GeoJSON
-    updateGeometryData(super.updateCreateBody(body))
+    updateGeometryData(super.updateCreateBody(body, user))
   }
 
 
@@ -84,8 +84,8 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param body The request body
     * @return The updated request body
     */
-  override def updateUpdateBody(body: JsValue): JsValue =
-    updateGeometryData(super.updateUpdateBody(body))
+  override def updateUpdateBody(body: JsValue, user:User): JsValue =
+    updateGeometryData(super.updateUpdateBody(body, user))
 
   /**
     * Function can be implemented to extract more information than just the default create data,

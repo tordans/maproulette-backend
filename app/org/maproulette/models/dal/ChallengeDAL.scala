@@ -5,14 +5,17 @@ import javax.inject.{Inject, Provider, Singleton}
 
 import anorm._
 import anorm.SqlParser._
-import org.maproulette.actions.{Actions, ChallengeType}
+import org.apache.commons.lang3.StringUtils
+import org.maproulette.actions.{Actions, ChallengeType, TaskType}
 import org.maproulette.cache.CacheManager
-import org.maproulette.exception.UniqueViolationException
+import org.maproulette.exception.{NotFoundException, UniqueViolationException}
 import org.maproulette.models.{Challenge, Project, Task}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
-import play.api.libs.json.JsValue
+import play.api.libs.json.{JsValue, Json}
+
+import scala.concurrent.Future
 
 /**
   * The challenge data access layer handles all calls for challenges going to the database. Most
@@ -27,6 +30,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                               projectDAL: Provider[ProjectDAL],
                               override val permission:Permission)
   extends ParentDAL[Long, Challenge, Task] with TagDALMixin[Challenge] {
+
+  import scala.concurrent.ExecutionContext.Implicits.global
   // The manager for the challenge cache
   override val cacheManager = new CacheManager[Long, Challenge]
   // The name of the challenge table
@@ -54,11 +59,29 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.featured") ~
       get[Option[String]]("challenges.overpass_ql") ~
       get[Option[String]]("challenges.remote_geo_json") ~
-      get[Option[Int]]("challenges.status") map {
+      get[Option[Int]]("challenges.status") ~
+      get[Int]("challenges.default_priority") ~
+      get[Option[String]]("challenges.high_priority_rule") ~
+      get[Option[String]]("challenges.medium_priority_rule") ~
+      get[Option[String]]("challenges.low_priority_rule") map {
       case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
-        enabled ~ challenge_type ~ featured ~ overpassql ~ remoteGeoJson ~ status =>
+        enabled ~ challenge_type ~ featured ~ overpassql ~ remoteGeoJson ~ status ~
+        defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule =>
+        val hpr = highPriorityRule match {
+          case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
+          case r => r
+        }
+        val mpr = mediumPriorityRule match {
+          case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
+          case r => r
+        }
+        val lpr = lowPriorityRule match {
+          case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
+          case r => r
+        }
         new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
-          enabled, challenge_type, featured, overpassql, remoteGeoJson, status)
+          enabled, challenge_type, featured, overpassql, remoteGeoJson, status,
+          defaultPriority, hpr, mpr, lpr)
     }
   }
 
@@ -106,11 +129,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
                                       instruction, enabled, challenge_type, featured, overpass_ql,
-                                      remote_geo_json, status)
+                                      remote_geo_json, status, default_priority, high_priority_rule,
+                                      medium_priority_rule, low_priority_rule)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
                       ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
-                      ${challenge.overpassQL}, ${challenge.remoteGeoJson}, ${challenge.status}
+                      ${challenge.overpassQL}, ${challenge.remoteGeoJson}, ${challenge.status},
+                      ${challenge.defaultPriority}, ${challenge.highPriorityRule}, ${challenge.mediumPriorityRule},
+                      ${challenge.lowPriorityRule}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
     } match {
@@ -128,8 +154,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
   override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Challenge] = {
-    cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+    var updatedPriorityRules = false
+    val updatedChallenge = cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       permission.hasWriteAccess(cachedItem, user)
+      val highPriorityRule = (updates \ "highPriorityRule").asOpt[String].getOrElse(cachedItem.highPriorityRule.getOrElse(""))
+      val mediumPriorityRule = (updates \ "mediumPriorityRule").asOpt[String].getOrElse(cachedItem.mediumPriorityRule.getOrElse(""))
+      val lowPriorityRule = (updates \ "lowPriorityRule").asOpt[String].getOrElse(cachedItem.lowPriorityRule.getOrElse(""))
       withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -142,6 +172,13 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.overpassQL.getOrElse(""))
         val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.remoteGeoJson.getOrElse(""))
         val overpassStatus = (updates \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(Challenge.STATUS_NA))
+        val defaultPriority = (updates \ "defaultPriority").asOpt[Int].getOrElse(cachedItem.defaultPriority)
+        // if any of the priority rules have changed then we need to run the update priorities task
+        if (!StringUtils.equalsIgnoreCase(highPriorityRule, cachedItem.highPriorityRule.getOrElse("")) ||
+            !StringUtils.equalsIgnoreCase(mediumPriorityRule, cachedItem.mediumPriorityRule.getOrElse("")) ||
+            !StringUtils.equalsIgnoreCase(lowPriorityRule, cachedItem.lowPriorityRule.getOrElse(""))) {
+          updatedPriorityRules = true
+        }
 
         SQL"""UPDATE challenges SET name = $name,
                                     parent_id = $parentId,
@@ -153,10 +190,19 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                                     featured = $featured,
                                     overpass_ql = $overpassQL,
                                     remote_geo_json = $remoteGeoJson,
-                                    status = $overpassStatus
+                                    status = $overpassStatus,
+                                    default_priority = $defaultPriority,
+                                    high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) { Option.empty[String] } else { Some(highPriorityRule) }},
+                                    medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) { Option.empty[String] } else { Some(mediumPriorityRule) }},
+                                    low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }}
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }
+    // update the task priorities in the background
+    if (updatedPriorityRules) {
+      Future { updateTaskPriorities(user) }
+    }
+    updatedChallenge
   }
 
   override def _find(searchString:String, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
@@ -301,6 +347,41 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       }
       SQL"""SELECT COUNT(*) as count, status FROM tasks WHERE parent_id = $id GROUP BY status"""
         .as(summaryParser.*).toMap
+    }
+  }
+
+  /**
+    * Will run through the tasks in batches of 50 and update the priorities based on the rules
+    * of the challenge
+    *
+    * @param user The user executing the request
+    * @param id The id of the challenge
+    * @param c The connection for the request
+    */
+  def updateTaskPriorities(user:User)(implicit id:Long, c:Connection=null) : Unit = {
+    permission.hasWriteAccess(TaskType(), user)
+    withMRConnection { implicit c =>
+      val challenge = retrieveById(id) match {
+        case Some(c) => c
+        case None => throw new NotFoundException(s"Could not update priorties for tasks, no challenge with id $id found.")
+      }
+      var pointer = 0
+      var currentTasks:List[Task] = List.empty
+      do {
+        currentTasks = listChildren(50, pointer)
+        currentTasks.foreach {
+          task =>
+            taskDAL.cacheManager.withOptionCaching { () =>
+              val taskPriority = taskDAL.getTaskPriority(task, challenge)
+              if (taskPriority != task.priority) {
+                taskDAL.update(Json.obj("priority" -> taskPriority), user)(task.id)
+              } else {
+                Some(task)
+              }
+            }
+        }
+        pointer += 1
+      } while (currentTasks.size == 50)
     }
   }
 }

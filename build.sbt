@@ -42,6 +42,9 @@ libraryDependencies ++= Seq(
   "org.webjars.bower" % "fuelux" % "3.14.2"
     exclude("org.webjars.bower", "jquery") exclude("org.webjars.bower", "moment")
     exclude("org.webjars.bower", "requirejs") exclude("org.webjars.bower", "bootstrap"),
+  "org.webjars.bower" % "jQuery-QueryBuilder" % "2.3.2"
+    exclude("org.webjars.bower", "moment") exclude("org.webjars.bower", "jquery")
+    exclude("org.webjars.bower", "bootstrap") exclude("org.webjars.bower", "doT"),
   "org.webjars.bower" % "marked" % "0.3.5",
   "org.webjars.bower" % "chartjs" % "2.1.0"
 )
