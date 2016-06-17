@@ -289,24 +289,6 @@ L.Control.ControlPanel = L.Control.extend({
         }
     });
 
-    var mqTilesAttr = 'Tiles &copy; <a href="http://www.mapquest.com/" target="_blank">MapQuest</a> <img src="http://developer.mapquest.com/content/osm/mq_logo.png" />';
-
-    L.TileLayer.MapQuestOSM = L.TileLayer.Common.extend({
-        url: 'http://otile{s}.mqcdn.com/tiles/1.0.0/{type}/{z}/{x}/{y}.png',
-        options: {
-            subdomains: '1234',
-            type: 'osm',
-            attribution: 'Map data ' + L.TileLayer.OSM_ATTR + ', ' + mqTilesAttr
-        }
-    });
-
-    L.TileLayer.MapQuestAerial = L.TileLayer.MapQuestOSM.extend({
-        options: {
-            type: 'sat',
-            attribution: 'Imagery &copy; NASA/JPL-Caltech and U.S. Depart. of Agriculture, Farm Service Agency, ' + mqTilesAttr
-        }
-    });
-
     L.TileLayer.MapBox = L.TileLayer.Common.extend({
         url: 'http://{s}.tiles.mapbox.com/v3/{user}.{map}/{z}/{x}/{y}.png'
     });
@@ -529,7 +511,11 @@ function Task() {
     };
 
     this.getRandomNextTask = function(success, error) {
-        jsRoutes.controllers.MappingController.getRandomNextTask().ajax({
+        var taskFunction = jsRoutes.controllers.MappingController.getRandomNextTask;
+        if (MRManager.usingPriority()) {
+            taskFunction = jsRoutes.controllers.MappingController.getRandomNextTaskWithPriority;
+        }
+        taskFunction().ajax({
             success:function(update) {
                 updateData(update, MRManager.getSuccessHandler(success));
             },
@@ -590,8 +576,6 @@ var MRManager = (function() {
 
     var init = function (userSignedIn, element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
-            road_layer = new L.TileLayer.MapQuestOSM(),
-            mapquest_layer = new L.TileLayer.MapQuestAerial(),
             opencycle_layer = new L.TileLayer.OpenCycleMap(),
             bing_layer = new L.TileLayer.Bing();
         map = new L.Map(element, {
@@ -625,8 +609,7 @@ var MRManager = (function() {
 
         map.addLayer(geojsonLayer);
         layerControl = L.control.layers(
-            {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'MapQuest Roads': road_layer,
-                'MapQuest Open Aerial': mapquest_layer, 'Bing Aerial': bing_layer},
+            {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'Bing Aerial': bing_layer},
             {'GeoJSON': geojsonLayer},
             {position:"topright"}
         );
@@ -1021,6 +1004,10 @@ var MRManager = (function() {
         currentTask.getChallenge().view(challengeId, filters);      
     };
 
+    var usingPriority = function() {
+        return true;
+    };
+
     return {
         init: init, 
         addTaskToMap: addTaskToMap,
@@ -1042,7 +1029,8 @@ var MRManager = (function() {
         getCurrentChallengeData: getCurrentChallengeData,
         updateGeoJsonViewer: updateGeoJsonViewer,
         viewGeoJsonData: viewGeoJsonData,
-        viewChallenge: viewChallenge
+        viewChallenge: viewChallenge,
+        usingPriority: usingPriority
     };
 
 }());

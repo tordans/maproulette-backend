@@ -1,0 +1,50 @@
+@import org.maproulette.models.Challenge
+@import views.html.admin.forms.elements._
+@(challengeForm:Form[Challenge])(implicit messages: Messages)
+<span class="help-block">This is the extra information that challenges can optionally set to give a better mapping experience specific the requirements of the challenge.</span>
+@defining(List(("0", "0"), ("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"), ("7", "7"), ("8", "8"), ("9", "9"), ("10", "10"), ("11", "11"), ("12", "12"), ("13", "13"), ("14", "14"), ("15", "15"), ("16", "16"), ("17", "17"), ("18", "18"), ("19", "19"))) { zoomList =>
+    <div class="form-group">
+    @select(challengeForm("default_zoom"),
+        label = "Default Zoom Level",
+        optionList = zoomList,
+        isMultiple = false,
+        help = "Set the default zoom level that will be used when a task is displayed on the map.",
+        defaultSelected = Some("14")
+    )
+    </div>
+    <div class="form-group">
+    @select(challengeForm("min_zoom"),
+        label = "Minimum Zoom Level",
+        optionList = zoomList,
+        isMultiple = false,
+        help = "Set the minimum zoom level for a task is displayed on the map.",
+        defaultSelected = Some("1")
+    )
+    </div>
+    <div class="form-group">
+    @select(challengeForm("max_zoom"),
+        label = "Maximum Zoom Level",
+        optionList = zoomList,
+        isMultiple = false,
+        help = "Set the maximum zoom level for a task is displayed on the map.",
+        defaultSelected = Some("16")
+    )
+    </div>
+}
+<div class="form-group">
+@select(challengeForm("tile_layer"),
+    label = "Default Tile Layer",
+    optionList = List(("Bing", "true"), ("MapQuest", "false"), ("OSM", "false")),
+    isMultiple = false,
+    help = "Please select the default tile layer or set a custom tile layer to use.",
+    defaultSelected = Some("Bing")
+)
+</div>
+<div class="form-group">
+@text(challengeForm("fp_text"),
+    label = "False Positive Text",
+    placeholder = "False Positive",
+    default = "False Positive",
+    help = "Set the text for the false positive button."
+)
+</div>

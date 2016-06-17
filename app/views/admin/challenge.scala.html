@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
 @import org.maproulette.actions.Actions
-@(user:User, parentId:Long, challenges:List[(Challenge, Int, Int, Int)])(implicit messages: Messages)
+@(user:User, parentId:Long, parentVisible:Boolean, challenges:List[(Challenge, Int, Int, Int)])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null,
     Map("Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()))
@@ -22,6 +22,10 @@
             </div>
         </div><!-- /.box-header -->
         <div class="box-body">
+            @if(!parentVisible) {
+                <i class="fa fa-eye-slash" style="color: red">
+                    The parent Project is currently not Visible. Any Challenges you set to Visible will only become Visible if you also set the parent Project to Visible.</i>
+            }
             <table id="challengeTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>

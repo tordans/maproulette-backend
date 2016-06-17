@@ -1,5 +1,6 @@
 package org.maproulette.models
 
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{ItemType, TaskType}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -30,8 +31,18 @@ case class Task(override val id:Long,
                 instruction: Option[String]=None,
                 location: Option[String]=None,
                 geometries:String,
-                status:Option[Int]=None) extends BaseObject[Long] {
+                status:Option[Int]=None,
+                priority:Int=Challenge.PRIORITY_HIGH) extends BaseObject[Long] {
   override val itemType: ItemType = TaskType()
+
+  def getGeometryProperties() : List[Map[String, String]] = {
+    if (StringUtils.isNotEmpty(geometries)) {
+      val geojson = Json.parse(geometries)
+      (geojson \ "features").as[List[JsValue]].map(json => (json \ "properties").as[Map[String, String]])
+    } else {
+      List.empty
+    }
+  }
 }
 
 object Task {
@@ -125,7 +136,8 @@ object Task {
       "instruction" -> optional(text),
       "location" -> optional(text),
       "geometries" -> nonEmptyText,
-      "status" -> optional(number)
+      "status" -> optional(number),
+      "priority" -> default(number, Challenge.PRIORITY_HIGH)
     )(Task.apply)(Task.unapply)
   )
 

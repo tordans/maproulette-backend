@@ -10,6 +10,7 @@ import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.dal.{ChallengeDAL, SurveyDAL, TagDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Survey, Task}
+import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json, Reads, Writes}
@@ -30,6 +31,7 @@ class ChallengeController @Inject() (override val childController:TaskController
                                      override val dal: ChallengeDAL,
                                      surveyDAL: SurveyDAL,
                                      taskDAL: TaskDAL,
+                                     userDAL: UserDAL,
                                      override val tagDAL: TagDAL)
   extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
@@ -55,11 +57,17 @@ class ChallengeController @Inject() (override val childController:TaskController
     * @param body The incoming body from the request
     * @return
     */
-  override def updateCreateBody(body: JsValue): JsValue = {
-    var jsonBody = super.updateCreateBody(body)
+  override def updateCreateBody(body: JsValue, user:User): JsValue = {
+    var jsonBody = super.updateCreateBody(body, user)
     jsonBody = Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
-    Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", 1)(IntWrites)
+    // if we can't find the parent ID, just use the user's default project instead
+    (jsonBody \ "parent").asOpt[Long] match {
+      case Some(v) => jsonBody
+      case None => Utils.insertIntoJson(jsonBody, "parent", userDAL.getHomeProject(user).id)
+    }
   }
 
   /**
@@ -130,6 +138,31 @@ class ChallengeController @Inject() (override val childController:TaskController
           Ok(Json.parse(dal.getChallengeGeometry(challengeId, filter)))
         case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
       }
+    }
+  }
+
+  /**
+    * Gets a random task that is a child of the challenge, includes the notion of priority
+    *
+    * @param challengeId The challenge id that is the parent of the tasks that you would be searching for.
+    * @param taskSearch Filter based on the name of the task
+    * @param tags A comma separated list of tags that optionally can be used to further filter the tasks
+    * @param limit Limit of how many tasks should be returned
+    * @return A list of Tasks that match the supplied filters
+    */
+  def getRandomTasksWithPriority(challengeId:Long,
+                                 taskSearch:String,
+                                 tags:String,
+                                 limit:Int) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      val params = SearchParameters(
+        challengeId = Some(challengeId),
+        taskSearch = taskSearch,
+        taskTags = tags.split(",").toList
+      )
+      val result = taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, limit)
+      result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
+      Ok(Json.toJson(result))
     }
   }
 

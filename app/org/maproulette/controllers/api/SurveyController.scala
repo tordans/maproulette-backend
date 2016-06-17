@@ -53,8 +53,8 @@ class SurveyController @Inject() (override val childController:TaskController,
     * @param body The incoming body from the request
     * @return
     */
-  override def updateCreateBody(body: JsValue): JsValue = {
-    val jsonBody = super.updateCreateBody(body)
+  override def updateCreateBody(body: JsValue, user:User): JsValue = {
+    val jsonBody = super.updateCreateBody(body, user:User)
     var challengeBody = (jsonBody \ "challenge").as[JsValue]
     challengeBody = Utils.insertJsonID(challengeBody)
     challengeBody = Utils.insertIntoJson(challengeBody, "enabled", true)(BooleanWrites)

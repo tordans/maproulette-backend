@@ -16,6 +16,7 @@ import org.maproulette.models.dal.{BaseDAL, ProjectDAL}
 import org.maproulette.session.{Group, Location, OSMProfile, User}
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
+import org.maproulette.exception.NotFoundException
 import org.maproulette.models.Project
 import org.maproulette.permissions.Permission
 import play.api.libs.Crypto
@@ -394,6 +395,19 @@ class UserDAL @Inject() (override val db:Database,
     } else {
       user
     }
+  }
 
+  /**
+    * Retrieves the user's home project
+    *
+    * @param user
+    * @return
+    */
+  def getHomeProject(user:User) : Project = {
+    val homeName = s"Home_${user.osmProfile.id}"
+    projectDAL.retrieveByName(homeName) match {
+      case Some(project) => project
+      case None => throw new NotFoundException("You should never get this exception, Home project should always exist for user.")
+    }
   }
 }

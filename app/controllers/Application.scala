@@ -2,12 +2,11 @@ package controllers
 
 import javax.inject.Inject
 
-import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.{StatusMessage, StatusMessages}
-import org.maproulette.models.{Survey, Task}
+import org.maproulette.exception.{NotFoundException, StatusMessage, StatusMessages}
+import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
@@ -18,7 +17,6 @@ import play.api.routing._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
-import scala.util.parsing.json.JSONObject
 import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
@@ -106,17 +104,22 @@ class Application @Inject() (val messagesApi: MessagesApi,
               }
             ))
           case ChallengeType() | SurveyType() =>
-            permission.hasWriteAccess(ProjectType(), user)(parentId.get)
-            val challenges = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
-            val challengeData = challenges.map(c => {
-              val summary = dalManager.challenge.getSummary(c.id)
-              (c,
-                summary.valuesIterator.sum,
-                summary.filter(_._1 == Task.STATUS_FIXED).values.headOption.getOrElse(0),
-                summary.filter(_._1 == Task.STATUS_FALSE_POSITIVE).values.headOption.getOrElse(0)
-              )
-            })
-            views.html.admin.challenge(user, parentId.get, challengeData)
+            dalManager.project.retrieveById(parentId.get) match {
+              case Some(p) =>
+                permission.hasWriteAccess(ProjectType(), user)(parentId.get)
+                val challenges = dalManager.project.listChildren(limitIgnore, offsetIgnore, false)(parentId.get)
+                val challengeData = challenges.map(c => {
+                  val summary = dalManager.challenge.getSummary(c.id)
+                  (c,
+                    summary.valuesIterator.sum,
+                    summary.filter(_._1 == Task.STATUS_FIXED).values.headOption.getOrElse(0),
+                    summary.filter(_._1 == Task.STATUS_FALSE_POSITIVE).values.headOption.getOrElse(0)
+                    )
+                })
+                views.html.admin.challenge(user, parentId.get, p.enabled, challengeData)
+              case None => throw new NotFoundException("Parent project for challenge not found")
+
+            }
           case _ => views.html.error.error("Invalid item type requested.")
         }
         case None => views.html.error.error("Invalid item type requested.")
@@ -236,6 +239,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
           val tasks = dal.listChildren(length, start, false, search, orderColumnName, orderDirection)(parentId)
           val taskMap = tasks.map(task => Map(
             "id" -> task.id.toString,
+            "priority" -> task.priority.toString,
             "name" -> task.name,
             "instruction" -> task.instruction.getOrElse(""),
             "location" -> task.location.toString,
@@ -298,6 +302,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,
         routes.javascript.MappingController.getRandomNextTask,
+        routes.javascript.MappingController.getRandomNextTaskWithPriority,
         routes.javascript.Application.mapChallenge
       )
     ).as("text/javascript")

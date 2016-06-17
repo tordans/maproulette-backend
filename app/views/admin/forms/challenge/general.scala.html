@@ -1,0 +1,90 @@
+@import org.maproulette.models.Challenge
+@import views.html.admin.forms.elements._
+@import org.maproulette.actions.Actions
+@import org.maproulette.session.User
+@(challengeForm:Form[Challenge], parentId:Long, user:User)(implicit messages: Messages)
+<span class="help-block">Standard challenge information.</span>
+@defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
+    @if(user.isSuperUser) {
+        <div class="form-group">
+        @checkbox(challengeForm("featured"),
+            label = "Featured",
+            default = false,
+            readOnly = false
+        )
+        </div>
+    }
+    <div class="form-group" style="display:none;">
+    @text(challengeForm("id"),
+        label = "id",
+        placeholder = "-1",
+        default = "-1",
+        readOnly = true
+    )
+    </div>
+    <div class="form-group" style="display:none;">
+    @text(challengeForm("parent"),
+        label = "Parent ID",
+        placeholder = "-1",
+        default = parentId+"",
+        readOnly = true
+    )
+    </div>
+    <div class="form-group" style="display:none;">
+    @text(challengeForm("challengeType"),
+        label = "Challenge Type",
+        placeholder = Actions.ITEM_TYPE_CHALLENGE+"",
+        default = Actions.ITEM_TYPE_CHALLENGE+"",
+        readOnly = true
+    )
+    </div>
+    <div class="form-group">
+    @select(challengeForm("enabled"),
+        label = "Visible",
+        optionList = List(("true", "true"), ("false", "false")),
+        isMultiple = false,
+        help = "Please set whether the challenge is visible or not.",
+        defaultSelected = Some("false")
+    )
+    </div>
+    <div class="form-group">
+    @text(challengeForm("name"),
+        label = "Name",
+        placeholder = "Challenge Name",
+        help = "Please enter the challenge name. (required)"
+    )
+    </div>
+    <div class="form-group">
+    @textarea(challengeForm("description"),
+        label = "Description",
+        rows = "5",
+        placeholder = "Challenge Description",
+        help = "Please enter the description for the challenge. (optional)"
+    )
+    </div>
+    <div class="form-group">
+    @textarea(challengeForm("blurb"),
+        label = "Blurb",
+        rows = "5",
+        placeholder = "Challenge Blurb",
+        help = "Please enter the blurb for the challenge. (optional)"
+    )
+    </div>
+    <div class="form-group">
+    @textarea(challengeForm("instruction"),
+        label = "Instruction",
+        rows = "5",
+        placeholder = "Challenge Instruction",
+        help = "Please enter the instruction for the challenge."
+    )
+    </div>
+    <div class="form-group">
+    @select(challengeForm("difficulty"),
+        label = "Difficulty",
+        optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
+        isMultiple = false,
+        help = "Please enter the difficulty level for the challenge",
+        defaultSelected = Some("1")
+    )
+    </div>
+}

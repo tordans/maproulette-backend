@@ -43,6 +43,20 @@ class MappingController @Inject() (sessionManager:SessionManager,
   }
 
   /**
+    * Gets a random next task based on the user selection criteria, which contains a lot of
+    * different criteria for the search. Includes Priority
+    *
+    * @return
+    */
+  def getRandomNextTaskWithPriority() = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { params =>
+        Ok(getResponseJSONNoLock(taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, 1).headOption))
+      }
+    }
+  }
+
+  /**
     * Retrieve the JSON for the next task in the sequence for a particular parent (Challenge or Survey)
     *
     * @param parentId The parent (challenge or survey)

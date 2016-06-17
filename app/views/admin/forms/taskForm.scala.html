@@ -1,5 +1,6 @@
 @import views.html.admin.forms.elements._
 @import org.maproulette.models.Task
+@import org.maproulette.models.Challenge
 @(projectId:Long, parentId:Long, parentType:String, taskForm:Form[Task])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null,
@@ -72,7 +73,16 @@
           label = "Status",
           optionList = Task.statusMap.map(e => (e._2, e._1+"")).toList,
           isMultiple = false,
-          help = "Please enter the status level for the challenge",
+          help = "Please enter the status level for the task",
+          defaultSelected = Some(Task.STATUS_CREATED.toString)
+        )
+        </div>
+        <div class="form-group">
+        @select(taskForm("priority"),
+          label = "Priority",
+          optionList = List(("High", Challenge.PRIORITY_HIGH+""), ("Medium", Challenge.PRIORITY_MEDIUM+""), ("Low", Challenge.PRIORITY_LOW+"")),
+          isMultiple = false,
+          help = "Please enter the priority level for the task",
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
         </div>
