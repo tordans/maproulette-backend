@@ -14,13 +14,17 @@ import org.maproulette.models.utils.DALHelper
 import play.api.Application
 import play.api.db.Database
 
-case class ActionSummary(available:Double,
+case class ActionSummary(total:Double,
+                          available:Double,
                              fixed:Double,
                              falsePositive:Double,
                              skipped:Double,
                              deleted:Double,
                              alreadyFixed:Double,
-                             tooHard:Double)
+                             tooHard:Double) {
+  def percentComplete = (((available / total) * 100) - 100) * -1
+  def percentage(value:Double) = (value / total) * 100
+}
 case class UserSummary(distinctTotalUsers:Int,
                        avgUsersPerChallenge:Double,
                        activeUsers:Double,
@@ -118,7 +122,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         deleted <- get[Option[Double]]("deleted")
         alreadyFixed <- get[Option[Double]]("already_fixed")
         tooHard <- get[Option[Double]]("too_hard")
-      } yield ActionSummary(available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
+      } yield ActionSummary(0, available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
                             skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0), tooHard.getOrElse(0))
 
       val perUser = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
@@ -169,11 +173,13 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     * @return
     */
   def getChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
-                          start:Option[Date]=None, end:Option[Date]=None) : List[ChallengeSummary] = {
+                          limit:Int=(-1), offset:Int=0, orderColumn:Option[String]=None, orderDirection:String="ASC",
+                          searchString:String="") : List[ChallengeSummary] = {
     db.withConnection { implicit c =>
       val parser = for {
         id <- int("tasks.parent_id")
         name <- str("challenges.name")
+        total <- int("total")
         available <- int("available")
         fixed <- int("fixed")
         falsePositive <- int("false_positive")
@@ -181,7 +187,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         deleted <- int("deleted")
         alreadyFixed <- int("already_fixed")
         tooHard <- int("too_hard")
-      } yield ChallengeSummary(id, name, ActionSummary(available, fixed, falsePositive, skipped, deleted, alreadyFixed, tooHard))
+      } yield ChallengeSummary(id, name, ActionSummary(total, available, fixed, falsePositive, skipped, deleted, alreadyFixed, tooHard))
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND t.parent_id = $id"
         case _ => projectList match {
@@ -189,18 +195,62 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           case None => ""
         }
       }
-      SQL"""SELECT t.parent_id, c.name,
-                          SUM(CASE t.status WHEN 0 THEN 1 ELSE 0 END) as available,
-                        	SUM(CASE t.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
-                        	SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
-                        	SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
-                        	SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
-                        	SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
-                          SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
-                        FROM tasks t
-                        INNER JOIN challenges c ON c.id = t.parent_id
-                        WHERE challenge_type = #${Actions.ITEM_TYPE_CHALLENGE} #$challengeFilter
-                        GROUP BY t.parent_id, c.name""".as(parser.*)
+      // The percentage columns are a bit of a hack simply so that we can order by the percentages.
+      // It won't decrease performance as this is simple basic math calculations, but it certainly
+      // isn't pretty
+      val query = s"""SELECT *,
+                        (((CAST(available AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100)-100)*1 AS complete_percentage,
+                        (CAST(available AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS available_perc,
+                        (CAST(fixed AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS fixed_perc,
+                        (CAST(false_positive AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS false_positive_perc,
+                        (CAST(skipped AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS skipped_perc,
+                        (CAST(already_fixed AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS already_fixed_perc,
+                        (CAST(too_hard AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS too_hard_perc
+                      FROM (
+                      SELECT t.parent_id, c.name,
+                                SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,
+                                SUM(CASE t.status WHEN 0 THEN 1 ELSE 0 END) as available,
+                                SUM(CASE t.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
+                                SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
+                                SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
+                                SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
+                                SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
+                                SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
+                              FROM tasks t
+                              INNER JOIN challenges c ON c.id = t.parent_id
+                              WHERE challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter
+                              ${searchField("c.name")}
+                              GROUP BY t.parent_id, c.name
+                    ) AS t
+                    ${order(orderColumn, orderDirection)}
+                    LIMIT ${sqlLimit(limit)} OFFSET {offset}
+        """
+        SQL(query).on('ss -> search(searchString), 'offset -> offset).as(parser.*)
+    }
+  }
+
+  /**
+    * Should be used in conjunction with challenge summary to retrieve the total number of challenges that
+    * are set for the particular summary query
+    *
+    * @param projectList The projects that are being used to filter the results, optional
+    * @param challengeId The challenge used to filter the results, optional
+    * @param searchString The search string that was applied to the query
+    * @return A integer value which is the total challenges included in the results
+    */
+  def getTotalSummaryCount(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None, searchString:String="") : Int = {
+    db.withConnection { implicit c =>
+      val challengeFilter = challengeId match {
+        case Some(id) if id != -1 => s"AND id = $id"
+        case _ => projectList match {
+          case Some(pl) => s"AND parent_id IN (${pl.mkString(",")})"
+          case None => ""
+        }
+      }
+      val query = s"""SELECT COUNT(*) AS total FROM challenges
+            WHERE challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
+            $challengeFilter ${searchField("name")}"""
+      SQL(query).on('ss -> search(searchString)).as(int("total").single)
     }
   }
 
@@ -239,7 +289,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           LEFT JOIN (
 	          SELECT created::date, status, COUNT(status) AS count
             FROM status_actions
-	          WHERE status IN (0, 1, 2, 3, 5) AND
+	          WHERE status IN (0, 1, 2, 3, 5) AND old_status != status AND
               created::date BETWEEN '#${dates._1}' AND '#${dates._2}'
               #$challengeProjectFilter
 	          GROUP BY created::date, status

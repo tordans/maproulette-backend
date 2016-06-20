@@ -2,7 +2,7 @@
 @import org.maproulette.Config
 @import org.maproulette.models.Challenge
 @(user:User, config:Config, challenge:Option[Challenge]=None, projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
-@colSize() = {@{if (challenge.isEmpty) { "3" } else { "4" }}}
+@colSize() = {@{if (challenge.isEmpty) { "3" } else { "6" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
 @views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { "All Challenges" } else { s"Projects ($projects)" }, None, -1, "")).name)
 <section class="content">
@@ -148,18 +148,25 @@
                                     <span class="description-text">ACTIONS PER USER PER CHALLENGE</span>
                                 </div><!-- /.description-block -->
                             </div>
+                            <div class="col-sm-3 col-xs-6">
+                                <div class="description-block border-right">
+                                    <h5 id="users_per_challenge" class="description-header"></h5>
+                                    <span class="description-text">USERS PER CHALLENGE</span>
+                                </div>
+                            </div><!-- /.col -->
                         }
-                        <div class="col-sm-@colSize() col-xs-6">
-                            <div class="description-block border-right">
-                                <h5 id="users_per_challenge" class="description-header"></h5>
-                                <span class="description-text">USERS PER CHALLENGE</span>
-                            </div>
-                        </div><!-- /.col -->
                     </div><!-- /.row -->
                 </div><!-- /.box-footer -->
             </div><!-- /.box -->
         </div><!-- /.col -->
     </div><!-- /.row -->
+    @if(challenge.isEmpty) {
+        <div class="row">
+            <div class="col-md-12">
+            @views.html.metrics.challengeMetricsTable(projects)
+            </div>
+        </div>
+    }
 </section>
 <script type="application/javascript">
     var dateFormat = "YYYY-MM-DD";
@@ -221,14 +228,13 @@
         var tooHardTasks = 0;
         var completionRate = 0;
         var falsePositiveRate = 0;
-        for (var i = 0; i < data.length; i++) {
-            var availableTasks = data[i].actions.available;
+        for (var i = 0; i < numOfChallenges; i++) {
             fixedTasks += data[i].actions.fixed;
             falsePositiveTasks += data[i].actions.falsePositive;
             skippedTasks += data[i].actions.skipped;
             alreadyFixedTasks += data[i].actions.alreadyFixed;
             tooHardTasks += data[i].actions.tooHard;
-            totalTasks += fixedTasks + falsePositiveTasks + skippedTasks + alreadyFixedTasks + availableTasks + tooHardTasks;
+            totalTasks += data[i].actions.total;
             if (totalTasks > 0) {
                 completionRate += (fixedTasks + alreadyFixedTasks) / totalTasks;
             }
