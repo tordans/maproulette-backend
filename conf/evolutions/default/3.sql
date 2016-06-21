@@ -1,6 +1,8 @@
 # --- Map Roulette Scheme
 
 # --- !Ups
+SELECT AddGeometryColumn('challenges', 'location', 4326, 'POINT', 2);
+
 -- Modifying this function so that if you send in the default status it ignores it and updates it with the current status of the task.
 -- This is done primarily because the only way that a existing task should have be reset to the default status (CREATED) is if the
 -- task is being uploaded as part of a scheduled upload and it is past the set time that defines that this task should be rechecked
