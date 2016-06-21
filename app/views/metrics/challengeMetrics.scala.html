@@ -220,7 +220,7 @@
     getMetrics(moment().subtract(6, 'days').format(dateFormat), moment().format(dateFormat));
 
     function receiveUserData(data) {
-        $("#top_users").html(data.distinctTotalUsers);
+        $("#top_users").html(data.distinctAllUsers);
         $("#actions").html(parseFloat(data.avgActionsPerUser.fixed).toFixed(2) + " <small>Fixed</small></br>" +
                 parseFloat(data.avgActionsPerUser.falsePositive).toFixed(2) + " <small>False Positives</small></br>" +
                 parseFloat(data.avgActionsPerUser.skipped).toFixed(2) + " <small>Skipped</small></br>" +

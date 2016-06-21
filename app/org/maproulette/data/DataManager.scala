@@ -25,7 +25,19 @@ case class ActionSummary(total:Double,
   def percentComplete = (((available / total) * 100) - 100) * -1
   def percentage(value:Double) = (value / total) * 100
 }
-case class UserSummary(distinctTotalUsers:Int,
+
+/**
+  * Handles the summary data for the users
+  *
+  * @param distinctAllUsers This is all the distinct users regardless of the date range
+  * @param distinctTotalUsers All the distinct users within the supplied date range
+  * @param avgUsersPerChallenge Average number of users per challenge within the date range
+  * @param activeUsers Active users (2 or more edits in last 2 days)
+  * @param avgActionsPerUser Average number of actions taken by a user
+  * @param avgActionsPerChallengePerUser Average number of actions taken by user per challenge
+  */
+case class UserSummary(distinctAllUsers:Int,
+                       distinctTotalUsers:Int,
                        avgUsersPerChallenge:Double,
                        activeUsers:Double,
                        avgActionsPerUser:ActionSummary,
@@ -162,7 +174,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     #$challengeProjectFilter
                                     GROUP BY osm_user_id, challenge_id
                                   ) AS t""".as(actionParser.*).head
-      UserSummary(getDistinctUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end),
+      val allUsers = SQL"""SELECT count(DISTINCT osm_user_id) FROM status_actions""".as(int(1).single)
+      UserSummary(allUsers,
+        getDistinctUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end),
         getDistinctUsersPerChallenge(challengeProjectFilter, false, challengeId.isEmpty, start, end),
         getActiveUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end),
         perUser,
