@@ -174,7 +174,11 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     #$challengeProjectFilter
                                     GROUP BY osm_user_id, challenge_id
                                   ) AS t""".as(actionParser.*).head
-      val allUsers = SQL"""SELECT count(DISTINCT osm_user_id) FROM status_actions""".as(int(1).single)
+      val allUsers =
+        SQL"""SELECT count(DISTINCT osm_user_id) FROM status_actions sa
+              #${getEnabledClause(challengeId.isEmpty, false, None, None, true)}
+              #$challengeProjectFilter
+           """.as(int(1).single)
       UserSummary(allUsers,
         getDistinctUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end),
         getDistinctUsersPerChallenge(challengeProjectFilter, false, challengeId.isEmpty, start, end),
@@ -343,15 +347,18 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   }
 
   private def getEnabledClause(onlyEnabled:Boolean=true, isSurvey:Boolean=true,
-                               start:Option[Date]=None, end:Option[Date]=None) : String = {
+                               start:Option[Date]=None, end:Option[Date]=None,
+                               ignoreDates:Boolean=false) : String = {
     if (onlyEnabled) {
       s"""|INNER JOIN challenges c ON c.id = sa.${if (isSurvey) {"survey_id"} else {"challenge_id"}}
           |INNER JOIN projects p ON p.id = c.parent_id
           |WHERE c.enabled = true and p.enabled = true
-          |${getDateClause(start, end, "sa", "AND")}
+          |${if(!ignoreDates) {getDateClause(start, end, "sa", "AND")} else {""}}
        """.stripMargin
-    } else {
+    } else if (!ignoreDates) {
       getDateClause(start, end, "sa")
+    } else {
+      "WHERE 1=1"
     }
   }
 }
