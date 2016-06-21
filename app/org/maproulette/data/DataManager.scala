@@ -53,13 +53,13 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   }
 
   private def getDistinctUsersPerChallenge(projectFilter:String, survey:Boolean=false,
-                                           start:Option[Date]=None, end:Option[Date]=None)(implicit c:Connection) : Int = {
+                                           start:Option[Date]=None, end:Option[Date]=None)(implicit c:Connection) : Double = {
     SQL"""SELECT AVG(count) AS count FROM (
             SELECT #${if (survey) {"survey_id"} else {"challenge_id"}}, COUNT(DISTINCT osm_user_id) AS count
             FROM #${if (survey) {"survey_answers"} else {"status_actions"}}
             #${getDateClause(start, end)} #$projectFilter
             GROUP BY #${if (survey) {"survey_id"} else {"challenge_id"}}
-          ) as t""".as(get[Option[Int]]("count").single).getOrElse(0)
+          ) as t""".as(get[Option[Double]]("count").single).getOrElse(0D)
   }
 
   private def getActiveUsers(projectFilter:String, survey:Boolean=false,
@@ -95,9 +95,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                               GROUP BY osm_user_id, survey_id
                             ) AS t""".as(get[Option[Double]]("answered").single).getOrElse(0)
 
-      UserSurveySummary(getDistinctUsers(surveyProjectFilter, true),
-        getDistinctUsersPerChallenge(surveyProjectFilter, true),
-        getActiveUsers(surveyProjectFilter, true),
+      UserSurveySummary(getDistinctUsers(surveyProjectFilter, true, start, end),
+        getDistinctUsersPerChallenge(surveyProjectFilter, true, start, end),
+        getActiveUsers(surveyProjectFilter, true, start, end),
         perUser,
         perSurvey
       )
@@ -157,9 +157,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     #${getDateClause(start, end)} #$challengeProjectFilter
                                     GROUP BY osm_user_id, challenge_id
                                   ) AS t""".as(actionParser.*).head
-      UserSummary(getDistinctUsers(challengeProjectFilter),
-        getDistinctUsersPerChallenge(challengeProjectFilter),
-        getActiveUsers(challengeProjectFilter),
+      UserSummary(getDistinctUsers(challengeProjectFilter, false, start, end),
+        getDistinctUsersPerChallenge(challengeProjectFilter, false, start, end),
+        getActiveUsers(challengeProjectFilter, false, start, end),
         perUser,
         perChallenge)
     }
@@ -218,7 +218,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                 SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
                               FROM tasks t
                               INNER JOIN challenges c ON c.id = t.parent_id
-                              WHERE challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter
+                              INNER JOIN projects p ON p.id = c.parent_id
+                              WHERE ${if(challengeId.isEmpty) {"c.enabled = true AND p.enabled = true AND"} else {""}}
+                              challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter
                               ${searchField("c.name")}
                               GROUP BY t.parent_id, c.name
                     ) AS t
@@ -247,9 +249,11 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           case None => ""
         }
       }
-      val query = s"""SELECT COUNT(*) AS total FROM challenges
-            WHERE challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
-            $challengeFilter ${searchField("name")}"""
+      val query = s"""SELECT COUNT(*) AS total FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE c.enabled = true AND p.enabled = true AND
+                      challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
+                      $challengeFilter ${searchField("c.name")}"""
       SQL(query).on('ss -> search(searchString)).as(int("total").single)
     }
   }
@@ -289,7 +293,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           LEFT JOIN (
 	          SELECT created::date, status, COUNT(status) AS count
             FROM status_actions
-	          WHERE status IN (0, 1, 2, 3, 5) AND old_status != status AND
+	          WHERE status IN (0, 1, 2, 3, 5, 6) AND old_status != status AND
               created::date BETWEEN '#${dates._1}' AND '#${dates._2}'
               #$challengeProjectFilter
 	          GROUP BY created::date, status
