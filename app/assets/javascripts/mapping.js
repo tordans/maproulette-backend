@@ -406,10 +406,10 @@ function Challenge() {
     };
     
     this.view = function(challengeId, filters, success, error) {
-        jsRoutes.org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(challengeId, filters).ajax({
+        jsRoutes.org.maproulette.controllers.api.ChallengeController.getClusteredPoints(challengeId, filters).ajax({
             success: function(data) {
                 if (typeof success === 'undefined') {
-                    MRManager.viewGeoJsonData(data);
+                    MRManager.viewClusteredData(data);
                 } else {
                     success();
                 }
@@ -537,6 +537,7 @@ function Task() {
 
 var MRManager = (function() {
     var map;
+    var markers;
     var currentGeoJSON = "";
     var geojsonLayer;
     var layerControl;
@@ -587,6 +588,7 @@ var MRManager = (function() {
             ]
         });
 
+        // geojson layer
         geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
                 if (feature.properties) {
@@ -606,8 +608,11 @@ var MRManager = (function() {
                 }
             }
         });
-
         map.addLayer(geojsonLayer);
+        // cluster marker layer
+        markers = L.markerClusterGroup();
+        map.addLayer(markers);
+
         layerControl = L.control.layers(
             {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'Bing Aerial': bing_layer},
             {'GeoJSON': geojsonLayer},
@@ -643,8 +648,15 @@ var MRManager = (function() {
         registerHotKeys();
     };
 
+    var getPopupDiv = function(properties) {
+
+        return popupString;
+    };
+
+    // Displays the geojson data on the map
     var viewGeoJsonData = function(data) {
         currentGeoJSON = data;
+        markers.clearLayers();
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentGeoJSON);
         map.fitBounds(geojsonLayer.getBounds());
@@ -655,11 +667,48 @@ var MRManager = (function() {
         controlPanel.update(signedIn, debugMode, false, false, false);
     };
 
+    // Displays cluster address points on the map
+    var viewClusteredData = function(data) {
+        currentGeoJSON = {};
+        markers.clearLayers();
+        geojsonLayer.clearLayers();
+        for (var i = 0; i < data.length; i++) {
+            var title = data[i].title;
+            var marker = L.marker(new L.LatLng(data[i].point.lat, data[i].point.lng), {title:title});
+            var popupString = '<div class="popup">';
+            if (title !== "") {
+                popupString += marked("#### " + title);
+            }
+            popupString += marked(data[i].blurb);
+            if (data[i].isChallenge) {
+                popupString += '<div class="pull-right"><a href="#">' +
+                    '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">Start</button>' +
+                    '</a></div>';
+                popupString += '<div class="pull-left"><a href="#">' +
+                    '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">View</button>' +
+                    '</a></div>';
+            } else {
+                popupString += '<div><a href="#">' +
+                    '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">Edit</button>' +
+                    '</a></div>';
+            }
+            popupString += '</div>';
+            marker.bindPopup(popupString, {
+                maxHeight: 200
+            });
+            markers.addLayer(marker);
+        }
+        map.fitBounds(markers.getBounds());
+        currentTask.resetTask();
+        toastr.clear();
+    };
+
     /**
      * Updates the map, this will first remove all current layers and then update the map with
      * the current task geometry
      */
     var updateTaskDisplay = function() {
+        markers.clearLayers();
         geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
@@ -736,12 +785,17 @@ var MRManager = (function() {
                 currentSearchParameters.setChallengeId(parentId);
                 currentSearchParameters.setProjectEnabled(false);
                 currentSearchParameters.setChallengeEnabled(false);
+                currentTask.getRandomNextTask();
             } else {
+                // In this case show all the challenges on the map
                 currentSearchParameters.setChallengeId(-1);
                 currentSearchParameters.setProjectEnabled(true);
                 currentSearchParameters.setChallengeEnabled(true);
+                jsRoutes.org.maproulette.controllers.api.ProjectController.getClusteredPoints(-1).ajax({
+                    success: MRManager.viewClusteredData,
+                    error: MRManager.getErrorHandler()
+                });
             }
-            currentTask.getRandomNextTask();   
         } else {
             currentTask.updateTask(taskId);
         }
@@ -1029,6 +1083,7 @@ var MRManager = (function() {
         getCurrentChallengeData: getCurrentChallengeData,
         updateGeoJsonViewer: updateGeoJsonViewer,
         viewGeoJsonData: viewGeoJsonData,
+        viewClusteredData: viewClusteredData,
         viewChallenge: viewChallenge,
         usingPriority: usingPriority
     };

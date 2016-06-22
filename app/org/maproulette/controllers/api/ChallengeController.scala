@@ -9,7 +9,7 @@ import org.maproulette.actions.{ActionManager, Actions, ChallengeType, TaskViewe
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.dal.{ChallengeDAL, SurveyDAL, TagDAL, TaskDAL}
-import org.maproulette.models.{Challenge, Survey, Task}
+import org.maproulette.models.{Challenge, ClusteredPoint, Survey, Task}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
@@ -138,6 +138,18 @@ class ChallengeController @Inject() (override val childController:TaskController
           Ok(Json.parse(dal.getChallengeGeometry(challengeId, filter)))
         case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
       }
+    }
+  }
+
+  def getClusteredPoints(challengeId:Long, statusFilter:String) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      implicit val writes = ClusteredPoint.clusteredPointWrites
+      val filter = if (StringUtils.isEmpty(statusFilter)) {
+        None
+      } else {
+        Some(statusFilter.split(",").map(_.toInt).toList)
+      }
+      Ok(Json.toJson(dal.getClusteredPoints(challengeId, filter)))
     }
   }
 

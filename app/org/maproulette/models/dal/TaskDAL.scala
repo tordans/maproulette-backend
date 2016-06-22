@@ -19,6 +19,7 @@ import play.api.db.Database
 import play.api.libs.json._
 
 import scala.collection.mutable.ListBuffer
+import scala.util.{Success, Failure, Try}
 
 /**
   * The data access layer for the Task objects
@@ -271,6 +272,14 @@ class TaskDAL @Inject() (override val db:Database,
         .on(parameters: _*)
         .execute()
     }
+    db.withTransaction { implicit c =>
+      // execute outside the transaction so that we can work on the updated geometries
+      // Update the location of the particular task
+      SQL"""UPDATE tasks SET location = (SELECT ST_Centroid(ST_Union(ST_Makevalid(geom)))
+          					FROM task_geometries tg
+          					INNER JOIN tasks t on t.id = tg.task_id
+          					WHERE t.id = $taskId)""".executeUpdate()
+    }
   }
 
   /**
@@ -431,9 +440,15 @@ class TaskDAL @Inject() (override val db:Database,
 
   def getRandomTasksWithPriority(user:User, params:SearchParameters, limit:Int=(-1))
                                 (implicit c:Connection=null) : List[Task] = {
-    val highPriorityTasks = getRandomTasks(user, params, limit)
+    val highPriorityTasks = Try(getRandomTasks(user, params, limit)) match {
+      case Success(res) => res
+      case Failure(f) => List.empty
+    }
     if (highPriorityTasks.isEmpty) {
-      val mediumPriorityTasks = getRandomTasks(user, params, limit, Challenge.PRIORITY_MEDIUM)
+      val mediumPriorityTasks = Try(getRandomTasks(user, params, limit, Challenge.PRIORITY_MEDIUM)) match {
+        case Success(res) => res
+        case Failure(f) => List.empty
+      }
       if (mediumPriorityTasks.isEmpty) {
         getRandomTasks(user, params, limit, Challenge.PRIORITY_LOW)
       } else {
@@ -486,7 +501,7 @@ class TaskDAL @Inject() (override val db:Database,
     val whereClause = new StringBuilder(
       s"""WHERE $enabledClause tasks.priority = $priority AND
               (l.id IS NULL OR l.user_id = ${user.id}) AND
-              tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED})""")
+              tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}, ${Task.STATUS_TOO_HARD})""")
 
     params.getChallengeId match {
       case Some(id) =>

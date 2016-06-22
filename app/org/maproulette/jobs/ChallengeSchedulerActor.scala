@@ -7,6 +7,9 @@ import play.api.Logger
 import play.api.db.Database
 
 /**
+  * This job will update the challenges from remote geojson or overpass query based on the supplied
+  * schedules in the challenge
+  *
   * @author cuthbertm
   */
 @Singleton

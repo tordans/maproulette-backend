@@ -10,6 +10,7 @@ class JobModule extends AbstractModule with AkkaGuiceSupport {
   def configure() = {
     bindActor[SchedulerActor]("scheduler-actor")
     bindActor[ChallengeSchedulerActor]("challenge-scheduler-actor")
+    bindActor[LocationSchedulerActor]("location-scheduler-actor")
     bind(classOf[Scheduler]).asEagerSingleton()
   }
 }

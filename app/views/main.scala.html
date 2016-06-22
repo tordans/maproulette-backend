@@ -3,7 +3,10 @@
 @minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
 <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/mapping.css")"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.css"))"/>
+<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("dist/MarkerCluster.css"))"/>
+<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("dist/MarkerCluster.Default.css"))"/>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate("dist/leaflet.markercluster.js"))"></script>
 
 <div id="map"></div>
 <div id="information" class="modal fade" role="dialog">
