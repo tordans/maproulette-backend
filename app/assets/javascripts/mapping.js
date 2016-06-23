@@ -674,12 +674,12 @@ var MRManager = (function() {
             }
             popupString += marked(data[i].blurb);
             if (data[i].isChallenge) {
-                popupString += '<div class="pull-right"><a href="#">' +
+                popupString += '<div class="row"><div class="col-xs-6"><a href="#">' +
                     '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">Start</button>' +
                     '</a></div>';
-                popupString += '<div class="pull-left"><a href="#">' +
+                popupString += '<div class="col-xs-6"><a href="#">' +
                     '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">View</button>' +
-                    '</a></div>';
+                    '</a></div></div>';
             } else {
                 popupString += '<div><a href="#">' +
                     '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">Edit</button>' +
