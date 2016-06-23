@@ -45,6 +45,7 @@ libraryDependencies ++= Seq(
     exclude("org.webjars.bower", "moment") exclude("org.webjars.bower", "jquery")
     exclude("org.webjars.bower", "bootstrap") exclude("org.webjars.bower", "doT"),
   "org.webjars.bower" % "leaflet.markercluster" % "1.0.0-rc.1",
+  "org.webjars.bower" % "github-com-makinacorpus-Leaflet-Spin" % "0.1.1",
   "org.webjars.bower" % "marked" % "0.3.5",
   "org.webjars.bower" % "chartjs" % "2.1.0"
 )
