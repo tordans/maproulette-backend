@@ -9,6 +9,9 @@ import play.api.db.Database
 import anorm._
 
 /**
+  * This job will remove all stale locks from the system. A stale lock is a lock that has maintained
+  * the lock for over an hour.
+  *
   * @author cuthbertm
   */
 @Singleton

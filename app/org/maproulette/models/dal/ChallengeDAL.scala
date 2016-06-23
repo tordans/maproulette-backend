@@ -9,7 +9,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{Actions, ChallengeType, TaskType}
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.{NotFoundException, UniqueViolationException}
-import org.maproulette.models.{Challenge, Project, Task}
+import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
@@ -329,7 +329,35 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                           WHERE task_id IN
                           (SELECT DISTINCT id FROM tasks WHERE parent_id = $challengeId) #$filter
                     ) As f
-            )  As fc""".as(SqlParser.str("geometries").single)
+            )  As fc""".as(str("geometries").single)
+    }
+  }
+
+  /**
+    * Retrieves the json that contains the central points for all the tasks
+    *
+    * @param challengeId The id of the challenge
+    * @param statusFilter Filter the displayed task cluster points by their status
+    * @return A list of clustered point objects
+    */
+  def getClusteredPoints(challengeId:Long, statusFilter:Option[List[Int]]=None)
+                               (implicit c:Connection=null) : List[ClusteredPoint] = {
+    withMRConnection { implicit c =>
+      val filter = statusFilter match {
+        case Some(s) => s"AND status IN (${s.mkString(",")}"
+        case None => ""
+      }
+      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") map {
+        case id ~ name ~ instruction ~ location =>
+          val locationJSON = Json.parse(location)
+          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+          val point = Point(coordinates(1), coordinates.head)
+          ClusteredPoint(id, "", point, instruction, false)
+      }
+        SQL"""SELECT id, name, instruction,
+                      ST_AsGeoJSON(location) AS location
+              FROM tasks WHERE parent_id = $challengeId #$filter"""
+          .as(pointParser.*)
     }
   }
 
