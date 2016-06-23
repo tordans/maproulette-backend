@@ -70,9 +70,16 @@
       </a>
       <ul class="treeview-menu">
       @for(c <- hotChallenges) {
-        <li><a href="#" onclick="addItemToMap(@c.id)"><i class="fa
-                  @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
-        </a></li>
+        <li>
+          <a href="#" onclick="addItemToMap(@c.id)"
+            @if(c.name.length > 20) {
+              data-toggle="tooltip" title="@{c.name}"
+            }
+          >
+            <i class="fa @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}">
+            </i> @{c.name.substring(0, 20)}
+          </a>
+        </li>
       }
       </ul>
     </li>
@@ -85,9 +92,16 @@
       </a>
       <ul class="treeview-menu">
         @for(c <- newChallenges) {
-          <li><a href="#" onclick="addItemToMap(@c.id)"><i class="fa
-                  @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
-          </a></li>
+          <li>
+            <a href="#" onclick="addItemToMap(@c.id)"
+              @if(c.name.length > 20) {
+                data-toggle="tooltip" title="@{c.name}"
+                }
+            >
+              <i class="fa @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}">
+              </i> @{c.name.substring(0, 20)}
+            </a>
+          </li>
         }
       </ul>
     </li>
@@ -100,9 +114,16 @@
       </a>
       <ul class="treeview-menu">
         @for(c <- featuredChallenges) {
-          <li><a href="#" onclick="addItemToMap(@c.id)"><i class="fa
-                  @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}"></i> @{c.name}
-          </a></li>
+          <li>
+            <a href="#" onclick="addItemToMap(@c.id)"
+              @if(c.name.length > 20) {
+                data-toggle="tooltip" title="@{c.name}"
+                }
+            >
+              <i class="fa @{if(c.challengeType == Actions.ITEM_TYPE_CHALLENGE) {"fa-wrench"} else {"fa-edit"}}">
+              </i> @{c.name.substring(0, 20)}
+            </a>
+          </li>
         }
       </ul>
     </li>
@@ -137,8 +158,12 @@
       } else {
         dataObject = data[i];
       }
-      $("<li><a href=\"#\" onclick=\"addItemToMap(" + dataObject.id + ");\">\
-            <i class=\"fa fa-circle-o\"></i> " + dataObject.name + "</a>\
+      tooltipString = "";
+      if (dataObject.name.length > 20) {
+        tooltipString = "data-toggle=\"tooltip\" title=\"" + dataObject.name + "\""
+      }
+      $("<li><a href=\"#\" onclick=\"addItemToMap(" + dataObject.id + ");\"" + tooltipString + ">\
+            <i class=\"fa fa-circle-o\"></i> " + dataObject.name.substring(0, 20) + "</a>\
           </li>").appendTo("#" + name + "_results");
     }
   };
