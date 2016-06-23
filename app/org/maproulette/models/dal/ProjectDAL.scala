@@ -9,7 +9,7 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{Group, User}
+import org.maproulette.session.{Group, SearchParameters, User}
 import org.maproulette.session.dal.UserGroupDAL
 import play.api.Logger
 import play.api.db.Database
@@ -46,6 +46,14 @@ class ProjectDAL @Inject() (override val db:Database,
       case id ~ name ~ description ~ enabled =>
         new Project(id, name, description, userGroupDAL.getProjectGroups(id, User.superUser), enabled)
     }
+  }
+
+  val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") map {
+    case id ~ name ~ instruction ~ location =>
+      val locationJSON = Json.parse(location)
+      val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+      val point = Point(coordinates(1), coordinates.head)
+      ClusteredPoint(id, name, point, instruction, true)
   }
 
   /**
@@ -175,6 +183,34 @@ class ProjectDAL @Inject() (override val db:Database,
   }
 
   /**
+    * Retrieves the clustered json points for a searched set of challenges
+    *
+    * @param params
+    * @return
+    */
+  def getSearchedClusteredPoints(params: SearchParameters)
+                                (implicit c:Connection=null) : List[ClusteredPoint] = {
+    withMRConnection { implicit c =>
+      val query = s"""
+          SELECT c.id, c.name, c.instruction, ST_AsGeoJSON(c.location) AS location
+          FROM challenges c
+          INNER JOIN projects p ON p.id = c.parent_id
+          WHERE c.location IS NOT NULL AND (
+            SELECT COUNT(*) FROM tasks
+            WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
+         ${searchField("c.name", "AND", "cs")}
+         ${searchField("p.name", "AND", "ps")}
+         ${enabled(params.challengeEnabled, "c")} ${enabled(params.projectEnabled, "p")}
+         ${if (params.projectId.isDefined && params.projectId.get > 0) {s" AND c.parent_id = ${params.projectId.get}"} else {""}}
+         """
+        SQL(query).on(
+          'cs -> search(params.challengeSearch),
+          'ps -> search(params.projectSearch)
+        ).as(pointParser.*)
+    }
+  }
+
+  /**
     * Retrieves the clustered json for challenges
     *
     * @param projectId The project id for the requested challenges, if None, then retrieve all challenges
@@ -182,27 +218,19 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param enabledOnly Show only the enabled challenges
     * @return A list of ClusteredPoint objects
     */
-  def getProjectClusteredJson(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
+  def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
                               enabledOnly:Boolean=true)(implicit c:Connection=null) : List[ClusteredPoint] = {
     withMRConnection { implicit c =>
-      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") map {
-        case id ~ name ~ instruction ~ location =>
-          val locationJSON = Json.parse(location)
-          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, name, point, instruction, true)
-      }
-      SQL"""SELECT id, name, instruction,
-                      ST_AsGeoJSON(location) AS location
+      SQL"""SELECT c.id, c.name, c.instruction, ST_AsGeoJSON(c.location) AS location
               FROM challenges c
-              WHERE location IS NOT NULL AND (
+              INNER JOIN projects p ON p.id = c.parent_id
+              WHERE c.location IS NOT NULL AND (
                 SELECT COUNT(*) FROM tasks
                 WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
-              #${enabled(enabledOnly)}
-              #${if(projectId.isDefined) { s" AND parent_id = ${projectId.get}"} else { "" }}
-              #${if(challengeIds.nonEmpty) { s" AND id IN (${challengeIds.mkString(",")})"} else { "" }}
-        """
-        .as(pointParser.*)
+              #${enabled(enabledOnly, "c")} #${enabled(enabledOnly, "p")}
+              #${if(projectId.isDefined) { s" AND c.parent_id = ${projectId.get}"} else { "" }}
+              #${if(challengeIds.nonEmpty) { s" AND c.id IN (${challengeIds.mkString(",")})"} else { "" }}
+        """.as(pointParser.*)
     }
   }
 }

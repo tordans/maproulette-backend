@@ -158,22 +158,29 @@ var Utils = {
  * @constructor
  */
 function SearchParameters() {
+    var defaultState = {
+        projectId: -1,
+        projectSearch: '',
+        projectEnabled: true,
+        challengeId: -1,
+        challengeEnabled: true,
+        challengeSearch: '',
+        challengeTags: [],
+        taskSearch: '',
+        taskTags: [],
+        props: {},
+        priority: -1
+    };
+    
     var search = Cookies.getJSON('search');
     if (typeof search === 'undefined' || search == {}) {
-        search = {
-            projectId: -1, 
-            projectSearch: '',
-            projectEnabled: true, 
-            challengeId: -1, 
-            challengeEnabled: true, 
-            challengeSearch: '', 
-            challengeTags: [],
-            taskSearch: '',
-            taskTags: [],
-            props: {},
-            priority: -1
-        };
+        search = defaultState;
     }
+    
+    this.reset = function() {
+        search = defaultState;
+        update();
+    };
 
     var update = function() {
         Cookies.set('search', search);
@@ -186,6 +193,10 @@ function SearchParameters() {
     var setValue = function(key, value) {
         search[key] = value;
         update();
+    };
+
+    this.getCookieString = function() {
+        return Cookies.get('search');
     };
 
     this.getProjectId = function() {

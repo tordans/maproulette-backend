@@ -34,6 +34,7 @@ GET     /javascriptRoutes                                               @control
 GET     /map/:parentId/:taskId                                          @controllers.Application.mapTask(parentId:Long, taskId:Long)
 GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)
 GET     /view/:parentId                                                 @controllers.Application.viewChallenge(parentId:Long)
+GET     /show                                                           @controllers.Application.showSearchResults
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)

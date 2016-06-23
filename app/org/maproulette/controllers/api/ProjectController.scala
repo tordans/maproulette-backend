@@ -40,6 +40,8 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   // The type of object that this controller deals with.
   override implicit val itemType = ProjectType()
 
+  implicit val writes = ClusteredPoint.clusteredPointWrites
+
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
     * default elements into the body that shouldn't have to be required to create an object.
@@ -89,6 +91,13 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     }
   }
 
+  def getSearchedClusteredPoints(searchCookie:String) = Action.async { implicit request =>
+    sessionManager.userAwareRequest { implicit user =>
+      val searchParams = SearchParameters.convert(searchCookie)
+      Ok(Json.toJson(dal.getSearchedClusteredPoints(searchParams)))
+    }
+  }
+
   def getClusteredPoints(projectId:Long, challengeIds:String) = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       val pid = if (projectId < 0) {
@@ -101,8 +110,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
       } else {
         challengeIds.split(",").map(_.toLong).toList
       }
-      implicit val writes = ClusteredPoint.clusteredPointWrites
-      Ok(Json.toJson(dal.getProjectClusteredJson(pid, cids)))
+      Ok(Json.toJson(dal.getClusteredPoints(pid, cids)))
     }
   }
 }

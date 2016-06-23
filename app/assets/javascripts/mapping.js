@@ -541,7 +541,7 @@ function Task() {
 
 var MRManager = (function() {
     var map;
-    var markers;
+    var markers = L.markerClusterGroup();
     var currentGeoJSON = "";
     var geojsonLayer;
     var layerControl;
@@ -614,7 +614,6 @@ var MRManager = (function() {
         });
         map.addLayer(geojsonLayer);
         // cluster marker layer
-        markers = L.markerClusterGroup();
         map.addLayer(markers);
 
         layerControl = L.control.layers(
@@ -820,6 +819,22 @@ var MRManager = (function() {
         } else {
             currentTask.updateTask(taskId);
         }
+    };
+
+    /**
+     * Shows the clustered data on the map, filtered by the parameters in the SearchParameters object
+     * 
+     * @param searchParameters
+     */
+    var getSearchedClusteredPoints = function(searchParameters) {
+        loading();
+        if (typeof searchParameters !== 'undefined') {
+            currentSearchParameters = searchParameters;
+        }  
+        jsRoutes.org.maproulette.controllers.api.ProjectController.getSearchedClusteredPoints(currentSearchParameters.getCookieString()).ajax({
+            success: MRManager.getSuccessHandler(MRManager.viewClusteredData),
+            error: MRManager.getErrorHandler()
+        });
     };
 
     /**
@@ -1114,7 +1129,8 @@ var MRManager = (function() {
         viewChallenge: viewChallenge,
         usingPriority: usingPriority,
         loading:loading,
-        loaded:loaded
+        loaded:loaded,
+        getSearchedClusteredPoints:getSearchedClusteredPoints
     };
 
 }());

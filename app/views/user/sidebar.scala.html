@@ -1,7 +1,8 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
 @import org.maproulette.actions.Actions
-@(user:User, newChallenges:List[Challenge], hotChallenges:List[Challenge], featuredChallenges:List[Challenge])(implicit messages: Messages)
+@(user:User, newChallenges:List[Challenge], hotChallenges:List[Challenge],
+        featuredChallenges:List[Challenge])(implicit req: play.api.mvc.RequestHeader, messages: Messages)
 <!-- sidebar: style can be found in sidebar.less -->
 <section class="sidebar">
 
@@ -27,6 +28,7 @@
         <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
       </span>
     </div>
+    <a href="#" class="pull-right text-light-blue" onclick="showSearch();">Show</a>
   </form>
     <!-- /.search form -->
 
@@ -47,14 +49,6 @@
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul id="challenges_results" class="treeview-menu">
-      </ul>
-    </li>
-    <li id="search_tags" class="treeview hidden">
-      <a href="#">
-        <i class="fa fa-tag"></i> <span>Tags</span>
-        <i class="fa fa-angle-left pull-right"></i>
-      </a>
-      <ul id="tags_results" class="treeview-menu">
       </ul>
     </li>
     @if(user.isAdmin || user.isSuperUser) {
@@ -116,6 +110,18 @@
   </ul>
 </section>
 <script type="application/javascript">
+  var showSearch = function() {
+    // setup the search cookie
+    var params = new SearchParameters();
+    params.reset();
+    params.setChallengeSearch($("#searchQ").val());
+    if (typeof MRManager !== 'undefined') {
+      MRManager.getSearchedClusteredPoints(params);
+    } else {
+      href.location = '@routes.Application.showSearchResults().absoluteURL()';
+    }
+  };
+
   var updateSearch = function(data, name) {
     // remove previous results first
     $("#" + name + "_results").empty();
@@ -163,12 +169,6 @@
                   updateSearch(data, "surveys");
                 }, Utils.handleError
         );
-        // get tags that match the search query
-        /*findTags(q, 5, 0, true,
-         function(data) {
-         updateSearch(data, "Tags");
-         }, Utils.handleError
-         );*/
       }
     },1000);
   };

@@ -51,6 +51,16 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
+  def showSearchResults = Action.async { implicit request =>
+    sessionManager.userAwareUIRequest { implicit user =>
+      val userOrMocked = User.userOrMocked(user)
+      getOkIndex("MapRoulette", userOrMocked,
+        views.html.main(user = userOrMocked,
+          debugMode = config.isDebugMode,
+          searchView = true))
+    }
+  }
+
   /**
     * Maps a challenge onto the map, this will basically start the challenge with that ID
     *
@@ -301,6 +311,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.getChallengeGeoJSON,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.getClusteredPoints,
         org.maproulette.controllers.api.routes.javascript.ProjectController.getClusteredPoints,
+        org.maproulette.controllers.api.routes.javascript.ProjectController.getSearchedClusteredPoints,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,
