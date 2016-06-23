@@ -14,6 +14,7 @@ PUT     /project/:id/challenges                     @org.maproulette.controllers
 GET     /project/:id/children                       @org.maproulette.controllers.api.ProjectController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
 GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, cs:String ?= "", ct:String ?= "", tags:String ?= "", s:String ?= "", limit:Int ?= 1)
 GET     /project/clustered/:id                      @org.maproulette.controllers.api.ProjectController.getClusteredPoints(id:Long, challenges:String ?= "")
+GET     /project/search/clustered                   @org.maproulette.controllers.api.ProjectController.getSearchedClusteredPoints(search ?= "")
 # Challenge API
 POST    /challenge                                  @org.maproulette.controllers.api.ChallengeController.create
 POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost

@@ -45,6 +45,9 @@ object SearchParameters {
   implicit val paramsWrites: Writes[SearchParameters] = Json.writes[SearchParameters]
   implicit val paramsReads: Reads[SearchParameters] = Json.reads[SearchParameters]
 
+  def convert(value:String) : SearchParameters =
+    Json.parse(URLDecoder.decode(value, "UTF-8")).as[SearchParameters]
+
   /**
     * Retrieves the search cookie from the cookie list and creates a search parameter object
     * to send along with the request

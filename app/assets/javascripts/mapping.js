@@ -392,28 +392,30 @@ function Challenge() {
         // See Actions.scala which contains ID's for items. 4 = Survey
         if (this.isSurvey()) {
             ToastUtils.Success("Answered question [" + data.instruction + "]");
+            MRManager.loading();
             jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
-                success: function() {
+                success: MRManager.getSuccessHandler(function() {
                     if (typeof success === 'undefined') {
                         MRManager.getNextTask();
                     } else {
                         success();
                     }
-                },
+                }),
                 error: MRManager.getErrorHandler(error)
             });
         }
     };
     
     this.view = function(challengeId, filters, success, error) {
+        MRManager.loading();
         jsRoutes.org.maproulette.controllers.api.ChallengeController.getClusteredPoints(challengeId, filters).ajax({
-            success: function(data) {
+            success: MRManager.getSuccessHandler(function(data) {
                 if (typeof success === 'undefined') {
                     MRManager.viewClusteredData(data);
                 } else {
                     success();
                 }
-            },
+            }),
             error: MRManager.getErrorHandler(error)
         });
     };
@@ -453,6 +455,7 @@ function Task() {
     };
 
     var updateData = function(update, success) {
+        MRManager.loading();
         data = update;
         if (challenge.getData().id != data.parentId) {
             challenge.updateChallenge(data.parentId, success);
@@ -484,6 +487,7 @@ function Task() {
         if (data.parentId == -1 && data.id == -1) {
             ToastUtils.Info('You are in debug mode, select a challenge to debug.');
         } else {
+
             jsRoutes.controllers.MappingController
                 .getSequentialNextTask(data.parentId, data.id)
                 .ajax({
@@ -537,7 +541,7 @@ function Task() {
 
 var MRManager = (function() {
     var map;
-    var markers;
+    var markers = L.markerClusterGroup();
     var currentGeoJSON = "";
     var geojsonLayer;
     var layerControl;
@@ -610,7 +614,6 @@ var MRManager = (function() {
         });
         map.addLayer(geojsonLayer);
         // cluster marker layer
-        markers = L.markerClusterGroup();
         map.addLayer(markers);
 
         layerControl = L.control.layers(
@@ -648,30 +651,20 @@ var MRManager = (function() {
         registerHotKeys();
     };
 
-    var getPopupDiv = function(properties) {
-
-        return popupString;
-    };
-
     // Displays the geojson data on the map
     var viewGeoJsonData = function(data) {
         currentGeoJSON = data;
-        markers.clearLayers();
-        geojsonLayer.clearLayers();
         geojsonLayer.addData(currentGeoJSON);
         map.fitBounds(geojsonLayer.getBounds());
         // in this scenario the task needs to be reset
         currentTask.resetTask();
         window.history.pushState("", "", "");
-        toastr.clear();
         controlPanel.update(signedIn, debugMode, false, false, false);
     };
 
     // Displays cluster address points on the map
     var viewClusteredData = function(data) {
         currentGeoJSON = {};
-        markers.clearLayers();
-        geojsonLayer.clearLayers();
         for (var i = 0; i < data.length; i++) {
             var title = data[i].title;
             var marker = L.marker(new L.LatLng(data[i].point.lat, data[i].point.lng), {title:title});
@@ -681,12 +674,12 @@ var MRManager = (function() {
             }
             popupString += marked(data[i].blurb);
             if (data[i].isChallenge) {
-                popupString += '<div class="pull-right"><a href="#">' +
+                popupString += '<div class="row"><div class="col-xs-6"><a href="#">' +
                     '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">Start</button>' +
                     '</a></div>';
-                popupString += '<div class="pull-left"><a href="#">' +
+                popupString += '<div class="col-xs-6"><a href="#">' +
                     '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">View</button>' +
-                    '</a></div>';
+                    '</a></div></div>';
             } else {
                 popupString += '<div><a href="#">' +
                     '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">Edit</button>' +
@@ -700,7 +693,6 @@ var MRManager = (function() {
         }
         map.fitBounds(markers.getBounds());
         currentTask.resetTask();
-        toastr.clear();
     };
 
     /**
@@ -708,8 +700,6 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
-        markers.clearLayers();
-        geojsonLayer.clearLayers();
         geojsonLayer.addData(currentTask.getData().geometry);
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(signedIn, debugMode, true, true, true);
@@ -717,7 +707,6 @@ var MRManager = (function() {
         // update the browser url to reflect the current task
         window.history.pushState("", "", "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
         // show the task text as a notification
-        toastr.clear();
         var taskInstruction = currentTask.getData().instruction;
         if (taskInstruction === "") {
             taskInstruction = currentTask.getChallenge().getData().instruction;
@@ -732,6 +721,36 @@ var MRManager = (function() {
         editPanel.setAsEdit();
         editPanel.hide();
         updateMRControls();
+    };
+
+    // displays a spinning loading symbol when called
+    var loading = function() {
+        markers.clearLayers();
+        geojsonLayer.clearLayers();
+        toastr.clear();
+        map.spin(true);
+        // disable the map completely
+        map.dragging.disable();
+        map.touchZoom.disable();
+        map.doubleClickZoom.disable();
+        map.scrollWheelZoom.disable();
+        map.boxZoom.disable();
+        map.keyboard.disable();
+        if (map.tap) map.tap.disable();
+        $("#map").css("cursor", "progress");
+    };
+
+    // removes the spinning loading symbol
+    var loaded = function() {
+        map.spin(false);
+        map.dragging.enable();
+        map.touchZoom.enable();
+        map.doubleClickZoom.enable();
+        map.scrollWheelZoom.enable();
+        map.boxZoom.enable();
+        map.keyboard.enable();
+        if (map.tap) map.tap.enable();
+        $("#map").css("cursor", "grab").css("cursor", "-webkit-grab").css("cursor", "-moz-grab");
     };
 
     /**
@@ -788,17 +807,34 @@ var MRManager = (function() {
                 currentTask.getRandomNextTask();
             } else {
                 // In this case show all the challenges on the map
+                loading();
                 currentSearchParameters.setChallengeId(-1);
                 currentSearchParameters.setProjectEnabled(true);
                 currentSearchParameters.setChallengeEnabled(true);
                 jsRoutes.org.maproulette.controllers.api.ProjectController.getClusteredPoints(-1).ajax({
-                    success: MRManager.viewClusteredData,
+                    success: MRManager.getSuccessHandler(MRManager.viewClusteredData),
                     error: MRManager.getErrorHandler()
                 });
             }
         } else {
             currentTask.updateTask(taskId);
         }
+    };
+
+    /**
+     * Shows the clustered data on the map, filtered by the parameters in the SearchParameters object
+     * 
+     * @param searchParameters
+     */
+    var getSearchedClusteredPoints = function(searchParameters) {
+        loading();
+        if (typeof searchParameters !== 'undefined') {
+            currentSearchParameters = searchParameters;
+        }  
+        jsRoutes.org.maproulette.controllers.api.ProjectController.getSearchedClusteredPoints(currentSearchParameters.getCookieString()).ajax({
+            success: MRManager.getSuccessHandler(MRManager.viewClusteredData),
+            error: MRManager.getErrorHandler()
+        });
     };
 
     /**
@@ -1018,19 +1054,25 @@ var MRManager = (function() {
     };
 
     var getSuccessHandler = function(success) {
+        var handler = success;
         if (typeof success === 'undefined') {
-            return MRManager.updateDisplayTask;
-        } else {
-            return success;
+            handler = MRManager.updateDisplayTask;
         }
+        return function(data) {
+            loaded();
+            handler(data);
+        };
     };
 
     var getErrorHandler = function(error) {
+        var handler = error;
         if (typeof error === 'undefined') {
-            return ToastUtils.handleError;
-        } else {
-            return error;
+            handler = ToastUtils.handleError;
         }
+        return function(err) {
+            loaded();
+            handler(err);
+        };
     };
 
     /**
@@ -1055,7 +1097,7 @@ var MRManager = (function() {
     };
     
     var viewChallenge = function(challengeId, filters) {
-        currentTask.getChallenge().view(challengeId, filters);      
+        currentTask.getChallenge().view(challengeId, filters);
     };
 
     var usingPriority = function() {
@@ -1085,7 +1127,10 @@ var MRManager = (function() {
         viewGeoJsonData: viewGeoJsonData,
         viewClusteredData: viewClusteredData,
         viewChallenge: viewChallenge,
-        usingPriority: usingPriority
+        usingPriority: usingPriority,
+        loading:loading,
+        loaded:loaded,
+        getSearchedClusteredPoints:getSearchedClusteredPoints
     };
 
 }());

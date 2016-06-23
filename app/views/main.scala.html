@@ -1,12 +1,14 @@
 @import org.maproulette.session.User
-@(user:User, debugMode:Boolean, parentId:Long=(-1), taskId:Long=(-1), challengeView:Boolean=false)(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
-@minified() = {@{debugMode match { case true => "-debug"; case false => "" }}}
+@(user:User, debugMode:Boolean, parentId:Long=(-1), taskId:Long=(-1), challengeView:Boolean=false, searchView:Boolean=false)(implicit messages: Messages, req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
+@minified() = {@{debugMode match { case true => ".min"; case false => "" }}}
 <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/mapping.css")"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.css"))"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("dist/MarkerCluster.css"))"/>
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate("dist/MarkerCluster.Default.css"))"/>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate("dist/leaflet.markercluster.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.spin.js"))"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"spin${minified()}.js"))"></script>
 
 <div id="map"></div>
 <div id="information" class="modal fade" role="dialog">
@@ -29,6 +31,8 @@
         if (@challengeView) {
             var filters = Utils.getQSParameterByName("statusFilters");
             MRManager.viewChallenge(@parentId, filters);
+        } else if (@searchView) {
+            MRManager.getSearchedClusteredPoints();
         } else {
             MRManager.addTaskToMap(@parentId, @taskId);
         }
