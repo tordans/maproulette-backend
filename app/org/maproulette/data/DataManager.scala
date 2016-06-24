@@ -22,7 +22,10 @@ case class ActionSummary(total:Double,
                              deleted:Double,
                              alreadyFixed:Double,
                              tooHard:Double) {
-  def percentComplete = (((available / total) * 100) - 100) * -1
+  // available in the database means it is created state, available in the UI, means that it is in state
+  // AVAILABLE, SKIPPED or TOO HARD
+  def trueAvailable = available + skipped + deleted
+  def percentComplete = (((trueAvailable / total) * 100) - 100) * -1
   def percentage(value:Double) = (value / total) * 100
 }
 
