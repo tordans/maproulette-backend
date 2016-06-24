@@ -5,6 +5,7 @@
 @colSize() = {@{if (challenge.isEmpty) { "3" } else { "4" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
 @views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { "All Challenges" } else { s"Projects ($projects)" }, None, -1, "")).name)
+<script src="@routes.Assets.versioned("javascripts/metrics.js")"></script>
 <section class="content">
         <!-- Info boxes -->
     <div class="row">
@@ -205,14 +206,14 @@
                 jsRoutes.org.maproulette.controllers.api.DataController.getChallengeActivity(@c.id, start, end).ajax(activityCallback);
                 jsRoutes.org.maproulette.controllers.api.DataController.getUserChallengeSummary(@c.id, start, end).ajax(userCallback);
                 if (!dco) {
-                    jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(@c.id, start, end).ajax(summaryCallback);
+                    Metrics.getChallengeSummaryPieChart($("#statusPieChart"), @c.id, true, receiveSummaryData);
                 }
             }
             case None => {
                 jsRoutes.org.maproulette.controllers.api.DataController.getProjectActivity("@projects", start, end).ajax(activityCallback);
                 jsRoutes.org.maproulette.controllers.api.DataController.getUserSummary("@projects", start, end).ajax(userCallback);
                 if (!dco) {
-                    jsRoutes.org.maproulette.controllers.api.DataController.getProjectSummary("@projects", start, end).ajax(summaryCallback);
+                    Metrics.getProjectSummaryPieChart($("#statusPieChart"), "@projects", true, receiveSummaryData);
                 }
             }
         }
@@ -240,52 +241,27 @@
     }
 
     function receiveSummaryData(data) {
-        var numOfChallenges = data.length;
-        var totalTasks = 0;
-        var fixedTasks = 0;
-        var falsePositiveTasks = 0;
-        var skippedTasks = 0;
-        var alreadyFixedTasks = 0;
-        var tooHardTasks = 0;
-        var completionRate = 0;
-        var falsePositiveRate = 0;
-        for (var i = 0; i < numOfChallenges; i++) {
-            fixedTasks += data[i].actions.fixed;
-            falsePositiveTasks += data[i].actions.falsePositive;
-            skippedTasks += data[i].actions.skipped;
-            alreadyFixedTasks += data[i].actions.alreadyFixed;
-            tooHardTasks += data[i].actions.tooHard;
-            totalTasks += data[i].actions.total;
-            if (totalTasks > 0) {
-                completionRate += (fixedTasks + alreadyFixedTasks) / totalTasks;
-            }
-            if (totalTasks > 0) {
-                falsePositiveRate += falsePositiveTasks / totalTasks;
-            }
-        }
         // update the activity chart information on the side
-        $("#fixed").html("<b>" + fixedTasks + "</b>/" + totalTasks);
-        $("#fixed_bar").width((fixedTasks / totalTasks) * 100 + "%");
-        $("#false_positives").html("<b>" + falsePositiveTasks + "</b>/" + totalTasks);
-        $("#false_postives_bar").width((falsePositiveTasks / totalTasks) * 100 + "%");
-        $("#already_fixed").html("<b>" + alreadyFixedTasks + "</b>/" + totalTasks);
-        $("#already_fixed_bar").width((alreadyFixedTasks / totalTasks) * 100 + "%");
-        $("#skipped").html("<b>" + skippedTasks + "</b>/" + totalTasks);
-        $("#skipped_bar").width((skippedTasks / totalTasks) * 100 + "%");
-        $("#too_hard").html("<b>" + tooHardTasks + "</b>/" + totalTasks);
-        $("#too_hard_bar").width((tooHardTasks / totalTasks) * 100 + "%");
+        $("#fixed").html("<b>" + data.fixedTasks + "</b>/" + data.totalTasks);
+        $("#fixed_bar").width((data.fixedTasks / data.totalTasks) * 100 + "%");
+        $("#false_positives").html("<b>" + data.falsePositiveTasks + "</b>/" + data.totalTasks);
+        $("#false_postives_bar").width((data.falsePositiveTasks / data.totalTasks) * 100 + "%");
+        $("#already_fixed").html("<b>" + data.alreadyFixedTasks + "</b>/" + data.totalTasks);
+        $("#already_fixed_bar").width((data.alreadyFixedTasks / data.totalTasks) * 100 + "%");
+        $("#skipped").html("<b>" + data.skippedTasks + "</b>/" + data.totalTasks);
+        $("#skipped_bar").width((data.skippedTasks / data.totalTasks) * 100 + "%");
+        $("#too_hard").html("<b>" + data.tooHardTasks + "</b>/" + data.totalTasks);
+        $("#too_hard_bar").width((data.tooHardTasks / data.totalTasks) * 100 + "%");
         // update information in the top bar
         @if(challenge.isEmpty) {
-            $("#top_numOfChallenges").html(numOfChallenges + "</br><small>(" + totalTasks + " Tasks)</small>");
-            $("#top_fixed").html(parseFloat((completionRate / numOfChallenges) * 100).toFixed(2) + "%");
-            $("#top_fps").html(parseFloat((falsePositiveRate / numOfChallenges) * 100).toFixed(2) + "%");
+            $("#top_numOfChallenges").html(data.numOfChallenges + "</br><small>(" + data.totalTasks + " Tasks)</small>");
+            $("#top_fixed").html(parseFloat((data.completionRate / data.numOfChallenges) * 100).toFixed(2) + "%");
+            $("#top_fps").html(parseFloat((data.falsePositiveRate / data.numOfChallenges) * 100).toFixed(2) + "%");
         } else {
-            $("#top_numOfChallenges").html(totalTasks);
-            $("#top_fixed").html(fixedTasks);
-            $("#top_fps").html(falsePositiveTasks);
+            $("#top_numOfChallenges").html(data.totalTasks);
+            $("#top_fixed").html(data.fixedTasks);
+            $("#top_fps").html(data.falsePositiveTasks);
         }
-        updatePieChart(totalTasks - fixedTasks - falsePositiveTasks - alreadyFixedTasks - tooHardTasks,
-                fixedTasks, falsePositiveTasks, skippedTasks, alreadyFixedTasks, tooHardTasks);
     }
 
     $('.daterange').daterangepicker({
@@ -488,28 +464,6 @@
             }
         }
         source[status][date] += count;
-    }
-
-    function updatePieChart(available, fixed, falsePositive, skipped, alreadyFixed, tooHard) {
-        $("#statusPieChart").remove();
-        $('#distContainer').append("<canvas id=\"statusPieChart\"></canvas>");
-        var pieChart = new Chart($("#statusPieChart"), {
-            type:"doughnut",
-            data: {
-                labels: ["Available", "Fixed", "False Positives", "Skipped", "Already Fixed", "Too Hard"],
-                datasets: [
-                    {
-                        data: [available, fixed, falsePositive, skipped, alreadyFixed, tooHard],
-                        backgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)", "rgba(160, 32, 240, 1)"],
-                        hoverBackgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)", "rgba(160, 32, 240, 1)"]
-                    }
-                ]
-            },
-            animation:{
-                animateScale:true
-            }
-        });
-        pieChart.update();
     }
 
     function updateChart(flow) {

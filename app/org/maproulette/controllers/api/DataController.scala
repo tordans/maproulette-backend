@@ -75,7 +75,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   }
 
   def getChallengeSummary(id:Long) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(
         dataManager.getChallengeSummary(None, Some(id))
       ))
@@ -113,7 +113,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * @return
     */
   def getChallengeSummaries(projectIds:String) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+    sessionManager.userAwareRequest { implicit user =>
       val postData = request.body.asInstanceOf[AnyContentAsFormUrlEncoded].data
       val draw = postData.get("draw").head.head.toInt
       val start = postData.get("start").head.head.toInt
@@ -130,7 +130,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
         "id" -> summary.id.toString,
         "name" -> summary.name,
         "complete_percentage" -> summary.actions.percentComplete.toString,
-        "available" -> summary.actions.available.toString,
+        "available" -> summary.actions.trueAvailable.toString,
         "available_perc" -> summary.actions.percentage(summary.actions.available).toString,
         "fixed" -> summary.actions.fixed.toString,
         "fixed_perc" -> summary.actions.percentage(summary.actions.fixed).toString,

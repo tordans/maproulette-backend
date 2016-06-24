@@ -9,6 +9,8 @@
 <script src="@routes.WebJarAssets.at(webJarAssets.locate("dist/leaflet.markercluster.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate("leaflet.spin.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"spin${minified()}.js"))"></script>
+<script src="@routes.Assets.versioned("javascripts/metrics.js")"></script>
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/Chart${minified()}.js"))"></script>
 
 <div id="map"></div>
 <div id="information" class="modal fade" role="dialog">
