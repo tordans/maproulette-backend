@@ -59,26 +59,4 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
--- These updates could take a while to complete
--- Update all the task locations
-UPDATE tasks SET location = (SELECT t.id, st_centroid(st_union(st_makevalid(geom)))
-					FROM task_geometries tg
-					INNER JOIN tasks t ON t.id = tg.task_id
-					WHERE t.id = t2.id)
-FROM tasks t2
--- Update all the challenge locations
-DO $$
-DECLARE
-  rec RECORD;
-BEGIN
-  FOR rec IN SELECT id FROM challenges LOOP
-	  UPDATE challenges SET location = (SELECT st_centroid(st_union(st_makevalid(geom)))
-						FROM task_geometries tg
-						INNER JOIN tasks t ON t.id = tg.task_id
-						INNER JOIN challenges c ON c.id = t.parent_id
-						WHERE c.id = rec.id)
-	  WHERE id = rec.id;
-  END LOOP;
-END$$;
-
 # --- !Downs
