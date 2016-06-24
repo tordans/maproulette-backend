@@ -73,7 +73,7 @@
 </html>
 <script type="application/javascript">
     $(document).ready(function() {
-        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-toggle="tooltip"]').tooltip({container:'body'});
     });
     if (typeof MRManager === 'undefined') {
         $("#pi").remove();
