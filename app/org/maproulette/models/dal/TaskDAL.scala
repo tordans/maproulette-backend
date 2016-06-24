@@ -271,14 +271,38 @@ class TaskDAL @Inject() (override val db:Database,
       SQL("INSERT INTO task_geometries (task_id, geom, properties) VALUES " + rows)
         .on(parameters: _*)
         .execute()
+      c.commit()
     }
+    updateTaskLocation(taskId)
+  }
+
+  def updateTaskLocation(taskId:Long) = {
     db.withTransaction { implicit c =>
-      // execute outside the transaction so that we can work on the updated geometries
       // Update the location of the particular task
-      SQL"""UPDATE tasks SET location = (SELECT ST_Centroid(ST_Union(ST_Makevalid(geom)))
-          					FROM task_geometries tg
-          					INNER JOIN tasks t on t.id = tg.task_id
-          					WHERE t.id = $taskId)""".executeUpdate()
+      SQL"""UPDATE tasks
+            SET location = (SELECT ST_Centroid(ST_Collect(ST_Makevalid(geom)))
+          					        FROM task_geometries WHERE task_id = $taskId)
+            WHERE id = $taskId
+        """.executeUpdate()
+    }
+  }
+
+  def updateTaskLocations(challengeId:Long) = {
+    db.withTransaction { implicit c =>
+      // update all the tasks of a particular challenge
+      SQL"""DO $$
+            DECLARE
+            	rec RECORD;
+            BEGIN
+            	FOR rec IN SELECT task_id, ST_Centroid(ST_Collect(ST_Makevalid(geom))) AS location
+                          FROM task_geometries tg
+                          INNER JOIN tasks t on t.id = tg.task_id
+                          WHERE t.parent_id = $challengeId
+                          GROUP BY task_id LOOP
+            		UPDATE tasks SET location = rec.location WHERE tasks.id = rec.task_id and parent_id = $challengeId;
+            	END LOOP;
+            END$$;
+        """.executeUpdate()
     }
   }
 
