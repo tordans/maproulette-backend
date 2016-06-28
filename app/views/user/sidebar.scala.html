@@ -9,13 +9,13 @@
     <!-- Sidebar user panel (optional) -->
   <div class="user-panel">
     <div class="pull-left image">
-      <img src="@user.osmProfile.avatarURL" class="img-circle" alt="User Image">
+      <img src="@user.osmProfile.avatarURL" class="img-circle" alt="@messages("sidebar.avatarURL")">
     </div>
     <div class="pull-left info">
       <p>@user.name</p>
         <!-- Status -->
       @if(!user.guest) {
-        <a href="#"><i class="fa fa-circle text-success"></i> Online</a>
+        <a href="#"><i class="fa fa-circle text-success"></i> @messages("sidebar.online")</a>
       }
     </div>
   </div>
@@ -23,21 +23,21 @@
     <!-- search form (Optional) -->
   <form action="#" method="get" class="sidebar-form">
     <div class="input-group">
-      <input id="searchQ" type="text" name="q" class="form-control" placeholder="Search..." onkeyup="mpSearch();">
+      <input id="searchQ" type="text" name="q" class="form-control" placeholder="@messages("sidebar.search.placeholder")" onkeyup="mpSearch();">
       <span class="input-group-btn">
         <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
       </span>
     </div>
-    <a href="#" class="pull-right text-light-blue" onclick="showSearch();">Show</a>
+    <a href="#" class="pull-right text-light-blue" onclick="showSearch();">@messages("sidebar.search.show")</a>
   </form>
     <!-- /.search form -->
 
     <!-- Sidebar Menu -->
   <ul class="sidebar-menu">
-    <li id="search_header" class="header hidden">Search Results</li>
+    <li id="search_header" class="header hidden">@messages("sidebar.search.results")</li>
     <li id="search_surveys" class="treeview hidden">
       <a href="#">
-        <i class="fa fa-edit"></i> <span>Surveys</span>
+        <i class="fa fa-edit"></i> <span>@messages("sidebar.survey.header")</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul id="surveys_results" class="treeview-menu">
@@ -45,27 +45,27 @@
     </li>
     <li id="search_challenges" class="treeview hidden">
       <a href="#">
-        <i class="fa fa-wrench"></i> <span>Challenges</span>
+        <i class="fa fa-wrench"></i> <span>@messages("sidebar.challenge.header")</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul id="challenges_results" class="treeview-menu">
       </ul>
     </li>
     @if(user.isAdmin || user.isSuperUser) {
-      <li class="header">Administration</li>
+      <li class="header">@messages("sidebar.administration")</li>
         <!-- Optionally, you can add icons to the links -->
-      <li><a href="@routes.Application.adminUIProjectList()"><i class="fa fa-folder-open"></i> <span>Projects</span></a></li>
-      <li><a href="@routes.Application.metrics()"><i class="fa fa-pie-chart"></i> <span>Challenge Metrics</span></a></li>
-      <li><a href="@routes.Application.metrics(1)"><i class="fa fa-pie-chart"></i> <span>Survey Metrics</span></a></li>
+      <li><a href="@routes.Application.adminUIProjectList()"><i class="fa fa-folder-open"></i> <span>@messages("sidebar.project.header")</span></a></li>
+      <li><a href="@routes.Application.metrics()"><i class="fa fa-pie-chart"></i> <span>@messages("sidebar.challenge.metrics")</span></a></li>
+      <li><a href="@routes.Application.metrics(1)"><i class="fa fa-pie-chart"></i> <span>@messages("sidebar.survey.metrics")</span></a></li>
       @if(user.isSuperUser) {
-        <li><a href="@routes.Application.users()"><i class="fa fa-users"></i> <span>Users</span></a></li>
+        <li><a href="@routes.Application.users()"><i class="fa fa-users"></i> <span>@messages("sidebar.users.header")</span></a></li>
       }
     }
-    <li class="header">What to do?</li>
+    <li class="header">@messages("sidebar.whattodo")</li>
     @if(hotChallenges.nonEmpty) {
     <li class="treeview">
       <a href="#">
-        <i class="fa fa-fire"></i> <span>Hot</span>
+        <i class="fa fa-fire"></i> <span>@messages("sidebar.challenge.hot")</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul class="treeview-menu">
@@ -87,7 +87,7 @@
     @if(newChallenges.nonEmpty) {
     <li>
       <a href="#">
-        <i class="fa fa-plus-circle"></i> <span>Latest</span>
+        <i class="fa fa-plus-circle"></i> <span>@messages("sidebar.challenge.latest")</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul class="treeview-menu">
@@ -109,7 +109,7 @@
     @if(featuredChallenges.nonEmpty) {
     <li>
       <a href="#">
-        <i class="fa fa-send-o"></i> <span>Featured</span>
+        <i class="fa fa-send-o"></i> <span>@messages("sidebar.challenge.featured")</span>
         <i class="fa fa-angle-left pull-right"></i>
       </a>
       <ul class="treeview-menu">

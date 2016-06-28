@@ -49,12 +49,12 @@
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                     <!--iframe width="420" height="315" src="https://www.youtube.com/embed/pXPXMxsXT28" frameborder="0" allowfullscreen></iframe-->
                 <div class="box-body">
-                    <label>GeoJson Viewer</label>
+                    <label>@messages("geojson.title")</label>
                     <textarea id="geojson_text" class="form-control" rows="10" placeholder=""></textarea>
                 </div>
                 <div class="box-footer">
                     <button id="geojson_submit" class="btn btn-primary btn-large btn-action pull-left">Submit</button>
-                    <p>For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.</p>
+                    <p>@Html(messages("geojson.description"))</p>
                 </div>
             </div>
         </div>

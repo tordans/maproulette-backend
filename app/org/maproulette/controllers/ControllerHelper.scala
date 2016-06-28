@@ -5,8 +5,10 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
-import play.api.i18n.Messages
+import play.api.i18n.{Lang, Messages}
 import play.api.mvc.{Controller, Request, Result}
+import play.mvc.Http
+import play.mvc.Http.Context
 import play.twirl.api.Html
 
 /**
@@ -63,6 +65,6 @@ trait ControllerHelper {
     if (!user.guest) {
       result.addingToSession(SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString)
     }
-    result
+    messages.messages.setLang(result, new Lang(user.getUserLocale))
   }
 }

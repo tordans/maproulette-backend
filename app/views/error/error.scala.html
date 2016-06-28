@@ -3,7 +3,7 @@
 <!-- Content Header (Page header) -->
 <section class="content-header">
     <h1>
-        @statusCode Error Page
+        @statusCode @messages("error.header")
     </h1>
 </section>
 
@@ -15,10 +15,10 @@
             <h3><i class="fa fa-warning text-red"></i> @errorTitle</h3>
             <p>
                 @if(statusCode == 500) {
-                    We will work on fixing that right away.<br/>
+                    @messages("error.immediate")<br/>
                 }
-                Click on the Map button to start mapping again right away.<br/>
-                Error: @errorText
+                @messages("error.start")<br/>
+                @messages("error.title") @errorText
             </p>
         </div>
     </div><!-- /.error-page -->

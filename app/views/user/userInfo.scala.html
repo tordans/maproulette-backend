@@ -4,31 +4,9 @@
     <!-- Navbar Right Menu -->
 <div class="navbar-custom-menu">
     <ul class="nav navbar-nav">
-            <!-- Notifications Menu -->
-        <!--li class="dropdown notifications-menu">
-            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                <i class="fa fa-bell-o"></i>
-                <span class="label label-warning">2</span>
-            </a>
-            <ul class="dropdown-menu">
-                <li class="header">You have 2 notifications</li>
-                <li>
-                    <ul class="menu">
-                        <li>
-                            <a href="#">
-                                <i class="fa fa-users text-aqua"></i> 5 Tasks completed today by you
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#">
-                                <i class="fa fa-users text-aqua"></i> 100 Tasks completed today by the community
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                <li class="footer"><a href="#">View all</a></li>
-            </ul>
-        </li-->
+        <li class="pull-left">
+            <span class="bg-info"><i class="fa fa-exclamation bg-red" aria-hidden="true"> </i> Notification</span>
+        </li>
             <!-- User Account Menu -->
         <li class="dropdown user user-menu">
                 <!-- Menu Toggle Button -->
@@ -38,11 +16,11 @@
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown">
             }
                     <!-- The user image in the navbar-->
-                <img src="@user.osmProfile.avatarURL" class="user-image" alt="User Image">
+                <img src="@user.osmProfile.avatarURL" class="user-image" alt="@messages("sidebar.avatarURL")">
                     <!-- hidden-xs hides the username on small devices so only the image appears. -->
                 <span class="hidden-xs">
                 @if(user.guest){
-                    Sign in
+                    @messages("user.signin")
                 } else {
                     @user.name
                 }
@@ -52,29 +30,29 @@
                 <ul class="dropdown-menu">
                         <!-- The user image in the menu -->
                     <li class="user-header">
-                        <img src="@user.osmProfile.avatarURL" class="img-circle" alt="User Image">
+                        <img src="@user.osmProfile.avatarURL" class="img-circle" alt="@messages("sidebar.avatarURL")">
                         <p>@user.name <a href="@routes.Application.refreshProfile()" class="fa fa-refresh"></a>
-                            <small>OSM Member since @user.formattedOSMCreatedDate</small>
+                            <small>@messages("user.osmmember") @user.formattedOSMCreatedDate</small>
                         </p>
                     </li>
                         <!-- Menu Body -->
                     <li class="user-body">
                         @if(user.apiKey.isDefined) {
                             <div class="col-xs-6 text-center pull-left">
-                                <a href="#" onclick="showAPIKey();"><b>View API Key</b></a>
+                                <a href="#" onclick="showAPIKey();"><b>@messages("user.apikey.view")</b></a>
                             </div>
                         }
                         <div class="col-xs-6 text-center pull-right">
-                            <a href="#" onclick="generateAPIKey();"><b>New API Key</b></a>
+                            <a href="#" onclick="generateAPIKey();"><b>@messages("user.apikey.new")</b></a>
                         </div>
                     </li>
                         <!-- Menu Footer-->
                     <li class="user-footer">
                         <!--div class="pull-left">
-                            <a href="@routes.Application.profile()" class="btn btn-default btn-flat">Profile</a>
+                            <a href="@routes.Application.profile()" class="btn btn-default btn-flat">@messages("user.profile")</a>
                         </div-->
                         <div class="pull-right">
-                            <a href="@routes.AuthController.signOut()" class="btn btn-default btn-flat">Sign out</a>
+                            <a href="@routes.AuthController.signOut()" class="btn btn-default btn-flat">@messages("user.signout")</a>
                         </div>
                     </li>
                 </ul>

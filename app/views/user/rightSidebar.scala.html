@@ -1,7 +1,7 @@
 @import org.maproulette.actions.ActionItem
 @import org.maproulette.models.Task
 @import org.maproulette.actions.Actions
-@(userActivity:List[ActionItem])
+@(userActivity:List[ActionItem])(implicit messages: Messages)
 
 <ul class="nav nav-tabs nav-justified control-sidebar-tabs">
   <li class="active" id="control-sidebar-home-upper-tab"><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-wrench"></i></a></li>
@@ -12,12 +12,12 @@
 <div class="tab-content">
     <!-- Home tab content -->
   <div class="tab-pane active" id="control-sidebar-home-tab">
-    <h3 class="control-sidebar-heading">Challenge Progress</h3>
+    <h3 class="control-sidebar-heading">@messages("rightsidebar.challenge.progress")</h3>
     <ul class="control-sidebar-menu">
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Curent Challenge:
+            @messages("rightsidebar.challenge.current")
             <span id="challenge_complete_percent" class="label label-danger pull-right">0%</span>
             <br/><span id="challenge_name">...</span>
           </h4>
@@ -29,7 +29,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Total Tasks
+            @messages("rightsidebar.tasks.total")
             <span id="challenge_total_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -37,7 +37,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Still Available Tasks
+            @messages("rightsidebar.tasks.available")
             <span id="challenge_available_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -45,7 +45,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Fixed Tasks
+            @messages("rightsidebar.tasks.fixed")
             <span id="challenge_fixed_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -53,7 +53,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Skipped Tasks
+            @messages("rightsidebar.tasks.skipped")
             <span id="challenge_skipped_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -61,7 +61,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Tasks too Hard
+            @messages("rightsidebar.tasks.toohard")
             <span id="challenge_too_hard_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -69,7 +69,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            False Positive Tasks
+            @messages("rightsidebar.tasks.falsepositive")
             <span id="challenge_fp_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -77,7 +77,7 @@
       <li>
         <a href="javascript::;">
           <h4 class="control-sidebar-subheading">
-            Already Fixed Tasks
+            @messages("rightsidebar.tasks.alreadyfixed")
             <span id="challenge_af_tasks" class="label label-info pull-right">0 (0%)</span>
           </h4>
         </a>
@@ -85,28 +85,28 @@
       <li>
         <div class="pull-right">
           <a href="#" onclick="viewMetrics();">
-            <button class="btn-xs btn-block btn-primary">View Metrics</button>
+            <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.metrics")</button>
           </a>
         </div>
       </li>
       <li>
         <div class="pull-right">
           <a href="#" onclick="viewChallenge();">
-            <button class="btn-xs btn-block btn-primary">View Challenge</button>
+            <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.view")</button>
           </a>
         </div>
       </li>
     </ul>
   </div>
   <div class="tab-pane" id="control-sidebar-activity-tab">
-    <h3 class="control-sidebar-heading">Recent Activity</h3>
+    <h3 class="control-sidebar-heading">@messages("rightsidebar.recent")</h3>
     <ul class="control-sidebar-menu">
       @for(ua <- userActivity) {
         <li>
           @if(ua.action.getOrElse(Actions.ACTION_TYPE_TASK_STATUS_SET) == Actions.ACTION_TYPE_QUESTION_ANSWERED) {
             <i class="activity-icon fa fa-edit bg-green"></i>
             <div class="menu-info">
-              <h4 class="control-sidebar-subheading">Answered Question
+              <h4 class="control-sidebar-subheading">@messages("rightsidebar.recent.answered")
                 @ua.itemId match {
                   case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
@@ -119,15 +119,15 @@
           } else {
             <i class="activity-icon fa fa-check-square-o bg-green"></i>
             <div class="menu-info">
-              <h4 class="control-sidebar-subheading">Completed Task
+              <h4 class="control-sidebar-subheading">@messages("rightsidebar.recent.completed")
                 @ua.itemId match {
                   case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>
               <p>
-                <b>Updated Status to:</b> @{Task.getStatusName(ua.status.getOrElse(-1)).getOrElse("Undefined")}<br/>
-                <b>Date: </b> @{ua.created}
+                <b>@messages("rightsidebar.recent.status")</b> @{Task.getStatusName(ua.status.getOrElse(-1)).getOrElse("Undefined")}<br/>
+                <b>@messages("rightsidebar.recent.date") </b> @{ua.created}
               </p>
             </div>
           }
@@ -138,15 +138,13 @@
     <!-- Settings tab content -->
   <div class="tab-pane" id="control-sidebar-settings-tab">
     <form method="post">
-      <h3 class="control-sidebar-heading">General Settings</h3>
+      <h3 class="control-sidebar-heading">@messages("rightsidebar.general.header")</h3>
       <div class="form-group">
         <label class="control-sidebar-subheading">
-          Report panel usage
+          @messages("rightsidebar.general.usage")
           <input type="checkbox" class="pull-right" checked>
         </label>
-        <p>
-          Some information about this general settings option
-        </p>
+        <p>@messages("rightsidebar.general.info")</p>
       </div>
     </form>
   </div>
