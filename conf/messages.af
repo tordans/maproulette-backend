@@ -1,0 +1,49 @@
+general.rights=All rights reserved.
+general.copyright=Copyright &copy; 2016
+
+sidebar.avatarURL=User Image
+sidebar.online=Online
+sidebar.search.placeholder=Search...
+sidebar.search.show=Show
+sidebar.search.results=Search Results
+sidebar.administration=Administration
+sidebar.survey.header=Surveys
+sidebar.survey.metrics=Survey Metrics
+sidebar.challenge.header=Challenges
+sidebar.challenge.metrics=Challenge Metrics
+sidebar.challenge.hot=Hot
+sidebar.challenge.latest=Latest
+sidebar.challenge.featured=Featured
+sidebar.project.header=Projects
+sidebar.users.header=Users
+sidebar.whattodo=What to do?
+
+rightsidebar.challenge.progress=Challenge Progress
+rightsidebar.challenge.current=Current Challenge:
+rightsidebar.tasks.total=Total Tasks
+rightsidebar.tasks.available=Still Available Tasks
+rightsidebar.tasks.fixed=Fixed Tasks
+rightsidebar.tasks.skipped=Skipped Tasks
+rightsidebar.tasks.toohard=Tasks too Hard
+rightsidebar.tasks.falsepositive=False Positive Tasks
+rightsidebar.tasks.alreadyfixed=Already Fixed Tasks
+rightsidebar.tasks.button.metrics=View Metrics
+rightsidebar.tasks.button.view=View Challenge
+rightsidebar.recent=Recent Activity
+rightsidebar.recent.answered=Question Answered
+rightsidebar.recent.completed=Completed Task
+rightsidebar.recent.status=Updated Status to:
+rightsidebar.recent.date=Date:
+rightsidebar.general.header=General Settings
+rightsidebar.general.usage=Report panel usage
+rightsidebar.general.info=Some information about this general settings option
+
+user.signin=Sign In
+user.osmmember=OSM member since
+user.apikey.view=View APIKey
+user.apikey.new=New APIKey
+user.profile=Profile
+user.signout=Sign out
+
+geojson.title=GeoJson Viewer
+geojson.description=For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.

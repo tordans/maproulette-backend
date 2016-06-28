@@ -91,7 +91,7 @@
       </li>
       <li>
         <div class="pull-right">
-          <a href="#" onclick="viewChallenge();">
+          <a href="#" onclick="viewChallenge();" data-toggle="control-sidebar">
             <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.view")</button>
           </a>
         </div>
@@ -157,7 +157,11 @@
   }
 
   function viewChallenge() {
-    location.href = "/view/" + MRManager.getCurrentChallengeData().id;
+    if (typeof MRManager !== 'undefined') {
+      MRManager.viewChallenge();
+    } else {
+      location.href = "/view/" + MRManager.getCurrentChallengeData().id;
+    }
   }
 
   function viewMetrics() {

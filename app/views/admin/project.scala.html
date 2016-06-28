@@ -51,9 +51,11 @@
                                             <span class="sr-only">@messages("project.column.actions.toggle")</span>
                                         </button>
                                         <ul class="dropdown-menu" role="menu">
-                                            @if(user.isSuperUser) {
+                                            @if(user.adminForProject(p._1.id) || user.isSuperUser) {
                                                 <li><a href="@routes.FormEditController.projectFormUI(-1, p._1.id)">@messages("project.column.actions.edit")</a></li>
-                                                <li><a href="#" onclick="javascript:deleteProject(@p._1.id);">@messages("project.column.actions.delete")</a></li>
+                                                @if(user.isSuperUser) {
+                                                    <li><a href="#" onclick="javascript:deleteProject(@p._1.id);">@messages("project.column.actions.delete")</a></li>
+                                                }
                                                 <li class="divider"></li>
                                             }
                                             <li><a href="@routes.FormEditController.challengeFormUI(p._1.id, -1)">@messages("project.column.actions.new.challenge")</a></li>

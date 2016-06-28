@@ -66,7 +66,7 @@ class ProjectDAL @Inject() (override val db:Database,
     permission.hasWriteAccess(project, user)
     cacheManager.withOptionCaching { () =>
       // only super users can enable or disable projects
-      val setProject = if (!user.isSuperUser) {
+      val setProject = if (!user.isSuperUser || user.adminForProject(project.id)) {
         Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
         project.copy(enabled = false)
       } else {
@@ -105,7 +105,7 @@ class ProjectDAL @Inject() (override val db:Database,
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean] match {
-          case Some(e) if !user.isSuperUser =>
+          case Some(e) if !user.isSuperUser && !user.adminForProject(id) =>
             Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
             cachedItem.enabled
           case Some(e) => e
