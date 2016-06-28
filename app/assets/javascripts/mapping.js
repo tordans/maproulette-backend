@@ -1113,7 +1113,11 @@ var MRManager = (function() {
     };
     
     var viewChallenge = function(challengeId, filters) {
-        currentTask.getChallenge().view(challengeId, filters);
+        if (typeof challengeId === 'undefined') {
+            currentTask.getChallenge().view(currentTask.getChallenge().getData().id);
+        } else {
+            currentTask.getChallenge().view(challengeId, filters);
+        }
     };
 
     var usingPriority = function() {

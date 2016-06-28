@@ -36,7 +36,7 @@ object MPExceptionUtil {
         Logger.error(e.getMessage, e)
         BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
       case e:IllegalAccessException =>
-        Logger.error(e.getMessage, e)
+        Logger.error(e.getMessage)
         Forbidden(Json.toJson(StatusMessage("Forbidden", JsString(e.getMessage))))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
@@ -70,7 +70,7 @@ object MPExceptionUtil {
           hotChallenges, newChallenges, featuredChallenges, activity)
           (views.html.error.error(e.getMessage)))
       case e:IllegalAccessException =>
-        Logger.error(e.getMessage, e)
+        Logger.error(e.getMessage)
         Forbidden(views.html.index("Map Roulette Error", tempUser, config,
           hotChallenges, newChallenges, featuredChallenges, activity)
           (views.html.error.error("Forbidden: " + e.getMessage)))
@@ -113,7 +113,7 @@ object MPExceptionUtil {
         Logger.error(e.getMessage, e)
         BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
       case e:OAuthNotAuthorizedException =>
-        Logger.error(e.getMessage, e)
+        Logger.error(e.getMessage)
         Unauthorized(Json.toJson(StatusMessage("NotAuthorized", JsString(e.getMessage)))).withNewSession
       case e:IllegalAccessException =>
         Logger.error(e.getMessage, e)
@@ -155,12 +155,12 @@ object MPExceptionUtil {
           hotChallenges, newChallenges, featuredChallenges, activities)
           (views.html.error.error(e.getMessage)))
       case e:OAuthNotAuthorizedException =>
-        Logger.error(e.getMessage, e)
+        Logger.error(e.getMessage)
         Unauthorized(views.html.index("Map Roulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities)
           (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401))).withNewSession
       case e:IllegalAccessException =>
-        Logger.error(e.getMessage, e)
+        Logger.error(e.getMessage)
         Forbidden(views.html.index("Map Roulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities)
           (views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", 403)))

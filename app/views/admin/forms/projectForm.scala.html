@@ -39,7 +39,8 @@
                     @text(projectForm("name"),
                         label = messages("project.form.field.name"),
                         placeholder = messages("project.form.field.name.placeholder"),
-                        help = messages("project.form.field.name.help")
+                        help = messages("project.form.field.name.help"),
+                        readOnly = !user.isSuperUser
                     )
                 </div>
                 <div class="form-group">

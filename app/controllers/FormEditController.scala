@@ -34,7 +34,6 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     permission: Permission) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
 
   def projectFormUI(parentId:Long, itemId:Long) = Action.async { implicit request =>
-    implicit val requireSuperUser = true
     sessionManager.authenticatedUIRequest { implicit user =>
       val project:Project = if (itemId > -1) {
         dalManager.project.retrieveById(itemId) match {
@@ -50,7 +49,6 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   }
 
   def projectFormPost(parentId:Long, itemId:Long) = Action.async { implicit request =>
-    implicit val requireSuperUser = true
     sessionManager.authenticatedUIRequest { implicit user =>
       Project.projectForm.bindFromRequest.fold(
         formWithErrors => {
