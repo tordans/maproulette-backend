@@ -3,22 +3,22 @@
 @import org.maproulette.actions.Actions
 @(user:User, userList:List[(User, List[Project])], projects:List[Project])(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration")
+@views.html.admin.common.header(messages("users.administration.title"))
 <section class="content">
     <div class="box">
         <div class="box-header">
-            <h3 class="box-title">Users (OSM)</h3>
+            <h3 class="box-title">@messages("users.title")</h3>
         </div><!-- /.box-header -->
         <div class="box-body">
             <table id="userTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Osm ID</th>
-                        <th>Display Name</th>
-                        <th>Projects</th>
-                        <th>API Key</th>
-                        <th>Actions</th>
+                        <th>@messages("users.column.id")</th>
+                        <th>@messages("users.column.osmid")</th>
+                        <th>@messages("users.column.name")</th>
+                        <th>@messages("users.column.projects")</th>
+                        <th>@messages("users.column.apikey")</th>
+                        <th>@messages("users.column.actions")</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,33 +40,33 @@
                                 <td id="apiKey_@{u._1.id}">@u._1.apiKey</td>
                                 <td>
                                     <div class="btn-group pull-left">
-                                        <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
+                                        <button type="button" class="btn-xs btn-info" data-toggle="dropdown">@messages("users.column.actions.options")</button>
                                         <button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">
                                             <span class="caret"></span>
-                                            <span class="sr-only">Toggle Dropdown</span>
+                                            <span class="sr-only">@messages("users.column.actions.options.toggle")</span>
                                         </button>
                                         <ul class="dropdown-menu" role="menu">
-                                            <li><a href="#" onclick="#">View</a></li>
-                                            <li><a href="#" onclick="regenerateKey(@{u._1.id});">Regenerate Key</a></li>
-                                            <li><a href="#" onclick="addUserToProject(@u._1.id);">Add To Project</a></li>
-                                            <li><a href="#" onclick="deleteUser(@u._1.id);">Delete</a></li>
+                                            <li><a href="#" onclick="#">@messages("users.column.actions.view")</a></li>
+                                            <li><a href="#" onclick="regenerateKey(@{u._1.id});">@messages("users.column.actions.regenerate")</a></li>
+                                            <li><a href="#" onclick="addUserToProject(@u._1.id);">@messages("users.column.actions.add")</a></li>
+                                            <li><a href="#" onclick="deleteUser(@u._1.id);">@messages("users.column.actions.delete")</a></li>
                                         </ul>
                                     </div>
                                 </td>
                             </tr>
                         }
                     } else {
-                        <td>No Users Found</td>
+                        <td>@messages("users.notfound")</td>
                     }
                 </tbody>
                 <tfoot>
                     <tr>
-                        <th>ID</th>
-                        <th>Osm ID</th>
-                        <th>Display Name</th>
-                        <th>Projects</th>
-                        <th>API Key</th>
-                        <th>Actions</th>
+                        <th>@messages("users.column.id")</th>
+                        <th>@messages("users.column.osmid")</th>
+                        <th>@messages("users.column.name")</th>
+                        <th>@messages("users.column.projects")</th>
+                        <th>@messages("users.column.apikey")</th>
+                        <th>@messages("users.column.actions")</th>
                     </tr>
                 </tfoot>
             </table>

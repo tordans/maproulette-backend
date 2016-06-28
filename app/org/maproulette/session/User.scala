@@ -1,5 +1,7 @@
 package org.maproulette.session
 
+import java.util.Locale
+
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.Config
@@ -87,6 +89,9 @@ case class User (override val id:Long,
   def isAdmin = groups.exists(_.groupType == Group.TYPE_ADMIN)
 
   def adminForProject(projectId:Long) = groups.exists(g => g.groupType == Group.TYPE_ADMIN && g.projectId == projectId)
+
+  // TODO this function should default to "en-US" if the locale is not set for the user
+  def getUserLocale = new Locale("en")
 }
 
 /**

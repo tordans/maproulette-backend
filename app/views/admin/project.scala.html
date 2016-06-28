@@ -3,15 +3,15 @@
 @import org.maproulette.actions.Actions
 @(user:User, projects:List[(Project, Int, Int)])(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration")
+@views.html.admin.common.header(messages("project.administration.title"))
 <section class="content">
     <div class="box">
         <div class="box-header">
-            <h3 class="box-title">Projects</h3>
+            <h3 class="box-title">@messages("project.title")</h3>
             @if(user.isSuperUser) {
                 <div class="pull-right">
                     <a href="@routes.FormEditController.projectFormUI(-1, -1)">
-                        <button class="btn-xs btn-block btn-primary">New Project</button>
+                        <button class="btn-xs btn-block btn-primary">@messages("project.new")</button>
                     </a>
                 </div>
             }
@@ -20,13 +20,12 @@
             <table id="projectTable" class="table table-bordered table-hover">
                 <thead>
                     <tr>
-                        <th>Visible</th>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Admins</th>
-                        <th>Challenges</th>
-                        <th>Surveys</th>
-                        <th>Actions</th>
+                        <th>@messages("project.column.visible")</th>
+                        <th>@messages("project.column.id")</th>
+                        <th>@messages("project.column.name")</th>
+                        <th>@messages("project.column.challenges")</th>
+                        <th>@messages("project.column.surveys")</th>
+                        <th>@messages("project.column.actions")</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -42,45 +41,43 @@
                                 </td>
                                 <td>@p._1.id</td>
                                 <td><a href="@routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, p._1.id)">@p._1.name</a></td>
-                                <td></td>
                                 <td>@p._2</td>
                                 <td>@p._3</td>
                                 <td>
                                     <div class="btn-group pull-left">
-                                        <button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>
+                                        <button type="button" class="btn-xs btn-info" data-toggle="dropdown">@messages("project.column.actions.title")</button>
                                         <button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">
                                             <span class="caret"></span>
-                                            <span class="sr-only">Toggle Dropdown</span>
+                                            <span class="sr-only">@messages("project.column.actions.toggle")</span>
                                         </button>
                                         <ul class="dropdown-menu" role="menu">
                                             @if(user.isSuperUser) {
-                                                <li><a href="@routes.FormEditController.projectFormUI(-1, p._1.id)">Edit</a></li>
-                                                <li><a href="#" onclick="javascript:deleteProject(@p._1.id);">Delete</a></li>
+                                                <li><a href="@routes.FormEditController.projectFormUI(-1, p._1.id)">@messages("project.column.actions.edit")</a></li>
+                                                <li><a href="#" onclick="javascript:deleteProject(@p._1.id);">@messages("project.column.actions.delete")</a></li>
                                                 <li class="divider"></li>
                                             }
-                                            <li><a href="@routes.FormEditController.challengeFormUI(p._1.id, -1)">New Challenge</a></li>
-                                            <li><a href="@routes.FormEditController.surveyFormUI(p._1.id, -1)">New Survey</a></li>
+                                            <li><a href="@routes.FormEditController.challengeFormUI(p._1.id, -1)">@messages("project.column.actions.new.challenge")</a></li>
+                                            <li><a href="@routes.FormEditController.surveyFormUI(p._1.id, -1)">@messages("project.column.actions.new.survey")</a></li>
                                             <li class="divider"></li>
-                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"")">View Challenge Metrics</a></li>
-                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"", 1)">View Survey Metrics</a></li>
+                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"")">@messages("project.column.actions.metrics.challenge")</a></li>
+                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"", 1)">@messages("project.column.actions.metrics.survey")</a></li>
                                         </ul>
                                     </div>
                                 </td>
                             </tr>
                         }
                     } else {
-                        <td>No projects found</td>
+                        <td>@messages("project.table.notfound")</td>
                     }
                 </tbody>
                 <tfoot>
                     <tr>
-                        <th>Visible</th>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Admins</th>
-                        <th>Challenges</th>
-                        <th>Surveys</th>
-                        <th>Actions</th>
+                        <th>@messages("project.column.visible")</th>
+                        <th>@messages("project.column.id")</th>
+                        <th>@messages("project.column.name")</th>
+                        <th>@messages("project.column.challenges")</th>
+                        <th>@messages("project.column.surveys")</th>
+                        <th>@messages("project.column.actions")</th>
                     </tr>
                 </tfoot>
             </table>

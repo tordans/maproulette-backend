@@ -4,7 +4,7 @@
 @(user:User, config:Config, challenge:Option[Challenge]=None, projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
 @colSize() = {@{if (challenge.isEmpty) { "3" } else { "4" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
-@views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { "All Challenges" } else { s"Projects ($projects)" }, None, -1, "")).name)
+@views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { messages("metrics.challenge.all") } else { messages("metrics.challenge.projects", projects) }, None, -1, "")).name)
 <script src="@routes.Assets.versioned("javascripts/metrics.js")"></script>
 <section class="content">
         <!-- Info boxes -->
@@ -14,9 +14,9 @@
                 <span class="info-box-icon bg-aqua"><i class="fa fa-wrench"></i></span>
                 <div class="info-box-content">
                     @if(challenge.isEmpty) {
-                        <span class="info-box-text">Number of Challenges</span>
+                        <span class="info-box-text">@messages("metrics.challenge.number")</span>
                     } else {
-                        <span class="info-box-text">Number of Tasks</span>
+                        <span class="info-box-text">@messages("metrics.challenge.number.tasks")</span>
                     }
                     <span id="top_numOfChallenges" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
@@ -27,9 +27,9 @@
                 <span class="info-box-icon bg-green"><i class="fa fa-line-chart"></i></span>
                 <div class="info-box-content">
                     @if(challenge.isEmpty) {
-                        <span class="info-box-text">Average Completion %</span>
+                        <span class="info-box-text">@messages("metrics.challenge.average")</span>
                     } else {
-                        <span class="info-box-text">Fixed</span>
+                        <span class="info-box-text">@messages("metrics.challenge.fixed")</span>
                     }
                     <span id="top_fixed" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
@@ -44,9 +44,9 @@
                 <span class="info-box-icon bg-red"><i class="fa fa-warning"></i></span>
                 <div class="info-box-content">
                     @if(challenge.isEmpty) {
-                        <span class="info-box-text">Average false positive rate</span>
+                        <span class="info-box-text">@messages("metrics.challenge.avgfalsepositiverate")</span>
                     } else {
-                        <span class="info-box-text">False Positives</span>
+                        <span class="info-box-text">@messages("metrics.challenge.falsepositives")</span>
                     }
                     <span id="top_fps" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
@@ -56,7 +56,7 @@
             <div class="info-box">
                 <span class="info-box-icon bg-yellow"><i class="ion ion-ios-people-outline"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">Users</span>
+                    <span class="info-box-text">@messages("metrics.challenge.users")</span>
                     <span id="top_users" class="info-box-number"></span>
                 </div><!-- /.info-box-content -->
             </div><!-- /.info-box -->
@@ -66,7 +66,7 @@
         <div class="col-md-12">
             <div class="box">
                 <div class="box-header with-border">
-                    <h3 class="box-title">Challenge Activity</h3>
+                    <h3 class="box-title">@messages("metrics.challenge.activity")</h3>
                     <div class="box-tools pull-right">
                         <button id="chartButton" class="btn btn-box-tool"></button>
                         <button class="btn btn-box-tool daterange"><i class="fa fa-calendar"></i></button>
@@ -82,45 +82,45 @@
                         </div><!-- /.col -->
                         <div class="col-md-4">
                             <p class="text-center">
-                                <strong>Challenge Completion</strong>
+                                <strong>@messages("metrics.challenge.completion")</strong>
                             </p>
                             <div class="progress-group">
-                                <span class="progress-text">Fixed</span>
+                                <span class="progress-text">@messages("metrics.challenge.completion.fixed")</span>
                                 <span id="fixed" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="fixed_bar" class="progress-bar progress-bar-green" style="width: 0%"></div>
                                 </div>
                             </div><!-- /.progress-group -->
                             <div class="progress-group">
-                                <span class="progress-text">False Positive</span>
+                                <span class="progress-text">@messages("metrics.challenge.completion.falsepositive")</span>
                                 <span id="false_positives" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="false_postives_bar" class="progress-bar progress-bar-red" style="width: 0%"></div>
                                 </div>
                             </div><!-- /.progress-group -->
                             <div class="progress-group">
-                                <span class="progress-text">Already Fixed</span>
+                                <span class="progress-text">@messages("metrics.challenge.completion.alreadyfixed")</span>
                                 <span id="already_fixed" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="already_fixed_bar" class="progress-bar progress-bar-aqua" style="width: 0%"></div>
                                 </div>
                             </div><!-- /.progress-group -->
                             <div class="progress-group">
-                                <span class="progress-text">Skipped</span>
+                                <span class="progress-text">@messages("metrics.challenge.completion.skipped")</span>
                                 <span id="skipped" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="skipped_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
                                 </div>
                             </div><!-- /.progress-group -->
                             <div class="progress-group">
-                                <span class="progress-text">Too hard to fix</span>
+                                <span class="progress-text">@messages("metrics.challenge.completion.toohard")</span>
                                 <span id="too_hard" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="too_hard_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
                                 </div>
                             </div><!-- /.progress-group -->
                             <div>
-                                <p class="text-center"><strong>Status Distribution</strong></p>
+                                <p class="text-center"><strong>@messages("metrics.challenge.completion.status")</strong></p>
                                 <div id="distContainer" class="chart">
                                     <canvas id="statusPieChart" style="height: 180px;"></canvas>
                                 </div><!-- /.chart-responsive -->
@@ -133,38 +133,38 @@
                         <div class="col-sm-@colSize() col-xs-6">
                             <div class="description-block border-right">
                                 <h5 id="active_users" class="description-header"></h5>
-                                <span class="description-text">ACTIVE USERS*</br><small>*Users with 2 or more edits in the last 2 days</small></span>
+                                <span class="description-text">@Html(messages("metrics.challenge.user.active"))</span>
                             </div>
                         </div><!-- /.col -->
                         <div class="col-sm-@colSize() col-xs-6">
                             <div class="description-block border-right">
                                 <h5 id="actions" class="description-header"></h5>
-                                <span class="description-text">ACTIONS PER USER</span>
+                                <span class="description-text">@messages("metrics.challenge.user.actions")</span>
                             </div><!-- /.description-block -->
                         </div><!-- /.col -->
                         @if(challenge.isEmpty) {
                             <div class="col-sm-3 col-xs-6">
                                 <div class="description-block">
                                     <h5 id="actions_per_challenge" class="description-header"></h5>
-                                    <span class="description-text">ACTIONS PER USER PER CHALLENGE</span>
+                                    <span class="description-text">@messages("metrics.challenge.user.challengeactions")</span>
                                 </div><!-- /.description-block -->
                             </div>
                             <div class="col-sm-3 col-xs-6">
                                 <div class="description-block border-right">
                                     <h5 id="users_per_challenge" class="description-header"></h5>
-                                    <span class="description-text">USERS PER CHALLENGE</span>
+                                    <span class="description-text">@messages("metrics.challenge.user.challenge")</span>
                                 </div>
                             </div><!-- /.col -->
                         } else {
                             <div class="col-sm-3 col-xs-6">
                                 <div class="description-block border-right">
-                                    <a href="@routes.Application.mapChallenge(challenge.get.id)"><button class="btn btn-block btn-success">Start</button></a>
-                                    <span class="description-text">Click here to start fixing tasks in the challenge</span>
+                                    <a href="@routes.Application.mapChallenge(challenge.get.id)"><button class="btn btn-block btn-success">@messages("metrics.challenge.start")</button></a>
+                                    <span class="description-text">@messages("metrics.challenge.start.description")</span>
                                 </div>
                                 @if(user.isSuperUser || user.adminForProject(challenge.get.parent)) {
                                     <div class="description-block border-right">
-                                        <a href="@routes.FormEditController.challengeFormUI(challenge.get.parent, challenge.get.id)"><button class="btn btn-block btn-warning">Edit</button></a>
-                                        <span class="description-text">Click here to edit the challenge</span>
+                                        <a href="@routes.FormEditController.challengeFormUI(challenge.get.parent, challenge.get.id)"><button class="btn btn-block btn-warning">@messages("metrics.challenge.edit")</button></a>
+                                        <span class="description-text">@messages("metrics.challenge.edit.description")</span>
                                     </div>
                                 }
                             </div><!-- /.col -->
@@ -297,7 +297,7 @@
         labels: [],
         datasets: [
             /*{
-             label: "Available",
+             label: "@messages("metrics.challenge.completion.available")",
              fill: false,
              lineTension: 0.1,
              backgroundColor: "rgba(0, 0, 0, 0.4)",
@@ -316,7 +316,7 @@
              data: []
              },*/
             {
-                label: "Fixed",
+                label: "@messages("metrics.challenge.completion.fixed")",
                 fill: false,
                 lineTension: 0.1,
                 backgroundColor: "rgba(0, 166, 90, 0.4)",
@@ -335,7 +335,7 @@
                 data: []
             },
             {
-                label: "False Positives",
+                label: "@messages("metrics.challenge.completion.falsepositive")",
                 fill: false,
                 lineTension: 0.1,
                 backgroundColor: "rgba(221, 75, 57, 0.4)",
@@ -354,7 +354,7 @@
                 data: []
             },
             {
-                label: "Skipped",
+                label: "@messages("metrics.challenge.completion.skipped")",
                 fill: false,
                 lineTension: 0.1,
                 backgroundColor: "rgba(243, 156, 18, 0.4)",
@@ -373,7 +373,7 @@
                 data: []
             },
             {
-                label: "Already Fixed",
+                label: "@messages("metrics.challenge.completion.alreadyfixed")",
                 fill: false,
                 lineTension: 0.1,
                 backgroundColor: "rgba(0, 192, 239, 0.4)",
@@ -392,7 +392,7 @@
                 data: []
             },
             {
-                label: "Too Hard",
+                label: "@messages("metrics.challenge.completion.toohard")",
                 fill: false,
                 lineTension: 0.1,
                 backgroundColor: "rgba(160, 32, 240, 0.4)",
@@ -504,6 +504,6 @@
     }
 
     function dataErrorHandler(data) {
-        ToastUtils.Error("Unable to retrieve data for activity chart.\n" + data);
+        ToastUtils.Error("@{messages("metrics.challenge.error")}" + data);
     }
 </script>

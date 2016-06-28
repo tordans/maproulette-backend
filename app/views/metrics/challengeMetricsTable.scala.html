@@ -1,57 +1,56 @@
-@import org.maproulette.models.Challenge
-@(projectId:String)
+@(projectId:String)(implicit messages: Messages)
 <section class="content">
   <div class="box">
     <div class="box-header">
-      <h3 class="box-title">Challenges</h3>
-      <span class="info-box-text">Show/Hide Columns:</span> &bull;
-       <a href="#" class="toggle-vis" data-column="2"><small>Available</small></a> &bull;
-       <a href="#" class="toggle-vis" data-column="4"><small>Fixed</small></a> &bull;
-       <a href="#" class="toggle-vis" data-column="6"><small>False Positive</small></a> &bull;
-       <a href="#" class="toggle-vis" data-column="8"><small>Skipped</small></a> &bull;
-       <a href="#" class="toggle-vis" data-column="10"><small>Already Fixed</small></a> &bull;
-       <a href="#" class="toggle-vis" data-column="12"><small>Too Hard</small></a> &bull;
+      <h3 class="box-title">@messages("metrics.challenge.table.header")</h3>
+      <span class="info-box-text">@messages("metrics.challenge.table.show")</span> &bull;
+       <a href="#" class="toggle-vis" data-column="2"><small>@messages("metrics.challenge.table.available")</small></a> &bull;
+       <a href="#" class="toggle-vis" data-column="4"><small>@messages("metrics.challenge.table.fixed")</small></a> &bull;
+       <a href="#" class="toggle-vis" data-column="6"><small>@messages("metrics.challenge.table.falsepositive")</small></a> &bull;
+       <a href="#" class="toggle-vis" data-column="8"><small>@messages("metrics.challenge.table.skipped")</small></a> &bull;
+       <a href="#" class="toggle-vis" data-column="10"><small>@messages("metrics.challenge.table.alreadyfixed")</small></a> &bull;
+       <a href="#" class="toggle-vis" data-column="12"><small>@messages("metrics.challenge.table.toohard")</small></a> &bull;
     </div><!-- /.box-header -->
     <div class="box-body">
       <table id="challengeMetricsTable" class="table table-bordered table-hover" width="100%">
         <thead>
           <tr>
-            <th rowspan="2">Name</th>
-            <th rowspan="2">Completed (%)</th>
-            <th colspan="2">Available</th>
-            <th colspan="2">Fixed</th>
-            <th colspan="2">False Positive</th>
-            <th colspan="2">Skipped</th>
-            <th colspan="2">Already Fixed</th>
-            <th colspan="2">Too Hard</th>
+            <th rowspan="2">@messages("metrics.challenge.table.column.name")</th>
+            <th rowspan="2">@messages("metrics.challenge.table.column.completed")</th>
+            <th colspan="2">@messages("metrics.challenge.table.available")</th>
+            <th colspan="2">@messages("metrics.challenge.table.fixed")</th>
+            <th colspan="2">@messages("metrics.challenge.table.falsepositive")</th>
+            <th colspan="2">@messages("metrics.challenge.table.skipped")</th>
+            <th colspan="2">@messages("metrics.challenge.table.alreadyfixed")</th>
+            <th colspan="2">@messages("metrics.challenge.table.toohard")</th>
           </tr>
           <tr>
-            <th>Total</th>
-            <th>Percentage</th>
-            <th>Total</th>
-            <th>Percentage</th>
-            <th>Total</th>
-            <th>Percentage</th>
-            <th>Total</th>
-            <th>Percentage</th>
-            <th>Total</th>
-            <th>Percentage</th>
-            <th>Total</th>
-            <th>Percentage</th>
+            <th>@messages("metrics.challenge.table.column.total")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
+            <th>@messages("metrics.challenge.table.column.total")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
+            <th>@messages("metrics.challenge.table.column.total")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
+            <th>@messages("metrics.challenge.table.column.total")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
+            <th>@messages("metrics.challenge.table.column.total")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
+            <th>@messages("metrics.challenge.table.column.total")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
           </tr>
         </thead>
         <tbody>
         </tbody>
         <tfoot>
           <tr>
-            <th>Name</th>
-            <th>Completed (%)</th>
-            <th colspan="2">Available</th>
-            <th colspan="2">Fixed</th>
-            <th colspan="2">False Positive</th>
-            <th colspan="2">Skipped</th>
-            <th colspan="2">Already Fixed</th>
-            <th colspan="2">Too Hard</th>
+            <th>@messages("metrics.challenge.table.column.name")</th>
+            <th>@messages("metrics.challenge.table.column.percentage")</th>
+            <th colspan="2">@messages("metrics.challenge.table.available")</th>
+            <th colspan="2">@messages("metrics.challenge.table.fixed")</th>
+            <th colspan="2">@messages("metrics.challenge.table.falsepositive")</th>
+            <th colspan="2">@messages("metrics.challenge.table.skipped")</th>
+            <th colspan="2">@messages("metrics.challenge.table.alreadyfixed")</th>
+            <th colspan="2">@messages("metrics.challenge.table.toohard")</th>
           </tr>
         </tfoot>
       </table>
@@ -78,7 +77,7 @@ $(function() {
       {
         data: "name",
         name: "name",
-        title: "Name",
+        title: "@messages("metrics.challenge.table.column.name")",
         render: function( data, type, full, meta ) {
           return "<a href='/ui/metrics/" + full.id + "'>" + data + "</a>";
         }
@@ -86,79 +85,79 @@ $(function() {
       {
         data: "complete_percentage",
         name: "complete_percentage",
-        title: "Percentage Complete",
+        title: "@messages("metrics.challenge.table.column.completed_2")",
         render: renderPercentage
       },
       {
         data: "available",
         name: "available",
-        title: "Total",
+        title: "@messages("metrics.challenge.table.column.total")",
         render: renderValue
       },
       {
         data: "available_perc",
         name: "available_perc",
-        title: "Percentage",
+        title: "@messages("metrics.challenge.table.column.percentage")",
         render: renderPercentage
       },
       {
         data: "fixed",
         name: "fixed",
-        title: "Total",
+        title: "@messages("metrics.challenge.table.column.total")",
         render: renderValue
       },
       {
         data: "fixed_perc",
         name: "fixed_perc",
-        title: "Percentage",
+        title: "@messages("metrics.challenge.table.column.percentage")",
         render: renderPercentage
       },
       {
         data: "false_positive",
         name: "false_positive",
-        title: "Total",
+        title: "@messages("metrics.challenge.table.column.total")",
         render: renderValue
       },
       {
         data: "false_positive_perc",
         name: "false_positive_perc",
-        title: "Percentage",
+        title: "@messages("metrics.challenge.table.column.percentage")",
         render: renderPercentage
       },
       {
         data: "skipped",
         name: "skipped",
-        title: "Total",
+        title: "@messages("metrics.challenge.table.column.total")",
         render: renderValue
       },
       {
         data: "skipped_perc",
         name: "skipped_perc",
-        title: "Percentage",
+        title: "@messages("metrics.challenge.table.column.percentage")",
         render: renderPercentage
       },
       {
         data: "already_fixed",
         name: "already_fixed",
-        title: "Total",
+        title: "@messages("metrics.challenge.table.column.total")",
         render: renderValue
       },
       {
         data: "already_fixed_perc",
         name: "already_fixed_perc",
-        title: "Percentage",
+        title: "@messages("metrics.challenge.table.column.percentage")",
         render: renderPercentage
       },
       {
         data: "too_hard",
         name: "too_hard",
-        title: "Total",
+        title: "@messages("metrics.challenge.table.column.total")",
         render: renderValue
       },
       {
         data: "too_hard_perc",
         name: "too_hard_perc",
-        title: "Percentage",
+        title: "@messages("metrics.challenge.table.column.percentage")",
         render: renderPercentage
       }
     ]

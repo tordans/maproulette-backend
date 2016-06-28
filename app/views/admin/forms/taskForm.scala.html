@@ -3,20 +3,20 @@
 @import org.maproulette.models.Challenge
 @(projectId:Long, parentId:Long, parentType:String, taskForm:Form[Task])(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration", null,
+@views.html.admin.common.header(messages("tasks.form.administration.title"), null,
   Map(
-    "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
-    "Challenges" -> ("", routes.Application.adminUIChildList(parentType, projectId)),
-    "Tasks" -> ("", routes.Application.adminUITaskList(projectId, parentType, parentId))
+    messages("tasks.form.administration.projects") -> ("fa fa-folder", routes.Application.adminUIProjectList()),
+    messages("tasks.form.administration.challenges") -> ("", routes.Application.adminUIChildList(parentType, projectId)),
+    messages("tasks.form.administration.tasks") -> ("", routes.Application.adminUITaskList(projectId, parentType, parentId))
   )
 )
 <section class="content">
   <div class="box box-primary">
     <div class="box-header with-border">
     @if(taskForm("id").value.getOrElse("-1").toInt == -1)  {
-      <h3 class="box-title">Create New Task</h3>
+      <h3 class="box-title">@messages("tasks.form.new")</h3>
     } else {
-      <h3 class="box-title">Edit Task</h3>
+      <h3 class="box-title">>@messages("tasks.form.edit")</h3>
     }
     </div><!-- /.box-header -->
     <!-- form start -->
@@ -24,7 +24,7 @@
       <div class="box-body">
         <div class="form-group" style="display:none;">
         @text(taskForm("id"),
-          label = "id",
+          label = messages("tasks.form.field.id"),
           placeholder = "-1",
           default = "-1",
           readOnly = true
@@ -32,7 +32,7 @@
         </div>
         <div class="form-group" style="display:none;">
         @text(taskForm("parent"),
-          label = "Parent ID",
+          label = messages("tasks.form.field.parent"),
           placeholder = "-1",
           default = parentId+"",
           readOnly = true
@@ -40,56 +40,49 @@
         </div>
         <div class="form-group">
         @text(taskForm("name"),
-          label = "Name",
-          placeholder = "Task Name",
-          help = "Please enter the task name. (required)"
+          label = messages("tasks.form.field.name"),
+          placeholder = messages("tasks.form.field.name.placeholder"),
+          help = messages("tasks.form.field.name.help")
         )
         </div>
         <div class="form-group">
         @textarea(taskForm("instruction"),
-          label = "Instruction",
+          label = messages("tasks.form.field.instruction"),
           rows = "5",
-          placeholder = "Task Instruction",
-          help = "Please enter the instruction for the task. (required)"
-        )
-        </div>
-        <div class="form-group">
-        @text(taskForm("location"),
-          label = "Location",
-          placeholder = "Task Location",
-          help = "Please enter the task location. (optional)"
+          placeholder = messages("tasks.form.field.instruction.placeholder"),
+          help = messages("tasks.form.field.instruction.help")
         )
         </div>
         <div class="form-group">
         @textarea(taskForm("geometries"),
-          label = "GeoJSON",
+          label = messages("tasks.form.field.geojson"),
           rows = "5",
-          placeholder = "Task GeoJSON",
-          help = "Please enter the GeoJSON for the task. (required)"
+          placeholder = messages("tasks.form.field.geojson.placeholder"),
+          help = messages("tasks.form.field.geojson.help")
         )
         </div>
         <div class="form-group">
         @select(taskForm("status"),
-          label = "Status",
+          label = messages("tasks.form.field.status"),
           optionList = Task.statusMap.map(e => (e._2, e._1+"")).toList,
           isMultiple = false,
-          help = "Please enter the status level for the task",
+          help = messages("tasks.form.field.status.help"),
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
         </div>
         <div class="form-group">
         @select(taskForm("priority"),
-          label = "Priority",
+          label = messages("tasks.form.field.priority"),
           optionList = List(("High", Challenge.PRIORITY_HIGH+""), ("Medium", Challenge.PRIORITY_MEDIUM+""), ("Low", Challenge.PRIORITY_LOW+"")),
           isMultiple = false,
-          help = "Please enter the priority level for the task",
+          help = messages("tasks.form.field.priority.help"),
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
         </div>
       </div><!-- /.box-body -->
       <div class="box-footer">
-        <button type="submit" class="btn btn-primary">Submit</button>
-        <a class="btn btn-primary" href="@routes.Application.adminUITaskList(projectId, parentType, parentId)">Cancel</a>
+        <button type="submit" class="btn btn-primary">@messages("tasks.form.submit")</button>
+        <a class="btn btn-primary" href="@routes.Application.adminUITaskList(projectId, parentType, parentId)">@messages("tasks.form.cancel")</a>
       </div>
     }
   </div><!-- /.box -->

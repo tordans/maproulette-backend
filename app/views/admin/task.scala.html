@@ -3,19 +3,19 @@
 @import org.maproulette.models.Challenge
 @(user:User, projectId:Long, parentType:String, parentId:Long)(implicit messages: Messages)
 
-@views.html.admin.common.header("Administration", null,
+@views.html.admin.common.header(messages("task.administration.title"), null,
     Map(
-      "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
-      "Challenges" -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, projectId))
+      messages("task.projects") -> ("fa fa-folder", routes.Application.adminUIProjectList()),
+      messages("task.challenges") -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, projectId))
     )
 )
 <section class="content">
   <div class="box">
     <div class="box-header">
-      <h3 class="box-title">Tasks</h3>
+      <h3 class="box-title">@messages("task.title")</h3>
       <div class="pull-right">
         <a href="@routes.FormEditController.taskFormUI(projectId, parentId, parentType, -1)">
-          <button class="btn-xs btn-block btn-primary">New Task</button>
+          <button class="btn-xs btn-block btn-primary">@messages("task.new")</button>
         </a>
       </div>
     </div><!-- /.box-header -->
@@ -23,26 +23,26 @@
       <table id="taskTable" class="table table-bordered table-hover">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Priority</th>
-            <th>Name</th>
-            <th>Instruction</th>
-            <th>Location</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th>@messages("task.column.id")</th>
+            <th>@messages("task.column.priority")</th>
+            <th>@messages("task.column.name")</th>
+            <th>@messages("task.column.instruction")</th>
+            <th>@messages("task.column.location")</th>
+            <th>@messages("task.column.status")</th>
+            <th>@messages("task.column.actions")</th>
           </tr>
         </thead>
         <tbody>
         </tbody>
         <tfoot>
           <tr>
-            <th>ID</th>
-            <th>Priority</th>
-            <th>Name</th>
-            <th>Instruction</th>
-            <th>Location</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th>@messages("task.column.id")</th>
+            <th>@messages("task.column.priority")</th>
+            <th>@messages("task.column.name")</th>
+            <th>@messages("task.column.instruction")</th>
+            <th>@messages("task.column.location")</th>
+            <th>@messages("task.column.status")</th>
+            <th>@messages("task.column.actions")</th>
           </tr>
         </tfoot>
       </table>
@@ -62,62 +62,62 @@
               {
                 data: "id",
                 name: "id",
-                title: "ID"
+                title: "@messages("task.column.id")"
               },
               {
                 data: "priority",
                 name: "priority",
-                title: "Priority",
+                title: "@messages("task.column.priority")",
                 render: function ( data, type, full, meta ) {
                   if (data == "@Challenge.PRIORITY_HIGH") {
-                    return "High";
+                    return "@messages("task.column.priority.high")";
                   } else if (data == "@Challenge.PRIORITY_MEDIUM") {
-                    return "Medium";
+                    return "@messages("task.column.priority.medium")";
                   } else {
-                    return "Low";
+                    return "@messages("task.column.priority.low")";
                   }
                 }
               },
               {
                 data: "name",
                 name: "name",
-                title: "Name"
+                title: "@messages("task.column.name")"
               },
               {
                 orderable: false,
                 data: "instruction",
                 name: "instruction",
-                title: "Instruction"
+                title: "@messages("task.column.instruction")"
               },
               {
                 orderable: false,
                 data: "location",
                 name: "location",
-                title: "Location"
+                title: "@messages("task.column.location")"
               },
               {
                 data: "status",
                 name: "status",
-                title: "Status"
+                title: "@messages("task.column.status")"
               },
               {
                 orderable: false,
                 data: "actions",
                 name: "actions",
-                title: "Actions",
+                title: "@messages("task.column.actions")",
                 render: function ( data, type, full, meta ) {
                   var editHref = '/ui/admin/form/@projectId/@parentType/@parentId/task/';
                   var viewHref = '/map/@parentId/';
                   return '<div class="btn-group pull-left">' +
-                            '<button type="button" class="btn-xs btn-info" data-toggle="dropdown">Options</button>' +
+                            '<button type="button" class="btn-xs btn-info" data-toggle="dropdown">@messages("task.column.actions.options")</button>' +
                             '<button type="button" class="btn-xs btn-info dropdown-toggle" data-toggle="dropdown">' +
                               '<span class="caret"></span>' +
-                              '<span class="sr-only">Toggle Dropdown</span>' +
+                              '<span class="sr-only">@messages("task.column.actions.options.toggle")</span>' +
                             '</button>' +
                             '<ul class="dropdown-menu" role="menu">' +
-                              '<li><a href="' + editHref + data + '">Edit</a></li>' +
-                              '<li><a href="' + viewHref + data + '?debug=true">View</a></li>' +
-                              '<li><a href="#" onclick="javascript:deleteTask(' + data + ');">Delete</a></li>' +
+                              '<li><a href="' + editHref + data + '">@messages("task.column.actions.edit")</a></li>' +
+                              '<li><a href="' + viewHref + data + '?debug=true">@messages("task.column.actions.view")</a></li>' +
+                              '<li><a href="#" onclick="javascript:deleteTask(' + data + ');">@messages("task.column.actions.delete")</a></li>' +
                             '</ul>' +
                           '</div>';
                 }
