@@ -157,9 +157,18 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     var updatedPriorityRules = false
     val updatedChallenge = cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       permission.hasWriteAccess(cachedItem, user)
-      val highPriorityRule = (updates \ "highPriorityRule").asOpt[String].getOrElse(cachedItem.highPriorityRule.getOrElse(""))
-      val mediumPriorityRule = (updates \ "mediumPriorityRule").asOpt[String].getOrElse(cachedItem.mediumPriorityRule.getOrElse(""))
-      val lowPriorityRule = (updates \ "lowPriorityRule").asOpt[String].getOrElse(cachedItem.lowPriorityRule.getOrElse(""))
+      val highPriorityRule = (updates \ "highPriorityRule").asOpt[String].getOrElse(cachedItem.highPriorityRule.getOrElse("")) match {
+        case x if Challenge.isValidRule(Some(x)) => x
+        case _ => ""
+      }
+      val mediumPriorityRule = (updates \ "mediumPriorityRule").asOpt[String].getOrElse(cachedItem.mediumPriorityRule.getOrElse("")) match {
+        case x if Challenge.isValidRule(Some(x)) => x
+        case _ => ""
+      }
+      val lowPriorityRule = (updates \ "lowPriorityRule").asOpt[String].getOrElse(cachedItem.lowPriorityRule.getOrElse("")) match {
+        case x if Challenge.isValidRule(Some(x)) => x
+        case _ => ""
+      }
       withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -393,23 +402,28 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case Some(c) => c
         case None => throw new NotFoundException(s"Could not update priorties for tasks, no challenge with id $id found.")
       }
-      var pointer = 0
-      var currentTasks:List[Task] = List.empty
-      do {
-        currentTasks = listChildren(50, pointer)
-        currentTasks.foreach {
-          task =>
-            taskDAL.cacheManager.withOptionCaching { () =>
-              val taskPriority = taskDAL.getTaskPriority(task, challenge)
-              if (taskPriority != task.priority) {
-                taskDAL.update(Json.obj("priority" -> taskPriority), user)(task.id)
-              } else {
-                Some(task)
+      // make sure that at least one of the challenges is valid
+      if (Challenge.isValidRule(challenge.highPriorityRule) ||
+          Challenge.isValidRule(challenge.mediumPriorityRule) ||
+          Challenge.isValidRule(challenge.lowPriorityRule)) {
+        var pointer = 0
+        var currentTasks:List[Task] = List.empty
+        do {
+          currentTasks = listChildren(50, pointer)
+          currentTasks.foreach {
+            task =>
+              taskDAL.cacheManager.withOptionCaching { () =>
+                val taskPriority = taskDAL.getTaskPriority(task, challenge)
+                if (taskPriority != task.priority) {
+                  taskDAL.update(Json.obj("priority" -> taskPriority), user)(task.id)
+                } else {
+                  Some(task)
+                }
               }
-            }
-        }
-        pointer += 1
-      } while (currentTasks.size == 50)
+          }
+          pointer += 1
+        } while (currentTasks.size == 50)
+      }
     }
   }
 }

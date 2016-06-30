@@ -25,13 +25,19 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param id The id of the item to add the tags too
     * @param tags A list of tags to add to the task
     * @param user The user executing the task
+    * @param completeList If complete list is true, then it will treat the tag list as if it is the
+    *                     authoritative list, and any tags not in that list should be removed
     */
-  def updateItemTags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
+  def updateItemTags(id:Long, tags:List[Long], user:User, completeList:Boolean=false)(implicit c:Connection=null) : Unit = {
     this.retrieveById(id) match {
       case Some(item) =>
         permission.hasWriteAccess(item, user)
         if (tags.nonEmpty) {
           withMRTransaction { implicit c =>
+            if (completeList) {
+              SQL"""DELETE FROM tags_on_$tableName WHERE ${name}_id = $id""".executeUpdate()
+            }
+
             val indexedValues = tags.zipWithIndex
             val rows = indexedValues.map{ case (_, i) =>
               s"({itemid_$i}, {tagid_$i})"
@@ -43,7 +49,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
               )
             }
 
-            SQL(s"INSERT INTO tags_on_$tableName (${name}_id, tag_id) VALUES " + rows)
+            SQL(s"INSERT INTO tags_on_$tableName (${name}_id, tag_id) VALUES " + rows + " ON CONFLICT DO NOTHING")
               .on(parameters: _*)
               .execute()
           }

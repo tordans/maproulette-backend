@@ -76,6 +76,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       dalManager.challenge.retrieveById(itemId) match {
         case Some(c) =>
           val clonedChallenge = c.copy(id = -1)
+          val tags = Some(dalManager.tag.listByChallenge(itemId).map(_.name))
           if (c.challengeType == Actions.ITEM_TYPE_SURVEY) {
             val surveyForm = Survey.surveyForm.fill(Survey(clonedChallenge, dalManager.survey.getAnswers(c.id)))
             getOkIndex("MapRoulette Administration", user,
@@ -84,7 +85,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           } else {
             val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
             getOkIndex("MapRoulette Administration", user,
-              views.html.admin.forms.challengeForm(user, parentId, challengeForm)
+              views.html.admin.forms.challengeForm(user, parentId, challengeForm, tags)
             )
           }
         case None =>
@@ -105,8 +106,13 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         Challenge.emptyChallenge(parentId)
       }
       val challengeForm = Challenge.challengeForm.fill(challenge)
+      val challengeTags = if (itemId > -1) {
+        Some(dalManager.tag.listByChallenge(itemId).map(_.name))
+      } else {
+        None
+      }
       getOkIndex("MapRoulette Administration", user,
-        views.html.admin.forms.challengeForm(user, parentId, challengeForm)
+        views.html.admin.forms.challengeForm(user, parentId, challengeForm, challengeTags)
       )
     }
   }
@@ -114,24 +120,26 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   def challengeFormPost(parentId:Long, itemId:Long) = Action.async(parse.multipartFormData) { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       permission.hasWriteAccess(ProjectType(), user)(parentId)
+      val tags = request.body.dataParts("tags").toList
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,
-            views.html.admin.forms.challengeForm(user, parentId, formWithErrors)
+            views.html.admin.forms.challengeForm(user, parentId, formWithErrors, Some(tags))
           )
         },
         challenge => {
-          if (itemId > -1) {
-            dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId).get
+          val updatedItemId = if (itemId > -1) {
+            dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId).get.id
           } else {
             val newChallenge = dalManager.challenge.insert(challenge, user)
-
             val uploadData = request.body.file("localGeoJSON") match {
               case Some(f) if StringUtils.isNotEmpty(f.filename) => Some(Source.fromFile(f.ref.file).getLines().mkString)
               case _ => None
             }
             challengeService.buildChallengeTasks(user, newChallenge, uploadData)
+            newChallenge.id
           }
+          dalManager.challenge.updateItemTagNames(updatedItemId, tags, user)
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
         }
       )

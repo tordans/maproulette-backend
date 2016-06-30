@@ -1,6 +1,9 @@
 @(debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
 @minified() = {@{debugMode match { case true => ""; case false => ".min" }}}
 <link rel="shortcut icon" type="image/png" href="@routes.Assets.versioned("images/favicon.png")"/>
+    <!-- Tag-It -->
+<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"css/jquery.tagit.css"))"/>
+<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"css/tagit.ui-zendesk.css"))"/>
     <!-- Latest compiled and minified CSS -->
 <link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"css/bootstrap${minified()}.css"))"/>
     <!-- Font Awesome -->

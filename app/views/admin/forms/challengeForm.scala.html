@@ -2,7 +2,7 @@
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
 @import org.maproulette.session.User
-@(user:User, parentId:Long, challengeForm:Form[Challenge])(implicit messages: Messages, webJarAssets: WebJarAssets)
+@(user:User, parentId:Long, challengeForm:Form[Challenge], tags:Option[List[String]])(implicit messages: Messages, webJarAssets: WebJarAssets)
 @views.html.admin.common.header("Administration", null,
     Map(
         "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
@@ -63,7 +63,7 @@
                         <div class="step-content">
                             <div class="step-pane active sample-pane alert" data-step="1">
                                 <h4>General</h4>
-                                @views.html.admin.forms.challenge.general(challengeForm, parentId, user)
+                                @views.html.admin.forms.challenge.general(challengeForm, parentId, user, tags)
                             </div>
                             <div class="step-pane sample-pane bg-info alert" data-step="2">
                                 <h4>GeoJSON</h4>

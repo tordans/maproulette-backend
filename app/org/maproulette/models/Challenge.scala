@@ -60,20 +60,6 @@ case class Challenge(override val id: Long,
 
   override val itemType: ItemType = ChallengeType()
 
-  def getFriendlyStatus = {
-    status match {
-      case Some(status) =>
-        status match {
-          case Challenge.STATUS_FAILED => Challenge.STATUS_FAILED_NAME
-          case Challenge.STATUS_PARTIALLY_LOADED => Challenge.STATUS_PARTIALLY_LOADED_NAME
-          case Challenge.STATUS_BUILDING => Challenge.STATUS_BUILDING_NAME
-          case Challenge.STATUS_COMPLETE => Challenge.STATUS_COMPLETE_NAME
-          case _ => Challenge.STATUS_NA_NAME
-        }
-      case None => Challenge.STATUS_NA_NAME
-    }
-  }
-
   def isHighPriority(properties:Map[String, String]) : Boolean = matchesRule(highPriorityRule, properties)
 
   def isMediumPriority(properties:Map[String, String]) : Boolean = matchesRule(mediumPriorityRule, properties)
@@ -118,6 +104,26 @@ object Challenge {
   val PRIORITY_MEDIUM = 1
   val PRIORITY_LOW = 2
 
+  /**
+    * This will check to make sure that the json rule is fully valid. The simple check just makes sure
+    * that every rule value is split by "." and contains only two values.
+    *
+    * @param rule
+    * @return
+    */
+  def isValidRule(rule:Option[String]) : Boolean = {
+    rule match {
+      case Some(r) if StringUtils.isNotEmpty(r) && !StringUtils.equalsIgnoreCase(r, "{}") =>
+        val ruleJSON = Json.parse(r)
+        val rules = (ruleJSON \ "rules").as[List[JsValue]].map(jsValue => {
+          val keyValue = (jsValue \ "value").as[String].split("\\.")
+          keyValue.size == 2
+        })
+        !rules.contains(false)
+      case _ => false
+    }
+  }
+
   val challengeForm = Form(
     mapping(
       "id" -> default(longNumber, -1L),
@@ -148,10 +154,4 @@ object Challenge {
   val STATUS_FAILED = 2
   val STATUS_COMPLETE = 3
   val STATUS_PARTIALLY_LOADED = 4
-
-  val STATUS_NA_NAME = "Not Applicable"
-  val STATUS_FAILED_NAME = "Failed"
-  val STATUS_PARTIALLY_LOADED_NAME = "Partially Loaded"
-  val STATUS_BUILDING_NAME = "Loading Tasks"
-  val STATUS_COMPLETE_NAME = "Complete"
 }

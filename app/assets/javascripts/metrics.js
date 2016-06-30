@@ -1,6 +1,6 @@
 (function(Metrics, $, undefined) {
-    Metrics.getChallengeSummaryPieChart = function(canvas, challengeId, showLabels, callback) {
-        jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId).ajax({
+    Metrics.getChallengeSummaryPieChart = function(canvas, challengeId, showLabels, callback, priority) {
+        jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId, priority).ajax({
             success: function(data) {
                 handleChallengeSummaryData(canvas, data, showLabels, callback);
             },
