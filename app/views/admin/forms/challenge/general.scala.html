@@ -6,13 +6,11 @@
 <span class="help-block">@messages("challenge.wizard.general.title")</span>
 @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
     @if(user.isSuperUser) {
-        <div class="form-group">
         @checkbox(challengeForm("featured"),
             label = messages("challenge.wizard.general.featured"),
             default = false,
             readOnly = false
         )
-        </div>
     }
     <div class="form-group" style="display:none;">
     @text(challengeForm("id"),
@@ -38,7 +36,6 @@
         readOnly = true
     )
     </div>
-    <div class="form-group">
     @select(challengeForm("enabled"),
         label = messages("challenge.wizard.general.visible"),
         optionList = List(("true", "true"), ("false", "false")),
@@ -46,39 +43,29 @@
         help = messages("challenge.wizard.general.visible.help"),
         defaultSelected = Some("false")
     )
-    </div>
-    <div class="form-group">
     @text(challengeForm("name"),
         label = messages("challenge.wizard.general.name"),
         placeholder = messages("challenge.wizard.general.name.placeholder"),
         help = messages("challenge.wizard.general.name.help")
     )
-    </div>
-    <div class="form-group">
     @textarea(challengeForm("description"),
         label = messages("challenge.wizard.general.description"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.description.placeholder"),
         help = messages("challenge.wizard.general.description.help")
     )
-    </div>
-    <div class="form-group">
     @textarea(challengeForm("blurb"),
         label = messages("challenge.wizard.general.blurb"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.blurb.placeholder"),
         help = messages("challenge.wizard.general.blurb.help")
     )
-    </div>
-    <div class="form-group">
     @textarea(challengeForm("instruction"),
         label = messages("challenge.wizard.general.instruction"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.instruction.placeholder"),
         help = messages("challenge.wizard.general.instruction.help")
     )
-    </div>
-    <div class="form-group">
     @select(challengeForm("difficulty"),
         label = messages("challenge.wizard.general.difficulty"),
         optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
@@ -86,12 +73,9 @@
         help = messages("challenge.wizard.general.difficulty.help"),
         defaultSelected = Some("1")
     )
-    </div>
-    <div class="form-group">
     @tag(label = messages("challenge.wizard.general.tags"),
         currentTags = tags.getOrElse(List.empty),
         placeholder = messages("challenge.wizard.general.tags.placeholder"),
         help = messages("challenge.wizard.general.tags.help")
     )
-    </div>
 }

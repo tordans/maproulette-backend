@@ -120,7 +120,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   def challengeFormPost(parentId:Long, itemId:Long) = Action.async(parse.multipartFormData) { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       permission.hasWriteAccess(ProjectType(), user)(parentId)
-      val tags = request.body.dataParts("taggles[]").toList
+      val tags = request.body.dataParts("tags").toList
       Challenge.challengeForm.bindFromRequest.fold(
         formWithErrors => {
           getIndex(BadRequest, "MapRoulette Administration", user,
@@ -139,7 +139,6 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
             challengeService.buildChallengeTasks(user, newChallenge, uploadData)
             newChallenge.id
           }
-          val tags = request.body.dataParts("taggles[]").toList
           dalManager.challenge.updateItemTagNames(updatedItemId, tags, user)
           Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
         }

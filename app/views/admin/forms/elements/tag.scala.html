@@ -3,27 +3,19 @@
 <div class="form-group">
   <label class="col-sm-2 control-label">@label</label>
   <div class="col-sm-8">
-    <div id="tagContainer"></div>
+    <input name="tags"
+            id="challengeTags"
+            value="@currentTags.mkString(",")"
+            @if(readOnly) { readonly="readonly" }
+    />
     <span class="help-block">@help</span>
   </div>
 </div>
 <script type="application/javascript">
-  var tagContainer = new Taggle('tagContainer', {
-    placeholder: '@placeholder',
-    allowDuplicates: false,
-    tags: ['@Html(currentTags.mkString("','"))']
-  });
-  var container = tagContainer.getContainer();
-  var input = tagContainer.getInput();
+  $("#challengeTags").tagit({
+    allowSpaces: false,
+    tagLimit: 25,
+    placeholderText: "@placeholder"
 
-  /*$(input).autocomplete({
-    appendTo: container,
-    position: { at: "left bottom", of: container },
-    select: function(event, data) {
-      event.preventDefault();
-      if (event.which === 1) {
-        tagContainer.add(data.item.value);
-      }
-    }
-  })*/
+  });
 </script>

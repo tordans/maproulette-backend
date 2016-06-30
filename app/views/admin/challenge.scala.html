@@ -54,13 +54,15 @@
                             <td>
                                 @if(!c._1.overpassQL.getOrElse("").isEmpty) { Overpass } else {
                                     @if(!c._1.remoteGeoJson.getOrElse("").isEmpty) { Remote GeoJson } else {
-                                        @messages("challenge.na")
+                                        @messages("challenge.type.static")
                                     }
                                 }
                             </td>
                             <td>
-                                <span id="statusName">@c._1.getFriendlyStatus</span>
-                                <a href="#" onclick="refreshStatus(@c._1.id);" class="fa fa-refresh"/>
+                                <span id="statusName">@messages(s"challenge.column.status.${c._1.status.getOrElse(0)}")</span>
+                                @if(c._1.status.getOrElse(0) != 0) {
+                                    <a href="#" onclick="refreshStatus(@c._1.id);" class="fa fa-refresh"/>
+                                }
                             </td>
                             <td>
                                 <div class="btn-group pull-left">
@@ -124,15 +126,15 @@
     function refreshStatus(itemId) {
         getChallenge(itemId, function(data) {
             if (data.status == "@{Challenge.STATUS_BUILDING}") {
-                $("#statusName").html("@{Challenge.STATUS_BUILDING_NAME}");
+                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_BUILDING}")");
             } else if (data.status == "@{Challenge.STATUS_COMPLETE}") {
-                $("#statusName").html("@{Challenge.STATUS_COMPLETE_NAME}");
+                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_COMPLETE}")");
             } else if (data.status == "@{Challenge.STATUS_FAILED}") {
-                $("#statusName").html("@{Challenge.STATUS_FAILED_NAME}");
+                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_FAILED}")");
             } else if (data.status == "@{Challenge.STATUS_PARTIALLY_LOADED}") {
-                $("#statusName").html("@{Challenge.STATUS_PARTIALLY_LOADED_NAME}");
+                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_PARTIALLY_LOADED}")");
             } else {
-                $("#statusName").html("@{Challenge.STATUS_NA_NAME}");
+                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_NA}")");
             }
         }, Utils.handleError)
     }

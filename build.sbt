@@ -38,6 +38,7 @@ libraryDependencies ++= Seq(
   "org.webjars" % "momentjs" % "2.12.0",
   "org.webjars" % "datatables" % "1.10.11",
   "org.webjars" % "js-cookie" % "2.1.0",
+  "org.webjars" % "tag-it" % "2.0",
   "org.webjars.bower" % "fuelux" % "3.14.2"
     exclude("org.webjars.bower", "jquery") exclude("org.webjars.bower", "moment")
     exclude("org.webjars.bower", "requirejs") exclude("org.webjars.bower", "bootstrap"),
@@ -47,8 +48,7 @@ libraryDependencies ++= Seq(
   "org.webjars.bower" % "leaflet.markercluster" % "1.0.0-rc.1",
   "org.webjars.bower" % "github-com-makinacorpus-Leaflet-Spin" % "0.1.1",
   "org.webjars.bower" % "marked" % "0.3.5",
-  "org.webjars.bower" % "chartjs" % "2.1.0",
-  "org.webjars.bower" % "taggle" % "1.7.1"
+  "org.webjars.bower" % "chartjs" % "2.1.0"
 )
 
 dependencyOverrides += "org.webjars" % "bootstrap" % "3.3.6"

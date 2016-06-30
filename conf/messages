@@ -191,8 +191,13 @@ challenge.column.name=Name
 challenge.column.metrics=Tasks All/Fixed/False Positive
 challenge.column.type=Challenge Type
 challenge.column.status=Status
+challenge.column.status.0=Not Applicable
+challenge.column.status.1=Building
+challenge.column.status.2=Failed
+challenge.column.status.3=Complete
+challenge.column.status.4=Partially Loaded
 challenge.column.actions=Actions
-challenge.na=Not Applicable
+challenge.type.static=Static
 challenge.column.actions.options=Options
 challenge.column.actions.options.toggle=Toggle Dropdown
 challenge.column.actions.edit=Edit
@@ -230,6 +235,16 @@ challenge.wizard.general.tags=Tags
 challenge.wizard.general.tags.placeholder=Add Tags here...
 challenge.wizard.general.tags.help=Insert any tags that you want associated with this Task so that users can easily search for specific tasks. (optional)
 
+challenge.wizard.priority.description=The priority of tasks can be defined by High, Medium and Low. All high priority tasks will be shown first, then medium and finally low. This can be useful if you have a large number of tasks and wish to have certain sets of tasks fixed first.
+challenge.wizard.priority.default.label=Default Priority
+challenge.wizard.priority.default.help=Please enter the default priority level for the tasks in this challenge
+challenge.wizard.priority.expression.description=Use the expression builders below to define the tasks to be placed in HIGH, MEDIUM and LOW priorities.
+challenge.wizard.priority.expression.high=High
+challenge.wizard.priority.expression.medium=Medium
+challenge.wizard.priority.expression.low=Low
+challenge.wizard.priority.expression.none=None
+
+challenge.wizard.schedule.description=Below you can schedule when your task data will be updated. This can only be used for challenges that were created by an overpass query or a remote url for geojson.
 
 users.administration.title=Administration
 users.title=Users (OSM)
