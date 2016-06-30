@@ -75,6 +75,11 @@ metrics.challenge.start.description=Click here to start fixing tasks in the chal
 metrics.challenge.edit=Edit
 metrics.challenge.edit.description=Click here to edit the challenge
 metrics.challenge.error=Unable to retrieve data for activity chart:\\n
+metrics.challenge.priority.name=Priority
+metrics.challenge.priority.all=All
+metrics.challenge.priority.high=High
+metrics.challenge.priority.medium=Medium
+metrics.challenge.priority.low=Low
 
 metrics.challenge.table.header=Challenges
 metrics.challenge.table.show=Show/Hide Columns:

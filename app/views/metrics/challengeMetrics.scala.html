@@ -7,6 +7,18 @@
 @views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { messages("metrics.challenge.all") } else { messages("metrics.challenge.projects", projects) }, None, -1, "")).name)
 <script src="@routes.Assets.versioned("javascripts/metrics.js")"></script>
 <section class="content">
+    @if(challenge.isDefined) {
+        <div class="row">
+            <div class="col-md-1">
+                @messages("metrics.challenge.priority.name")<select name="Priority" id="priorities">
+                    <option value="-1">@messages("metrics.challenge.priority.all")</option>
+                    <option value="@Challenge.PRIORITY_HIGH">@messages("metrics.challenge.priority.high")</option>
+                    <option value="@Challenge.PRIORITY_MEDIUM">@messages("metrics.challenge.priority.medium")</option>
+                    <option value="@Challenge.PRIORITY_LOW">@messages("metrics.challenge.priority.low")</option>
+                </select>
+            </div>
+        </div>
+    }
         <!-- Info boxes -->
     <div class="row">
         <div class="col-md-3 col-sm-6 col-xs-12">
@@ -184,17 +196,23 @@
 </section>
 <script type="application/javascript">
     var dateFormat = "YYYY-MM-DD";
-    function getMetrics(start, end, dateChangeOnly) {
+    var currentStartDate = moment().subtract(6, 'days').format(dateFormat);
+    var currentEndDate = moment().format(dateFormat);
+    $('#priorities').change(function() {
+        getMetrics(currentStartDate, currentEndDate, false, this.value);
+    });
+
+    function getMetrics(start, end, dateChangeOnly, priority) {
         var dco = false;
         if (typeof dateChangeOnly != 'undefined' && dateChangeOnly) {
             dco = true;
         }
+        var currentPriority = -1;
+        if (typeof priority != 'undefined') {
+            currentPriority = priority;
+        }
         var activityCallback = {
             success:receiveActivityData,
-            error:dataErrorHandler
-        };
-        var summaryCallback = {
-            success:receiveSummaryData,
             error:dataErrorHandler
         };
         var userCallback = {
@@ -203,10 +221,10 @@
         };
         @challenge match {
             case Some(c) => {
-                jsRoutes.org.maproulette.controllers.api.DataController.getChallengeActivity(@c.id, start, end).ajax(activityCallback);
-                jsRoutes.org.maproulette.controllers.api.DataController.getUserChallengeSummary(@c.id, start, end).ajax(userCallback);
+                jsRoutes.org.maproulette.controllers.api.DataController.getChallengeActivity(@c.id, start, end, currentPriority).ajax(activityCallback);
+                jsRoutes.org.maproulette.controllers.api.DataController.getUserChallengeSummary(@c.id, start, end, -1, currentPriority).ajax(userCallback);
                 if (!dco) {
-                    Metrics.getChallengeSummaryPieChart($("#statusPieChart"), @c.id, true, receiveSummaryData);
+                    Metrics.getChallengeSummaryPieChart($("#statusPieChart"), @c.id, true, receiveSummaryData, currentPriority);
                 }
             }
             case None => {
@@ -218,7 +236,7 @@
             }
         }
     }
-    getMetrics(moment().subtract(6, 'days').format(dateFormat), moment().format(dateFormat));
+    getMetrics(currentStartDate, currentEndDate);
 
     function receiveUserData(data) {
         $("#top_users").html(data.distinctAllUsers);
@@ -276,7 +294,9 @@
         startDate: moment().subtract(6, 'days'),
         endDate: moment()
     }, function (start, end) {
-        getMetrics(moment(start).format(dateFormat), moment(end).format(dateFormat), true);
+        currentStartDate = moment(start).format(dateFormat);
+        currentEndDate = moment(end).format(dateFormat);
+        getMetrics(currentStartDate, currentEndDate, true);
     });
 
     function receiveActivityData(data) {
