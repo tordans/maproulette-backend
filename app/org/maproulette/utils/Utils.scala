@@ -68,4 +68,13 @@ object Utils extends DefaultWrites {
       case m:MethodSymbol if m.isCaseAccessor => m -> im.reflectMethod(m).apply()
     }.toMap
   }
+
+  def omitEmpty(original:JsObject, strings:Boolean=true, arrays:Boolean=true, objects:Boolean=true) : JsObject = {
+    original.value.foldLeft(original) {
+      case (obj, (key, JsString(st))) if strings & st.isEmpty => obj - key
+      case (obj, (key, JsArray(arr))) if arrays & arr.isEmpty => obj - key
+      case (obj, (key, JsObject(o))) if objects & o.isEmpty => obj - key
+      case (obj, (_, _)) => obj
+    }
+  }
 }

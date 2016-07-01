@@ -1,7 +1,8 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
 @import org.maproulette.actions.Actions
-@(user:User, newChallenges:List[Challenge], hotChallenges:List[Challenge],
+@import org.maproulette.Config
+@(user:User, config:Config, newChallenges:List[Challenge], hotChallenges:List[Challenge],
         featuredChallenges:List[Challenge])(implicit req: play.api.mvc.RequestHeader, messages: Messages)
 <!-- sidebar: style can be found in sidebar.less -->
 <section class="sidebar">
@@ -20,15 +21,15 @@
     </div>
   </div>
 
-    <!-- search form (Optional) -->
-  <form action="#" method="get" class="sidebar-form">
+  <!-- search form (Optional) -->
+  <form action="#" method="get" class="sidebar-form" id="searchForm">
     <div class="input-group">
-      <input id="searchQ" type="text" name="q" class="form-control" placeholder="@messages("sidebar.search.placeholder")" onkeyup="mpSearch();">
+      <input id="searchQ" type="text" name="q" class="form-control" placeholder="@messages("sidebar.search.placeholder")">
       <span class="input-group-btn">
-        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+        <button name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
       </span>
     </div>
-    <a href="#" class="pull-right text-light-blue" onclick="showSearch();">@messages("sidebar.search.show")</a>
+    <label class="text-blue"><input id="includeMap" type="checkbox" value="">@messages("sidebar.search.mapincluded")</label>
   </form>
     <!-- /.search form -->
 
@@ -131,74 +132,127 @@
   </ul>
 </section>
 <script type="application/javascript">
-  var showSearch = function() {
-    // setup the search cookie
-    var params = new SearchParameters();
-    params.reset();
-    params.setChallengeSearch($("#searchQ").val());
-    if (typeof MRManager !== 'undefined') {
-      MRManager.getSearchedClusteredPoints(params);
-    } else {
-      location.href = '@routes.Application.showSearchResults().absoluteURL()';
-    }
-  };
+  // get the search cookie and populate the search field
+  $(document).ready(function() {
+    // tie the search form to the mpSearch function
+    $("#searchForm").on('submit', function(e) {
+      e.preventDefault();
+      mpSearch();
+    });
 
-  var updateSearch = function(data, name) {
-    // remove previous results first
-    $("#" + name + "_results").empty();
-    if (data.length > 0) {
-      $("#search_" + name).removeClass("hidden");
-    } else {
-      $("#search_" + name).addClass("hidden");
+    var params = new SearchParameters();
+    var q = "";
+    var tags = params.getChallengeTags();
+    if (tags.length > 0) {
+      q += " tags:";
+      for (var i = 0; i < tags.length; i++) {
+        q += tags[i];
+        if (i != tags.length - 1) {
+          q += ",";
+        }
+      }
     }
-    for (var i = 0; i < data.length; i++) {
-      var dataObject;
-      if (name === "surveys") {
-        dataObject = data[i].challenge;
+    var project = params.getProjectSearch();
+    if (project !== '') {
+      q += " project:" + project;
+    }
+    var owner = params.getOwner();
+    if (owner !== '') {
+      q += " owner:" + owner;
+    }
+    var challenge = params.getChallengeSearch();
+    if (challenge !== '') {
+      if (q.length > 0) {
+        q += " challenge:" + challenge;
       } else {
-        dataObject = data[i];
+        q += challenge;
+      }
+    }
+    $("#searchQ").val(q.trimLeft());
+  });
+
+  var updateSearch = function(data) {
+    // remove previous results first
+    $("#challenges_results").empty();
+    $("#surveys_results").empty();
+    $("#search_challenges").addClass("hidden");
+    var challengesShown = false;
+    $("#search_surveys").addClass("hidden");
+    var surveysShown = false;
+    for (var i = 0; i < data.length && i < @config.numberOfChallenges; i++) {
+      if (!challengesShown && data[i].isChallenge) {
+        $("#search_challenges").removeClass("hidden");
+      } else if (!surveysShown && !data[i].isChallenge) {
+        $("#search_surveys").removeClass("hidden");
       }
       var tooltipString = "";
-      if (dataObject.name.length > 20) {
-        tooltipString = "data-toggle=\"tooltip\" title=\"" + dataObject.name + "\""
+      if (data[i].title.length > 20) {
+        tooltipString = "data-toggle=\"tooltip\" title=\"" + data[i].title + "\""
       }
-      var shortenedName = dataObject.name;
+      var shortenedName = data[i].title;
       if (shortenedName.length > 20) {
-        shortenedName = dataObject.name.substring(0, 20);
+        shortenedName = data[i].title.substring(0, 20);
       }
-      $("<li><a href=\"#\" onclick=\"addItemToMap(" + dataObject.id + ");\"" + tooltipString + ">\
+      var name = "surveys";
+      if (data[i].isChallenge) {
+        name = "challenges";
+      }
+      $("<li><a href=\"#\" onclick=\"addItemToMap(" + data[i].id + ");\"" + tooltipString + ">\
             <i class=\"fa fa-circle-o\"></i> " + shortenedName + "</a>\
           </li>").appendTo("#" + name + "_results");
     }
   };
 
-  var searchTimer;
+  /**
+   * Search allows various flags to be use to define certain properties to search on.
+   * "tags" - The tags on a challenge
+   * "project" - The project name
+   * "challenge" - The challenge name
+   * "owner" - The owner of the challenge or project
+   * To use these tags you would write it in the search box followed by colon and then the properties for the tag
+   * example:
+   * tags:tag1,tag2 challenge:ECU project:ECU owner:Mike
+   * Order does not matter
+   *
+   */
   var mpSearch = function() {
-    clearTimeout(searchTimer);
-    searchTimer=setTimeout(function () {
-      $("#search_header").removeClass("hidden");
-      var q = $("#searchQ").val();
-      if (q === "") {
-        $("#search_header").addClass("hidden");
-        $("#search_surveys").addClass("hidden");
-        $("#search_challenges").addClass("hidden");
-        $("#search_tags").addClass("hidden");
-      } else {
-        // get Challenges that match the search query
-        findChallenges(q, -1, 5, 0, true,
-                function(data) {
-                  console.log(data);
-                  updateSearch(data, "challenges");
-                }, Utils.handleError
-        );
-        // get surveys that match the search query
-        findSurveys(q, -1, 5, 0, true,
-                function(data) {
-                  console.log(data);
-                  updateSearch(data, "surveys");
-                }, Utils.handleError
-        );
+    $("#search_header").removeClass("hidden");
+    var q = $("#searchQ").val();
+    var params = new SearchParameters();
+    params.reset();
+
+    var options = q.split(" ");
+    var hasSet = false;
+    for (var i = 0; i < options.length; i++) {
+      var op = options[i].split(":");
+      if (op.length == 2) {
+        if (op[0] === 'tags') {
+          params.setChallengeTags(op[1]);
+          hasSet = true;
+        } else if (op[0] === 'project') {
+          params.setProjectSearch(op[1]);
+          hasSet = true;
+        } else if (op[0] === 'challenge') {
+          params.setChallengeSearch(op[1]);
+          hasSet = true;
+        } else if (op[0] === 'owner') {
+          params.setOwner(op[1]);
+          hasSet = true;
+        }
       }
-    },1000);
+    }
+    if (!hasSet) {
+      params.setChallengeSearch(q);
+    }
+
+    if (typeof MRManager !== 'undefined') {
+      if ($("#includeMap").is(":checked")) {
+        var mapBounds = MRManager.getMapBounds();
+        params.setSearchLocation(mapBounds.getWest(), mapBounds.getSouth(), mapBounds.getEast(), mapBounds.getNorth());
+      }
+      MRManager.getSearchedClusteredPoints(params, updateSearch);
+    } else {
+      location.href = '@routes.Application.showSearchResults().absoluteURL()';
+    }
   };
 </script>

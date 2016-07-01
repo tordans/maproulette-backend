@@ -673,41 +673,45 @@ var MRManager = (function() {
             };
         };
 
-        for (var i = 0; i < data.length; i++) {
-            var title = data[i].title;
-            var marker = L.marker(new L.LatLng(data[i].point.lat, data[i].point.lng), {title:title});
-            var popupString = '<div class="popup mp-popup" id="popup_' + data[i].id + '">';
-            if (title !== "") {
-                popupString += marked("#### " + title);
-            }
-            popupString += marked(data[i].blurb);
-            if (data[i].isChallenge) {
-                // This section below is for the pie chart and small activity chart when the popup is opened
-                popupString += '<div class="row">' +
-                                '<div class="col-xs-6">' +
-                                    '<canvas id="statusPieChart_' + data[i].id + '" style="position: inherit !important; max-width:100px; max-height:100px"></canvas>' +
-                                '</div>' +
-                                '<div class="col-xs-6">' +
-                                    '<a href="#">' +
-                                        '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">Start</button>' +
-                                    '</a>' +
-                                    '<a href="#">' +
-                                        '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">View</button>' +
-                                    '</a>' +
-                                '</div>' +
-                               '</div>';
-                marker.on("popupopen", popupFunction(data[i].id));
-            } else {
-                popupString += '<div><a href="#">' +
-                    '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">Edit</button>' +
-                    '</a></div>';
-            }
-            popupString += '</div>';
-            marker.bindPopup(popupString, { maxHeight: 200 });
+        if (data.length > 0) {
+            for (var i = 0; i < data.length; i++) {
+                var title = data[i].title;
+                var marker = L.marker(new L.LatLng(data[i].point.lat, data[i].point.lng), {title:title});
+                var popupString = '<div class="popup mp-popup" id="popup_' + data[i].id + '">';
+                if (title !== "") {
+                    popupString += marked("#### " + title);
+                }
+                popupString += marked(data[i].blurb);
+                if (data[i].isChallenge) {
+                    // This section below is for the pie chart and small activity chart when the popup is opened
+                    popupString += '<div class="row">' +
+                        '<div class="col-xs-6">' +
+                        '<canvas id="statusPieChart_' + data[i].id + '" style="position: inherit !important; max-width:100px; max-height:100px"></canvas>' +
+                        '</div>' +
+                        '<div class="col-xs-6">' +
+                        '<a href="#">' +
+                        '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">Start</button>' +
+                        '</a>' +
+                        '<a href="#">' +
+                        '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">View</button>' +
+                        '</a>' +
+                        '</div>' +
+                        '</div>';
+                    marker.on("popupopen", popupFunction(data[i].id));
+                } else {
+                    popupString += '<div><a href="#">' +
+                        '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">Edit</button>' +
+                        '</a></div>';
+                }
+                popupString += '</div>';
+                marker.bindPopup(popupString, { maxHeight: 200 });
 
-            markers.addLayer(marker);
+                markers.addLayer(marker);
+            }
+            map.fitBounds(markers.getBounds());
+        } else {
+            ToastUtils.Warning("No tasks found from search.");
         }
-        map.fitBounds(markers.getBounds());
         currentTask.resetTask();
     };
 
@@ -842,13 +846,18 @@ var MRManager = (function() {
      * 
      * @param searchParameters
      */
-    var getSearchedClusteredPoints = function(searchParameters) {
+    var getSearchedClusteredPoints = function(searchParameters, searchCallback) {
         loading();
         if (typeof searchParameters !== 'undefined') {
             currentSearchParameters = searchParameters;
         }  
         jsRoutes.org.maproulette.controllers.api.ProjectController.getSearchedClusteredPoints(currentSearchParameters.getCookieString()).ajax({
-            success: MRManager.getSuccessHandler(MRManager.viewClusteredData),
+            success: function(data) {
+                MRManager.getSuccessHandler(MRManager.viewClusteredData)(data);
+                if (typeof searchCallback !== 'undefined') {
+                    searchCallback(data);
+                }
+            },
             error: MRManager.getErrorHandler()
         });
     };
@@ -1119,6 +1128,10 @@ var MRManager = (function() {
             currentTask.getChallenge().view(challengeId, filters);
         }
     };
+    
+    var getMapBounds = function() {
+        return map.getBounds();  
+    };
 
     var usingPriority = function() {
         return true;
@@ -1150,7 +1163,8 @@ var MRManager = (function() {
         usingPriority: usingPriority,
         loading:loading,
         loaded:loaded,
-        getSearchedClusteredPoints:getSearchedClusteredPoints
+        getSearchedClusteredPoints:getSearchedClusteredPoints,
+        getMapBounds:getMapBounds
     };
 
 }());

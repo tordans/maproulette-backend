@@ -15,6 +15,8 @@ import play.api.Logger
 import play.api.db.Database
 import play.api.libs.json.{JsValue, Json}
 
+import scala.collection.mutable.ListBuffer
+
 /**
   * Specific functions for the project data access layer
   *
@@ -191,22 +193,48 @@ class ProjectDAL @Inject() (override val db:Database,
   def getSearchedClusteredPoints(params: SearchParameters)
                                 (implicit c:Connection=null) : List[ClusteredPoint] = {
     withMRConnection { implicit c =>
+      val parameters = new ListBuffer[NamedParameter]()
+      // the named parameter for the challenge name
+      parameters += ('cs -> search(params.challengeSearch))
+      parameters += ('ps -> search(params.projectSearch))
+      // search by tags if any
+      val challengeTags = if (params.challengeTags.nonEmpty) {
+        val tags = params.challengeTags.zipWithIndex.map{
+          case (v, i) =>
+            parameters += (s"tag_$i" -> search(v))
+            s"t.name LIKE {tag_$i}"
+        }
+        (
+          """
+            |INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id
+            |INNER JOIN tags t ON t.id = tc.tag_id
+          """.stripMargin,
+          s"AND ${tags.mkString(" OR ")}"
+          )
+      } else {
+        ("", "")
+      }
+      // search by location bounding box
+      val locationClause = params.location match {
+        case Some(l) => s"AND c.location @ ST_MakeEnvelope(${l.left}, ${l.bottom}, ${l.right}, ${l.top}, 4326)"
+        case None => ""
+      }
       val query = s"""
           SELECT c.id, c.name, c.instruction, ST_AsGeoJSON(c.location) AS location
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
+          ${challengeTags._1}
           WHERE c.location IS NOT NULL AND (
             SELECT COUNT(*) FROM tasks
             WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
-         ${searchField("c.name", "AND", "cs")}
-         ${searchField("p.name", "AND", "ps")}
-         ${enabled(params.challengeEnabled, "c")} ${enabled(params.projectEnabled, "p")}
-         ${if (params.projectId.isDefined && params.projectId.get > 0) {s" AND c.parent_id = ${params.projectId.get}"} else {""}}
+          ${searchField("c.name", "AND", "cs")}
+          ${searchField("p.name", "AND", "ps")}
+          ${enabled(params.challengeEnabled, "c")} ${enabled(params.projectEnabled, "p")}
+          ${if (params.projectId.isDefined && params.projectId.get > 0) {s" AND c.parent_id = ${params.projectId.get}"} else {""}}
+          $locationClause
+          ${challengeTags._2}
          """
-        SQL(query).on(
-          'cs -> search(params.challengeSearch),
-          'ps -> search(params.projectSearch)
-        ).as(pointParser.*)
+        SQLWithParameters(query, parameters).as(pointParser.*)
     }
   }
 

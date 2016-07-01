@@ -2,7 +2,8 @@ package org.maproulette.session
 
 import java.net.URLDecoder
 
-import play.api.libs.json.{Json, Reads, Writes}
+import org.maproulette.utils.Utils
+import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{AnyContent, Request}
 
 /**
@@ -13,6 +14,8 @@ import play.api.mvc.{AnyContent, Request}
   *
   * @author cuthbertm
   */
+case class SearchLocation(left:Double, bottom:Double, right:Double, top:Double)
+
 case class SearchParameters(projectId:Option[Long]=None,
                             projectSearch:String="",
                             projectEnabled:Boolean=true,
@@ -22,8 +25,10 @@ case class SearchParameters(projectId:Option[Long]=None,
                             challengeEnabled:Boolean=true,
                             taskTags:List[String]=List.empty,
                             taskSearch:String="",
-                            props:Map[String, String]=Map.empty,
-                            priority:Option[Int]=None) {
+                            props:Option[Map[String, String]]=None,
+                            priority:Option[Int]=None,
+                            location:Option[SearchLocation]=None,
+                            owner:Option[String]=None) {
   def getProjectId = projectId match {
     case Some(v) if v == -1 => None
     case _ => projectId
@@ -42,11 +47,13 @@ case class SearchParameters(projectId:Option[Long]=None,
 
 object SearchParameters {
 
-  implicit val paramsWrites: Writes[SearchParameters] = Json.writes[SearchParameters]
-  implicit val paramsReads: Reads[SearchParameters] = Json.reads[SearchParameters]
+  implicit val locationWrites = Json.writes[SearchLocation]
+  implicit val locationReads = Json.reads[SearchLocation]
+  implicit val paramsWrites = Json.writes[SearchParameters]
+  implicit val paramsReads = Json.reads[SearchParameters]
 
   def convert(value:String) : SearchParameters =
-    Json.parse(URLDecoder.decode(value, "UTF-8")).as[SearchParameters]
+    Utils.omitEmpty(Json.parse(URLDecoder.decode(value, "UTF-8")).as[JsObject], false, false).as[SearchParameters]
 
   /**
     * Retrieves the search cookie from the cookie list and creates a search parameter object
