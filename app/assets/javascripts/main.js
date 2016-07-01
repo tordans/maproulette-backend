@@ -169,7 +169,9 @@ function SearchParameters() {
         taskSearch: '',
         taskTags: [],
         props: {},
-        priority: -1
+        priority: -1,
+        location: {},
+        owner: ''
     };
     
     var search = Cookies.getJSON('search');
@@ -270,6 +272,18 @@ function SearchParameters() {
     };
     this.setPriority = function(priority) {
         setValue("priority", priority);
+    };
+    this.getSearchLocation = function() {
+        return getValue("location");
+    };
+    this.setSearchLocation = function(left, bottom, right, top) {
+        setValue("location", {left:left, bottom:bottom, right:right, top:top});
+    };
+    this.getOwner = function() {
+        return getValue("owner");
+    };
+    this.setOwner = function(owner) {
+        setValue("owner", owner);
     };
 }
 

@@ -31,15 +31,15 @@
 <script type="application/javascript">
 $().ready(function() {
     var highRule = '@challengeForm("highPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
-    if (highRule != "") {
+    if (highRule != "" && highRule != "{}") {
         $('#priority-high-builder').queryBuilder('setRules', JSON.parse(highRule));
     }
     var mediumRule = '@challengeForm("mediumPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
-    if (mediumRule != "") {
+    if (mediumRule != "" && mediumRule != "{}") {
         $('#priority-medium-builder').queryBuilder('setRules', JSON.parse(mediumRule));
     }
     var lowRule = '@challengeForm("lowPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
-    if (lowRule != "") {
+    if (lowRule != "" && lowRule != "{}") {
         $('#priority-low-builder').queryBuilder('setRules', JSON.parse(lowRule));
     }
 });
