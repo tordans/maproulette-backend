@@ -40,8 +40,8 @@ GET     /mapping/nextTask/:parentId/:id                                 @control
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
 GET     /mapping/randomTaskWithoutPriority                              @controllers.MappingController.getRandomNextTask
 GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTaskWithPriority
-# DATA ROUTES
-
+# JsMessages Route
+GET     /jsMessages                                                     @controllers.Application.messages
 # Swagger route
 GET     /api/v2/docs                                                    @controllers.ApiHelpController.getResources
 # Map static resources from the /public folder to the /assets URL path

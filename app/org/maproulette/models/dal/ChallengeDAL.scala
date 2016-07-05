@@ -361,7 +361,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, "", point, instruction, false)
+          ClusteredPoint(id, "", point, instruction, -1, Actions.ITEM_TYPE_TASK)
       }
         SQL"""SELECT id, name, instruction,
                       ST_AsGeoJSON(location) AS location

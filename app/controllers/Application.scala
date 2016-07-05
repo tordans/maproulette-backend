@@ -2,6 +2,7 @@ package controllers
 
 import javax.inject.Inject
 
+import jsmessages.JsMessagesFactory
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
@@ -20,11 +21,14 @@ import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
+                             jsMessagesFactory: JsMessagesFactory,
                              override val webJarAssets: WebJarAssets,
                              sessionManager:SessionManager,
                              override val dalManager: DALManager,
                              permission: Permission,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
+
+  val jsMessages = jsMessagesFactory.all
 
   def clearCaches = Action.async { implicit request =>
     implicit val requireSuperUser = true
@@ -37,6 +41,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
       dalManager.tag.clearCaches
       Ok(Json.toJson(StatusMessage("OK", JsString("All caches cleared."))))
     }
+  }
+
+  def messages = Action { implicit request =>
+    Ok(jsMessages(Some("window.Messages")))
   }
 
   /**

@@ -85,23 +85,23 @@ L.Control.EditControl = L.Control.extend({
     },
     setAsEdit: function() {
         var self = this;
-        L.DomUtil.get("edit_information").innerHTML = "Please select how you would like to fix this task.";
+        L.DomUtil.get("edit_information").innerHTML = Messages("mapping.js.control.edit.information");
         var options = L.DomUtil.get("edit_options");
         options.innerHTML = "";
         var editInID = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        editInID.innerHTML = "Edit in iD";
+        editInID.innerHTML = Messages("mapping.js.control.edit.id");
         L.DomEvent.on(editInID, 'click', L.DomEvent.stopPropagation)
             .on(editInID, 'click', L.DomEvent.preventDefault)
             .on(editInID, 'click',  MRManager.openTaskInId);
 
         var editInJOSM = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        editInJOSM.innerHTML = "Edit in JOSM";
+        editInJOSM.innerHTML = Messages("mapping.js.control.edit.josm");
         L.DomEvent.on(editInJOSM, 'click', L.DomEvent.stopPropagation)
             .on(editInJOSM, 'click', L.DomEvent.preventDefault)
             .on(editInJOSM, 'click', MRManager.openTaskInJosm);
 
         var editInJOSMLayer = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        editInJOSMLayer.innerHTML = "Edit in new JOSM Layer";
+        editInJOSMLayer.innerHTML = Messages("mapping.js.control.edit.josm.layer");
         L.DomEvent.on(editInJOSMLayer, 'click', L.DomEvent.stopPropagation)
             .on(editInJOSMLayer, 'click', L.DomEvent.preventDefault)
             .on(editInJOSMLayer, 'click', function() {
@@ -109,7 +109,7 @@ L.Control.EditControl = L.Control.extend({
             });
 
         var closeEdit = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        closeEdit.innerHTML = "Nevermind close this";
+        closeEdit.innerHTML = Messages("mapping.js.control.edit.nevermind");
         L.DomEvent.on(closeEdit, 'click', L.DomEvent.stopPropagation)
             .on(closeEdit, 'click', L.DomEvent.preventDefault)
             .on(closeEdit, 'click', function() {
@@ -117,11 +117,11 @@ L.Control.EditControl = L.Control.extend({
             });
     },
     setAsResult: function() {
-        L.DomUtil.get("edit_information").innerHTML = "The area is now loaded in your OSM editor. See if you can fix it, and then return to MapRoulette.<br/><i>Please make sure you save (iD) or upload (JSOM) your work after each fix!<i/>";
+        L.DomUtil.get("edit_information").innerHTML = Messages("mapping.js.control.results.title");
         var options = L.DomUtil.get("edit_options");
         options.innerHTML = "";
         var fixed = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        fixed.innerHTML = "I fixed it!";
+        fixed.innerHTML = Messages("mapping.js.control.results.fixed");
         L.DomEvent.on(fixed, 'click', L.DomEvent.stopPropagation)
             .on(fixed, 'click', L.DomEvent.preventDefault)
             .on(fixed, 'click', function() {
@@ -129,7 +129,7 @@ L.Control.EditControl = L.Control.extend({
             });
 
         var difficult = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        difficult.innerHTML = "Too difficult/Couldn't see";
+        difficult.innerHTML = Messages("mapping.js.control.results.difficult");
         L.DomEvent.on(difficult, 'click', L.DomEvent.stopPropagation)
             .on(difficult, 'click', L.DomEvent.preventDefault)
             .on(difficult, 'click', function() {
@@ -137,7 +137,7 @@ L.Control.EditControl = L.Control.extend({
             });
 
         var alreadyFixed = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
-        alreadyFixed.innerHTML = "Someone beat me to it";
+        alreadyFixed.innerHTML = Messages("mapping.js.control.results.alreadyfixed");
         L.DomEvent.on(alreadyFixed, 'click', L.DomEvent.stopPropagation)
             .on(alreadyFixed, 'click', L.DomEvent.preventDefault)
             .on(alreadyFixed, 'click', function() {
@@ -219,14 +219,14 @@ L.Control.ControlPanel = L.Control.extend({
         this.updateNextControl();
     },
     updatePreviousControl: function() {
-        this.updateControl(0, "controlpanel_previous", "Previous", "fa-backward", false, function(e) {
+        this.updateControl(0, "controlpanel_previous", Messages("mapping.js.control.previous"), "fa-backward", false, function(e) {
             MRManager.getPreviousTask();
         });
     },
     updateEditControl: function() {
         var self = this;
         var locked = MRManager.isTaskLocked() || MRManager.isChallengeSurvey();
-        this.updateControl(1, "controlpanel_edit", "Edit", "fa-pencil",
+        this.updateControl(1, "controlpanel_edit", Messages("mapping.js.control.edit"), "fa-pencil",
             locked || !this.options.signedIn, function(e) {
             if (!locked) {
                 self.options.editClick();
@@ -235,7 +235,7 @@ L.Control.ControlPanel = L.Control.extend({
     },
     updateFPControl: function() {
         var locked = MRManager.isTaskLocked() || MRManager.isChallengeSurvey();
-        this.updateControl(2, "controlpanel_fp", "False Positive", "fa-warning",
+        this.updateControl(2, "controlpanel_fp", Messages("mapping.js.control.falsepositive"), "fa-warning",
             locked || !this.options.signedIn, function(e) {
             if (!locked) {
                 MRManager.setTaskStatus(TaskStatus.FALSEPOSITIVE);
@@ -243,11 +243,11 @@ L.Control.ControlPanel = L.Control.extend({
         });
     },
     updateNextControl: function() {
-        var nextName = "Skip";
+        var nextName = Messages("mapping.js.control.skip");
         // this checks to see if the previous button is being shown, if it is then we know that
         // we are in debug mode and makes sense to call the button "Next" instead of "Skip"
         if (this.options.controls[0]) {
-            nextName = "Next";
+            nextName = Messages("mapping.js.control.next");
         }
         this.updateControl(3, "controlpanel_next", nextName, "fa-forward", false, function(e) {
             MRManager.getNextTask();
@@ -316,14 +316,14 @@ var TaskStatus = {
     TOOHARD:6,
     getStatusName:function(status) {
         switch(status) {
-            case TaskStatus.CREATED: return "Created";
-            case TaskStatus.FIXED: return "Fixed";
-            case TaskStatus.FALSEPOSITIVE: return "False Positive";
-            case TaskStatus.SKIPPED: return "Skipped";
-            case TaskStatus.DELETED: return "Deleted";
-            case TaskStatus.ALREADYFIXED: return "Already Fixed";
-            case TaskStatus.TOOHARD: return "Too Hard";
-            default: return "Unknown";
+            case TaskStatus.CREATED: return Messages("mapping.js.task.created");
+            case TaskStatus.FIXED: return Messages("mapping.js.task.fixed");
+            case TaskStatus.FALSEPOSITIVE: return Messages("mapping.js.task.falsepositive");
+            case TaskStatus.SKIPPED: return Messages("mapping.js.task.skipped");
+            case TaskStatus.DELETED: return Messages("mapping.js.task.deleted");
+            case TaskStatus.ALREADYFIXED: return Messages("mapping.js.task.alreadyfixed");
+            case TaskStatus.TOOHARD: return Messages("mapping.js.task.toohard");
+            default: return Messages("mapping.js.task.unknown");
         }
     }
 };
@@ -391,7 +391,7 @@ function Challenge() {
     this.answerQuestion = function(taskId, answerId, success, error) {
         // See Actions.scala which contains ID's for items. 4 = Survey
         if (this.isSurvey()) {
-            ToastUtils.Success("Answered question [" + data.instruction + "]");
+            ToastUtils.Success(Messages("mapping.js.task.answered") + " [" + data.instruction + "]");
             MRManager.loading();
             jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
                 success: MRManager.getSuccessHandler(function() {
@@ -485,7 +485,7 @@ function Task() {
 
     this.getNextTask = function(success, error) {
         if (data.parentId == -1 && data.id == -1) {
-            ToastUtils.Info('You are in debug mode, select a challenge to debug.');
+            ToastUtils.Info(Messages("mapping.js.task.debugmode"));
         } else {
 
             jsRoutes.controllers.MappingController
@@ -501,7 +501,7 @@ function Task() {
 
     this.getPreviousTask = function(success, error) {
         if (data.parentId == -1 && data.id == -1) {
-            ToastUtils.Info('You are in debug mode, select a challenge to debug.');
+            ToastUtils.Info(Messages("mapping.js.task.debugmode"));
         } else {
             jsRoutes.controllers.MappingController
                 .getSequentialPreviousTask(data.parentId, data.id)
@@ -531,7 +531,7 @@ function Task() {
         var self = this;
         var errorHandler = MRManager.getErrorHandler(error);
         var statusSetSuccess = function () {
-            ToastUtils.Success("Set Task [" + data.name + "] status to " + TaskStatus.getStatusName(status));
+            ToastUtils.Success(Messages("mapping.js.task.status.result", data.name, TaskStatus.getStatusName(status)));
             self.getRandomNextTask(MRManager.getSuccessHandler(success), errorHandler);
         };
         jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatus(data.id, status)
@@ -678,13 +678,23 @@ var MRManager = (function() {
                 var title = data[i].title;
                 var marker = L.marker(new L.LatLng(data[i].point.lat, data[i].point.lng), {title:title});
                 var popupString = '<div class="popup mp-popup" id="popup_' + data[i].id + '">';
-                if (title !== "") {
-                    popupString += marked("#### " + title);
+                if (data[i].type == 4) {
+                    popupString = '<i class="fa fa-edit"/>';
+                } else if (data[i].type == 1) {
+                    popupString = '<i class="fa fa-wrench "/>';
                 }
-                popupString += marked(data[i].blurb);
-                if (data[i].isChallenge) {
+                if (title !== "") {
+                    popupString += "<b>" + title + "</b></br>";
+                }
+                if (data[i].blurb !== "") {
+                    popupString += marked(data[i].blurb);
+                } else {
+                    popupString += "</br>";
+                }
+                if (data[i].type == 1 || data[i].type == 4) {
                     // This section below is for the pie chart and small activity chart when the popup is opened
-                    popupString += '<div class="row">' +
+                    popupString += Messages('challenge.difficulty.title') + " " + Messages('challenge.difficulty.' + data[i].difficulty);
+                    popupString += '<div class="row mp-popup">' +
                         '<div class="col-xs-6">' +
                         '<canvas id="statusPieChart_' + data[i].id + '" style="position: inherit !important; max-width:100px; max-height:100px"></canvas>' +
                         '</div>' +
@@ -998,7 +1008,7 @@ var MRManager = (function() {
         // open a tab in the background - seems like that trick does not
         // work in all browsers.
         window.open(constructIdUri(), 'MRIdWindow');
-        ToastUtils.Info('Your task is being loaded in iD in a separate tab. Please return here after you completed your fixes!', {timeOut:10000});
+        ToastUtils.Info(Messages('mapping.js.task.loading'), {timeOut:10000});
         editPanel.setAsResult();
         setTimeout(editPanel.show(), 4000);
     };
@@ -1041,7 +1051,7 @@ var MRManager = (function() {
         new_layer = typeof new_layer !== 'undefined' ? new_layer : true;
 
         if (map.getZoom() < 14) {
-            ToastUtils.Warning("Please zoom in a little so we don\'t have to load a huge area from the API.");
+            ToastUtils.Warning(Messages('mapping.js.task.zoomin'));
             return false;
         }
         var josmUri = constructJosmUri(new_layer);
@@ -1050,14 +1060,14 @@ var MRManager = (function() {
             url: josmUri,
             success: function (t) {
                 if (t.indexOf('OK') === -1) {
-                    ToastUtils.Error('JOSM remote control did not respond. Do you have JOSM running with Remote Control enabled?');
+                    ToastUtils.Error(Messages('mapping.js.task.josm.noresponse'));
                 } else {
                     editPanel.setAsResult();
                     setTimeout(editPanel.show(), 4000);
                 }
             },
             error: function (e) {
-                ToastUtils.Error('JOSM remote control did not respond. Do you have JOSM running with Remote Control enabled?');
+                ToastUtils.Error(Messages('mapping.js.task.josm.noresponse'));
             }
         });
     };
