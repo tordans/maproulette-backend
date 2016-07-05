@@ -66,7 +66,7 @@ object SearchParameters {
     */
   def withSearch[T](block:SearchParameters => T)(implicit request:Request[AnyContent]) : T = {
     val params = request.cookies.get("search") match {
-      case Some(c) => Json.parse(URLDecoder.decode(c.value, "UTF-8")).as[SearchParameters]
+      case Some(c) => Utils.omitEmpty(Json.parse(URLDecoder.decode(c.value, "UTF-8")).as[JsObject], false, false).as[SearchParameters]
       case None => SearchParameters()
     }
     block(params)

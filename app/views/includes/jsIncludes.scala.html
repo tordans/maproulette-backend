@@ -22,6 +22,8 @@
 <script src="@routes.Assets.versioned("javascripts/main.js")"></script>
     <!-- AdminLTE App -->
 <script src="@routes.Assets.versioned(s"AdminLTE/app${minified()}.js")"></script>
+<!-- JsMessages -->
+<script src="@routes.Application.messages()"></script>
 
     <!-- Embedded Javascript router -->
 @helper.javascriptRouter("jsRoutes")(

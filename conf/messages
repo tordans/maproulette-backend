@@ -250,6 +250,57 @@ challenge.wizard.priority.expression.none=None
 
 challenge.wizard.schedule.description=Below you can schedule when your task data will be updated. This can only be used for challenges that were created by an overpass query or a remote url for geojson.
 
+challenge.difficulty.title=Difficulty:
+challenge.difficulty.1=Easy
+challenge.difficulty.2=Normal
+challenge.difficulty.3=Expert
+
+mapping.js.control.edit.information=Please select how you would like to fix this task.
+mapping.js.control.edit.id=Edit in iD
+mapping.js.control.edit.josm=Edit in JOSM
+mapping.js.control.edit.josm.layer=Edit in new JOSM Layer
+mapping.js.control.edit.nevermind=Nevermind close this
+mapping.js.control.results.title=The area is now loaded in your OSM editor. See if you can fix it, and then return to MapRoulette.<br/><i>Please make sure you save (iD) or upload (JSOM) your work after each fix!<i/>
+mapping.js.control.results.fixed=I fixed it!
+mapping.js.control.results.difficult=Too difficult/Couldn't see
+mapping.js.control.results.alreadyfixed=Someone beat me to it
+mapping.js.control.next=Next
+mapping.js.control.skip=Skip
+mapping.js.control.previous=Previous
+mapping.js.control.edit=Edit
+mapping.js.control.falsepositive=False Positive
+mapping.js.task.created=Created
+mapping.js.task.fixed=Fixed
+mapping.js.task.falsepositive=False Positive
+mapping.js.task.skipped=Skipped
+mapping.js.task.deleted=Deleted
+mapping.js.task.alreadyfixed=Already Fixed
+mapping.js.task.toohard=Too Hard
+mapping.js.task.unknown=Unknown
+mapping.js.task.answered=Answered Question
+mapping.js.task.debugmode=You are in debug mode, select a challenge to debug.
+mapping.js.task.status.result=Set Task [{0}] status to {1}
+mapping.js.task.loading=Your task is being loaded in iD in a separate tab. Please return here after you completed your fixes!
+mapping.js.task.zoomin=Please zoom in a little so we don't have to load a huge area from the API.
+mapping.js.task.josm.noresponse=JOSM remote control did not respond. Do you have JOSM running with Remote Control enabled?
+mapping.js.location.notfound=We are somewhere on earth...
+mapping.js.location.start=We are
+mapping.js.location.between=in
+mapping.js.location.elsebetween=somewhere in
+mapping.js.location.the=the
+
+main.js.deletion=Deleting
+main.js.api.generation=Generating API Key for user [{0}]
+main.js.api.rebuilding=Rebuilding challenge[{0}]
+
+metrics.js.error=Unable to retrieve data for activity chart.
+metrics.js.status.available=Available
+metrics.js.status.fixed=Fixed
+metrics.js.status.falsepositive=False Positive
+metrics.js.status.skipped=Skipped
+metrics.js.status.alreadyfixed=Already Fixed
+metrics.js.status.toohard=Too Hard
+
 users.administration.title=Administration
 users.title=Users (OSM)
 users.column.id=ID

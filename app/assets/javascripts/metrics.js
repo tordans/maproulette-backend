@@ -60,7 +60,7 @@
     }
 
     function dataErrorHandler(data) {
-        ToastUtils.Error("Unable to retrieve data for activity chart.\n" + data);
+        ToastUtils.Error(Messages('metrics.js.error') + "\n" + data);
     }
 
     function updatePieChart(canvas, showLabels, available, fixed, falsePositive, skipped, alreadyFixed, tooHard) {
@@ -68,7 +68,14 @@
         var pieChart = new Chart(canvas, {
             type:"doughnut",
             data: {
-                labels: ["Available", "Fixed", "False Positives", "Skipped", "Already Fixed", "Too Hard"],
+                labels: [
+                    Messages('metrics.js.status.available'),
+                    Messages('metrics.js.status.fixed'),
+                    Messages('metrics.js.status.falsepositive'),
+                    Messages('metrics.js.status.skipped'),
+                    Messages('metrics.js.status.alreadyfixed'),
+                    Messages('metrics.js.status.toohard')
+                ],
                 datasets: [
                     {
                         data: [available, fixed, falsePositive, skipped, alreadyFixed, tooHard],

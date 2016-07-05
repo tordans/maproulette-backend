@@ -26,6 +26,7 @@ libraryDependencies ++= Seq(
   "joda-time" % "joda-time" % "2.9.2",
   "com.vividsolutions" % "jts" % "1.13",
   "io.swagger" %% "swagger-play2" % "1.5.2-SNAPSHOT",
+  "org.julienrf" %% "play-jsmessages" % "2.0.0",
   "org.webjars" %% "webjars-play" % "2.5.0",
   "org.webjars" % "bootstrap" % "3.3.6",
   "org.webjars" % "font-awesome" % "4.5.0",

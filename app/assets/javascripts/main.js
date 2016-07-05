@@ -89,17 +89,17 @@ var Utils = {
         // Convert a MapQuest reverse geocoding result to a human readable string.
         var out, county, town;
         if (!addr || !(addr.town || addr.county || addr.hamlet || addr.state || addr.country)) {
-            return 'We are somewhere on earth..';
+            return Messages('mapping.js.location.notfound');
         }
-        out = 'We are ';
+        out = Messages('mapping.js.location.start') + ' ';
         if (typeof addr.city !== 'undefined' && addr.city !== null) {
-            out += 'in ' + addr.city;
+            out += Messages('mapping.js.location.between') + ' ' + addr.city;
         } else if (typeof addr.town !== 'undefined' && addr.town !== null) {
-            out += 'in ' + addr.town;
+            out += Messages('mapping.js.location.between') + ' ' + addr.town;
         } else if (typeof addr.hamlet !== 'undefined' && addr.hamlet !== null) {
-            out += 'in ' + addr.hamlet;
+            out += Messages('mapping.js.location.between') + ' ' + addr.hamlet;
         } else {
-            out += 'somewhere in ';
+            out += Messages('mapping.js.location.elsebetween') + ' ';
         }
         out += Utils.addComma(out);
         if (addr.county) {
@@ -116,7 +116,7 @@ var Utils = {
         out += Utils.addComma(out);
         if (addr.country) {
             if (addr.country.indexOf('United States') > -1) {
-                out += 'the ';
+                out += Messages('mapping.js.location.the') + ' ';
             }
             out += addr.country;
         }
@@ -354,7 +354,7 @@ var deleteItem = function(itemType, itemId) {
         }
     };
 
-    ToastUtils.Info("Deleting " + itemType + " [" + itemId + "]");
+    ToastUtils.Info(Messages('main.js.deletion') + " " + itemType + " [" + itemId + "]");
     if (itemType == "Project") {
         jsRoutes.org.maproulette.controllers.api.ProjectController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "Challenge") {
@@ -498,13 +498,13 @@ var generateAPIKey = function(success, userId) {
         },
         error : Utils.handleError
     };
-    ToastUtils.Info("Generating API Key for user [" + userId + "]");
+    ToastUtils.Info(Messages('main.js.api.generation', userId));
     jsRoutes.controllers.AuthController.generateAPIKey(userId).ajax(apiCallback);
 };
 
 var rebuildChallenge = function(parentId, challengeId, success) {
-    ToastUtils.Info("Rebuilding challenge [" + challengeId + "]");
-  jsRoutes.controllers.FormEditController.rebuildChallenge(parentId, challengeId).ajax({
+    ToastUtils.Info(Messages('main.js.api.rebuilding', challengeId));
+    jsRoutes.controllers.FormEditController.rebuildChallenge(parentId, challengeId).ajax({
       success: function(data) {
           if (typeof success === 'undefined') {
             location.reload();

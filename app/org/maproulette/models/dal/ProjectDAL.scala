@@ -5,6 +5,7 @@ import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
+import org.maproulette.actions.Actions
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models._
@@ -50,12 +51,19 @@ class ProjectDAL @Inject() (override val db:Database,
     }
   }
 
-  val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") map {
-    case id ~ name ~ instruction ~ location =>
-      val locationJSON = Json.parse(location)
-      val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-      val point = Point(coordinates(1), coordinates.head)
-      ClusteredPoint(id, name, point, instruction, true)
+  val pointParser = {
+    long("id") ~
+      str("name") ~
+      str("blurb") ~
+      str("location") ~
+      int("difficulty") ~
+      int("challenge_type") map {
+      case id ~ name ~ instruction ~ location ~ difficulty ~ challengeType =>
+        val locationJSON = Json.parse(location)
+        val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+        val point = Point(coordinates(1), coordinates.head)
+        ClusteredPoint(id, name, point, instruction, difficulty, challengeType)
+    }
   }
 
   /**
@@ -220,7 +228,8 @@ class ProjectDAL @Inject() (override val db:Database,
         case None => ""
       }
       val query = s"""
-          SELECT c.id, c.name, c.instruction, ST_AsGeoJSON(c.location) AS location
+          SELECT c.id, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
+                  c.difficulty, c.challenge_type
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
           ${challengeTags._1}
@@ -249,7 +258,8 @@ class ProjectDAL @Inject() (override val db:Database,
   def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
                               enabledOnly:Boolean=true)(implicit c:Connection=null) : List[ClusteredPoint] = {
     withMRConnection { implicit c =>
-      SQL"""SELECT c.id, c.name, c.instruction, ST_AsGeoJSON(c.location) AS location
+      SQL"""SELECT c.id, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
+                    c.difficulty, c.challenge_type
               FROM challenges c
               INNER JOIN projects p ON p.id = c.parent_id
               WHERE c.location IS NOT NULL AND (
