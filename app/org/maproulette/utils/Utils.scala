@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.utils
 
 import play.api.mvc.Results._
@@ -21,7 +23,7 @@ object Utils extends DefaultWrites {
     * @param x The string to check
     * @return true is string is a number
     */
-  def isDigit(x:String) = x forall Character.isDigit
+  def isDigit(x:String) : Boolean = x forall Character.isDigit
 
   /**
     * Wraps a JSON message inside of a BadRequest response

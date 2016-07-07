@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.services
 
 import java.util.UUID
@@ -27,22 +29,22 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                                   config:Config, ws:WSClient, db:Database) extends DefaultReads {
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def rebuildChallengeTasks(user:User, challenge:Challenge) = buildChallengeTasks(user, challenge)
+  def rebuildChallengeTasks(user:User, challenge:Challenge) : Unit = this.buildChallengeTasks(user, challenge)
 
-  def buildChallengeTasks(user:User, challenge:Challenge, json:Option[String]=None) = {
+  def buildChallengeTasks(user:User, challenge:Challenge, json:Option[String]=None) : Unit = {
     if (!challenge.overpassQL.getOrElse("").isEmpty) {
-      challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
+      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
       Future {
         Logger.debug("Creating tasks for overpass query: " + challenge.overpassQL.get)
-        buildOverpassQLTasks(challenge, user)
+        this.buildOverpassQLTasks(challenge, user)
       }
     } else {
       val usingLocalJson = json match {
         case Some(value) if StringUtils.isNotEmpty(value) =>
-          challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
+          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
           Future {
             Logger.debug("Creating tasks from local GeoJSON file")
-            createTasksFromFeatures(user, challenge, Json.parse(value))
+            this.createTasksFromFeatures(user, challenge, Json.parse(value))
           }
           true
         case _ => false
@@ -51,13 +53,13 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         // lastly try remote
         challenge.remoteGeoJson match {
           case Some(url) if StringUtils.isNotEmpty(url) =>
-            challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
-            ws.url(url).withRequestTimeout(config.getOSMQLProvider.requestTimeout).get() onComplete {
+            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
+            this.ws.url(url).withRequestTimeout(this.config.getOSMQLProvider.requestTimeout).get() onComplete {
               case Success(resp) =>
                 Logger.debug("Creating tasks from remote GeoJSON file")
-                createTasksFromFeatures(user, challenge, Json.parse(resp.body))
+                this.createTasksFromFeatures(user, challenge, Json.parse(resp.body))
               case Failure(f) =>
-                challengeDAL.update(Json.obj("overpassStatus" -> Challenge.STATUS_FAILED), user)(challenge.id)
+                this.challengeDAL.update(Json.obj("overpassStatus" -> Challenge.STATUS_FAILED), user)(challenge.id)
             }
           case None => // just do nothing
         }
@@ -79,9 +81,9 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
             UUID.randomUUID().toString
         }
       }
-      createNewTask(user, name, parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
+      this.createNewTask(user, name, parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
     }
-    challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
+    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
     Logger.debug(s"${featureList.size} tasks created from json file.")
   }
 
@@ -102,11 +104,11 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           case None => osmQLProvider.requestTimeout
         }
 
-        val jsonFuture = ws.url(osmQLProvider.providerURL).withRequestTimeout(timeout).post(parseQuery(ql))
+        val jsonFuture = this.ws.url(osmQLProvider.providerURL).withRequestTimeout(timeout).post(parseQuery(ql))
         jsonFuture onComplete {
           case Success(result) =>
             if (result.status == Status.OK) {
-              db.withTransaction { implicit c =>
+              this.db.withTransaction { implicit c =>
                 var partial = false
                 val payload = result.json
                 // parse the results
@@ -130,7 +132,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
                       geometry match {
                         case Some(geom) =>
-                          createNewTask(user, (element \ "id").as[Long]+"", challenge, geom, getProperties(element, "tags"))
+                          this.createNewTask(user, (element \ "id").as[Long] + "", challenge, geom, this.getProperties(element, "tags"))
                         case None => None
                       }
                     } catch {
@@ -141,17 +143,17 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                 }
                 partial match {
                   case true =>
-                    challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED), user)(challenge.id)
+                    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED), user)(challenge.id)
                   case false =>
-                    challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+                    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
                 }
               }
             } else {
-              challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
+              this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
               throw new InvalidException(s"Bad Request: ${result.body}")
             }
           case Failure(f) =>
-            challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
+            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
             throw f
         }
       case None => // just ignore, we don't have to do anything if it wasn't set
@@ -175,7 +177,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     )
 
     try {
-      taskDAL.mergeUpdate(newTask, user)(newTask.id)
+      this.taskDAL.mergeUpdate(newTask, user)(newTask.id)
       true
     } catch {
       // this task could fail on unique key violation, we need to ignore them
@@ -195,7 +197,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   private def parseQuery(query:String) : String = {
     val osmQLProvider = config.getOSMQLProvider
     // User can set their own custom timeout if the want
-    var replacedQuery = if (query.indexOf("[out:json]") == 0) {
+    if (query.indexOf("[out:json]") == 0) {
       query
     } else if (query.indexOf("[timeout:") == 0) {
       s"[out:json]$query"
@@ -203,7 +205,6 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       s"[out:json][timeout:${osmQLProvider.requestTimeout.toSeconds}];$query"
     }
     // execute regex matching against {{data:string}}, {{geocodeId:name}}, {{geocodeArea:name}}, {{geocodeBbox:name}}, {{geocodeCoords:name}}
-    replacedQuery
   }
 
   private def getProperties(value:JsValue, key:String) : JsValue = {

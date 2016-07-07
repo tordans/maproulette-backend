@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
@@ -12,7 +14,7 @@ import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.SessionManager
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContentAsFormUrlEncoded, Controller}
+import play.api.mvc.{Action, AnyContent, AnyContentAsFormUrlEncoded, Controller}
 
 /**
   * @author cuthbertm
@@ -44,65 +46,69 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * @param offset paging, starting at 0
     * @return List of action summaries associated with the user
     */
-  def getRecentUserActivity(limit:Int, offset:Int) = Action.async { implicit request =>
+  def getRecentUserActivity(limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
     val actualLimit = if (limit == -1) {
-      config.numberOfActivities
+      this.config.numberOfActivities
     } else {
       limit
     }
-    sessionManager.authenticatedRequest { user =>
-      Ok(Json.toJson(actionManager.getRecentActivity(user, actualLimit, offset)))
+    this.sessionManager.authenticatedRequest { user =>
+      Ok(Json.toJson(this.actionManager.getRecentActivity(user, actualLimit, offset)))
     }
   }
 
-  def getUserChallengeSummary(challengeId:Long, start:String, end:String, survey:Int, priority:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def getUserChallengeSummary(challengeId:Long, start:String, end:String, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       if (survey == 1) {
-        Ok(Json.toJson(dataManager.getUserSurveySummary(None, Some(challengeId), getDate(start), getDate(end), getPriority(priority))))
+        Ok(Json.toJson(this.dataManager.getUserSurveySummary(None, Some(challengeId), this.getDate(start), getDate(end), this.getPriority(priority))))
       } else {
-        Ok(Json.toJson(dataManager.getUserChallengeSummary(None, Some(challengeId), getDate(start), getDate(end), getPriority(priority))))
+        Ok(Json.toJson(this.dataManager.getUserChallengeSummary(None, Some(challengeId), this.getDate(start), getDate(end), this.getPriority(priority))))
       }
     }
   }
 
-  def getUserSummary(projects:String, start:String, end:String, survey:Int, priority:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def getUserSummary(projects:String, start:String, end:String, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       if (survey == 1) {
-        Ok(Json.toJson(dataManager.getUserSurveySummary(getProjectList(projects), None, getDate(start), getDate(end), getPriority(priority))))
+        Ok(Json.toJson(this.dataManager.getUserSurveySummary(
+          this.getProjectList(projects), None, this.getDate(start), getDate(end), this.getPriority(priority)
+        )))
       } else {
-        Ok(Json.toJson(dataManager.getUserChallengeSummary(getProjectList(projects), None, getDate(start), getDate(end), getPriority(priority))))
+        Ok(Json.toJson(this.dataManager.getUserChallengeSummary(
+          this.getProjectList(projects), None, this.getDate(start), getDate(end), this.getPriority(priority)
+        )))
       }
     }
   }
 
-  def getChallengeSummary(id:Long, priority:Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getChallengeSummary(id:Long, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(
-        dataManager.getChallengeSummary(challengeId = Some(id), priority = getPriority(priority))
+        this.dataManager.getChallengeSummary(challengeId = Some(id), priority = this.getPriority(priority))
       ))
     }
   }
 
-  def getProjectSummary(projects:String) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def getProjectSummary(projects:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
-        dataManager.getChallengeSummary(getProjectList(projects))
+        this.dataManager.getChallengeSummary(this.getProjectList(projects))
       ))
     }
   }
 
-  def getChallengeActivity(challengeId:Long, start:String, end:String, priority:Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def getChallengeActivity(challengeId:Long, start:String, end:String, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
-        dataManager.getChallengeActivity(None, Some(challengeId), getDate(start), getDate(end), getPriority(priority))
+        this.dataManager.getChallengeActivity(None, Some(challengeId), this.getDate(start), this.getDate(end), this.getPriority(priority))
       ))
     }
   }
 
-  def getProjectActivity(projects:String, start:String, end:String) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def getProjectActivity(projects:String, start:String, end:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
-        dataManager.getChallengeActivity(getProjectList(projects), None, getDate(start), getDate(end))
+        this.dataManager.getChallengeActivity(this.getProjectList(projects), None, this.getDate(start), this.getDate(end))
       ))
     }
   }
@@ -113,8 +119,8 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * @param projectIds A comma separated list of projects to filter by
     * @return
     */
-  def getChallengeSummaries(projectIds:String, priority:Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getChallengeSummaries(projectIds:String, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       val postData = request.body.asInstanceOf[AnyContentAsFormUrlEncoded].data
       val draw = postData.get("draw").head.head.toInt
       val start = postData.get("start").head.head.toInt
@@ -123,9 +129,9 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
       val orderDirection = postData.get("order[0][dir]").head.head.toUpperCase
       val orderColumnID = postData.get("order[0][column]").head.head.toInt
       val orderColumnName = postData.get(s"columns[$orderColumnID][name]").head.headOption
-      val projectList = getProjectList(projectIds)
+      val projectList = this.getProjectList(projectIds)
       val challengeSummaries =
-        dataManager.getChallengeSummary(projectList, None, length, start, orderColumnName, orderDirection, search, getPriority(priority))
+        this.dataManager.getChallengeSummary(projectList, None, length, start, orderColumnName, orderDirection, search, this.getPriority(priority))
 
       val summaryMap = challengeSummaries.map(summary => Map(
         "id" -> summary.id.toString,

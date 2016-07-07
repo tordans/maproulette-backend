@@ -1,10 +1,10 @@
 @import org.maproulette.session.User
-@(user:User)(implicit messages: Messages)
+@(user:User, activeTab:Int=0)(implicit messages: Messages)
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
     <h1>
-        User Profile
+        @messages("user.profile.header")
     </h1>
 </section>
 
@@ -17,7 +17,7 @@
                 <!-- Profile Image -->
             <div class="box box-primary">
                 <div class="box-body box-profile">
-                    <img class="profile-user-img img-responsive img-circle" src="@user.osmProfile.avatarURL" alt="User profile picture">
+                    <img class="profile-user-img img-responsive img-circle" src="@user.osmProfile.avatarURL" alt="@messages("sidebar.avatarURL")">
                     <h3 class="profile-username text-center">@user.name</h3>
                     <p class="text-muted text-center">@user.osmProfile.description</p>
                 </div><!-- /.box-body -->
@@ -26,46 +26,26 @@
             <!-- About Me Box -->
             <div class="box box-primary">
                 <div class="box-header with-border">
-                    <h3 class="box-title">About Me</h3>
+                    <h3 class="box-title">@messages("user.profile.aboutme")</h3>
                 </div><!-- /.box-header -->
                 <div class="box-body">
-                    <strong><i class="fa fa-book margin-r-5"></i>  Education</strong>
-                    <p class="text-muted">
-                        B.S. in Computer Science from the University of Tennessee at Knoxville
-                    </p>
-
+                    <strong><i class="fa fa-map-marker margin-r-5"></i> @messages("user.profile.location")</strong>
+                    <p class="text-muted" id="location"></p>
                     <hr>
-
-                    <strong><i class="fa fa-map-marker margin-r-5"></i> Location</strong>
-                    <p class="text-muted">@user.homeLocation (@user.osmProfile.homeLocation.latitude, @user.osmProfile.homeLocation.longitude)</p>
-
-                    <hr>
-
-                    <strong><i class="fa fa-pencil margin-r-5"></i> Skills</strong>
-                    <p>
-                        <span class="label label-danger">UI Design</span>
-                        <span class="label label-success">Coding</span>
-                        <span class="label label-info">Javascript</span>
-                        <span class="label label-warning">PHP</span>
-                        <span class="label label-primary">Node.js</span>
-                    </p>
-
-                    <hr>
-
-                    <strong><i class="fa fa-file-text-o margin-r-5"></i> Notes</strong>
-                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam fermentum enim neque.</p>
+                    <strong><i class="fa fa-file-text-o margin-r-5"></i> @messages("user.profile.saved")</strong>
+                    <p>Saved Challenges GO HERE</p>
                 </div><!-- /.box-body -->
             </div><!-- /.box -->
         </div><!-- /.col -->
         <div class="col-md-9">
             <div class="nav-tabs-custom">
                 <ul class="nav nav-tabs">
-                    <li class="active"><a href="#activity" data-toggle="tab">Activity</a></li>
-                    <li><a href="#badges" data-toggle="tab">Badges</a></li>
-                    <li><a href="#settings" data-toggle="tab">Settings</a></li>
+                    <li @if(activeTab==0) { class="active" }><a href="#activity" data-toggle="tab">@messages("user.profile.activity")</a></li>
+                    <li @if(activeTab==1) { class="active" }><a href="#metrics" data-toggle="tab">@messages("user.profile.metrics")</a></li>
+                    <li @if(activeTab==2) { class="active" }><a href="#settings" data-toggle="tab">@messages("user.profile.settings")</a></li>
                 </ul>
                 <div class="tab-content">
-                    <div class="active tab-pane" id="activity">
+                    <div class="@if(activeTab==0) { active } tab-pane" id="activity">
                             <!-- Post -->
                         <div class="post">
                             <div class="user-block">
@@ -96,49 +76,56 @@
                             </p>
                         </div><!-- /.post -->
                     </div><!-- /.tab-pane -->
-                    <div class="tab-pane" id="badges">
+                    <div class="@if(activeTab==1) { active } tab-pane" id="metrics">
                         <div class="post">
-                            <p>Badges Coming soon...</p>
+                            <p>My metrics coming soon...</p>
                         </div>
                     </div><!-- /.tab-pane -->
 
-                    <div class="tab-pane" id="settings">
-                        <form class="form-horizontal">
+                    <div class="@if(activeTab==2) { active } tab-pane" id="settings">
+                        <form class="form-horizontal" action="@routes.FormEditController.userSettingsPost(user.id)" method="post">
                             <div class="form-group">
-                                <label for="inputName" class="col-sm-2 control-label">Name</label>
+                                <label for="inputName" class="col-sm-2 control-label">Default Editor</label>
                                 <div class="col-sm-10">
-                                    <input type="email" class="form-control" id="inputName" placeholder="Name">
+                                    <select class="form-control" name="defaultEditor">
+                                        <option class="-1" value="">Please select a value</option>
+                                        <option value="0">iD</option>
+                                        <option value="1">JOSM</option>
+                                        <option value="2">JOSM with new Layer</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="inputEmail" class="col-sm-2 control-label">Email</label>
+                                <label for="inputName" class="col-sm-2 control-label">Default Basemap</label>
                                 <div class="col-sm-10">
-                                    <input type="email" class="form-control" id="inputEmail" placeholder="Email">
+                                    <select class="form-control" name="defaultEditor">
+                                        <option class="-1" value="">Please select a value</option>
+                                        <option value="0">OSM</option>
+                                        <option value="1">OpenCycleMap</option>
+                                        <option value="2">Bing</option>
+                                        <option value="3">Custom</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="inputName" class="col-sm-2 control-label">Name</label>
+                                <label for="inputName" class="col-sm-2 control-label">Custom Basemap</label>
                                 <div class="col-sm-10">
-                                    <input type="text" class="form-control" id="inputName" placeholder="Name">
+                                    <input type="text" class="form-control" name="customBasemap" placeholder="Custom Basemap"/>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="inputExperience" class="col-sm-2 control-label">Experience</label>
+                                <label for="inputName" class="col-sm-2 control-label">Locale</label>
                                 <div class="col-sm-10">
-                                    <textarea class="form-control" id="inputExperience" placeholder="Experience"></textarea>
+                                    <select class="form-control" name="locale">
+                                        <option class="-1" value="">Please select a value</option>
+                                        <option value="0">en-us (US English)</option>
+                                        <option value="1">af (Afrikaans)</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label for="inputSkills" class="col-sm-2 control-label">Skills</label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control" id="inputSkills" placeholder="Skills">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <div class="col-sm-offset-2 col-sm-10">
-                                    <button type="submit" class="btn btn-danger">Submit</button>
-                                </div>
-                            </div>
+                            <div class="box-footer">
+                                <button type="submit" class="btn btn-info pull-right">Update</button>
+                            </div><!-- /.box-footer -->
                         </form>
                     </div><!-- /.tab-pane -->
                 </div><!-- /.tab-content -->
@@ -147,3 +134,28 @@
     </div><!-- /.row -->
 
 </section><!-- /.content -->
+<script type="application/javascript">
+    $(document).ready(function() {
+        Utils.getLocation(@user.osmProfile.homeLocation.latitude, @user.osmProfile.homeLocation.longitude,
+            function(addr) {
+                var data = addr.address;
+                var location = "";
+                if (typeof data.city !== 'undefined' && data.city !== null) {
+                    location = data.city;
+                    location += Utils.addComma(location);
+                }
+                if (data.state) {
+                    location += data.state;
+                    location += Utils.addComma(location);
+                }
+                if (data.country) {
+                    location += data.country;
+                }
+                $("#location").html(location);
+            },
+            function(data) {
+                $("#location").html("@user.homeLocation (@user.osmProfile.homeLocation.latitude, @user.osmProfile.homeLocation.longitude)");
+            }
+        );
+    });
+</script>

@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -28,14 +30,14 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param completeList If complete list is true, then it will treat the tag list as if it is the
     *                     authoritative list, and any tags not in that list should be removed
     */
-  def updateItemTags(id:Long, tags:List[Long], user:User, completeList:Boolean=false)(implicit c:Connection=null) : Unit = {
+  def updateItemTags(id:Long, tags:List[Long], user:User, completeList:Boolean=false)(implicit c:Option[Connection]=None) : Unit = {
     this.retrieveById(id) match {
       case Some(item) =>
-        permission.hasWriteAccess(item, user)
+        this.permission.hasWriteAccess(item, user)
         if (tags.nonEmpty) {
-          withMRTransaction { implicit c =>
+          this.withMRTransaction { implicit c =>
             if (completeList) {
-              SQL"""DELETE FROM tags_on_$tableName WHERE ${name}_id = $id""".executeUpdate()
+              SQL"""DELETE FROM tags_on_${this.tableName} WHERE ${name}_id = $id""".executeUpdate()
             }
 
             val indexedValues = tags.zipWithIndex
@@ -49,7 +51,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
               )
             }
 
-            SQL(s"INSERT INTO tags_on_$tableName (${name}_id, tag_id) VALUES " + rows + " ON CONFLICT DO NOTHING")
+            SQL(s"INSERT INTO tags_on_${this.tableName} (${name}_id, tag_id) VALUES " + rows + " ON CONFLICT DO NOTHING")
               .on(parameters: _*)
               .execute()
           }
@@ -67,11 +69,11 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags that are being removed from the item
     * @param user The user executing the item
     */
-  def deleteItemTags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
+  def deleteItemTags(id:Long, tags:List[Long], user:User)(implicit c:Option[Connection]=None) : Unit = {
     if (tags.nonEmpty) {
-      permission.hasWriteAccess(getItemTypeBasedOnTableName, user)(id)
-      withMRTransaction { implicit c =>
-        SQL"""DELETE FROM tags_on_$tableName WHERE ${name}_id = {$id} AND tag_id IN ($tags)""".execute()
+      this.permission.hasWriteAccess(getItemTypeBasedOnTableName, user)(id)
+      this.withMRTransaction { implicit c =>
+        SQL"""DELETE FROM tags_on_${this.tableName} WHERE ${this.name}_id = {$id} AND tag_id IN ($tags)""".execute()
       }
     }
   }
@@ -84,15 +86,15 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags to be removed from the item
     * @param user The user executing the item
     */
-  def deleteItemStringTags(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
+  def deleteItemStringTags(id:Long, tags:List[String], user:User)(implicit c:Option[Connection]=None) : Unit = {
     if (tags.nonEmpty) {
-      permission.hasWriteAccess(getItemTypeBasedOnTableName, user)(id)
+      this.permission.hasWriteAccess(getItemTypeBasedOnTableName, user)(id)
       val lowerTags = tags.map(_.toLowerCase)
-      withMRTransaction { implicit c =>
-        SQL"""DELETE FROM tags_on_$tableName tt USING tags t
-              WHERE tt.tag_id = t.id AND
-                    tt.${name}_id = $id AND
-                    t.name IN ($lowerTags)""".execute()
+      this.withMRTransaction { implicit c =>
+        val query = s"""DELETE FROM tags_on_${this.tableName} tt USING tags t
+                            WHERE tt.tag_id = t.id AND tt.${this.name}_id = $id AND
+                            t.name IN ({tags})"""
+        SQL(query).on('tags -> lowerTags).execute()
       }
     }
   }
@@ -105,14 +107,14 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags to be applied to the item
     * @param user The user executing the item
     */
-  def updateItemTagNames(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
+  def updateItemTagNames(id:Long, tags:List[String], user:User)(implicit c:Option[Connection]=None) : Unit = {
     val tagIds = tags.flatMap { tag => {
-      tagDAL.retrieveByName(tag) match {
+      this.tagDAL.retrieveByName(tag) match {
         case Some(t) => Some(t.id)
-        case None => Some(tagDAL.insert(Tag(-1, tag), user).id)
+        case None => Some(this.tagDAL.insert(Tag(-1, tag), user).id)
       }
     }}
-    updateItemTags(id, tagIds, user)
+    this.updateItemTags(id, tagIds, user)
   }
 
   /**
@@ -123,25 +125,25 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param offset For paging, where 0 is the first page
     * @return A list of tags that have the tags
     */
-  def getItemsBasedOnTags(tags:List[String], limit:Int, offset:Int)(implicit c:Connection=null) : List[T] = {
+  def getItemsBasedOnTags(tags:List[String], limit:Int, offset:Int)(implicit c:Option[Connection]=None) : List[T] = {
     val lowerTags = tags.map(_.toLowerCase)
-    withMRConnection { implicit c =>
-      val sqlLimit = if (limit == -1) "ALL" else limit+""
-      val query = s"""SELECT $retrieveColumns FROM $tableName
-                      INNER JOIN challenges c ON c.id = $tableName.parent_id
+    this.withMRConnection { implicit c =>
+      val sqlLimit = if (limit == -1) "ALL" else limit + ""
+      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+                      INNER JOIN challenges c ON c.id = ${this.tableName}.parent_id
                       INNER JOIN projects p ON p.id = c.parent_id
-                      INNER JOIN tags_on_$tableName tt ON $tableName.id = tt.${name}_id
+                      INNER JOIN tags_on_${this.tableName} tt ON ${this.tableName}.id = tt.${this.name}_id
                       INNER JOIN tags tg ON tg.id = tt.tag_id
                       WHERE c.enabled = TRUE AND p.enabled = TRUE AND tg.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""
-      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(parser.*)
+      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(this.parser.*)
     }
   }
 
   private def getItemTypeBasedOnTableName : ItemType = {
-    tableName match {
-      case "challenge" => ChallengeType()
-      case "task" => TaskType()
+    this.tableName match {
+      case "challenges" => ChallengeType()
+      case "tasks" => TaskType()
     }
   }
 }

@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
 import java.net.URLDecoder
@@ -29,17 +31,17 @@ case class SearchParameters(projectId:Option[Long]=None,
                             priority:Option[Int]=None,
                             location:Option[SearchLocation]=None,
                             owner:Option[String]=None) {
-  def getProjectId = projectId match {
+  def getProjectId : Option[Long] = projectId match {
     case Some(v) if v == -1 => None
     case _ => projectId
   }
 
-  def getChallengeId = challengeId match {
+  def getChallengeId : Option[Long] = challengeId match {
     case Some(v) if v == -1 => None
     case _ => challengeId
   }
 
-  def getPriority = priority match {
+  def getPriority : Option[Int] = priority match {
     case Some(v) if v == -1 => None
     case _ => priority
   }

@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
 import javax.inject.Inject
@@ -5,7 +7,7 @@ import javax.inject.Singleton
 
 import controllers.WebJarAssets
 import io.netty.handler.codec.http.HttpResponseStatus
-import oauth.signpost.exception.OAuthNotAuthorizedException
+import oauth.signpost.exception.{OAuthException, OAuthNotAuthorizedException}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -49,11 +51,11 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     */
   def retrieveUser(verifier:String)(implicit request:Request[AnyContent]) : Future[User] = {
     val p = Promise[User]
-    sessionTokenPair match {
+    this.sessionTokenPair match {
       case Some(pair) =>
-        oauth.retrieveAccessToken(pair, verifier) match {
+        this.oauth.retrieveAccessToken(pair, verifier) match {
           case Right(accessToken) =>
-            sessionUser(Some(accessToken), true)(request) onComplete {
+            this.sessionUser(Some(accessToken), true)(request) onComplete {
               case Success(user) =>
                 user match {
                   case Some(u) => p success u.copy(osmProfile = u.osmProfile.copy(requestToken = accessToken))
@@ -79,14 +81,14 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @param callback The callback after the request is made to retrieve the request token
     * @return Either OAuthException (ie. NotAuthorized) or the request token
     */
-  def retrieveRequestToken(callback:String) = oauth.retrieveRequestToken(callback)
+  def retrieveRequestToken(callback:String) : Either[OAuthException, RequestToken] = this.oauth.retrieveRequestToken(callback)
 
   /**
     * The URL where the user needs to be redirected to grant authorization to your application.
     *
     * @param token request token
     */
-  def redirectUrl(token:String) = oauth.redirectUrl(token)
+  def redirectUrl(token:String) : String = this.oauth.redirectUrl(token)
 
   /**
     * Retrieves the session token pair that is stored in the users session cookie. This is the token
@@ -137,12 +139,12 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
             // enabled, but if it is anybody with that key can do anything in the system. This is
             // generally not a good idea to have it enabled, but useful for internal systems or
             // dev testing.
-            if (config.superKey.nonEmpty && StringUtils.equals(config.superKey.get, apiKey)) {
+            if (this.config.superKey.nonEmpty && StringUtils.equals(this.config.superKey.get, apiKey)) {
               p success Some(User.superUser)
             } else {
               try {
                 val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
-                dalManager.user.retrieveByAPIKey(apiKey, User.superUser)(decryptedKey(0).toLong) match {
+                this.dalManager.user.retrieveByAPIKey(apiKey, User.superUser)(decryptedKey(0).toLong) match {
                   case Some(user) => p success Some(user)
                   case None => p success None
                 }
@@ -173,20 +175,20 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
-        dalManager.user.matchByRequestTokenAndId(accessToken, User.superUser)(sessionId.toLong)
+        this.dalManager.user.matchByRequestTokenAndId(accessToken, User.superUser)(sessionId.toLong)
       case None => dalManager.user.matchByRequestToken(accessToken, User.superUser)
     }
     storedUser match {
       case Some(u) =>
         // if the user information is more than a day old, then lets update it.
         if (u.modified.plusDays(1).isBefore(DateTime.now())) {
-          refreshProfile(u.osmProfile.requestToken, User.superUser)
+          this.refreshProfile(u.osmProfile.requestToken, User.superUser)
         } else {
           Future { Some(u) }
         }
       case None =>
         if (create) {
-          refreshProfile(accessToken, User.superUser)
+          this.refreshProfile(accessToken, User.superUser)
         } else {
           Future { None }
         }
@@ -203,13 +205,13 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   def refreshProfile(accessToken:RequestToken, user:User) : Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
-    val details = ws.url(osmOAuth.userDetailsURL).sign(OAuthCalculator(osmOAuth.consumerKey, accessToken))
+    val details = this.ws.url(this.osmOAuth.userDetailsURL).sign(OAuthCalculator(this.osmOAuth.consumerKey, accessToken))
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
           val newUser = User(detailsResponse.body, accessToken, config)
-          val osmUser = dalManager.user.insert(newUser, user)
-          p success Some(dalManager.user.initializeHomeProject(osmUser))
+          val osmUser = this.dalManager.user.insert(newUser, user)
+          p success Some(this.dalManager.user.initializeHomeProject(osmUser))
         } catch {
           case e:Exception => p failure e
         }
@@ -235,7 +237,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   def userAwareUIRequest(block:Option[User] => Result)
                         (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
-      userAware(block)
+      this.userAware(block)
     }
   }
 
@@ -251,14 +253,14 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   def userAwareRequest(block:Option[User] => Result)
                       (implicit request:Request[Any]) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      userAware(block)
+      this.userAware(block)
     }
   }
 
   protected def userAware(block:Option[User] => Result)
                          (implicit request:Request[Any]) : Future[Result] = {
     val p = Promise[Result]
-    sessionUser(sessionTokenPair) onComplete {
+    this.sessionUser(sessionTokenPair) onComplete {
       case Success(result) => Try(block(result)) match {
         case Success(res) => p success res
         case Failure(f) => p failure f
@@ -281,7 +283,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                             (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets,
                              requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
-      authenticated(Left(block))
+      this.authenticated(Left(block))
     }
   }
 
@@ -289,7 +291,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                                   (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets,
                                    requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
-      authenticated(Right(block))
+      this.authenticated(Right(block))
     }
   }
 
@@ -304,7 +306,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   def authenticatedRequest(block:User => Result)
                           (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      authenticated(Left(block))
+      this.authenticated(Left(block))
     }
   }
 
@@ -312,7 +314,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                              (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
     val p = Promise[Result]
     try {
-      sessionUser(sessionTokenPair) onComplete {
+      this.sessionUser(sessionTokenPair) onComplete {
         case Success(result) => result match {
           case Some(user) => try {
             if (requireSuperUser && !user.isSuperUser) {

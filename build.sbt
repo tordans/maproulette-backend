@@ -4,13 +4,21 @@ version := "1.0"
 
 scalaVersion := "2.11.8"
 
+lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
+
+compileScalastyle := org.scalastyle.sbt.ScalastylePlugin.scalastyle.in(Compile).toTask("").value
+
+(scalastyleConfig in Compile) := baseDirectory.value / "conf/scalastyle-config.xml"
+
+//(compile in Compile) <<= (compile in Compile) dependsOn compileScalastyle
+
 lazy val `MapRouletteV2` = (project in file("."))
   .enablePlugins(PlayScala).dependsOn(swagger)
   .enablePlugins(SbtWeb)
 
 lazy val swagger = RootProject(uri("https://github.com/CreditCardsCom/swagger-play.git"))
 
-pipelineStages := Seq(rjs, digest, gzip)
+pipelineStages := Seq(digest, gzip)
 
 routesGenerator := InjectedRoutesGenerator
 
@@ -56,7 +64,7 @@ dependencyOverrides += "org.webjars" % "bootstrap" % "3.3.6"
 dependencyOverrides += "org.webjars" % "jquery" % "2.2.4"
 dependencyOverrides += "org.webjars" % "momentjs" % "2.12.0"
 
-unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )  
+unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )
 
 resolvers ++= Seq(
   "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",

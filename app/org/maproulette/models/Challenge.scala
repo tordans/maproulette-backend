@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
@@ -60,11 +62,11 @@ case class Challenge(override val id: Long,
 
   override val itemType: ItemType = ChallengeType()
 
-  def isHighPriority(properties:Map[String, String]) : Boolean = matchesRule(highPriorityRule, properties)
+  def isHighPriority(properties:Map[String, String]) : Boolean = this.matchesRule(highPriorityRule, properties)
 
-  def isMediumPriority(properties:Map[String, String]) : Boolean = matchesRule(mediumPriorityRule, properties)
+  def isMediumPriority(properties:Map[String, String]) : Boolean = this.matchesRule(mediumPriorityRule, properties)
 
-  def isLowRulePriority(properties:Map[String, String]) : Boolean = matchesRule(lowPriorityRule, properties)
+  def isLowRulePriority(properties:Map[String, String]) : Boolean = this.matchesRule(lowPriorityRule, properties)
 
   private def matchesRule(rule:Option[String], properties:Map[String, String]) : Boolean = {
     rule match {
@@ -131,7 +133,7 @@ object Challenge {
       "description" -> optional(text),
       "parent" -> longNumber,
       "instruction" -> nonEmptyText,
-      "difficulty" -> optional(number(min = DIFFICULTY_EASY, max = DIFFICULTY_EXPERT+1)),
+      "difficulty" -> optional(number(min = DIFFICULTY_EASY, max = DIFFICULTY_EXPERT + 1)),
       "blurb" -> optional(text),
       "enabled" -> boolean,
       "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
@@ -139,7 +141,7 @@ object Challenge {
       "overpassQL" -> optional(text),
       "remoteGeoJson" -> optional(text),
       "status" -> default(optional(number), None),
-      "defaultPriority" -> default(number(min = PRIORITY_HIGH, max = PRIORITY_LOW+1), PRIORITY_HIGH),
+      "defaultPriority" -> default(number(min = PRIORITY_HIGH, max = PRIORITY_LOW + 1), PRIORITY_HIGH),
       "highPriorityRule" -> optional(text),
       "mediumPriorityRule" -> optional(text),
       "lowPriorityRule" -> optional(text),
@@ -147,7 +149,7 @@ object Challenge {
     )(Challenge.apply)(Challenge.unapply)
   )
 
-  def emptyChallenge(parentId:Long) = Challenge(-1, "", None, parentId, "")
+  def emptyChallenge(parentId:Long) : Challenge = Challenge(-1, "", None, parentId, "")
 
   val STATUS_NA = 0
   val STATUS_BUILDING = 1

@@ -1,15 +1,18 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
+import com.fasterxml.jackson.databind.JsonMappingException
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.models.dal.{TagDAL, TagDALMixin}
-import org.maproulette.models.{BaseObject, Tag, Task}
+import org.maproulette.models.{BaseObject, Tag}
 import org.maproulette.session.User
 import org.maproulette.utils.Utils
-import play.api.libs.json.{JsDefined, JsUndefined, JsValue, Json}
-import play.api.mvc.Action
+import play.api.libs.json._
+import play.api.mvc.{Action, AnyContent}
 
 /**
   * @author cuthbertm
@@ -29,12 +32,12 @@ trait TagsMixin[T<:BaseObject[Long]] {
     * @param offset The paging offset, incrementing will take you to the next set in the list
     * @return The html Result containing a json array of the found tasks
     */
-  def getItemsBasedOnTags(tags: String, limit: Int, offset: Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getItemsBasedOnTags(tags: String, limit: Int, offset: Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
-        Ok(Json.toJson(dalWithTags.getItemsBasedOnTags(tags.split(",").toList, limit, offset)))
+        Ok(Json.toJson(this.dalWithTags.getItemsBasedOnTags(tags.split(",").toList, limit, offset)))
       }
     }
   }
@@ -47,16 +50,16 @@ trait TagsMixin[T<:BaseObject[Long]] {
     * @param tags A comma separated list of tags to delete
     * @return
     */
-  def deleteTagsFromItem(id: Long, tags: String) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def deleteTagsFromItem(id: Long, tags: String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
       } else {
         MPExceptionUtil.internalExceptionCatcher { () =>
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
-            dalWithTags.deleteItemStringTags(id, tagList, user)
-            actionManager.setAction(Some(user), itemType.convertToItem(id), TagRemoved(), tags)
+            this.dalWithTags.deleteItemStringTags(id, tagList, user)
+            this.actionManager.setAction(Some(user), this.itemType.convertToItem(id), TagRemoved(), tags)
           }
           NoContent
         }
@@ -77,19 +80,19 @@ trait TagsMixin[T<:BaseObject[Long]] {
     * @param user the user executing the request
     */
   def extractTags(body: JsValue, createdObject: T, user:User): Unit = {
-    val tagIds: List[Long] = body \ "tags" match {
+    val tags: List[Tag] = body \ "tags" match {
       case tags: JsDefined =>
         // this case is for a comma separated list, either of ints or strings
-        tags.as[String].split(",").toList.flatMap(tag => {
+        tags.as[String].split(",").toList.map(tag => {
           try {
-            Some(tag.toLong)
+            Tag(tag.toLong, "")
           } catch {
             case e: NumberFormatException =>
               // this is the case where a name is supplied, so we will either search for a tag with
               // the same name or create a new tag with the current name
-              dal.retrieveByName(tag) match {
-                case Some(t) => Some(t.id)
-                case None => Some(tagDAL.insert(Tag(-1, tag), user).id)
+              this.dal.retrieveByName(tag) match {
+                case Some(t) => t.asInstanceOf[Tag]
+                case None => Tag(-1, tag)
               }
           }
         })
@@ -97,21 +100,21 @@ trait TagsMixin[T<:BaseObject[Long]] {
         (body \ "fulltags").asOpt[List[JsValue]] match {
           case Some(tagList) =>
             tagList.map(value => {
-              val identifier = (value \ "id").asOpt[Long] match {
-                case Some(id) => id
-                case None => -1
-              }
-              Tag.getUpdateOrCreateTag(value, user)(identifier).id
+              val identifier = (value \ "id").asOpt[Long].getOrElse(-1L)
+              val name = (value \ "name").asOpt[String].getOrElse("")
+              val description = (value \ "description").asOpt[String]
+              Tag(identifier, name, description)
             })
           case None => List.empty
         }
       case _ => List.empty
     }
+    val tagIds = tagDAL.updateTagList(tags, user).map(_.id)
 
     if (tagIds.nonEmpty) {
       // now we have the ids for the supplied tags, then lets map them to the item created
-      dalWithTags.updateItemTags(createdObject.id, tagIds, user)
-      actionManager.setAction(Some(user), itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+      this.dalWithTags.updateItemTags(createdObject.id, tagIds, user)
+      this.actionManager.setAction(Some(user), this.itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
     }
   }
 
@@ -122,10 +125,10 @@ trait TagsMixin[T<:BaseObject[Long]] {
     * @return A list of tags associated with the item
     */
   def getTags(id:Long) : List[Tag] = {
-    itemType match {
-      case ChallengeType() => tagDAL.listByChallenge(id)
-      case SurveyType() => tagDAL.listByChallenge(id)
-      case TaskType() => tagDAL.listByTask(id)
+    this.itemType match {
+      case ChallengeType() => this.tagDAL.listByChallenge(id)
+      case SurveyType() => this.tagDAL.listByChallenge(id)
+      case TaskType() => this.tagDAL.listByTask(id)
       case _ => List.empty
     }
   }

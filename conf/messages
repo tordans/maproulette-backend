@@ -1,6 +1,13 @@
 general.rights=All rights reserved.
 general.copyright=Copyright &copy; 2016
 
+headers.title=MapRoulette
+headers.administration=MapRoulette Administration
+headers.metrics=MapRoulette Metrics
+headers.users=MapRoulette Users
+headers.profile=MapRoulette Profile
+headers.error=MapRoulette Error
+
 sidebar.avatarURL=User Image
 sidebar.online=Online
 sidebar.search.placeholder=Search...
@@ -46,6 +53,22 @@ user.profile=Profile
 user.signout=Sign out
 
 user.profile.header=User Profile
+user.profile.aboutme=About Me
+user.profile.location=Location
+user.profile.saved=My Saved Challenges
+user.profile.activity=My Activity
+user.profile.metrics=My Metrics
+user.profile.settings=My Settings
+user.profile.settings.select=Please select a value
+user.profile.settings.editor=Default Editor
+user.profile.settings.editor.id=iD
+user.profile.settings.editor.josm=JSOM
+user.profile.settings.editor.jsomlayer=JOSM with new Layer
+user.profile.settings.basemap=Default basemap
+user.profile.settings.basemap.osm=OSM
+user.profile.settings.basemap.ocm=OpenCycleMap
+user.profile.settings.basemap.bing=Bing
+user.profile.settings.basemap.custom=Custom
 
 metrics.challenge.all=All Challenges
 metrics.challenge.projects=Projects ({0})
@@ -326,3 +349,7 @@ users.addto.success=User successfully added to project
 
 geojson.title=GeoJson Viewer
 geojson.description=For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.
+
+errors.application.adminUIList.notfound=Parent project for challenge not found
+errors.application.adminUIList.invalid=Invalid item type requested.
+errors.formeditcontroller.usersettingspost.illegal=Only super user or the actual user can edit user settings.

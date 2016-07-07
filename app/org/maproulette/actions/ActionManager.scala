@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.actions
 
 import java.sql.Timestamp
@@ -151,7 +153,7 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     * @param offset paging, starting at 0
     * @return
     */
-  def getRecentActivity(user:User, limit:Int=10, offset:Int=0) : List[ActionItem] =
+  def getRecentActivity(user:User, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0) : List[ActionItem] =
     getActivityList(limit, offset,
       ActionLimits(osmUserLimit = List(user.osmProfile.id),
         actionLimit = List(Actions.ACTION_TYPE_TASK_STATUS_SET,
@@ -165,7 +167,7 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     * @param actionLimits Not all action limits are used. Here only typeQuery, itemQuery and actionLimit are used
     * @return
     */
-  def getActivityList(limit:Int=10, offset:Int=0, actionLimits: ActionLimits) : List[ActionItem] = {
+  def getActivityList(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, actionLimits: ActionLimits) : List[ActionItem] = {
     val parameters = new ListBuffer[NamedParameter]()
     val whereClause = new StringBuilder()
     val typeQuery = if (actionLimits.typeLimit.nonEmpty) {
@@ -203,7 +205,7 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
          |ORDER BY CREATED DESC
          |LIMIT ${sqlLimit(limit)} OFFSET $offset""".stripMargin
     db.withConnection { implicit c =>
-      SQLWithParameters(query, parameters).as(parser.*)
+      sqlWithParameters(query, parameters).as(parser.*)
     }
   }
 }

@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.cache
 
 import org.maproulette.models.BaseObject
@@ -14,13 +16,13 @@ import scala.collection.mutable
   *
   * @author cuthbertm
   */
-class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:Int=900) {
+class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_CACHE_LIMIT, cacheExpiry:Int=CacheManager.DEFAULT_CACHE_EXPIRY) {
   val cache = new CacheStorage[Key, A](cacheLimit, cacheExpiry)
   val nameCache = mutable.Map[String, Key]()
 
-  def clearCaches = {
-    cache.clear()
-    nameCache.clear()
+  def clearCaches : Unit = {
+    this.cache.clear()
+    this.nameCache.clear()
   }
 
   /**
@@ -32,16 +34,16 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     */
   def updateNameCache(block:String => Option[A])(implicit name:String, caching:Boolean=true) : Option[Key] = {
     if (caching) {
-      if (nameCache.contains(name)) {
-        nameCache.get(name)
+      if (this.nameCache.contains(name)) {
+        this.nameCache.get(name)
       } else {
         // check the cache
-        cache.find(name) match {
+        this.cache.find(name) match {
           case Some(obj) => Some(obj.id)
           case None => block(name) match {
             case Some(obj) =>
-              cache.add(obj)
-              nameCache.put(name, obj.id)
+              this.cache.add(obj)
+              this.nameCache.put(name, obj.id)
               Some(obj.id)
             case None => None
           }
@@ -83,7 +85,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     caching match {
       case true =>
         val cached = id match {
-          case Some(key) => cache.get(key)
+          case Some(key) => this.cache.get(key)
           case None => None
         }
 
@@ -92,7 +94,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
           case None =>
             block() match {
               case Some(result) =>
-                cache.add(result)
+                this.cache.add(result)
                 Some(result)
               case None => None
             }
@@ -122,11 +124,10 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
                        (implicit id:Key, caching:Boolean=true, delete:Boolean=false) : Option[A] = {
     val cachedItem = caching match {
       case true =>
-        cache.get(id) match {
+        this.cache.get(id) match {
           case Some(hit) => Some(hit)
           case None => retrieve(id) match {
-            case Some(value) =>
-              Some(value)
+            case Some(value) => Some(value)
             case None => None
           }
         }
@@ -136,13 +137,11 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     cachedItem match {
       case Some(item) =>
         block(item) match {
-          case Some(updatedItem) =>
-            if (caching) {
-              if (delete) {
-                cache.remove(updatedItem.id)
-              } else {
-                cache.add(updatedItem)
-              }
+          case Some(updatedItem) if caching =>
+            if (delete) {
+              this.cache.remove(updatedItem.id)
+            } else {
+              this.cache.add(updatedItem)
             }
             Some(updatedItem)
           case None => None
@@ -176,17 +175,17 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
                        (implicit ids:List[Key]=List(), caching:Boolean=true) : List[A] = {
     caching match {
       case true =>
-        val connected = ids.map(id => (id, cache.get(id)))
+        val connected = ids.map(id => (id, this.cache.get(id)))
         val unCachedIDs = connected.filter(value => value._2.isEmpty).map(_._1)
         // we execute the block if there are uncachedID's or if the original ids passed in is empty
         val cachedItems = if (unCachedIDs.nonEmpty || ids.isEmpty) {
           val uncachedList = block(unCachedIDs)
-          (unCachedIDs zip uncachedList).foreach(obj => cache.add(obj._2))
+          (unCachedIDs zip uncachedList).foreach(obj => this.cache.add(obj._2))
           uncachedList ++ connected.flatMap(_._2)
         } else {
           connected.flatMap(_._2)
         }
-        cachedItems.filter(entry => ids.isEmpty || unCachedIDs.contains(entry.id)).foreach(cache.add(_))
+        cachedItems.filter(entry => ids.isEmpty || unCachedIDs.contains(entry.id)).foreach(this.cache.add(_))
         cachedItems
       case false => block(ids)
     }
@@ -202,7 +201,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     * @return The result of the inner block of code
     */
   def withCacheIDDeletion[B](block:() => B)(implicit ids:List[Key], caching:Boolean=true) : B = {
-    if (caching) ids.foreach(cache.remove(_))
+    if (caching) ids.foreach(this.cache.remove)
     block()
   }
 
@@ -212,7 +211,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     * @param name The name of the object
     * @return An optional object found in the cache, None if not found
     */
-  def getByName(name:String) : Option[A] = cache.find(name)
+  def getByName(name:String) : Option[A] = this.cache.find(name)
 
   /**
     * Evicts an object by name from the cache
@@ -221,8 +220,8 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     * @return An optional object that was found in the cache to be evicted. None if not found and
     *         subsequently not deleted.
     */
-  def deleteByName(name:String) : Option[A] = cache.find(name) match {
-    case Some(obj) => cache.remove(obj.id)
+  def deleteByName(name:String) : Option[A] = this.cache.find(name) match {
+    case Some(obj) => this.cache.remove(obj.id)
     case None => None
   }
 
@@ -241,11 +240,11 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
                          (implicit names:List[String]=List(), caching:Boolean=true) : List[A] = {
     caching match {
       case true =>
-        val connected = names.map(name => (name, cache.find(name)))
+        val connected = names.map(name => (name, this.cache.find(name)))
         val unCachedIDs = connected.filter(value => value._2.isEmpty).map(_._1)
         if (unCachedIDs.nonEmpty) {
           val list = block(unCachedIDs)
-          list.foreach(obj => cache.add(obj))
+          list.foreach(this.cache.add(_))
           list ++ connected.flatMap(_._2)
         } else {
           connected.flatMap(_._2)
@@ -266,7 +265,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
     */
   def withCacheNameDeletion[B](block:() => B)
                               (implicit names:List[String], caching:Boolean=true) : B = {
-    if (caching) names.foreach(cache.remove(_))
+    if (caching) names.foreach(this.cache.remove)
     block()
   }
 
@@ -288,8 +287,13 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=10000, cacheExpiry:In
       case Some(a) => a
       case None =>
         val created = create(item)
-        if (caching) cache.add(created)
+        if (caching) this.cache.add(created)
         created
     }
   }
+}
+
+object CacheManager {
+  val DEFAULT_CACHE_LIMIT = 10000
+  val DEFAULT_CACHE_EXPIRY = 900
 }

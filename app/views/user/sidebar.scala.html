@@ -180,9 +180,9 @@
     $("#search_surveys").addClass("hidden");
     var surveysShown = false;
     for (var i = 0; i < data.length && i < @config.numberOfChallenges; i++) {
-      if (!challengesShown && data[i].isChallenge) {
+      if (!challengesShown && data[i].type == 1) {
         $("#search_challenges").removeClass("hidden");
-      } else if (!surveysShown && !data[i].isChallenge) {
+      } else if (!surveysShown && data[i].type != 1) {
         $("#search_surveys").removeClass("hidden");
       }
       var tooltipString = "";
@@ -194,7 +194,7 @@
         shortenedName = data[i].title.substring(0, 20);
       }
       var name = "surveys";
-      if (data[i].isChallenge) {
+      if (data[i].type == 1) {
         name = "challenges";
       }
       $("<li><a href=\"#\" onclick=\"addItemToMap(" + data[i].id + ");\"" + tooltipString + ">\

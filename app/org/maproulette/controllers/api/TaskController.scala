@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import java.sql.Connection
@@ -6,13 +8,13 @@ import javax.inject.Inject
 import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
-import org.maproulette.models.dal.{TagDAL, TaskDAL}
+import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
 import org.maproulette.models.{Challenge, Tag, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.Action
+import play.api.mvc.{Action, AnyContent}
 
 /**
   * The Task controller handles all operations for the Task objects.
@@ -36,7 +38,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   override implicit val itemType = TaskType()
   // json reads for automatically reading Tags from a posted json body
   implicit val tagReads: Reads[Tag] = Tag.tagReads
-  override def dalWithTags = dal
+  override def dalWithTags:TagDALMixin[Task] = dal
 
   private def updateGeometryData(body: JsValue) : JsValue = {
     (body \ "geometries").asOpt[String] match {
@@ -76,7 +78,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     val updatedBody = Utils.insertIntoJson(body, "priority", Challenge.PRIORITY_HIGH)(IntWrites)
     // We need to update the geometries to make sure that we handle all the different types of
     // geometries that you can deal with like WKB or GeoJSON
-    updateGeometryData(super.updateCreateBody(updatedBody, user))
+    this.updateGeometryData(super.updateCreateBody(updatedBody, user))
   }
 
 
@@ -88,7 +90,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return The updated request body
     */
   override def updateUpdateBody(body: JsValue, user:User): JsValue =
-    updateGeometryData(super.updateUpdateBody(body, user))
+    this.updateGeometryData(super.updateUpdateBody(body, user))
 
   /**
     * Function can be implemented to extract more information than just the default create data,
@@ -100,7 +102,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param user          The user that is executing the function
     */
   override def extractAndCreate(body: JsValue, createdObject: Task, user: User)
-                               (implicit c:Connection=null): Unit = extractTags(body, createdObject, user)
+                               (implicit c:Option[Connection]=None): Unit = this.extractTags(body, createdObject, user)
 
   /**
     * Gets a json list of tags of the task
@@ -109,9 +111,9 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return The html Result containing json array of tags
     */
   @ApiOperation(value = "Gets the tags for ta task", nickname = "getTagsForTask", httpMethod = "GET")
-  def getTagsForTask(implicit id: Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(getTags(id)))
+  def getTagsForTask(implicit id: Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.getTags(id)))
     }
   }
 
@@ -131,8 +133,8 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
                      challengeTags:String,
                      tags: String,
                      taskSearch: String,
-                     limit: Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+                     limit: Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         projectSearch = projectSearch,
         challengeSearch = challengeSearch,
@@ -140,8 +142,8 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         taskTags = tags.split(",").toList,
         taskSearch = taskSearch
       )
-      val result = dal.getRandomTasks(User.userOrMocked(user), params, limit)
-      result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
+      val result = this.dal.getRandomTasks(User.userOrMocked(user), params, limit)
+      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }
@@ -156,17 +158,17 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  def setTaskStatus(id: Long, status: Int) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def setTaskStatus(id: Long, status: Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       if (!Task.isValidStatus(status)) {
         throw new InvalidException(s"Cannot set task [$id] to invalid status [$status]")
       }
-      val task = dal.retrieveById(id) match {
+      val task = this.dal.retrieveById(id) match {
         case Some(t) => t
         case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
       }
-      dal.setTaskStatus(task, status, user)
-      actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
+      this.dal.setTaskStatus(task, status, user)
+      this.actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
       NoContent
     }
   }

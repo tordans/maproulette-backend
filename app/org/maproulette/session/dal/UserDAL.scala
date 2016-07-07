@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session.dal
 
 import java.sql.Connection
@@ -28,7 +30,7 @@ import play.api.libs.oauth.RequestToken
   * as it does not use the baseObject for the user class and does not rely on the BaseDAL like all
   * the other objects. This is somewhat related to how the id's for the User are generated and used.
   *
-  * TODO: This object should be locked down more than it currently is. Currently althoguh you cannot
+  * TODO: This object should be locked down more than it currently is. Currently although you cannot
   * write to any of the objects without super user access, you can list all the users, which is
   * definitely not desirable, so will need to block any listing access unless you are a super user.
   *
@@ -83,12 +85,12 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The user's osm ID
     * @return The matched user, None if User not found
     */
-  def retrieveByOSMID(implicit id: Long, user:User): Option[User] = cacheManager.withOptionCaching { () =>
-    db.withConnection { implicit c =>
-      val query = s"""SELECT $retrieveColumns FROM users WHERE osm_id = {id}"""
-      SQL(query).on('id -> id).as(parser.*).headOption match {
+  def retrieveByOSMID(implicit id: Long, user:User): Option[User] = this.cacheManager.withOptionCaching { () =>
+    this.db.withConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE osm_id = {id}"""
+      SQL(query).on('id -> id).as(this.parser.*).headOption match {
         case Some(u) =>
-          permission.hasReadAccess(u, user)
+          this.permission.hasReadAccess(u, user)
           Some(u)
         case None => None
       }
@@ -102,12 +104,12 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The id of the user
     * @return The matched user, None if User not found
     */
-  def retrieveByAPIKey(apiKey:String, user:User)(implicit id:Long) : Option[User] = cacheManager.withOptionCaching { () =>
-    db.withConnection { implicit c =>
-      val query = s"""SELECT $retrieveColumns FROM users WHERE id = {id} AND api_key = {apiKey}"""
-      SQL(query).on('id -> id, 'apiKey -> apiKey).as(parser.*).headOption match {
+  def retrieveByAPIKey(apiKey:String, user:User)(implicit id:Long) : Option[User] = this.cacheManager.withOptionCaching { () =>
+    this.db.withConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE id = {id} AND api_key = {apiKey}"""
+      SQL(query).on('id -> id, 'apiKey -> apiKey).as(this.parser.*).headOption match {
         case Some(u) =>
-          permission.hasReadAccess(u, user)
+          this.permission.hasReadAccess(u, user)
           Some(u)
         case None => None
       }
@@ -122,11 +124,11 @@ class UserDAL @Inject() (override val db:Database,
     * @return The matched user, None if User not found
     */
   def matchByRequestTokenAndId(requestToken: RequestToken, user:User)(implicit id:Long): Option[User] = {
-    val requestedUser = cacheManager.withCaching { () =>
-      db.withConnection { implicit c =>
-        val query = s"""SELECT $retrieveColumns FROM users
+    val requestedUser = this.cacheManager.withCaching { () =>
+      this.db.withConnection { implicit c =>
+        val query = s"""SELECT ${this.retrieveColumns} FROM users
                         WHERE id = {id} AND oauth_token = {token} AND oauth_secret = {secret}"""
-        SQL(query).on('id -> id, 'token -> requestToken.token, 'secret -> requestToken.secret).as(parser.*).headOption
+        SQL(query).on('id -> id, 'token -> requestToken.token, 'secret -> requestToken.secret).as(this.parser.*).headOption
       }
     }
     requestedUser match {
@@ -134,7 +136,7 @@ class UserDAL @Inject() (override val db:Database,
         // double check that the token and secret still match, in case it came from the cache
         if (StringUtils.equals(u.osmProfile.requestToken.token, requestToken.token) &&
           StringUtils.equals(u.osmProfile.requestToken.secret, requestToken.secret)) {
-          permission.hasReadAccess(u, user)
+          this.permission.hasReadAccess(u, user)
           Some(u)
         } else {
           None
@@ -150,10 +152,10 @@ class UserDAL @Inject() (override val db:Database,
     * @return The matched user, None if User not found
     */
   def matchByRequestToken(requestToken: RequestToken, user:User): Option[User] = {
-    db.withConnection { implicit c =>
-      val query = s"""SELECT $retrieveColumns FROM users
+    this.db.withConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM users
                       WHERE oauth_token = {token} AND oauth_secret = {secret}"""
-      SQL(query).on('token -> requestToken.token, 'secret -> requestToken.secret).as(parser.*).headOption
+      SQL(query).on('token -> requestToken.token, 'secret -> requestToken.secret).as(this.parser.*).headOption
     }
   }
 
@@ -168,9 +170,9 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user to update
     * @return None if failed to update or create.
     */
-  override def insert(item:User, user: User)(implicit c:Connection=null): User = cacheManager.withOptionCaching { () =>
-    permission.hasWriteAccess(item, user)
-    withMRTransaction { implicit c =>
+  override def insert(item:User, user: User)(implicit c:Option[Connection]=None): User = this.cacheManager.withOptionCaching { () =>
+    this.permission.hasWriteAccess(item, user)
+    this.withMRTransaction { implicit c =>
       val ewkt = new WKTWriter().write(
         new GeometryFactory().createPoint(
           new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
@@ -181,7 +183,7 @@ class UserDAL @Inject() (override val db:Database,
                               name = {name}, description = {description}, avatar_url = {avatarURL},
                               oauth_token = {token}, oauth_secret = {secret}, theme = {theme},
                               home_location = ST_GeomFromEWKT({wkt})
-                            WHERE id = {id} OR osm_id = {osmID} RETURNING $retrieveColumns)
+                            WHERE id = {id} OR osm_id = {osmID} RETURNING ${this.retrieveColumns})
             INSERT INTO users (osm_id, osm_created, name, description,
                                avatar_url, oauth_token, oauth_secret, theme, home_location)
             SELECT {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, {secret},
@@ -202,15 +204,15 @@ class UserDAL @Inject() (override val db:Database,
     }
     // We do this separately from the transaction because if we don't the user_group mappings
     // wont be accessible just yet.
-    val retUser = db.withConnection { implicit c =>
-      val query = s"""SELECT $retrieveColumns FROM users WHERE osm_id = {id}"""
-      SQL(query).on('id -> item.osmProfile.id).as(parser.*).head
+    val retUser = this.db.withConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE osm_id = {id}"""
+      SQL(query).on('id -> item.osmProfile.id).as(this.parser.*).head
     }
 
     // now update the groups by adding any new groups, from the supplied user
-    val nuGroups = db.withTransaction { implicit c =>
+    val nuGroups = this.db.withTransaction { implicit c =>
       val newGroups = item.groups.filter(g => !retUser.groups.exists(_.id == g.id))
-      newGroups.foreach(g => addUserToGroup(item.osmProfile.id, g, User.superUser))
+      newGroups.foreach(g => this.addUserToGroup(item.osmProfile.id, g, User.superUser))
       retUser.groups ++ newGroups
     }
     Some(retUser.copy(groups = nuGroups))
@@ -224,10 +226,10 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The id of the user to update
     * @return The user that was updated, None if no user was found with the id
     */
-  override def update(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[User] = {
-    cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      permission.hasWriteAccess(cachedItem, user)
-      withMRTransaction { implicit c =>
+  override def update(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[User] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      this.permission.hasWriteAccess(cachedItem, user)
+      this.withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse(""))
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
@@ -240,12 +242,12 @@ class UserDAL @Inject() (override val db:Database,
         val longitude = (value \ "osmProfile" \ "homeLocation" \ "longitude").asOpt[Double].getOrElse(cachedItem.osmProfile.homeLocation.longitude)
         val ewkt = new WKTWriter().write(new GeometryFactory().createPoint(new Coordinate(latitude, longitude)))
 
-        updateGroups(value, user)
+        this.updateGroups(value, user)
 
         val query = s"""UPDATE users SET api_key = {apiKey}, name = {name}, description = {description},
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           theme = {theme}, home_location = ST_GeomFromEWKT({wkt})
-                        WHERE id = {id} RETURNING $retrieveColumns"""
+                        WHERE id = {id} RETURNING ${this.retrieveColumns}"""
         SQL(query).on(
           'apiKey -> apiKey,
           'name -> displayName,
@@ -256,14 +258,14 @@ class UserDAL @Inject() (override val db:Database,
           'theme -> theme,
           'wkt -> s"SRID=4326;$ewkt",
           'id -> id
-        ).as(parser.*).headOption
+        ).as(this.parser.*).headOption
       }
     }
   }
 
-  def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Unit = {
-    permission.hasSuperAccess(user)
-    withMRTransaction { implicit c =>
+  def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Unit = {
+    this.permission.hasSuperAccess(user)
+    this.withMRTransaction { implicit c =>
       // list of grousp to delete
       (value \ "groups" \ "delete").asOpt[List[Long]] match {
         case Some(values) => SQL"""DELETE FROM user_groups WHERE group_id IN ($values)""".execute()
@@ -287,8 +289,8 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The user to delete
     * @return The rows that were deleted
     */
-  override def delete(id: Long, user:User)(implicit c:Connection=null) : User = {
-    permission.hasSuperAccess(user)
+  override def delete(id: Long, user:User)(implicit c:Option[Connection]=None) : User = {
+    this.permission.hasSuperAccess(user)
     super.delete(id, user)
   }
 
@@ -299,11 +301,11 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user deleting the user
     * @return
     */
-  def deleteByOsmID(osmId:Long, user:User)(implicit c:Connection=null) : Int = {
-    permission.hasSuperAccess(user)
+  def deleteByOsmID(osmId:Long, user:User)(implicit c:Option[Connection]=None) : Int = {
+    this.permission.hasSuperAccess(user)
     implicit val ids = List(osmId)
-    cacheManager.withCacheIDDeletion { () =>
-      withMRTransaction { implicit c =>
+    this.cacheManager.withCacheIDDeletion { () =>
+      this.withMRTransaction { implicit c =>
         SQL"""DELETE FROM users WHERE osm_id = $osmId""".executeUpdate()
       }
     }
@@ -316,12 +318,12 @@ class UserDAL @Inject() (override val db:Database,
     * @param projectId The project that user is being added too
     * @param user The user that is adding the user to the project
     */
-  def addUserToProject(osmID:Long, projectId:Long, user:User)(implicit c:Connection=null) : User = {
-    permission.hasSuperAccess(user)
+  def addUserToProject(osmID:Long, projectId:Long, user:User)(implicit c:Option[Connection]=None) : User = {
+    this.permission.hasSuperAccess(user)
     implicit val osmKey = osmID
     implicit val superUser = user
-    cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
-      withMRTransaction { implicit c =>
+    this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
+      this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO user_groups (osm_user_id, group_id)
             SELECT $osmID, id FROM groups
             WHERE group_type = 1 AND project_id = $projectId
@@ -338,9 +340,9 @@ class UserDAL @Inject() (override val db:Database,
     * @param group The group that user is being added too
     * @param user The user that is adding the user to the project
     */
-  def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
-    permission.hasSuperAccess(user)
-    withMRTransaction { implicit c =>
+  def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasSuperAccess(user)
+    this.withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES ($osmID, ${group.id})""".executeUpdate()
     }
   }
@@ -353,9 +355,9 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user executing the request
     * @param c An implicit connection if applicable
     */
-  def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
-    permission.hasSuperAccess(user)
-    withMRTransaction { implicit c =>
+  def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasSuperAccess(user)
+    this.withMRTransaction { implicit c =>
       SQL"""DELETE FROM user_groups WHERE osm_user_id = $osmID AND group_id = ${group.id}""".executeUpdate()
     }
   }
@@ -367,7 +369,7 @@ class UserDAL @Inject() (override val db:Database,
     * @return An optional variable that will contain the updated user if successful
     */
   def generateAPIKey(userId:Long, user:User) : Option[User] = {
-    permission.hasWriteAccess(UserType(), user)(userId)
+    this.permission.hasWriteAccess(UserType(), user)(userId)
     val newAPIKey = Crypto.encryptAES(userId + "|" + UUID.randomUUID())
     this.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), User.superUser)(userId)
   }
@@ -376,14 +378,14 @@ class UserDAL @Inject() (override val db:Database,
     * Initializes the home project for the user. If the project already exists, then we are
     * good.
     *
-    * @param user
+    * @param user The user to initialize the home project
     */
   def initializeHomeProject(user:User) : User = {
     val homeName = s"Home_${user.osmProfile.id}"
-    val homeProjectId = projectDAL.retrieveByName(homeName) match {
+    val homeProjectId = this.projectDAL.retrieveByName(homeName) match {
       case Some(project) => project.id
       case None =>
-        projectDAL.insert(Project(id = -1,
+        this.projectDAL.insert(Project(id = -1,
           name = homeName,
           description = Some(s"Home project for user ${user.name}"),
           enabled = false
@@ -391,7 +393,7 @@ class UserDAL @Inject() (override val db:Database,
     }
     // make sure the user is an admin of this project
     if (!user.groups.exists(g => g.projectId == homeProjectId)) {
-      addUserToProject(user.osmProfile.id, homeProjectId, User.superUser)
+      this.addUserToProject(user.osmProfile.id, homeProjectId, User.superUser)
     } else {
       user
     }
@@ -400,12 +402,12 @@ class UserDAL @Inject() (override val db:Database,
   /**
     * Retrieves the user's home project
     *
-    * @param user
+    * @param user The user to search for the home project
     * @return
     */
   def getHomeProject(user:User) : Project = {
     val homeName = s"Home_${user.osmProfile.id}"
-    projectDAL.retrieveByName(homeName) match {
+    this.projectDAL.retrieveByName(homeName) match {
       case Some(project) => project
       case None => throw new NotFoundException("You should never get this exception, Home project should always exist for user.")
     }

@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers
 
 import controllers.WebJarAssets
@@ -7,8 +9,6 @@ import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{Lang, Messages}
 import play.api.mvc.{Controller, Request, Result}
-import play.mvc.Http
-import play.mvc.Http.Context
 import play.twirl.api.Html
 
 /**

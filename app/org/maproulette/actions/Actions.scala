@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.actions
 
 /**
@@ -8,7 +10,7 @@ package org.maproulette.actions
   */
 
 /**
-  * This is the sealed base class for an Action Type, {@see Actions}
+  * This is the sealed base class for an Action Type, {@link Actions}
   *
   * @param id The id of the action {@see Actions}
   * @param level The level at which the action will be stored in the database. The level is set in the
@@ -16,18 +18,18 @@ package org.maproulette.actions
   *              database, anything above will be ignored.
   */
 class ActionType(id:Int, level:Int) {
-  def getId = id
-  def getLevel = level
+  def getId : Int = id
+  def getLevel : Int = level
 }
 
 /**
-  * This is the sealed base class for the type of item for the action, {@see Actions}
+  * This is the sealed base class for the type of item for the action, {@link Actions}
   *
   * @param id The id of the action {@see Actions}
   */
 class ItemType(id:Int) {
   val typeId = id
-  def convertToItem(itemId:Long) = {
+  def convertToItem(itemId:Long) : Item with ItemType = {
     this match {
       case p:ProjectType => new ProjectItem(itemId)
       case c:ChallengeType => new ChallengeItem(itemId)

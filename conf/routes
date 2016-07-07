@@ -21,7 +21,8 @@ GET     /ui/admin/users                                                 @control
 GET     /ui/metrics                                                     @controllers.Application.metrics(survey:Int ?= 0)
 GET     /ui/metrics/:challengeId                                        @controllers.Application.challengeMetrics(challengeId:Long, projects:String ?= "", survey:Int ?= 0)
 GET     /ui/error/:errorString                                          @controllers.Application.error(errorString)
-GET     /ui/user/profile                                                @controllers.Application.profile
+GET     /ui/user/profile                                                @controllers.Application.profile(tab:Int ?= 0)
+POST    /ui/user/:id/settings                                           @controllers.FormEditController.userSettingsPost(id:Long)
 GET     /auth/authenticate                                              @controllers.AuthController.authenticate
 GET     /auth/signout                                                   @controllers.AuthController.signOut
 GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey(userId:Long ?= -1)

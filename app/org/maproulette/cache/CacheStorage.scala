@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.cache
 
 import org.joda.time.{LocalDateTime, Seconds}
@@ -16,7 +18,7 @@ case class InnerValue[Key, Value<:BaseObject[Key]](value:Value, accessTime:Local
   *
   * @author cuthbertm
   */
-class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpiry:Int=900) {
+class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=CacheManager.DEFAULT_CACHE_LIMIT, cacheExpiry:Int=CacheManager.DEFAULT_CACHE_EXPIRY) {
   protected val cache:Map[Key, InnerValue[Key, Value]] = Map.empty
 
   /**
@@ -26,7 +28,7 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
     * @return The object from the cache, None if not found
     */
   def get(id:Key) : Option[Value] = synchronized {
-    cache.get(id) match {
+    this.cache.get(id) match {
       case Some(value) =>
         if (isExpired(value)) {
           None
@@ -46,7 +48,7 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
     * @return The object from the cache, None if not found
     */
   def find(name:String) : Option[Value] = synchronized {
-    cache.find(element => element._2.value.name.equalsIgnoreCase(name)) match {
+    this.cache.find(element => element._2.value.name.equalsIgnoreCase(name)) match {
       case Some(value) =>
         if (isExpired(value._2)) {
           None
@@ -66,15 +68,15 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
     * @return The object put in the cache, or None if it could not be placed in the cache
     */
   def add(obj:Value, localExpiry:Option[Int]=None) : Option[Value] = synchronized {
-    if (cache.size == cacheLimit) {
-      val oldestEntry = cache.valuesIterator.reduceLeft((x, y) => if (x.accessTime.isBefore(y.accessTime)) x else y)
+    if (this.cache.size == cacheLimit) {
+      val oldestEntry = this.cache.valuesIterator.reduceLeft((x, y) => if (x.accessTime.isBefore(y.accessTime)) x else y)
       remove(oldestEntry.value.id)
-    } else if (cache.size > cacheLimit) {
+    } else if (this.cache.size > cacheLimit) {
       // something has gone very wrong if the cacheLimit has already been exceeded, this really shouldn't ever happen
       // in this case we go for the nuclear option, basically blow away the whole cache
-      cache.clear()
+      this.cache.clear()
     }
-    cache.put(obj.id, InnerValue(obj, new LocalDateTime(), localExpiry)) match {
+    this.cache.put(obj.id, InnerValue(obj, new LocalDateTime(), localExpiry)) match {
       case Some(value) => Some(value.value)
       case None => None
     }
@@ -88,7 +90,7 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
     *         or was not originally in the cache
     */
   def remove(id:Key) : Option[Value] = synchronized {
-    cache.remove(id) match {
+    this.cache.remove(id) match {
       case Some(value) => Some(value.value)
       case None => None
     }
@@ -111,14 +113,14 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
   /**
     * Fully clears the cache, this may not be applicable for non basic in memory caches
     */
-  def clear() = cache.clear()
+  def clear() : Unit = this.cache.clear()
 
   /**
     * The current size of the cache
     *
     * @return
     */
-  def size : Int = cache.size
+  def size : Int = this.cache.size
 
   /**
     * True size is a little bit more accurate than size, however the performance will be a bit slower
@@ -127,7 +129,7 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
     *
     * @return
     */
-  def trueSize : Int = cache.keysIterator.count(!isExpiredByKey(_))
+  def trueSize : Int = this.cache.keysIterator.count(!isExpiredByKey(_))
 
   /**
     * Checks if an item is cached or not
@@ -135,10 +137,10 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=10000, cacheExpi
     * @param id The id of the object to check to see if it is in the cache
     * @return true if the item is found in the cache
     */
-  def isCached(id:Key) : Boolean = cache.contains(id)
+  def isCached(id:Key) : Boolean = this.cache.contains(id)
 
   private def isExpiredByKey(key:Key) : Boolean = synchronized {
-    cache.get(key) match {
+    this.cache.get(key) match {
       case Some(value) => isExpired(value)
       case None => true
     }

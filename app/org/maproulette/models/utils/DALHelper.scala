@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.utils
 
 import anorm._
@@ -78,7 +80,7 @@ trait DALHelper {
         case _ => "ASC"
       }
       // sanitize the column name to prevent sql injection. Only allow underscores and A-Za-z
-      if (column.forall(ordinary.contains(_))) {
+      if (column.forall(this.ordinary.contains)) {
         s"ORDER BY ${getPrefix(tablePrefix)}$column $direction"
       } else {
         ""
@@ -86,7 +88,7 @@ trait DALHelper {
     case None => ""
   }
 
-  def SQLWithParameters(query:String, parameters:ListBuffer[NamedParameter]) = {
+  def sqlWithParameters(query:String, parameters:ListBuffer[NamedParameter]) : SimpleSql[Row] = {
     if (parameters.nonEmpty) {
       SQL(query).on(parameters:_*)
     } else {

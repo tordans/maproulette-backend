@@ -1,15 +1,16 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.metrics
 
 import java.util.concurrent.TimeUnit
 
 import org.joda.time.DateTime
+import play.api.Logger
 
 /**
   * @author cuthbertm
   */
 object Metrics {
-  private val counterMap = Map.empty
-
   def timer[T](name:String, suppress:Boolean=false)(block:() => T) : T = {
     val start = DateTime.now()
     val result = block()
@@ -19,7 +20,7 @@ object Metrics {
     val seconds = TimeUnit.MILLISECONDS.toSeconds(diff) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(diff))
     val milliseconds = TimeUnit.MILLISECONDS.toMillis(diff) - TimeUnit.SECONDS.toMillis(TimeUnit.MILLISECONDS.toSeconds(diff))
     if (!suppress) {
-      println(s"$name took $minutes:$seconds.$milliseconds")
+      Logger.info(s"$name took $minutes:$seconds.$milliseconds")
     }
     result
   }

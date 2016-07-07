@@ -1,10 +1,12 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
 import org.maproulette.exception.{StatusMessage, StatusMessages}
 import play.api.libs.json.{JsString, Json}
-import play.api.mvc.{Action, Controller}
+import play.api.mvc.{Action, AnyContent, Controller}
 
 /**
   * A basic action controller for miscellaneous operations on the API
@@ -20,7 +22,7 @@ class APIController @Inject() extends Controller with StatusMessages {
     * @param path The path found after /api/v2
     * @return A json object returned with a 400 BadRequest
     */
-  def invalidAPIPath(path:String) = Action {
+  def invalidAPIPath(path:String) : Action[AnyContent] = Action {
     BadRequest(Json.toJson(StatusMessage("KO", JsString(s"Invalid Path [$path] for API"))))
   }
 }

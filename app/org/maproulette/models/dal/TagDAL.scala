@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -7,7 +9,7 @@ import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.{CacheManager, TagCacheManager}
 import org.maproulette.exception.UniqueViolationException
-import org.maproulette.models.{Project, Tag}
+import org.maproulette.models.Tag
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
@@ -42,12 +44,12 @@ class TagDAL @Inject() (override val db:Database,
     * @param tag The tag object to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(tag: Tag, user:User)(implicit c:Connection=null): Tag = {
-    permission.hasWriteAccess(tag, user)
-    cacheManager.withOptionCaching { () =>
-      withMRTransaction { implicit c =>
+  override def insert(tag: Tag, user:User)(implicit c:Option[Connection]=None): Tag = {
+    this.permission.hasWriteAccess(tag, user)
+    this.cacheManager.withOptionCaching { () =>
+      this.withMRTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *")
-          .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(parser.*).headOption
+          .on('name -> tag.name.toLowerCase, 'description -> tag.description).as(this.parser.*).headOption
       }
     } match {
       case Some(t) => t
@@ -62,16 +64,16 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(tag:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Tag] = {
-    cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      permission.hasWriteAccess(cachedItem, user)
-      withMRTransaction { implicit c =>
+  override def update(tag:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Tag] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      this.permission.hasWriteAccess(cachedItem, user)
+      this.withMRTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedTag = Tag(id, name, Some(description))
 
         SQL"""UPDATE tags SET name = ${updatedTag.name.toLowerCase}, description = ${updatedTag.description}
-              WHERE id = $id RETURNING *""".as(parser.*).headOption
+              WHERE id = $id RETURNING *""".as(this.parser.*).headOption
       }
     }
   }
@@ -82,13 +84,13 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id fo the task
     * @return List of tags for the task
     */
-  def listByTask(id:Long)(implicit c:Connection=null) : List[Tag] = {
+  def listByTask(id:Long)(implicit c:Option[Connection]=None) : List[Tag] = {
     implicit val ids:List[Long] = List()
-    cacheManager.withIDListCaching { implicit uncached =>
-      withMRConnection { implicit c =>
+    this.cacheManager.withIDListCaching { implicit uncached =>
+      this.withMRConnection { implicit c =>
         SQL"""SELECT * FROM tags AS t
               INNER JOIN tags_on_tasks AS tt ON t.id = tt.tag_id
-              WHERE tt.task_id = $id""".as(parser.*)
+              WHERE tt.task_id = $id""".as(this.parser.*)
       }
     }
   }
@@ -99,13 +101,13 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id of the challenge
     * @return List of tags for the challenge
     */
-  def listByChallenge(id:Long)(implicit c:Connection=null) : List[Tag] = {
+  def listByChallenge(id:Long)(implicit c:Option[Connection]=None) : List[Tag] = {
     implicit val ids:List[Long] = List()
-    cacheManager.withIDListCaching { implicit uncached =>
-      withMRConnection { implicit c =>
+    this.cacheManager.withIDListCaching { implicit uncached =>
+      this.withMRConnection { implicit c =>
         SQL"""SELECT * FROM tags AS t
               INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id
-              WHERE tc.challenge_id = $id""".as(parser.*)
+              WHERE tc.challenge_id = $id""".as(this.parser.*)
       }
     }
   }
@@ -120,26 +122,30 @@ class TagDAL @Inject() (override val db:Database,
     * @return Returns the list of tags that were inserted, this would include any newly created
     *         ids of tags.
     */
-  def updateTagList(tags: List[Tag], user:User)(implicit c:Connection=null): List[Tag] = {
-    permission.hasSuperAccess(user)
-    implicit val names = tags.map(_.name)
-    cacheManager.withCacheNameDeletion { () =>
-      withMRTransaction { implicit c =>
-        val sqlQuery = s"""WITH upsert AS (UPDATE tags SET name = {name}, description = {description}
-                                            WHERE id = {id} OR name = {name} RETURNING *)
-                            INSERT INTO tags (name, description) SELECT {name}, {description}
-                            WHERE NOT EXISTS (SELECT * FROM upsert)"""
-        val parameters = tags.map(tag => {
-          val descriptionString = tag.description match {
-            case Some(d) => d
-            case None => ""
-          }
-          Seq[NamedParameter]("name" -> tag.name.toLowerCase, "description" -> descriptionString, "id" -> tag.id)
-        })
-        val batchUpsert = BatchSql(sqlQuery, parameters.head, parameters.tail:_*)
-        val result = batchUpsert.execute()
-        retrieveListByName(names)
+  def updateTagList(tags: List[Tag], user:User)(implicit c:Option[Connection]=None): List[Tag] = {
+    if (tags.nonEmpty) {
+      this.permission.hasSuperAccess(user)
+      implicit val names = tags.map(_.name)
+      this.cacheManager.withCacheNameDeletion { () =>
+        this.withMRTransaction { implicit c =>
+          val sqlQuery =
+            s"""WITH upsert AS (UPDATE tags SET description = {description}
+                                              WHERE id = {id} OR name = {name} RETURNING *)
+                              INSERT INTO tags (name, description) SELECT {name}, {description}
+                              WHERE NOT EXISTS (SELECT * FROM upsert)"""
+          val parameters = tags.map(tag => {
+            val descriptionString = tag.description match {
+              case Some(d) => d
+              case None => ""
+            }
+            Seq[NamedParameter]("name" -> tag.name.toLowerCase, "description" -> descriptionString, "id" -> tag.id)
+          })
+          BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
+          this.retrieveListByName(names)
+        }
       }
+    } else {
+      List.empty
     }
   }
 }

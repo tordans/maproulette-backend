@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.exception
 
 import controllers.WebJarAssets
@@ -158,12 +160,12 @@ object MPExceptionUtil {
         Logger.error(e.getMessage)
         Unauthorized(views.html.index("Map Roulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities)
-          (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", 401))).withNewSession
+          (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", play.api.http.Status.UNAUTHORIZED))).withNewSession
       case e:IllegalAccessException =>
         Logger.error(e.getMessage)
         Forbidden(views.html.index("Map Roulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities)
-          (views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", 403)))
+          (views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", play.api.http.Status.FORBIDDEN)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
         NotFound(views.html.index("Map Roulette Error", user, config,

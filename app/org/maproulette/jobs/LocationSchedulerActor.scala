@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.jobs
 
 import javax.inject.Inject
@@ -14,7 +16,7 @@ import play.api.db.Database
   */
 class LocationSchedulerActor @Inject() (db:Database) extends Actor {
   override def receive: Receive = {
-    case "updateLocations" => updateLocations()
+    case "updateLocations" => this.updateLocations()
   }
 
   def updateLocations() : Unit = {

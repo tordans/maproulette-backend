@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.jobs
 
 import javax.inject.{Inject, Named}
@@ -13,7 +15,7 @@ class Scheduler @Inject() (val system: ActorSystem,
                            @Named("challenge-scheduler-actor") val challengeSchedulerActor: ActorRef,
                            @Named("location-scheduler-actor") val locationSchedulerActor: ActorRef)
                           (implicit ec:ExecutionContext) {
-  system.scheduler.schedule(1.minute, 1.hour, schedulerActor, "cleanLocks")
-  system.scheduler.schedule(1.minute, 24.hour, challengeSchedulerActor, "runChallengeSchedules")
-  system.scheduler.schedule(1.minute, 12.hour, locationSchedulerActor, "updateLocations")
+  this.system.scheduler.schedule(1.minute, 1.hour, this.schedulerActor, "cleanLocks")
+  this.system.scheduler.schedule(1.minute, 24.hour, this.challengeSchedulerActor, "runChallengeSchedules")
+  this.system.scheduler.schedule(1.minute, 12.hour, this.locationSchedulerActor, "updateLocations")
 }

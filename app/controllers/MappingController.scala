@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package controllers
 
 import javax.inject.Inject
@@ -8,7 +10,7 @@ import org.maproulette.models.{Lock, Task}
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import play.api.libs.json.{JsValue, Json}
-import play.api.mvc.{Action, Controller}
+import play.api.mvc.{Action, AnyContent, Controller}
 
 /**
   * @author cuthbertm
@@ -22,7 +24,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     * @param taskId The id of the task that contains the geojson
     * @return The geojson
     */
-  def getTaskDisplayGeoJSON(taskId:Long) = Action.async { implicit request =>
+  def getTaskDisplayGeoJSON(taskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       Ok(getResponseJSONNoLock(taskDAL.retrieveById(taskId)))
     }
@@ -34,7 +36,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     *
     * @return
     */
-  def getRandomNextTask() = Action.async { implicit request =>
+  def getRandomNextTask : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
         Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1).headOption))
@@ -48,7 +50,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     *
     * @return
     */
-  def getRandomNextTaskWithPriority() = Action.async { implicit request =>
+  def getRandomNextTaskWithPriority : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
         Ok(getResponseJSONNoLock(taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, 1).headOption))
@@ -63,7 +65,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     * @param currentTaskId The current task
     * @return An OK response with the task json
     */
-  def getSequentialNextTask(parentId:Long, currentTaskId:Long) = Action.async { implicit request =>
+  def getSequentialNextTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       Ok(getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId)))
     }
@@ -76,7 +78,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     * @param currentTaskId The current task
     * @return An OK response with the task json
     */
-  def getSequentialPreviousTask(parentId:Long, currentTaskId:Long) = Action.async { implicit request =>
+  def getSequentialPreviousTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       Ok(getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId)))
     }
@@ -96,6 +98,10 @@ class MappingController @Inject() (sessionManager:SessionManager,
   private def getResponseJSON(task:Option[(Task, Lock)]) : JsValue = task match {
     case Some(t) =>
       val currentStatus = t._1.status.getOrElse(Task.STATUS_CREATED)
+      val locked = t._2.lockedTime match {
+        case Some(_) => true
+        case None => false
+      }
       Json.parse(
         s"""
            |{
@@ -106,7 +112,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
            |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
            |   "status":$currentStatus,
            |   "geometry":${t._1.geometries},
-           |   "locked":${if(t._2.lockedTime == null) "false" else "true"}
+           |   "locked":$locked
            |}
             """.stripMargin)
     case None => throw new NotFoundException(s"Could not find task")

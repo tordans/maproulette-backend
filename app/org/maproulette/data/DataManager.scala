@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.data
 
 import java.sql.Connection
@@ -24,9 +26,9 @@ case class ActionSummary(total:Double,
                              tooHard:Double) {
   // available in the database means it is created state, available in the UI, means that it is in state
   // AVAILABLE, SKIPPED or TOO HARD
-  def trueAvailable = available + skipped + deleted
-  def percentComplete = (((trueAvailable / total) * 100) - 100) * -1
-  def percentage(value:Double) = (value / total) * 100
+  def trueAvailable : Double = available + skipped + deleted
+  def percentComplete : Double = (((trueAvailable / total) * 100) - 100) * -1
+  def percentage(value:Double) : Double = (value / total) * 100
 }
 
 /**
@@ -64,7 +66,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int])(implicit c:Connection) : Int = {
     SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
              FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
-             #${getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}
+             #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}
              #$projectFilter""".as(get[Option[Int]]("count").single).getOrElse(0)
   }
 
@@ -73,7 +75,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     SQL"""SELECT AVG(count) AS count FROM (
             SELECT #${if (survey) {"survey_id"} else {"challenge_id"}}, COUNT(DISTINCT osm_user_id) AS count
             FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
-            #${getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)} #$projectFilter
+            #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)} #$projectFilter
             GROUP BY #${if (survey) {"survey_id"} else {"challenge_id"}}
           ) as t""".as(get[Option[Double]]("count").single).getOrElse(0D)
   }
@@ -82,14 +84,14 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                              start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int])(implicit c:Connection) : Int = {
     SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
           FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
-          #${getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}  #$projectFilter
+          #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}  #$projectFilter
           AND sa.created::date BETWEEN current_date - INTERVAL '2 days' AND current_date"""
       .as(get[Option[Int]]("count").single).getOrElse(0)
   }
 
   def getUserSurveySummary(projectList:Option[List[Long]]=None, surveyId:Option[Long]=None,
-                           start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]) = {
-    db.withConnection { implicit c =>
+                           start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]) : UserSurveySummary = {
+    this.db.withConnection { implicit c =>
       val surveyProjectFilter = surveyId match {
         case Some(id) => s"AND survey_id = $id"
         case None => projectList match {
@@ -101,21 +103,21 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
       val perUser:Double = SQL"""SELECT AVG(answered) AS answered FROM (
                             SELECT osm_user_id, COUNT(DISTINCT answer_id) AS answered
                             FROM survey_answers sa
-                            #${getEnabledPriorityClause(surveyId.isEmpty, true, start, end, priority)}
+                            #${this.getEnabledPriorityClause(surveyId.isEmpty, true, start, end, priority)}
                             #$surveyProjectFilter
                             GROUP BY osm_user_id
                           ) AS t""".as(get[Option[Double]]("answered").single).getOrElse(0)
       val perSurvey:Double = SQL"""SELECT AVG(answered) AS answered FROM (
                               SELECT osm_user_id, survey_id, COUNT(DISTINCT answer_id) AS answered
                               FROM survey_answers sa
-                              #${getEnabledPriorityClause(surveyId.isEmpty, true, start, end, priority)}
+                              #${this.getEnabledPriorityClause(surveyId.isEmpty, true, start, end, priority)}
                               #$surveyProjectFilter
                               GROUP BY osm_user_id, survey_id
                             ) AS t""".as(get[Option[Double]]("answered").single).getOrElse(0)
 
-      UserSurveySummary(getDistinctUsers(surveyProjectFilter, true, surveyId.isEmpty, start, end, priority),
-        getDistinctUsersPerChallenge(surveyProjectFilter, true, surveyId.isEmpty, start, end, priority),
-        getActiveUsers(surveyProjectFilter, true, surveyId.isEmpty, start, end, priority),
+      UserSurveySummary(this.getDistinctUsers(surveyProjectFilter, true, surveyId.isEmpty, start, end, priority),
+        this.getDistinctUsersPerChallenge(surveyProjectFilter, true, surveyId.isEmpty, start, end, priority),
+        this.getActiveUsers(surveyProjectFilter, true, surveyId.isEmpty, start, end, priority),
         perUser,
         perSurvey
       )
@@ -124,7 +126,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
 
   def getUserChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
                               start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]) : UserSummary = {
-    db.withConnection { implicit c =>
+    this.db.withConnection { implicit c =>
       val challengeProjectFilter = challengeId match {
         case Some(id) => s"AND sa.challenge_id = $id"
         case None => projectList match {
@@ -156,7 +158,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     SUM(CASE sa.status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
                                     SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
                                 FROM status_actions sa
-                                #${getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
+                                #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
                                 #$challengeProjectFilter
                                 GROUP BY sa.osm_user_id
                               ) AS t""".as(actionParser.*).head
@@ -173,19 +175,19 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                         SUM(CASE sa.status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
                                         SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
                                     FROM status_actions sa
-                                    #${getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
+                                    #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
                                     #$challengeProjectFilter
                                     GROUP BY osm_user_id, challenge_id
                                   ) AS t""".as(actionParser.*).head
       val allUsers =
         SQL"""SELECT count(DISTINCT osm_user_id) FROM status_actions sa
-              #${getEnabledPriorityClause(challengeId.isEmpty, false, None, None, priority, true)}
+              #${this.getEnabledPriorityClause(challengeId.isEmpty, false, None, None, priority, true)}
               #$challengeProjectFilter
            """.as(int(1).single)
       UserSummary(allUsers,
-        getDistinctUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
-        getDistinctUsersPerChallenge(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
-        getActiveUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
+        this.getDistinctUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
+        this.getDistinctUsersPerChallenge(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
+        this.getActiveUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
         perUser,
         perChallenge)
     }
@@ -201,7 +203,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   def getChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
                           limit:Int=(-1), offset:Int=0, orderColumn:Option[String]=None, orderDirection:String="ASC",
                           searchString:String="", priority:Option[Int]=None) : List[ChallengeSummary] = {
-    db.withConnection { implicit c =>
+    this.db.withConnection { implicit c =>
       val parser = for {
         id <- int("tasks.parent_id")
         name <- str("challenges.name")
@@ -254,10 +256,10 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                               ${searchField("c.name")}
                               GROUP BY t.parent_id, c.name
                     ) AS t
-                    ${order(orderColumn, orderDirection)}
-                    LIMIT ${sqlLimit(limit)} OFFSET {offset}
+                    ${this.order(orderColumn, orderDirection)}
+                    LIMIT ${this.sqlLimit(limit)} OFFSET {offset}
         """
-        SQL(query).on('ss -> search(searchString), 'offset -> offset).as(parser.*)
+        SQL(query).on('ss -> this.search(searchString), 'offset -> offset).as(parser.*)
     }
   }
 
@@ -271,7 +273,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     * @return A integer value which is the total challenges included in the results
     */
   def getTotalSummaryCount(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None, searchString:String="") : Int = {
-    db.withConnection { implicit c =>
+    this.db.withConnection { implicit c =>
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND id = $id"
         case _ => projectList match {
@@ -283,8 +285,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                       INNER JOIN projects p ON p.id = c.parent_id
                       WHERE ${if(challengeId.isEmpty) {"c.enabled = true AND p.enabled = true AND"} else {""}}
                       challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
-                      $challengeFilter ${searchField("c.name")}"""
-      SQL(query).on('ss -> search(searchString)).as(int("total").single)
+                      $challengeFilter ${this.searchField("c.name")}"""
+      SQL(query).on('ss -> this.search(searchString)).as(int("total").single)
     }
   }
 
@@ -300,7 +302,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     */
   def getChallengeActivity(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
                          start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]=None) : List[ChallengeActivity] = {
-    db.withConnection { implicit c =>
+    this.db.withConnection { implicit c =>
       val parser = for {
         seriesDate <- date("series_date")
         status <- int("status")
@@ -313,20 +315,20 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           case None => ""
         }
       }
-      val dates = getDates(start, end)
+      val dates = this.getDates(start, end)
       SQL"""
           SELECT series_date,
-	          CASE WHEN sa.status IS NULL THEN 0 ELSE sa.status END AS status,
-	          CASE WHEN count IS NULL THEN 0 ELSE count END AS count
+            CASE WHEN sa.status IS NULL THEN 0 ELSE sa.status END AS status,
+            CASE WHEN count IS NULL THEN 0 ELSE count END AS count
           FROM (SELECT CURRENT_DATE + i AS series_date
-	              FROM generate_series(date '#${dates._1}' - CURRENT_DATE, date '#${dates._2}' - CURRENT_DATE) i) d
+                FROM generate_series(date '#${dates._1}' - CURRENT_DATE, date '#${dates._2}' - CURRENT_DATE) i) d
           LEFT JOIN (
-	          SELECT sa.created::date, sa.status, COUNT(sa.status) AS count
+            SELECT sa.created::date, sa.status, COUNT(sa.status) AS count
             FROM status_actions sa
-            #${getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
-	          AND sa.status IN (0, 1, 2, 3, 5, 6) AND old_status != sa.status
+            #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
+            AND sa.status IN (0, 1, 2, 3, 5, 6) AND old_status != sa.status
             #$challengeProjectFilter
-	          GROUP BY sa.created::date, sa.status
+            GROUP BY sa.created::date, sa.status
             ORDER BY sa.created::date, sa.status ASC
           ) sa ON d.series_date = sa.created""".as(parser.*)
     }
@@ -337,7 +339,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
       case Some(s) => dateFormat.format(s)
       case None =>
         val cal = Calendar.getInstance()
-        cal.add(Calendar.DATE, -7)
+        cal.add(Calendar.DATE, DataManager.PREVIOUS_WEEK)
         dateFormat.format(cal.getTime)
     }
     val endDate = end match {
@@ -381,4 +383,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
        """.stripMargin
     }
   }
+}
+
+object DataManager {
+  val PREVIOUS_WEEK = -7
 }

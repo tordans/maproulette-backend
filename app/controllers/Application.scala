@@ -1,8 +1,10 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package controllers
 
 import javax.inject.Inject
 
-import jsmessages.JsMessagesFactory
+import jsmessages.{JsMessages, JsMessagesFactory}
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
@@ -11,7 +13,7 @@ import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.{I18nSupport, Messages, MessagesApi}
 import play.api.libs.json.{JsNumber, JsString, Json}
 import play.api.mvc._
 import play.api.routing._
@@ -28,9 +30,12 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              permission: Permission,
                              val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
 
-  val jsMessages = jsMessagesFactory.all
+  val jsMessages:JsMessages = jsMessagesFactory.all
+  private val titleHeader:String = Messages("headers.title")
+  private val adminHeader:String = Messages("headers.administration")
+  private val metricsHeader:String = Messages("headers.metrics")
 
-  def clearCaches = Action.async { implicit request =>
+  def clearCaches : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.user.clearCaches
@@ -43,8 +48,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def messages = Action { implicit request =>
-    Ok(jsMessages(Some("window.Messages")))
+  def messages : Action[AnyContent] = Action { implicit request =>
+    Ok(this.jsMessages(Some("window.Messages")))
   }
 
   /**
@@ -52,17 +57,17 @@ class Application @Inject() (val messagesApi: MessagesApi,
     *
     * @return The index HTML
     */
-  def index = Action.async { implicit request =>
+  def index : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
+      getOkIndex(this.titleHeader, userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
     }
   }
 
-  def showSearchResults = Action.async { implicit request =>
+  def showSearchResults : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked,
+      getOkIndex(this.titleHeader, userOrMocked,
         views.html.main(user = userOrMocked,
           debugMode = config.isDebugMode,
           searchView = true))
@@ -75,11 +80,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param parentId The parent chalenge ID
     * @return
     */
-  def mapChallenge(parentId:Long) = map(parentId, -1, false)
+  def mapChallenge(parentId:Long) : Action[AnyContent] = map(parentId, -1, false)
 
-  def viewChallenge(parentId:Long) = map(parentId, -1, true)
+  def viewChallenge(parentId:Long) : Action[AnyContent] = map(parentId, -1, true)
 
-  def mapTask(parentId:Long, taskId:Long) = map(parentId, taskId, false)
+  def mapTask(parentId:Long, taskId:Long) : Action[AnyContent] = map(parentId, taskId, false)
 
   /**
     * Only slightly different to the index page, this one shows the geojson of a specific item on the
@@ -89,15 +94,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param taskId The task itself
     * @return The html view to show the user
     */
-  def map(parentId:Long, taskId:Long, view:Boolean) = Action.async { implicit request =>
+  def map(parentId:Long, taskId:Long, view:Boolean) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex("MapRoulette", userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId, view))
+      getOkIndex(this.titleHeader, userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId, view))
     }
   }
 
-  def adminUIProjectList() = adminUIList(Actions.ITEM_TYPE_PROJECT_NAME, "", None)
-  def adminUIChildList(itemType:String, parentId:Long) = adminUIList(itemType, "", Some(parentId))
+  def adminUIProjectList() : Action[AnyContent] = adminUIList(Actions.ITEM_TYPE_PROJECT_NAME, "", None)
+  def adminUIChildList(itemType:String, parentId:Long) : Action[AnyContent] = adminUIList(itemType, "", Some(parentId))
 
   /**
     * The generic function used to list elements in the UI
@@ -106,7 +111,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param parentId The parent of the objects to list
     * @return The html view to show the user
     */
-  protected def adminUIList(itemType:String, parentType:String, parentId:Option[Long]=None) = Action.async { implicit request =>
+  protected def adminUIList(itemType:String, parentType:String, parentId:Option[Long]=None) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       // For now we are ignoring the limit and offset properties and letting the UI handle it completely
       val limitIgnore = 10000
@@ -135,50 +140,50 @@ class Application @Inject() (val messagesApi: MessagesApi,
                     )
                 })
                 views.html.admin.challenge(user, parentId.get, p.enabled, challengeData)
-              case None => throw new NotFoundException("Parent project for challenge not found")
+              case None => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
 
             }
-          case _ => views.html.error.error("Invalid item type requested.")
+          case _ => views.html.error.error(Messages("errors.application.adminUIList.invalid"))
         }
-        case None => views.html.error.error("Invalid item type requested.")
+        case None => views.html.error.error(Messages("errors.application.adminUIList.invalid"))
       }
-      getOkIndex("MapRoulette Administration", user, view)
+      getOkIndex(this.adminHeader, user, view)
     }
   }
 
-  def adminUITaskList(projectId:Long, parentType:String, parentId:Long) = Action.async { implicit request =>
+  def adminUITaskList(projectId:Long, parentType:String, parentId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       permission.hasWriteAccess(ProjectType(), user)(projectId)
-      getOkIndex("MapRoulette Administration", user, views.html.admin.task(user, projectId, parentType, parentId))
+      getOkIndex(this.adminHeader, user, views.html.admin.task(user, projectId, parentType, parentId))
     }
   }
 
-  def metrics(survey:Int) = Action.async { implicit request =>
+  def metrics(survey:Int) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       if (survey == 1) {
-        getOkIndex("MapRoulette Metrics", user, views.html.metrics.surveyMetrics(user, config, None, ""))
+        getOkIndex(this.metricsHeader, user, views.html.metrics.surveyMetrics(user, config, None, ""))
       } else {
-        getOkIndex("MapRoulette Metrics", user, views.html.metrics.challengeMetrics(user, config, None, ""))
+        getOkIndex(this.metricsHeader, user, views.html.metrics.challengeMetrics(user, config, None, ""))
       }
     }
   }
 
-  def challengeMetrics(challengeId:Long, projects:String, survey:Int) = Action.async { implicit request =>
+  def challengeMetrics(challengeId:Long, projects:String, survey:Int) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       if (survey == 1) {
-        getOkIndex("MapRoulette Metrics", user,
+        getOkIndex(this.metricsHeader, user,
           views.html.metrics.surveyMetrics(user, config, dalManager.survey.retrieveById(challengeId), projects))
       } else {
-        getOkIndex("MapRoulette Metrics", user,
+        getOkIndex(this.metricsHeader, user,
           views.html.metrics.challengeMetrics(user, config, dalManager.challenge.retrieveById(challengeId), projects))
       }
     }
   }
 
-  def users(limit:Int, offset:Int, q:String) = Action.async { implicit request =>
+  def users(limit:Int, offset:Int, q:String) : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedUIRequest { implicit user =>
-      getOkIndex("MapRoulette Users", user,
+      getOkIndex(Messages("headers.users"), user,
         views.html.admin.users.users(user,
           dalManager.user.list(limit, offset, false, q).map(u => {
             val projectList = if (u.isSuperUser) {
@@ -194,9 +199,9 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def profile = Action.async { implicit request =>
+  def profile(tab:Int) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      getOkIndex("MapRoulette Profile", user, views.html.user.profile(user))
+      getOkIndex(Messages("headers.profile"), user, views.html.user.profile(user, tab))
     }
   }
 
@@ -205,7 +210,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     *
     * @return The index html
     */
-  def refreshProfile = Action.async { implicit request =>
+  def refreshProfile : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedFutureUIRequest { implicit user =>
       val p = Promise[Result]
       sessionManager.refreshProfile(user.osmProfile.requestToken, user) onComplete {
@@ -222,9 +227,9 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param error
     * @return
     */
-  def error(error:String) = Action.async { implicit request =>
+  def error(error:String) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
-      getOkIndex("MapRoulette Error", User.userOrMocked(user), views.html.error.error(error))
+      getOkIndex(Messages("headers.error"), User.userOrMocked(user), views.html.error.error(error))
     }
   }
 
@@ -235,7 +240,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     * @param parentId The id of the parent
     * @return
     */
-  def taskDataTableList(parentType:String, parentId:Long) = Action.async { implicit request =>
+  def taskDataTableList(parentType:String, parentId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val parentDAL = Actions.getItemType(parentType) match {
         case Some(pt) => pt match {
@@ -286,7 +291,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     *
     * @return The results of whatever action is called by the javascript
     */
-  def javascriptRoutes = Action { implicit request =>
+  def javascriptRoutes : Action[AnyContent] = Action { implicit request =>
     Ok(
       JavaScriptReverseRouter("jsRoutes")(
         routes.javascript.AuthController.generateAPIKey,

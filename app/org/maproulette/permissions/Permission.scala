@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.permissions
 
 import javax.inject.{Inject, Provider}
@@ -51,7 +53,10 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
           // Don't actually check, because currently all users will have read access on all objects
           /*dalManager.getManager(itemType).retrieveById match {
             case Some(obj) => hasReadAccess(obj.asInstanceOf[BaseObject[Long]], user)
-            case None => throw new NotFoundException(s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check read access")
+            case None =>
+              throw new NotFoundException(
+                s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check read access"
+              )
           }*/
       }
     }
@@ -98,7 +103,10 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
         case _ =>
           dalManager.get().getManager(itemType).retrieveById match {
             case Some(obj) => hasWriteAccess(obj.asInstanceOf[BaseObject[Long]], user)
-            case None => throw new NotFoundException(s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check write access")
+            case None =>
+              throw new NotFoundException(
+                s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check write access"
+              )
           }
       }
     }
