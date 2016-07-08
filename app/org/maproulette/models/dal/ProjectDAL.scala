@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -5,7 +7,7 @@ import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
-import org.maproulette.actions.Actions
+import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models._
@@ -72,9 +74,9 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param project The project to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
-    permission.hasWriteAccess(project, user)
-    cacheManager.withOptionCaching { () =>
+  override def insert(project: Project, user:User)(implicit c:Option[Connection]=None): Project = {
+    this.permission.hasWriteAccess(project, user)
+    this.cacheManager.withOptionCaching { () =>
       // only super users can enable or disable projects
       val setProject = if (!user.isSuperUser || user.adminForProject(project.id)) {
         Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
@@ -82,7 +84,7 @@ class ProjectDAL @Inject() (override val db:Database,
       } else {
         project
       }
-      val newProject = withMRTransaction { implicit c =>
+      val newProject = this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, description, enabled)
               VALUES (${setProject.name}, ${setProject.description}, ${setProject.enabled})
               ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
@@ -92,7 +94,7 @@ class ProjectDAL @Inject() (override val db:Database,
           // todo: this should be in the above transaction, but for some reason the fkey won't allow it
           db.withTransaction { implicit c =>
             // Every new project needs to have a admin group created for them
-            userGroupDAL.createGroup(proj.id, proj.name + "_Admin", Group.TYPE_ADMIN, User.superUser)
+            this.userGroupDAL.createGroup(proj.id, proj.name + "_Admin", Group.TYPE_ADMIN, User.superUser)
             Some(proj)
           }
         case None =>
@@ -108,10 +110,10 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating.
     * @return An optional object, it will return None if no object found with a matching id that was supplied.
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Project] = {
-    cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      permission.hasWriteAccess(cachedItem, user)
-      withMRTransaction { implicit c =>
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Project] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      this.permission.hasWriteAccess(cachedItem, user)
+      this.withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean] match {
@@ -125,7 +127,7 @@ class ProjectDAL @Inject() (override val db:Database,
         SQL"""UPDATE projects SET name = $name,
               description = $description,
               enabled = $enabled
-              WHERE id = $id RETURNING *""".as(parser.*).headOption
+              WHERE id = $id RETURNING *""".as(this.parser.*).headOption
       }
     }
   }
@@ -136,23 +138,23 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param user The user executing the request
     * @return A list of projects managed by the user
     */
-  def listManagedProjects(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
-                          searchString:String="")(implicit c:Connection=null) : List[Project] = {
+  def listManagedProjects(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
+                          searchString:String="")(implicit c:Option[Connection]=None) : List[Project] = {
     if (user.isSuperUser) {
-      list(limit, offset, onlyEnabled, searchString)
+      this.list(limit, offset, onlyEnabled, searchString)
     } else {
-      withMRConnection { implicit c =>
+      this.withMRConnection { implicit c =>
         if (user.groups.isEmpty) {
           List.empty
         } else {
           val query =
             s"""SELECT p.* FROM projects p
               INNER JOIN groups g ON g.project_id = p.id
-              WHERE g.id IN ({ids}) ${searchField("p.name")} ${enabled(onlyEnabled)}
-              LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('ss -> search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
+              WHERE g.id IN ({ids}) ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
+              LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('ss -> this.search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
             'ids -> user.groups.map(_.id))
-            .as(parser.*)
+            .as(this.parser.*)
         }
       }
     }
@@ -169,9 +171,9 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param c implicit connection, if not supplied will open new connection
     * @return A map of project ids to tuple with number of challenge and survey children for the project
     */
-  def getChildrenCounts(user:User, limit:Int = 10, offset:Int = 0, onlyEnabled:Boolean=false,
-                        searchString:String="")(implicit c:Connection=null) : Map[Long, (Int, Int)] = {
-    withMRConnection { implicit c =>
+  def getChildrenCounts(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
+                        searchString:String="")(implicit c:Option[Connection]=None) : Map[Long, (Int, Int)] = {
+    this.withMRConnection { implicit c =>
       val parser = for {
         id <- long("id")
         challenges <- int("challenges")
@@ -184,10 +186,10 @@ class ProjectDAL @Inject() (override val db:Database,
                     INNER JOIN groups g ON g.project_id = p.id
                     INNER JOIN challenges c ON c.parent_id = p.id
                     WHERE (1=${if (user.isSuperUser) { 1 } else { 0 }} OR g.id IN ({ids}))
-                    ${searchField("p.name")} ${enabled(onlyEnabled, "p")}
+                    ${this.searchField("p.name")} ${this.enabled(onlyEnabled, "p")}
                     GROUP BY p.id
-                    LIMIT ${sqlLimit(limit)} OFFSET $offset"""
-      SQL(query).on('ss -> search(searchString), 'ids -> user.groups.map(_.id)).as(parser.*)
+                    LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).on('ss -> this.search(searchString), 'ids -> user.groups.map(_.id)).as(parser.*)
         .map(v => v._1 -> (v._2, v._3)).toMap
     }
   }
@@ -195,21 +197,21 @@ class ProjectDAL @Inject() (override val db:Database,
   /**
     * Retrieves the clustered json points for a searched set of challenges
     *
-    * @param params
+    * @param params search parameters
     * @return
     */
   def getSearchedClusteredPoints(params: SearchParameters)
-                                (implicit c:Connection=null) : List[ClusteredPoint] = {
-    withMRConnection { implicit c =>
+                                (implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
+    this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
-      parameters += ('cs -> search(params.challengeSearch))
-      parameters += ('ps -> search(params.projectSearch))
+      parameters += ('cs -> this.search(params.challengeSearch))
+      parameters += ('ps -> this.search(params.projectSearch))
       // search by tags if any
       val challengeTags = if (params.challengeTags.nonEmpty) {
         val tags = params.challengeTags.zipWithIndex.map{
           case (v, i) =>
-            parameters += (s"tag_$i" -> search(v))
+            parameters += (s"tag_$i" -> this.search(v))
             s"t.name LIKE {tag_$i}"
         }
         (
@@ -236,14 +238,14 @@ class ProjectDAL @Inject() (override val db:Database,
           WHERE c.location IS NOT NULL AND (
             SELECT COUNT(*) FROM tasks
             WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
-          ${searchField("c.name", "AND", "cs")}
-          ${searchField("p.name", "AND", "ps")}
-          ${enabled(params.challengeEnabled, "c")} ${enabled(params.projectEnabled, "p")}
+          ${this.searchField("c.name", "AND", "cs")}
+          ${this.searchField("p.name", "AND", "ps")}
+          ${this.enabled(params.challengeEnabled, "c")} ${this.enabled(params.projectEnabled, "p")}
           ${if (params.projectId.isDefined && params.projectId.get > 0) {s" AND c.parent_id = ${params.projectId.get}"} else {""}}
           $locationClause
           ${challengeTags._2}
          """
-        SQLWithParameters(query, parameters).as(pointParser.*)
+        this.sqlWithParameters(query, parameters).as(this.pointParser.*)
     }
   }
 
@@ -256,8 +258,8 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return A list of ClusteredPoint objects
     */
   def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
-                              enabledOnly:Boolean=true)(implicit c:Connection=null) : List[ClusteredPoint] = {
-    withMRConnection { implicit c =>
+                              enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
+    this.withMRConnection { implicit c =>
       SQL"""SELECT c.id, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
                     c.difficulty, c.challenge_type
               FROM challenges c
@@ -265,10 +267,10 @@ class ProjectDAL @Inject() (override val db:Database,
               WHERE c.location IS NOT NULL AND (
                 SELECT COUNT(*) FROM tasks
                 WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
-              #${enabled(enabledOnly, "c")} #${enabled(enabledOnly, "p")}
+              #${this.enabled(enabledOnly, "c")} #${this.enabled(enabledOnly, "p")}
               #${if(projectId.isDefined) { s" AND c.parent_id = ${projectId.get}"} else { "" }}
               #${if(challengeIds.nonEmpty) { s" AND c.id IN (${challengeIds.mkString(",")})"} else { "" }}
-        """.as(pointParser.*)
+        """.as(this.pointParser.*)
     }
   }
 }

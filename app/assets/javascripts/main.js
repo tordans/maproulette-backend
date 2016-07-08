@@ -85,6 +85,15 @@ var Utils = {
     addComma: function (str) {
         return (str.match(/\,\s+$/) || str.match(/in\s+$/)) ? '' : ', ';
     },
+    getLocation: function(lat, lon, success, error) {
+        var mqurl = 'http://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon;
+        $.ajax({
+            url: mqurl,
+            jsonp: "json_callback",
+            success: success,
+            error:error
+        });
+    },
     mqResultToString: function (addr) {
         // Convert a MapQuest reverse geocoding result to a human readable string.
         var out, county, town;

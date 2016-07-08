@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.jobs
 
 import javax.inject.{Inject, Singleton}
@@ -15,7 +17,7 @@ import play.api.db.Database
 @Singleton
 class ChallengeSchedulerActor @Inject() (db:Database) extends Actor {
   override def receive: Receive = {
-    case "runChallengeSchedules" => runChallengeSchedules()
+    case "runChallengeSchedules" => this.runChallengeSchedules()
   }
 
   def runChallengeSchedules() : Unit = {

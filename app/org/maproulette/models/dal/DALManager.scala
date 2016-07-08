@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import javax.inject.{Inject, Singleton}
@@ -21,15 +23,15 @@ class DALManager @Inject() (tagDAL: TagDAL,
                             userGroupDAL: UserGroupDAL,
                             actionManager: ActionManager,
                             dataManager: DataManager) {
-  def tag = tagDAL
-  def task = taskDAL
-  def challenge = challengeDAL
-  def survey = surveyDAL
-  def project = projectDAL
-  def user = userDAL
-  def userGroup = userGroupDAL
-  def action = actionManager
-  def data = dataManager
+  def tag:TagDAL = tagDAL
+  def task:TaskDAL = taskDAL
+  def challenge:ChallengeDAL = challengeDAL
+  def survey:SurveyDAL = surveyDAL
+  def project:ProjectDAL = projectDAL
+  def user:UserDAL = userDAL
+  def userGroup:UserGroupDAL = userGroupDAL
+  def action:ActionManager = actionManager
+  def data:DataManager = dataManager
 
   def getManager(itemType:ItemType) : BaseDAL[Long, _] = {
     itemType match {

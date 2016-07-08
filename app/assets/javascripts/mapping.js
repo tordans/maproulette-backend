@@ -807,14 +807,14 @@ var MRManager = (function() {
      * Will display the current location that you are working in
      */
     var displayAdminArea = function () {
-        var mqurl = 'http://nominatim.openstreetmap.org/reverse?format=json&lat=' + map.getCenter().lat + '&lon=' + map.getCenter().lng;
-        $.ajax({
-            url: mqurl,
-            jsonp: "json_callback",
-            success: function (data) {
+        Utils.getLocation(map.getCenter().lat, map.getCenter().lng, 
+            function(data) {
                 ToastUtils.Info(Utils.mqResultToString(data.address), {timeOut:10000});
+            },
+            function(data) {
+                ToastUtils.Error(Messages('mapping.js.location.notfound'), {timeOut:10000});
             }
-        });
+        );
     };
 
     /**

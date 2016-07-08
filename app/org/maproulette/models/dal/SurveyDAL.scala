@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -36,8 +38,8 @@ class SurveyDAL @Inject() (override val db:Database,
   override val childColumns: String = taskDAL.retrieveColumns
 
   override val parser: RowParser[Survey] = {
-    challengeDAL.parser map {
-      case challenge => Survey(challenge, getAnswers(challenge.id))
+    this.challengeDAL.parser map {
+      case challenge => Survey(challenge, this.getAnswers(challenge.id))
     }
   }
 
@@ -59,10 +61,10 @@ class SurveyDAL @Inject() (override val db:Database,
     * @return The object that it is retrieving
     */
   override def retrieveRootObject(obj: Either[Long, Survey], user: User)
-                                 (implicit c: Connection): Option[Project] = {
+                                 (implicit c:Option[Connection]=None): Option[Project] = {
     obj match {
-      case Left(id) => challengeDAL.retrieveRootObject(Left(id), user)
-      case Right(obj) => challengeDAL.retrieveRootObject(Right(obj.challenge), user)
+      case Left(id) => this.challengeDAL.retrieveRootObject(Left(id), user)
+      case Right(value) => this.challengeDAL.retrieveRootObject(Right(value.challenge), user)
     }
   }
 
@@ -73,9 +75,9 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param surveyId The id for the survey
     * @return List of answers for the survey
     */
-  def getAnswers(surveyId:Long)(implicit c:Connection=null) : List[Answer] = {
-    withMRConnection { implicit c =>
-      SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(answerParser.*)
+  def getAnswers(surveyId:Long)(implicit c:Option[Connection]=None) : List[Answer] = {
+    this.withMRConnection { implicit c =>
+      SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(this.answerParser.*)
     }
   }
 
@@ -86,20 +88,20 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param survey The survey to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(survey: Survey, user:User)(implicit c:Connection=null): Survey = {
+  override def insert(survey: Survey, user:User)(implicit c:Option[Connection]=None): Survey = {
     if (survey.answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
-    permission.hasWriteAccess(survey.challenge, user)
-    withMRTransaction { implicit c =>
-      val newChallenge = challengeDAL.insert(survey.challenge.copy(challengeType = Actions.ITEM_TYPE_SURVEY), user)
+    this.permission.hasWriteAccess(survey.challenge, user)
+    this.withMRTransaction { implicit c =>
+      val newChallenge = this.challengeDAL.insert(survey.challenge.copy(challengeType = Actions.ITEM_TYPE_SURVEY), user)
       // insert the answers into the table
       val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newChallenge.id}, {answer})"""
       val parameters = survey.answers.map(answer => {
         Seq[NamedParameter]("answer" -> answer.answer)
       })
       BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
-      Survey(newChallenge, getAnswers(newChallenge.id))
+      Survey(newChallenge, this.getAnswers(newChallenge.id))
     }
   }
 
@@ -111,11 +113,11 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Survey] = {
-    withMRTransaction { implicit c =>
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Survey] = {
+    this.withMRTransaction { implicit c =>
       val updatedChallenge = (updates \ "challenge").asOpt[JsValue] match {
-        case Some(c) => challengeDAL.update(c, user)
-        case None => challengeDAL.update(Json.parse(s"""{"id":$id}"""), user)
+        case Some(c) => this.challengeDAL.update(c, user)
+        case None => this.challengeDAL.update(Json.parse(s"""{"id":$id}"""), user)
       }
       implicit val answerReads = Survey.answerReads
       // list of answers to delete
@@ -141,7 +143,7 @@ class SurveyDAL @Inject() (override val db:Database,
           BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
         case None => //ignore
       }
-      Some(Survey(updatedChallenge.get, getAnswers(updatedChallenge.get.id)))
+      Some(Survey(updatedChallenge.get, this.getAnswers(updatedChallenge.get.id)))
     }
   }
 
@@ -156,18 +158,18 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param user The user answering the question, if none will default to a guest user on the database
     * @return
     */
-  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:User)(implicit c:Connection=null) = {
-    withMRTransaction { implicit c =>
+  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:User)(implicit c:Option[Connection]=None) : Option[Long] = {
+    this.withMRTransaction { implicit c =>
       SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
             VALUES (${user.osmProfile.id}, ${survey.challenge.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
     }
   }
 
-  override def _find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean,
+  override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean,
                      orderColumn: String, orderDirection: String)
-                    (implicit parentId: Long, c: Connection): List[Survey] =
-    challengeDAL._findByType(searchString, limit, offset, onlyEnabled, orderColumn,
-      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, getAnswers(c.id)))
+                    (implicit parentId: Long, c:Option[Connection]=None): List[Survey] =
+    this.challengeDAL.findByType(searchString, limit, offset, onlyEnabled, orderColumn,
+      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, this.getAnswers(c.id)))
 
   /**
     * This is a dangerous function as it will return all the objects available, so it could take up
@@ -175,7 +177,7 @@ class SurveyDAL @Inject() (override val db:Database,
     */
   override def list(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String,
                     orderColumn: String, orderDirection: String)
-                   (implicit parentId: Long, c: Connection): List[Survey] =
-    challengeDAL.listByType(limit, offset, onlyEnabled, searchString, orderColumn,
-      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, getAnswers(c.id)))
+                   (implicit parentId: Long, c:Option[Connection]=None): List[Survey] =
+    this.challengeDAL.listByType(limit, offset, onlyEnabled, searchString, orderColumn,
+      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, this.getAnswers(c.id)))
 }

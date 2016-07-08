@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.utils
 
 /**
@@ -17,7 +19,7 @@ object AnormExtension {
     value match {
       case ts: java.sql.Timestamp => Right(new DateTime(ts.getTime))
       case d: java.sql.Date => Right(new DateTime(d.getTime))
-      case str: java.lang.String => Right(dateFormatGeneration.parseDateTime(str))
+      case str: java.lang.String => Right(this.dateFormatGeneration.parseDateTime(str))
       case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass) )
     }
   }

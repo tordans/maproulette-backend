@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package controllers
 
 import com.google.inject.Inject
@@ -10,7 +12,7 @@ import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{JsString, Json}
-import play.api.mvc.{Action, Controller, Result}
+import play.api.mvc.{Action, AnyContent, Controller, Result}
 
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
@@ -33,7 +35,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     *
     * @return Redirects back to the index page containing a valid session
     */
-  def authenticate() = Action.async { implicit request =>
+  def authenticate() : Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       val p = Promise[Result]
       val redirect = request.getQueryString("redirect").getOrElse("")
@@ -62,14 +64,13 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
             routes.Application.index().absoluteURL()
           }
           sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL() + s"?redirect=$redirectURL") match {
-            case Right(t) => {
+            case Right(t) =>
               // We received the unauthorized tokens in the OAuth object - store it before we proceed
               p success Redirect(sessionManager.redirectUrl(t.token))
                 .withSession(SessionManager.KEY_TOKEN -> t.token,
                   SessionManager.KEY_SECRET -> t.secret,
                   SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
                 )
-            }
             case Left(e) => p failure e
           }
       }
@@ -82,11 +83,11 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     *
     * @return The index html page
     */
-  def signOut() = Action { implicit request =>
+  def signOut() : Action[AnyContent] = Action { implicit request =>
     Redirect(routes.Application.index()).withNewSession
   }
 
-  def deleteUser(userId:Long) = Action.async { implicit request =>
+  def deleteUser(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(StatusMessage("OK", JsString(s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))))
@@ -101,7 +102,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @return Will return NoContent if cannot create the key (which most likely means that no user was
     *         found, or will return the api key as plain text.
     */
-  def generateAPIKey(userId:Long=(-1)) = Action.async { implicit request =>
+  def generateAPIKey(userId:Long = -1) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val userIdToUse = if (user.isSuperUser && userId != -1) {
         userId
@@ -124,7 +125,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     * @param projectId The id of the project to add the user too
     * @return NoContent
     */
-  def addUserToProject(userId:Long, projectId:Long) = Action.async { implicit request =>
+  def addUserToProject(userId:Long, projectId:Long) : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.user.retrieveById(userId) match {

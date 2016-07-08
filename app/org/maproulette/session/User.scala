@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
 import java.util.Locale
@@ -58,46 +60,53 @@ case class OSMProfile(id:Long,
   * @param apiKey The current api key to validate requests
   * @param guest Whether this is a guest account or not.
   */
-case class User (override val id:Long,
+case class User(override val id:Long,
                  created:DateTime,
                  modified:DateTime,
                  theme:String,
                  osmProfile: OSMProfile,
                  groups:List[Group]=List(),
                  apiKey:Option[String]=None,
-                 guest:Boolean=false) extends BaseObject[Long] {
+                 guest:Boolean=false,
+                 defaultEditor:Option[Int]=None,
+                 defaultBaseMap:Option[String]=None,
+                 emailOptIn:Boolean=false) extends BaseObject[Long] {
   // for users the display name is always retrieved from OSM
-  override def name = osmProfile.displayName
+  override def name:String = osmProfile.displayName
 
   override val itemType: ItemType = UserType()
 
-  def homeLocation = osmProfile.homeLocation.name match {
+  def homeLocation : String = osmProfile.homeLocation.name match {
     case Some(name) => name
     case None => "Unknown"
   }
 
-  def formattedOSMCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(osmProfile.created)
-  def formattedMPCreatedDate = DateTimeFormat.forPattern("MMMM. yyyy").print(created)
+  def formattedOSMCreatedDate:String = DateTimeFormat.forPattern("MMMM. yyyy").print(osmProfile.created)
+  def formattedMPCreatedDate:String = DateTimeFormat.forPattern("MMMM. yyyy").print(created)
 
   /**
     * Checks to see if this user is part of the special super user group
     *
     * @return true if user is a super user
     */
-  def isSuperUser = groups.exists(_.groupType == Group.TYPE_SUPER_USER)
+  def isSuperUser : Boolean = groups.exists(_.groupType == Group.TYPE_SUPER_USER)
 
-  def isAdmin = groups.exists(_.groupType == Group.TYPE_ADMIN)
+  def isAdmin : Boolean = groups.exists(_.groupType == Group.TYPE_ADMIN)
 
-  def adminForProject(projectId:Long) = groups.exists(g => g.groupType == Group.TYPE_ADMIN && g.projectId == projectId)
+  def adminForProject(projectId:Long) : Boolean = groups.exists(g => g.groupType == Group.TYPE_ADMIN && g.projectId == projectId)
 
   // TODO this function should default to "en-US" if the locale is not set for the user
-  def getUserLocale = new Locale("en")
+  def getUserLocale : Locale = new Locale("en")
 }
 
 /**
   * Static functions to easily create user objects
   */
 object User {
+
+  val DEFAULT_GUEST_USER_ID = -998
+  val DEFAULT_SUPER_USER_ID = -999
+  val DEFAULT_GROUP_ID = -999
 
   /**
     * Generate a User object based on the XML details and request token
@@ -127,7 +136,7 @@ object User {
     } else {
       List[Group]()
     }
-    User(-1, null, null, "skin-blue", OSMProfile(osmId.toLong,
+    User(-1, new DateTime(), new DateTime(), "skin-blue", OSMProfile(osmId.toLong,
       displayName,
       description,
       avatarURL,
@@ -150,8 +159,8 @@ object User {
   /**
     * Creates a guest user object with default information.
     */
-  def guestUser = User(-998, DateTime.now(), DateTime.now(), "skin-green",
-    OSMProfile(-998, "Guest",
+  def guestUser : User = User(DEFAULT_GUEST_USER_ID, DateTime.now(), DateTime.now(), "skin-green",
+    OSMProfile(DEFAULT_GUEST_USER_ID, "Guest",
       "Sign in using your OSM account for more access to Map Roulette features.",
       "/assets/images/user_no_image.png",
       Location(-33.918861, 18.423300),
@@ -160,15 +169,15 @@ object User {
     ), List(), None, true
   )
 
-  def superUser = User(-999, DateTime.now(), DateTime.now(), "skin-black",
-    OSMProfile(-999, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
+  def superUser : User = User(DEFAULT_SUPER_USER_ID, DateTime.now(), DateTime.now(), "skin-black",
+    OSMProfile(DEFAULT_SUPER_USER_ID, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
       Location(47.608013, -122.335167),
       DateTime.now(),
       RequestToken("", "")
     ), List(superGroup.copy())
   )
 
-  val superGroup = Group(-999, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
+  val superGroup : Group = Group(DEFAULT_GROUP_ID, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
 
   /**
     * Simple helper function that if the provided Option[User] is None, will return a guest

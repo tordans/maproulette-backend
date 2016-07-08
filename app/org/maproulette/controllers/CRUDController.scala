@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers
 
 import java.sql.Connection
@@ -7,13 +9,13 @@ import io.swagger.annotations.{ApiOperation, ApiResponse, ApiResponses}
 import org.maproulette.actions.{Created => ActionCreated, _}
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
-import org.maproulette.exception.{MPExceptionUtil, StatusMessage, StatusMessages, UniqueViolationException}
+import org.maproulette.exception.{MPExceptionUtil, NotFoundException, StatusMessage, StatusMessages}
 import org.maproulette.metrics.Metrics
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.Logger
 import play.api.libs.json._
-import play.api.mvc.{Action, BodyParsers, Controller}
+import play.api.mvc.{Action, AnyContent, BodyParsers, Controller}
 
 /**
   * This is the base controller class that handles all the CRUD operations for the objects in Map Roulette.
@@ -45,7 +47,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param createdObject The object that was created by the create function
     * @param user The user that is executing the function
     */
-  def extractAndCreate(body:JsValue, createdObject:T, user:User)(implicit c:Connection=null) : Unit = { }
+  def extractAndCreate(body:JsValue, createdObject:T, user:User)(implicit c:Option[Connection]=None) : Unit = { }
 
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
@@ -67,6 +69,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   def updateUpdateBody(body:JsValue, user:User) : JsValue = body
 
+  // scalastyle:off
   /**
     * The base create function that most controllers will run through to create the object. The
     * actual work will be passed on to the internalCreate function. This is so that if you want
@@ -97,9 +100,10 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     new ApiResponse(code = 400, message = "Invalid json payload for object", response = classOf[StatusMessage]),
     new ApiResponse(code = 404, message = "ID field supplied but no object found matching the id", response = classOf[StatusMessage])
   ))
-  def create() = Action.async(BodyParsers.parse.json) { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
-      val result = updateCreateBody(request.body, user).validate[T]
+  // scalastyle:on
+  def create() : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val result = this.updateCreateBody(request.body, user).validate[T]
       result.fold(
         errors => {
           BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
@@ -108,12 +112,12 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
           MPExceptionUtil.internalExceptionCatcher { () =>
             if (element.id > -1) {
               // if you provide the ID in the post method we will send you to the update path
-              internalUpdate(request.body, user)(element.id.toString, -1) match {
+              this.internalUpdate(request.body, user)(element.id.toString, -1) match {
                 case Some(value) => Ok(Json.toJson(value))
                 case None => NotModified
               }
             } else {
-              internalCreate(request.body, element, user) match {
+              this.internalCreate(request.body, element, user) match {
                 case Some(value) => Created(Json.toJson(value))
                 case None => NotModified
               }
@@ -135,11 +139,11 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param user The user that is executing this request
     * @return The createdObject (not any of it's children if creating multiple objects, only top level)
     */
-  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Connection=null) : Option[T] = {
-    dal.mergeUpdate(element, user)(element.id) match {
+  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Option[Connection]=None) : Option[T] = {
+    this.dal.mergeUpdate(element, user)(element.id) match {
       case Some(created) =>
-        extractAndCreate(requestBody, created, user)
-        actionManager.setAction(Some(user), itemType.convertToItem(created.id), ActionCreated(), "")
+        this.extractAndCreate(requestBody, created, user)
+        this.actionManager.setAction(Some(user), this.itemType.convertToItem(created.id), ActionCreated(), "")
         Some(created)
       case None => None
     }
@@ -155,7 +159,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   def extractAndUpdate(body:JsValue, updatedObject:Option[T], user:User) : Unit = {
     updatedObject match {
-      case Some(updated) => extractAndCreate(body, updated, user)
+      case Some(updated) => this.extractAndCreate(body, updated, user)
       case None => // ignore
     }
   }
@@ -168,12 +172,12 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  def update(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def update(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       try {
-        internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
+        this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
           case Some(value) => Ok(Json.toJson(value))
-          case None =>  NotModified
+          case None =>  throw new NotFoundException(s"No object found with id [$id]")
         }
       } catch {
         case e:JsonMappingException =>
@@ -192,15 +196,15 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long, c:Connection=null) : Option[T] = {
+  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long, c:Option[Connection]=None) : Option[T] = {
     val updatedObject = if (Utils.isDigit(id)) {
-      dal.update(requestBody, user)(id.toLong)
+      this.dal.update(requestBody, user)(id.toLong)
     } else {
-      dal.updateByName(requestBody, user)
+      this.dal.updateByName(requestBody, user)
     }
-    extractAndUpdate(requestBody, updatedObject, user)
+    this.extractAndUpdate(requestBody, updatedObject, user)
     updatedObject match {
-      case Some(obj) => actionManager.setAction(Some(user), itemType.convertToItem(obj.id), Updated(), "")
+      case Some(obj) => this.actionManager.setAction(Some(user), this.itemType.convertToItem(obj.id), Updated(), "")
       case None => //ignore
     }
     updatedObject
@@ -212,9 +216,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id of the object that is being retrieved
     * @return 200 Ok, 204 NoContent if not found
     */
-  def read(implicit id:Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      dal.retrieveById match {
+  def read(implicit id:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      this.dal.retrieveById match {
         case Some(value) => Ok(Json.toJson(value))
         case None => NoContent
       }
@@ -229,9 +233,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param name The name of the object
     * @return 200 Ok, 204 NoContent if not found
     */
-  def readByName(id:Long, name:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      dal.retrieveByName(name, id) match {
+  def readByName(id:Long, name:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      this.dal.retrieveByName(name, id) match {
         case Some(value) => Ok(Json.toJson(value))
         case None => NoContent
       }
@@ -245,11 +249,12 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id of the object to delete
     * @return 204 NoContent
     */
-  def delete(id:Long) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
-      dal.delete(id.toLong, user)
-      actionManager.setAction(Some(user), itemType.convertToItem(id.toLong), Deleted(), "")
-      Ok(Json.toJson(StatusMessage("OK", JsString(s"${Actions.getTypeName(itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."))))
+  def delete(id:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.delete(id.toLong, user)
+      this.actionManager.setAction(Some(user), this.itemType.convertToItem(id.toLong), Deleted(), "")
+      Ok(Json.toJson(StatusMessage("OK",
+        JsString(s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."))))
     }
   }
 
@@ -265,12 +270,12 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
     * @return A list of requested objects
     */
-  def list(limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      val result = dal.list(limit, offset)
-      itemType match {
+  def list(limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      val result = this.dal.list(limit, offset)
+      this.itemType match {
         case it:TaskType if user.isDefined =>
-          result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
+          result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
         case _ => //ignore, only update view actions if it is a task type
       }
       Ok(Json.toJson(result))
@@ -283,7 +288,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     *
     * @return 200 OK basic message saying all items where uploaded
     */
-  def batchUploadPost = batchUpload(false)
+  def batchUploadPost : Action[JsValue] = this.batchUpload(false)
 
   /**
     * Helper function that does a batch upload and creates new objects, and updates existing ones.
@@ -291,7 +296,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     *
     * @return 200 OK basic message saying all items where uploaded
     */
-  def batchUploadPut = batchUpload(true)
+  def batchUploadPut : Action[JsValue] = this.batchUpload(true)
 
   /**
     * Allows a basic upload batch process of the items from the json payload. This is also leveraged
@@ -301,14 +306,14 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param update Whether to update any objects found matching in the database
     * @return 200 OK basic message saying all items where uploaded
     */
-  def batchUpload(update:Boolean) = Action.async(BodyParsers.parse.json) { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def batchUpload(update:Boolean) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       request.body.validate[List[JsValue]].fold(
         errors => {
           BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
         },
         items => {
-          internalBatchUpload(request.body, items, user, update)
+          this.internalBatchUpload(request.body, items, user, update)
           Ok(Json.toJson(StatusMessage("OK", JsString("Items created and updated"))))
         }
       )
@@ -324,14 +329,14 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param update Whether to update the object if a matching object is found, if false will simply do nothing
     */
   def internalBatchUpload(requestBody:JsValue, arr:List[JsValue], user:User, update:Boolean=false) : Unit = {
-    dal.getDatabase.withTransaction { implicit c =>
+    this.dal.getDatabase.withTransaction { implicit c =>
       Metrics.timer("BatchUpload LOOP") { () =>
         arr.foreach(element => (element \ "id").asOpt[String] match {
-          case Some(itemID) => if (update) internalUpdate(element, user)(itemID, -1)
+          case Some(itemID) => if (update) this.internalUpdate(element, user)(itemID, -1)
           case None =>
-            updateCreateBody(element, user).validate[T].fold(
+            this.updateCreateBody(element, user).validate[T].fold(
               errors => Logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-              validT => internalCreate(element, validT, user)
+              validT => this.internalCreate(element, validT, user)
             )
         })
       }
@@ -347,9 +352,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param onlyEnabled only enabled objects if true
     * @return A list of the requested items in JSON format
     */
-  def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dal.find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId)))
+  def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId)))
     }
   }
 }

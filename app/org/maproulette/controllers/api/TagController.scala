@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
@@ -5,12 +7,12 @@ import javax.inject.Inject
 import io.swagger.annotations.Api
 import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
-import org.maproulette.models.{Tag}
+import org.maproulette.models.Tag
 import org.maproulette.models.dal.TagDAL
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.Action
+import play.api.mvc.{Action, AnyContent}
 
 /**
   * The Tag controller handles all operations for the Challenge objects.
@@ -42,9 +44,9 @@ class TagController @Inject() (override val sessionManager: SessionManager,
     *               changing to offset 1 will return the next set of 10 tags.
     * @return
     */
-  def getTags(prefix:String, limit:Int, offset:Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dal.retrieveListByPrefix(prefix, limit, offset)))
+  def getTags(prefix:String, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.retrieveListByPrefix(prefix, limit, offset)))
     }
   }
 
@@ -61,15 +63,15 @@ class TagController @Inject() (override val sessionManager: SessionManager,
     */
   override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user:User, update: Boolean): Unit = {
     val tagList = arr.flatMap(element => (element \ "id").asOpt[Long] match {
-      case Some(itemID) => if (update) element.validate[Tag].fold(
+      case Some(itemID) if update => element.validate[Tag].fold(
         errors => None,
         value => Some(value)
-      ) else None
+      )
       case None => Utils.insertJsonID(element).validate[Tag].fold(
         errors => None,
         value => Some(value)
       )
     })
-    dal.updateTagList(tagList, user)
+    this.dal.updateTagList(tagList, user)
   }
 }

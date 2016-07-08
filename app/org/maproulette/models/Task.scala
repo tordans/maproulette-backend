@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
@@ -141,5 +143,5 @@ object Task {
     )(Task.apply)(Task.unapply)
   )
 
-  def emptyTask(parentId:Long) = Task(-1, "", parentId, Some(""), None, "")
+  def emptyTask(parentId:Long) : Task = Task(-1, "", parentId, Some(""), None, "")
 }

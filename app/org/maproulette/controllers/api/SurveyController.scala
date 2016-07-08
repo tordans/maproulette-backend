@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import java.sql.Connection
@@ -8,11 +10,11 @@ import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Answer, Survey, Task}
-import org.maproulette.models.dal.{SurveyDAL, TagDAL, TaskDAL}
+import org.maproulette.models.dal.{SurveyDAL, TagDAL, TagDALMixin, TaskDAL}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.Action
+import play.api.mvc.{Action, AnyContent}
 
 /**
   * The survey controller handles all operations for the Survey objects.
@@ -42,7 +44,7 @@ class SurveyController @Inject() (override val childController:TaskController,
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()
 
-  override def dalWithTags = dal
+  override def dalWithTags:TagDALMixin[Survey] = dal
 
   private implicit val answerWrites = Survey.answerWrites
 
@@ -76,9 +78,9 @@ class SurveyController @Inject() (override val childController:TaskController,
     * @param createdObject The object that was created by the create function
     * @param user          The user that is executing the function
     */
-  override def extractAndCreate(body: JsValue, createdObject: Survey, user: User)(implicit c:Connection=null): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: Survey, user: User)(implicit c:Option[Connection]=None): Unit = {
     super.extractAndCreate(body, createdObject, user)
-    extractTags(body, createdObject, user)
+    this.extractTags(body, createdObject, user)
   }
 
   /**
@@ -87,9 +89,9 @@ class SurveyController @Inject() (override val childController:TaskController,
     * @param id The id of the survey containing the tags
     * @return The html Result containing json array of tags
     */
-  def getTagsForSurvey(implicit id: Long) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(getTags(id)))
+  def getTagsForSurvey(implicit id: Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.getTags(id)))
     }
   }
 
@@ -105,15 +107,15 @@ class SurveyController @Inject() (override val childController:TaskController,
   def getRandomTasks(surveyId: Long,
                      tags: String,
                      taskSearch: String,
-                     limit:Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+                     limit:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         challengeId = Some(surveyId),
         taskTags = tags.split(",").toList,
         taskSearch = taskSearch
       )
-      val result = taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
-      result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
+      val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
+      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }
@@ -126,15 +128,15 @@ class SurveyController @Inject() (override val childController:TaskController,
     * @param answerId The id of the answer
     * @return
     */
-  def answerSurveyQuestion(surveyId:Long, taskId:Long, answerId:Long) = Action.async { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
+  def answerSurveyQuestion(surveyId:Long, taskId:Long, answerId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
       // make sure that the survey and answer exists first
-      dal.retrieveById(surveyId) match {
+      this.dal.retrieveById(surveyId) match {
         case Some(survey) =>
           survey.answers.find(_.id == answerId) match {
             case Some(a) =>
-              dal.answerQuestion(survey, taskId, answerId, user)
-              actionManager.setAction(Some(user), itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
+              this.dal.answerQuestion(survey, taskId, answerId, user)
+              this.actionManager.setAction(Some(user), this.itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
               NoContent
             case None =>
               throw new NotFoundException(s"Requested answer [$answerId] for survey does not exist.")

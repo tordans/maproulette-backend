@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session.dal
 
 import java.sql.Connection
@@ -42,10 +44,10 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param groupType current only 1 (Admin) however currently no restriction on what you can supply here
     * @return The new group
     */
-  def createGroup(projectId:Long, name:String, groupType:Int, user:User)(implicit c:Connection=null) : Group = {
-    hasAccess(user)
-    withMRTransaction { implicit c =>
-      SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(parser.*).head
+  def createGroup(projectId:Long, name:String, groupType:Int, user:User)(implicit c:Option[Connection]=None) : Group = {
+    this.hasAccess(user)
+    this.withMRTransaction { implicit c =>
+      SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(this.parser.*).head
     }
   }
 
@@ -57,10 +59,10 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param newName The new name of the group
     * @return The updated group
     */
-  def updateGroup(groupId:Long, newName:String, user:User)(implicit c:Connection=null) : Group = {
-    hasAccess(user)
-    withMRTransaction { implicit c =>
-      SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(parser.*).head
+  def updateGroup(groupId:Long, newName:String, user:User)(implicit c:Option[Connection]=None) : Group = {
+    this.hasAccess(user)
+    this.withMRTransaction { implicit c =>
+      SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(this.parser.*).head
     }
   }
 
@@ -70,9 +72,9 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param groupId The id of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with id found to delete
     */
-  def deleteGroup(groupId:Long, user:User)(implicit c:Connection=null) : Int = {
-    hasAccess(user)
-    withMRTransaction { implicit c =>
+  def deleteGroup(groupId:Long, user:User)(implicit c:Option[Connection]=None) : Int = {
+    this.hasAccess(user)
+    this.withMRTransaction { implicit c =>
       SQL"""DELETE FROM groups WHERE id = $groupId""".executeUpdate()
     }
   }
@@ -83,9 +85,9 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param name The name of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with name found to delete
     */
-  def deleteGroupByName(name:String, user:User)(implicit c:Connection=null) : Int = {
-    hasAccess(user)
-    withMRTransaction { implicit c =>
+  def deleteGroupByName(name:String, user:User)(implicit c:Option[Connection]=None) : Int = {
+    this.hasAccess(user)
+    this.withMRTransaction { implicit c =>
       SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
     }
   }
@@ -96,12 +98,12 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param osmUserId The osm id of the user
     * @return A list of groups the user belongs too
     */
-  def getGroups(osmUserId:Long, user:User)(implicit c:Connection=null) : List[Group] = {
-    hasAccess(user)
-    withMRConnection { implicit c =>
+  def getGroups(osmUserId:Long, user:User)(implicit c:Option[Connection]=None) : List[Group] = {
+    this.hasAccess(user)
+    this.withMRConnection { implicit c =>
       SQL"""SELECT * FROM groups g
             INNER JOIN user_groups ug ON ug.group_id = g.id
-            WHERE ug.osm_user_id = $osmUserId""".as(parser.*)
+            WHERE ug.osm_user_id = $osmUserId""".as(this.parser.*)
     }
   }
 
@@ -111,10 +113,10 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param projectId The project id
     * @return
     */
-  def getProjectGroups(projectId:Long, user:User)(implicit c:Connection=null) : List[Group] = {
-    hasAccess(user)
-    withMRConnection { implicit c =>
-      SQL"""SELECT * FROM groups g WHERE project_id = $projectId""".as(parser.*)
+  def getProjectGroups(projectId:Long, user:User)(implicit c:Option[Connection]=None) : List[Group] = {
+    this.hasAccess(user)
+    this.withMRConnection { implicit c =>
+      SQL"""SELECT * FROM groups g WHERE project_id = $projectId""".as(this.parser.*)
     }
   }
 

@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
@@ -76,8 +78,8 @@ class ProjectController @Inject() (override val childController:ChallengeControl
                      challengeTags:String,
                      tags: String,
                      taskSearch:String,
-                     limit:Int) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+                     limit:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         projectId = Some(projectId),
         challengeSearch = challengeSearch,
@@ -85,21 +87,21 @@ class ProjectController @Inject() (override val childController:ChallengeControl
         taskSearch = taskSearch,
         taskTags = tags.split(",").toList
       )
-      val result = taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
-      result.foreach(task => actionManager.setAction(user, itemType.convertToItem(task.id), TaskViewed(), ""))
+      val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
+      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
   }
 
-  def getSearchedClusteredPoints(searchCookie:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getSearchedClusteredPoints(searchCookie:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       val searchParams = SearchParameters.convert(searchCookie)
-      Ok(Json.toJson(dal.getSearchedClusteredPoints(searchParams)))
+      Ok(Json.toJson(this.dal.getSearchedClusteredPoints(searchParams)))
     }
   }
 
-  def getClusteredPoints(projectId:Long, challengeIds:String) = Action.async { implicit request =>
-    sessionManager.userAwareRequest { implicit user =>
+  def getClusteredPoints(projectId:Long, challengeIds:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
       val pid = if (projectId < 0) {
         None
       } else {
@@ -110,7 +112,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
       } else {
         challengeIds.split(",").map(_.toLong).toList
       }
-      Ok(Json.toJson(dal.getClusteredPoints(pid, cids)))
+      Ok(Json.toJson(this.dal.getClusteredPoints(pid, cids)))
     }
   }
 }

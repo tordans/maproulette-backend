@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette
 
 import javax.inject.{Inject, Singleton}
@@ -101,4 +103,5 @@ object Config {
   val DEFAULT_OSM_QL_TIMEOUT = 25
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5
+  val DEFAULT_LIST_SIZE = 10
 }

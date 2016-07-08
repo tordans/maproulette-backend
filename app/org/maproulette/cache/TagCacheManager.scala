@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.cache
 
 import java.util.concurrent.locks.{ReentrantReadWriteLock, ReadWriteLock}
@@ -22,16 +24,15 @@ class TagCacheManager @Inject() (tagDAL: Provider[TagDAL], db:Database) extends 
 
   private val loadingLock:ReadWriteLock = new ReentrantReadWriteLock()
 
-  // TODO: This is not the correct approach to just load everything into memory - this needs to be redone later
-  def reloadTags = {
-    loadingLock.writeLock().lock()
+  def reloadTags : Unit = {
+    this.loadingLock.writeLock().lock()
     try {
       db.withConnection { implicit c =>
-        cache.clear()
+        this.cache.clear()
         SQL"""SELECT * FROM tags""".as(tagDAL.get.parser.*).foreach(tag => cache.add(tag))
       }
     } finally {
-      loadingLock.writeLock().unlock()
+      this.loadingLock.writeLock().unlock()
     }
   }
 }

@@ -1,8 +1,11 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
 
 import anorm._
+import org.maproulette.Config
 import org.maproulette.models.BaseObject
 import org.maproulette.models.utils.DALHelper
 
@@ -29,19 +32,19 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param id The parent ID
     * @return A list of children objects
     */
-  def listChildren(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key, c:Connection=null) : List[C] = {
+  def listChildren(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
+                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key, c:Option[Connection]=None) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
-    withMRConnection { implicit c =>
-      val query = s"""SELECT $childColumns FROM $childTable
-                      WHERE parent_id = {id} ${enabled(onlyEnabled)}
-                      ${searchField("name")}
-                      ${order(Some(orderColumn), orderDirection)}
-                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> search(searchString),
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT ${this.childColumns} FROM ${this.childTable}
+                      WHERE parent_id = {id} ${this.enabled(onlyEnabled)}
+                      ${this.searchField("name")}
+                      ${this.order(Some(orderColumn), orderDirection)}
+                      LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> this.search(searchString),
                     'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
                     'offset -> offset)
-        .as(childParser.*)
+        .as(this.childParser.*)
     }
   }
 
@@ -53,22 +56,22 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param name The parent name
     * @return A list of children objects
     */
-  def listChildrenByName(limit:Int=10, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String, c:Connection=null) : List[C] = {
+  def listChildrenByName(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
+                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String, c:Option[Connection]=None) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
-    withMRConnection { implicit c =>
+    this.withMRConnection { implicit c =>
       // TODO currently it will only check if the parent is enabled and not the child, this is because
       // there is the case where a Task is a child of challenge and so there is no enabled column on that table
-      val query = s"""SELECT $childColumns FROM $childTable c
-                      INNER JOIN $tableName p ON p.id = c.parent_id
-                      WHERE p.name = LOWER({name}) ${enabled(onlyEnabled, "p")}
-                      ${searchField("c.name")}
-                      ${order(Some(orderColumn), orderDirection, "c")}
-                      LIMIT ${sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> search(searchString),
+      val query = s"""SELECT ${this.childColumns} FROM ${this.childTable} c
+                      INNER JOIN ${this.tableName} p ON p.id = c.parent_id
+                      WHERE p.name = LOWER({name}) ${this.enabled(onlyEnabled, "p")}
+                      ${this.searchField("c.name")}
+                      ${this.order(Some(orderColumn), orderDirection, "c")}
+                      LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> this.search(searchString),
         'name -> ParameterValue.toParameterValue(name),
         'offset -> offset)
-        .as(childParser.*)
+        .as(this.childParser.*)
     }
   }
 
@@ -79,15 +82,15 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param id The id for the parent
     * @return A integer value representing the total number of children
     */
-  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key, c:Connection=null) : Int = {
-    withMRConnection { implicit c =>
+  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key, c:Option[Connection]=None) : Int = {
+    this.withMRConnection { implicit c =>
       val query =
-        s"""SELECT COUNT(*) as TotalChildren FROM $childTable
-           |WHERE parent_id = {id} ${searchField("name")}
-           |${enabled(onlyEnabled)}""".stripMargin
+        s"""SELECT COUNT(*) as TotalChildren FROM ${this.childTable}
+           |WHERE parent_id = {id} ${this.searchField("name")}
+           |${this.enabled(onlyEnabled)}""".stripMargin
       SQL(query).on(
         'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
-        'ss -> search(searchString)
+        'ss -> this.search(searchString)
       ).as(SqlParser.int("TotalChildren").single)
     }
   }

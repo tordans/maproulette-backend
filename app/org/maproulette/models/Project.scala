@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.maproulette.actions.{ItemType, ProjectType}
@@ -45,5 +47,5 @@ object Project {
     )(Project.apply)(Project.unapply)
   )
 
-  def emptyProject = Project(-1, "")
+  def emptyProject : Project = Project(-1, "")
 }

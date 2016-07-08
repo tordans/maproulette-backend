@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers
 
 import java.sql.Connection
@@ -8,7 +10,7 @@ import org.maproulette.models.dal.ParentDAL
 import org.maproulette.session.User
 import play.api.Logger
 import play.api.libs.json._
-import play.api.mvc.{Action, BodyParsers}
+import play.api.mvc.{Action, AnyContent, BodyParsers}
 
 /**
   * Base controller for parent objects, namely Projects and Challenges. This controller helps in
@@ -40,7 +42,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param createdObject The object that was created by the create function
     * @param user the user executing the request
     */
-  override def extractAndCreate(body: JsValue, createdObject: T, user:User)(implicit c:Connection=null): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: T, user:User)(implicit c:Option[Connection]=None): Unit = {
     implicit val reads:Reads[C] = cReads
     (body \ "children").asOpt[List[JsValue]] match {
       case Some(children) => children map { child =>
@@ -49,14 +51,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
           case JsSuccess(value, _) =>
             (value \ "id").asOpt[String] match {
               case Some(identifier) =>
-                childController.internalUpdate(childController.updateUpdateBody(value, user), user)(identifier, -1)
-              case None => childController.updateCreateBody(value, user).validate[C].fold(
+                this.childController.internalUpdate(this.childController.updateUpdateBody(value, user), user)(identifier, -1)
+              case None => this.childController.updateCreateBody(value, user).validate[C].fold(
                 errors => {
                   throw new Exception(JsError.toJson(errors).toString)
                 },
                 element => {
                   try {
-                    childController.internalCreate(value, element, user)
+                    this.childController.internalCreate(value, element, user)
                   } catch {
                     case e:Exception =>
                       Logger.error(e.getMessage, e)
@@ -82,7 +84,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param id The id of the parent
     * @return
     */
-  def parentAddition(id:Long) = {
+  def parentAddition(id:Long) : Reads[JsObject] = {
     __.json.update(
       __.read[JsObject] map { o => o ++ Json.obj("parent" -> Json.toJson(id)) }
     )
@@ -94,7 +96,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param children The list of children objects to add
     * @return
     */
-  def childrenAddition(children:List[C]) = {
+  def childrenAddition(children:List[C]) : Reads[JsObject] = {
     implicit val writes:Writes[C] = cWrites
     __.json.update(
       __.read[JsObject] map { o => o ++ Json.obj("children" -> Json.toJson(children)) }
@@ -110,11 +112,11 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param id The id of the parent
     * @return 201 Created with no content
     */
-  def createChildren(implicit id:Long) = Action.async(BodyParsers.parse.json) { implicit request =>
-    sessionManager.authenticatedRequest { implicit user =>
-      dal.retrieveById match {
+  def createChildren(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.retrieveById match {
         case Some(parent) =>
-          extractAndCreate(Json.obj("children" -> request.body), parent, user)
+          this.extractAndCreate(Json.obj("children" -> request.body), parent, user)
           Created
         case None =>
           val message = s"Bad id, no parent found with supplied id [$id]"
@@ -132,7 +134,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param id The id of the parent
     * @return 201 Created with no content
     */
-  def updateChildren(implicit id:Long) = createChildren
+  def updateChildren(implicit id:Long) : Action[JsValue] = this.createChildren
 
   /**
     * Lists all the children of a given parent. This could be very costly, if you are listing all
@@ -143,10 +145,10 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param offset For paging
     * @return 200 OK with json array of children objects
     */
-  def listChildren(id:Long, limit:Int, offset:Int) = Action.async { implicit request =>
-    implicit val writes:Writes[C] = cWrites
-    sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(dal.listChildren(limit, offset)(id)))
+  def listChildren(id:Long, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+    implicit val writes:Writes[C] = this.cWrites
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.listChildren(limit, offset)(id)))
     }
   }
 
@@ -161,11 +163,11 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param offset For paging
     * @return 200 Ok with parent json object containing children objects
     */
-  def expandedList(id:Long, limit:Int, offset:Int) = Action.async { implicit request =>
+  def expandedList(id:Long, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
     implicit val writes:Writes[C] = cWrites
-    sessionManager.userAwareRequest { implicit user =>
+    this.sessionManager.userAwareRequest { implicit user =>
       // now replace the parent field in the parent with a children array
-      Json.toJson(dal.retrieveById(id)).transform(childrenAddition(dal.listChildren(limit, offset)(id))) match {
+      Json.toJson(this.dal.retrieveById(id)).transform(this.childrenAddition(this.dal.listChildren(limit, offset)(id))) match {
         case JsSuccess(value, _) => Ok(value)
         case JsError(errors) =>
           Logger.error(JsError.toJson(errors).toString)

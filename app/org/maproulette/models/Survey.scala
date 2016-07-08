@@ -1,3 +1,5 @@
+// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import play.api.data._
@@ -5,7 +7,7 @@ import play.api.data.Forms._
 import org.maproulette.actions.{ItemType, SurveyType}
 import play.api.libs.json.{Json, Reads, Writes}
 
-case class Answer(id:Long=(-1), answer:String)
+case class Answer(id:Long = -1, answer:String)
 
 /**
   * A survey is a special kind of challenge that shows you some geometry on the map and then asks
@@ -22,7 +24,7 @@ case class Answer(id:Long=(-1), answer:String)
 case class Survey(challenge:Challenge, answers:List[Answer]) extends BaseObject[Long] {
   override def name: String = challenge.name
   override def id: Long = challenge.id
-  def question = challenge.instruction
+  def question : String = challenge.instruction
   override val itemType: ItemType = SurveyType()
 }
 
@@ -47,5 +49,5 @@ object Survey {
     )(Survey.apply)(Survey.unapply)
   )
 
-  def emptySurvey(parentId:Long) = Survey(Challenge.emptyChallenge(parentId), List.empty)
+  def emptySurvey(parentId:Long) : Survey = Survey(Challenge.emptyChallenge(parentId), List.empty)
 }
