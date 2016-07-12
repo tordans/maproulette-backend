@@ -13,7 +13,7 @@ import org.maproulette.models.{Challenge, Project, Survey, Task}
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.services.ChallengeService
-import org.maproulette.session.SessionManager
+import org.maproulette.session.{SessionManager, User}
 import play.api.db.Database
 import play.api.i18n.{I18nSupport, Messages, MessagesApi}
 import play.api.libs.Files
@@ -39,11 +39,20 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
   private val adminHeader:String = Messages("headers.administration")
 
   def userSettingsPost(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    implicit val settingsWrite = User.settingsWrites
     sessionManager.authenticatedUIRequest { implicit user =>
       if (!(user.isSuperUser || user.id == userId)) {
         throw new IllegalAccessException(Messages("errors.formeditcontroller.usersettingspost.illegal"))
       }
-      Redirect(controllers.routes.Application.profile(2))
+      User.settingsForm.bindFromRequest.fold(
+        formWithErrors => {
+          Redirect(controllers.routes.Application.profile(2))
+        },
+        settings => {
+          dalManager.user.update(Json.obj("settings" -> Json.toJson(settings)), user)(userId)
+          Redirect(controllers.routes.Application.profile(2))
+        }
+      )
     }
   }
 

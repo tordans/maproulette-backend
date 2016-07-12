@@ -38,30 +38,23 @@
           readOnly = true
         )
         </div>
-        <div class="form-group">
         @text(taskForm("name"),
           label = messages("tasks.form.field.name"),
           placeholder = messages("tasks.form.field.name.placeholder"),
           help = messages("tasks.form.field.name.help")
         )
-        </div>
-        <div class="form-group">
         @textarea(taskForm("instruction"),
           label = messages("tasks.form.field.instruction"),
           rows = "5",
           placeholder = messages("tasks.form.field.instruction.placeholder"),
           help = messages("tasks.form.field.instruction.help")
         )
-        </div>
-        <div class="form-group">
         @textarea(taskForm("geometries"),
           label = messages("tasks.form.field.geojson"),
           rows = "5",
           placeholder = messages("tasks.form.field.geojson.placeholder"),
           help = messages("tasks.form.field.geojson.help")
         )
-        </div>
-        <div class="form-group">
         @select(taskForm("status"),
           label = messages("tasks.form.field.status"),
           optionList = Task.statusMap.map(e => (e._2, e._1+"")).toList,
@@ -69,8 +62,6 @@
           help = messages("tasks.form.field.status.help"),
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
-        </div>
-        <div class="form-group">
         @select(taskForm("priority"),
           label = messages("tasks.form.field.priority"),
           optionList = List(("High", Challenge.PRIORITY_HIGH+""), ("Medium", Challenge.PRIORITY_MEDIUM+""), ("Low", Challenge.PRIORITY_LOW+"")),
@@ -78,7 +69,6 @@
           help = messages("tasks.form.field.priority.help"),
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
-        </div>
       </div><!-- /.box-body -->
       <div class="box-footer">
         <button type="submit" class="btn btn-primary">@messages("tasks.form.submit")</button>

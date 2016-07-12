@@ -28,7 +28,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
   def hasReadAccess(obj:BaseObject[Long], user:User) : Unit = {
     if (!user.isSuperUser) {
       obj.itemType match {
-        case UserType() if obj.id != user.id =>
+        case UserType() if obj.id != user.id & obj.asInstanceOf[User].osmProfile.id != user.osmProfile.id =>
           throw new IllegalAccessException(s"User does not have read access to requested user object [${obj.id}]")
         case _ => // don't do anything, they have access
       }

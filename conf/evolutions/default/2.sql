@@ -2,16 +2,16 @@
 
 # --- !Ups
 -- adding new column for task to set it in priority 1 (HIGH), 2 (MEDIUM) or 3 (LOW), defaults to 1
-ALTER TABLE tasks ADD COLUMN priority integer DEFAULT 0;
+ALTER TABLE IF EXISTS tasks ADD COLUMN priority integer DEFAULT 0;
 -- enabled defaults to false now
-ALTER TABLE projects ALTER COLUMN enabled SET DEFAULT false;
-ALTER TABLE challenges ALTER COLUMN enabled SET DEFAULT false;
+ALTER TABLE IF EXISTS projects ALTER COLUMN enabled SET DEFAULT false;
+ALTER TABLE IF EXISTS challenges ALTER COLUMN enabled SET DEFAULT false;
 -- New options for challenges
-ALTER TABLE challenges ADD COLUMN default_priority integer DEFAULT 0;
-ALTER TABLE challenges ADD COLUMN high_priority_rule character varying;
-ALTER TABLE challenges ADD COLUMN medium_priority_rule character varying;
-ALTER TABLE challenges ADD COLUMN low_priority_rule character varying;
-ALTER TABLE challenges ADD COLUMN extra_options HSTORE;
+ALTER TABLE IF EXISTS challenges ADD COLUMN default_priority integer DEFAULT 0;
+ALTER TABLE IF EXISTS challenges ADD COLUMN high_priority_rule character varying;
+ALTER TABLE IF EXISTS challenges ADD COLUMN medium_priority_rule character varying;
+ALTER TABLE IF EXISTS challenges ADD COLUMN low_priority_rule character varying;
+ALTER TABLE IF EXISTS challenges ADD COLUMN extra_options HSTORE;
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change simply adds the priority
@@ -57,3 +57,11 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 # --- !Downs
+ALTER TABLE IF EXISTS tasks DROP COLUMN priority;
+ALTER TABLE IF EXISTS projects ALTER COLUMN enabled SET DEFAULT true;
+ALTER TABLE IF EXISTS challenges ALTER COLUMN enabled SET DEFAULT true;
+ALTER TABLE IF EXISTS challenges DROP COLUMN default_priority;
+ALTER TABLE IF EXISTS challenges DROP COLUMN high_priority_rule;
+ALTER TABLE IF EXISTS challenges DROP COLUMN medium_priority_rule;
+ALTER TABLE IF EXISTS challenges DROP COLUMN low_priority_rule;
+ALTER TABLE IF EXISTS challenges DROP COLUMN extra_options;

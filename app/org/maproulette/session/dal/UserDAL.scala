@@ -3,7 +3,6 @@
 package org.maproulette.session.dal
 
 import java.sql.Connection
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,15 +12,15 @@ import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory, Point}
 import com.vividsolutions.jts.io.{WKTReader, WKTWriter}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
+import org.maproulette.Config
 import org.maproulette.actions.UserType
-import org.maproulette.models.dal.{BaseDAL, ProjectDAL}
-import org.maproulette.session.{Group, Location, OSMProfile, User}
+import org.maproulette.models.dal.{BaseDAL, ChallengeDAL, ProjectDAL}
+import org.maproulette.session._
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.Project
+import org.maproulette.models.{Challenge, Project}
 import org.maproulette.permissions.Permission
-import play.api.libs.Crypto
 import play.api.libs.json.{JsValue, Json}
 import play.api.libs.oauth.RequestToken
 
@@ -40,6 +39,8 @@ import play.api.libs.oauth.RequestToken
 class UserDAL @Inject() (override val db:Database,
                          userGroupDAL: UserGroupDAL,
                          projectDAL:ProjectDAL,
+                         challengeDAL: ChallengeDAL,
+                         config:Config,
                          override val permission:Permission) extends BaseDAL[Long, User] {
 
   import org.maproulette.utils.AnormExtension._
@@ -55,7 +56,6 @@ class UserDAL @Inject() (override val db:Database,
       get[Long]("users.osm_id") ~
       get[DateTime]("users.created") ~
       get[DateTime]("users.modified") ~
-      get[String]("users.theme") ~
       get[DateTime]("users.osm_created") ~
       get[String]("users.name") ~
       get[Option[String]]("users.description") ~
@@ -63,18 +63,29 @@ class UserDAL @Inject() (override val db:Database,
       get[Option[String]]("home") ~
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
-      get[String]("users.oauth_secret") map {
-      case id ~ osmId ~ created ~ modified ~ theme ~ osmCreated ~ displayName ~ description ~
-        avatarURL ~ homeLocation ~ apiKey ~ oauthToken ~ oauthSecret =>
+      get[String]("users.oauth_secret") ~
+      get[Option[Int]]("users.default_editor") ~
+      get[Option[Int]]("users.default_basemap") ~
+      get[Option[String]]("users.custom_basemap_url") ~
+      get[Boolean]("users.email_opt_in") ~
+      get[Option[String]]("users.locale") ~
+      get[Option[Int]]("users.theme") map {
+      case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
+        homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
+        customBasemap ~ emailOptIn ~ locale ~ theme =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
         }
         // If the modified date is too old, then lets update this user information from OSM
-        new User(id, created, modified, theme,
+        new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
-            userGroupDAL.getGroups(osmId, User.superUser), apiKey)
+            userGroupDAL.getGroups(osmId, User.superUser
+          ),
+          apiKey, false,
+          UserSettings(defaultEditor, defaultBasemap, customBasemap, locale, emailOptIn, theme)
+        )
     }
   }
 
@@ -83,6 +94,7 @@ class UserDAL @Inject() (override val db:Database,
     * instead of hitting the database
     *
     * @param id The user's osm ID
+    * @param user The user making the request
     * @return The matched user, None if User not found
     */
   def retrieveByOSMID(implicit id: Long, user:User): Option[User] = this.cacheManager.withOptionCaching { () =>
@@ -178,18 +190,18 @@ class UserDAL @Inject() (override val db:Database,
           new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
         )
       )
+      val newAPIKey = User.generateAPIKey(item.osmProfile.id)
 
       val query = s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
                               name = {name}, description = {description}, avatar_url = {avatarURL},
-                              oauth_token = {token}, oauth_secret = {secret}, theme = {theme},
-                              home_location = ST_GeomFromEWKT({wkt})
+                              oauth_token = {token}, oauth_secret = {secret},  home_location = ST_GeomFromEWKT({wkt})
                             WHERE id = {id} OR osm_id = {osmID} RETURNING ${this.retrieveColumns})
-            INSERT INTO users (osm_id, osm_created, name, description,
-                               avatar_url, oauth_token, oauth_secret, theme, home_location)
-            SELECT {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, {secret},
-                    {theme}, ST_GeomFromEWKT({wkt})
+            INSERT INTO users (api_key, osm_id, osm_created, name, description,
+                               avatar_url, oauth_token, oauth_secret, home_location)
+            SELECT {apiKey}, {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, {secret}, ST_GeomFromEWKT({wkt})
             WHERE NOT EXISTS (SELECT * FROM upsert)"""
       SQL(query).on(
+        'apiKey -> newAPIKey,
         'osmID -> item.osmProfile.id,
         'osmCreated -> item.osmProfile.created,
         'name -> item.osmProfile.displayName,
@@ -197,7 +209,6 @@ class UserDAL @Inject() (override val db:Database,
         'avatarURL -> item.osmProfile.avatarURL,
         'token -> item.osmProfile.requestToken.token,
         'secret -> item.osmProfile.requestToken.secret,
-        'theme -> item.theme,
         'wkt -> s"SRID=4326;$ewkt",
         'id -> item.id
       ).executeUpdate()
@@ -230,23 +241,33 @@ class UserDAL @Inject() (override val db:Database,
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
-        val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse(""))
+        val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
+          case "" => User.generateAPIKey(id)
+          case v => v
+        }
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
         val avatarURL = (value \ "osmProfile" \ "avatarURL").asOpt[String].getOrElse(cachedItem.osmProfile.avatarURL)
         val token = (value \ "osmProfile" \ "token").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.token)
         val secret = (value \ "osmProfile" \ "secret").asOpt[String].getOrElse(cachedItem.osmProfile.requestToken.secret)
-        val theme = (value \ "theme").asOpt[String].getOrElse(cachedItem.theme)
         // todo: allow to insert in WKT, WKB or latitude/longitude
         val latitude = (value \ "osmProfile" \ "homeLocation" \ "latitude").asOpt[Double].getOrElse(cachedItem.osmProfile.homeLocation.latitude)
         val longitude = (value \ "osmProfile" \ "homeLocation" \ "longitude").asOpt[Double].getOrElse(cachedItem.osmProfile.homeLocation.longitude)
         val ewkt = new WKTWriter().write(new GeometryFactory().createPoint(new Coordinate(latitude, longitude)))
+        val defaultEditor = (value \ "settings" \ "defaultEditor").asOpt[Int].getOrElse(cachedItem.settings.defaultEditor.getOrElse(-1))
+        val defaultBasemap = (value \ "settings" \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.settings.defaultBasemap.getOrElse(-1))
+        val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
+        val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
+        val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn)
+        val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
 
         this.updateGroups(value, user)
 
         val query = s"""UPDATE users SET api_key = {apiKey}, name = {name}, description = {description},
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
-                                          theme = {theme}, home_location = ST_GeomFromEWKT({wkt})
+                                          home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
+                                          default_basemap = {defaultBasemap}, custom_basemap_url = {customBasemap},
+                                          locale = {locale}, email_opt_in = {emailOptIn}, theme = {theme}
                         WHERE id = {id} RETURNING ${this.retrieveColumns}"""
         SQL(query).on(
           'apiKey -> apiKey,
@@ -255,16 +276,21 @@ class UserDAL @Inject() (override val db:Database,
           'avatarURL -> avatarURL,
           'token -> token,
           'secret -> secret,
-          'theme -> theme,
           'wkt -> s"SRID=4326;$ewkt",
-          'id -> id
+          'id -> id,
+          'defaultEditor -> defaultEditor,
+          'defaultBasemap -> defaultBasemap,
+          'customBasemap -> customBasemap,
+          'locale -> locale,
+          'emailOptIn -> emailOptIn,
+          'theme -> theme
         ).as(this.parser.*).headOption
       }
     }
   }
 
   def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Unit = {
-    this.permission.hasSuperAccess(user)
+    this.permission.hasWriteAccess(UserType(), user)
     this.withMRTransaction { implicit c =>
       // list of grousp to delete
       (value \ "groups" \ "delete").asOpt[List[Long]] match {
@@ -365,13 +391,12 @@ class UserDAL @Inject() (override val db:Database,
   /**
     * Generates a new API key for the user
     *
-    * @param userId The user that is requesting that their key be updated.
+    * @param apiKeyUser The user that is requesting that their key be updated.
     * @return An optional variable that will contain the updated user if successful
     */
-  def generateAPIKey(userId:Long, user:User) : Option[User] = {
-    this.permission.hasWriteAccess(UserType(), user)(userId)
-    val newAPIKey = Crypto.encryptAES(userId + "|" + UUID.randomUUID())
-    this.update(Json.parse(s"""{"apiKey":"$newAPIKey"}"""), User.superUser)(userId)
+  def generateAPIKey(apiKeyUser:User, user:User) : Option[User] = {
+    this.permission.hasWriteAccess(UserType(), user)(apiKeyUser.id)
+    this.update(Json.parse(s"""{"apiKey":"${User.generateAPIKey(apiKeyUser.osmProfile.id)}"}"""), User.superUser)(apiKeyUser.id)
   }
 
   /**
@@ -396,6 +421,45 @@ class UserDAL @Inject() (override val db:Database,
       this.addUserToProject(user.osmProfile.id, homeProjectId, User.superUser)
     } else {
       user
+    }
+  }
+
+  /**
+    * Gets the last X saved challenges for a user
+    *
+    * @param userId The id of the user you are requesting the saved challenges for
+    * @param user The user making the request
+    * @param c The existing connection if any
+    * @return a List of challenges
+    */
+  def getSavedChallenges(userId:Long, user:User)(implicit c:Option[Connection]=None) : List[Challenge] = {
+    this.permission.hasReadAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      val query = s"""
+         |SELECT ${challengeDAL.retrieveColumns} FROM challenges
+         |WHERE id IN (
+         |  SELECT challenge_id FROM saved_challenges
+         |  WHERE user_id = $userId
+         |  ORDER BY created
+         |  ${if (config.maxSavedChallenges > 0) {s"LIMIT ${config.maxSavedChallenges}"}}
+         |)
+       """.stripMargin
+      SQL(query).as(challengeDAL.parser.*)
+    }
+  }
+
+  /**
+    * Saves the challenge for the user
+    *
+    * @param userId The id of the user
+    * @param challengeId the id of the challenge
+    * @param user the user executing the request
+    * @param c The existing connection if any
+    */
+  def saveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      SQL(s"""INSERT INTO saved_challenges (user_id, challenge_id) VALUES ($userId, $challengeId) ON CONFLICT(user_id, challenge_id) DO NOTHING""").executeInsert()
     }
   }
 

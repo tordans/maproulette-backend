@@ -26,31 +26,25 @@
                         readOnly = true
                     )
                 </div>
-                <div class="form-group">
-                    @select(projectForm("enabled"),
-                        label = messages("project.form.field.visible"),
-                        optionList = List(("true", "true"), ("false", "false")),
-                        isMultiple = false,
-                        help = messages("project.form.field.visible.help"),
-                        defaultSelected = Some("false")
-                    )
-                </div>
-                <div class="form-group">
-                    @text(projectForm("name"),
-                        label = messages("project.form.field.name"),
-                        placeholder = messages("project.form.field.name.placeholder"),
-                        help = messages("project.form.field.name.help"),
-                        readOnly = !user.isSuperUser
-                    )
-                </div>
-                <div class="form-group">
-                    @textarea(projectForm("description"),
-                        label = messages("project.form.field.description"),
-                        rows = "5",
-                        placeholder = messages("project.form.field.description.placeholder"),
-                        help = messages("project.form.field.description.help")
-                    )
-                </div>
+                @select(projectForm("enabled"),
+                    label = messages("project.form.field.visible"),
+                    optionList = List(("true", "true"), ("false", "false")),
+                    isMultiple = false,
+                    help = messages("project.form.field.visible.help"),
+                    defaultSelected = Some("false")
+                )
+                @text(projectForm("name"),
+                    label = messages("project.form.field.name"),
+                    placeholder = messages("project.form.field.name.placeholder"),
+                    help = messages("project.form.field.name.help"),
+                    readOnly = !user.isSuperUser
+                )
+                @textarea(projectForm("description"),
+                    label = messages("project.form.field.description"),
+                    rows = "5",
+                    placeholder = messages("project.form.field.description.placeholder"),
+                    help = messages("project.form.field.description.help")
+                )
             </div><!-- /.box-body -->
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">@messages("project.form.submit")</button>

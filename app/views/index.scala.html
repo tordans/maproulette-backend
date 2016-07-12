@@ -4,7 +4,7 @@
 @import org.maproulette.actions.ActionItem
 @(title:String, user:User, config:Config, hotChallenges:List[Challenge],
         newChallenges:List[Challenge], featuredChallenges:List[Challenge],
-        recentActivity:List[ActionItem])(content:Html)(implicit req: play.api.mvc.RequestHeader,
+        recentActivity:List[ActionItem], savedChallenges:List[Challenge])(content:Html)(implicit req: play.api.mvc.RequestHeader,
         messages: Messages, webJarAssets: WebJarAssets)
 <!DOCTYPE html>
 <html>
@@ -16,8 +16,17 @@
         <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
         @views.html.includes.cssIncludes(config.isDebugMode)
         @views.html.includes.jsIncludes(user, config.isDebugMode)
+        <script language="JavaScript">
+            // build user information that can be accessed by other Javascript scripts
+            var LoggedInUser = {
+                userId:@user.id,
+                defaultEditor:@user.settings.defaultEditor.getOrElse(-1),
+                defaultBasemap:@user.settings.defaultBasemap.getOrElse(-1),
+                customBasemap:"@user.settings.customBasemap.getOrElse("")"
+            };
+        </script>
     </head>
-    <body class="hold-transition @{user.theme} @{if (user.guest) { "sidebar-collapse" } else { "" }} sidebar-mini">
+    <body class="hold-transition @{user.settings.getTheme} @{if (user.guest) { "sidebar-collapse" } else { "" }} sidebar-mini">
         <div class="wrapper">
 
                 <!-- Main Header -->
@@ -28,7 +37,7 @@
                         <!-- mini logo for sidebar mini 50x50 pixels -->
                     <span class="logo-mini"><img style="height:25px;width:25px" src="@config.logoURL" alt="logo"></span>
                         <!-- logo for regular state and mobile devices -->
-                    <span class="logo-lg"><img style="height:25px;width:25px" src="@config.logoURL" alt="logo"> <b>Map</b>Roulette</span>
+                    <span class="logo-lg"><img style="height:25px;width:25px" src="@config.logoURL" alt="logo"> <b> @messages("general.titleA")</b>@messages("general.titleB")</span>
                 </a>
 
                     <!-- Header Navbar -->
@@ -37,12 +46,12 @@
                     <a id="sidebar_toggle" href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
                         <span class="sr-only">Toggle navigation</span>
                     </a>
-                    @views.html.user.userInfo(user)
+                    @views.html.controls.topBar(user)
                 </nav>
             </header>
                 <!-- Left side column. contains the logo and sidebar -->
             <aside id="sidebar" class="main-sidebar">
-                @views.html.user.sidebar(user, config, newChallenges, hotChallenges, featuredChallenges)
+                @views.html.controls.leftSidebar(user, config, newChallenges, hotChallenges, featuredChallenges, savedChallenges)
             </aside>
 
                 <!-- Content Wrapper. Contains page content -->
@@ -63,7 +72,7 @@
                 <!-- Control Sidebar -->
             <aside class="control-sidebar control-sidebar-dark">
                     <!-- Create the tabs -->
-                @views.html.user.rightSidebar(recentActivity)
+                @views.html.controls.rightSidebar(recentActivity)
             </aside>
             <!-- Add the sidebar's background. This div must be placed
            immediately after the control sidebar -->
