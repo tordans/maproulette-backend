@@ -26,17 +26,15 @@
                             out statement in your query. Ultimately we need to the full geometry for each
                             node, way and relation object returned in the json response.
                         </span>
-                        <div class="form-group">
-                            @textarea(challengeForm("overpassQL"),
-                                label = "Overpass API",
-                                rows = "5",
-                                placeholder = "Enter overpass API here...",
-                                help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
-                                        "By entering information here it will generate the tasks in the background. " +
-                                        "Please provide a suitable bounding box when inserting an overpass query, " +
-                                        "this can potentially generate larges amount of data and bog the system down."
-                            )
-                        </div>
+                        @textarea(challengeForm("overpassQL"),
+                            label = "Overpass API",
+                            rows = "5",
+                            placeholder = "Enter overpass API here...",
+                            help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
+                                    "By entering information here it will generate the tasks in the background. " +
+                                    "Please provide a suitable bounding box when inserting an overpass query, " +
+                                    "this can potentially generate larges amount of data and bog the system down."
+                        )
                     </div>
                     <div class="tab-pane" id="local">
                         <div class="form-group">
@@ -50,13 +48,11 @@
                         </div>
                     </div>
                     <div class="@if(isRemote) { active }tab-pane" id="remote">
-                        <div class="form-group">
                         @text(challengeForm("remoteGeoJson"),
                             label = "Remote GeoJSON URL",
                             placeholder = "Remote GeoJSON URL",
                             help = "Please enter the remote URL location to retrieve the GeoJSON from."
                         )
-                        </div>
                     </div>
                 </div>
             </div>

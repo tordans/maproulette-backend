@@ -48,6 +48,9 @@ class Config @Inject() (implicit val application:Application) {
   lazy val numberOfActivities : Int =
     this.config.getInt(Config.KEY_RECENT_ACTIVITY).getOrElse(Config.DEFAULT_RECENT_ACTIVITY)
 
+  lazy val maxSavedChallenges : Int =
+    this.config.getInt(Config.KEY_MAX_SAVED_CHALLENGES).getOrElse(Config.DEFAULT_MAX_SAVED_CHALLENGES)
+
   lazy val getOSMOauth : OSMOAuth = {
     val osmServer = this.config.getString(Config.KEY_OSM_SERVER).get
     OSMOAuth(
@@ -82,6 +85,7 @@ object Config {
   val KEY_ACTION_LEVEL = s"$GROUP_MAPROULETTE.action.level"
   val KEY_NUM_OF_CHALLENGES = s"$GROUP_MAPROULETTE.limits.challenges"
   val KEY_RECENT_ACTIVITY = s"$GROUP_MAPROULETTE.limits.activities"
+  val KEY_MAX_SAVED_CHALLENGES = s"$GROUP_MAPROULETTE.limits.saved"
   val KEY_SEMANTIC_VERSION = s"$GROUP_MAPROULETTE.version"
   val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
@@ -104,4 +108,5 @@ object Config {
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5
   val DEFAULT_LIST_SIZE = 10
+  val DEFAULT_MAX_SAVED_CHALLENGES = 5
 }

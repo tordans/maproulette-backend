@@ -4,6 +4,7 @@ package org.maproulette.session
 
 import org.maproulette.actions.{GroupType, ItemType}
 import org.maproulette.models.BaseObject
+import play.api.libs.json.{Json, Reads, Writes}
 
 /**
   * @author cuthbertm
@@ -16,6 +17,9 @@ case class Group(override val id:Long,
 }
 
 object Group {
+  implicit val groupWrites: Writes[Group] = Json.writes[Group]
+  implicit val groupReads: Reads[Group] = Json.reads[Group]
+
   val TYPE_SUPER_USER = -1
   val TYPE_ADMIN = 1
 }

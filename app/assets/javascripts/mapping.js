@@ -266,16 +266,7 @@ L.Control.ControlPanel = L.Control.extend({
 
 // add various basemap layers to the TileLayer namespace
 (function () {
-
     var osmAttr = '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>';
-
-    L.TileLayer.CloudMade = L.TileLayer.Common.extend({
-        url: 'http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png',
-        options: {
-            attribution: 'Map data ' + osmAttr + ', Imagery &copy; <a href="http://cloudmade.com">CloudMade</a>',
-            styleId: 997
-        }
-    });
 
     L.TileLayer.OpenStreetMap = L.TileLayer.Common.extend({
         url: 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -289,15 +280,12 @@ L.Control.ControlPanel = L.Control.extend({
         }
     });
 
-    L.TileLayer.MapBox = L.TileLayer.Common.extend({
-        url: 'http://{s}.tiles.mapbox.com/v3/{user}.{map}/{z}/{x}/{y}.png'
-    });
-
     L.TileLayer.Bing = L.TileLayer.Common.extend({
         url: 'http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        options: {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        }
     });
-
 }());
 
 // A simple point class
@@ -326,6 +314,23 @@ var TaskStatus = {
             default: return Messages("mapping.js.task.unknown");
         }
     }
+};
+
+// The available editors that can be defaulted by the user
+var Editors = {
+    NONE:-1,
+    ID:0,
+    JOSM:1,
+    JOSMLAYERS:2
+};
+
+// The available basemaps users can default the map too
+var Basemaps = {
+    NONE:-1,
+    OSM:0,
+    OCM:1,
+    BING:2,
+    CUSTOM:3
 };
 
 /**
@@ -549,9 +554,17 @@ var MRManager = (function() {
     // controls
     var controlPanel = new L.Control.ControlPanel({
         editClick:function() {
-            editPanel.setAsEdit();
-            editPanel.show();
-            controlPanel.disableControls();
+            if (LoggedInUser.defaultEditor === Editors.ID) {
+                openTaskInId();
+            } else if (LoggedInUser.defaultEditor === Editors.JOSM) {
+                openTaskInJosm();
+            } else if (LoggedInUser.defaultEditor === Editors.JOSMLAYERS) {
+                openTaskInJosm(true);
+            } else {
+                editPanel.setAsEdit();
+                editPanel.show();
+                controlPanel.disableControls();
+            }
         }
     });
     var surveyPanel = new L.Control.SurveyControl({});
@@ -582,15 +595,54 @@ var MRManager = (function() {
     var init = function (userSignedIn, element, point) {
         var osm_layer = new L.TileLayer.OpenStreetMap(),
             opencycle_layer = new L.TileLayer.OpenCycleMap(),
-            bing_layer = new L.TileLayer.Bing();
-        map = new L.Map(element, {
-            center: new L.LatLng(point.x, point.y),
-            zoom: 13,
-            minZoom: 3,
-            layers: [
-                osm_layer
-            ]
-        });
+            bing_layer = new L.TileLayer.Bing(),
+            custom_layer = null;
+        var current_layer = osm_layer;
+        if (LoggedInUser.defaultBasemap === Basemaps.OCM) {
+            current_layer = opencycle_layer;
+        } else if (LoggedInUser.defaultBasemap === Basemaps.BING) {
+            current_layer = bing_layer;
+        } else if (LoggedInUser.defaultBasemap === Basemaps.CUSTOM && LoggedInUser.customBasemap !== "") {
+            L.TileLayer.Custom = L.TileLayer.Common.extend({
+                url: LoggedInUser.customBasemap,
+                options: {
+                    attribution: Messages("mapping.js.custom.attribution")
+                }
+            });
+            custom_layer = new L.TileLayer.Custom();
+            current_layer = custom_layer;
+        }
+        try {
+            map = new L.Map(element, {
+                center: new L.LatLng(point.x, point.y),
+                zoom: 13,
+                minZoom: 3,
+                layers: [
+                    current_layer
+                ]
+            });
+        } catch (err) {
+            // lets assume that loading the map was caused by the custom url
+            if (custom_layer !== null) {
+                // we have to completely remove the map div because the map could be partially
+                // initialized and will throw an exception if we try to initialize it again.
+                var parent = $("#" + element).parent();
+                $("#" + element).remove();
+                parent.append('<div id="' + element + '" onclick="hideSidebar();"></div>');
+                map = new L.Map(element, {
+                    center: new L.LatLng(point.x, point.y),
+                    zoom: 13,
+                    minZoom: 3,
+                    layers: [
+                        osm_layer
+                    ]
+                });
+                custom_layer = null;
+                ToastUtils.Error(Messages("mapping.js.custom.error", LoggedInUser.customBasemap));
+            } else {
+                ToastUtils.Error(err);
+            }
+        }
 
         // geojson layer
         geojsonLayer = new L.GeoJSON(null, {
@@ -615,12 +667,13 @@ var MRManager = (function() {
         map.addLayer(geojsonLayer);
         // cluster marker layer
         map.addLayer(markers);
+        var baseMaps = {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'Bing Aerial': bing_layer};
+        if (custom_layer !== null) {
+            baseMaps.Custom = custom_layer;
+        }
+        var overlays = {'GeoJSON': geojsonLayer};
+        layerControl = L.control.layers(baseMaps, overlays, {position:"topright"});
 
-        layerControl = L.control.layers(
-            {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'Bing Aerial': bing_layer},
-            {'GeoJSON': geojsonLayer},
-            {position:"topright"}
-        );
         map.addControl(new L.Control.Help({}));
         map.addControl(layerControl);
         map.addControl(controlPanel);
@@ -700,17 +753,21 @@ var MRManager = (function() {
                         '</div>' +
                         '<div class="col-xs-6">' +
                         '<a href="#">' +
-                        '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">Start</button>' +
+                        '<button onclick="MRManager.addTaskToMap(' + data[i].id + ', -1);" class="btn btn-block btn-success btn-sm">' + Messages('mapping.js.clustered.start') + '</button>' +
                         '</a>' +
                         '<a href="#">' +
-                        '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">View</button>' +
-                        '</a>' +
-                        '</div>' +
-                        '</div>';
+                        '<button onclick="MRManager.viewChallenge(' + data[i].id + ');" class="btn btn-block btn-success btn-sm">' + Messages('mapping.js.clustered.view') + '</button>' +
+                        '</a>';
+                    if (LoggedInUser.id != -998) {
+                        popupString += '<a href="#">' +
+                            '<button onclick="MRManager.saveChallenge(' + LoggedInUser.userId + ',' + data[i].id + ');" class="btn btn-block btn-success btn-sm">' + Messages('mapping.js.clustered.save') + '</button>' +
+                            '</a>'; 
+                    }
+                    popupString += '</div></div>';
                     marker.on("popupopen", popupFunction(data[i].id));
                 } else {
                     popupString += '<div><a href="#">' +
-                        '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">Edit</button>' +
+                        '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">' + Messages('mapping.js.clustered.fix') + '</button>' +
                         '</a></div>';
                 }
                 popupString += '</div>';
@@ -720,7 +777,7 @@ var MRManager = (function() {
             }
             map.fitBounds(markers.getBounds());
         } else {
-            ToastUtils.Warning("No tasks found from search.");
+            ToastUtils.Warning(Messages("mapping.js.search.notfound"));
         }
         currentTask.resetTask();
     };
@@ -1138,6 +1195,15 @@ var MRManager = (function() {
             currentTask.getChallenge().view(challengeId, filters);
         }
     };
+
+    var saveChallenge = function(userId, challengeId) {
+        jsRoutes.org.maproulette.controllers.api.APIController.saveChallenge(userId, challengeId).ajax({
+            success: function(data) {
+                ToastUtils.Success(Messages("mapping.js.challenge.saved"));
+            },
+            error: MRManager.getErrorHandler()
+        });
+    };
     
     var getMapBounds = function() {
         return map.getBounds();  
@@ -1170,6 +1236,7 @@ var MRManager = (function() {
         viewGeoJsonData: viewGeoJsonData,
         viewClusteredData: viewClusteredData,
         viewChallenge: viewChallenge,
+        saveChallenge: saveChallenge,
         usingPriority: usingPriority,
         loading:loading,
         loaded:loaded,

@@ -60,3 +60,4 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 # --- !Downs
+SELECT DropGeometryColumn('challenges', 'location');

@@ -104,12 +104,15 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
     */
   def generateAPIKey(userId:Long = -1) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val userIdToUse = if (user.isSuperUser && userId != -1) {
-        userId
+      val newAPIUser = if (user.isSuperUser && userId != -1) {
+        dalManager.user.retrieveById(userId) match {
+          case Some(u) => u
+          case None => throw new NotFoundException(s"No user found with id [$userId], no API key could be generated.")
+        }
       } else {
-        user.id
+        user
       }
-      dalManager.user.generateAPIKey(userIdToUse, user) match {
+      dalManager.user.generateAPIKey(newAPIUser, user) match {
         case Some(updated) => updated.apiKey match {
           case Some(api) => Ok(api)
           case None => NoContent

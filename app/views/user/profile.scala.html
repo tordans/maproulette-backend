@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
-@(user:User, activeTab:Int=0)(implicit messages: Messages)
+@import org.maproulette.session.UserSettings
+@(user:User, activeTab:Int=0, settingsForm:Option[Form[UserSettings]]=None)(implicit messages: Messages)
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
@@ -32,101 +33,26 @@
                     <strong><i class="fa fa-map-marker margin-r-5"></i> @messages("user.profile.location")</strong>
                     <p class="text-muted" id="location"></p>
                     <hr>
-                    <strong><i class="fa fa-file-text-o margin-r-5"></i> @messages("user.profile.saved")</strong>
-                    <p>Saved Challenges GO HERE</p>
                 </div><!-- /.box-body -->
             </div><!-- /.box -->
         </div><!-- /.col -->
         <div class="col-md-9">
             <div class="nav-tabs-custom">
                 <ul class="nav nav-tabs">
-                    <li @if(activeTab==0) { class="active" }><a href="#activity" data-toggle="tab">@messages("user.profile.activity")</a></li>
-                    <li @if(activeTab==1) { class="active" }><a href="#metrics" data-toggle="tab">@messages("user.profile.metrics")</a></li>
-                    <li @if(activeTab==2) { class="active" }><a href="#settings" data-toggle="tab">@messages("user.profile.settings")</a></li>
+                    <!--li @if(activeTab==0) { class="active" }><a href="#activity" data-toggle="tab">@messages("user.profile.activity")</a></li>
+                    <li @if(activeTab==1) { class="active" }><a href="#metrics" data-toggle="tab">@messages("user.profile.metrics")</a></li-->
+                    <li @if(activeTab==2 || 1==1) { class="active" }><a href="#settings" data-toggle="tab">@messages("user.profile.settings")</a></li>
                 </ul>
                 <div class="tab-content">
-                    <div class="@if(activeTab==0) { active } tab-pane" id="activity">
-                            <!-- Post -->
-                        <div class="post">
-                            <div class="user-block">
-                                <span class='description'>7:30 PM today</span>
-                            </div><!-- /.user-block -->
-                            <p>
-                                Completed 5 Tasks
-                            </p>
-                        </div><!-- /.post -->
+                    <!--div class="@if(activeTab==0) { active } tab-pane" id="activity">
+                        @views.html.user.activity()
+                    </div-->
+                    <!--div class="@if(activeTab==1) { active } tab-pane" id="metrics">
+                        @views.html.user.metrics()
+                    </div-->
 
-                        <!-- Post -->
-                        <div class="post">
-                            <div class='user-block'>
-                                <span class='description'>3 days ago</span>
-                            </div><!-- /.user-block -->
-                            <p>
-                                Completed 100 tasks
-                            </p>
-                        </div><!-- /.post -->
-
-                        <!-- Post -->
-                        <div class="post">
-                            <div class='user-block'>
-                                <span class='description'>5 days ago</span>
-                            </div><!-- /.user-block -->
-                            <p>
-                                Completed 50000 tasks
-                            </p>
-                        </div><!-- /.post -->
-                    </div><!-- /.tab-pane -->
-                    <div class="@if(activeTab==1) { active } tab-pane" id="metrics">
-                        <div class="post">
-                            <p>My metrics coming soon...</p>
-                        </div>
-                    </div><!-- /.tab-pane -->
-
-                    <div class="@if(activeTab==2) { active } tab-pane" id="settings">
-                        <form class="form-horizontal" action="@routes.FormEditController.userSettingsPost(user.id)" method="post">
-                            <div class="form-group">
-                                <label for="inputName" class="col-sm-2 control-label">Default Editor</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control" name="defaultEditor">
-                                        <option class="-1" value="">Please select a value</option>
-                                        <option value="0">iD</option>
-                                        <option value="1">JOSM</option>
-                                        <option value="2">JOSM with new Layer</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label for="inputName" class="col-sm-2 control-label">Default Basemap</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control" name="defaultEditor">
-                                        <option class="-1" value="">Please select a value</option>
-                                        <option value="0">OSM</option>
-                                        <option value="1">OpenCycleMap</option>
-                                        <option value="2">Bing</option>
-                                        <option value="3">Custom</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label for="inputName" class="col-sm-2 control-label">Custom Basemap</label>
-                                <div class="col-sm-10">
-                                    <input type="text" class="form-control" name="customBasemap" placeholder="Custom Basemap"/>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label for="inputName" class="col-sm-2 control-label">Locale</label>
-                                <div class="col-sm-10">
-                                    <select class="form-control" name="locale">
-                                        <option class="-1" value="">Please select a value</option>
-                                        <option value="0">en-us (US English)</option>
-                                        <option value="1">af (Afrikaans)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="box-footer">
-                                <button type="submit" class="btn btn-info pull-right">Update</button>
-                            </div><!-- /.box-footer -->
-                        </form>
+                    <div class="@if(activeTab==2||1==1) { active } tab-pane" id="settings">
+                        @views.html.user.settings(user, settingsForm.getOrElse(User.settingsForm.fill(user.settings)))
                     </div><!-- /.tab-pane -->
                 </div><!-- /.tab-content -->
             </div><!-- /.nav-tabs-custom -->

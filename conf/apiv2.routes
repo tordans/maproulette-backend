@@ -87,6 +87,9 @@ GET     /data/user/summary                          @org.maproulette.controllers
 GET     /data/project/activity                      @org.maproulette.controllers.api.DataController.getProjectActivity(projectList:String ?= "", start:String ?= "", end:String ?= "")
 GET     /data/project/summary                       @org.maproulette.controllers.api.DataController.getProjectSummary(projectList:String ?= "")
 GET     /data/challenge/:challengeId/activity       @org.maproulette.controllers.api.DataController.getChallengeActivity(challengeId:Long, start:String ?= "", end:String ?= "", priority:Int ?= -1)
+# Default API Contoller
+GET     /user/:userId/saved                         @org.maproulette.controllers.api.APIController.getSavedChallenges(userId:Long)
+POST    /user/:userId/save/:challengeId             @org.maproulette.controllers.api.APIController.saveChallenge(userId:Long, challengeId:Long)
 # Handles invalid paths that use the  prefix
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
 PUT     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
