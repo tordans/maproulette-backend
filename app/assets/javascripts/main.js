@@ -147,6 +147,13 @@ var Utils = {
             queryString = qs[1];
         }    
         return url + "?" + queryString;
+    },
+    getDefaultValue: function(property, defaultValue) {
+        var returnValue = defaultValue;
+        if (typeof property !== 'undefined') {
+            returnValue = property;
+        }
+        return returnValue;
     }
 };
 

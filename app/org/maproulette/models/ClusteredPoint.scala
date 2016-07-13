@@ -18,8 +18,9 @@ case class Point(lat:Double, lng:Double)
   * @param title The title of the object (or name)
   * @param point The latitude and longitude of the point
   * @param blurb A short descriptive text for the object
+  * @param status The status of the task, only used for task points, ie. not challenge points
   */
-case class ClusteredPoint(id:Long, title:String, point:Point, blurb:String, difficulty:Int, `type`:Int)
+case class ClusteredPoint(id:Long, title:String, point:Point, blurb:String, difficulty:Int, `type`:Int, status:Int = -1)
 
 object ClusteredPoint {
   implicit val pointWrites: Writes[Point] = Json.writes[Point]

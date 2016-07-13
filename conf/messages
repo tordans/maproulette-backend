@@ -3,6 +3,10 @@ general.copyright=Copyright &copy; 2016
 general.titleA=Map
 general.titleB=Roulette
 
+common.basemap.osm=OSM
+common.basemap.ocm=OpenCycleMap
+common.basemap.bing=Bing
+
 headers.title=MapRoulette
 headers.administration=MapRoulette Administration
 headers.metrics=MapRoulette Metrics
@@ -69,9 +73,6 @@ user.profile.settings.editor.josm=JSOM
 user.profile.settings.editor.josmlayer=JOSM with new Layer
 user.profile.settings.basemap=Default basemap
 user.profile.settings.basemap.help=Select the default basemap to display on the map. Only a default challenge basemap will override the option selected here.
-user.profile.settings.basemap.osm=OSM
-user.profile.settings.basemap.ocm=OpenCycleMap
-user.profile.settings.basemap.bing=Bing
 user.profile.settings.basemap.custom=Custom
 user.profile.settings.basemap.custom.title=Custom Basemap
 user.profile.settings.basemap.custom.placeholder=Custom Basemap
@@ -269,8 +270,8 @@ challenge.wizard.form.edit=Edit Challenge
 challenge.wizard.form.tab.1=General
 challenge.wizard.form.tab.2=GeoJSON
 challenge.wizard.form.tab.3=Priorities
-challenge.wizard.form.tab.4=Schedule
-challenge.wizard.form.tab.5=Extra
+challenge.wizard.form.tab.4=Extra
+challenge.wizard.form.tab.5=Schedule
 challenge.wizard.form.previous=Prev
 challenge.wizard.form.next=Next
 challenge.wizard.form.cancel=Cancel
@@ -309,6 +310,20 @@ challenge.wizard.priority.expression.medium=Medium
 challenge.wizard.priority.expression.low=Low
 challenge.wizard.priority.expression.none=None
 challenge.wizard.priority.expression.iebox=Import/Export Expression
+
+challenge.wizard.extra.description=This is the extra information that challenges can optionally set to give a better mapping experience specific the requirements of the challenge.
+challenge.wizard.extra.zoom.default.label=Default Zoom Level
+challenge.wizard.extra.zoom.default.help=Set the default zoom level that will be used when a task is displayed on the map.
+challenge.wizard.extra.zoom.min.label=Minimum Zoom Level
+challenge.wizard.extra.zoom.min.help=Set the minimum zoom level for a task is displayed on the map.
+challenge.wizard.extra.zoom.max.label=Maximum Zoom Level
+challenge.wizard.extra.zoom.max.help=Set the maximum zoom level for a task is displayed on the map.
+challenge.wizard.extra.basemap=Challenge Basemap
+challenge.wizard.extra.basemap.help=This is the custom basemap that will be used for the challenge, it will override any user settings that define a default basemap.
+challenge.wizard.extra.select=Select a challenge basemap
+challenge.wizard.extra.basemap.custom=Custom Basemap...
+challenge.wizard.extra.basemap.custom.placeholer=Custom Basemap
+challenge.wizard.extra.basemap.custom.help=This is the custom basemap that will be used for the challenge, it will override any user or challenge settings that define a default basemap. Eg. http://'{s}'.tile.openstreetmap.org/'{z}'/'{x}'/'{y}'.png
 
 challenge.wizard.schedule.description=Below you can schedule when your task data will be updated. This can only be used for challenges that were created by an overpass query or a remote url for geojson.
 

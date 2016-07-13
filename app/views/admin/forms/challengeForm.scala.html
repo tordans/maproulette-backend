@@ -21,7 +21,7 @@
                 @if(!isInEdit)  {
                     <h3 class="box-title">@messages("challenge.wizard.form.new")</h3>
                 } else {
-                    <h3 class="box-title">@messages("challenge.wizard.form.edit")</h3>
+                    <h3 class="box-title">@messages("challenge.wizard.form.edit") - @challengeForm("name").value.get</h3>
                 }
             </div><!-- /.box-header -->
 
@@ -44,14 +44,15 @@
                                     <span class="badge">3</span>@messages("challenge.wizard.form.tab.3")
                                     <span class="chevron"></span>
                                 </li>
-                                <!--li data-step="4">
+                                <li data-step="4">
                                     <span class="badge">4</span>@messages("challenge.wizard.form.tab.4")
                                     <span class="chevron"></span>
                                 </li>
-                                <li data-step="5">
+                                <!--li data-step="5">
                                     <span class="badge">5</span>@messages("challenge.wizard.form.tab.5")
                                     <span class="chevron"></span>
                                 </li-->
+
                             </ul>
                         </div>
                         <div class="actions">
@@ -73,13 +74,13 @@
                                 <h4>@messages("challenge.wizard.form.tab.3")</h4>
                                 @views.html.admin.forms.challenge.priority(challengeForm)
                             </div>
-                            <!--div class="step-pane sample-pane bg-info alert" data-step="4">
+                            <div class="step-pane sample-pane bg-info alert" data-step="4">
                                 <h4>@messages("challenge.wizard.form.tab.4")</h4>
-                                @views.html.admin.forms.challenge.schedule(challengeForm)
-                            </div>
-                            <div class="step-pane sample-pane bg-info alert" data-step="5">
-                                <h4>@messages("challenge.wizard.form.tab.5")</h4>
                                 @views.html.admin.forms.challenge.extra(challengeForm)
+                            </div>
+                            <!--div class="step-pane sample-pane bg-info alert" data-step="5">
+                                <h4>@messages("challenge.wizard.form.tab.5")</h4>
+                                @views.html.admin.forms.challenge.schedule(challengeForm)
                             </div-->
                         </div>
                     </div>

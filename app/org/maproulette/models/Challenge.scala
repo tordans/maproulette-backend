@@ -57,7 +57,11 @@ case class Challenge(override val id: Long,
                      highPriorityRule:Option[String]=None,
                      mediumPriorityRule:Option[String]=None,
                      lowPriorityRule:Option[String]=None,
-                     extraOptions:Option[String]=None) extends BaseObject[Long] with DefaultWrites {
+                     defaultZoom:Int=Challenge.DEFAULT_ZOOM,
+                     minZoom:Int=Challenge.MIN_ZOOM,
+                     maxZoom:Int=Challenge.MAX_ZOOM,
+                     defaultBasemap:Option[Int]=None,
+                     customBasemap:Option[String]=None) extends BaseObject[Long] with DefaultWrites {
 
 
   override val itemType: ItemType = ChallengeType()
@@ -106,6 +110,10 @@ object Challenge {
   val PRIORITY_MEDIUM = 1
   val PRIORITY_LOW = 2
 
+  val DEFAULT_ZOOM = 13
+  val MIN_ZOOM = 1
+  val MAX_ZOOM = 19
+
   /**
     * This will check to make sure that the json rule is fully valid. The simple check just makes sure
     * that every rule value is split by "." and contains only two values.
@@ -145,7 +153,11 @@ object Challenge {
       "highPriorityRule" -> optional(text),
       "mediumPriorityRule" -> optional(text),
       "lowPriorityRule" -> optional(text),
-      "extraOptions" -> optional(text)
+      "defaultZoom" -> default(number, DEFAULT_ZOOM),
+      "minZoom" -> default(number, 0),
+      "maxZoom" -> default(number, 19),
+      "defaultBasemap" -> optional(number),
+      "customBasemap" -> optional(text)
     )(Challenge.apply)(Challenge.unapply)
   )
 
