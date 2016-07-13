@@ -55,7 +55,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Option[String]]("challenges.description") ~
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.instruction") ~
-      get[Option[Int]]("challenges.difficulty") ~
+      get[Int]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
       get[Int]("challenges.challenge_type") ~
@@ -183,7 +183,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       this.withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-        val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty.getOrElse(Challenge.DIFFICULTY_EASY))
+        val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty)
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
         val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
