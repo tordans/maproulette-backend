@@ -261,6 +261,20 @@ challenge.column.actions.rebuild=Rebuild
 challenge.column.actions.start=Start
 challenge.notfound=No Challenges Found
 
+challenge.wizard.form.administration=Administration
+challenge.wizard.form.projects=Projects
+challenge.wizard.form.challenges=Challenges
+challenge.wizard.form.new=Create New Challenge
+challenge.wizard.form.edit=Edit Challenge
+challenge.wizard.form.tab.1=General
+challenge.wizard.form.tab.2=GeoJSON
+challenge.wizard.form.tab.3=Priorities
+challenge.wizard.form.tab.4=Schedule
+challenge.wizard.form.tab.5=Extra
+challenge.wizard.form.previous=Prev
+challenge.wizard.form.next=Next
+challenge.wizard.form.cancel=Cancel
+
 challenge.wizard.general.title=Standard challenge information.
 challenge.wizard.general.featured=Featured
 challenge.wizard.general.id=ID
@@ -294,6 +308,7 @@ challenge.wizard.priority.expression.high=High
 challenge.wizard.priority.expression.medium=Medium
 challenge.wizard.priority.expression.low=Low
 challenge.wizard.priority.expression.none=None
+challenge.wizard.priority.expression.iebox=Import/Export Expression
 
 challenge.wizard.schedule.description=Below you can schedule when your task data will be updated. This can only be used for challenges that were created by an overpass query or a remote url for geojson.
 
@@ -381,6 +396,11 @@ users.addto.success=User successfully added to project
 
 geojson.title=GeoJson Viewer
 geojson.description=For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.
+geojson.submit=Submit
+
+expression.title=Import/Export Rules
+expression.close=Close
+expression.import=Import
 
 errors.application.adminUIList.notfound=Parent project for challenge not found
 errors.application.adminUIList.invalid=Invalid item type requested.
