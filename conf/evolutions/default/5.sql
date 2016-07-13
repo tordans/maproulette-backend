@@ -10,6 +10,12 @@ ALTER TABLE IF EXISTS users ADD COLUMN locale character varying;
 ALTER TABLE IF EXISTS users DROP COLUMN theme;
 ALTER TABLE IF EXISTS users ADD COLUMN theme integer DEFAULT -1;
 
+ALTER TABLE IF EXISTS challenges ADD COLUMN default_zoom integer DEFAULT 13;
+ALTER TABLE IF EXISTS challenges ADD COLUMN min_zoom integer DEFAULT 1;
+ALTER TABLE IF EXISTS challenges ADD COLUMN max_zoom integer DEFAULT 19;
+ALTER TABLE IF EXISTS challenges ADD COLUMN default_basemap integer;
+ALTER TABLE IF EXISTS challenges ADD COLUMN custom_basemap character varying;
+
 -- Table for all challenges, which is a child of Project, Surveys are also stored in this table
 CREATE TABLE IF NOT EXISTS saved_challenges
 (
@@ -35,4 +41,11 @@ ALTER TABLE IF EXISTS users DROP COLUMN email_opt_in;
 ALTER TABLE IF EXISTS users DROP COLUMN locale;
 ALTER TABLE IF EXISTS users DROP COLUMN theme;
 ALTER TABLE IF EXISTS users ADD COLUMN theme character varying DEFAULT('skin-blue');
+
+ALTER TABLE IF EXISTS challenges DROP COLUMN default_zoom;
+ALTER TABLE IF EXISTS challenges DROP COLUMN min_zoom;
+ALTER TABLE IF EXISTS challenges DROP COLUMN max_zoom;
+ALTER TABLE IF EXISTS challenges DROP COLUMN default_basemap;
+ALTER TABLE IF EXISTS challenges DROP COLUMN custom_basemap;
+
 DROP TABLE IF EXISTS saved_challenges;

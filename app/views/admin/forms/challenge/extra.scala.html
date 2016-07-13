@@ -1,40 +1,53 @@
 @import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
 @(challengeForm:Form[Challenge])(implicit messages: Messages)
-<span class="help-block">This is the extra information that challenges can optionally set to give a better mapping experience specific the requirements of the challenge.</span>
+<span class="help-block">@messages("challenge.wizard.extra.description")</span>
 @defining(List(("0", "0"), ("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"), ("7", "7"), ("8", "8"), ("9", "9"), ("10", "10"), ("11", "11"), ("12", "12"), ("13", "13"), ("14", "14"), ("15", "15"), ("16", "16"), ("17", "17"), ("18", "18"), ("19", "19"))) { zoomList =>
-    @select(challengeForm("default_zoom"),
-        label = "Default Zoom Level",
+    @select(challengeForm("defaultZoom"),
+        label = messages("challenge.wizard.extra.zoom.default.label"),
         optionList = zoomList,
         isMultiple = false,
-        help = "Set the default zoom level that will be used when a task is displayed on the map.",
+        help = messages("challenge.wizard.extra.zoom.default.help"),
         defaultSelected = Some("14")
     )
-    @select(challengeForm("min_zoom"),
-        label = "Minimum Zoom Level",
+    @select(challengeForm("minZoom"),
+        label = messages("challenge.wizard.extra.zoom.min.label"),
         optionList = zoomList,
         isMultiple = false,
-        help = "Set the minimum zoom level for a task is displayed on the map.",
+        help = messages("challenge.wizard.extra.zoom.min.help"),
         defaultSelected = Some("1")
     )
-    @select(challengeForm("max_zoom"),
-        label = "Maximum Zoom Level",
+    @select(challengeForm("maxZoom"),
+        label = messages("challenge.wizard.extra.zoom.max.label"),
         optionList = zoomList,
         isMultiple = false,
-        help = "Set the maximum zoom level for a task is displayed on the map.",
+        help = messages("challenge.wizard.extra.zoom.max.help"),
         defaultSelected = Some("16")
     )
 }
-@select(challengeForm("tile_layer"),
-    label = "Default Tile Layer",
-    optionList = List(("Bing", "true"), ("MapQuest", "false"), ("OSM", "false")),
+@select(challengeForm("defaultBasemap"),
+    label = messages("challenge.wizard.extra.basemap"),
+    optionList = List(
+        (messages("challenge.wizard.extra.select"), "-1"),
+        (messages("common.basemap.osm"), "0"),
+        (messages("common.basemap.ocm"), "1"),
+        (messages("common.basemap.bing"), "2"),
+        (messages("challenge.wizard.extra.basemap.custom"), "3")
+    ),
     isMultiple = false,
-    help = "Please select the default tile layer or set a custom tile layer to use.",
-    defaultSelected = Some("Bing")
+    help = messages("challenge.wizard.extra.basemap.help"),
+    defaultSelected = Some("-1")
 )
+@text(challengeForm("customBasemap"),
+    label = messages("challenge.wizard.extra.basemap.custom"),
+    placeholder = messages("challenge.wizard.extra.basemap.custom.placeholer"),
+    help = messages("challenge.wizard.extra.basemap.custom.help")
+)
+<!--
 @text(challengeForm("fp_text"),
     label = "False Positive Text",
     placeholder = "False Positive",
     default = "False Positive",
     help = "Set the text for the false positive button."
 )
+-->

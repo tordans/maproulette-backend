@@ -250,7 +250,7 @@ L.Control.ControlPanel = L.Control.extend({
             nextName = Messages("mapping.js.control.next");
         }
         this.updateControl(3, "controlpanel_next", nextName, "fa-forward", false, function(e) {
-            MRManager.getNextTask();
+            MRManager.getNextTask(MRManager.isTaskLocked());
         });
     },
     disableControls: function() {
@@ -313,6 +313,9 @@ var TaskStatus = {
             case TaskStatus.TOOHARD: return Messages("mapping.js.task.toohard");
             default: return Messages("mapping.js.task.unknown");
         }
+    },
+    isAvailableToEdit:function(status) {
+        return status == TaskStatus.CREATED || status == TaskStatus.SKIPPED || status == TaskStatus.TOOHARD;
     }
 };
 
@@ -343,6 +346,11 @@ function Challenge() {
     this.getData = function() {
         return data;
     };
+
+    this.resetChallenge = function() {
+        data = {id:-1};
+        MRManager.updateMapOptions("map", new Point(0, 0));
+    };
     
     this.resetTask = function() {
         this.data = {id:-1};
@@ -370,6 +378,15 @@ function Challenge() {
                         data = update.challenge;
                         data.answers = update.answers;
                     }
+
+                    // update with any map options
+                    MRManager.updateMapOptions("map", new Point(0, 0), {
+                        defaultZoom: Utils.getDefaultValue(data.defaultZoom, 13),
+                        minZoom: Utils.getDefaultValue(data.minZoom, 3),
+                        maxZoom: Utils.getDefaultValue(data.maxZoom, 19),
+                        layer: Utils.getDefaultValue(data.defaultBasemap, Basemaps.NONE),
+                        customLayerURI: Utils.getDefaultValue(data.customBasemap, "")
+                    });
                     // if it is a survey we need to add the survey control panel to the map
                     MRManager.updateMRControls();
                     if (typeof success != 'undefined') {
@@ -593,51 +610,91 @@ var MRManager = (function() {
     };
 
     var init = function (userSignedIn, element, point) {
-        var osm_layer = new L.TileLayer.OpenStreetMap(),
-            opencycle_layer = new L.TileLayer.OpenCycleMap(),
-            bing_layer = new L.TileLayer.Bing(),
-            custom_layer = null;
-        var current_layer = osm_layer;
-        if (LoggedInUser.defaultBasemap === Basemaps.OCM) {
-            current_layer = opencycle_layer;
-        } else if (LoggedInUser.defaultBasemap === Basemaps.BING) {
-            current_layer = bing_layer;
-        } else if (LoggedInUser.defaultBasemap === Basemaps.CUSTOM && LoggedInUser.customBasemap !== "") {
-            L.TileLayer.Custom = L.TileLayer.Common.extend({
-                url: LoggedInUser.customBasemap,
-                options: {
-                    attribution: Messages("mapping.js.custom.attribution")
-                }
-            });
-            custom_layer = new L.TileLayer.Custom();
-            current_layer = custom_layer;
+        updateMapOptions(element, point);
+
+        // handles click events that are executed when submitting the custom geojson from the geojson viewer
+        $('#geojson_submit').on('click', function() {
+            disableKeys = false;
+            if ($('#geojson_text').val().length < 1) {
+                $('#geoJsonViewer').modal("hide");
+                return;
+            }
+            viewGeoJsonData(JSON.parse($('#geojson_text').val()));
+            $('#geoJsonViewer').modal("hide");
+        });
+        // handles the click event from the sidebar toggle
+        $("#sidebar_toggle").on("click", resizeMap);
+        signedIn = userSignedIn;
+        //register the keyboard shortcuts
+        $('#searchQ').on('focus', function() {
+            searchInFocus = true;
+        });
+        $('#searchQ').on('focusout', function() {
+            searchInFocus = false;
+        });
+        registerHotKeys();
+    };
+
+    var updateMapOptions = function(mapElement, point, options) {
+        if (typeof options === 'undefined') {
+            options = {layer: LoggedInUser.defaultBasemap, customLayerURI: LoggedInUser.customBasemap};
         }
+        var osm_layer = new L.TileLayer.OpenStreetMap();
+        var layers = Utils.getDefaultValue(options.layers, {
+            'OSM': osm_layer,
+            'OpenCycleMap': new L.TileLayer.OpenCycleMap(),
+            'Bing Aerial': new L.TileLayer.Bing()
+        });
+        var mapLayer = Utils.getDefaultValue(options.layer, osm_layer);
+        var currentLayer = layers.OSM;
+        if (typeof mapLayer === 'number') {
+            if (mapLayer === Basemaps.OCM) {
+                currentLayer = layers.OpenCycleMap;
+            } else if (mapLayer === Basemaps.BING) {
+                currentLayer = layers['Bing Aerial'];
+            } else if (mapLayer === Basemaps.CUSTOM && options.customLayerURI !== "") {
+                L.TileLayer.Custom = L.TileLayer.Common.extend({
+                    url: options.customLayerURI,
+                    options: {
+                        attribution: Messages("mapping.js.custom.attribution")
+                    }
+                });
+                layers.Custom = new L.TileLayer.Custom();
+                currentLayer = layers.Custom;
+            } else {
+                currentLayer = layers.OSM;
+            }
+        } else {
+            currentLayer = mapLayer;
+        }
+
+        // we have to completely remove the map div because the map could be partially
+        // initialized and will throw an exception if we try to initialize it again.
+        var parent = $("#" + mapElement).parent();
+        $("#" + mapElement).remove();
+        parent.append('<div id="' + mapElement + '" onclick="hideSidebar();"></div>');
         try {
-            map = new L.Map(element, {
+            map = new L.Map(mapElement, {
                 center: new L.LatLng(point.x, point.y),
-                zoom: 13,
-                minZoom: 3,
+                zoom: Utils.getDefaultValue(options.defaultZoom, 13),
+                minZoom: Utils.getDefaultValue(options.minZoom, 3),
+                maxZoom: Utils.getDefaultValue(options.maxZoom, 19),
                 layers: [
-                    current_layer
+                    currentLayer
                 ]
             });
         } catch (err) {
             // lets assume that loading the map was caused by the custom url
-            if (custom_layer !== null) {
-                // we have to completely remove the map div because the map could be partially
-                // initialized and will throw an exception if we try to initialize it again.
-                var parent = $("#" + element).parent();
-                $("#" + element).remove();
-                parent.append('<div id="' + element + '" onclick="hideSidebar();"></div>');
-                map = new L.Map(element, {
+            if (typeof layers.Custom !== 'undefined') {
+                map = new L.Map(mapElement, {
                     center: new L.LatLng(point.x, point.y),
-                    zoom: 13,
-                    minZoom: 3,
+                    zoom: Utils.getDefaultValue(options.defaultZoom, 13),
+                    minZoom: Utils.getDefaultValue(options.minZoom, 3),
+                    maxZoom: Utils.getDefaultValue(options.maxZoom, 19),
                     layers: [
                         osm_layer
                     ]
                 });
-                custom_layer = null;
                 ToastUtils.Error(Messages("mapping.js.custom.error", LoggedInUser.customBasemap));
             } else {
                 ToastUtils.Error(err);
@@ -667,41 +724,16 @@ var MRManager = (function() {
         map.addLayer(geojsonLayer);
         // cluster marker layer
         map.addLayer(markers);
-        var baseMaps = {'OSM': osm_layer, 'OpenCycleMap': opencycle_layer, 'Bing Aerial': bing_layer};
-        if (custom_layer !== null) {
-            baseMaps.Custom = custom_layer;
-        }
         var overlays = {'GeoJSON': geojsonLayer};
-        layerControl = L.control.layers(baseMaps, overlays, {position:"topright"});
+        layerControl = L.control.layers(layers, overlays, {position:"topright"});
 
         map.addControl(new L.Control.Help({}));
         map.addControl(layerControl);
         map.addControl(controlPanel);
         map.addControl(surveyPanel);
         map.addControl(editPanel);
-
-        // handles click events that are executed when submitting the custom geojson from the geojson viewer
-        $('#geojson_submit').on('click', function() {
-            disableKeys = false;
-            if ($('#geojson_text').val().length < 1) {
-                $('#geoJsonViewer').modal("hide");
-                return;
-            }
-            viewGeoJsonData(JSON.parse($('#geojson_text').val()));
-            $('#geoJsonViewer').modal("hide");
-        });
-        // handles the click event from the sidebar toggle
-        $("#sidebar_toggle").on("click", resizeMap);
+        map._onMoveEnd();
         $("#map").css("left", $("#sidebar").width());
-        signedIn = userSignedIn;
-        //register the keyboard shortcuts
-        $('#searchQ').on('focus', function() {
-            searchInFocus = true;
-        });
-        $('#searchQ').on('focusout', function() {
-            searchInFocus = false;
-        });
-        registerHotKeys();
     };
 
     // Displays the geojson data on the map
@@ -717,6 +749,7 @@ var MRManager = (function() {
 
     // Displays cluster address points on the map
     var viewClusteredData = function(data) {
+        currentTask.getChallenge().resetChallenge();
         currentGeoJSON = {};
         var popupFunction = function(id) {
             return function(event) {
@@ -766,8 +799,12 @@ var MRManager = (function() {
                     popupString += '</div></div>';
                     marker.on("popupopen", popupFunction(data[i].id));
                 } else {
+                    var text = Messages('mapping.js.clustered.fix');
+                    if (!TaskStatus.isAvailableToEdit(data[i].status)) {
+                        text = Messages('mapping.js.clustered.view');
+                    }
                     popupString += '<div><a href="#">' +
-                        '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">' + Messages('mapping.js.clustered.fix') + '</button>' +
+                        '<button onclick="MRManager.addTaskToMap(-1, ' + data[i].id + ');" class="btn btn-block btn-success btn-sm">' + text + '</button>' +
                         '</a></div>';
                 }
                 popupString += '</div>';
@@ -791,13 +828,17 @@ var MRManager = (function() {
         map.fitBounds(geojsonLayer.getBounds());
         controlPanel.update(signedIn, debugMode, true, true, true);
         resetEditControls();
+        var challengeId = currentTask.getChallenge().getData().id;
         // update the browser url to reflect the current task
-        window.history.pushState("", "", "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
+        window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
         // show the task text as a notification
-        var taskInstruction = currentTask.getData().instruction;
+        var taskInstruction = "##### Challenge: " + currentTask.getChallenge().getData().name + "\n---------\n\n";
         if (taskInstruction === "") {
-            taskInstruction = currentTask.getChallenge().getData().instruction;
+            taskInstruction += currentTask.getChallenge().getData().instruction;
+        } else {
+            taskInstruction += currentTask.getData().instruction;
         }
+        taskInstruction += "\n\n-------\n\nStatus: " + TaskStatus.getStatusName(currentTask.getData().status);
         ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
@@ -933,8 +974,8 @@ var MRManager = (function() {
      * Gets the Next Task within the current search parameters. This function in debug mode will
      * retrieve the next task sequentially, in non-debug mode it will retrieve the next random task
      */
-    var getNextTask = function() {
-        if (!signedIn || debugMode) {
+    var getNextTask = function(useDebugMode) {
+        if (!signedIn || debugMode || useDebugMode) {
             currentTask.getNextTask();
         } else if (currentTask.getChallenge().isSurvey()) {
             currentTask.getRandomNextTask();
@@ -1241,7 +1282,8 @@ var MRManager = (function() {
         loading:loading,
         loaded:loaded,
         getSearchedClusteredPoints:getSearchedClusteredPoints,
-        getMapBounds:getMapBounds
+        getMapBounds:getMapBounds,
+        updateMapOptions:updateMapOptions
     };
 
 }());

@@ -12,7 +12,7 @@
         @if(projectForm("id").value.getOrElse("-1").toInt == -1)  {
             <h3 class="box-title">@messages("project.form.new")</h3>
         } else {
-            <h3 class="box-title">@messages("project.form.edit")</h3>
+            <h3 class="box-title">@messages("project.form.edit") - @projectForm("name").value.get</h3>
         }
         </div><!-- /.box-header -->
         <!-- form start -->

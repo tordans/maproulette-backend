@@ -66,10 +66,16 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.default_priority") ~
       get[Option[String]]("challenges.high_priority_rule") ~
       get[Option[String]]("challenges.medium_priority_rule") ~
-      get[Option[String]]("challenges.low_priority_rule") map {
+      get[Option[String]]("challenges.low_priority_rule") ~
+      get[Int]("challenges.default_zoom") ~
+      get[Int]("challenges.min_zoom") ~
+      get[Int]("challenges.max_zoom") ~
+      get[Option[Int]]("challenges.default_basemap") ~
+      get[Option[String]]("challenges.custom_basemap") map {
       case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
         enabled ~ challenge_type ~ featured ~ overpassql ~ remoteGeoJson ~ status ~
-        defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule =>
+        defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
+        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -84,7 +90,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         }
         new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
           enabled, challenge_type, featured, overpassql, remoteGeoJson, status,
-          defaultPriority, hpr, mpr, lpr)
+          defaultPriority, hpr, mpr, lpr, defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap)
     }
   }
 
@@ -133,13 +139,15 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
                                       instruction, enabled, challenge_type, featured, overpass_ql,
                                       remote_geo_json, status, default_priority, high_priority_rule,
-                                      medium_priority_rule, low_priority_rule)
+                                      medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
+                                      max_zoom, default_basemap, custom_basemap)
               VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
                       ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
                       ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
                       ${challenge.overpassQL}, ${challenge.remoteGeoJson}, ${challenge.status},
                       ${challenge.defaultPriority}, ${challenge.highPriorityRule}, ${challenge.mediumPriorityRule},
-                      ${challenge.lowPriorityRule}
+                      ${challenge.lowPriorityRule}, ${challenge.defaultZoom}, ${challenge.minZoom},
+                      ${challenge.maxZoom}, ${challenge.defaultBasemap}, ${challenge.customBasemap}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(this.parser.*).headOption
       }
     } match {
@@ -191,6 +199,11 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
             !StringUtils.equalsIgnoreCase(lowPriorityRule, cachedItem.lowPriorityRule.getOrElse(""))) {
           updatedPriorityRules = true
         }
+        val defaultZoom = (updates \ "defaultZoom").asOpt[Int].getOrElse(cachedItem.defaultZoom)
+        val minZoom = (updates \ "minZoom").asOpt[Int].getOrElse(cachedItem.minZoom)
+        val maxZoom = (updates \ "maxZoom").asOpt[Int].getOrElse(cachedItem.maxZoom)
+        val defaultBasemap = (updates \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.defaultBasemap.getOrElse(-1))
+        val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.customBasemap.getOrElse(""))
 
         SQL"""UPDATE challenges SET name = $name, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, blurb = $blurb, instruction = $instruction,
@@ -198,7 +211,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                 remote_geo_json = $remoteGeoJson, status = $overpassStatus, default_priority = $defaultPriority,
                 high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) { Option.empty[String] } else { Some(highPriorityRule) }},
                 medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) { Option.empty[String] } else { Some(mediumPriorityRule) }},
-                low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }}
+                low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }},
+                default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap,
+                custom_basemap = $customBasemap
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }
@@ -351,14 +366,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") map {
-        case id ~ name ~ instruction ~ location =>
+      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") map {
+        case id ~ name ~ instruction ~ location ~ status =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, "", point, instruction, -1, Actions.ITEM_TYPE_TASK)
+          ClusteredPoint(id, "", point, instruction, -1, Actions.ITEM_TYPE_TASK, status)
       }
-        SQL"""SELECT id, name, instruction,
+        SQL"""SELECT id, name, instruction, status,
                       ST_AsGeoJSON(location) AS location
               FROM tasks WHERE parent_id = $challengeId #$filter"""
           .as(pointParser.*)
