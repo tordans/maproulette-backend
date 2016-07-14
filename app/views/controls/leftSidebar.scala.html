@@ -57,7 +57,7 @@
         <!-- Optionally, you can add icons to the links -->
       <li><a href="@routes.Application.adminUIProjectList()"><i class="fa fa-folder-open"></i> <span>@messages("sidebar.project.header")</span></a></li>
       <li><a href="@routes.Application.metrics()"><i class="fa fa-pie-chart"></i> <span>@messages("sidebar.challenge.metrics")</span></a></li>
-      <li><a href="@routes.Application.metrics(1)"><i class="fa fa-pie-chart"></i> <span>@messages("sidebar.survey.metrics")</span></a></li>
+      <!--li><a href="@routes.Application.metrics(1)"><i class="fa fa-pie-chart"></i> <span>@messages("sidebar.survey.metrics")</span></a></li-->
       @if(user.isSuperUser) {
         <li><a href="@routes.Application.users()"><i class="fa fa-users"></i> <span>@messages("sidebar.users.header")</span></a></li>
       }
