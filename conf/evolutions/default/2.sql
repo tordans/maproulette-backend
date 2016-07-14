@@ -74,12 +74,12 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 # --- !Downs
-SELECT add_drop_column('tasks', 'priority', '', false);
-ALTER TABLE IF EXISTS projects ALTER COLUMN enabled SET DEFAULT true;
-ALTER TABLE IF EXISTS challenges ALTER COLUMN enabled SET DEFAULT true;
-SELECT add_drop_column('challenges', 'default_priority', '', false);
-SELECT add_drop_column('challenges', 'high_priority_rule', '', false);
-SELECT add_drop_column('challenges', 'medium_priority_rule', '', false);
-SELECT add_drop_column('challenges', 'low_priority_rule', '', false);
-SELECT add_drop_column('challenges', 'extra_options', '', false);
-DROP FUNCTION IF EXISTS add_drop_column(tablename varchar, colname varchar, coltype varchar, addcolumn boolean default true);
+--SELECT add_drop_column('tasks', 'priority', '', false);
+--ALTER TABLE IF EXISTS projects ALTER COLUMN enabled SET DEFAULT true;
+--ALTER TABLE IF EXISTS challenges ALTER COLUMN enabled SET DEFAULT true;
+--SELECT add_drop_column('challenges', 'default_priority', '', false);
+--SELECT add_drop_column('challenges', 'high_priority_rule', '', false);
+--SELECT add_drop_column('challenges', 'medium_priority_rule', '', false);
+--SELECT add_drop_column('challenges', 'low_priority_rule', '', false);
+--SELECT add_drop_column('challenges', 'extra_options', '', false);
+--DROP FUNCTION IF EXISTS add_drop_column(tablename varchar, colname varchar, coltype varchar, addcolumn boolean default true);

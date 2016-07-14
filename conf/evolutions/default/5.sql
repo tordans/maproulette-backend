@@ -34,18 +34,18 @@ SELECT create_index_if_not_exists('saved_challenges', 'user_id', '(user_id)');
 SELECT create_index_if_not_exists('saved_challenges', 'user_id_challenge_id', '(user_id, challenge_id)', true);
 
 # --- !Downs
-SELECT add_drop_column('users', 'default_editor', '', false);
-SELECT add_drop_column('users', 'default_basemap', '', false);
-SELECT add_drop_column('users', 'custom_basemap_url', '', false);
-SELECT add_drop_column('users', 'email_opt_in', '', false);
-SELECT add_drop_column('users', 'locale', '', false);
-SELECT add_drop_column('users', 'theme', '', false);
-SELECT add_drop_column('users', 'theme', 'character varying DEFAULT(''skin-blue'')');
+--SELECT add_drop_column('users', 'default_editor', '', false);
+--SELECT add_drop_column('users', 'default_basemap', '', false);
+--SELECT add_drop_column('users', 'custom_basemap_url', '', false);
+--SELECT add_drop_column('users', 'email_opt_in', '', false);
+--SELECT add_drop_column('users', 'locale', '', false);
+--SELECT add_drop_column('users', 'theme', '', false);
+--SELECT add_drop_column('users', 'theme', 'character varying DEFAULT(''skin-blue'')');
 
-SELECT add_drop_column('challenges', 'default_zoom', '', false);
-SELECT add_drop_column('challenges', 'min_zoom', '', false);
-SELECT add_drop_column('challenges', 'max_zoom', '', false);
-SELECT add_drop_column('challenges', 'default_basemap', '', false);
-SELECT add_drop_column('challenges', 'custom_basemap', '', false);
+--SELECT add_drop_column('challenges', 'default_zoom', '', false);
+--SELECT add_drop_column('challenges', 'min_zoom', '', false);
+--SELECT add_drop_column('challenges', 'max_zoom', '', false);
+--SELECT add_drop_column('challenges', 'default_basemap', '', false);
+--SELECT add_drop_column('challenges', 'custom_basemap', '', false);
 
-DROP TABLE IF EXISTS saved_challenges;
+--DROP TABLE IF EXISTS saved_challenges;
