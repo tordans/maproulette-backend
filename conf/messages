@@ -55,13 +55,14 @@ rightsidebar.general.info=Some information about this general settings option
 user.signin=Sign In
 user.osmmember=OSM member since
 user.apikey.view=View APIKey
-user.apikey.new=New APIKey
+user.apikey.new=Rebuild APIKey
 user.profile=Profile
 user.signout=Sign out
 
 user.profile.header=User Profile
 user.profile.aboutme=About Me
 user.profile.location=Location
+user.profile.apikeys=API Key
 user.profile.activity=My Activity
 user.profile.metrics=My Metrics
 user.profile.settings=My Settings

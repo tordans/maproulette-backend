@@ -33,6 +33,12 @@
                     <strong><i class="fa fa-map-marker margin-r-5"></i> @messages("user.profile.location")</strong>
                     <p class="text-muted" id="location"></p>
                     <hr>
+                    <strong><i class="fa fa-map-marker margin-r-5"></i> @messages("user.profile.apikeys")</strong>
+                    <p class="text-muted word-wrap" id="apikey_text">@user.apiKey.getOrElse("")</p>
+                    <div class="col-xs-6 text-center pull-right">
+                        <a href="#" onclick="rebuildAPIKey();"><b>@messages("user.apikey.new")</b></a>
+                    </div>
+                    <hr>
                 </div><!-- /.box-body -->
             </div><!-- /.box -->
         </div><!-- /.col -->
@@ -84,4 +90,10 @@
             }
         );
     });
+
+    var rebuildAPIKey = function() {
+        generateAPIKey(function(data) {
+            $("#apikey_text").html(data);
+        }, @user.id)
+    }
 </script>
