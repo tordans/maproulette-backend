@@ -66,10 +66,10 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 # --- !Downs
-DO $$
-BEGIN
-  PERFORM column_name FROM information_schema.columns WHERE table_name = 'challenges' AND column_name = 'location';;
-  IF FOUND THEN
-    SELECT DropGeometryColumn('challenges', 'location');;
-  END IF;;
-END$$;;
+--DO $$
+--BEGIN
+--  PERFORM column_name FROM information_schema.columns WHERE table_name = 'challenges' AND column_name = 'location';;
+--  IF FOUND THEN
+--    SELECT DropGeometryColumn('challenges', 'location');;
+--  END IF;;
+--END$$;;
