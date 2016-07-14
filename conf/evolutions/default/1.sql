@@ -71,9 +71,15 @@ CREATE TABLE IF NOT EXISTS users
 
 DROP TRIGGER IF EXISTS on_user_delete ON users;
 CREATE TRIGGER on_user_delete BEFORE DELETE ON users
-  FOR EACH ROW EXECUTE PROCEDURE on_user_delete();
+  FOR EACH ROW EXECUTE PROCEDURE on_user_delete();;
 
-SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);
+DO $$
+BEGIN
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'home_location';;
+  IF NOT FOUND THEN
+    SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
+  END IF;;
+END $$;;
 
 DROP TRIGGER IF EXISTS update_users_modified ON users;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
@@ -197,7 +203,14 @@ DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE PROCEDURE update_modified();
 
-SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);
+DO $$
+BEGIN
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'location';;
+  IF NOT FOUND THEN
+    SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
+  END IF;;
+END$$;;
+
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
 SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);
 
@@ -288,8 +301,15 @@ CREATE TABLE IF NOT EXISTS task_geometries
     DEFERRABLE INITIALLY DEFERRED
 );
 
-SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);
-CREATE INDEX idx_task_geometries_geom ON task_geometries USING GIST (geom);
+DO $$
+BEGIN
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'task_geometries' AND column_name = 'geom';;
+  IF NOT FOUND THEN
+    SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);;
+  END IF;;
+END$$;;
+
+CREATE INDEX IF NOT EXISTS idx_task_geometries_geom ON task_geometries USING GIST (geom);
 SELECT create_index_if_not_exists('task_geometries', 'task_id', '(task_id)');
 
 -- Actions that are taken in the system, like set the status of a task to 'fixed'
@@ -392,11 +412,11 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 -- Insert the default root, used for migration and those using the old API
-INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
-INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
-INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
-    VALUES (-999, -999, NOW(), 'SuperUser', '', '', 'skin-black');
-INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
+--INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
+--INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
+--INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
+    --VALUES (-999, -999, NOW(), 'SuperUser', '', '', 'skin-black');
+--INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
 
 # --- !Downs
 
