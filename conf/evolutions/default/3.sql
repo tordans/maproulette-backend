@@ -1,7 +1,13 @@
 # --- Map Roulette Scheme
 
 # --- !Ups
-SELECT AddGeometryColumn('challenges', 'location', 4326, 'POINT', 2);
+DO $$
+BEGIN
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'challenges' AND column_name = 'location';;
+  IF NOT FOUND THEN
+    SELECT AddGeometryColumn('challenges', 'location', 4326, 'POINT', 2);;
+  END IF;;
+END$$;;
 
 -- Updating all the locations for all the tasks in the system. This process takes about 2 minutes or
 -- so depending on the amount of tasks and geometries in the system
@@ -60,4 +66,10 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 # --- !Downs
-SELECT DropGeometryColumn('challenges', 'location');
+DO $$
+BEGIN
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'challenges' AND column_name = 'location';;
+  IF FOUND THEN
+    SELECT DropGeometryColumn('challenges', 'location');;
+  END IF;;
+END$$;;

@@ -1,17 +1,34 @@
 # --- Map Roulette Scheme
 
 # --- !Ups
+-- Helper function to add/drop columns safely
+CREATE OR REPLACE FUNCTION add_drop_column(tablename varchar, colname varchar, coltype varchar, addcolumn boolean default true) RETURNS varchar AS $$
+DECLARE
+  col_name varchar;;
+BEGIN
+  EXECUTE 'SELECT column_name FROM information_schema.columns WHERE table_name =' || quote_literal(tablename) || ' and column_name = ' || quote_literal(colname) into col_name;;
+  RAISE INFO ' the val : % ', col_name;;
+  IF (col_name IS NULL AND addcolumn) THEN
+    EXECUTE 'ALTER TABLE IF EXISTS ' || tablename || ' ADD COLUMN ' || colname || ' ' || coltype;;
+  ELSEIF (col_name IS NOT NULL AND NOT addcolumn) THEN
+    EXECUTE 'ALTER TABLE IF EXISTS ' || tablename || ' DROP COLUMN ' || colname;;
+  END IF;;
+  RETURN col_name;;
+END
+$$
+LANGUAGE plpgsql VOLATILE;;
+
 -- adding new column for task to set it in priority 1 (HIGH), 2 (MEDIUM) or 3 (LOW), defaults to 1
-ALTER TABLE IF EXISTS tasks ADD COLUMN priority integer DEFAULT 0;
+SELECT add_drop_column('tasks', 'priority', 'integer DEFAULT 0');
 -- enabled defaults to false now
 ALTER TABLE IF EXISTS projects ALTER COLUMN enabled SET DEFAULT false;
 ALTER TABLE IF EXISTS challenges ALTER COLUMN enabled SET DEFAULT false;
 -- New options for challenges
-ALTER TABLE IF EXISTS challenges ADD COLUMN default_priority integer DEFAULT 0;
-ALTER TABLE IF EXISTS challenges ADD COLUMN high_priority_rule character varying;
-ALTER TABLE IF EXISTS challenges ADD COLUMN medium_priority_rule character varying;
-ALTER TABLE IF EXISTS challenges ADD COLUMN low_priority_rule character varying;
-ALTER TABLE IF EXISTS challenges ADD COLUMN extra_options HSTORE;
+SELECT add_drop_column('challenges', 'default_priority', 'integer DEFAULT 0');
+SELECT add_drop_column('challenges', 'high_priority_rule', 'character varying');
+SELECT add_drop_column('challenges', 'medium_priority_rule', 'character varying');
+SELECT add_drop_column('challenges', 'low_priority_rule', 'character varying');
+SELECT add_drop_column('challenges', 'extra_options', 'HSTORE');
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change simply adds the priority
@@ -57,11 +74,12 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 # --- !Downs
-ALTER TABLE IF EXISTS tasks DROP COLUMN priority;
+SELECT add_drop_column('tasks', 'priority', '', false);
 ALTER TABLE IF EXISTS projects ALTER COLUMN enabled SET DEFAULT true;
 ALTER TABLE IF EXISTS challenges ALTER COLUMN enabled SET DEFAULT true;
-ALTER TABLE IF EXISTS challenges DROP COLUMN default_priority;
-ALTER TABLE IF EXISTS challenges DROP COLUMN high_priority_rule;
-ALTER TABLE IF EXISTS challenges DROP COLUMN medium_priority_rule;
-ALTER TABLE IF EXISTS challenges DROP COLUMN low_priority_rule;
-ALTER TABLE IF EXISTS challenges DROP COLUMN extra_options;
+SELECT add_drop_column('challenges', 'default_priority', '', false);
+SELECT add_drop_column('challenges', 'high_priority_rule', '', false);
+SELECT add_drop_column('challenges', 'medium_priority_rule', '', false);
+SELECT add_drop_column('challenges', 'low_priority_rule', '', false);
+SELECT add_drop_column('challenges', 'extra_options', '', false);
+DROP FUNCTION IF EXISTS add_drop_column(tablename varchar, colname varchar, coltype varchar, addcolumn boolean default true);
