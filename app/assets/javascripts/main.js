@@ -507,14 +507,14 @@ var generateAPIKey = function(success, userId) {
         success : function(data) {
             currentAPIKey = data;
             if (typeof success === 'undefined') {
-                showAPIKey();   
+                showAPIKey();
             } else {
                 success(data);
             }
         },
         error : Utils.handleError
     };
-    ToastUtils.Info(Messages('main.js.api.generation', userId));
+    //ToastUtils.Info(Messages('main.js.api.generation', userId));
     jsRoutes.controllers.AuthController.generateAPIKey(userId).ajax(apiCallback);
 };
 

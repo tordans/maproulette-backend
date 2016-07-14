@@ -32,18 +32,6 @@
                             <small>@messages("user.osmmember") @user.formattedOSMCreatedDate</small>
                         </p>
                     </li>
-                        <!-- Menu Body -->
-                    <li class="user-body">
-                        @if(user.apiKey.isDefined) {
-                            <div class="col-xs-6 text-center pull-left">
-                                <a href="#" onclick="showAPIKey();"><b>@messages("user.apikey.view")</b></a>
-                            </div>
-                        }
-                        <div class="col-xs-6 text-center pull-right">
-                            <a href="#" onclick="generateAPIKey();"><b>@messages("user.apikey.new")</b></a>
-                        </div>
-                    </li>
-                        <!-- Menu Footer-->
                     <li class="user-footer">
                         <div class="pull-left">
                             <a href="@routes.Application.profile()" class="btn btn-default btn-flat">@messages("user.profile")</a>
