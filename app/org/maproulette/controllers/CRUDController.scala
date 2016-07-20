@@ -5,7 +5,7 @@ package org.maproulette.controllers
 import java.sql.Connection
 
 import com.fasterxml.jackson.databind.JsonMappingException
-import io.swagger.annotations.{ApiOperation, ApiResponse, ApiResponses}
+import io.swagger.annotations._
 import org.maproulette.actions.{Created => ActionCreated, _}
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
@@ -95,6 +95,14 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     protocols = "http",
     code = 200
   )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "apiKey", value = "The apikey to authorize the request", required = true, dataType = "string", paramType = "header"
+    ),
+    new ApiImplicitParam(
+      name = "body", value = "The json payload containing updates", required = true, dataType = "string", paramType = "body"
+    )
+  ))
   @ApiResponses(Array(
     new ApiResponse(code = 304, message = "Not updated responding with empty payload if object already exists and nothing to update"),
     new ApiResponse(code = 400, message = "Invalid json payload for object", response = classOf[StatusMessage]),
@@ -164,6 +172,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     }
   }
 
+  // scalastyle:off
   /**
     * Base update function for the object. The update function works very similarly to the create
     * function. It does however allow the user to supply only the elements that are needed to updated.
@@ -172,7 +181,34 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  def update(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  @ApiOperation(
+    nickname = "update",
+    value = "Create object from json body payload",
+    notes =
+      """The update method will update any variables that are supplied in the json payload""",
+    httpMethod = "PUT",
+    produces = "application/json",
+    consumes = "application/json",
+    protocols = "http",
+    code = 200
+  )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "apiKey", value = "The apikey to authorize the request", required = true, dataType = "string", paramType = "header"
+    ),
+    new ApiImplicitParam(
+      name = "body", value = "The json payload containing updates", required = true, dataType = "string", paramType = "body"
+    )
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 304, message = "Not updated responding with empty payload if object already exists and nothing to update"),
+    new ApiResponse(code = 400, message = "Invalid json payload for object", response = classOf[StatusMessage]),
+    new ApiResponse(code = 404, message = "ID field supplied but no object found matching the id", response = classOf[StatusMessage])
+  ))
+  // scalastyle:on
+  def update(implicit
+             @ApiParam(value="ID of the object that is being updated") id:Long
+            ) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       try {
         this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
