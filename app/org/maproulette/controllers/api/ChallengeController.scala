@@ -107,16 +107,13 @@ class ChallengeController @Inject() (override val childController:TaskController
     protocols = "http",
     code = 200
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "id", value = "The id of challenge", required = true, dataType = "long", paramType = "path"
-    )
-  ))
   @ApiResponses(Array(
     new ApiResponse(code = 404, message = "If the challenge is not found", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def getTagsForChallenge(implicit id: Long) : Action[AnyContent] = Action.async { implicit request =>
+  def getTagsForChallenge(
+                           implicit @ApiParam(value="The id of challenge") id: Long
+                         ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.getTags(id)))
     }
@@ -163,19 +160,14 @@ class ChallengeController @Inject() (override val childController:TaskController
     protocols = "http",
     code = 200
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "challengeId", value = "The id of challenge", required = true, dataType = "long", paramType = "path"
-    ),
-    new ApiImplicitParam(
-      name = "statusFilter", value = "Comma separated list of status ids", required = true, dataType = "string", paramType = "query"
-    )
-  ))
   @ApiResponses(Array(
     new ApiResponse(code = 404, message = "If the challenge is not found", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def getChallengeGeoJSON(challengeId:Long, statusFilter:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeGeoJSON(
+                           @ApiParam(value="The id of challenge") challengeId:Long,
+                           @ApiParam(value="Comma separated list of status ids") statusFilter:String
+                         ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveById(challengeId) match {
         case Some(c) =>
@@ -201,19 +193,14 @@ class ChallengeController @Inject() (override val childController:TaskController
     protocols = "http",
     code = 200
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "challengeId", value = "The id of challenge", required = true, dataType = "long", paramType = "path"
-    ),
-    new ApiImplicitParam(
-      name = "statusFilter", value = "Comma separated list of status ids", required = true, dataType = "string", paramType = "query"
-    )
-  ))
   @ApiResponses(Array(
     new ApiResponse(code = 404, message = "If the challenge is not found", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def getClusteredPoints(challengeId:Long, statusFilter:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getClusteredPoints(
+                          @ApiParam(value="The id of challenge") challengeId:Long,
+                          @ApiParam(value="Comma separated list of status ids") statusFilter:String
+                        ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       implicit val writes = ClusteredPoint.clusteredPointWrites
       val filter = if (StringUtils.isEmpty(statusFilter)) {
@@ -245,28 +232,16 @@ class ChallengeController @Inject() (override val childController:TaskController
     protocols = "http",
     code = 200
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "challengeId", value = "The id of challenge", required = true, dataType = "long", paramType = "path"
-    ),
-    new ApiImplicitParam(
-      name = "taskSearch", value = "Search filter by the name of the task", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "tags", value = "Comma separated list of tags to filter by", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "limit", value = "Limit the number of results returned", defaultValue = "1", required = false, dataType = "int", paramType = "query"
-    )
-  ))
   @ApiResponses(Array(
     new ApiResponse(code = 404, message = "If the challenge is not found", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def getRandomTasksWithPriority(challengeId:Long,
-                                 taskSearch:String,
-                                 tags:String,
-                                 limit:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getRandomTasksWithPriority(
+                                  @ApiParam(value="The id of challenge") challengeId:Long,
+                                  @ApiParam(value="Search filter by the name of the task") taskSearch:String,
+                                  @ApiParam(value="Comma separated list of tags to filter by") tags:String,
+                                  @ApiParam(value="Limit the number of results returned", defaultValue = "10") limit:Int
+                                ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         challengeId = Some(challengeId),
@@ -299,28 +274,16 @@ class ChallengeController @Inject() (override val childController:TaskController
     protocols = "http",
     code = 200
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "challengeId", value = "The id of challenge", required = true, dataType = "long", paramType = "path"
-    ),
-    new ApiImplicitParam(
-      name = "taskSearch", value = "Search filter by the name of the task", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "tags", value = "Comma separated list of tags to filter by", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "limit", value = "Limit the number of results returned", defaultValue = "1", required = false, dataType = "int", paramType = "query"
-    )
-  ))
   @ApiResponses(Array(
     new ApiResponse(code = 404, message = "If the challenge is not found", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def getRandomTasks(challengeId: Long,
-                     taskSearch:String,
-                     tags: String,
-                     limit:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getRandomTasks(
+                      @ApiParam(value="The id of challenge") challengeId:Long,
+                      @ApiParam(value="Search filter by the name of the task") taskSearch:String,
+                      @ApiParam(value="Comma separated list of tags to filter by") tags:String,
+                      @ApiParam(value="Limit the number of results returned", defaultValue = "10") limit:Int
+                    ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         challengeId = Some(challengeId),
@@ -360,7 +323,10 @@ class ChallengeController @Inject() (override val childController:TaskController
     )
   ))
   // scalastyle:on
-  def getFeaturedChallenges(limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getFeaturedChallenges(
+                             @ApiParam(value="The number of challenges to return", defaultValue = "10") limit:Int,
+                             @ApiParam(value="Used for paging.", defaultValue = "0") offset:Int
+                           ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.dal.getFeaturedChallenges(limit, offset)))
     }

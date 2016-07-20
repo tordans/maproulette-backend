@@ -36,16 +36,15 @@ class APIController @Inject() (dalManager: DALManager, sessionManager: SessionMa
   @ApiImplicitParams(Array(
     new ApiImplicitParam(
       name = "apiKey", value = "The apikey to authorize the request", required = true, dataType = "string", paramType = "header"
-    ),
-    new ApiImplicitParam(
-      name = "userId", value = "The id of the user your are requesting the saved challenges for", required = true, dataType = "long", paramType = "path"
     )
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 404, message = "If the user is not found", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def getSavedChallenges(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def getSavedChallenges(
+                          @ApiParam(value="The id of the user your are requesting the saved challenges for") userId:Long
+                        ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dalManager.user.getSavedChallenges(userId, user)))
     }

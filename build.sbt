@@ -1,6 +1,6 @@
 name := "MapRouletteV2"
 
-version := "1.0"
+version := "2.1.0"
 
 scalaVersion := "2.11.8"
 
@@ -28,6 +28,7 @@ libraryDependencies ++= Seq(
   ws,
   evolutions,
   specs2 % Test,
+  filters,
   "com.typesafe.play" %% "anorm" % "3.0.0-M1",
   "postgresql" % "postgresql" % "9.1-901-1.jdbc4",
   "net.postgis" % "postgis-jdbc" % "2.2.0",

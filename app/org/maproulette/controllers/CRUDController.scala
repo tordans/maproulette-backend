@@ -206,7 +206,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     new ApiResponse(code = 404, message = "ID field supplied but no object found matching the id", response = classOf[StatusMessage])
   ))
   // scalastyle:on
-  def update(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def update(implicit
+             @ApiParam(value="ID of the object that is being updated") id:Long
+            ) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       try {
         this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {

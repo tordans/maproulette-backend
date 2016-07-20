@@ -4,7 +4,7 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import io.swagger.annotations.{Api, ApiImplicitParam, ApiImplicitParams, ApiOperation}
+import io.swagger.annotations._
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
@@ -72,13 +72,11 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     code = 200,
     response = classOf[Project]
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "name", value = "Name of the project.", required = true, dataType = "string", paramType = "path"
-    )
-  ))
   // scalastyle:on
-  override def readByName(id: Long, name: String): Action[AnyContent] = super.readByName(-1, name)
+  override def readByName(
+                           @ApiParam(value="This value is ignored") id: Long,
+                           @ApiParam(value="Name of the project.") name: String
+                         ): Action[AnyContent] = super.readByName(-1, name)
 
   /**
     * Gets a random task that is an descendant of the project.
@@ -104,33 +102,15 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     response = classOf[Task],
     responseContainer = "List"
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "projectId", value = "ID of the project.", required = true, dataType = "long", paramType = "path"
-    ),
-    new ApiImplicitParam(
-      name = "challengeSearch", value = "Search text to filter by the name of the challenge.", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "challengeTags", value = "Comma separated list of tags to filter the challenges by.", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "tags", value = "Comma separated list of tags to filter the tasks by.", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "taskSearch", value = "Search text to filter by the name of the tasks.", required = false, dataType = "string", paramType = "query"
-    ),
-    new ApiImplicitParam(
-      name = "limit", value = "Limit the number of returned tasks.", defaultValue = "1", required = false, dataType = "int", paramType = "query"
-    )
-  ))
   // scalastyle:on
-  def getRandomTasks(projectId: Long,
-                     challengeSearch:String,
-                     challengeTags:String,
-                     tags: String,
-                     taskSearch:String,
-                     limit:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getRandomTasks(
+                      @ApiParam(value="ID of the project.") projectId: Long,
+                      @ApiParam(value="Search text to filter by the name of the challenge.") challengeSearch:String,
+                      @ApiParam(value="Comma separated list of tags to filter the challenges by.") challengeTags:String,
+                      @ApiParam(value="Comma separated list of tags to filter the tasks by.") tags: String,
+                      @ApiParam(value="Search text to filter by the name of the tasks.") taskSearch:String,
+                      @ApiParam(value="Limit the number of returned tasks.") limit:Int
+                    ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         projectId = Some(projectId),
@@ -162,13 +142,10 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     response = classOf[ClusteredPoint],
     responseContainer = "List"
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "search", value = "URL Encoded search cookie json object.", required = true, dataType = "string", paramType = "query"
-    )
-  ))
   // scalastyle:on
-  def getSearchedClusteredPoints(searchCookie:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getSearchedClusteredPoints(
+                                  @ApiParam(value="URL Encoded search cookie json object.") searchCookie:String
+                                ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val searchParams = SearchParameters.convert(searchCookie)
       Ok(Json.toJson(this.dal.getSearchedClusteredPoints(searchParams)))
@@ -188,16 +165,11 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     response = classOf[ClusteredPoint],
     responseContainer = "List"
   )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "projectId", value = "A single project id. If negative will assume all projects", required = true, dataType = "int", paramType = "path"
-    ),
-    new ApiImplicitParam(
-      name = "challengeIds", value = "A comma separated list of challenge ids to filter the list by", required = true, dataType = "string", paramType = "query"
-    )
-  ))
   // scalastyle:on
-  def getClusteredPoints(projectId:Long, challengeIds:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getClusteredPoints(
+                          @ApiParam(value="A single project id. If negative will assume all projects") projectId:Long,
+                          @ApiParam(value="A comma separated list of challenge ids to filter the list by") challengeIds:String
+                        ) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val pid = if (projectId < 0) {
         None

@@ -727,7 +727,7 @@ var MRManager = (function() {
         var overlays = {'GeoJSON': geojsonLayer};
         layerControl = L.control.layers(layers, overlays, {position:"topright"});
 
-        map.addControl(new L.Control.Help({}));
+        //map.addControl(new L.Control.Help({}));
         map.addControl(layerControl);
         map.addControl(controlPanel);
         map.addControl(surveyPanel);
