@@ -98,7 +98,9 @@ L.Control.EditControl = L.Control.extend({
         editInJOSM.innerHTML = Messages("mapping.js.control.edit.josm");
         L.DomEvent.on(editInJOSM, 'click', L.DomEvent.stopPropagation)
             .on(editInJOSM, 'click', L.DomEvent.preventDefault)
-            .on(editInJOSM, 'click', MRManager.openTaskInJosm);
+            .on(editInJOSM, 'click', function() {
+                MRManager.openTaskInJosm(false);
+            });
 
         var editInJOSMLayer = L.DomUtil.create('button', 'btn-xs btn-block btn-default', options);
         editInJOSMLayer.innerHTML = Messages("mapping.js.control.edit.josm.layer");
@@ -574,7 +576,7 @@ var MRManager = (function() {
             if (LoggedInUser.defaultEditor === Editors.ID) {
                 openTaskInId();
             } else if (LoggedInUser.defaultEditor === Editors.JOSM) {
-                openTaskInJosm();
+                openTaskInJosm(false);
             } else if (LoggedInUser.defaultEditor === Editors.JOSMLAYERS) {
                 openTaskInJosm(true);
             } else {
