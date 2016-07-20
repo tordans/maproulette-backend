@@ -4,12 +4,12 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import io.swagger.annotations.Api
+import io.swagger.annotations.{Api, ApiImplicitParam, ApiImplicitParams, ApiOperation}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
 import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
-import org.maproulette.models.{Challenge, ClusteredPoint, Project}
+import org.maproulette.models.{Challenge, ClusteredPoint, Project, Task}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -60,6 +60,24 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   /**
     * We override the base function and force -1 as the parent, as projects do not have parents.
     */
+  // scalastyle:off
+  @ApiOperation(
+    nickname = "readByName",
+    value = "Get a project based on it's name.",
+    notes =
+      """This method will retrieve a project based on the supplied name.""",
+    httpMethod = "GET",
+    produces = "application/json",
+    protocols = "http",
+    code = 200,
+    response = classOf[Project]
+  )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "name", value = "Name of the project.", required = true, dataType = "string", paramType = "path"
+    )
+  ))
+  // scalastyle:on
   override def readByName(id: Long, name: String): Action[AnyContent] = super.readByName(-1, name)
 
   /**
@@ -73,6 +91,40 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     * @param limit Limit of how many tasks should be returned
     * @return A list of Tasks that match the supplied filters
     */
+  // scalastyle:off
+  @ApiOperation(
+    nickname = "RandomTasks",
+    value = "Get a random tasks within a project.",
+    notes =
+      """This method will retrieve random task(s) from all the tasks contained within the challenges of the provided project.""",
+    httpMethod = "GET",
+    produces = "application/json",
+    protocols = "http",
+    code = 200,
+    response = classOf[Task],
+    responseContainer = "List"
+  )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "projectId", value = "ID of the project.", required = true, dataType = "long", paramType = "path"
+    ),
+    new ApiImplicitParam(
+      name = "challengeSearch", value = "Search text to filter by the name of the challenge.", required = false, dataType = "string", paramType = "query"
+    ),
+    new ApiImplicitParam(
+      name = "challengeTags", value = "Comma separated list of tags to filter the challenges by.", required = false, dataType = "string", paramType = "query"
+    ),
+    new ApiImplicitParam(
+      name = "tags", value = "Comma separated list of tags to filter the tasks by.", required = false, dataType = "string", paramType = "query"
+    ),
+    new ApiImplicitParam(
+      name = "taskSearch", value = "Search text to filter by the name of the tasks.", required = false, dataType = "string", paramType = "query"
+    ),
+    new ApiImplicitParam(
+      name = "limit", value = "Limit the number of returned tasks.", defaultValue = "1", required = false, dataType = "int", paramType = "query"
+    )
+  ))
+  // scalastyle:on
   def getRandomTasks(projectId: Long,
                      challengeSearch:String,
                      challengeTags:String,
@@ -93,6 +145,29 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     }
   }
 
+  // scalastyle:off
+  @ApiOperation(
+    nickname = "SearchedClusteredPoints",
+    value = "Retrieve a list of a clustered points.",
+    notes =
+      """
+        This method will retrieve a list of clustered points, that is filtered by the search cookie string. The search cookie string is a url
+        encoded json object that has the following properties: projectId, projectSearch, projectEnabled, challengeId, challengeTags,
+        challengeSearch, challengeEnabled, taskTags, taskSearch, priority, location.
+      """,
+    httpMethod = "GET",
+    produces = "application/json",
+    protocols = "http",
+    code = 200,
+    response = classOf[ClusteredPoint],
+    responseContainer = "List"
+  )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "search", value = "URL Encoded search cookie json object.", required = true, dataType = "string", paramType = "query"
+    )
+  ))
+  // scalastyle:on
   def getSearchedClusteredPoints(searchCookie:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val searchParams = SearchParameters.convert(searchCookie)
@@ -100,6 +175,28 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     }
   }
 
+  // scalastyle:off
+  @ApiOperation(
+    nickname = "ClusteredPoints",
+    value = "Retrieve a list of a clustered points.",
+    notes =
+      """This method will retrieve a list of clustered points for a set of challenges or for a project.""",
+    httpMethod = "GET",
+    produces = "application/json",
+    protocols = "http",
+    code = 200,
+    response = classOf[ClusteredPoint],
+    responseContainer = "List"
+  )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "projectId", value = "A single project id. If negative will assume all projects", required = true, dataType = "int", paramType = "path"
+    ),
+    new ApiImplicitParam(
+      name = "challengeIds", value = "A comma separated list of challenge ids to filter the list by", required = true, dataType = "string", paramType = "query"
+    )
+  ))
+  // scalastyle:on
   def getClusteredPoints(projectId:Long, challengeIds:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val pid = if (projectId < 0) {

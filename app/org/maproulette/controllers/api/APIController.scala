@@ -4,6 +4,7 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
+import io.swagger.annotations._
 import org.maproulette.exception.{StatusMessage, StatusMessages}
 import org.maproulette.models.Challenge
 import org.maproulette.models.dal.DALManager
@@ -20,6 +21,30 @@ class APIController @Inject() (dalManager: DALManager, sessionManager: SessionMa
 
   implicit val challengeWrites = Challenge.challengeWrites
 
+  // scalastyle:off
+  @ApiOperation(
+    nickname = "getSavedChallenges",
+    value = "Get the List of Saved Challenges for a specific user",
+    notes =
+      """This method will simply retrieve the list of saved challenges for the provided user.""",
+    httpMethod = "GET",
+    produces = "application/json",
+    consumes = "application/json",
+    protocols = "http",
+    code = 200
+  )
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(
+      name = "apiKey", value = "The apikey to authorize the request", required = true, dataType = "string", paramType = "header"
+    ),
+    new ApiImplicitParam(
+      name = "userId", value = "The id of the user your are requesting the saved challenges for", required = true, dataType = "long", paramType = "path"
+    )
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 404, message = "If the user is not found", response = classOf[StatusMessage])
+  ))
+  // scalastyle:on
   def getSavedChallenges(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dalManager.user.getSavedChallenges(userId, user)))
