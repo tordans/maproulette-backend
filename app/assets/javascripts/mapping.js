@@ -1039,13 +1039,13 @@ var MRManager = (function() {
                     }
                     break;
                 case 82: //r
-                    // open task in JSOM in current layer
+                    // open task in JOSM in current layer
                     if (!debugMode && !currentTask.getChallenge().isSurvey()) {
                         openTaskInJosm(false);
                     }
                     break;
                 case 84: //t
-                    // open task in JSOM in new layer
+                    // open task in JOSM in new layer
                     if (!debugMode && !currentTask.getChallenge().isSurvey()) {
                         openTaskInJosm(true);
                     }
