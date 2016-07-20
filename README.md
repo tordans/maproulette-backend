@@ -13,7 +13,7 @@ That said, read on if you want to contribute to MapRoulette development and are 
 
 ## Contributing
 
-Please fork the project and submit a pull request.
+Please fork the project and submit a pull request. See [Postman Docs](postman/README.md) for information on API Testing.
 
 ### Frameworks used
 
