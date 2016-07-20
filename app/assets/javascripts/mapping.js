@@ -833,7 +833,7 @@ var MRManager = (function() {
         window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
         // show the task text as a notification
         var taskInstruction = "##### Challenge: " + currentTask.getChallenge().getData().name + "\n---------\n\n";
-        if (taskInstruction === "") {
+        if (currentTask.getData().instruction === "") {
             taskInstruction += currentTask.getChallenge().getData().instruction;
         } else {
             taskInstruction += currentTask.getData().instruction;
