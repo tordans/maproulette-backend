@@ -37,6 +37,7 @@ GET     /challenge/:cid/tasks/random                @org.maproulette.controllers
 GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
 GET     /challenge/view/:id                         @org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(id:Long, filter:String ?= "")
 GET     /challenge/clustered/:id                    @org.maproulette.controllers.api.ChallengeController.getClusteredPoints(id:Long, filter:String ?= "")
+PUT     /challenge/:id/updateTaskPriorities         @org.maproulette.controllers.api.ChallengeController.updateTaskPriorities(id:Long)
 # Survey API
 POST    /survey                                     @org.maproulette.controllers.api.SurveyController.create
 POST    /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPost
