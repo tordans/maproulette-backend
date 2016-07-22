@@ -4,6 +4,8 @@ version := "2.0.2"
 
 scalaVersion := "2.11.8"
 
+packageName in Universal := "MapRouletteV2"
+
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 
 compileScalastyle := org.scalastyle.sbt.ScalastylePlugin.scalastyle.in(Compile).toTask("").value
