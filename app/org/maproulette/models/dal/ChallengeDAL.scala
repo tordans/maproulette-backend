@@ -420,24 +420,77 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         var currentTasks:List[Task] = List.empty
         do {
           currentTasks = listChildren(ChallengeDAL.DEFAULT_NUM_CHILDREN_LIST, pointer)
-          currentTasks.foreach {
-            task =>
-              this.taskDAL.cacheManager.withOptionCaching { () =>
-                val taskPriority = this.taskDAL.getTaskPriority(task, challenge)
-                if (taskPriority != task.priority) {
-                  this.taskDAL.update(Json.obj("priority" -> taskPriority), user)(task.id)
-                } else {
-                  Some(task)
-                }
-              }
+          val highPriorityIDs = currentTasks.filter(_.getTaskPriority(challenge) == Challenge.PRIORITY_HIGH).map(_.id).mkString(",")
+          val mediumPriorityIDs = currentTasks.filter(_.getTaskPriority(challenge) == Challenge.PRIORITY_MEDIUM).map(_.id).mkString(",")
+          val lowPriorityIDs = currentTasks.filter(_.getTaskPriority(challenge) == Challenge.PRIORITY_LOW).map(_.id).mkString(",")
+
+          if (highPriorityIDs.nonEmpty) {
+            SQL"""UPDATE tasks SET priority = ${Challenge.PRIORITY_HIGH} WHERE id IN (#$highPriorityIDs)""".executeUpdate()
           }
+          if (mediumPriorityIDs.nonEmpty) {
+            SQL"""UPDATE tasks SET priority = ${Challenge.PRIORITY_MEDIUM} WHERE id IN (#$mediumPriorityIDs)""".executeUpdate()
+          }
+          if (lowPriorityIDs.nonEmpty) {
+            SQL"""UPDATE tasks SET priority = ${Challenge.PRIORITY_LOW} WHERE id IN (#$lowPriorityIDs)""".executeUpdate()
+          }
+
           pointer += 1
         } while (currentTasks.size == 50)
+        this.taskDAL.clearCaches
       }
+    }
+  }
+
+  /**
+    * Lists the children of the parent, override the base functionality and includes the geojson
+    * as part of the query so that it doesn't have to fetch it each and every time.
+    *
+    * @param limit limits the number of children to be returned
+    * @param offset For paging, ie. the page number starting at 0
+    * @param id The parent ID
+    * @return A list of children objects
+    */
+  override def listChildren(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
+                            orderColumn:String="id", orderDirection:String="ASC")(implicit id:Long, c:Option[Connection]=None) : List[Task] = {
+    // add a child caching option that will keep a list of children for the parent
+    this.withMRConnection { implicit c =>
+      // slightly different from the standard parser, in that it retrieves the geojson within the sql
+      val geometryParser: RowParser[Task] = {
+        get[Long]("tasks.id") ~
+          get[String]("tasks.name") ~
+          get[Long]("parent_id") ~
+          get[Option[String]]("tasks.instruction") ~
+          get[Option[String]]("location") ~
+          get[String]("geometry") ~
+          get[Option[Int]]("tasks.status") ~
+          get[Int]("tasks.priority") map {
+          case id ~ name ~ parent_id ~ instruction ~ location ~ geometry ~ status ~ priority =>
+            Task(id, name, parent_id, instruction, location, geometry, status, priority)
+        }
+      }
+
+      val query = s"""SELECT ${taskDAL.retrieveColumns},
+                        (SELECT row_to_json(fc)::text as geometries
+                          FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
+                                  FROM ( SELECT 'Feature' As type,
+                                                ST_AsGeoJSON(lg.geom)::json As geometry,
+                                                hstore_to_json(lg.properties) As properties
+                                        FROM task_geometries As lg
+                                        WHERE task_id = tasks.id
+                                  ) As f
+                          ) As fc)::text AS geometry FROM tasks
+                      WHERE parent_id = {id} ${this.enabled(onlyEnabled)}
+                      ${this.searchField("name")}
+                      ${this.order(Some(orderColumn), orderDirection)}
+                      LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> this.search(searchString),
+        'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
+        'offset -> offset)
+        .as(geometryParser.*)
     }
   }
 }
 
 object ChallengeDAL {
-  val DEFAULT_NUM_CHILDREN_LIST = 50
+  val DEFAULT_NUM_CHILDREN_LIST = 1000
 }

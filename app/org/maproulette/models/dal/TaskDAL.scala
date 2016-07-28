@@ -328,39 +328,9 @@ class TaskDAL @Inject() (override val db:Database,
           case Some(c) => c
           case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
         }
-        val newPriority = this.getTaskPriority(task, parentChallenge)
+        val newPriority = task.getTaskPriority(parentChallenge)
         this.update(Json.obj("priority" -> newPriority), user)
       }
-    }
-  }
-
-  /**
-    * Gets the task priority
-    *
-    * @param task The task
-    * @param parent The parent Challenge
-    * @return Priority HIGH = 0, MEDIUM = 1, LOW = 2
-    */
-  def getTaskPriority(task:Task, parent:Challenge) : Int = {
-    val matchingList = task.getGeometryProperties().flatMap {
-      props => if (parent.isHighPriority(props)) {
-        Some(Challenge.PRIORITY_HIGH)
-      } else if (parent.isMediumPriority(props)) {
-        Some(Challenge.PRIORITY_MEDIUM)
-      } else if (parent.isLowRulePriority(props)) {
-        Some(Challenge.PRIORITY_LOW)
-      } else {
-        None
-      }
-    }
-    if (matchingList.isEmpty) {
-      parent.defaultPriority
-    } else if (matchingList.contains(Challenge.PRIORITY_HIGH)) {
-      Challenge.PRIORITY_HIGH
-    } else if (matchingList.contains(Challenge.PRIORITY_MEDIUM)) {
-      Challenge.PRIORITY_MEDIUM
-    } else {
-      Challenge.PRIORITY_LOW
     }
   }
 

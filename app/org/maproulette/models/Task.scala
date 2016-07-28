@@ -45,6 +45,35 @@ case class Task(override val id:Long,
       List.empty
     }
   }
+
+  /**
+    * Gets the task priority
+    *
+    * @param parent The parent Challenge
+    * @return Priority HIGH = 0, MEDIUM = 1, LOW = 2
+    */
+  def getTaskPriority(parent:Challenge) : Int = {
+    val matchingList = getGeometryProperties().flatMap {
+      props => if (parent.isHighPriority(props)) {
+        Some(Challenge.PRIORITY_HIGH)
+      } else if (parent.isMediumPriority(props)) {
+        Some(Challenge.PRIORITY_MEDIUM)
+      } else if (parent.isLowRulePriority(props)) {
+        Some(Challenge.PRIORITY_LOW)
+      } else {
+        None
+      }
+    }
+    if (matchingList.isEmpty) {
+      parent.defaultPriority
+    } else if (matchingList.contains(Challenge.PRIORITY_HIGH)) {
+      Challenge.PRIORITY_HIGH
+    } else if (matchingList.contains(Challenge.PRIORITY_MEDIUM)) {
+      Challenge.PRIORITY_MEDIUM
+    } else {
+      Challenge.PRIORITY_LOW
+    }
+  }
 }
 
 object Task {
