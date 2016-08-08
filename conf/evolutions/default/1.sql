@@ -77,7 +77,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'home_location';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
+    PERFORM AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
   END IF;;
 END $$;;
 
@@ -207,7 +207,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'location';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
+    PERFORM AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
   END IF;;
 END$$;;
 
@@ -305,7 +305,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'task_geometries' AND column_name = 'geom';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);;
+    PERFORM AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);;
   END IF;;
 END$$;;
 
