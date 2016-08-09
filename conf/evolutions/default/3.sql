@@ -5,7 +5,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'challenges' AND column_name = 'location';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('challenges', 'location', 4326, 'POINT', 2);;
+    PERFORM AddGeometryColumn('challenges', 'location', 4326, 'POINT', 2);;
   END IF;;
 END$$;;
 
