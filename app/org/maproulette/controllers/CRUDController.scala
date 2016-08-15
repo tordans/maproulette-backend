@@ -183,7 +183,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   @ApiOperation(
     nickname = "update",
-    value = "Create object from json body payload",
+    value = "Update existing object from json body payload",
     notes =
       """The update method will update any variables that are supplied in the json payload""",
     httpMethod = "PUT",
