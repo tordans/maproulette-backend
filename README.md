@@ -73,4 +73,4 @@ In the mean time see [here](docs/api.md) for current API documentation (not guar
 
 Bug and feature requests are best left as an issue right here on Github. For other things, contact maproulette@maproulette.org
 
-MapRoulette now also has its very own [Slack community](http://maproulette.slack.com). Invite yourself [here](https://maproulette-slack-selfinvite.herokuapp.com)!
+MapRoulette now also has a channel #maproulette on the [OSM US Slack community](http://osmus.slack.com). Invite yourself [here](https://osmus-slack.herokuapp.com/)!

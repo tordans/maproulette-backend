@@ -1099,7 +1099,7 @@ var MRManager = (function() {
 
     var getCommentHashtags = function() {
         // add comment specific to challenge, make sure the name has no whitespace
-        return "#maproulette%20" + currentTask.getChallenge().getData().name.replace(/ /g, "_");
+        return "%23maproulette%20" + currentTask.getChallenge().getData().name.replace(/ /g, "_");
     };
 
     var openTaskInId = function () {
