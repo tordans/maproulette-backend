@@ -703,6 +703,10 @@ var MRManager = (function() {
             }
         }
 
+        L.control.zoom({
+            position:'topright'
+        }).addTo(map);
+
         // geojson layer
         geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
@@ -834,13 +838,13 @@ var MRManager = (function() {
         // update the browser url to reflect the current task
         window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
         // show the task text as a notification
-        var taskInstruction = "##### Challenge: " + currentTask.getChallenge().getData().name + "\n---------\n\n";
+        var taskInstruction = "#### " + currentTask.getChallenge().getData().name + "\n---------\n\n";
         if (currentTask.getData().instruction === "") {
             taskInstruction += currentTask.getChallenge().getData().instruction;
         } else {
             taskInstruction += currentTask.getData().instruction;
         }
-        taskInstruction += "\n\n-------\n\nStatus: " + TaskStatus.getStatusName(currentTask.getData().status);
+        taskInstruction += "\n\n-------\n\n*Status: " + TaskStatus.getStatusName(currentTask.getData().status) + "*";
         ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
