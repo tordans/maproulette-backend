@@ -154,8 +154,8 @@ object Challenge {
       "mediumPriorityRule" -> optional(text),
       "lowPriorityRule" -> optional(text),
       "defaultZoom" -> default(number, DEFAULT_ZOOM),
-      "minZoom" -> default(number, 0),
-      "maxZoom" -> default(number, 19),
+      "minZoom" -> default(number, MIN_ZOOM),
+      "maxZoom" -> default(number, MAX_ZOOM),
       "defaultBasemap" -> optional(number),
       "customBasemap" -> optional(text)
     )(Challenge.apply)(Challenge.unapply)
