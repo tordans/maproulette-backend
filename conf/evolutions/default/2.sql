@@ -44,7 +44,7 @@ BEGIN
       SELECT INTO return_id update_task(task_name, task_parent_id, task_instruction, task_status, task_id, task_priority, reset_interval);;
     END;;
   ELSE
-    SELECT update_task(task_name, task_parent_id, task_instruction, task_status, task_id, task_priority, reset_interval);;
+    PERFORM update_task(task_name, task_parent_id, task_instruction, task_status, task_id, task_priority, reset_interval);;
   END IF;;
   RETURN return_id;;
 END
