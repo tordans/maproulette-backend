@@ -11,11 +11,9 @@ import scala.concurrent.duration._
   * @author cuthbertm
   */
 class Scheduler @Inject() (val system: ActorSystem,
-                           @Named("scheduler-actor") val schedulerActor:ActorRef,
-                           @Named("challenge-scheduler-actor") val challengeSchedulerActor: ActorRef,
-                           @Named("location-scheduler-actor") val locationSchedulerActor: ActorRef)
+                           @Named("scheduler-actor") val schedulerActor:ActorRef)
                           (implicit ec:ExecutionContext) {
   this.system.scheduler.schedule(1.minute, 1.hour, this.schedulerActor, "cleanLocks")
-  this.system.scheduler.schedule(1.minute, 24.hour, this.challengeSchedulerActor, "runChallengeSchedules")
-  this.system.scheduler.schedule(1.minute, 12.hour, this.locationSchedulerActor, "updateLocations")
+  this.system.scheduler.schedule(1.minute, 24.hour, this.schedulerActor, "runChallengeSchedules")
+  this.system.scheduler.schedule(1.minute, 12.hour, this.schedulerActor, "updateLocations")
 }
