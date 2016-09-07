@@ -77,7 +77,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'home_location';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
+    PERFORM AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
   END IF;;
 END $$;;
 
@@ -207,7 +207,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'location';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
+    PERFORM AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
   END IF;;
 END$$;;
 
@@ -305,7 +305,7 @@ DO $$
 BEGIN
   PERFORM column_name FROM information_schema.columns WHERE table_name = 'task_geometries' AND column_name = 'geom';;
   IF NOT FOUND THEN
-    SELECT AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);;
+    PERFORM AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);;
   END IF;;
 END$$;;
 
@@ -412,11 +412,11 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 -- Insert the default root, used for migration and those using the old API
---INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
---INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
---INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
-    --VALUES (-999, -999, NOW(), 'SuperUser', '', '', 'skin-black');
---INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
+INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
+INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
+INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
+    VALUES (-999, -999, NOW(), 'SuperUser', '', '', 0);
+INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
 
 # --- !Downs
 --DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);
