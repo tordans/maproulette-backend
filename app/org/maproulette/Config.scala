@@ -8,7 +8,7 @@ import org.maproulette.actions.Actions
 import play.api.Application
 import play.api.libs.oauth.ConsumerKey
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 case class OSMOAuth(userDetailsURL:String, requestTokenURL:String, accessTokenURL:String,
                     authorizationURL:String, consumerKey:ConsumerKey)
@@ -74,6 +74,20 @@ class Config @Inject() (implicit val application:Application) {
   lazy val sessionTimeout : Long = this.config.getLong(Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
 
   lazy val taskReset : Int = this.config.getInt(Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
+
+  /**
+    * Retrieves a FiniteDuration config value from the configuration and executes the
+    * block of code when found.
+    *
+    * @param key Configuration Key
+    * @param block The block of code executed if a FiniteDuration is found
+    */
+  def withFiniteDuration(key:String)(block:(FiniteDuration) => Unit):Unit = {
+    application.configuration.getString(key)
+      .map(Duration(_)).filter(_.isFinite())
+      .map(duration => FiniteDuration(duration._1, duration._2))
+      .foreach(block(_))
+  }
 }
 
 object Config {
@@ -98,6 +112,14 @@ object Config {
   val KEY_OSM_AUTHORIZATION_URL = s"$GROUP_OSM.authorizationURL"
   val KEY_OSM_CONSUMER_KEY = s"$GROUP_OSM.consumerKey"
   val KEY_OSM_CONSUMER_SECRET = s"$GROUP_OSM.consumerSecret"
+
+  val SUB_GROUP_SCHEDULER = s"$GROUP_OSM.scheduler"
+  val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
+  val KEY_SCHEDULER_RUN_CHALLENGE_SCHEDULES_INTERVAL = s"$SUB_GROUP_SCHEDULER.runChallengeSchedules.interval"
+  val KEY_SCHEDULER_UPDATE_LOCATIONS_INTERVAL = s"$SUB_GROUP_SCHEDULER.updateLocations.interval"
+  val KEY_SCHEDULER_CLEAN_TASKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.interval"
+  val KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.statusFilter"
+  val KEY_SCHEDULER_CLEAN_TASKS_OLDER_THAN = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.olderThan"
 
   val KEY_OSM_QL_PROVIDER = s"$GROUP_OSM.ql.provider"
   val KEY_OSM_QL_TIMEOUT = s"$GROUP_OSM.ql.timeout"
