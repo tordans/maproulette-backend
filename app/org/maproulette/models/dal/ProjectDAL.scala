@@ -235,9 +235,9 @@ class ProjectDAL @Inject() (override val db:Database,
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
           ${challengeTags._1}
-          WHERE c.location IS NOT NULL AND (
-            SELECT COUNT(*) FROM tasks
-            WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
+          WHERE c.location IS NOT NULL AND EXISTS (
+            SELECT id FROM tasks
+            WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD}) LIMIT 1)
           ${this.searchField("c.name", "AND", "cs")}
           ${this.searchField("p.name", "AND", "ps")}
           ${this.enabled(params.challengeEnabled, "c")} ${this.enabled(params.projectEnabled, "p")}
@@ -264,9 +264,9 @@ class ProjectDAL @Inject() (override val db:Database,
                     c.difficulty, c.challenge_type
               FROM challenges c
               INNER JOIN projects p ON p.id = c.parent_id
-              WHERE c.location IS NOT NULL AND (
-                SELECT COUNT(*) FROM tasks
-                WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD})) > 0
+              WHERE c.location IS NOT NULL AND EXISTS (
+                SELECT id FROM tasks
+                WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD}) LIMIT 1)
               #${this.enabled(enabledOnly, "c")} #${this.enabled(enabledOnly, "p")}
               #${if(projectId.isDefined) { s" AND c.parent_id = ${projectId.get}"} else { "" }}
               #${if(challengeIds.nonEmpty) { s" AND c.id IN (${challengeIds.mkString(",")})"} else { "" }}
