@@ -93,20 +93,24 @@ class TaskDAL @Inject() (override val db:Database,
     }
   }
 
+  private def getTaskGeometries(id:Long)(implicit c:Option[Connection]=None) : String = taskGeometries(id, "task_geometries")
+
+  def getSuggestedFix(id:Long)(implicit c:Option[Connection]=None) : String = taskGeometries(id, "task_suggested_fix")
+
   /**
     * Retrieve all the geometries for the task
     *
     * @param id Id for the task
     * @return A feature collection geojson of all the task geometries
     */
-  private def getTaskGeometries(id:Long)(implicit c:Option[Connection]=None) : String = {
+  private def taskGeometries(id:Long, tableName:String)(implicit c:Option[Connection]=None) : String = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
                    FROM ( SELECT 'Feature' As type,
                                   ST_AsGeoJSON(lg.geom)::json As geometry,
                                   hstore_to_json(lg.properties) As properties
-                          FROM task_geometries As lg
+                          FROM #$tableName As lg
                           WHERE task_id = $id
                     ) As f
             )  As fc""".as(SqlParser.str("geometries").single)
@@ -244,16 +248,28 @@ class TaskDAL @Inject() (override val db:Database,
   }
 
   /**
+    * There can only be a single suggested fix for a task, so if you add one it will remove any
+    * others that were added previously.
+    *
+    * @param taskId The id for the task
+    * @param value The JSON value for the suggested fix
+    * @param c
+    */
+  def addSuggestedFix(taskId:Long, value:JsValue)(implicit c:Option[Connection]=None) : Unit =
+    updateGeometries(taskId, value, false, true, "task_suggested_fix")
+
+  /**
     * Function that updates the geometries for the task, either during an insert or update
     *
     * @param taskId The task Id to update the geometries for
     * @param value The geojson that contains the geometries/features
     * @param setLocation Whether to set the location based on the geometries or not
     */
-  private def updateGeometries(taskId:Long, value:JsValue, setLocation:Boolean=false, isNew:Boolean=false)(implicit c:Option[Connection]=None) : Unit = {
+  private def updateGeometries(taskId:Long, value:JsValue, setLocation:Boolean=false, isNew:Boolean=false,
+                               tableName:String="task_geometries")(implicit c:Option[Connection]=None) : Unit = {
     this.withMRTransaction { implicit c =>
       if (!isNew) {
-        SQL"""DELETE FROM task_geometries WHERE task_id = $taskId""".executeUpdate()
+        SQL"""DELETE FROM #$tableName WHERE task_id = $taskId""".executeUpdate()
       }
       val features = (value \ "features").as[List[JsValue]]
       val indexedValues = features.zipWithIndex
@@ -271,7 +287,7 @@ class TaskDAL @Inject() (override val db:Database,
           NamedParameter(s"props_$i", ParameterValue.toParameterValue(props))
         )
       } ++ Seq(NamedParameter("taskId", ParameterValue.toParameterValue(taskId)))
-      SQL("INSERT INTO task_geometries (task_id, geom, properties) VALUES " + rows)
+      SQL(s"INSERT INTO $tableName (task_id, geom, properties) VALUES " + rows)
         .on(parameters: _*)
         .execute()
       c.commit()
