@@ -412,11 +412,22 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 -- Insert the default root, used for migration and those using the old API
-INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');
-INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);
+INSERT INTO projects (id, name, description)
+SELECT 0, 'SuperRootProject', 'Root Project for super users.' WHERE NOT EXISTS (
+    SELECT id FROM projects WHERE id = 0
+);
+INSERT INTO groups (id, project_id, name, group_type)
+SELECT -999, 0, 'SUPERUSERS', -1 WHERE NOT EXISTS (
+    SELECT id FROM groups WHERE id = -999
+);
 INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
-    VALUES (-999, -999, NOW(), 'SuperUser', '', '', 0);
-INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);
+SELECT -999, -999, NOW(), 'SuperUser', '', '', 0 WHERE NOT EXISTS (
+    SELECT id FROM users WHERE id = -999
+);
+INSERT INTO user_groups (osm_user_id, group_id)
+SELECT -999, -999 WHERE NOT EXISTS (
+    SELECT id FROM user_groups WHERE osm_user_id = -999 AND group_id = -999
+);
 
 # --- !Downs
 --DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);
