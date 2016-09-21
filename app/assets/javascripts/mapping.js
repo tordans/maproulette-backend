@@ -642,6 +642,13 @@ var MRManager = (function() {
     var updateMapOptions = function(mapElement, point, options) {
         if (typeof options === 'undefined') {
             options = {layer: LoggedInUser.defaultBasemap, customLayerURI: LoggedInUser.customBasemap};
+        } else {
+            if (Utils.getDefaultValue(options.layer, Basemaps.NONE) === Basemaps.NONE) {
+                options.layer = LoggedInUser.defaultBasemap;
+            }
+            if (Utils.getDefaultValue(options.customLayerURI, "") === "") {
+                options.customLayerURI = LoggedInUser.customBasemap;
+            }
         }
         var osm_layer = new L.TileLayer.OpenStreetMap();
         var layers = Utils.getDefaultValue(options.layers, {
@@ -649,7 +656,7 @@ var MRManager = (function() {
             'OpenCycleMap': new L.TileLayer.OpenCycleMap(),
             'Bing Aerial': new L.TileLayer.Bing()
         });
-        var mapLayer = Utils.getDefaultValue(options.layer, osm_layer);
+        var mapLayer = Utils.getDefaultValue(options.layer, Basemaps.OSM);
         var currentLayer = layers.OSM;
         if (typeof mapLayer === 'number') {
             if (mapLayer === Basemaps.OCM) {
