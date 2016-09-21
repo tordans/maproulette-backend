@@ -3,7 +3,9 @@ toastr.options.positionClass = "notification-position";
 L.TileLayer.Common = L.TileLayer.extend({
     initialize: function (options) {
         L.TileLayer.prototype.initialize.call(this, this.url, options);
-    }
+    },
+    // Workaround until https://github.com/Leaflet/Leaflet/issues/4915 is released
+    options: { maxZoom: 19 }
 });
 
 // -- CUSTOM CONTROLS ----------------------------------
