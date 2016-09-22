@@ -836,7 +836,8 @@ var MRManager = (function() {
      */
     var updateTaskDisplay = function() {
         geojsonLayer.addData(currentTask.getData().geometry);
-        map.fitBounds(geojsonLayer.getBounds());
+        // limit taskDisplay maxZoom by the default zoom set in the challenge.
+        map.fitBounds(geojsonLayer.getBounds(), { maxZoom: map.options.zoom });
         controlPanel.update(signedIn, debugMode, true, true, true);
         resetEditControls();
         var challengeId = currentTask.getChallenge().getData().id;
