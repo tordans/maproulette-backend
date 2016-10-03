@@ -374,6 +374,9 @@ mapping.js.location.the=the
 mapping.js.custom.attribution=Custom Base map - No Attribution
 mapping.js.custom.error=Error while loading the map with the custom basemap {0}, reverting to OSM layer.
 mapping.js.challenge.saved=Challenge Saved!
+mapping.js.instruction.challenge=Challenge
+mapping.js.instruction.status=Status
+mapping.js.instruction.lastModifiedUser=Last user to modify task
 
 main.js.deletion=Deleting
 main.js.api.generation=Generating API Key for user [{0}]

@@ -513,7 +513,6 @@ function Task() {
         if (data.parentId == -1 && data.id == -1) {
             ToastUtils.Info(Messages("mapping.js.task.debugmode"));
         } else {
-
             jsRoutes.controllers.MappingController
                 .getSequentialNextTask(data.parentId, data.id)
                 .ajax({
@@ -844,13 +843,16 @@ var MRManager = (function() {
         // update the browser url to reflect the current task
         window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
         // show the task text as a notification
-        var taskInstruction = "##### Challenge: " + currentTask.getChallenge().getData().name + "\n---------\n\n";
+        var taskInstruction = "##### " + Messages("mapping.js.instruction.challenge") + ": " + currentTask.getChallenge().getData().name + "\n---------\n\n";
         if (currentTask.getData().instruction === "") {
             taskInstruction += currentTask.getChallenge().getData().instruction;
         } else {
             taskInstruction += currentTask.getData().instruction;
         }
-        taskInstruction += "\n\n-------\n\nStatus: " + TaskStatus.getStatusName(currentTask.getData().status);
+        taskInstruction += "\n\n-------\n\n" + Messages("mapping.js.instruction.status") + ": " + TaskStatus.getStatusName(currentTask.getData().status);
+        if (typeof currentTask.getData().last_modified_user !== 'undefined') {
+            taskInstruction += "\n\n" + Messages("mapping.js.instruction.lastModifiedUser") + ":" + currentTask.getData().last_modified_user;
+        }
         ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();

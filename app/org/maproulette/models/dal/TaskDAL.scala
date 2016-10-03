@@ -15,13 +15,14 @@ import org.maproulette.models.{Challenge, Lock, Project, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
+import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, User}
 import play.api.Logger
 import play.api.db.Database
 import play.api.libs.json._
 
 import scala.collection.mutable.ListBuffer
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * The data access layer for the Task objects
@@ -32,6 +33,7 @@ import scala.util.{Success, Failure, Try}
 class TaskDAL @Inject() (override val db:Database,
                          override val tagDAL: TagDAL, config:Config,
                          override val permission:Permission,
+                         userDAL: Provider[UserDAL],
                          projectDAL: Provider[ProjectDAL],
                          challengeDAL: Provider[ChallengeDAL],
                          actions:ActionManager)
@@ -396,11 +398,13 @@ class TaskDAL @Inject() (override val db:Database,
   /**
     * Simple query to retrieve the next task in the sequence
     *
-    * @param parentId The parent of the task
+    * @param parentId      The parent of the task
     * @param currentTaskId The current task that we are basing our query from
+    * @param statusList    the list of status' to filter by
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
-  def getNextTaskInSequence(parentId:Long, currentTaskId:Long)(implicit c:Option[Connection]=None) : Option[(Task, Lock)] = {
+  def getNextTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
+                           (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -409,15 +413,21 @@ class TaskDAL @Inject() (override val db:Database,
       val query = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
                       WHERE tasks.id > $currentTaskId AND tasks.parent_id = $parentId
+                      AND status IN ({statusList})
                       ORDER BY tasks.id ASC LIMIT 1"""
-      SQL(query).as(lp.*).headOption match {
+      val slist = statusList.getOrElse(Task.statusMap.keys.toSeq) match {
+        case Nil => Task.statusMap.keys.toSeq
+        case t => t
+      }
+      SQL(query).on('statusList -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
           val loopQuery = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
                               WHERE tasks.parent_id = $parentId
+                              AND status IN ({statusList})
                               ORDER BY tasks.id ASC LIMIT 1"""
-          SQL(loopQuery).as(lp.*).headOption
+          SQL(loopQuery).on('statusList -> slist).as(lp.*).headOption
       }
     }
   }
@@ -425,11 +435,13 @@ class TaskDAL @Inject() (override val db:Database,
   /**
     * Simple query to retrieve the previous task in the sequence
     *
-    * @param parentId The parent of the task
+    * @param parentId      The parent of the task
     * @param currentTaskId The current task that we are basing our query from
+    * @param statusList    the list of status' to filter by
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
-  def getPreviousTaskInSequence(parentId:Long, currentTaskId:Long)(implicit c:Option[Connection]=None) : Option[(Task, Lock)] = {
+  def getPreviousTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
+                               (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -438,15 +450,21 @@ class TaskDAL @Inject() (override val db:Database,
       val query = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
                       WHERE tasks.id < $currentTaskId AND tasks.parent_id = $parentId
+                      AND status IN ({statusList})
                       ORDER BY tasks.id DESC LIMIT 1"""
-      SQL(query).as(lp.*).headOption match {
+      val slist = statusList.getOrElse(Task.statusMap.keys.toSeq) match {
+        case Nil => Task.statusMap.keys.toSeq
+        case t => t
+      }
+      SQL(query).on('statusList -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
           val loopQuery = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
                               WHERE tasks.parent_id = $parentId
+                              AND status IN ({statusList})
                               ORDER BY tasks.id DESC LIMIT 1"""
-          SQL(loopQuery).as(lp.*).headOption
+          SQL(loopQuery).on('statusList -> slist).as(lp.*).headOption
       }
     }
   }
@@ -555,9 +573,9 @@ class TaskDAL @Inject() (override val db:Database,
 
 
     val query = s"$firstQuery ${queryBuilder.toString} ${whereClause.toString} " +
-                s"OFFSET FLOOR(RANDOM()*(" +
-                s"$secondQuery ${queryBuilder.toString} ${whereClause.toString}" +
-                s")) LIMIT ${this.sqlLimit(limit)}"
+      s"OFFSET FLOOR(RANDOM()*(" +
+      s"$secondQuery ${queryBuilder.toString} ${whereClause.toString}" +
+      s")) LIMIT ${this.sqlLimit(limit)}"
 
     implicit val ids = List[Long]()
     this.cacheManager.withIDListCaching { implicit cachedItems =>
@@ -580,6 +598,29 @@ class TaskDAL @Inject() (override val db:Database,
           tasks
         }
       }
+    }
+  }
+
+  /**
+    * Returns the list of users that modified the requested task
+    *
+    * @param user The user making the request
+    * @param id The id of the task
+    * @param limit The number of distinct users that modified the task
+    * @param c An implicit connection to use, if not found will create a new connection
+    * @return A list of users that modified the task
+    */
+  def getLastModifiedUser(user:User, id:Long, limit:Int=1)(implicit c:Option[Connection]=None) : List[User] = {
+    withMRConnection { implicit c =>
+      val query =
+        s"""
+           |SELECT ${userDAL.get().retrieveColumns} FROM users WHERE osm_id IN (
+           |  SELECT osm_user_id FROM status_actions WHERE task_id = {id}
+           |  ORDER BY created DESC
+           |  LIMIT {limit}
+           |)
+         """.stripMargin
+      SQL(query).on('id -> id, 'limit -> limit).as(userDAL.get().parser.*)
     }
   }
 }

@@ -67,7 +67,9 @@ class MappingController @Inject() (sessionManager:SessionManager,
     */
   def getSequentialNextTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId)))
+      SearchParameters.withSearch { params =>
+        Ok(getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId, Some(params.taskStatus))))
+      }
     }
   }
 
@@ -80,7 +82,9 @@ class MappingController @Inject() (sessionManager:SessionManager,
     */
   def getSequentialPreviousTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId)))
+      SearchParameters.withSearch { params =>
+        Ok(getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId, Some(params.taskStatus))))
+      }
     }
   }
 
@@ -102,6 +106,15 @@ class MappingController @Inject() (sessionManager:SessionManager,
         case Some(_) => true
         case None => false
       }
+      val userString = taskDAL.getLastModifiedUser(null, t._1.id).headOption match {
+        case Some(user) =>
+          s"""
+             |   "last_modified_user_osm_id":${user.osmProfile.id},
+             |   "last_modified_user_id":${user.id},
+             |   "last_modified_user":"${user.osmProfile.displayName}",
+           """.stripMargin
+        case None => ""
+      }
       Json.parse(
         s"""
            |{
@@ -110,7 +123,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
            |   "name":"${t._1.name}",
            |   "instruction":"${StringEscapeUtils.escapeJson(t._1.instruction.getOrElse(""))}",
            |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
-           |   "status":$currentStatus,
+           |   "status":$currentStatus, $userString
            |   "geometry":${t._1.geometries},
            |   "locked":$locked
            |}
