@@ -27,6 +27,7 @@ case class SearchParameters(projectId:Option[Long]=None,
                             challengeEnabled:Boolean=true,
                             taskTags:List[String]=List.empty,
                             taskSearch:String="",
+                            taskStatus:List[Int]=List.empty,
                             props:Option[Map[String, String]]=None,
                             priority:Option[Int]=None,
                             location:Option[SearchLocation]=None,
@@ -68,7 +69,7 @@ object SearchParameters {
     */
   def withSearch[T](block:SearchParameters => T)(implicit request:Request[AnyContent]) : T = {
     val params = request.cookies.get("search") match {
-      case Some(c) => Utils.omitEmpty(Json.parse(URLDecoder.decode(c.value, "UTF-8")).as[JsObject], false, false).as[SearchParameters]
+      case Some(c) => convert(c.value)
       case None => SearchParameters()
     }
     block(params)

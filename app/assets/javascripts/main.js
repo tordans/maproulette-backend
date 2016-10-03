@@ -184,24 +184,20 @@ function SearchParameters() {
         challengeTags: [],
         taskSearch: '',
         taskTags: [],
+        taskStatus: [],
         props: {},
         priority: -1,
         location: {},
         owner: ''
     };
-    
-    var search = Cookies.getJSON('search');
-    if (typeof search === 'undefined' || search == {}) {
-        search = defaultState;
-    }
-    
-    this.reset = function() {
-        search = defaultState;
-        update();
-    };
 
     var update = function() {
         Cookies.set('search', search);
+    };
+
+    this.reset = function() {
+        search = defaultState;
+        update();
     };
 
     var getValue = function(key) {
@@ -212,6 +208,43 @@ function SearchParameters() {
         search[key] = value;
         update();
     };
+
+    var setValueByQS = function(key, convert) {
+        var value = Utils.getQSParameterByName(key);
+        if (typeof value !== 'undefined' && value !== "" && value !== null) {
+            if (typeof convert !== 'undefined') {
+                setValue(key, convert(value));
+            } else {
+                setValue(key, value);
+            }
+        }
+    };
+
+    this.qsUpdate = function(reset) {
+        if (reset) {
+            reset();
+        }
+        setValueByQS("projectId", parseInt);
+        setValueByQS("projectSearch");
+        setValueByQS("projectEnabled", Boolean);
+        setValueByQS("challengeId", parseInt);
+        setValueByQS("challengeEnabled", Boolean);
+        setValueByQS("challengeSearch");
+        setValueByQS("challengeTags", function(v) { return v.split(","); });
+        setValueByQS("taskSearch");
+        setValueByQS("taskTags", function(v) { return v.split(","); });
+        setValueByQS("taskStatus", function(v) { return v.split(",").map(Number); });
+        //setValueByQS("props");
+        setValueByQS("priority", parseInt);
+        setValueByQS("location");
+        setValueByQS("owner");
+    };
+    
+    var search = Cookies.getJSON('search');
+    if (typeof search === 'undefined' || search == {}) {
+        search = defaultState;
+    }
+    this.qsUpdate();
 
     this.getCookieString = function() {
         return Cookies.get('search');
@@ -276,6 +309,12 @@ function SearchParameters() {
             tags = tags.split(",");
         }
         setValue("taskTags", tags);
+    };
+    this.getTaskStatus = function() {
+        return getValue("taskStatus");
+    };
+    this.setTaskStatus = function(status) {
+        setValue("taskStatus", status);
     };
     this.getOSMProperties = function() {
         return getValue("props");
