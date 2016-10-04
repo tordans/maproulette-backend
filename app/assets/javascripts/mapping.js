@@ -818,7 +818,7 @@ var MRManager = (function() {
                         '</a></div>';
                 }
                 popupString += '</div>';
-                marker.bindPopup(popupString, { maxHeight: 200 });
+                marker.bindPopup(popupString, { maxHeight: 200, maxWidth: "auto" });
 
                 markers.addLayer(marker);
             }
