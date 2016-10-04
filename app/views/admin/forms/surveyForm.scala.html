@@ -2,12 +2,12 @@
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
 @import org.maproulette.session.User
-@(user:User, parentId:Long, surveyForm:Form[Survey])(implicit messages: Messages)
+@(user:User, parentName:String, parentId:Long, surveyForm:Form[Survey])(implicit messages: Messages)
 
 @views.html.admin.common.header("Administration", null,
     Map(
-        "Projects" -> ("fa fa-folder", routes.Application.adminUIProjectList()),
-        "Challenges" -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId))
+        "Projects" -> ("fa fa-folder", Some(routes.Application.adminUIProjectList())),
+        parentName -> ("", Some(routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)))
     )
 )
 <section class="content">

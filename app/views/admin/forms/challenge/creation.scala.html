@@ -4,57 +4,57 @@
 @defining(!challengeForm("overpassQL").value.getOrElse("").isEmpty) { isOverpass =>
     @defining(!challengeForm("remoteGeoJson").value.getOrElse("").isEmpty) { isRemote =>
         @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
-            <span class="help-block">
-                You can optionally select how to create tasks for you challenge, using either an overpass query, a local GeoJSON file or a remote GeoJSON file.</span>
+            <span class="help-block">@messages("challenge.wizard.creation.help")</span>
             <div class="nav-tabs-custom">
                 <ul class="nav nav-tabs">
                     <li @if(isOverpass || !isRemote) { class="active" } @if(isRemote) { class="disabled" }>
-                        <a href="#overpass" @if(!isRemote) { data-toggle="tab" }>Overpass</a>
+                        <a href="#overpass" @if(!isRemote) { data-toggle="tab" }>@messages("challenge.wizard.creation.tab.overpass")</a>
                     </li>
                     <li @if(isOverpass || isRemote ) { class="disabled" }>
-                        <a href="#local" @if(!isOverpass && !isRemote) { data-toggle="tab" }>Local GeoJSON</a>
+                        <a href="#local" @if(!isOverpass && !isRemote) { data-toggle="tab" }>@messages("challenge.wizard.creation.tab.geojson.local")</a>
                     </li>
                     <li @if(isRemote) { class="active" } @if(isOverpass) { class="disabled" }>
-                        <a href="#remote" @if(!isOverpass) { data-toggle="tab" }>Remote GeoJSON</a>
+                        <a href="#remote" @if(!isOverpass) { data-toggle="tab" }>@messages("challenge.wizard.creation.tab.geojson.remote")</a>
                     </li>
                 </ul>
                 <div class="tab-content">
                     <div class="@if(isOverpass || !isRemote) { active }tab-pane" id="overpass">
-                        <span class="help-block">
-                            It is very important that we get all the information that is required
-                            to build the tasks correctly. Please include <b>'out body geom qt;'</b> as the first
-                            out statement in your query. Ultimately we need to the full geometry for each
-                            node, way and relation object returned in the json response.
+                        <span class="help-block">@Html(messages("challenge.wizard.creation.overpass.info"))
                         </span>
                         @textarea(challengeForm("overpassQL"),
-                            label = "Overpass API",
+                            label = messages("challenge.wizard.creation.overpass.label"),
                             rows = "5",
-                            placeholder = "Enter overpass API here...",
-                            help = "Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. " +
-                                    "By entering information here it will generate the tasks in the background. " +
-                                    "Please provide a suitable bounding box when inserting an overpass query, " +
-                                    "this can potentially generate larges amount of data and bog the system down."
+                            placeholder = messages("challenge.wizard.creation.overpass.placeholder"),
+                            help = messages("challenge.wizard.creation.overpass.help")
                         )
                     </div>
                     <div class="tab-pane" id="local">
                         <div class="form-group">
-                            <label class="col-sm-2 control-label">Upload GeoJSON file</label>
+                            <label class="col-sm-2 control-label">@messages("challenge.wizard.creation.geojson.upload")</label>
                             <div class="col-sm-8">
                                 <input type="file"
                                 class="form-control"
                                 name="localGeoJSON"/>
-                                <span class="help-block">Please upload the local GeoJSON file.</span>
+                                <span class="help-block">@messages("challenge.wizard.creation.geojson.upload.help")</span>
                             </div>
                         </div>
                     </div>
                     <div class="@if(isRemote) { active }tab-pane" id="remote">
                         @text(challengeForm("remoteGeoJson"),
-                            label = "Remote GeoJSON URL",
-                            placeholder = "Remote GeoJSON URL",
-                            help = "Please enter the remote URL location to retrieve the GeoJSON from."
+                            label = messages("challenge.wizard.creation.geojson.label"),
+                            placeholder = messages("challenge.wizard.creation.geojson.placeholder"),
+                            help = messages("challenge.wizard.creation.geojson.help")
                         )
                     </div>
                 </div>
+                @if(isInEdit) {
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">@messages("challenge.wizard.creation.rerun")</label>
+                        <div class="col-sm-8">
+                            <input type="checkbox" id="rerun" name="rerun" value="true"/>
+                        </div>
+                    </div>
+                }
             </div>
         }
     }

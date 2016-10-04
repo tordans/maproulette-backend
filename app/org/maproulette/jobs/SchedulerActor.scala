@@ -92,8 +92,9 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
         db.withTransaction { implicit c =>
           Logger.info(s"Cleaning old challenge tasks older than $duration with status [$oldTasksStatusFilter]...")
           val tasksDeleted =
-            SQL("""DELETE FROM tasks WHERE status in ({statuses})
-                     AND AGE(NOW(), modified) > {duration}::INTERVAL""").on(
+            SQL("""DELETE FROM tasks t USING challenges c
+                    WHERE t.parent_id = c.id AND c.updateTasks = true AND t.status IN ({statuses})
+                     AND AGE(NOW(), t.modified) > {duration}::INTERVAL""").on(
               'duration -> ParameterValue.toParameterValue(String.valueOf(duration)),
               'statuses -> ParameterValue.toParameterValue(oldTasksStatusFilter)
             ).executeUpdate()
