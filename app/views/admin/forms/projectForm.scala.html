@@ -4,7 +4,7 @@
 @(user:User, parentId:Long, projectForm:Form[Project], breadcrumbs:Map[String, (String, Call)])(implicit messages: Messages)
 
 @views.html.admin.common.header(messages("project.form.administration.title"), null,
-    Map(messages("project.form.administration.projects") -> ("fa fa-folder", routes.Application.adminUIProjectList()))
+    Map(messages("project.form.administration.projects") -> ("fa fa-folder", Some(routes.Application.adminUIProjectList())))
 )
 <section class="content">
     <div class="box box-primary">

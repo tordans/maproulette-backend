@@ -139,7 +139,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                     summary.filter(_._1 == Task.STATUS_FALSE_POSITIVE).values.headOption.getOrElse(0)
                     )
                 })
-                views.html.admin.challenge(user, parentId.get, p.enabled, challengeData)
+                views.html.admin.challenge(user, p.name, parentId.get, p.enabled, challengeData)
               case None => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
 
             }
@@ -154,7 +154,13 @@ class Application @Inject() (val messagesApi: MessagesApi,
   def adminUITaskList(projectId:Long, parentType:String, parentId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       permission.hasWriteAccess(ProjectType(), user)(projectId)
-      getOkIndex(this.adminHeader, user, views.html.admin.task(user, projectId, parentType, parentId))
+      dalManager.project.retrieveById(projectId) match {
+        case Some(p) => dalManager.challenge.retrieveById(parentId) match {
+          case Some(c) => getOkIndex(this.adminHeader, user, views.html.admin.task(user, p.name, projectId, c.name, parentType, parentId))
+          case _ => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
+        }
+        case _ => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
+      }
     }
   }
 

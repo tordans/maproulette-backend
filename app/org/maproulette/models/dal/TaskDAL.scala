@@ -372,10 +372,11 @@ class TaskDAL @Inject() (override val db:Database,
     }
 
     val updatedRows = this.withMRTransaction { implicit c =>
-      val updatedRows = SQL"""UPDATE tasks t SET status = $status
-          FROM tasks t2
-          LEFT JOIN locked l ON l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
-          WHERE t.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)""".executeUpdate()
+      val updatedRows = SQL"""UPDATE tasks t SET status = $status WHERE t.id = (
+                                SELECT t2.id FROM tasks t2
+                                LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
+                                WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
+                              )""".executeUpdate()
       // if returning 0, then this is because the item is locked by a different user
       if (updatedRows == 0) {
         throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")

@@ -1,10 +1,13 @@
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
 @import org.maproulette.actions.Actions
-@(user:User, parentId:Long, parentVisible:Boolean, challenges:List[(Challenge, Int, Int, Int)])(implicit messages: Messages)
+@(user:User, parentName:String, parentId:Long, parentVisible:Boolean, challenges:List[(Challenge, Int, Int, Int)])(implicit messages: Messages)
 
 @views.html.admin.common.header(messages("challenge.administration.title"), null,
-    Map(messages("challenge.administration.projects") -> ("fa fa-folder", routes.Application.adminUIProjectList()))
+    Map(
+        messages("challenge.administration.projects") -> ("fa fa-folder", Some(routes.Application.adminUIProjectList())),
+        parentName -> ("", None)
+    )
 )
 <section class="content">
     <div class="box">
@@ -59,7 +62,7 @@
                                 }
                             </td>
                             <td>
-                                <span id="statusName">@messages(s"challenge.column.status.${c._1.status.getOrElse(0)}")</span>
+                                <span id="statusName_@{c._1.id}">@messages(s"challenge.column.status.${c._1.status.getOrElse(0)}")</span>
                                 @if(c._1.status.getOrElse(0) != 0) {
                                     <a href="#" onclick="refreshStatus(@c._1.id);" class="fa fa-refresh"/>
                                 }
@@ -126,15 +129,15 @@
     function refreshStatus(itemId) {
         getChallenge(itemId, function(data) {
             if (data.status == "@{Challenge.STATUS_BUILDING}") {
-                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_BUILDING}")");
+                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_BUILDING}")");
             } else if (data.status == "@{Challenge.STATUS_COMPLETE}") {
-                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_COMPLETE}")");
+                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_COMPLETE}")");
             } else if (data.status == "@{Challenge.STATUS_FAILED}") {
-                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_FAILED}")");
+                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_FAILED}")");
             } else if (data.status == "@{Challenge.STATUS_PARTIALLY_LOADED}") {
-                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_PARTIALLY_LOADED}")");
+                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_PARTIALLY_LOADED}")");
             } else {
-                $("#statusName").html("@messages(s"challenge.column.status.${Challenge.STATUS_NA}")");
+                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_NA}")");
             }
         }, Utils.handleError)
     }
