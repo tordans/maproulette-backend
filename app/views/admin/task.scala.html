@@ -1,12 +1,13 @@
 @import org.maproulette.session.User
 @import org.maproulette.actions.Actions
 @import org.maproulette.models.Challenge
-@(user:User, projectId:Long, parentType:String, parentId:Long)(implicit messages: Messages)
+@(user:User, projectName:String, projectId:Long, parentName:String, parentType:String, parentId:Long)(implicit messages: Messages)
 
 @views.html.admin.common.header(messages("task.administration.title"), null,
     Map(
-      messages("task.projects") -> ("fa fa-folder", routes.Application.adminUIProjectList()),
-      messages("task.challenges") -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, projectId))
+      messages("task.projects") -> ("fa fa-folder", Some(routes.Application.adminUIProjectList())),
+      projectName -> ("", Some(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, projectId))),
+      parentName -> ("", None)
     )
 )
 <section class="content">

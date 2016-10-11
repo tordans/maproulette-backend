@@ -3,7 +3,9 @@ toastr.options.positionClass = "notification-position";
 L.TileLayer.Common = L.TileLayer.extend({
     initialize: function (options) {
         L.TileLayer.prototype.initialize.call(this, this.url, options);
-    }
+    },
+    // Workaround until https://github.com/Leaflet/Leaflet/issues/4915 is released
+    options: { maxZoom: 19 }
 });
 
 // -- CUSTOM CONTROLS ----------------------------------
@@ -511,7 +513,6 @@ function Task() {
         if (data.parentId == -1 && data.id == -1) {
             ToastUtils.Info(Messages("mapping.js.task.debugmode"));
         } else {
-
             jsRoutes.controllers.MappingController
                 .getSequentialNextTask(data.parentId, data.id)
                 .ajax({
@@ -640,6 +641,13 @@ var MRManager = (function() {
     var updateMapOptions = function(mapElement, point, options) {
         if (typeof options === 'undefined') {
             options = {layer: LoggedInUser.defaultBasemap, customLayerURI: LoggedInUser.customBasemap};
+        } else {
+            if (Utils.getDefaultValue(options.layer, Basemaps.NONE) === Basemaps.NONE) {
+                options.layer = LoggedInUser.defaultBasemap;
+            }
+            if (Utils.getDefaultValue(options.customLayerURI, "") === "") {
+                options.customLayerURI = LoggedInUser.customBasemap;
+            }
         }
         var osm_layer = new L.TileLayer.OpenStreetMap();
         var layers = Utils.getDefaultValue(options.layers, {
@@ -647,7 +655,7 @@ var MRManager = (function() {
             'OpenCycleMap': new L.TileLayer.OpenCycleMap(),
             'Bing Aerial': new L.TileLayer.Bing()
         });
-        var mapLayer = Utils.getDefaultValue(options.layer, osm_layer);
+        var mapLayer = Utils.getDefaultValue(options.layer, Basemaps.OSM);
         var currentLayer = layers.OSM;
         if (typeof mapLayer === 'number') {
             if (mapLayer === Basemaps.OCM) {
@@ -814,7 +822,7 @@ var MRManager = (function() {
                         '</a></div>';
                 }
                 popupString += '</div>';
-                marker.bindPopup(popupString, { maxHeight: 200 });
+                marker.bindPopup(popupString, { maxHeight: 200, maxWidth: "auto" });
 
                 markers.addLayer(marker);
             }
@@ -831,20 +839,32 @@ var MRManager = (function() {
      */
     var updateTaskDisplay = function() {
         geojsonLayer.addData(currentTask.getData().geometry);
-        map.fitBounds(geojsonLayer.getBounds());
+        // limit taskDisplay maxZoom by the default zoom set in the challenge.
+        map.fitBounds(geojsonLayer.getBounds(), { maxZoom: map.options.zoom });
         controlPanel.update(signedIn, debugMode, true, true, true);
         resetEditControls();
         var challengeId = currentTask.getChallenge().getData().id;
         // update the browser url to reflect the current task
         window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
         // show the task text as a notification
+<<<<<<< HEAD
         var taskInstruction = "#### " + currentTask.getChallenge().getData().name + "\n---------\n\n";
+=======
+        var taskInstruction = "##### " + Messages("mapping.js.instruction.challenge") + ": " + currentTask.getChallenge().getData().name + "\n---------\n\n";
+>>>>>>> upstream/master
         if (currentTask.getData().instruction === "") {
             taskInstruction += currentTask.getChallenge().getData().instruction;
         } else {
             taskInstruction += currentTask.getData().instruction;
         }
+<<<<<<< HEAD
         taskInstruction += "\n\n-------\n\n*Status: " + TaskStatus.getStatusName(currentTask.getData().status) + "*";
+=======
+        taskInstruction += "\n\n-------\n\n" + Messages("mapping.js.instruction.status") + ": " + TaskStatus.getStatusName(currentTask.getData().status);
+        if (typeof currentTask.getData().last_modified_user !== 'undefined') {
+            taskInstruction += "\n\n" + Messages("mapping.js.instruction.lastModifiedUser") + ":" + currentTask.getData().last_modified_user;
+        }
+>>>>>>> upstream/master
         ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();

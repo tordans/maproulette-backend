@@ -186,7 +186,8 @@ object User {
       case None => Location(47.608013, -122.335167)
     }
     // check whether this user is a super user
-    val groups = if (config.superAccounts.contains(osmId)) {
+    val groups = if (config.superAccounts.contains(osmId) ||
+                    (config.superAccounts.size == 1 && config.superAccounts.head.equals("*"))) {
       List(superGroup)
     } else {
       List[Group]()

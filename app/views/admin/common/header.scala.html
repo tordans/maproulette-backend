@@ -1,4 +1,4 @@
-@(title:String, subtitle:String=null, breadcrumbs:Map[String, (String, Call)]=Map.empty)(implicit messages: Messages)
+@(title:String, subtitle:String=null, breadcrumbs:Map[String, (String, Option[Call])]=Map.empty)(implicit messages: Messages)
 
 <section class="content-header">
     <h1>
@@ -9,7 +9,18 @@
     </h1>
     <ol class="breadcrumb">
         @for(b <- breadcrumbs) {
-            <li><a href="@b._2._2"><i class="@b._2._1"></i> @b._1</a></li>
+            <li>
+                @b._2._2 match {
+                    case Some(c) => {
+                        <a href="@b._2._2">
+                            <i class="@b._2._1"></i> @b._1
+                        </a>
+                    }
+                    case None => {
+                        <i class="@b._2._1"></i> @b._1
+                    }
+                }
+            </li>
         }
     </ol>
 </section>

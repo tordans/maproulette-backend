@@ -2,11 +2,11 @@
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
 @import org.maproulette.session.User
-@(user:User, parentId:Long, challengeForm:Form[Challenge], tags:Option[List[String]])(implicit messages: Messages, webJarAssets: WebJarAssets)
+@(user:User, parentName:String, parentId:Long, challengeForm:Form[Challenge], tags:Option[List[String]])(implicit messages: Messages, webJarAssets: WebJarAssets)
 @views.html.admin.common.header(messages("challenge.wizard.form.administration"), null,
     Map(
-        messages("challenge.wizard.form.projects") -> ("fa fa-folder", routes.Application.adminUIProjectList()),
-        messages("challenge.wizard.form.challenges") -> ("", routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId))
+        messages("challenge.wizard.form.projects") -> ("fa fa-folder", Some(routes.Application.adminUIProjectList())),
+        parentName -> ("", Some(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)))
     )
 )
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/js/fuelux.min.js"))"></script>

@@ -75,12 +75,20 @@ CREATE TRIGGER on_user_delete BEFORE DELETE ON users
 
 DO $$
 BEGIN
+<<<<<<< HEAD
   BEGIN
     PERFORM AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
   EXCEPTION
     WHEN duplicate_column THEN RAISE NOTICE 'column home_location already exists in table users.';;
   END;;
 END$$;;
+=======
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'home_location';;
+  IF NOT FOUND THEN
+    PERFORM AddGeometryColumn('users', 'home_location', 4326, 'POINT', 2);;
+  END IF;;
+END $$;;
+>>>>>>> upstream/master
 
 DROP TRIGGER IF EXISTS update_users_modified ON users;;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
@@ -206,11 +214,18 @@ CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
 
 DO $$
 BEGIN
+<<<<<<< HEAD
   BEGIN
     PERFORM AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
   EXCEPTION
     WHEN duplicate_column THEN RAISE NOTICE 'column location already exists in table tasks.';;
   END;;
+=======
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'location';;
+  IF NOT FOUND THEN
+    PERFORM AddGeometryColumn('tasks', 'location', 4326, 'POINT', 2);;
+  END IF;;
+>>>>>>> upstream/master
 END$$;;
 
 SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');;
@@ -305,11 +320,18 @@ CREATE TABLE IF NOT EXISTS task_geometries
 
 DO $$
 BEGIN
+<<<<<<< HEAD
   BEGIN
     PERFORM AddGeometryColumn('task_geometries', 'geom', 4326, 'POINT', 2);;
   EXCEPTION
     WHEN duplicate_column THEN RAISE NOTICE 'column geom already exists in table task_geometries.';;
   END;;
+=======
+  PERFORM column_name FROM information_schema.columns WHERE table_name = 'task_geometries' AND column_name = 'geom';;
+  IF NOT FOUND THEN
+    PERFORM AddGeometryColumn('task_geometries', 'geom', 4326, 'GEOMETRY', 2);;
+  END IF;;
+>>>>>>> upstream/master
 END$$;;
 
 CREATE INDEX IF NOT EXISTS idx_task_geometries_geom ON task_geometries USING GIST (geom);;
@@ -415,11 +437,30 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 -- Insert the default root, used for migration and those using the old API
+<<<<<<< HEAD
 INSERT INTO projects (id, name, description) VALUES (0, 'SuperRootProject', 'Root Project for super users.');;
 INSERT INTO groups(id, project_id, name, group_type)  VALUES (-999, 0, 'SUPERUSERS', -1);;
 INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
     VALUES (-999, -999, NOW(), 'SuperUser', '', '', 'skin-black');;
 INSERT INTO user_groups (osm_user_id, group_id) VALUES (-999, -999);;
+=======
+INSERT INTO projects (id, name, description)
+SELECT 0, 'SuperRootProject', 'Root Project for super users.' WHERE NOT EXISTS (
+    SELECT id FROM projects WHERE id = 0
+);
+INSERT INTO groups (id, project_id, name, group_type)
+SELECT -999, 0, 'SUPERUSERS', -1 WHERE NOT EXISTS (
+    SELECT id FROM groups WHERE id = -999
+);
+INSERT INTO users(id, osm_id, osm_created, name, oauth_token, oauth_secret, theme)
+SELECT -999, -999, NOW(), 'SuperUser', '', '', 0 WHERE NOT EXISTS (
+    SELECT id FROM users WHERE id = -999
+);
+INSERT INTO user_groups (osm_user_id, group_id)
+SELECT -999, -999 WHERE NOT EXISTS (
+    SELECT id FROM user_groups WHERE osm_user_id = -999 AND group_id = -999
+);
+>>>>>>> upstream/master
 
 # --- !Downs
 --DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);;

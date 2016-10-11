@@ -8,7 +8,7 @@ import org.maproulette.actions.Actions
 import play.api.Application
 import play.api.libs.oauth.ConsumerKey
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 case class OSMOAuth(userDetailsURL:String, requestTokenURL:String, accessTokenURL:String,
                     authorizationURL:String, consumerKey:ConsumerKey)
@@ -74,6 +74,20 @@ class Config @Inject() (implicit val application:Application) {
   lazy val sessionTimeout : Long = this.config.getLong(Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
 
   lazy val taskReset : Int = this.config.getInt(Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
+
+  /**
+    * Retrieves a FiniteDuration config value from the configuration and executes the
+    * block of code when found.
+    *
+    * @param key Configuration Key
+    * @param block The block of code executed if a FiniteDuration is found
+    */
+  def withFiniteDuration(key:String)(block:(FiniteDuration) => Unit):Unit = {
+    application.configuration.getString(key)
+      .map(Duration(_)).filter(_.isFinite())
+      .map(duration => FiniteDuration(duration._1, duration._2))
+      .foreach(block(_))
+  }
 }
 
 object Config {
@@ -89,6 +103,14 @@ object Config {
   val KEY_SEMANTIC_VERSION = s"$GROUP_MAPROULETTE.version"
   val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
+
+  val SUB_GROUP_SCHEDULER = s"$GROUP_MAPROULETTE.scheduler"
+  val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
+  val KEY_SCHEDULER_RUN_CHALLENGE_SCHEDULES_INTERVAL = s"$SUB_GROUP_SCHEDULER.runChallengeSchedules.interval"
+  val KEY_SCHEDULER_UPDATE_LOCATIONS_INTERVAL = s"$SUB_GROUP_SCHEDULER.updateLocations.interval"
+  val KEY_SCHEDULER_CLEAN_TASKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.interval"
+  val KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.statusFilter"
+  val KEY_SCHEDULER_CLEAN_TASKS_OLDER_THAN = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.olderThan"
 
   val GROUP_OSM = "osm"
   val KEY_OSM_SERVER = s"$GROUP_OSM.server"
