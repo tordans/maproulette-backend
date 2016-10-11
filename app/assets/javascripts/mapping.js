@@ -847,24 +847,16 @@ var MRManager = (function() {
         // update the browser url to reflect the current task
         window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
         // show the task text as a notification
-<<<<<<< HEAD
-        var taskInstruction = "#### " + currentTask.getChallenge().getData().name + "\n---------\n\n";
-=======
         var taskInstruction = "##### " + Messages("mapping.js.instruction.challenge") + ": " + currentTask.getChallenge().getData().name + "\n---------\n\n";
->>>>>>> upstream/master
         if (currentTask.getData().instruction === "") {
             taskInstruction += currentTask.getChallenge().getData().instruction;
         } else {
             taskInstruction += currentTask.getData().instruction;
         }
-<<<<<<< HEAD
-        taskInstruction += "\n\n-------\n\n*Status: " + TaskStatus.getStatusName(currentTask.getData().status) + "*";
-=======
         taskInstruction += "\n\n-------\n\n" + Messages("mapping.js.instruction.status") + ": " + TaskStatus.getStatusName(currentTask.getData().status);
         if (typeof currentTask.getData().last_modified_user !== 'undefined') {
             taskInstruction += "\n\n" + Messages("mapping.js.instruction.lastModifiedUser") + ":" + currentTask.getData().last_modified_user;
         }
->>>>>>> upstream/master
         ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
