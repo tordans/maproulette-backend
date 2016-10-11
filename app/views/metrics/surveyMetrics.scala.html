@@ -7,7 +7,6 @@
 @views.html.includes.metricsIncludes(config.isDebugMode)
 @views.html.admin.common.header("Metrics", survey.getOrElse(Challenge(-1, if (projects.isEmpty) { "All Surveys" } else { s"Projects ($projects)" }, None, -1, "")).name)
 <section class="content">
-        <!-- Info boxes -->
     <div class="row">
         <div class="col-md-4 col-sm-6 col-xs-12">
             <div class="info-box">
@@ -19,9 +18,9 @@
                         <span class="info-box-text">Number of Tasks</span>
                     }
                     <span id="top_numOfSurveys" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
+                </div>
+            </div>
+        </div>
         <div class="col-md-4 col-sm-6 col-xs-12">
             <div class="info-box">
                 <span class="info-box-icon bg-green"><i class="fa fa-line-chart"></i></span>
@@ -32,9 +31,9 @@
                         <span class="info-box-text">Answered</span>
                     }
                     <span id="top_answered" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
+                </div>
+            </div>
+        </div>
 
         <!-- fix for small devices only -->
         <div class="clearfix visible-sm-block"></div>
@@ -44,10 +43,10 @@
                 <div class="info-box-content">
                     <span class="info-box-text">Users</span>
                     <span id="top_users" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
-    </div><!-- /.row -->
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-md-12">
             <div class="box">
@@ -58,14 +57,14 @@
                         <button class="btn btn-box-tool daterange"><i class="fa fa-calendar"></i></button>
                         <button class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-minus"></i></button>
                     </div>
-                </div><!-- /.box-header -->
+                </div>
                 <div class="box-body">
                     <div class="row">
                         <div class="col-md-8">
                             <div id="surveyCanvasContainer" class="chart">
                                 <canvas id="surveyActivityChart" style="height: 180px;"></canvas>
-                            </div><!-- /.chart-responsive -->
-                        </div><!-- /.col -->
+                            </div>
+                        </div>
                         @if(survey.nonEmpty) {
                             <div class="col-md-4">
                                 <p class="text-center">
@@ -79,18 +78,18 @@
                                         <div class="progress sm">
                                             <div id="@{a.id}_bar" class="progress-bar progress-bar-green" style="width: 0%"></div>
                                         </div>
-                                    </div> <!-- /.progress-group -->
+                                    </div>
                                 }
                                 <div>
                                     <p class="text-center"><strong>Answer Distribution</strong></p>
                                     <div id="surveyDistContainer" class="chart">
                                         <canvas id="answerPieChart" style="height: 180px;"></canvas>
-                                    </div><!-- /.chart-responsive -->
+                                    </div>
                                 </div>
-                            </div><!-- /.col -->
+                            </div>
                         }
-                    </div><!-- /.row -->
-                </div><!-- ./box-body -->
+                    </div>
+                </div>
                 <div class="box-footer">
                     <div class="row">
                         <div class="col-sm-@colSize() col-xs-6">
@@ -98,19 +97,19 @@
                                 <h5 id="active_users" class="description-header"></h5>
                                 <span class="description-text">ACTIVE USERS*</br><small>*Users with 2 or more edits in the last 2 days</small></span>
                             </div>
-                        </div><!-- /.col -->
+                        </div>
                         <div class="col-sm-@colSize() col-xs-6">
                             <div class="description-block border-right">
                                 <h5 id="answers" class="description-header"></h5>
                                 <span class="description-text">QUESTIONS ANSWERED PER USER</span>
-                            </div><!-- /.description-block -->
-                        </div><!-- /.col -->
+                            </div>
+                        </div>
                         @if(survey.isEmpty) {
                             <div class="col-sm-@colSize() col-xs-6">
                                 <div class="description-block">
                                     <h5 id="answers_per_user" class="description-header"></h5>
                                     <span class="description-text">QUESTIONS ANSWERED PER USER PER SURVEY</span>
-                                </div><!-- /.description-block -->
+                                </div>
                             </div>
                         }
                         <div class="col-sm-@colSize() col-xs-6">
@@ -118,12 +117,12 @@
                                 <h5 id="users_per_survey" class="description-header"></h5>
                                 <span class="description-text">USERS PER SURVEY</span>
                             </div>
-                        </div><!-- /.col -->
-                    </div><!-- /.row -->
-                </div><!-- /.box-footer -->
-            </div><!-- /.box -->
-        </div><!-- /.col -->
-    </div><!-- /.row -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </section>
 <script type="application/javascript">
     var dateFormat = "YYYY-MM-DD";

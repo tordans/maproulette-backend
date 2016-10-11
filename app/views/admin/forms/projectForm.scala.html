@@ -14,8 +14,7 @@
         } else {
             <h3 class="box-title">@messages("project.form.edit") - @projectForm("name").value.get</h3>
         }
-        </div><!-- /.box-header -->
-        <!-- form start -->
+        </div>
         @helper.form(routes.FormEditController.projectFormPost(parentId, projectForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
             <div class="box-body">
                 <div class="form-group" style="display:none;">
@@ -45,11 +44,11 @@
                     placeholder = messages("project.form.field.description.placeholder"),
                     help = messages("project.form.field.description.help")
                 )
-            </div><!-- /.box-body -->
+            </div>
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">@messages("project.form.submit")</button>
                 <a href="@routes.Application.adminUIProjectList()" class="btn btn-primary">@messages("project.form.cancel")</a>
             </div>
         }
-    </div><!-- /.box -->
+    </div>
 </section>

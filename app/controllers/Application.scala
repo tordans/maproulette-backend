@@ -207,7 +207,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
 
   def profile(tab:Int) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      getOkIndex(Messages("headers.profile"), user, views.html.user.profile(user, tab))
+      getOkIndex(Messages("headers.profile"), user, views.html.user.profile(user, config, tab))
     }
   }
 

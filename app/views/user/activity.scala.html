@@ -1,27 +1,116 @@
 @()(implicit messages: Messages)
-<div class="post">
-    <div class="user-block">
-        <span class='description'>7:30 PM today</span>
-    </div>
-    <p>
-        Completed 5 Tasks
-    </p>
-</div>
-
-<div class="post">
-    <div class='user-block'>
-        <span class='description'>3 days ago</span>
-    </div>
-    <p>
-        Completed 100 tasks
-    </p>
-</div>
-
-<div class="post">
-    <div class='user-block'>
-        <span class='description'>5 days ago</span>
-    </div>
-    <p>
-        Completed 50000 tasks
-    </p>
-</div>
+<ul class="timeline">
+    <li class="time-label">
+        <span class="bg-green">
+            7 Oct. 2016
+        </span>
+    </li>
+    <li>
+        <i class="fa fa-line-chart bg-green"></i>
+        <div class="timeline-item">
+            <div class="timeline-body">
+                Fixed 5 tasks in challenge X
+                <span class="time"><i class="fa fa-clock-o"></i> 2 hours ago</span>
+            </div>
+            <div class="timeline-footer">
+                <a class="btn btn-primary btn-xs">See Activity Details</a>
+            </div>
+        </div>
+        <div class="box">
+            <div class="box-body">
+                <table id="activityTable" class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Task</th>
+                            <th>Changeset</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>10:23</td>
+                            <td><a href="#">A</a></td>
+                            <td><a href="#">12355</a></td>
+                        </tr>
+                        <tr>
+                            <td>12:05</td>
+                            <td><a href="#">B</a></td>
+                            <td><a href="#">12355</a></td>
+                        </tr>
+                        <tr>
+                            <td>14:53</td>
+                            <td><a href="#">C</a></td>
+                            <td><a href="#">12355</a></td>
+                        </tr>
+                        <tr>
+                            <td>15:34</td>
+                            <td><a href="#">D</a></td>
+                            <td><a href="#">12355</a></td>
+                        </tr>
+                        <tr>
+                            <td>17:56</td>
+                            <td><a href="#">E</a></td>
+                            <td><a href="#">12355</a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </li>
+    <li>
+        <i class="fa fa-exclamation-triangle bg-red"></i>
+        <div class="timeline-item">
+            <div class="timeline-body">
+                Set 8 tasks to false positive in challenge X
+                <span class="time"><i class="fa fa-clock-o"></i> 5 hours ago</span>
+            </div>
+            <div class="timeline-footer">
+                <a class="btn btn-primary btn-xs">See Activity Details</a>
+            </div>
+        </div>
+    </li>
+    <li>
+        <i class="fa fa-recycle bg-yellow"></i>
+        <div class="timeline-item">
+            <div class="timeline-body">
+                Skipped 50 tasks in challenge Z
+                <span class="time"><i class="fa fa-clock-o"></i> 7 hours ago</span>
+            </div>
+            <div class="timeline-footer">
+                <a class="btn btn-primary btn-xs">See Activity Details</a>
+            </div>
+        </div>
+    </li>
+    <li class="time-label">
+        <span class="bg-green">
+            5 Oct. 2016
+        </span>
+    </li>
+    <li>
+        <i class="fa fa-map bg-aqua"></i>
+        <div class="timeline-item">
+            <div class="timeline-body">
+                Set 14 tasks to Already Fixed in challenge Y
+                <span class="time"><i class="fa fa-clock-o"></i> 1 hour ago</span>
+            </div>
+            <div class="timeline-footer">
+                <a class="btn btn-primary btn-xs">See Activity Details</a>
+            </div>
+        </div>
+    </li>
+    <li>
+        <i class="fa fa-gear bg-purple"></i>
+        <div class="timeline-item">
+            <div class="timeline-body">
+                Set 10 tasks to Too Hard in challenge Y
+                <span class="time"><i class="fa fa-clock-o"></i> 5 hours ago</span>
+            </div>
+            <div class="timeline-footer">
+                <a class="btn btn-primary btn-xs">See Activity Details</a>
+            </div>
+        </div>
+    </li>
+    <li>
+        <i class="fa fa-clock-o bg-gray"></i>
+    </li>
+</ul>

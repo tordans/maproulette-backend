@@ -1,6 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.session.UserSettings
-@(user:User, activeTab:Int=0, settingsForm:Option[Form[UserSettings]]=None)(implicit messages: Messages)
+@import org.maproulette.Config
+@(user:User, config:Config, activeTab:Int=0, settingsForm:Option[Form[UserSettings]]=None)(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
@@ -21,14 +22,14 @@
                     <img class="profile-user-img img-responsive img-circle" src="@user.osmProfile.avatarURL" alt="@messages("sidebar.avatarURL")">
                     <h3 class="profile-username text-center">@user.name</h3>
                     <p class="text-muted text-center">@user.osmProfile.description</p>
-                </div><!-- /.box-body -->
-            </div><!-- /.box -->
+                </div>
+            </div>
 
             <!-- About Me Box -->
             <div class="box box-primary">
                 <div class="box-header with-border">
                     <h3 class="box-title">@messages("user.profile.aboutme")</h3>
-                </div><!-- /.box-header -->
+                </div>
                 <div class="box-body">
                     <strong><i class="fa fa-map-marker margin-r-5"></i> @messages("user.profile.location")</strong>
                     <p class="text-muted" id="location"></p>
@@ -39,9 +40,9 @@
                         <a href="#" onclick="rebuildAPIKey();"><b>@messages("user.apikey.new")</b></a>
                     </div>
                     <hr>
-                </div><!-- /.box-body -->
-            </div><!-- /.box -->
-        </div><!-- /.col -->
+                </div>
+            </div>
+        </div>
         <div class="col-md-9">
             <div class="nav-tabs-custom">
                 <ul class="nav nav-tabs">
@@ -51,21 +52,19 @@
                 </ul>
                 <div class="tab-content">
                     <!--div class="@if(activeTab==0) { active } tab-pane" id="activity">
-                        @views.html.user.activity()
+                        @*views.html.user.activity()*@
+                    </div>
+                    <div class="@if(activeTab==1) { active } tab-pane" id="metrics">
+                        @*views.html.user.metrics(config)*@
                     </div-->
-                    <!--div class="@if(activeTab==1) { active } tab-pane" id="metrics">
-                        @views.html.user.metrics()
-                    </div-->
-
-                    <div class="@if(activeTab==2||1==1) { active } tab-pane" id="settings">
+                    <div class="@if(activeTab==2 || 1==1) { active } tab-pane" id="settings">
                         @views.html.user.settings(user, settingsForm.getOrElse(User.settingsForm.fill(user.settings)))
-                    </div><!-- /.tab-pane -->
-                </div><!-- /.tab-content -->
-            </div><!-- /.nav-tabs-custom -->
-        </div><!-- /.col -->
-    </div><!-- /.row -->
-
-</section><!-- /.content -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 <script type="application/javascript">
     $(document).ready(function() {
         Utils.getLocation(@user.osmProfile.homeLocation.latitude, @user.osmProfile.homeLocation.longitude,

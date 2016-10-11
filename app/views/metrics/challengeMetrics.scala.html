@@ -5,7 +5,6 @@
 @colSize() = {@{if (challenge.isEmpty) { "3" } else { "4" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
 @views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { messages("metrics.challenge.all") } else { messages("metrics.challenge.projects", projects) }, None, -1, "")).name)
-<script src="@routes.Assets.versioned("javascripts/metrics.js")"></script>
 <section class="content">
     @if(challenge.isDefined) {
         <div class="row">
@@ -19,7 +18,7 @@
             </div>
         </div>
     }
-        <!-- Info boxes -->
+
     <div class="row">
         <div class="col-md-3 col-sm-6 col-xs-12">
             <div class="info-box">
@@ -31,9 +30,9 @@
                         <span class="info-box-text">@messages("metrics.challenge.number.tasks")</span>
                     }
                     <span id="top_numOfChallenges" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
+                </div>
+            </div>
+        </div>
         <div class="col-md-3 col-sm-6 col-xs-12">
             <div class="info-box">
                 <span class="info-box-icon bg-green"><i class="fa fa-line-chart"></i></span>
@@ -44,9 +43,9 @@
                         <span class="info-box-text">@messages("metrics.challenge.fixed")</span>
                     }
                     <span id="top_fixed" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
+                </div>
+            </div>
+        </div>
 
         <!-- fix for small devices only -->
         <div class="clearfix visible-sm-block"></div>
@@ -61,19 +60,19 @@
                         <span class="info-box-text">@messages("metrics.challenge.falsepositives")</span>
                     }
                     <span id="top_fps" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
+                </div>
+            </div>
+        </div>
         <div class="col-md-3 col-sm-6 col-xs-12">
             <div class="info-box">
                 <span class="info-box-icon bg-yellow"><i class="ion ion-ios-people-outline"></i></span>
                 <div class="info-box-content">
                     <span class="info-box-text">@messages("metrics.challenge.users")</span>
                     <span id="top_users" class="info-box-number"></span>
-                </div><!-- /.info-box-content -->
-            </div><!-- /.info-box -->
-        </div><!-- /.col -->
-    </div><!-- /.row -->
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-md-12">
             <div class="box">
@@ -84,14 +83,14 @@
                         <button class="btn btn-box-tool daterange"><i class="fa fa-calendar"></i></button>
                         <button class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-minus"></i></button>
                     </div>
-                </div><!-- /.box-header -->
+                </div>
                 <div class="box-body">
                     <div class="row">
                         <div class="col-md-8">
                             <div id="canvasContainer" class="chart">
                                 <canvas id="activityChart" style="height: 180px;"></canvas>
-                            </div><!-- /.chart-responsive -->
-                        </div><!-- /.col -->
+                            </div>
+                        </div>
                         <div class="col-md-4">
                             <p class="text-center">
                                 <strong>@messages("metrics.challenge.completion")</strong>
@@ -102,44 +101,44 @@
                                 <div class="progress sm">
                                     <div id="fixed_bar" class="progress-bar progress-bar-green" style="width: 0%"></div>
                                 </div>
-                            </div><!-- /.progress-group -->
+                            </div>
                             <div class="progress-group">
                                 <span class="progress-text">@messages("metrics.challenge.completion.falsepositive")</span>
                                 <span id="false_positives" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="false_postives_bar" class="progress-bar progress-bar-red" style="width: 0%"></div>
                                 </div>
-                            </div><!-- /.progress-group -->
+                            </div>
                             <div class="progress-group">
                                 <span class="progress-text">@messages("metrics.challenge.completion.alreadyfixed")</span>
                                 <span id="already_fixed" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="already_fixed_bar" class="progress-bar progress-bar-aqua" style="width: 0%"></div>
                                 </div>
-                            </div><!-- /.progress-group -->
+                            </div>
                             <div class="progress-group">
                                 <span class="progress-text">@messages("metrics.challenge.completion.skipped")</span>
                                 <span id="skipped" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="skipped_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
                                 </div>
-                            </div><!-- /.progress-group -->
+                            </div>
                             <div class="progress-group">
                                 <span class="progress-text">@messages("metrics.challenge.completion.toohard")</span>
                                 <span id="too_hard" class="progress-number"><b>0</b>/0</span>
                                 <div class="progress sm">
                                     <div id="too_hard_bar" class="progress-bar progress-bar-yellow" style="width: 0%"></div>
                                 </div>
-                            </div><!-- /.progress-group -->
+                            </div>
                             <div>
                                 <p class="text-center"><strong>@messages("metrics.challenge.completion.status")</strong></p>
                                 <div id="distContainer" class="chart">
                                     <canvas id="statusPieChart" style="height: 180px;"></canvas>
-                                </div><!-- /.chart-responsive -->
+                                </div>
                             </div>
-                        </div><!-- /.col -->
-                    </div><!-- /.row -->
-                </div><!-- ./box-body -->
+                        </div>
+                    </div>
+                </div>
                 <div class="box-footer">
                     <div class="row">
                         <div class="col-sm-@colSize() col-xs-6">
@@ -147,26 +146,26 @@
                                 <h5 id="active_users" class="description-header"></h5>
                                 <span class="description-text">@Html(messages("metrics.challenge.user.active"))</span>
                             </div>
-                        </div><!-- /.col -->
+                        </div>
                         <div class="col-sm-@colSize() col-xs-6">
                             <div class="description-block border-right">
                                 <h5 id="actions" class="description-header"></h5>
                                 <span class="description-text">@messages("metrics.challenge.user.actions")</span>
-                            </div><!-- /.description-block -->
-                        </div><!-- /.col -->
+                            </div>
+                        </div>
                         @if(challenge.isEmpty) {
                             <div class="col-sm-3 col-xs-6">
                                 <div class="description-block">
                                     <h5 id="actions_per_challenge" class="description-header"></h5>
                                     <span class="description-text">@messages("metrics.challenge.user.challengeactions")</span>
-                                </div><!-- /.description-block -->
+                                </div>
                             </div>
                             <div class="col-sm-3 col-xs-6">
                                 <div class="description-block border-right">
                                     <h5 id="users_per_challenge" class="description-header"></h5>
                                     <span class="description-text">@messages("metrics.challenge.user.challenge")</span>
                                 </div>
-                            </div><!-- /.col -->
+                            </div>
                         } else {
                             <div class="col-sm-3 col-xs-6">
                                 <div class="description-block border-right">
@@ -179,13 +178,13 @@
                                         <span class="description-text">@messages("metrics.challenge.edit.description")</span>
                                     </div>
                                 }
-                            </div><!-- /.col -->
+                            </div>
                         }
-                    </div><!-- /.row -->
-                </div><!-- /.box-footer -->
-            </div><!-- /.box -->
-        </div><!-- /.col -->
-    </div><!-- /.row -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     @if(challenge.isEmpty) {
         <div class="row">
             <div class="col-md-12">
@@ -303,8 +302,16 @@
             var currentStatus = data[i].status;
             var dataset = currentStatus;
             var count = data[i].count;
-            if (currentStatus > 4) {
-                dataset = currentStatus - 1;
+
+            // ignore status 0 and 4
+            if (currentStatus != 0 && currentStatus != 4) {
+                if (currentStatus > 4) {
+                    dataset = currentStatus - 2;
+                } else if (currentStatus > 0) {
+                    dataset = currentStatus - 1;
+                }
+            } else {
+                currentStatus = -1;
             }
             addToSource(moment(data[i].date, dateFormat), dataset, count);
         }
@@ -314,25 +321,6 @@
     var activityChartData = {
         labels: [],
         datasets: [
-            /*{
-             label: "@messages("metrics.challenge.completion.available")",
-             fill: false,
-             lineTension: 0.1,
-             backgroundColor: "rgba(0, 0, 0, 0.4)",
-             borderColor: "rgba(0, 0, 0, 1)",
-             borderCapStyle: 'butt',
-             borderJoinStyle: 'round',
-             pointBorderColor: "rgba(0, 0, 0, 1)",
-             pointBackgroundColor: "#fff",
-             pointBorderWidth: 1,
-             pointHoverRadius: 5,
-             pointHoverBackgroundColor: "rgba(0, 0, 0, 1)",
-             pointHoverBorderColor: "rgba(220,220,220,1)",
-             pointHoverBorderWidth: 2,
-             pointRadius: 1,
-             pointHitRadius: 10,
-             data: []
-             },*/
             {
                 label: "@messages("metrics.challenge.completion.fixed")",
                 fill: false,
@@ -431,94 +419,45 @@
         ]
     };
 
-    function getActivityChart(type) {
-        if (typeof type === 'undefined') {
-            type = "line";
-        }
-        return new Chart($("#activityChart"), {
-            type:type,
-            data:activityChartData,
-            options:{
-                responsive:true,
-                scales:{
-                    xAxes: [{
-                        type: "time",
-                        time: {
-                            parser:false,
-                            unit:'day',
-                            displayFormats: {
-                                'day': 'll', // Sep 4 2015
-                                'week': 'll', // Week 46, or maybe "[W]WW - YYYY" ?
-                                'month': 'MMM YYYY', // Sept 2015
-                                'quarter': '[Q]Q - YYYY', // Q3
-                                'year': 'YYYY' // 2015
-                            },
-                            tooltipFormat: ''
-                        }
-                    }],
-                    yAxes: [{
-                        scaleLabel: {
-                            display: true,
-                            labelString: 'count'
-                        }
-                    }]
-                }
-            }
-        });
-    }
-
     // initialize the matrix dataset that will hold our status counts to dates
-    var source = new Array(6);
+    var source = new Array(5);
     function resetSource() {
-        for (var i = 0; i < 6; i++) {
+        for (var i = 0; i < 5; i++) {
             source[i] = [];
         }
     }
 
+    /**
+     * This will add the activity data from the API request to the source data. The source data
+     * ignores all data that has the 0 (Created) or 4 (Deleted)
+     */
     function addToSource(date, status, count) {
-        for (var i = 0; i < 6; i++) {
+        for (var i = 0; i < 5; i++) {
             if (typeof source[i][date] === 'undefined') {
                 source[i][date] = 0;
             }
         }
-        source[status][date] += count;
+        if (status != -1) {
+            source[status][date] += count;
+        }
     }
 
     function updateChart(flow) {
+        var activityChartName = "activityChart";
         // remove the old chart
-        $('#activityChart').remove();
-        $('#canvasContainer').append("<canvas id=\"activityChart\" style=\"height: 180px;\"></canvas>");
+        $('#' + activityChartName).remove();
+        $('#canvasContainer').append("<canvas id=\"" + activityChartName + "\" style=\"height:180px;\"></canvas>");
         if (typeof flow === 'undefined' || flow) {
-            activityChart = getActivityChart("line");
+            activityChart = Metrics.getActivityChart("line", activityChartName, activityChartData);
             $('#chartButton').unbind().click(function() { updateChart(false); });
             $('#chartButton').html("<i class=\"fa fa-bar-chart\"></i>");
         } else {
-            activityChart = getActivityChart("bar");
+            activityChart = Metrics.getActivityChart("bar", activityChartName, activityChartData);
             activityChart.data.labels = Object.keys(source[0]);
             $('#chartButton').unbind().click(function() { updateChart(true); });
             $('#chartButton').html("<i class=\"fa fa-line-chart\"></i>");
         }
-        for (var i = 1; i < 6; i++) {
-            var activityData = activityChart.data.datasets[i-1];
-            activityData.data = [];
-            var dateKeys = Object.keys(source[i]);
-            var currentTotal = 0;
-            for (var j = 0; j < dateKeys.length; j++) {
-                var dateMoment = moment(dateKeys[j]);
-                if (typeof flow === 'undefined' || flow) {
-                    currentTotal += source[i][dateKeys[j]];
-                    activityData.data[j] = {
-                        x: dateMoment.format("ll"),
-                        y: currentTotal
-                    };
-                } else {
-                    activityData.data[j] = source[i][dateKeys[j]];
-                }
-            }
-        }
-        // update the available separately, as to calculate this it is based off the total tasks
-        // available minus the fixed, false positives and already fixed tasks
-        activityChart.update();
+        Metrics.updateChartData(flow, activityChart, source);
     }
 
     function dataErrorHandler(data) {
