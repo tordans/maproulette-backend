@@ -42,7 +42,7 @@ It uses the following core technologies:
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
 
-### Linux
+#### Linux
 
 * These instructions were written for Ubuntu 16.04
 * Make sure you have a Java 8 JDK. Check with `java -version` which should mention a 1.8.x version number. 
@@ -58,6 +58,10 @@ It uses the following core technologies:
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
+
+#### Windows
+
+A work-in-progress setup guide for Windows lives [here](https://gist.github.com/3710d7f15534ec747423a3117cd7cc9c). Please fork and improve!
 
 #### Using dev.conf
 

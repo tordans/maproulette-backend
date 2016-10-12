@@ -48,9 +48,9 @@ $$
 LANGUAGE plpgsql VOLATILE;;
 
 -- Map Roulette uses postgis extension for all it's geometries
-CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis;;
 -- Map Roulette uses hstore for the properties of all it's geometries
-CREATE EXTENSION IF NOT EXISTS HSTORE;
+CREATE EXTENSION IF NOT EXISTS HSTORE;;
 
 -- The user table contains all users that have logged into Map Roulette.
 CREATE TABLE IF NOT EXISTS users
@@ -67,9 +67,9 @@ CREATE TABLE IF NOT EXISTS users
   oauth_token character varying NOT NULL,
   oauth_secret character varying NOT NULL,
   theme character varying DEFAULT('skin-blue')
-);
+);;
 
-DROP TRIGGER IF EXISTS on_user_delete ON users;
+DROP TRIGGER IF EXISTS on_user_delete ON users;;
 CREATE TRIGGER on_user_delete BEFORE DELETE ON users
   FOR EACH ROW EXECUTE PROCEDURE on_user_delete();;
 
@@ -81,9 +81,9 @@ BEGIN
   END IF;;
 END $$;;
 
-DROP TRIGGER IF EXISTS update_users_modified ON users;
+DROP TRIGGER IF EXISTS update_users_modified ON users;;
 CREATE TRIGGER update_users_modified BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE PROCEDURE update_modified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();;
 
 -- Top level object that contains all challenges and surveys
 CREATE TABLE IF NOT EXISTS projects
@@ -94,13 +94,13 @@ CREATE TABLE IF NOT EXISTS projects
   name character varying NOT NULL,
   description character varying DEFAULT '',
   enabled BOOLEAN DEFAULT(true)
-);
+);;
 
-SELECT create_index_if_not_exists('projects', 'name', '(lower(name))', true);
+SELECT create_index_if_not_exists('projects', 'name', '(lower(name))', true);;
 
-DROP TRIGGER IF EXISTS update_projects_modified ON projects;
+DROP TRIGGER IF EXISTS update_projects_modified ON projects;;
 CREATE TRIGGER update_projects_modified BEFORE UPDATE ON projects
-  FOR EACH ROW EXECUTE PROCEDURE update_modified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();;
 
 -- Groups for user role management
 CREATE TABLE IF NOT EXISTS groups
@@ -113,9 +113,9 @@ CREATE TABLE IF NOT EXISTS groups
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
     DEFERRABLE INITIALLY DEFERRED
-);
+);;
 
-SELECT create_index_if_not_exists('groups', 'name', '(lower(name))', true);
+SELECT create_index_if_not_exists('groups', 'name', '(lower(name))', true);;
 
 -- Table to map users to groups
 CREATE TABLE IF NOT EXISTS user_groups
@@ -130,9 +130,9 @@ CREATE TABLE IF NOT EXISTS user_groups
   CONSTRAINT ug_group_id_fkey FOREIGN KEY (group_id)
     REFERENCES groups(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-SELECT create_index_if_not_exists('user_groups', 'osm_user_id_group_id', '(osm_user_id, group_id)', true);
+SELECT create_index_if_not_exists('user_groups', 'osm_user_id_group_id', '(osm_user_id, group_id)', true);;
 
 -- Table for all challenges, which is a child of Project, Surveys are also stored in this table
 CREATE TABLE IF NOT EXISTS challenges
@@ -155,14 +155,14 @@ CREATE TABLE IF NOT EXISTS challenges
   CONSTRAINT challenges_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES projects(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-DROP TRIGGER IF EXISTS update_challenges_modified ON challenges;
+DROP TRIGGER IF EXISTS update_challenges_modified ON challenges;;
 CREATE TRIGGER update_challenges_modified BEFORE UPDATE ON challenges
-  FOR EACH ROW EXECUTE PROCEDURE update_modified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();;
 
-SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, lower(name))', true);
+SELECT create_index_if_not_exists('challenges', 'parent_id', '(parent_id)');;
+SELECT create_index_if_not_exists('challenges', 'parent_id_name', '(parent_id, lower(name))', true);;
 
 -- All the answers for a specific survey
 CREATE TABLE IF NOT EXISTS answers
@@ -176,13 +176,13 @@ CREATE TABLE IF NOT EXISTS answers
     REFERENCES challenges(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
     DEFERRABLE INITIALLY DEFERRED
-);
+);;
 
-DROP TRIGGER IF EXISTS update_answers_modified ON answers;
+DROP TRIGGER IF EXISTS update_answers_modified ON answers;;
 CREATE TRIGGER update_answers_modified BEFORE UPDATE ON answers
-  FOR EACH ROW EXECUTE PROCEDURE update_modified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();;
 
-SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');
+SELECT create_index_if_not_exists('answers', 'survey_id', '(survey_id)');;
 
 -- All the tasks for a specific challenge or survey
 CREATE TABLE IF NOT EXISTS tasks
@@ -197,11 +197,11 @@ CREATE TABLE IF NOT EXISTS tasks
   CONSTRAINT tasks_parent_id_fkey FOREIGN KEY (parent_id)
     REFERENCES challenges(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;
+DROP TRIGGER IF EXISTS update_tasks_modified ON tasks;;
 CREATE TRIGGER update_tasks_modified BEFORE UPDATE ON tasks
-  FOR EACH ROW EXECUTE PROCEDURE update_modified();
+  FOR EACH ROW EXECUTE PROCEDURE update_modified();;
 
 DO $$
 BEGIN
@@ -211,8 +211,8 @@ BEGIN
   END IF;;
 END$$;;
 
-SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');
-SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);
+SELECT create_index_if_not_exists('tasks', 'parent_id', '(parent_id)');;
+SELECT create_index_if_not_exists('tasks', 'parent_id_name', '(parent_id, lower(name))', true);;
 
 -- The answers for a survey from a user
 CREATE TABLE IF NOT EXISTS survey_answers
@@ -236,9 +236,9 @@ CREATE TABLE IF NOT EXISTS survey_answers
   CONSTRAINT survey_answers_answer_id_fkey FOREIGN KEY (answer_id)
     REFERENCES answers(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');
+SELECT create_index_if_not_exists('survey_answers', 'survey_id', '(survey_id)');;
 
 -- The tags that can be applied to a task
 CREATE TABLE IF NOT EXISTS tags
@@ -247,9 +247,9 @@ CREATE TABLE IF NOT EXISTS tags
   created timestamp without time zone DEFAULT NOW(),
   name character varying NOT NULL,
   description character varying DEFAULT ''
-);
+);;
 -- index has the potentially to slow down inserts badly
-SELECT create_index_if_not_exists('tags', 'name', '(lower(name))', true);
+SELECT create_index_if_not_exists('tags', 'name', '(lower(name))', true);;
 
 -- The tags associated with challenges
 CREATE TABLE IF NOT EXISTS tags_on_challenges
@@ -263,12 +263,12 @@ CREATE TABLE IF NOT EXISTS tags_on_challenges
   CONSTRAINT tags_tags_on_challenges_id_fkey FOREIGN KEY (tag_id)
   REFERENCES tags (id) MATCH SIMPLE
   ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id', '(challenge_id)');
-SELECT create_index_if_not_exists('tags_on_challenges', 'tag_id', '(tag_id)');
+SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id', '(challenge_id)');;
+SELECT create_index_if_not_exists('tags_on_challenges', 'tag_id', '(tag_id)');;
 -- This index could slow down inserts pretty badly
-SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id_tag_id', '(challenge_id, tag_id)');
+SELECT create_index_if_not_exists('tags_on_challenges', 'challenge_id_tag_id', '(challenge_id, tag_id)');;
 
 -- The tags associated with a task
 CREATE TABLE IF NOT EXISTS tags_on_tasks
@@ -282,12 +282,12 @@ CREATE TABLE IF NOT EXISTS tags_on_tasks
   CONSTRAINT tags_tags_on_tasks_tag_id_fkey FOREIGN KEY (tag_id)
     REFERENCES tags (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-SELECT create_index_if_not_exists('tags_on_tasks', 'task_id', '(task_id)');
-SELECT create_index_if_not_exists('tags_on_tasks', 'tag_id', '(tag_id)');
+SELECT create_index_if_not_exists('tags_on_tasks', 'task_id', '(task_id)');;
+SELECT create_index_if_not_exists('tags_on_tasks', 'tag_id', '(tag_id)');;
 -- This index could slow down inserts pretty badly
-SELECT create_index_if_not_exists('tags_on_tasks', 'task_id_tag_id', '(task_id, tag_id)');
+SELECT create_index_if_not_exists('tags_on_tasks', 'task_id_tag_id', '(task_id, tag_id)');;
 
 -- Geometries for a specific task
 CREATE TABLE IF NOT EXISTS task_geometries
@@ -299,7 +299,7 @@ CREATE TABLE IF NOT EXISTS task_geometries
     REFERENCES tasks (id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
     DEFERRABLE INITIALLY DEFERRED
-);
+);;
 
 DO $$
 BEGIN
@@ -309,8 +309,8 @@ BEGIN
   END IF;;
 END$$;;
 
-CREATE INDEX IF NOT EXISTS idx_task_geometries_geom ON task_geometries USING GIST (geom);
-SELECT create_index_if_not_exists('task_geometries', 'task_id', '(task_id)');
+CREATE INDEX IF NOT EXISTS idx_task_geometries_geom ON task_geometries USING GIST (geom);;
+SELECT create_index_if_not_exists('task_geometries', 'task_id', '(task_id)');;
 
 -- Actions that are taken in the system, like set the status of a task to 'fixed'
 CREATE TABLE IF NOT EXISTS actions
@@ -323,11 +323,11 @@ CREATE TABLE IF NOT EXISTS actions
   action integer NOT NULL,
   status integer NOT NULL,
   extra character varying
-);
+);;
 
-SELECT create_index_if_not_exists('actions', 'item_id', '(item_id)');
-SELECT create_index_if_not_exists('actions', 'osm_user_id', '(osm_user_id)');
-select create_index_if_not_exists('actions', 'created', '(created)');
+SELECT create_index_if_not_exists('actions', 'item_id', '(item_id)');;
+SELECT create_index_if_not_exists('actions', 'osm_user_id', '(osm_user_id)');;
+SELECT create_index_if_not_exists('actions', 'created', '(created)');;
 
 -- This contains only the actions related to setting the status of a task
 CREATE TABLE IF NOT EXISTS status_actions
@@ -349,10 +349,10 @@ CREATE TABLE IF NOT EXISTS status_actions
   CONSTRAINT status_actions_task_id_fkey FOREIGN KEY (task_id)
     REFERENCES tasks(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-SELECT create_index_if_not_exists('status_actions', 'challenge_id', '(challenge_id)');
-SELECT create_index_if_not_exists('status_actions', 'challenge_id_status', '(challenge_id,status)');
+SELECT create_index_if_not_exists('status_actions', 'challenge_id', '(challenge_id)');;
+SELECT create_index_if_not_exists('status_actions', 'challenge_id_status', '(challenge_id,status)');;
 
 -- Table handling locks for any of the objects
 CREATE TABLE IF NOT EXISTS locked
@@ -365,9 +365,9 @@ CREATE TABLE IF NOT EXISTS locked
   CONSTRAINT locked_users_user_id FOREIGN KEY (user_id)
     REFERENCES users(id) MATCH SIMPLE
     ON UPDATE CASCADE ON DELETE CASCADE
-);
+);;
 
-SELECT create_index_if_not_exists('locked', 'item_type_item_id', '(item_type, item_id)', true);
+SELECT create_index_if_not_exists('locked', 'item_type_item_id', '(item_type, item_id)', true);;
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 CREATE OR REPLACE FUNCTION create_update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint DEFAULT -1, reset_interval text DEFAULT '7 days') RETURNS integer as $$
@@ -382,7 +382,7 @@ BEGIN
       SELECT INTO return_id update_task(task_name, task_parent_id, task_instruction, task_status, task_id, reset_interval);;
     END;;
   ELSE
-    SELECT update_task(task_name, task_parent_id, task_instruction, task_status, task_id, reset_interval);;
+    PERFORM update_task(task_name, task_parent_id, task_instruction, task_status, task_id, reset_interval);;
   END IF;;
   RETURN return_id;;
 END
@@ -430,23 +430,23 @@ SELECT -999, -999 WHERE NOT EXISTS (
 );
 
 # --- !Downs
---DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);
---DROP FUNCTION IF EXISTS update_modified();
---DROP FUNCTION IF EXISTS on_user_delete();
---DROP TABLE IF EXISTS users CASCADE;
---DROP TABLE IF EXISTS projects CASCADE;
---DROP TABLE IF EXISTS groups CASCADE;
---DROP TABLE IF EXISTS user_groups CASCADE;
---DROP TABLE IF EXISTS challenges CASCADE;
---DROP TABLE IF EXISTS answers CASCADE;
---DROP TABLE IF EXISTS tasks CASCADE;
---DROP TABLE IF EXISTS survey_answers CASCADE;
---DROP TABLE IF EXISTS tags CASCADE;
---DROP TABLE IF EXISTS tags_on_challenges CASCADE;
---DROP TABLE IF EXISTS tags_on_tasks CASCADE;
---DROP TABLE IF EXISTS task_geometries CASCADE;
---DROP TABLE IF EXISTS actions CASCADE;
---DROP TABLE IF EXISTS status_actions CASCADE;
---DROP TABLE IF EXISTS locked CASCADE;
---DROP FUNCTION IF EXISTS create_update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint, reset_interval text);
+--DROP FUNCTION IF EXISTS create_index_if_not_exists(t_name text, i_name text, index_sql text, unq boolean);;
+--DROP FUNCTION IF EXISTS update_modified();;
+--DROP FUNCTION IF EXISTS on_user_delete();;
+--DROP TABLE IF EXISTS users CASCADE;;
+--DROP TABLE IF EXISTS projects CASCADE;;
+--DROP TABLE IF EXISTS groups CASCADE;;
+--DROP TABLE IF EXISTS user_groups CASCADE;;
+--DROP TABLE IF EXISTS challenges CASCADE;;
+--DROP TABLE IF EXISTS answers CASCADE;;
+--DROP TABLE IF EXISTS tasks CASCADE;;
+--DROP TABLE IF EXISTS survey_answers CASCADE;;
+--DROP TABLE IF EXISTS tags CASCADE;;
+--DROP TABLE IF EXISTS tags_on_challenges CASCADE;;
+--DROP TABLE IF EXISTS tags_on_tasks CASCADE;;
+--DROP TABLE IF EXISTS task_geometries CASCADE;;
+--DROP TABLE IF EXISTS actions CASCADE;;
+--DROP TABLE IF EXISTS status_actions CASCADE;;
+--DROP TABLE IF EXISTS locked CASCADE;;
+--DROP FUNCTION IF EXISTS create_update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint, reset_interval text);;
 --DROP FUNCTION IF EXISTS update_task(task_name text, task_parent_id bigint, task_instruction text, task_status integer, task_id bigint, reset_interval text)
