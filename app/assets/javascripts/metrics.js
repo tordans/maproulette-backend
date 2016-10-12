@@ -17,6 +17,68 @@
         });
     };
 
+    Metrics.updateChartData = function(flow, chart, sourceData) {
+        for (var i = 0; i < sourceData.length; i++) {
+            var activityData = chart.data.datasets[i];
+            if (typeof activityData !== 'undefined') {
+                activityData.data = [];
+            }
+            var dateKeys = Object.keys(sourceData[i]);
+            var currentTotal = 0;
+            for (var j = 0; j < dateKeys.length; j++) {
+                var dateMoment = moment(dateKeys[j]);
+                if (typeof flow === 'undefined' || flow) {
+                    currentTotal += sourceData[i][dateKeys[j]];
+                    activityData.data[j] = {
+                        x: dateMoment.format("ll"),
+                        y: currentTotal
+                    };
+                } else {
+                    activityData.data[j] = sourceData[i][dateKeys[j]];
+                }
+            }
+        }
+        // update the available separately, as to calculate this it is based off the total tasks
+        // available minus the fixed, false positives and already fixed tasks
+        chart.update();
+    };
+
+    Metrics.getActivityChart = function(type, containerName, data) {
+        if (typeof type === 'undefined') {
+            type = "line";
+        }
+        return new Chart($("#" + containerName), {
+            type:type,
+            data:data,
+            options:{
+                responsive:true,
+                scales:{
+                    xAxes: [{
+                        type: "time",
+                        time: {
+                            parser:false,
+                            unit:'day',
+                            displayFormats: {
+                                'day': 'll', // Sep 4 2015
+                                'week': 'll', // Week 46, or maybe "[W]WW - YYYY" ?
+                                'month': 'MMM YYYY', // Sept 2015
+                                'quarter': '[Q]Q - YYYY', // Q3
+                                'year': 'YYYY' // 2015
+                            },
+                            tooltipFormat: ''
+                        }
+                    }],
+                    yAxes: [{
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'count'
+                        }
+                    }]
+                }
+            }
+        });
+    };
+
     function handleChallengeSummaryData(canvas, data, showLabels, callback) {
         var numOfChallenges = data.length;
         var totalTasks = 0;

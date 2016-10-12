@@ -118,7 +118,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   def retrieveByAPIKey(apiKey:String, user:User)(implicit id:Long) : Option[User] = this.cacheManager.withOptionCaching { () =>
     this.db.withConnection { implicit c =>
-      val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE id = {id} AND api_key = {apiKey}"""
+      val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE (id = {id} OR osm_id = {id}) AND api_key = {apiKey}"""
       SQL(query).on('id -> id, 'apiKey -> apiKey).as(this.parser.*).headOption match {
         case Some(u) =>
           this.permission.hasReadAccess(u, user)

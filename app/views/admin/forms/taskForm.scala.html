@@ -18,8 +18,7 @@
     } else {
       <h3 class="box-title">@messages("tasks.form.edit") - @taskForm("name").value.get</h3>
     }
-    </div><!-- /.box-header -->
-    <!-- form start -->
+    </div>
     @helper.form(routes.FormEditController.taskFormPost(projectId, parentId, parentType, taskForm("id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
       <div class="box-body">
         <div class="form-group" style="display:none;">
@@ -69,11 +68,11 @@
           help = messages("tasks.form.field.priority.help"),
           defaultSelected = Some(Task.STATUS_CREATED.toString)
         )
-      </div><!-- /.box-body -->
+      </div>
       <div class="box-footer">
         <button type="submit" class="btn btn-primary">@messages("tasks.form.submit")</button>
         <a class="btn btn-primary" href="@routes.Application.adminUITaskList(projectId, parentType, parentId)">@messages("tasks.form.cancel")</a>
       </div>
     }
-  </div><!-- /.box -->
+  </div>
 </section>

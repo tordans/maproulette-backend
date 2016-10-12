@@ -18,8 +18,7 @@
         } else {
             <h3 class="box-title">Edit Survey</h3>
         }
-        </div><!-- /.box-header -->
-        <!-- form start -->
+        </div>
         @helper.form(routes.FormEditController.surveyFormPost(parentId, surveyForm("challenge.id").value.getOrElse("-1").toLong), 'class -> "form-horizontal") {
             <div class="box-body">
                 <div class="form-group" style="display:none;">
@@ -126,11 +125,11 @@
                         </div>
                     </div>
                 }
-            </div><!-- /.box-body -->
+            </div>
             <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Submit</button>
                 <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Survey", parentId)">Cancel</a>
             </div>
         }
-    </div><!-- /.box -->
+    </div>
 </section>
