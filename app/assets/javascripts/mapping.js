@@ -711,6 +711,10 @@ var MRManager = (function() {
             }
         }
 
+        L.control.zoom({
+            position:'topright'
+        }).addTo(map);
+
         // geojson layer
         geojsonLayer = new L.GeoJSON(null, {
             onEachFeature: function (feature, layer) {
