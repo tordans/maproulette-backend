@@ -239,7 +239,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       ${this.searchField("c.name")}
                       ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                       ${this.parentFilter(parentId)}
-                      ${this.order(Some(orderColumn), orderDirection, "c")}
+                      ${this.order(Some(orderColumn), orderDirection, "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
     }
@@ -266,7 +266,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                         ${this.searchField("c.name")}
                         ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                         ${this.parentFilter(parentId)}
-                        ${this.order(Some(orderColumn), orderDirection, "c")}
+                        ${this.order(Some(orderColumn), orderDirection, "c", true)}
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> this.search(searchString),
           'offset -> ParameterValue.toParameterValue(offset)
@@ -319,7 +319,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val query = s"""SELECT * FROM challenges c
                       INNER JOIN projects p ON c.parent_id = p.id
                       WHERE ${this.enabled(enabledOnly, "c", "")} ${this.enabled(enabledOnly, "p")}
-                      ${this.order(Some("created"), "DESC", "c")}
+                      ${this.order(Some("created"), "DESC", "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
     }
@@ -481,7 +481,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                           ) As fc)::text AS geometry FROM tasks
                       WHERE parent_id = {id} ${this.enabled(onlyEnabled)}
                       ${this.searchField("name")}
-                      ${this.order(Some(orderColumn), orderDirection)}
+                      ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> this.search(searchString),
         'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
