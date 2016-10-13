@@ -285,7 +285,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
       val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE ${this.searchField("name", "")} ${this.enabled(onlyEnabled)}
                       ${this.parentFilter(parentId)}
-                      ${this.order(Some(orderColumn), orderDirection)}
+                      ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
     }
@@ -304,7 +304,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
         val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                         WHERE ${this.searchField("name", "")}
                         ${this.enabled(onlyEnabled)} ${this.parentFilter(parentId)}
-                        ${this.order(Some(orderColumn), orderDirection)}
+                        ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> this.search(searchString),
           'offset -> ParameterValue.toParameterValue(offset)

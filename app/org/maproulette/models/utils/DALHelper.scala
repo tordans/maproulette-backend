@@ -71,9 +71,14 @@ trait DALHelper {
     * @param orderColumn The column that you are ordering with (or multiple comma separated columns)
     * @param orderDirection Direction of ordering ASC or DESC
     * @param tablePrefix table alias if required
+    * @param nameFix The namefix really is just a way to force certain queries specific to MapRoulette
+    *                to use a much more efficient query plan. The difference in performance can be quite
+    *                large. We don't do it by default because it relies on the "name" column which is
+    *                not guaranteed.
     * @return
     */
-  def order(orderColumn:Option[String]=None, orderDirection:String="ASC", tablePrefix:String="") : String = orderColumn match {
+  def order(orderColumn:Option[String]=None, orderDirection:String="ASC", tablePrefix:String="",
+            nameFix:Boolean=false) : String = orderColumn match {
     case Some(column) =>
       val direction = orderDirection match {
         case "DESC" => "DESC"
@@ -81,7 +86,7 @@ trait DALHelper {
       }
       // sanitize the column name to prevent sql injection. Only allow underscores and A-Za-z
       if (column.forall(this.ordinary.contains)) {
-        s"ORDER BY ${getPrefix(tablePrefix)}$column $direction"
+        s"ORDER BY ${getPrefix(tablePrefix)}$column ${if (nameFix) {"," + getPrefix(tablePrefix) + "name";} else {"";}} $direction"
       } else {
         ""
       }
