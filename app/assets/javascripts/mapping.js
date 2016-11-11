@@ -724,7 +724,14 @@ var MRManager = (function() {
                     for (var k in feature.properties) {
                         counter++;
                         var v = feature.properties[k];
-                        popupString += k + ': ' + v + '<br />';
+                        var printLine = k+": "+v;
+                        if(printLine.length > 22){
+                                popupString += printLine.slice(0,20)+".."+ '<br />';
+                                
+                            }
+                        else{
+                            popupString += printLine+ '<br />';
+                        }
                     }
                     popupString += '</div>';
                     if (counter > 0) {
