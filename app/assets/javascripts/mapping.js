@@ -195,7 +195,7 @@ L.Control.ControlPanel = L.Control.extend({
         if (this.options.controls[controlID]) {
             var controlDiv = L.DomUtil.get(controlName);
             if (!controlDiv.hasChildNodes()) {
-                var control = L.DomUtil.create('a', 'fa ' + icon + ' fa-2x', controlDiv);
+                var control = L.DomUtil.create('a', 'fa ' + icon + ' fa-lg', controlDiv);
                 control.href = "#";
                 var text = L.DomUtil.create('a', '', controlDiv);
                 text.href = "#";
@@ -726,7 +726,14 @@ var MRManager = (function() {
                     for (var k in feature.properties) {
                         counter++;
                         var v = feature.properties[k];
-                        popupString += k + ': ' + v + '<br />';
+                        var printLine = k+": "+v;
+                        if(printLine.length > 22){
+                                popupString += printLine.slice(0,20)+".."+ '<br />';
+                                
+                            }
+                        else{
+                            popupString += printLine+ '<br />';
+                        }
                     }
                     popupString += '</div>';
                     if (counter > 0) {
