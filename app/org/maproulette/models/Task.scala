@@ -4,9 +4,11 @@ package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{ItemType, TaskType}
+import org.maproulette.utils.Utils
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 /**
   * The primary object in Map Roulette is the task, this is the object that defines the actual problem
@@ -65,7 +67,7 @@ case class Task(override val id:Long,
       }
     }
     if (matchingList.isEmpty) {
-      parent.defaultPriority
+      parent.priority.defaultPriority
     } else if (matchingList.contains(Challenge.PRIORITY_HIGH)) {
       Challenge.PRIORITY_HIGH
     } else if (matchingList.contains(Challenge.PRIORITY_MEDIUM)) {
@@ -77,8 +79,21 @@ case class Task(override val id:Long,
 }
 
 object Task {
-  implicit val taskReads: Reads[Task] = Json.reads[Task]
-  implicit val taskWrites: Writes[Task] = Json.writes[Task]
+  implicit object TaskFormat extends Format[Task] {
+    override def writes(o: Task): JsValue = {
+      implicit val taskWrites: Writes[Task] = Json.writes[Task]
+      val original = Json.toJson(o)(Json.writes[Task])
+      val updated = o.location match {
+        case Some(l) => Utils.insertIntoJson(original, "location", Json.parse(l), true)
+        case None => original
+      }
+      Utils.insertIntoJson(updated, "geometries", Json.parse(o.geometries), true)
+    }
+
+    override def reads(json: JsValue): JsResult[Task] = Json.fromJson[Task](json)
+  }
+
+
 
   val STATUS_CREATED = 0
   val STATUS_CREATED_NAME = "Created"

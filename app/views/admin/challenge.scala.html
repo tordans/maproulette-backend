@@ -45,18 +45,18 @@
                     @for(c <- challenges) {
                         <tr>
                             <td>
-                                @if(c._1.challengeType == Actions.ITEM_TYPE_SURVEY) {
-                                    <i class="fa fa-edit fa-2x" style="color:@if(c._1.enabled) { green } else { red }"/>
+                                @if(c._1.general.challengeType == Actions.ITEM_TYPE_SURVEY) {
+                                    <i class="fa fa-edit fa-2x" style="color:@if(c._1.general.enabled) { green } else { red }"/>
                                 } else {
-                                    <i class="fa fa-wrench fa-2x" style="color:@if(c._1.enabled) { green } else { red }"/>
+                                    <i class="fa fa-wrench fa-2x" style="color:@if(c._1.general.enabled) { green } else { red }"/>
                                 }
                             </td>
                             <td>@c._1.id</td>
                             <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c._1.id)">@c._1.name</a></td>
                             <td>@{c._2}/@{c._3}/@{c._4}</td>
                             <td>
-                                @if(!c._1.overpassQL.getOrElse("").isEmpty) { Overpass } else {
-                                    @if(!c._1.remoteGeoJson.getOrElse("").isEmpty) { Remote GeoJson } else {
+                                @if(!c._1.creation.overpassQL.getOrElse("").isEmpty) { Overpass } else {
+                                    @if(!c._1.creation.remoteGeoJson.getOrElse("").isEmpty) { Remote GeoJson } else {
                                         @messages("challenge.type.static")
                                     }
                                 }
@@ -75,25 +75,25 @@
                                         <span class="sr-only">@messages("challenge.column.actions.options.toggle")</span>
                                     </button>
                                     <ul class="dropdown-menu" role="menu">
-                                        @if(c._1.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
-                                            <li><a href="@routes.FormEditController.challengeFormUI(c._1.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
+                                        @if(c._1.general.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
+                                            <li><a href="@routes.FormEditController.challengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
                                         } else {
-                                            <li><a href="@routes.FormEditController.surveyFormUI(c._1.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
+                                            <li><a href="@routes.FormEditController.surveyFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
                                         }
-                                        <li><a href="@routes.FormEditController.cloneChallengeFormUI(c._1.parent, c._1.id)">@messages("challenge.column.actions.clone")</a></li>
+                                        <li><a href="@routes.FormEditController.cloneChallengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.clone")</a></li>
                                         <li><a href="#" onclick="deleteChallenge(@c._1.id);">@messages("challenge.column.actions.delete")</a></li>
                                         <li class="divider"></li>
                                         <li><a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">@messages("challenge.column.actions.new")</a></li>
                                         <li class="divider"></li>
-                                        @if(c._1.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
+                                        @if(c._1.general.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
                                             <li><a href="@routes.Application.challengeMetrics(c._1.id, "")">@messages("challenge.column.actions.metrics")</a></li>
                                         } else {
                                             <li><a href="@routes.Application.challengeMetrics(c._1.id, "", 1)">@messages("challenge.column.actions.metrics")</a></li>
                                         }
                                         <li><a href="@routes.Application.viewChallenge(c._1.id)">@messages("challenge.column.actions.view")</a></li>
                                         <li class="divider"></li>
-                                        @if(!c._1.overpassQL.getOrElse("").isEmpty || !c._1.remoteGeoJson.getOrElse("").isEmpty) {
-                                            <li><a href="#" onclick="rebuildChallenge(@c._1.parent, @c._1.id);">@messages("challenge.column.actions.rebuild")</a></li>
+                                        @if(!c._1.creation.overpassQL.getOrElse("").isEmpty || !c._1.creation.remoteGeoJson.getOrElse("").isEmpty) {
+                                            <li><a href="#" onclick="rebuildChallenge(@c._1.general.parent, @c._1.id);">@messages("challenge.column.actions.rebuild")</a></li>
                                         }
                                         <li><a href="@routes.Application.mapChallenge(c._1.id)">@messages("challenge.column.actions.start")</a></li>
                                     </ul>

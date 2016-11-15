@@ -15,12 +15,15 @@ case class Point(lat:Double, lng:Double)
   * that will be a start button so you can jump into editing tasks in the challenge
   *
   * @param id The id of the object for this clustered point
+  * @param owner The osm id of the owner of the object
+  * @param ownerName The name of the owner
   * @param title The title of the object (or name)
   * @param point The latitude and longitude of the point
   * @param blurb A short descriptive text for the object
   * @param status The status of the task, only used for task points, ie. not challenge points
   */
-case class ClusteredPoint(id:Long, title:String, point:Point, blurb:String, difficulty:Int, `type`:Int, status:Int = -1)
+case class ClusteredPoint(id:Long, owner:Long, ownerName:String, title:String, point:Point,
+                          blurb:String, difficulty:Int, `type`:Int, status:Int = -1)
 
 object ClusteredPoint {
   implicit val pointWrites: Writes[Point] = Json.writes[Point]

@@ -19,7 +19,7 @@ import play.api.mvc.{Action, AnyContent, Controller}
   */
 class APIController @Inject() (dalManager: DALManager, sessionManager: SessionManager) extends Controller with StatusMessages {
 
-  implicit val challengeWrites = Challenge.challengeWrites
+  implicit val challengeWrites = Challenge.writes.challengeWrites
 
   // scalastyle:off
   @ApiOperation(

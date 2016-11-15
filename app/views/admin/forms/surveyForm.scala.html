@@ -30,7 +30,7 @@
                     )
                 </div>
                 <div class="form-group" style="display:none;">
-                    @text(surveyForm("challenge.parent"),
+                    @text(surveyForm("challenge.general.parent"),
                         label = "Parent ID",
                         placeholder = "-1",
                         default = parentId + "",
@@ -38,7 +38,7 @@
                     )
                 </div>
                 <div class="form-group" style="display:none;">
-                    @text(surveyForm("challenge.challengeType"),
+                    @text(surveyForm("challenge.general.challengeType"),
                         label = "Challenge Type",
                         placeholder = Actions.ITEM_TYPE_SURVEY+"",
                         default = Actions.ITEM_TYPE_SURVEY+"",
@@ -46,7 +46,7 @@
                     )
                 </div>
                 <div class="form-group">
-                    @select(surveyForm("challenge.enabled"),
+                    @select(surveyForm("challenge.general.enabled"),
                         label = "Enabled",
                         optionList = List(("true", "true"), ("false", "false")),
                         isMultiple = false,
@@ -70,7 +70,7 @@
                     )
                 </div>
                 <div class="form-group">
-                    @textarea(surveyForm("challenge.blurb"),
+                    @textarea(surveyForm("challenge.general.blurb"),
                         label = "Blurb",
                         rows = "5",
                         placeholder = "Survey Blurb",
@@ -78,7 +78,7 @@
                     )
                 </div>
                 <div class="form-group">
-                @select(surveyForm("challenge.difficulty"),
+                @select(surveyForm("challenge.general.difficulty"),
                     label = "Difficulty",
                     optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
                     isMultiple = false,
@@ -87,7 +87,7 @@
                 )
                 </div>
                 <div class="form-group">
-                    @text(surveyForm("challenge.instruction"),
+                    @text(surveyForm("challenge.general.instruction"),
                         label = "Question",
                         placeholder = "Survey Question",
                         help = "Please enter the question for the survey. (optional)",

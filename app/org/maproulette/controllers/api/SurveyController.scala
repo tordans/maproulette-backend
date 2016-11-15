@@ -38,9 +38,9 @@ class SurveyController @Inject() (override val childController:TaskController,
   // json writes for automatically writing Challenges to a json body response
   override implicit val tWrites: Writes[Survey] = Survey.surveyWrites
   // json writes for automatically writing Tasks to a json body response
-  override protected val cWrites: Writes[Task] = Task.taskWrites
+  override protected val cWrites: Writes[Task] = Task.TaskFormat
   // json reads for automatically reading tasks from a posted json body
-  override protected val cReads: Reads[Task] = Task.taskReads
+  override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()
 

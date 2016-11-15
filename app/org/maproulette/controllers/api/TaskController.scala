@@ -31,9 +31,9 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   extends CRUDController[Task] with TagsMixin[Task] {
 
   // json reads for automatically reading Tasks from a posted json body
-  override implicit val tReads: Reads[Task] = Task.taskReads
+  override implicit val tReads: Reads[Task] = Task.TaskFormat
   // json writes for automatically writing Tasks to a json body response
-  override implicit val tWrites: Writes[Task] = Task.taskWrites
+  override implicit val tWrites: Writes[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType = TaskType()
   // json reads for automatically reading Tags from a posted json body

@@ -36,9 +36,9 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   // json writes for automatically writing Projects to a json body response
   override implicit val tWrites: Writes[Project] = Project.projectWrites
   // json writes for automatically writing Challenges to a json body response
-  override protected val cWrites: Writes[Challenge] = Challenge.challengeWrites
+  override protected val cWrites: Writes[Challenge] = Challenge.writes.challengeWrites
   // json reads for automatically reading Challenges from a posted json body
-  override protected val cReads: Reads[Challenge] = Challenge.challengeReads
+  override protected val cReads: Reads[Challenge] = Challenge.reads.challengeReads
   // The type of object that this controller deals with.
   override implicit val itemType = ProjectType()
 

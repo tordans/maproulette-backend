@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils
 import play.api.data._
 import play.api.data.Forms._
 import org.maproulette.actions.{Actions, ChallengeType, ItemType}
+import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
 
 case class PriorityRule(operator:String, key:String, value:String) {
@@ -24,53 +25,45 @@ case class PriorityRule(operator:String, key:String, value:String) {
   }
 }
 
-/**
-  * The Challenge object is a child of the project object and contains Task objects as it's children.
-  * It would be consider a specific problem set under a projects domain. It contains the following
-  * parameters:
-  *
-  * id - The id assigned by the database
-  * name - The name of the challenge
-  * identifier - A unique identifier for the Challenge TODO: this should be removed. No real reason to keep this anymore
-  * parent - The id of the project that is the parent of this challenge
-  * difficulty - How difficult this challenge is consider, EASY, NORMAL or EXPERT
-  * description - a brief description of the challenge
-  * blurb - a quick blurb describing the problem
-  * instruction - a detailed set of instructions on generally how the tasks within the challenge should be fixed
-  *
-  * @author cuthbertm
-  */
-case class Challenge(override val id: Long,
-                     override val name: String,
-                     override val description:Option[String]=None,
-                     parent:Long,
-                     instruction:String,
-                     difficulty:Int=Challenge.DIFFICULTY_NORMAL,
-                     blurb:Option[String]=None,
-                     enabled:Boolean=false,
-                     challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
-                     featured:Boolean=false,
-                     overpassQL:Option[String]=None,
-                     remoteGeoJson:Option[String]=None,
-                     status:Option[Int]=Some(0),
-                     defaultPriority:Int=Challenge.PRIORITY_HIGH,
-                     highPriorityRule:Option[String]=None,
-                     mediumPriorityRule:Option[String]=None,
-                     lowPriorityRule:Option[String]=None,
-                     defaultZoom:Int=Challenge.DEFAULT_ZOOM,
-                     minZoom:Int=Challenge.MIN_ZOOM,
-                     maxZoom:Int=Challenge.MAX_ZOOM,
-                     defaultBasemap:Option[Int]=None,
-                     customBasemap:Option[String]=None) extends BaseObject[Long] with DefaultWrites {
+case class ChallengeGeneral(owner:Long,
+                            parent:Long,
+                            instruction:String,
+                            difficulty:Int=Challenge.DIFFICULTY_NORMAL,
+                            blurb:Option[String]=None,
+                            enabled:Boolean=false,
+                            challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
+                            featured:Boolean=false) extends DefaultWrites
+case class ChallengeCreation(overpassQL:Option[String]=None, remoteGeoJson:Option[String]=None) extends DefaultWrites
+case class ChallengePriority(defaultPriority:Int=Challenge.PRIORITY_HIGH,
+                             highPriorityRule:Option[String]=None,
+                             mediumPriorityRule:Option[String]=None,
+                             lowPriorityRule:Option[String]=None) extends DefaultWrites
+case class ChallengeExtra(defaultZoom:Int=Challenge.DEFAULT_ZOOM,
+                          minZoom:Int=Challenge.MIN_ZOOM,
+                          maxZoom:Int=Challenge.MAX_ZOOM,
+                          defaultBasemap:Option[Int]=None,
+                          customBasemap:Option[String]=None) extends DefaultWrites
 
+/**
+  * The ChallengeFormFix case class is built so that we can nest the form objects as there is a limit
+  * on the number of elements allowed in the form mapping.
+  */
+case class Challenge(override val id:Long,
+                     override val name:String,
+                     override val description:Option[String]=None,
+                      general:ChallengeGeneral,
+                      creation:ChallengeCreation,
+                      priority:ChallengePriority,
+                      extra: ChallengeExtra,
+                      status:Option[Int]=Some(0)) extends BaseObject[Long] with DefaultWrites {
 
   override val itemType: ItemType = ChallengeType()
 
-  def isHighPriority(properties:Map[String, String]) : Boolean = this.matchesRule(highPriorityRule, properties)
+  def isHighPriority(properties:Map[String, String]) : Boolean = this.matchesRule(priority.highPriorityRule, properties)
 
-  def isMediumPriority(properties:Map[String, String]) : Boolean = this.matchesRule(mediumPriorityRule, properties)
+  def isMediumPriority(properties:Map[String, String]) : Boolean = this.matchesRule(priority.mediumPriorityRule, properties)
 
-  def isLowRulePriority(properties:Map[String, String]) : Boolean = this.matchesRule(lowPriorityRule, properties)
+  def isLowRulePriority(properties:Map[String, String]) : Boolean = this.matchesRule(priority.lowPriorityRule, properties)
 
   private def matchesRule(rule:Option[String], properties:Map[String, String]) : Boolean = {
     rule match {
@@ -99,8 +92,8 @@ case class Challenge(override val id: Long,
 }
 
 object Challenge {
-  implicit val challengeWrites: Writes[Challenge] = Json.writes[Challenge]
-  implicit val challengeReads: Reads[Challenge] = Json.reads[Challenge]
+  val writes = new Object with ChallengeWrites
+  val reads = new Object with ChallengeReads
 
   val DIFFICULTY_EASY = 1
   val DIFFICULTY_NORMAL = 2
@@ -139,29 +132,40 @@ object Challenge {
       "id" -> default(longNumber, -1L),
       "name" -> nonEmptyText,
       "description" -> optional(text),
-      "parent" -> longNumber,
-      "instruction" -> nonEmptyText,
-      "difficulty" -> default(number(min = DIFFICULTY_EASY, max = DIFFICULTY_EXPERT + 1), DIFFICULTY_NORMAL),
-      "blurb" -> optional(text),
-      "enabled" -> boolean,
-      "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
-      "featured" -> default(boolean, false),
-      "overpassQL" -> optional(text),
-      "remoteGeoJson" -> optional(text),
-      "status" -> default(optional(number), None),
-      "defaultPriority" -> default(number(min = PRIORITY_HIGH, max = PRIORITY_LOW + 1), PRIORITY_HIGH),
-      "highPriorityRule" -> optional(text),
-      "mediumPriorityRule" -> optional(text),
-      "lowPriorityRule" -> optional(text),
-      "defaultZoom" -> default(number, DEFAULT_ZOOM),
-      "minZoom" -> default(number, MIN_ZOOM),
-      "maxZoom" -> default(number, MAX_ZOOM),
-      "defaultBasemap" -> optional(number),
-      "customBasemap" -> optional(text)
+      "general" -> mapping(
+        "owner" -> longNumber,
+        "parent" -> longNumber,
+        "instruction" -> nonEmptyText,
+        "difficulty" -> default(number(min = DIFFICULTY_EASY, max = DIFFICULTY_EXPERT + 1), DIFFICULTY_NORMAL),
+        "blurb" -> optional(text),
+        "enabled" -> boolean,
+        "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
+        "featured" -> default(boolean, false)
+      )(ChallengeGeneral.apply)(ChallengeGeneral.unapply),
+      "creation" -> mapping(
+        "overpassQL" -> optional(text),
+        "remoteGeoJson" -> optional(text)
+      )(ChallengeCreation.apply)(ChallengeCreation.unapply),
+      "priority" -> mapping(
+        "defaultPriority" -> default(number(min = PRIORITY_HIGH, max = PRIORITY_LOW + 1), PRIORITY_HIGH),
+        "highPriorityRule" -> optional(text),
+        "mediumPriorityRule" -> optional(text),
+        "lowPriorityRule" -> optional(text)
+      )(ChallengePriority.apply)(ChallengePriority.unapply),
+      "extra" -> mapping(
+        "defaultZoom" -> default(number, DEFAULT_ZOOM),
+        "minZoom" -> default(number, MIN_ZOOM),
+        "maxZoom" -> default(number, MAX_ZOOM),
+        "defaultBasemap" -> optional(number),
+        "customBasemap" -> optional(text)
+      )(ChallengeExtra.apply)(ChallengeExtra.unapply),
+      "status" -> default(optional(number), None)
     )(Challenge.apply)(Challenge.unapply)
   )
 
-  def emptyChallenge(parentId:Long) : Challenge = Challenge(-1, "", None, parentId, "")
+  def emptyChallenge(ownerId:Long, parentId:Long) : Challenge = Challenge(
+    -1, "", None, ChallengeGeneral(-1, -1, ""), ChallengeCreation(), ChallengePriority(), ChallengeExtra()
+  )
 
   val STATUS_NA = 0
   val STATUS_BUILDING = 1

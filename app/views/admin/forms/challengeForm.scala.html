@@ -1,7 +1,7 @@
-@import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
 @import org.maproulette.actions.Actions
 @import org.maproulette.session.User
+@import org.maproulette.models.Challenge
 @(user:User, parentName:String, parentId:Long, challengeForm:Form[Challenge], tags:Option[List[String]])(implicit messages: Messages, webJarAssets: WebJarAssets)
 @views.html.admin.common.header(messages("challenge.wizard.form.administration"), null,
     Map(

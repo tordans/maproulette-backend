@@ -1,8 +1,8 @@
 @import org.maproulette.models.Challenge
 @import views.html.admin.forms.elements._
 @(challengeForm:Form[Challenge])(implicit messages: Messages)
-@defining(!challengeForm("overpassQL").value.getOrElse("").isEmpty) { isOverpass =>
-    @defining(!challengeForm("remoteGeoJson").value.getOrElse("").isEmpty) { isRemote =>
+@defining(!challengeForm("creation.overpassQL").value.getOrElse("").isEmpty) { isOverpass =>
+    @defining(!challengeForm("creation.remoteGeoJson").value.getOrElse("").isEmpty) { isRemote =>
         @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
             <span class="help-block">@messages("challenge.wizard.creation.help")</span>
             <div class="nav-tabs-custom">
@@ -21,7 +21,7 @@
                     <div class="@if(isOverpass || !isRemote) { active }tab-pane" id="overpass">
                         <span class="help-block">@Html(messages("challenge.wizard.creation.overpass.info"))
                         </span>
-                        @textarea(challengeForm("overpassQL"),
+                        @textarea(challengeForm("creation.overpassQL"),
                             label = messages("challenge.wizard.creation.overpass.label"),
                             rows = "5",
                             placeholder = messages("challenge.wizard.creation.overpass.placeholder"),
@@ -40,7 +40,7 @@
                         </div>
                     </div>
                     <div class="@if(isRemote) { active }tab-pane" id="remote">
-                        @text(challengeForm("remoteGeoJson"),
+                        @text(challengeForm("creation.remoteGeoJson"),
                             label = messages("challenge.wizard.creation.geojson.label"),
                             placeholder = messages("challenge.wizard.creation.geojson.placeholder"),
                             help = messages("challenge.wizard.creation.geojson.help")

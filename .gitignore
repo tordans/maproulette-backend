@@ -15,3 +15,7 @@ dist
 /.settings
 /.sbtserver
 conf/dev.conf
+project/.sbtserver
+project/.sbtserver.lock
+project/play-fork-run.sbt
+project/sbt-ui.sbt

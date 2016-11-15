@@ -35,6 +35,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
   private val adminHeader:String = Messages("headers.administration")
   private val metricsHeader:String = Messages("headers.metrics")
 
+  def untrail(path:String) = Action {
+    MovedPermanently(s"/$path")
+  }
+
   def clearCaches : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
