@@ -4,7 +4,7 @@
 @(user:User, config:Config, challenge:Option[Challenge]=None, projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
 @colSize() = {@{if (challenge.isEmpty) { "3" } else { "4" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
-@views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge(-1, if (projects.isEmpty) { messages("metrics.challenge.all") } else { messages("metrics.challenge.projects", projects) }, None, -1, "")).name)
+@views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge.emptyChallenge(-1, -1).copy(name = if (projects.isEmpty) { messages("metrics.challenge.all") } else { messages("metrics.challenge.projects", projects) })).name)
 <section class="content">
     @if(challenge.isDefined) {
         <div class="row">
@@ -172,9 +172,9 @@
                                     <a href="@routes.Application.mapChallenge(challenge.get.id)"><button class="btn btn-block btn-success">@messages("metrics.challenge.start")</button></a>
                                     <span class="description-text">@messages("metrics.challenge.start.description")</span>
                                 </div>
-                                @if(user.isSuperUser || user.adminForProject(challenge.get.parent)) {
+                                @if(user.isSuperUser || user.adminForProject(challenge.get.general.parent)) {
                                     <div class="description-block border-right">
-                                        <a href="@routes.FormEditController.challengeFormUI(challenge.get.parent, challenge.get.id)"><button class="btn btn-block btn-warning">@messages("metrics.challenge.edit")</button></a>
+                                        <a href="@routes.FormEditController.challengeFormUI(challenge.get.general.parent, challenge.get.id)"><button class="btn btn-block btn-warning">@messages("metrics.challenge.edit")</button></a>
                                         <span class="description-text">@messages("metrics.challenge.edit.description")</span>
                                     </div>
                                 }

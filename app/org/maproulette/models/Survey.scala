@@ -5,6 +5,7 @@ package org.maproulette.models
 import play.api.data._
 import play.api.data.Forms._
 import org.maproulette.actions.{ItemType, SurveyType}
+import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json.{Json, Reads, Writes}
 
 case class Answer(id:Long = -1, answer:String)
@@ -24,15 +25,13 @@ case class Answer(id:Long = -1, answer:String)
 case class Survey(challenge:Challenge, answers:List[Answer]) extends BaseObject[Long] {
   override def name: String = challenge.name
   override def id: Long = challenge.id
-  def question : String = challenge.instruction
+  def question : String = challenge.general.instruction
   override val itemType: ItemType = SurveyType()
 }
 
-object Survey {
+object Survey extends ChallengeWrites with ChallengeReads {
   implicit val answerWrites: Writes[Answer] = Json.writes[Answer]
   implicit val answerReads: Reads[Answer] = Json.reads[Answer]
-  implicit val challengeWrites: Writes[Challenge] = Challenge.challengeWrites
-  implicit val challengeReads: Reads[Challenge] = Challenge.challengeReads
 
   implicit val surveyWrites: Writes[Survey] = Json.writes[Survey]
   implicit val surveyReads: Reads[Survey] = Json.reads[Survey]
@@ -49,5 +48,5 @@ object Survey {
     )(Survey.apply)(Survey.unapply)
   )
 
-  def emptySurvey(parentId:Long) : Survey = Survey(Challenge.emptyChallenge(parentId), List.empty)
+  def emptySurvey(ownerId:Long, parentId:Long) : Survey = Survey(Challenge.emptyChallenge(ownerId, parentId), List.empty)
 }

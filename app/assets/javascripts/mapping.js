@@ -691,7 +691,8 @@ var MRManager = (function() {
                 maxZoom: Utils.getDefaultValue(options.maxZoom, 19),
                 layers: [
                     currentLayer
-                ]
+                ],
+                zoomControl: false
             });
         } catch (err) {
             // lets assume that loading the map was caused by the custom url
@@ -703,7 +704,8 @@ var MRManager = (function() {
                     maxZoom: Utils.getDefaultValue(options.maxZoom, 19),
                     layers: [
                         osm_layer
-                    ]
+                    ],
+                    zoomControl: false
                 });
                 ToastUtils.Error(Messages("mapping.js.custom.error", LoggedInUser.customBasemap));
             } else {
@@ -794,6 +796,10 @@ var MRManager = (function() {
                 if (data[i].type == 1 || data[i].type == 4) {
                     // This section below is for the pie chart and small activity chart when the popup is opened
                     popupString += Messages('challenge.difficulty.title') + " " + Messages('challenge.difficulty.' + data[i].difficulty);
+                    if (typeof data[i].ownerName !== 'undefined' || data[i].ownerName == -1) {
+                        popupString += "<br/>" + Messages('challenge.owner') + " <a target='_blank' href='http://osm.org/user/" + data[i].ownerName + "'>" + data[i].ownerName + "</a>" +
+                                        "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + data[i].ownerName + "'> <i class='fa fa-commenting-o aria-hidden='true'></i></a>";
+                    }
                     popupString += '<div class="row mp-popup">' +
                         '<div class="col-xs-6">' +
                         '<canvas id="statusPieChart_' + data[i].id + '" style="position: inherit !important; max-width:100px; max-height:100px"></canvas>' +
@@ -838,7 +844,12 @@ var MRManager = (function() {
      * the current task geometry
      */
     var updateTaskDisplay = function() {
-        geojsonLayer.addData(currentTask.getData().geometry);
+        try {
+            geojsonLayer.addData(currentTask.getData().geometry);
+        } catch (err) {
+            ToastUtils.Error("Invalid geometry supplied for task.");
+            throw err;
+        }
         // limit taskDisplay maxZoom by the default zoom set in the challenge.
         map.fitBounds(geojsonLayer.getBounds(), { maxZoom: map.options.zoom });
         controlPanel.update(signedIn, debugMode, true, true, true);
@@ -853,11 +864,13 @@ var MRManager = (function() {
         } else {
             taskInstruction += currentTask.getData().instruction;
         }
-        taskInstruction += "\n\n-------\n\n" + Messages("mapping.js.instruction.status") + ": " + TaskStatus.getStatusName(currentTask.getData().status);
+        var finalText = marked(taskInstruction + "\n\n------");
+        finalText += Messages("mapping.js.instruction.status") + ": " + TaskStatus.getStatusName(currentTask.getData().status);
         if (typeof currentTask.getData().last_modified_user !== 'undefined') {
-            taskInstruction += "\n\n" + Messages("mapping.js.instruction.lastModifiedUser") + ":" + currentTask.getData().last_modified_user;
+            finalText += "<br/>" + Messages('mapping.js.instruction.lastModifiedUser') + ": <a target='_blank' href='http://osm.org/user/" + currentTask.getData().last_modified_user + "'>" + currentTask.getData().last_modified_user + "</a>" +
+                "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + currentTask.getData().last_modified_user + "'> <i class='fa fa-commenting-o aria-hidden='true'></i></a>";
         }
-        ToastUtils.Info(marked(taskInstruction), {timeOut: 0});
+        ToastUtils.Info(finalText, {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
         updateChallengeInfo(currentTask.getData().parentId);
@@ -942,11 +955,12 @@ var MRManager = (function() {
      */
     var addTaskToMap = function(parentId, taskId) {
         currentTask.setSeedData(parentId, taskId);
-        if (debugMode) {
-            currentTask.getNextTask();
-        } else if (typeof taskId === 'undefined' || taskId == -1) {
+        if (typeof taskId === 'undefined' || taskId == -1) {
+            if (debugMode) {
+                currentTask.getNextTask();
+            }
             // if we are mapping directly using the challenge ID, then ignore whether it is enabled or not
-            if (typeof parentId !== 'undefined' && parentId != -1) {
+            else if (typeof parentId !== 'undefined' && parentId != -1) {
                 currentSearchParameters.setChallengeId(parentId);
                 currentSearchParameters.setProjectEnabled(false);
                 currentSearchParameters.setChallengeEnabled(false);

@@ -32,10 +32,10 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   def rebuildChallengeTasks(user:User, challenge:Challenge) : Unit = this.buildChallengeTasks(user, challenge)
 
   def buildChallengeTasks(user:User, challenge:Challenge, json:Option[String]=None) : Unit = {
-    if (!challenge.overpassQL.getOrElse("").isEmpty) {
+    if (!challenge.creation.overpassQL.getOrElse("").isEmpty) {
       this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
       Future {
-        Logger.debug("Creating tasks for overpass query: " + challenge.overpassQL.get)
+        Logger.debug("Creating tasks for overpass query: " + challenge.creation.overpassQL.get)
         this.buildOverpassQLTasks(challenge, user)
       }
     } else {
@@ -51,7 +51,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       }
       if (!usingLocalJson) {
         // lastly try remote
-        challenge.remoteGeoJson match {
+        challenge.creation.remoteGeoJson match {
           case Some(url) if StringUtils.isNotEmpty(url) =>
             this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
             this.ws.url(url).withRequestTimeout(this.config.getOSMQLProvider.requestTimeout).get() onComplete {
@@ -94,7 +94,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     * @param user The user executing the query
     */
   private def buildOverpassQLTasks(challenge:Challenge, user:User) = {
-    challenge.overpassQL match {
+    challenge.creation.overpassQL match {
       case Some(ql) if StringUtils.isNotEmpty(ql) =>
         // run the query and then create the tasks
         val osmQLProvider = config.getOSMQLProvider

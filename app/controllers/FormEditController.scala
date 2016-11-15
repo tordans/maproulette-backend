@@ -9,8 +9,9 @@ import org.maproulette.Config
 import org.maproulette.actions.{Actions, ProjectType}
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.{Challenge, Project, Survey, Task}
+import org.maproulette.models._
 import org.maproulette.models.dal._
+import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import org.maproulette.permissions.Permission
 import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SessionManager, User}
@@ -34,7 +35,8 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                                     challengeService: ChallengeService,
                                     val config:Config,
                                     db:Database,
-                                    permission: Permission) extends Controller with I18nSupport with ControllerHelper with DefaultReads {
+                                    permission: Permission)
+  extends Controller with I18nSupport with ControllerHelper with DefaultReads with ChallengeWrites with ChallengeReads {
 
   private val adminHeader:String = Messages("headers.administration")
 
@@ -100,7 +102,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         case Some(c) =>
           val clonedChallenge = c.copy(id = -1)
           val tags = Some(dalManager.tag.listByChallenge(itemId).map(_.name))
-          if (c.challengeType == Actions.ITEM_TYPE_SURVEY) {
+          if (c.general.challengeType == Actions.ITEM_TYPE_SURVEY) {
             val surveyForm = Survey.surveyForm.fill(Survey(clonedChallenge, dalManager.survey.getAnswers(c.id)))
             getOkIndex(this.adminHeader, user,
               views.html.admin.forms.surveyForm(user, c.name, parentId, surveyForm)
@@ -125,10 +127,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           val challenge:Challenge = if (itemId > -1) {
             dalManager.challenge.retrieveById(itemId) match {
               case Some(chal) => chal
-              case None => Challenge.emptyChallenge(parentId)
+              case None => Challenge.emptyChallenge(user.osmProfile.id, parentId)
             }
           } else {
-            Challenge.emptyChallenge(parentId)
+            Challenge.emptyChallenge(user.osmProfile.id, parentId)
           }
           val challengeForm = Challenge.challengeForm.fill(challenge)
           val challengeTags = if (itemId > -1) {
@@ -159,7 +161,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
               },
               challenge => {
                 val updatedChallenge = if (itemId > -1) {
-                  dalManager.challenge.update(Json.toJson(challenge)(Challenge.challengeWrites), user)(itemId).get
+                  dalManager.challenge.update(Json.toJson(challenge), user)(itemId).get
                 } else {
                   dalManager.challenge.insert(challenge, user)
                 }
@@ -202,10 +204,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           val survey: Survey = if (itemId > -1) {
             dalManager.survey.retrieveById(itemId) match {
               case Some(sur) => sur
-              case None => Survey.emptySurvey(parentId)
+              case None => Survey.emptySurvey(user.osmProfile.id, parentId)
             }
           } else {
-            Survey.emptySurvey(parentId)
+            Survey.emptySurvey(user.osmProfile.id, parentId)
           }
           val surveyForm = Survey.surveyForm.fill(survey)
           getOkIndex(this.adminHeader, user,

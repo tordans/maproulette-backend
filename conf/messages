@@ -262,6 +262,7 @@ challenge.column.actions.view=View
 challenge.column.actions.rebuild=Rebuild
 challenge.column.actions.start=Start
 challenge.notfound=No Challenges Found
+challenge.owner=Owner:
 
 challenge.wizard.form.administration=Administration
 challenge.wizard.form.projects=Projects

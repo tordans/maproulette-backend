@@ -5,7 +5,7 @@
 @(user:User, config:Config, survey:Option[Survey], projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
 @colSize() = {@{if (survey.isEmpty) { "3" } else { "4" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
-@views.html.admin.common.header("Metrics", survey.getOrElse(Challenge(-1, if (projects.isEmpty) { "All Surveys" } else { s"Projects ($projects)" }, None, -1, "")).name)
+@views.html.admin.common.header("Metrics", survey.getOrElse(Challenge.emptyChallenge(-1, -1).copy(name = if (projects.isEmpty) { "All Surveys" } else { s"Projects ($projects)" })).name)
 <section class="content">
     <div class="row">
         <div class="col-md-4 col-sm-6 col-xs-12">
@@ -69,7 +69,7 @@
                             <div class="col-md-4">
                                 <p class="text-center">
                                     <strong>Survey Questions</strong></br>
-                                    <small>@survey.get.challenge.instruction</small>
+                                    <small>@survey.get.challenge.general.instruction</small>
                                 </p>
                                 @for(a <- survey.get.answers) {
                                     <div class="progress-group">

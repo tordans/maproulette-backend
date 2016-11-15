@@ -53,6 +53,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     get[Long]("challenges.id") ~
       get[String]("challenges.name") ~
       get[Option[String]]("challenges.description") ~
+      get[Long]("challenges.owner_id") ~
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.instruction") ~
       get[Int]("challenges.difficulty") ~
@@ -72,7 +73,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.max_zoom") ~
       get[Option[Int]]("challenges.default_basemap") ~
       get[Option[String]]("challenges.custom_basemap") map {
-      case id ~ name ~ description ~ parentId ~ instruction ~ difficulty ~ blurb ~
+      case id ~ name ~ description ~ ownerId ~ parentId ~ instruction ~ difficulty ~ blurb ~
         enabled ~ challenge_type ~ featured ~ overpassql ~ remoteGeoJson ~ status ~
         defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
         defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap =>
@@ -88,12 +89,15 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
         }
-        new Challenge(id, name, description, parentId, instruction, difficulty, blurb,
-          enabled, challenge_type, featured, overpassql, remoteGeoJson, status,
-          defaultPriority, hpr, mpr, lpr, defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap)
+        new Challenge(id, name, description,
+          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured),
+          ChallengeCreation(overpassql, remoteGeoJson),
+          ChallengePriority(defaultPriority, hpr, mpr, lpr),
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap),
+          status
+        )
     }
   }
-
 
   /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
@@ -119,7 +123,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         this.permission.hasReadAccess(challenge, user)
         this.projectDAL.get().cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
-            SQL"""SELECT * FROM projects WHERE id = ${challenge.parent}""".as(projectDAL.get().parser.*).headOption
+            SQL"""SELECT * FROM projects WHERE id = ${challenge.general.parent}""".as(projectDAL.get().parser.*).headOption
           }
         }
     }
@@ -136,18 +140,18 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     this.permission.hasWriteAccess(challenge, user)
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, parent_id, difficulty, description, blurb,
+        SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, blurb,
                                       instruction, enabled, challenge_type, featured, overpass_ql,
                                       remote_geo_json, status, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
                                       max_zoom, default_basemap, custom_basemap)
-              VALUES (${challenge.name}, ${challenge.parent}, ${challenge.difficulty},
-                      ${challenge.description}, ${challenge.blurb}, ${challenge.instruction},
-                      ${challenge.enabled}, ${challenge.challengeType}, ${challenge.featured},
-                      ${challenge.overpassQL}, ${challenge.remoteGeoJson}, ${challenge.status},
-                      ${challenge.defaultPriority}, ${challenge.highPriorityRule}, ${challenge.mediumPriorityRule},
-                      ${challenge.lowPriorityRule}, ${challenge.defaultZoom}, ${challenge.minZoom},
-                      ${challenge.maxZoom}, ${challenge.defaultBasemap}, ${challenge.customBasemap}
+              VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
+                      ${challenge.description}, ${challenge.general.blurb}, ${challenge.general.instruction},
+                      ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
+                      ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
+                      ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule}, ${challenge.priority.mediumPriorityRule},
+                      ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
+                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.customBasemap}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(this.parser.*).headOption
       }
     } match {
@@ -168,44 +172,45 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     var updatedPriorityRules = false
     val updatedChallenge = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasWriteAccess(cachedItem, user)
-      val highPriorityRule = (updates \ "highPriorityRule").asOpt[String].getOrElse(cachedItem.highPriorityRule.getOrElse("")) match {
+      val highPriorityRule = (updates \ "highPriorityRule").asOpt[String].getOrElse(cachedItem.priority.highPriorityRule.getOrElse("")) match {
         case x if Challenge.isValidRule(Some(x)) => x
         case _ => ""
       }
-      val mediumPriorityRule = (updates \ "mediumPriorityRule").asOpt[String].getOrElse(cachedItem.mediumPriorityRule.getOrElse("")) match {
+      val mediumPriorityRule = (updates \ "mediumPriorityRule").asOpt[String].getOrElse(cachedItem.priority.mediumPriorityRule.getOrElse("")) match {
         case x if Challenge.isValidRule(Some(x)) => x
         case _ => ""
       }
-      val lowPriorityRule = (updates \ "lowPriorityRule").asOpt[String].getOrElse(cachedItem.lowPriorityRule.getOrElse("")) match {
+      val lowPriorityRule = (updates \ "lowPriorityRule").asOpt[String].getOrElse(cachedItem.priority.lowPriorityRule.getOrElse("")) match {
         case x if Challenge.isValidRule(Some(x)) => x
         case _ => ""
       }
       this.withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
-        val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-        val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.difficulty)
+        val ownerId = (updates \ "ownerId").asOpt[Long].getOrElse(cachedItem.general.owner)
+        val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.general.parent)
+        val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.general.difficulty)
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
-        val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.blurb.getOrElse(""))
-        val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.instruction)
-        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.enabled)
-        val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.featured)
-        val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.overpassQL.getOrElse(""))
-        val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.remoteGeoJson.getOrElse(""))
+        val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.general.blurb.getOrElse(""))
+        val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.general.instruction)
+        val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.general.enabled)
+        val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.general.featured)
+        val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.creation.overpassQL.getOrElse(""))
+        val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.creation.remoteGeoJson.getOrElse(""))
         val overpassStatus = (updates \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(Challenge.STATUS_NA))
-        val defaultPriority = (updates \ "defaultPriority").asOpt[Int].getOrElse(cachedItem.defaultPriority)
+        val defaultPriority = (updates \ "defaultPriority").asOpt[Int].getOrElse(cachedItem.priority.defaultPriority)
         // if any of the priority rules have changed then we need to run the update priorities task
-        if (!StringUtils.equalsIgnoreCase(highPriorityRule, cachedItem.highPriorityRule.getOrElse("")) ||
-            !StringUtils.equalsIgnoreCase(mediumPriorityRule, cachedItem.mediumPriorityRule.getOrElse("")) ||
-            !StringUtils.equalsIgnoreCase(lowPriorityRule, cachedItem.lowPriorityRule.getOrElse(""))) {
+        if (!StringUtils.equalsIgnoreCase(highPriorityRule, cachedItem.priority.highPriorityRule.getOrElse("")) ||
+            !StringUtils.equalsIgnoreCase(mediumPriorityRule, cachedItem.priority.mediumPriorityRule.getOrElse("")) ||
+            !StringUtils.equalsIgnoreCase(lowPriorityRule, cachedItem.priority.lowPriorityRule.getOrElse(""))) {
           updatedPriorityRules = true
         }
-        val defaultZoom = (updates \ "defaultZoom").asOpt[Int].getOrElse(cachedItem.defaultZoom)
-        val minZoom = (updates \ "minZoom").asOpt[Int].getOrElse(cachedItem.minZoom)
-        val maxZoom = (updates \ "maxZoom").asOpt[Int].getOrElse(cachedItem.maxZoom)
-        val defaultBasemap = (updates \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.defaultBasemap.getOrElse(-1))
-        val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.customBasemap.getOrElse(""))
+        val defaultZoom = (updates \ "defaultZoom").asOpt[Int].getOrElse(cachedItem.extra.defaultZoom)
+        val minZoom = (updates \ "minZoom").asOpt[Int].getOrElse(cachedItem.extra.minZoom)
+        val maxZoom = (updates \ "maxZoom").asOpt[Int].getOrElse(cachedItem.extra.maxZoom)
+        val defaultBasemap = (updates \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.extra.defaultBasemap.getOrElse(-1))
+        val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.extra.customBasemap.getOrElse(""))
 
-        SQL"""UPDATE challenges SET name = $name, parent_id = $parentId, difficulty = $difficulty,
+        SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, blurb = $blurb, instruction = $instruction,
                 enabled = $enabled, featured = $featured, overpass_ql = $overpassQL,
                 remote_geo_json = $remoteGeoJson, status = $overpassStatus, default_priority = $defaultPriority,
@@ -371,7 +376,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, "", point, instruction, -1, Actions.ITEM_TYPE_TASK, status)
+          ClusteredPoint(id, -1, "", "", point, instruction, -1, Actions.ITEM_TYPE_TASK, status)
       }
         SQL"""SELECT id, name, instruction, status,
                       ST_AsGeoJSON(location) AS location
@@ -413,9 +418,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case None => throw new NotFoundException(s"Could not update priorties for tasks, no challenge with id $id found.")
       }
       // make sure that at least one of the challenges is valid
-      if (Challenge.isValidRule(challenge.highPriorityRule) ||
-          Challenge.isValidRule(challenge.mediumPriorityRule) ||
-          Challenge.isValidRule(challenge.lowPriorityRule)) {
+      if (Challenge.isValidRule(challenge.priority.highPriorityRule) ||
+          Challenge.isValidRule(challenge.priority.mediumPriorityRule) ||
+          Challenge.isValidRule(challenge.priority.lowPriorityRule)) {
         var pointer = 0
         var currentTasks:List[Task] = List.empty
         do {

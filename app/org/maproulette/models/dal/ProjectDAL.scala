@@ -55,16 +55,18 @@ class ProjectDAL @Inject() (override val db:Database,
 
   val pointParser = {
     long("id") ~
-      str("name") ~
-      str("blurb") ~
+      int("osm_id") ~
+      str("users.name") ~
+      str("challenges.name") ~
+      get[Option[String]]("blurb") ~
       str("location") ~
       int("difficulty") ~
       int("challenge_type") map {
-      case id ~ name ~ instruction ~ location ~ difficulty ~ challengeType =>
+      case id ~ osm_id ~ username ~ name ~ blurb ~ location ~ difficulty ~ challengeType =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
-        ClusteredPoint(id, name, point, instruction, difficulty, challengeType)
+        ClusteredPoint(id, osm_id, username, name, point, blurb.getOrElse(""), difficulty, challengeType)
     }
   }
 
@@ -230,10 +232,11 @@ class ProjectDAL @Inject() (override val db:Database,
         case None => ""
       }
       val query = s"""
-          SELECT c.id, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
+          SELECT c.id, u.osm_id, u.name, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
                   c.difficulty, c.challenge_type
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
+          INNER JOIN users u ON u.osm_id = c.owner_id
           ${challengeTags._1}
           WHERE c.location IS NOT NULL AND EXISTS (
             SELECT id FROM tasks
@@ -260,10 +263,11 @@ class ProjectDAL @Inject() (override val db:Database,
   def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
                               enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
-      SQL"""SELECT c.id, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
+      SQL"""SELECT c.id, u.osm_id, u.name, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
                     c.difficulty, c.challenge_type
               FROM challenges c
               INNER JOIN projects p ON p.id = c.parent_id
+              INNER JOIN users u ON u.osm_id = c.owner_id
               WHERE c.location IS NOT NULL AND EXISTS (
                 SELECT id FROM tasks
                 WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD}) LIMIT 1)

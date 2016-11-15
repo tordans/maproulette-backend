@@ -51,3 +51,4 @@ GET     /webjars/*file                                                  @control
 
 ->  /api/v2     apiv2.Routes
 
+GET     /*path/                                                         @controllers.Application.untrail(path:String)

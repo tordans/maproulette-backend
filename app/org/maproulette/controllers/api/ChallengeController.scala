@@ -12,6 +12,7 @@ import org.maproulette.controllers.ParentController
 import org.maproulette.exception.{NotFoundException, StatusMessage}
 import org.maproulette.models.dal._
 import org.maproulette.models.{Challenge, ClusteredPoint, Survey, Task}
+import org.maproulette.services.ChallengeService
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
@@ -35,17 +36,18 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     taskDAL: TaskDAL,
                                     userDAL: UserDAL,
                                     projectDAL: ProjectDAL,
-                                    override val tagDAL: TagDAL)
+                                    override val tagDAL: TagDAL,
+                                    challengeService:ChallengeService)
   extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
   // json reads for automatically reading Challenges from a posted json body
-  override implicit val tReads: Reads[Challenge] = Challenge.challengeReads
+  override implicit val tReads: Reads[Challenge] = Challenge.reads.challengeReads
   // json writes for automatically writing Challenges to a json body response
-  override implicit val tWrites: Writes[Challenge] = Challenge.challengeWrites
+  override implicit val tWrites: Writes[Challenge] = Challenge.writes.challengeWrites
   // json writes for automatically writing Tasks to a json body response
-  override protected val cWrites: Writes[Task] = Task.taskWrites
+  override protected val cWrites: Writes[Task] = Task.TaskFormat
   // json reads for automatically reading tasks from a posted json body
-  override protected val cReads: Reads[Task] = Task.taskReads
+  override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType = ChallengeType()
   // json writes for automatically writing surveys to a json body response
@@ -62,6 +64,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   override def updateCreateBody(body: JsValue, user: User): JsValue = {
     var jsonBody = super.updateCreateBody(body, user)
+    jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
@@ -87,7 +90,10 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param user          The user that is executing the function
     */
   override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User)(implicit c: Option[Connection] = None): Unit = {
-    super.extractAndCreate(body, createdObject, user)
+    (body \ "localGeoJSON").asOpt[JsValue] match {
+      case Some(local) => challengeService.buildChallengeTasks(user, createdObject, Some(Json.stringify(local)))
+      case None => super.extractAndCreate(body, createdObject, user)
+    }
     this.extractTags(body, createdObject, user)
   }
 
@@ -131,7 +137,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveById match {
         case Some(value) =>
-          if (value.challengeType == Actions.ITEM_TYPE_SURVEY) {
+          if (value.general.challengeType == Actions.ITEM_TYPE_SURVEY) {
             val answers = this.surveyDAL.getAnswers(value.id)
             Ok(Json.toJson(Survey(value, answers)))
           } else {

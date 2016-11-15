@@ -22,7 +22,12 @@ class TaskSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL, ta
   "Tasks" should {
     "write tasks object to database" in new WithApplication {
       val projectID = projectDAL.insert(Project(-1, "RootProject_tasktest"), User.superUser).id
-      val challengeID = challengeDAL.insert(Challenge(-1, "ChallengeProject", None, projectID, ""), User.superUser).id
+      val challengeID = challengeDAL.insert(Challenge(-1, "ChallengeProject", None,
+        ChallengeGeneral(-1, projectID, ""),
+        ChallengeCreation(),
+        ChallengePriority(),
+        ChallengeExtra()
+      ), User.superUser).id
       val newTask = Task(-1, "NewTask", challengeID, Some("Instructions for task"),
         Some("""{"type":"Point","coordinates":[77.6255107,40.5872232]}"""), "")
       taskID = taskDAL.insert(newTask, User.superUser).id

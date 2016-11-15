@@ -6,7 +6,7 @@
 <span class="help-block">@messages("challenge.wizard.general.title")</span>
 @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
     @if(user.isSuperUser) {
-        @checkbox(challengeForm("featured"),
+        @checkbox(challengeForm("general.featured"),
             label = messages("challenge.wizard.general.featured"),
             default = false,
             readOnly = false
@@ -21,7 +21,7 @@
     )
     </div>
     <div class="form-group" style="display:none;">
-    @text(challengeForm("parent"),
+    @text(challengeForm("general.parent"),
         label = messages("challenge.wizard.general.parent"),
         placeholder = "-1",
         default = parentId+"",
@@ -29,14 +29,14 @@
     )
     </div>
     <div class="form-group" style="display:none;">
-    @text(challengeForm("challengeType"),
+    @text(challengeForm("general.challengeType"),
         label = messages("challenge.wizard.general.type"),
         placeholder = Actions.ITEM_TYPE_CHALLENGE+"",
         default = Actions.ITEM_TYPE_CHALLENGE+"",
         readOnly = true
     )
     </div>
-    @select(challengeForm("enabled"),
+    @select(challengeForm("general.enabled"),
         label = messages("challenge.wizard.general.visible"),
         optionList = List(("true", "true"), ("false", "false")),
         isMultiple = false,
@@ -48,25 +48,25 @@
         placeholder = messages("challenge.wizard.general.name.placeholder"),
         help = messages("challenge.wizard.general.name.help")
     )
-    @textarea(challengeForm("description"),
+    @textarea(challengeForm("general.description"),
         label = messages("challenge.wizard.general.description"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.description.placeholder"),
         help = messages("challenge.wizard.general.description.help")
     )
-    @textarea(challengeForm("blurb"),
+    @textarea(challengeForm("general.blurb"),
         label = messages("challenge.wizard.general.blurb"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.blurb.placeholder"),
         help = messages("challenge.wizard.general.blurb.help")
     )
-    @textarea(challengeForm("instruction"),
+    @textarea(challengeForm("general.instruction"),
         label = messages("challenge.wizard.general.instruction"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.instruction.placeholder"),
         help = messages("challenge.wizard.general.instruction.help")
     )
-    @select(challengeForm("difficulty"),
+    @select(challengeForm("general.difficulty"),
         label = messages("challenge.wizard.general.difficulty"),
         optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
         isMultiple = false,
