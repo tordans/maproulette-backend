@@ -69,22 +69,22 @@ object MPExceptionUtil {
     } catch {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
-        BadRequest(views.html.index("Map Roulette Error", tempUser, config,
+        BadRequest(views.html.index("MapRoulette Error", tempUser, config,
           hotChallenges, newChallenges, featuredChallenges, activity, saved)
           (views.html.error.error(e.getMessage)))
       case e:IllegalAccessException =>
         Logger.error(e.getMessage)
-        Forbidden(views.html.index("Map Roulette Error", tempUser, config,
+        Forbidden(views.html.index("MapRoulette Error", tempUser, config,
           hotChallenges, newChallenges, featuredChallenges, activity, saved)
           (views.html.error.error("Forbidden: " + e.getMessage)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(views.html.index("Map Roulette Error", tempUser, config,
+        NotFound(views.html.index("MapRoulette Error", tempUser, config,
           hotChallenges, newChallenges, featuredChallenges, activity, saved)
           (views.html.error.error("Not Found: " + e.getMessage)))
       case e:Exception =>
         Logger.error(e.getMessage, e)
-        InternalServerError(views.html.index("Map Roulette Error", tempUser, config,
+        InternalServerError(views.html.index("MapRoulette Error", tempUser, config,
           hotChallenges, newChallenges, featuredChallenges, activity, saved)
           (views.html.error.error("Internal Server Error: " + e.getMessage)))
     }
@@ -155,27 +155,27 @@ object MPExceptionUtil {
     e match {
       case e:InvalidException =>
         Logger.error(e.getMessage, e)
-        BadRequest(views.html.index("Map Roulette Error", user, config,
+        BadRequest(views.html.index("MapRoulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities, saved)
           (views.html.error.error(e.getMessage)))
       case e:OAuthNotAuthorizedException =>
         Logger.error(e.getMessage)
-        Unauthorized(views.html.index("Map Roulette Error", user, config,
+        Unauthorized(views.html.index("MapRoulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities, saved)
           (views.html.error.error("Unauthorized: " + e.getMessage, "Unauthorized", play.api.http.Status.UNAUTHORIZED))).withNewSession
       case e:IllegalAccessException =>
         Logger.error(e.getMessage)
-        Forbidden(views.html.index("Map Roulette Error", user, config,
+        Forbidden(views.html.index("MapRoulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities, saved)
           (views.html.error.error("Forbidden: " + e.getMessage, "Forbidden", play.api.http.Status.FORBIDDEN)))
       case e:NotFoundException =>
         Logger.error(e.getMessage, e)
-        NotFound(views.html.index("Map Roulette Error", user, config,
+        NotFound(views.html.index("MapRoulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities, saved)
           (views.html.error.error("Not Found: " + e.getMessage)))
       case e:Throwable =>
         Logger.error(e.getMessage, e)
-        InternalServerError(views.html.index("Map Roulette Error", user, config,
+        InternalServerError(views.html.index("MapRoulette Error", user, config,
           hotChallenges, newChallenges, featuredChallenges, activities, saved)
           (views.html.error.error("Internal Server Error: " + e.getMessage)))
     }

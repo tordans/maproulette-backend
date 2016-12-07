@@ -54,7 +54,12 @@
                                 </li-->
                             </ul>
                         </div>
-                        
+                        <div class="actions">
+                            <button type="button" class="btn btn-default btn-prev">
+                                <span class="glyphicon glyphicon-arrow-left"></span>@messages("challenge.wizard.form.previous")</button>
+                            <button type="button" class="btn btn-primary btn-next" data-last="Complete">@messages("challenge.wizard.form.next")
+                                <span class="glyphicon glyphicon-arrow-right btn-next"></span></button>
+                        </div>
                         <div class="step-content">
                             <div class="step-pane active sample-pane alert" data-step="1">
                                 <h4>@messages("challenge.wizard.form.tab.1")</h4>
@@ -76,21 +81,12 @@
                                 <h4>@messages("challenge.wizard.form.tab.5")</h4>
                                 @views.html.admin.forms.challenge.schedule(challengeForm)
                             </div-->
-                           
                         </div>
-                <div class="downpage-btn">
-                <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Challenge", parentId)" style="margin:10px;">@messages("challenge.wizard.form.cancel")</a>
-                 <div class="actions  pull-right ">
-                            <button type="button" class="btn btn-default btn-prev">
-                                <span class="glyphicon glyphicon-arrow-left"></span>@messages("challenge.wizard.form.previous")</button>
-                            <button type="button" class="btn btn-primary btn-next" data-last="Complete" style="margin:10px;">@messages("challenge.wizard.form.next")
-                                <span class="glyphicon glyphicon-arrow-right btn-next" ></span></button>
-                </div>
                     </div>
                 </div>
-                
+                <div class="box-footer">
+                    <a class="btn btn-primary" href="@routes.Application.adminUIChildList("Challenge", parentId)">@messages("challenge.wizard.form.cancel")</a>
                 </div>
-                
             }
         </div>
     </section>
@@ -99,8 +95,8 @@
 $().ready(function() {
     $("#challengeWizard").wizard().on('finished.fu.wizard', function (e, data) {
         // make sure the overpass query is clean first
-        var opquery = $("#overpassQL").val();
-        $('#overpassQL').val(opquery.replace(/[^\x20-\x7E\x0A]+/g, ''));
+        var opquery = $("#creation_overpassQL").val();
+        $('#creation_overpassQL').val(opquery.replace(/[^\x20-\x7E\x0A]+/g, ''));
         // get the rules for the high, medium and low priorities
         $('#highPriorityRule').val(JSON.stringify($('#priority-high-builder').queryBuilder('getRules')));
         $('#mediumPriorityRule').val(JSON.stringify($('#priority-medium-builder').queryBuilder('getRules')));

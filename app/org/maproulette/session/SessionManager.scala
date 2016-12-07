@@ -76,7 +76,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   }
 
   /**
-    * Retrieves the request token and then makes a callback to the Map Roulette auth URL
+    * Retrieves the request token and then makes a callback to the MapRoulette auth URL
     *
     * @param callback The callback after the request is made to retrieve the request token
     * @return Either OAuthException (ie. NotAuthorized) or the request token

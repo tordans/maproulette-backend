@@ -11,7 +11,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 /**
-  * The primary object in Map Roulette is the task, this is the object that defines the actual problem
+  * The primary object in MapRoulette is the task, this is the object that defines the actual problem
   * in the OSM data that needs to be fixed. It is a child of a Challenge and has a special one to
   * many relationship with tags. It contains the following parameters:
   *
