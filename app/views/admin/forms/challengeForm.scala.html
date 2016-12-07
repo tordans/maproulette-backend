@@ -100,7 +100,9 @@ $().ready(function() {
     $("#challengeWizard").wizard().on('finished.fu.wizard', function (e, data) {
         // make sure the overpass query is clean first
         var opquery = $("#overpassQL").val();
-        $('#overpassQL').val(opquery.replace(/[^\x20-\x7E\x0A]+/g, ''));
+        if(opquery) {
+            $('#overpassQL').val(opquery.replace(/[^\x20-\x7E\x0A]+/g, ''));
+        }
         // get the rules for the high, medium and low priorities
         $('#highPriorityRule').val(JSON.stringify($('#priority-high-builder').queryBuilder('getRules')));
         $('#mediumPriorityRule').val(JSON.stringify($('#priority-medium-builder').queryBuilder('getRules')));
