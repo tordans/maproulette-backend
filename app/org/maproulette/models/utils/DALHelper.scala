@@ -27,7 +27,7 @@ trait DALHelper {
   def sqlLimit(value:Int) : String = if (value < 0) "ALL" else value + ""
 
   /**
-    * All Map Roulette objects contain the enabled column that define whether it is enabled in the
+    * All MapRoulette objects contain the enabled column that define whether it is enabled in the
     * system or not. This will create the WHERE part of the clause checking for enabled values in the
     * query
     *

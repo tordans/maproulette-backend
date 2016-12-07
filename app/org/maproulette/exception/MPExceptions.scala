@@ -20,7 +20,7 @@ class InvalidException(message:String) extends Exception(message)
 class NotFoundException(message:String) extends Exception(message)
 
 /**
-  * Exception for handling any exceptions related to locking of Map Roulette objects
+  * Exception for handling any exceptions related to locking of MapRoulette objects
   *
   * @param message The message to send with the exception
   */

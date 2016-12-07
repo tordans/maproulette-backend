@@ -74,7 +74,7 @@ user.profile.settings.basemap.custom.title=Custom Basemap
 user.profile.settings.basemap.custom.placeholder=Custom Basemap
 user.profile.settings.basemap.custom.help=Voeg ''n persoonlike basis kaart hier. Eg. http://'{'s'}'.tile.openstreetmap.org/'{z}'/'{x}'/'{y}'.png
 user.profile.settings.locale=Locale
-user.profile.settings.locale.help=Gebruikers land te gebruik vir Map Roulette UI.
+user.profile.settings.locale.help=Gebruikers land te gebruik vir MapRoulette UI.
 user.profile.settings.update=Opdateer
 
 metrics.challenge.all=Alle Uitdagings

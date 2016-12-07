@@ -1,4 +1,4 @@
-# --- Map Roulette Scheme
+# --- MapRoulette Scheme
 
 # --- !Ups
 -- Update users table for user settings

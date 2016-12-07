@@ -1,4 +1,4 @@
-# --- Map Roulette Scheme
+# --- MapRoulette Scheme
 
 # --- !Ups
 -- Updating index so that we can't create duplicate tags with tasks or challenges

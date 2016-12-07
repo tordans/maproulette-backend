@@ -41,7 +41,7 @@
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
 						},
-						"description": "Creates a base project for all the other Map Roulette API Testing"
+						"description": "Creates a base project for all the other MapRoulette API Testing"
 					},
 					"response": []
 				},
@@ -523,7 +523,7 @@
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
 						},
-						"description": "Creates a base project for all the other Map Roulette API Testing"
+						"description": "Creates a base project for all the other MapRoulette API Testing"
 					},
 					"response": []
 				},

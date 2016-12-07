@@ -1,4 +1,4 @@
-# --- Map Roulette Scheme
+# --- MapRoulette Scheme
 
 # --- !Ups
 -- Column to keep track of whether old tasks in the challenge should be

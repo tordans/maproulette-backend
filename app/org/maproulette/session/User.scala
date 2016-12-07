@@ -51,14 +51,14 @@ case class OSMProfile(id:Long,
                       requestToken: RequestToken)
 
 /**
-  * Settings that are not defined by the OSM user profile, but specific to Map Roulette
+  * Settings that are not defined by the OSM user profile, but specific to MapRoulette
   *
   * @param defaultEditor The default editor that the user wants to use
   * @param defaultBasemap The default basemap that the user wants to see, will be overridden by default basemap for the challenge if set
   * @param customBasemap It default basemap is custom, then this is the url to the tile server
   * @param locale The locale for the user, if not set will default to en
   * @param emailOptIn If the user has opted in to receive emails
-  * @param theme The theme to display in Map Roulette. Optionally - 0=skin-black, 1=skin-black-light,
+  * @param theme The theme to display in MapRoulette. Optionally - 0=skin-black, 1=skin-black-light,
   *              2=skin-blue, 3=skin-blue-light, 4=skin-green, 5=skin-green-light,
   *              6=skin-purple, 7=skin-purple-light, 8=skin-red, 9=skin-red-light, 10=skin-yellow, 11=skin-yellow-light
   */
@@ -89,7 +89,7 @@ case class UserSettings(defaultEditor:Option[Int]=None,
 }
 
 /**
-  * Information specific to the Map Roulette user.
+  * Information specific to the MapRoulette user.
   *
   * @param id The id defined by the database
   * @param created When their account was created
@@ -217,7 +217,7 @@ object User {
     */
   def guestUser : User = User(DEFAULT_GUEST_USER_ID, DateTime.now(), DateTime.now(),
     OSMProfile(DEFAULT_GUEST_USER_ID, "Guest",
-      "Sign in using your OSM account for more access to Map Roulette features.",
+      "Sign in using your OSM account for more access to MapRoulette features.",
       "/assets/images/user_no_image.png",
       Location(-33.918861, 18.423300),
       DateTime.now(),

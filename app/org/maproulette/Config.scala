@@ -24,7 +24,7 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val logoURL = this.config.getString(Config.KEY_LOGO) match {
     case Some(logo) => logo
-    case None => "/assets/images/logo.png"// default to the Map Roulette Icon
+    case None => "/assets/images/logo.png"// default to the MapRoulette Icon
   }
 
   lazy val superKey : Option[String] = this.config.getString(Config.KEY_SUPER_KEY)

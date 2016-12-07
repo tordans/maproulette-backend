@@ -18,7 +18,7 @@ import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent, BodyParsers, Controller}
 
 /**
-  * This is the base controller class that handles all the CRUD operations for the objects in Map Roulette.
+  * This is the base controller class that handles all the CRUD operations for the objects in MapRoulette.
   * This includes creation, reading, updating and deleting. It also includes a standard list function
   * and batch upload process.
   *

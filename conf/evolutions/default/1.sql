@@ -1,4 +1,4 @@
-# --- Map Roulette Scheme
+# --- MapRoulette Scheme
 
 # --- !Ups
 -- Function that simply creates an index if it doesn't already exist
@@ -47,12 +47,12 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
--- Map Roulette uses postgis extension for all it's geometries
+-- MapRoulette uses postgis extension for all it's geometries
 CREATE EXTENSION IF NOT EXISTS postgis;;
--- Map Roulette uses hstore for the properties of all it's geometries
+-- MapRoulette uses hstore for the properties of all it's geometries
 CREATE EXTENSION IF NOT EXISTS HSTORE;;
 
--- The user table contains all users that have logged into Map Roulette.
+-- The user table contains all users that have logged into MapRoulette.
 CREATE TABLE IF NOT EXISTS users
 (
   id SERIAL NOT NULL PRIMARY KEY,
