@@ -13,6 +13,15 @@
         )
     }
     <div class="form-group" style="display:none;">
+        @text(challengeForm("general.owner"),
+        label = messages("challenge.wizard.general.parent"),
+        placeholder = user.osmProfile.id+"",
+        default = user.osmProfile.id+"",
+        readOnly = true,
+        forcedValue = user.osmProfile.id+""
+        )
+    </div>
+    <div class="form-group" style="display:none;">
     @text(challengeForm("id"),
         label = messages("challenge.wizard.general.id"),
         placeholder = "-1",
@@ -23,9 +32,10 @@
     <div class="form-group" style="display:none;">
     @text(challengeForm("general.parent"),
         label = messages("challenge.wizard.general.parent"),
-        placeholder = "-1",
+        placeholder = parentId+"",
         default = parentId+"",
-        readOnly = true
+        readOnly = true,
+        forcedValue = parentId+""
     )
     </div>
     <div class="form-group" style="display:none;">
@@ -48,7 +58,7 @@
         placeholder = messages("challenge.wizard.general.name.placeholder"),
         help = messages("challenge.wizard.general.name.help")
     )
-    @textarea(challengeForm("general.description"),
+    @textarea(challengeForm("description"),
         label = messages("challenge.wizard.general.description"),
         rows = "5",
         placeholder = messages("challenge.wizard.general.description.placeholder"),
