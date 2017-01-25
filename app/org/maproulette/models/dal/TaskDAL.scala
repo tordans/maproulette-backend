@@ -511,11 +511,11 @@ class TaskDAL @Inject() (override val db:Database,
       ""
     }
 
-    val taskTagIds = if (params.hasTaskTags) { 
-      this.tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id) 
+    val taskTagIds = if (params.hasTaskTags) {
+      this.tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
     } else {
       List.empty
-    } 
+    }
 
     val challengeTagIds = if (params.hasChallengeTags) {
       this.tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
