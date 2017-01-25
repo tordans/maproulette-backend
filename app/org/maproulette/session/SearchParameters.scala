@@ -47,7 +47,7 @@ case class SearchParameters(projectId:Option[Long]=None,
     case _ => priority
   }
 
-  def hasTaskTags : Boolean = taskTags.exists(tt => tt.nonEmpty) 
+  def hasTaskTags : Boolean = taskTags.exists(tt => tt.nonEmpty)
   def hasChallengeTags : Boolean = challengeTags.exists(ct => ct.nonEmpty)
 }
 
