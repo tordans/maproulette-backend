@@ -90,7 +90,7 @@ object Task {
       Utils.insertIntoJson(updated, "geometries", Json.parse(o.geometries), true)
     }
 
-    override def reads(json: JsValue): JsResult[Task] = Json.fromJson[Task](json)
+    override def reads(json: JsValue): JsResult[Task] = Json.fromJson[Task](json)(Json.reads[Task])
   }
 
 

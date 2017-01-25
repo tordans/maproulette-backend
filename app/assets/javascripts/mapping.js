@@ -1,5 +1,10 @@
 toastr.options.positionClass = "notification-position";
 
+// Globals
+
+// Max width of marker balloon text
+var MAX_BALLOON_TEXT_WIDTH=40;
+
 L.TileLayer.Common = L.TileLayer.extend({
     initialize: function (options) {
         L.TileLayer.prototype.initialize.call(this, this.url, options);
@@ -727,18 +732,16 @@ var MRManager = (function() {
                         counter++;
                         var v = feature.properties[k];
                         var printLine = k+": "+v;
-                        if(printLine.length > 22){
-                                popupString += printLine.slice(0,20)+".."+ '<br />';
-                                
-                            }
-                        else{
+                        if(printLine.length > MAX_BALLOON_TEXT_WIDTH){
+                            popupString += printLine.slice(0,(MAX_BALLOON_TEXT_WIDTH - 2))+".."+ '<br />';
+                        } else{
                             popupString += printLine+ '<br />';
                         }
                     }
                     popupString += '</div>';
                     if (counter > 0) {
                         layer.bindPopup(popupString, {
-                            maxHeight: 200
+                            maxHeight: 250
                         });
                     }
                 }
