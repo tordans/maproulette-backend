@@ -55,6 +55,8 @@ For more details on the app registration process, see the [OSM OAuth wiki page](
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
 
+If you are having issues getting the activator to run, you can configure your instance with [dev.conf](#using-devconf)
+
 #### Linux
 
 > These instructions were written for Ubuntu 16.04
@@ -83,6 +85,23 @@ A work-in-progress setup guide for Windows lives [here](https://gist.github.com/
 #### Using dev.conf
 
 Another way to handle dev related configuration variables is to use the [dev.conf](conf/dev.conf) file which has a couple of prepopulated variables that would be beneficial for a test/development environment. To use this file you simply need to add the file as a jvm parameter, eg. -Dconfig.resource=dev.conf
+
+```
+activator run -Dconfig.resource=dev.conf
+```
+
+Your conf/dev.conf file should have the following:
+
+```
+include "application.conf"
+
+db.default.url="jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm"
+maproulette.super.key="test"
+maproulette.super.accounts="*"
+osm.server="http://api06.dev.openstreetmap.org"
+osm.consumerKey=<APPLICATION_CONSUMER_KEY>
+osm.consumerSecret=<APPLICATION_CONSUMER_SECRET>
+```
 
 ## Creating new Challenges
 
