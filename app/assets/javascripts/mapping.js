@@ -641,6 +641,7 @@ var MRManager = (function() {
             searchInFocus = false;
         });
         registerHotKeys();
+        setupHotKeysCheatSheet();
     };
 
     var updateMapOptions = function(mapElement, point, options) {
@@ -1055,49 +1056,88 @@ var MRManager = (function() {
     };
 
     // registers a series of hotkeys for quick access to functions
+    var hotkeys = {
+      81: { // Get next task, set current task to false positive
+        key: 'q',
+        description: Messages("mapping.js.control.falsepositive"),
+        action: function() {
+          if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+              setTaskStatus(TaskStatus.FALSEPOSITIVE);
+          }
+        }
+      },
+      87: { // Get next task, skip current task
+        key: 'w',
+        description: Messages("mapping.js.control.skip"),
+        action: function() {
+          MRManager.getNextTask();
+        }
+      },
+      69: { // open task in ID
+        key: 'e',
+        description: Messages("mapping.js.control.edit.id"),
+        action: function() {
+          if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+              openTaskInId();
+          }
+        }
+      },
+      82: { // open task in JOSM in current layer
+        key: 'r',
+        description: Messages("mapping.js.control.edit.josm"),
+        action: function() {
+          if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+              openTaskInJosm(false);
+          }
+        }
+      },
+      84: { // Get next task, skip current task
+        key: 't',
+        description: Messages("mapping.js.control.edit.josm.layer"),
+        action: function() {
+          if (!debugMode && !currentTask.getChallenge().isSurvey()) {
+              openTaskInJosm(true);
+          }
+        }
+      },
+      27: { // remove open dialog
+        key: 'ESC',
+        description: Messages("mapping.js.control.edit.cancel"),
+        action: function() {
+          resetEditControls();
+        }
+      }
+    };
+
     var registerHotKeys = function() {
         $(document).keydown(function(e) {
-            if (disableKeys) {
-                return;
-            }
-            e.preventDefault();
-            switch(e.keyCode) {
-                case 81: //q
-                    // Get next task, set current task to false positive
-                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
-                        setTaskStatus(TaskStatus.FALSEPOSITIVE);
-                    }
-                    break;
-                case 87: //w
-                    // Get next task, skip current task
-                    MRManager.getNextTask();
-                    break;
-                case 69: //e
-                    // open task in ID
-                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
-                        openTaskInId();
-                    }
-                    break;
-                case 82: //r
-                    // open task in JOSM in current layer
-                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
-                        openTaskInJosm(false);
-                    }
-                    break;
-                case 84: //t
-                    // open task in JOSM in new layer
-                    if (!debugMode && !currentTask.getChallenge().isSurvey()) {
-                        openTaskInJosm(true);
-                    }
-                    break;
-                case 27: //esc
-                    // remove open dialog
-                    resetEditControls();
-                    break;
-                default:
-                    break;
-            }
+          e.preventDefault();
+
+          if (hotkeys[e.keyCode]) {
+            hotkeys[e.keyCode].action();
+          }
         });
+    };
+
+    var setupHotKeysCheatSheet = function() {
+      var cheatSheet = "<table id='cheat-sheet'>";
+      for (var shortcut in hotkeys) {
+          if (hotkeys.hasOwnProperty(shortcut)) {
+            cheatSheet += "<tr><td class='key'>" +
+                            hotkeys[shortcut].key +
+                          "</td><td class='description'>" +
+                            hotkeys[shortcut].description +
+                          "</td></tr>";
+          }
+      }
+      cheatSheet += "</table>";
+
+      $("#show-hotkeys").popover({
+        title: "Keyboard Shortcuts <span class='pull-right'><i class='fa fa-times'></i></span>",
+        content: cheatSheet,
+        html: true,
+        placement: 'top',
+      });
     };
 
     var constructIdUri = function () {
