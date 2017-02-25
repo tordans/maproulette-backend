@@ -1138,6 +1138,7 @@ var MRManager = (function() {
         html: true,
         placement: 'top',
       });
+      $("#hotkey-cheatsheet-link").show();
     };
 
     var constructIdUri = function () {
