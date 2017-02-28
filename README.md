@@ -69,9 +69,9 @@ Another way to handle dev related configuration variables is to use the [dev.con
 
 ## Creating new Challenges
 
-Coming Soon...
+[https://github.com/maproulette/maproulette2/wiki The wiki for this repo] has some information on creating challenges
 
-In the mean time see [here](docs/api.md) for current API documentation (not guaranteed to be stable yet).
+See also [docs/api.md](docs/api.md) for current API documentation (not guaranteed to be stable yet).
 
 ## Contact
 
