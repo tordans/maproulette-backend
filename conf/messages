@@ -278,14 +278,14 @@ challenge.wizard.form.previous=Prev
 challenge.wizard.form.next=Next
 challenge.wizard.form.cancel=Cancel
 
-challenge.wizard.creation.help=You can optionally select how to create tasks for you challenge, using either an overpass query, a local GeoJSON file or a remote GeoJSON file.
+challenge.wizard.creation.help=You can optionally select how to create tasks for your challenge, using either an overpass query, a local GeoJSON file or a remote GeoJSON file.
 challenge.wizard.creation.tab.overpass=Overpass
 challenge.wizard.creation.tab.geojson.local=Local GeoJSON
 challenge.wizard.creation.tab.geojson.remote=Remote GeoJSON
-challenge.wizard.creation.overpass.info=It is very important that we get all the information that is required to build the tasks correctly. Please include <b>'out body geom qt;'</b> as the first out statement in your query. Ultimately we need to the full geometry for each node, way and relation object returned in the json response.
+challenge.wizard.creation.overpass.info=It is very important that we get all the information that is required to build the tasks correctly. Please include <b>'out body geom qt;'</b> as the first out statement in your query. Ultimately we need to have the full geometry for each node, way and relation object returned in the json response.
 challenge.wizard.creation.overpass.label=Overpass API
-challenge.wizard.creation.overpass.placeholder=Enter overpass API here...
-challenge.wizard.creation.overpass.help=Go to http://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. By entering information here it will generate the tasks in the background. Please provide a suitable bounding box when inserting an overpass query, this can potentially generate larges amount of data and bog the system down.
+challenge.wizard.creation.overpass.placeholder=Enter Overpass API query here...
+challenge.wizard.creation.overpass.help=Go to https://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide. By entering information here it will generate the tasks in the background. Please provide a suitable bounding box when inserting an overpass query, as this can potentially generate large amounts of data and bog the system down.
 challenge.wizard.creation.geojson.upload=Upload GeoJSON file
 challenge.wizard.creation.geojson.upload.help=Please upload the local GeoJSON file.
 challenge.wizard.creation.geojson.label=Remote GeoJSON URL
@@ -328,13 +328,13 @@ challenge.wizard.priority.expression.low=Low
 challenge.wizard.priority.expression.none=None
 challenge.wizard.priority.expression.iebox=Import/Export Expression
 
-challenge.wizard.extra.description=This is the extra information that challenges can optionally set to give a better mapping experience specific the requirements of the challenge.
+challenge.wizard.extra.description=This is the extra information that challenges can optionally set to give a better mapping experience specific to the requirements of the challenge.
 challenge.wizard.extra.zoom.default.label=Default Zoom Level
 challenge.wizard.extra.zoom.default.help=Set the default zoom level that will be used when a task is displayed on the map.
 challenge.wizard.extra.zoom.min.label=Minimum Zoom Level
-challenge.wizard.extra.zoom.min.help=Set the minimum zoom level for a task is displayed on the map.
+challenge.wizard.extra.zoom.min.help=Set the minimum zoom level for a task that is displayed on the map.
 challenge.wizard.extra.zoom.max.label=Maximum Zoom Level
-challenge.wizard.extra.zoom.max.help=Set the maximum zoom level for a task is displayed on the map.
+challenge.wizard.extra.zoom.max.help=Set the maximum zoom level for a task that is displayed on the map.
 challenge.wizard.extra.basemap=Challenge Basemap
 challenge.wizard.extra.basemap.help=This is the custom basemap that will be used for the challenge, it will override any user settings that define a default basemap.
 challenge.wizard.extra.select=Select a challenge basemap
@@ -397,7 +397,7 @@ mapping.js.instruction.lastModifiedUser=Last user to modify task
 
 main.js.deletion=Deleting
 main.js.api.generation=Generating API Key for user [{0}]
-main.js.api.rebuilding=Rebuilding challenge[{0}]
+main.js.api.rebuilding=Rebuilding challenge [{0}]
 
 metrics.js.error=Unable to retrieve data for activity chart.
 metrics.js.status.available=Available
@@ -423,14 +423,14 @@ users.column.actions.add=Add to Project
 users.column.actions.delete=Delete
 users.notfound=No Users found
 users.addto.title=Add User to Project
-users.addto.field.id=id
+users.addto.field.id=ID
 users.addto.field.projects=Projects
-users.addto.field.projects.help=Please select the project to add the user too
+users.addto.field.projects.help=Please select the project to add the user to
 users.addto.action.add=Add User
 users.addto.action.cancel=Cancel
 users.addto.success=User successfully added to project
 
-geojson.title=GeoJson Viewer
+geojson.title=GeoJSON Viewer
 geojson.description=For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.
 geojson.submit=Submit
 
