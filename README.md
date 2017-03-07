@@ -1,10 +1,6 @@
 # New MapRoulette
 Version 2 of MapRoulette
 
-[![Build Status](https://travis-ci.org/maproulette/maproulette2.svg?branch=master)](https://travis-ci.org/maproulette/maproulette2)
-
-[![Heroku](http://heroku-badge.herokuapp.com/?app=maproulette2&style=flat&svg=1)](http://maproulette2.herokuapp.com/)
-
 Welcome to New MapRoulette, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
 
 This README deals with development related topics only. If you are interested in contributing to OpenStreetMap by fixing some bugs through MapRoulette, just head over to [the MapRoulette web site](http://maproulette.org) and get started - it should be pretty self explanatory.
