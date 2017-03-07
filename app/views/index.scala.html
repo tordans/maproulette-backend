@@ -61,13 +61,20 @@
 
             <!-- Main Footer -->
             <footer id="footer" class="main-footer">
+                <div id="hotkey-cheatsheet-link" class="hidden-xs" style="display: none;">
+                  <a href="#" id="show-hotkeys" data-toggle="popover" data-trigger="focus" role="button" tabindex="0">View keyboard shortcuts</a>
+                </div>
+
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
                     <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='MRManager.updateGeoJsonViewer();'>&pi;</a>
                 </div>
+
                     <!-- Default to the left -->
                 <strong>@Html(messages("general.copyright")) <a href="#">MapRoulette Version @{config.getSemanticVersion}</a>.</strong> @messages("general.rights")
-            </footer>
+
+                <div class="clearfix" />
+              </footer>
 
                 <!-- Control Sidebar -->
             <aside class="control-sidebar control-sidebar-dark">
