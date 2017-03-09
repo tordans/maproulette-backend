@@ -1111,11 +1111,13 @@ var MRManager = (function() {
 
     var registerHotKeys = function() {
         $(document).keydown(function(e) {
-          e.preventDefault();
-
-          if (hotkeys[e.keyCode]) {
-            hotkeys[e.keyCode].action();
-          }
+            if (hotkeys[e.keyCode]) {
+                // Ignore typing in search boxes, etc.
+                if (!/textarea|input|select/i.test(e.target.nodeName)) {
+                    e.preventDefault();
+                    hotkeys[e.keyCode].action();
+                }
+            }
         });
     };
 
