@@ -1,5 +1,3 @@
-general.rights=All rights reserved.
-general.copyright=Copyright &copy; 2016
 general.titleA=Map
 general.titleB=Roulette
 
@@ -51,6 +49,8 @@ rightsidebar.recent.date=Date:
 rightsidebar.general.header=General Settings
 rightsidebar.general.usage=Report panel usage
 rightsidebar.general.info=Some information about this general settings option
+
+footer.getintouch=Get in touch
 
 user.signin=Sign In
 user.osmmember=OSM member since
