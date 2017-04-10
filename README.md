@@ -101,7 +101,7 @@ osm.consumerSecret=<APPLICATION_CONSUMER_SECRET>
 
 ## Creating new Challenges
 
-[https://github.com/maproulette/maproulette2/wiki The wiki for this repo] has some information on creating challenges
+[The wiki for this repo](https://github.com/maproulette/maproulette2/wiki) has some information on creating challenges
 
 See also [docs/api.md](docs/api.md) for current API documentation (not guaranteed to be stable yet).
 
