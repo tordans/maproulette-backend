@@ -5,15 +5,16 @@ package org.maproulette.models.dal
 import java.sql.Connection
 import javax.inject.{Inject, Provider, Singleton}
 
-import anorm._
 import anorm.SqlParser._
+import anorm._
 import org.apache.commons.lang3.StringUtils
+import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.actions.{ActionManager, TaskType}
+import org.maproulette.actions.{ActionManager, StatusActionManager, TaskType}
 import org.maproulette.cache.CacheManager
-import org.maproulette.models.{Challenge, Lock, Project, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
-import org.maproulette.models.utils.DALHelper
+import org.maproulette.models.utils.{AND, DALHelper}
+import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, User}
@@ -22,6 +23,7 @@ import play.api.db.Database
 import play.api.libs.json._
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -30,14 +32,17 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class TaskDAL @Inject() (override val db:Database,
-                         override val tagDAL: TagDAL, config:Config,
-                         override val permission:Permission,
-                         userDAL: Provider[UserDAL],
-                         projectDAL: Provider[ProjectDAL],
-                         challengeDAL: Provider[ChallengeDAL],
-                         actions:ActionManager)
-    extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
+class TaskDAL @Inject()(override val db: Database,
+                        override val tagDAL: TagDAL, config: Config,
+                        override val permission: Permission,
+                        userDAL: Provider[UserDAL],
+                        projectDAL: Provider[ProjectDAL],
+                        challengeDAL: Provider[ChallengeDAL],
+                        actions: ActionManager,
+                        statusActions:StatusActionManager)
+  extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task]()
   // The database table name for the tasks
@@ -45,19 +50,34 @@ class TaskDAL @Inject() (override val db:Database,
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
-  override val retrieveColumns:String = "*, ST_AsGeoJSON(tasks.location) AS location"
+  override val retrieveColumns: String = "*, ST_AsGeoJSON(tasks.location) AS location"
 
   // The anorm row parser to convert records from the task table to task objects
   implicit val parser: RowParser[Task] = {
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
+      get[DateTime]("tasks.created") ~
+      get[DateTime]("tasks.modified") ~
       get[Long]("parent_id") ~
       get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") ~
       get[Int]("tasks.priority") map {
-      case id ~ name ~ parent_id ~ instruction ~ location ~ status ~ priority =>
-        Task(id, name, parent_id, instruction, location, this.getTaskGeometries(id), status, priority)
+      case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ priority =>
+        Task(id, name, created, modified, parent_id, instruction, location, this.getTaskGeometries(id), status, priority)
+    }
+  }
+
+  val commentParser: RowParser[Comment] = {
+    get[Long]("task_comments.id") ~
+    get[Long]("task_comments.osm_id") ~
+    get[String]("users.name") ~
+    get[Long]("task_comments.task_id") ~
+    get[DateTime]("task_comments.created") ~
+    get[String]("task_comments.comment") ~
+    get[Option[Long]]("task_comments.action_id") map {
+      case id ~ osm_id ~ osm_name ~ task_id ~ created ~ comment ~ action_id =>
+        Comment(id, osm_id, osm_name, task_id, created, comment, action_id)
     }
   }
 
@@ -66,10 +86,10 @@ class TaskDAL @Inject() (override val db:Database,
     * object is itself.
     *
     * @param obj Either a id for the challenge, or the challenge itself
-    * @param c  The connection if any
+    * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj:Either[Long, Task], user:User)(implicit c:Option[Connection]=None): Option[Project] = {
+  override def retrieveRootObject(obj: Either[Long, Task], user: User)(implicit c: Option[Connection] = None): Option[Project] = {
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(TaskType(), user)(id)
@@ -95,9 +115,9 @@ class TaskDAL @Inject() (override val db:Database,
     }
   }
 
-  private def getTaskGeometries(id:Long)(implicit c:Option[Connection]=None) : String = taskGeometries(id, "task_geometries")
+  private def getTaskGeometries(id: Long)(implicit c: Option[Connection] = None): String = taskGeometries(id, "task_geometries")
 
-  def getSuggestedFix(id:Long)(implicit c:Option[Connection]=None) : String = taskGeometries(id, "task_suggested_fix")
+  def getSuggestedFix(id: Long)(implicit c: Option[Connection] = None): String = taskGeometries(id, "task_suggested_fix")
 
   /**
     * Retrieve all the geometries for the task
@@ -105,7 +125,7 @@ class TaskDAL @Inject() (override val db:Database,
     * @param id Id for the task
     * @return A feature collection geojson of all the task geometries
     */
-  private def taskGeometries(id:Long, tableName:String)(implicit c:Option[Connection]=None) : String = {
+  private def taskGeometries(id: Long, tableName: String)(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
@@ -126,9 +146,9 @@ class TaskDAL @Inject() (override val db:Database,
     * @param user The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(task:Task, user:User)(implicit c:Option[Connection]=None) : Task = {
+  override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
     this.permission.hasWriteAccess(task, user)
-    this.cacheManager.withOptionCaching { () =>
+    val updatedTask = this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         var parameters = Seq(
           NamedParameter("name", ParameterValue.toParameterValue(task.name)),
@@ -143,7 +163,8 @@ class TaskDAL @Inject() (override val db:Database,
           ("location,", s"ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),")
         }
         // status is ignored on insert and always set to CREATED
-        val query = s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status, priority)
+        val query =
+          s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status, priority)
                       VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}, {priority}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING id"""
         SQL(query).on(parameters: _*).as(long("id").*).headOption match {
@@ -157,17 +178,20 @@ class TaskDAL @Inject() (override val db:Database,
       case Some(t) => t
       case None => throw new UniqueViolationException(s"Task with name ${task.name} already exists in the database")
     }
+    // update the task priority inside a future, so fire and forget and don't impact the performance of the insert
+    Future { this.updateTaskPriority(updatedTask.id, user) }
+    updatedTask
   }
 
   /**
     * Updates a task object in the database.
     *
     * @param value A json object containing fields to be updated for the task
-    * @param user The user executing the task
-    * @param id The id of the object that you are updating
+    * @param user  The user executing the task
+    * @param id    The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Task] = {
+  override def update(value: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
@@ -197,7 +221,8 @@ class TaskDAL @Inject() (override val db:Database,
           "location = ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),"
         }
 
-        val query = s"""UPDATE tasks SET name = {name}, parent_id = {parentId},
+        val query =
+          s"""UPDATE tasks SET name = {name}, parent_id = {parentId},
                         instruction = {instruction}, $locationInfo status = {status},
                         priority = {priority}
                       WHERE id = {id}"""
@@ -209,7 +234,7 @@ class TaskDAL @Inject() (override val db:Database,
             geom
           case None => cachedItem.geometries
         }
-        Some(Task(id, name, parentId, Some(instruction), Some(location), geometries, Some(status), priority))
+        Some(Task(id, name, cachedItem.created, DateTime.now(), parentId, Some(instruction), Some(location), geometries, Some(status), priority))
       }
     }
   }
@@ -225,10 +250,11 @@ class TaskDAL @Inject() (override val db:Database,
     * @param c       A connection to execute against
     * @return
     */
-  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c:Option[Connection]=None): Option[Task] = {
+  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.permission.hasWriteAccess(element, user)
-    this.cacheManager.withOptionCaching { () =>
-      this.withMRTransaction { implicit c =>
+    // clear the cache, and force a refresh
+    this.cacheManager.deleteByName(element.name)
+    val updatedTask:Option[Task] = this.withMRTransaction { implicit c =>
         val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {priority}, {reset})"
 
         val updatedTaskId = SQL(query).on(
@@ -246,7 +272,11 @@ class TaskDAL @Inject() (override val db:Database,
         }
         Some(element.copy(id = updatedTaskId))
       }
+    updatedTask match {
+      case Some(t) => Future { this.updateTaskPriority(t.id, user) }
+      case None => //just ignore and do nothing
     }
+    updatedTask
   }
 
   /**
@@ -254,21 +284,21 @@ class TaskDAL @Inject() (override val db:Database,
     * others that were added previously.
     *
     * @param taskId The id for the task
-    * @param value The JSON value for the suggested fix
+    * @param value  The JSON value for the suggested fix
     * @param c
     */
-  def addSuggestedFix(taskId:Long, value:JsValue)(implicit c:Option[Connection]=None) : Unit =
+  def addSuggestedFix(taskId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit =
     updateGeometries(taskId, value, false, true, "task_suggested_fix")
 
   /**
     * Function that updates the geometries for the task, either during an insert or update
     *
-    * @param taskId The task Id to update the geometries for
-    * @param value The geojson that contains the geometries/features
+    * @param taskId      The task Id to update the geometries for
+    * @param value       The geojson that contains the geometries/features
     * @param setLocation Whether to set the location based on the geometries or not
     */
-  private def updateGeometries(taskId:Long, value:JsValue, setLocation:Boolean=false, isNew:Boolean=false,
-                               tableName:String="task_geometries")(implicit c:Option[Connection]=None) : Unit = {
+  private def updateGeometries(taskId: Long, value: JsValue, setLocation: Boolean = false, isNew: Boolean = false,
+                               tableName: String = "task_geometries")(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
       if (!isNew) {
         SQL"""DELETE FROM #$tableName WHERE task_id = $taskId""".executeUpdate()
@@ -297,7 +327,7 @@ class TaskDAL @Inject() (override val db:Database,
     this.updateTaskLocation(taskId)
   }
 
-  def updateTaskLocation(taskId:Long) : Int = {
+  def updateTaskLocation(taskId: Long): Int = {
     this.db.withTransaction { implicit c =>
       // Update the location of the particular task
       SQL"""UPDATE tasks
@@ -308,7 +338,7 @@ class TaskDAL @Inject() (override val db:Database,
     }
   }
 
-  def updateTaskLocations(challengeId:Long) : Int = {
+  def updateTaskLocations(challengeId: Long): Int = {
     this.db.withTransaction { implicit c =>
       // update all the tasks of a particular challenge
       SQL"""DO $$
@@ -334,10 +364,10 @@ class TaskDAL @Inject() (override val db:Database,
     * in the parent challenge
     *
     * @param taskId The id for the task to update the priority for
-    * @param c The database connection
+    * @param c      The database connection
     */
-  def updateTaskPriority(taskId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
-    this.withMRTransaction{ implicit c =>
+  def updateTaskPriority(taskId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
+    this.withMRTransaction { implicit c =>
       implicit val id = taskId
       this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
         this.permission.hasWriteAccess(task, user)
@@ -359,12 +389,12 @@ class TaskDAL @Inject() (override val db:Database,
     * Will throw an IllegalAccessException if the user is a guest user, or if the task is locked by
     * a different user.
     *
-    * @param task The task to set the status for
+    * @param task   The task to set the status for
     * @param status The status to set
-    * @param user The user setting the status
+    * @param user   The user setting the status
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(task:Task, status:Int, user:User)(implicit c:Option[Connection]=None) : Int = {
+  def setTaskStatus(task: Task, status: Int, user: User)(implicit c: Option[Connection] = None): Int = {
     if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
@@ -372,7 +402,8 @@ class TaskDAL @Inject() (override val db:Database,
     }
 
     val updatedRows = this.withMRTransaction { implicit c =>
-      val updatedRows = SQL"""UPDATE tasks t SET status = $status WHERE t.id = (
+      val updatedRows =
+        SQL"""UPDATE tasks t SET status = $status WHERE t.id = (
                                 SELECT t2.id FROM tasks t2
                                 LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
                                 WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
@@ -381,13 +412,13 @@ class TaskDAL @Inject() (override val db:Database,
       if (updatedRows == 0) {
         throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
       }
-      this.actions.setStatusAction(user, task, status)
+      this.statusActions.setStatusAction(user, task, status)
 
       // if you set the status successfully on a task you will lose the lock of that task
       try {
         this.unlockItem(user, task)
       } catch {
-        case e:Exception => Logger.warn(e.getMessage)
+        case e: Exception => Logger.warn(e.getMessage)
       }
       updatedRows
     }
@@ -411,7 +442,8 @@ class TaskDAL @Inject() (override val db:Database,
         task <- parser
         lock <- lockedParser
       } yield task -> lock
-      val query = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+      val query =
+        s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
                       WHERE tasks.id > $currentTaskId AND tasks.parent_id = $parentId
                       AND status IN ({statusList})
@@ -423,7 +455,8 @@ class TaskDAL @Inject() (override val db:Database,
       SQL(query).on('statusList -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
-          val loopQuery = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+          val loopQuery =
+            s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
                               WHERE tasks.parent_id = $parentId
                               AND status IN ({statusList})
@@ -448,7 +481,8 @@ class TaskDAL @Inject() (override val db:Database,
         task <- parser
         lock <- lockedParser
       } yield task -> lock
-      val query = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+      val query =
+        s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
                       WHERE tasks.id < $currentTaskId AND tasks.parent_id = $parentId
                       AND status IN ({statusList})
@@ -460,7 +494,8 @@ class TaskDAL @Inject() (override val db:Database,
       SQL(query).on('statusList -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
-          val loopQuery = s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+          val loopQuery =
+            s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
                               WHERE tasks.parent_id = $parentId
                               AND status IN ({statusList})
@@ -470,8 +505,8 @@ class TaskDAL @Inject() (override val db:Database,
     }
   }
 
-  def getRandomTasksWithPriority(user:User, params:SearchParameters, limit:Int= -1)
-                                (implicit c:Option[Connection]=None) : List[Task] = {
+  def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1)
+                                (implicit c: Option[Connection] = None): List[Task] = {
     val highPriorityTasks = Try(this.getRandomTasks(user, params, limit)) match {
       case Success(res) => res
       case Failure(f) => List.empty
@@ -505,20 +540,20 @@ class TaskDAL @Inject() (override val db:Database,
     */
   def getRandomTasks(user:User, params: SearchParameters, limit:Int = -1, priority:Int=Challenge.PRIORITY_HIGH)
                     (implicit c:Option[Connection]=None) : List[Task] = {
-    val enabledClause = if (params.projectEnabled || (params.projectEnabled && params.challengeEnabled)) {
+    val enabledClause = if (params.enabledProject || (params.enabledProject && params.enabledChallenge)) {
       "c.enabled = TRUE AND p.enabled = TRUE AND"
     } else {
       ""
     }
 
     val taskTagIds = if (params.hasTaskTags) {
-      this.tagDAL.retrieveListByName(params.taskTags.map(_.toLowerCase)).map(_.id)
+      this.tagDAL.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
     } else {
       List.empty
     }
 
     val challengeTagIds = if (params.hasChallengeTags) {
-      this.tagDAL.retrieveListByName(params.challengeTags.map(_.toLowerCase)).map(_.id)
+      this.tagDAL.retrieveListByName(params.challengeTags.get.map(_.toLowerCase)).map(_.id)
     } else {
       List.empty
     }
@@ -557,8 +592,8 @@ class TaskDAL @Inject() (override val db:Database,
           parameters += ('challengeids -> ParameterValue.toParameterValue(challengeTagIds))
         }
         if (params.challengeSearch.nonEmpty) {
-          whereClause ++= s" ${searchField("c.name", "AND", "challengeSearch")}"
-          parameters += ('challengeSearch -> search(params.challengeSearch))
+          whereClause ++= s" ${searchField("c.name", "challengeSearch")}"
+          parameters += ('challengeSearch -> search(params.challengeSearch.getOrElse("")))
         }
     }
 
@@ -568,8 +603,8 @@ class TaskDAL @Inject() (override val db:Database,
         parameters += ('projectId -> ParameterValue.toParameterValue(id))
       case None =>
         if (params.projectSearch.nonEmpty) {
-          whereClause ++= s" ${searchField("p.name", "AND", "projectSearch")}"
-          parameters += ('projectSearch -> search(params.projectSearch))
+          whereClause ++= s" ${searchField("p.name", "projectSearch")}"
+          parameters += ('projectSearch -> search(params.projectSearch.getOrElse("")))
         }
     }
 
@@ -579,8 +614,8 @@ class TaskDAL @Inject() (override val db:Database,
       parameters += ('tagids -> ParameterValue.toParameterValue(taskTagIds))
     }
     if (params.taskSearch.nonEmpty) {
-      whereClause ++= s" ${searchField("tasks.name", "AND", "taskSearch")}"
-      parameters += ('taskSearch -> search(params.taskSearch))
+      whereClause ++= s" ${searchField("tasks.name", "taskSearch")}"
+      parameters += ('taskSearch -> search(params.taskSearch.getOrElse("")))
     }
 
 
@@ -616,13 +651,13 @@ class TaskDAL @Inject() (override val db:Database,
   /**
     * Returns the list of users that modified the requested task
     *
-    * @param user The user making the request
-    * @param id The id of the task
+    * @param user  The user making the request
+    * @param id    The id of the task
     * @param limit The number of distinct users that modified the task
-    * @param c An implicit connection to use, if not found will create a new connection
+    * @param c     An implicit connection to use, if not found will create a new connection
     * @return A list of users that modified the task
     */
-  def getLastModifiedUser(user:User, id:Long, limit:Int=1)(implicit c:Option[Connection]=None) : List[User] = {
+  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(implicit c: Option[Connection] = None): List[User] = {
     withMRConnection { implicit c =>
       val query =
         s"""
@@ -633,6 +668,117 @@ class TaskDAL @Inject() (override val db:Database,
            |)
          """.stripMargin
       SQL(query).on('id -> id, 'limit -> limit).as(userDAL.get().parser.*)
+    }
+  }
+
+  /**
+    * Retrieves a specific comment
+    *
+    * @param commentId The id for the comment
+    * @param c
+    * @return An optional comment
+    */
+  def retrieveComment(commentId:Long)(implicit c:Option[Connection] = None) : Option[Comment] = {
+    withMRConnection { implicit c =>
+      SQL("""SELECT * FROM task_comments tc
+              INNER JOIN users u ON u.osm_id = tc.osm_id
+              WHERE id = {commentId}"""
+      ).on('commentId -> commentId).as(this.commentParser.*).headOption
+    }
+  }
+
+  /**
+    * Retrieves all the comments for a task
+    *
+    * @param taskId The id of the task
+    * @param c
+    * @return The list of comments for the task
+    */
+  def retrieveComments(taskId:Long)(implicit c:Option[Connection] = None) : List[Comment] = {
+    withMRConnection { implicit c =>
+      SQL("""SELECT * FROM task_comments tc
+              INNER JOIN users u ON u.osm_id = tc.osm_id
+              WHERE task_id = {taskId}
+              ORDER BY tc.created DESC"""
+      ).on('taskId -> taskId).as(this.commentParser.*)
+    }
+  }
+
+  /**
+    * Add comment to a task
+    *
+    * @param user The user adding the comment
+    * @param taskId The task that you are adding the comment too
+    * @param comment The actual comment
+    * @param actionId the id for the action if any action associated
+    * @param c
+    */
+  def addComment(user:User, taskId:Long, comment:String, actionId:Option[Long])(implicit c:Option[Connection] = None) : Comment = {
+    withMRConnection { implicit c =>
+      if (StringUtils.isEmpty(comment)) {
+        throw new InvalidException("Invalid empty string supplied.")
+      }
+      val query =
+        s"""
+           |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
+           |VALUES ({osm_id}, {task_id}, {comment}, {action_id}) RETURNING id
+         """.stripMargin
+      SQL(query).on('osm_id -> user.osmProfile.id,
+                    'task_id -> taskId,
+                    'comment -> comment,
+                    'action_id -> actionId).as(long("id").*).headOption match {
+        case Some(commentId) =>
+          Comment(commentId, user.osmProfile.id, user.name, taskId, DateTime.now(), comment, actionId)
+        case None => throw new Exception("Failed to add comment")
+      }
+    }
+  }
+
+  /**
+    * Updates a comment that a user previously set
+    *
+    * @param user The user updating the comment, it has to be the original user who made the comment
+    * @param commentId The id for the original comment
+    * @param updatedComment The new comment
+    * @param c
+    * @return The updated comment
+    */
+  def updateComment(user:User, commentId:Long, updatedComment:String)(implicit c:Option[Connection] = None) : Comment = {
+    withMRConnection { implicit c =>
+      if (StringUtils.isEmpty(updatedComment)) {
+        throw new InvalidException("Invalid empty string supplied.")
+      }
+      // first get the comment
+      this.retrieveComment(commentId) match {
+        case Some(original) =>
+          if (!user.isSuperUser && original.osm_id != user.osmProfile.id) {
+            throw new IllegalAccessException("User updating the comment must be a Super user or the original user who made the comment")
+          }
+          SQL("UPDATE task_comments SET comment = {comment} WHERE id = {id}")
+            .on('comment -> updatedComment, 'id -> commentId).executeUpdate()
+          original.copy(comment = updatedComment)
+        case None => throw new NotFoundException("Original comment does not exist")
+      }
+    }
+  }
+
+  /**
+    * Deletes a comment from a task
+    *
+    * @param user The user deleting the comment, only super user or challenge admin can delete
+    * @param taskId The task that the comment is associated with
+    * @param commentId The id for the comment being deleted
+    * @param c
+    */
+  def deleteComment(user:User, taskId:Long, commentId:Long)(implicit c:Option[Connection] = None) : Unit = {
+    withMRConnection { implicit c =>
+      this.retrieveById(taskId) match {
+        case Some(task) =>
+          this.permission.hasWriteAccess(task, user)
+          SQL("DELETE FROM task_comments WHERE id = {id}").on('id -> commentId)
+        case None =>
+          throw new NotFoundException("Task was not found.")
+      }
     }
   }
 }

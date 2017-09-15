@@ -121,7 +121,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
         case None =>
           val message = s"Bad id, no parent found with supplied id [$id]"
           Logger.error(message)
-          BadRequest(Json.toJson(StatusMessage("KO", JsString(message))))
+          NotFound(Json.toJson(StatusMessage("KO", JsString(message))))
       }
     }
   }

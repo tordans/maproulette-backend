@@ -14,6 +14,7 @@
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery${minified()}.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery-ui${minified()}.js"))"></script>
     <!-- Latest compiled and minified JavaScript -->
+<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"moment${minified()}.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"toastr.js"))"></script>
 <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/jquery.dataTables${minified()}.js"))"></script>
@@ -46,8 +47,11 @@
     org.maproulette.controllers.api.routes.javascript.SurveyController.read,
     org.maproulette.controllers.api.routes.javascript.TagController.getTags,
     org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatus,
+    org.maproulette.controllers.api.routes.javascript.TaskController.retrieveComments,
     org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummary,
     org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummaries,
+    org.maproulette.controllers.api.routes.javascript.DataController.getStatusActivity,
+    org.maproulette.controllers.api.routes.javascript.DataController.getStatusSummary,
     org.maproulette.controllers.api.routes.javascript.SurveyController.answerSurveyQuestion,
     org.maproulette.controllers.api.routes.javascript.DataController.getChallengeActivity,
     org.maproulette.controllers.api.routes.javascript.DataController.getProjectActivity,
@@ -56,6 +60,7 @@
     org.maproulette.controllers.api.routes.javascript.DataController.getUserChallengeSummary,
     org.maproulette.controllers.api.routes.javascript.ChallengeController.getChallengeGeoJSON,
     org.maproulette.controllers.api.routes.javascript.ChallengeController.getClusteredPoints,
+    org.maproulette.controllers.api.routes.javascript.ChallengeController.resetTaskInstructions,
     org.maproulette.controllers.api.routes.javascript.ProjectController.getClusteredPoints,
     org.maproulette.controllers.api.routes.javascript.ProjectController.getSearchedClusteredPoints,
     org.maproulette.controllers.api.routes.javascript.APIController.getSavedChallenges,

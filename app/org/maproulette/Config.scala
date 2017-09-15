@@ -39,6 +39,9 @@ class Config @Inject() (implicit val application:Application) {
   lazy val isDebugMode : Boolean =
     this.config.getBoolean(Config.KEY_DEBUG).getOrElse(false)
 
+  lazy val isDevMode : Boolean =
+    this.config.getBoolean(Config.KEY_DEVMODE).getOrElse(false)
+
   lazy val actionLevel : Int =
     this.config.getInt(Config.KEY_ACTION_LEVEL).getOrElse(Actions.ACTION_LEVEL_2)
 
@@ -75,6 +78,8 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val taskReset : Int = this.config.getInt(Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
 
+  lazy val signIn : Boolean = this.config.getBoolean(Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
+
   /**
     * Retrieves a FiniteDuration config value from the configuration and executes the
     * block of code when found.
@@ -96,6 +101,7 @@ object Config {
   val KEY_SUPER_KEY = s"$GROUP_MAPROULETTE.super.key"
   val KEY_SUPER_ACCOUNTS = s"$GROUP_MAPROULETTE.super.accounts"
   val KEY_DEBUG = s"$GROUP_MAPROULETTE.debug"
+  val KEY_DEVMODE = s"$GROUP_MAPROULETTE.devMode"
   val KEY_ACTION_LEVEL = s"$GROUP_MAPROULETTE.action.level"
   val KEY_NUM_OF_CHALLENGES = s"$GROUP_MAPROULETTE.limits.challenges"
   val KEY_RECENT_ACTIVITY = s"$GROUP_MAPROULETTE.limits.activities"
@@ -103,6 +109,7 @@ object Config {
   val KEY_SEMANTIC_VERSION = s"$GROUP_MAPROULETTE.version"
   val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
+  val KEY_SIGNIN = s"$GROUP_MAPROULETTE.signin"
 
   val SUB_GROUP_SCHEDULER = s"$GROUP_MAPROULETTE.scheduler"
   val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
@@ -131,4 +138,5 @@ object Config {
   val DEFAULT_RECENT_ACTIVITY = 5
   val DEFAULT_LIST_SIZE = 10
   val DEFAULT_MAX_SAVED_CHALLENGES = 5
+  val DEFAULT_SIGNIN = false
 }

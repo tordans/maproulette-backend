@@ -2,25 +2,26 @@
 @import views.html.admin.forms.elements._
 @(challengeForm:Form[Challenge])(implicit messages: Messages)
 <span class="help-block">@messages("challenge.wizard.extra.description")</span>
+@checkbox(challengeForm("extra.updateTasks"),
+    label = messages("challenge.wizard.extra.updateTasks"),
+    help = messages("challenge.wizard.extra.updateTasks.help")
+)
 @defining(List(("0", "0"), ("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"), ("7", "7"), ("8", "8"), ("9", "9"), ("10", "10"), ("11", "11"), ("12", "12"), ("13", "13"), ("14", "14"), ("15", "15"), ("16", "16"), ("17", "17"), ("18", "18"), ("19", "19"))) { zoomList =>
     @select(challengeForm("extra.defaultZoom"),
         label = messages("challenge.wizard.extra.zoom.default.label"),
         optionList = zoomList,
-        isMultiple = false,
         help = messages("challenge.wizard.extra.zoom.default.help"),
         defaultSelected = Some("14")
     )
     @select(challengeForm("extra.minZoom"),
         label = messages("challenge.wizard.extra.zoom.min.label"),
         optionList = zoomList,
-        isMultiple = false,
         help = messages("challenge.wizard.extra.zoom.min.help"),
         defaultSelected = Some("1")
     )
     @select(challengeForm("extra.maxZoom"),
         label = messages("challenge.wizard.extra.zoom.max.label"),
         optionList = zoomList,
-        isMultiple = false,
         help = messages("challenge.wizard.extra.zoom.max.help"),
         defaultSelected = Some("16")
     )
@@ -34,7 +35,6 @@
         (messages("common.basemap.bing"), "2"),
         (messages("challenge.wizard.extra.basemap.custom"), "3")
     ),
-    isMultiple = false,
     help = messages("challenge.wizard.extra.basemap.help"),
     defaultSelected = Some("-1")
 )
@@ -43,11 +43,3 @@
     placeholder = messages("challenge.wizard.extra.basemap.custom.placeholer"),
     help = messages("challenge.wizard.extra.basemap.custom.help")
 )
-<!--
-@text(challengeForm("extra.fp_text"),
-    label = "False Positive Text",
-    placeholder = "False Positive",
-    default = "False Positive",
-    help = "Set the text for the false positive button."
-)
--->

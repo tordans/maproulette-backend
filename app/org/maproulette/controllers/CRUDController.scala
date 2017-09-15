@@ -5,7 +5,7 @@ package org.maproulette.controllers
 import java.sql.Connection
 
 import com.fasterxml.jackson.databind.JsonMappingException
-import io.swagger.annotations._
+import org.joda.time.DateTime
 import org.maproulette.actions.{Created => ActionCreated, _}
 import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
@@ -57,7 +57,11 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param user The user executing the request
     * @return
     */
-  def updateCreateBody(body:JsValue, user:User) : JsValue = Utils.insertJsonID(body)
+  def updateCreateBody(body:JsValue, user:User) : JsValue = {
+    var jsonBody = Utils.insertJsonID(body)
+    jsonBody = Utils.insertIntoJson(jsonBody, "created", DateTime.now())(DefaultJodaDateWrites)
+    Utils.insertIntoJson(jsonBody, "modified", DateTime.now())(DefaultJodaDateWrites)
+  }
 
   /**
     * In the case where you need to update the update body, usually you would not update it, but
@@ -69,7 +73,6 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   def updateUpdateBody(body:JsValue, user:User) : JsValue = body
 
-  // scalastyle:off
   /**
     * The base create function that most controllers will run through to create the object. The
     * actual work will be passed on to the internalCreate function. This is so that if you want
@@ -81,34 +84,6 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     *
     * @return 201 Created with the json body of the created object
     */
-  @ApiOperation(
-    nickname = "create",
-    value = "Create object from json body payload",
-    notes =
-      """The create method will assume that the json payload contains all the required
-         parameters for the object it wishes to create. If the 'id' variable is supplied it will
-         rather look up the object and then update it instead. If the 'id' is supplied but no object
-         matching it is found, a 404 NotFound will be returned.""",
-    httpMethod = "POST",
-    produces = "application/json",
-    consumes = "application/json",
-    protocols = "http",
-    code = 200
-  )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "apiKey", value = "The apikey to authorize the request", required = true, dataType = "string", paramType = "header"
-    ),
-    new ApiImplicitParam(
-      name = "body", value = "The json payload containing updates", required = true, dataType = "string", paramType = "body"
-    )
-  ))
-  @ApiResponses(Array(
-    new ApiResponse(code = 304, message = "Not updated responding with empty payload if object already exists and nothing to update"),
-    new ApiResponse(code = 400, message = "Invalid json payload for object", response = classOf[StatusMessage]),
-    new ApiResponse(code = 404, message = "ID field supplied but no object found matching the id", response = classOf[StatusMessage])
-  ))
-  // scalastyle:on
   def create() : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val result = this.updateCreateBody(request.body, user).validate[T]
@@ -172,7 +147,6 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     }
   }
 
-  // scalastyle:off
   /**
     * Base update function for the object. The update function works very similarly to the create
     * function. It does however allow the user to supply only the elements that are needed to updated.
@@ -181,34 +155,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  @ApiOperation(
-    nickname = "update",
-    value = "Update existing object from json body payload",
-    notes =
-      """The update method will update any variables that are supplied in the json payload""",
-    httpMethod = "PUT",
-    produces = "application/json",
-    consumes = "application/json",
-    protocols = "http",
-    code = 200
-  )
-  @ApiImplicitParams(Array(
-    new ApiImplicitParam(
-      name = "apiKey", value = "The apikey to authorize the request", required = true, dataType = "string", paramType = "header"
-    ),
-    new ApiImplicitParam(
-      name = "body", value = "The json payload containing updates", required = true, dataType = "string", paramType = "body"
-    )
-  ))
-  @ApiResponses(Array(
-    new ApiResponse(code = 304, message = "Not updated responding with empty payload if object already exists and nothing to update"),
-    new ApiResponse(code = 400, message = "Invalid json payload for object", response = classOf[StatusMessage]),
-    new ApiResponse(code = 404, message = "ID field supplied but no object found matching the id", response = classOf[StatusMessage])
-  ))
-  // scalastyle:on
-  def update(implicit
-             @ApiParam(value="ID of the object that is being updated") id:Long
-            ) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def update(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       try {
         this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
@@ -250,13 +197,13 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * Retrieves the object from the database or primary storage and writes it as json as a response.
     *
     * @param id The id of the object that is being retrieved
-    * @return 200 Ok, 204 NoContent if not found
+    * @return 200 Ok, 404 if not found
     */
   def read(implicit id:Long) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveById match {
         case Some(value) => Ok(Json.toJson(value))
-        case None => NoContent
+        case None => NotFound
       }
     }
   }
@@ -267,13 +214,13 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     *
     * @param id The id of the parent of the object
     * @param name The name of the object
-    * @return 200 Ok, 204 NoContent if not found
+    * @return 200 Ok, 404 if not found
     */
   def readByName(id:Long, name:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveByName(name, id) match {
         case Some(value) => Ok(Json.toJson(value))
-        case None => NoContent
+        case None => NotFound
       }
     }
   }
@@ -306,9 +253,9 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
     * @return A list of requested objects
     */
-  def list(limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def list(limit:Int, offset:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val result = this.dal.list(limit, offset)
+      val result = this.dal.list(limit, offset, onlyEnabled)
       this.itemType match {
         case it:TaskType if user.isDefined =>
           result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))

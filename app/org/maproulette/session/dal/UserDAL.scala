@@ -21,6 +21,7 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Challenge, Project}
 import org.maproulette.permissions.Permission
+import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json}
 import play.api.libs.oauth.RequestToken
 
@@ -67,7 +68,7 @@ class UserDAL @Inject() (override val db:Database,
       get[Option[Int]]("users.default_editor") ~
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.custom_basemap_url") ~
-      get[Boolean]("users.email_opt_in") ~
+      get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[String]]("users.locale") ~
       get[Option[Int]]("users.theme") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
@@ -125,6 +126,33 @@ class UserDAL @Inject() (override val db:Database,
           Some(u)
         case None => None
       }
+    }
+  }
+
+  def retrieveByUsernameAndAPIKey(username:String, apiKey:String) : Option[User] = this.cacheManager.withOptionCaching { () =>
+    this.db.withConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE name = {name} AND api_key = {apiKey}"""
+      SQL(query).on('name -> username, 'apiKey -> apiKey).as(this.parser.*).headOption
+    }
+  }
+
+  /**
+    * Helper function to allow users to be retrieve by just the OSM username, for security we only
+    * allow super users access to this function
+    *
+    * @param username The username that is being searched for
+    * @param user The user making the request
+    * @return An optional user object, if none then not found
+    */
+  def retrieveByOSMUsername(username:String, user:User) : Option[User] = this.cacheManager.withOptionCaching { () =>
+    // only only this kind of request if the user is a super user
+    if (user.isSuperUser) {
+      this.db.withConnection { implicit c =>
+        val query = s"""SELECT ${this.retrieveColumns} FROM users WHERE name = {name}"""
+        SQL(query).on('name -> username).as(this.parser.*).headOption
+      }
+    } else {
+      throw new IllegalAccessException("Only Superuser allowed to look up users by just OSM username")
     }
   }
 
@@ -230,6 +258,25 @@ class UserDAL @Inject() (override val db:Database,
   }.get
 
   /**
+    * This is a specialized update that is accessed via the API that allows users to update only the
+    * fields that are available for update. This is so that there is no accidental update of OSM username
+    * or anything retrieved from the OSM API.
+    *
+    * The function will simply recreate a JSON object with only the allowed fields. Any APIKey's must
+    * be updated separately
+    *
+    * @param settings The user settings that have been pulled from the request object
+    * @param user The user making the update request
+    * @param id The id of the user being updated
+    * @param c an optional connection, if not provided a new connection from the pool will be retrieved
+    * @return An optional user, if user with supplied ID not found, then will return empty optional
+    */
+  def managedUpdate(settings:UserSettings, user:User)(implicit id:Long, c:Option[Connection]=None) : Option[User] = {
+    implicit val settingsWrite = User.settingsWrites
+    this.update(Utils.insertIntoJson(Json.parse("{}"), "settings", Json.toJson(settings)), user)
+  }
+
+  /**
     * Only certain values are allowed to be updated for the user. Namely apiKey, displayName,
     * description, avatarURL, token, secret and theme.
     *
@@ -258,7 +305,7 @@ class UserDAL @Inject() (override val db:Database,
         val defaultBasemap = (value \ "settings" \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.settings.defaultBasemap.getOrElse(-1))
         val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
-        val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn)
+        val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
 
         this.updateGroups(value, user)
@@ -412,6 +459,8 @@ class UserDAL @Inject() (override val db:Database,
       case None =>
         this.projectDAL.insert(Project(id = -1,
           name = homeName,
+          created = DateTime.now(),
+          modified = DateTime.now(),
           description = Some(s"Home project for user ${user.name}"),
           enabled = false
         ), User.superUser).id

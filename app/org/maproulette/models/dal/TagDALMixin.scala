@@ -108,7 +108,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param user The user executing the item
     */
   def updateItemTagNames(id:Long, tags:List[String], user:User)(implicit c:Option[Connection]=None) : Unit = {
-    val tagIds = tags.flatMap { tag => {
+    val tagIds = tags.filter(_.nonEmpty).flatMap { tag => {
       this.tagDAL.retrieveByName(tag) match {
         case Some(t) => Some(t.id)
         case None => Some(this.tagDAL.insert(Tag(-1, tag), user).id)
@@ -129,10 +129,14 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     val lowerTags = tags.map(_.toLowerCase)
     this.withMRConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit + ""
-      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
-                      INNER JOIN challenges c ON c.id = ${this.tableName}.parent_id
-                      INNER JOIN projects p ON p.id = c.parent_id
-                      INNER JOIN tags_on_${this.tableName} tt ON ${this.tableName}.id = tt.${this.name}_id
+      val prefix = if (this.tableName == "tasks") { "t" } else { "c" }
+
+      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName} $prefix
+                      ${if (this.tableName == "tasks") {
+                          s"INNER JOIN challenges c ON c.id = ${this.tableName}.parent_id"
+                      } else { "" }}
+                      INNER JOIN projects p ON p.id = $prefix.parent_id
+                      INNER JOIN tags_on_${this.tableName} tt ON $prefix.id = tt.${this.name}_id
                       INNER JOIN tags tg ON tg.id = tt.tag_id
                       WHERE c.enabled = TRUE AND p.enabled = TRUE AND tg.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""

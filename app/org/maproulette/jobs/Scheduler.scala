@@ -6,6 +6,7 @@ import javax.inject.{Inject, Named}
 
 import akka.actor.{ActorRef, ActorSystem}
 import org.maproulette.Config
+import org.maproulette.jobs.SchedulerActor.RunJob
 import play.api.{Application, Logger}
 
 import scala.concurrent.ExecutionContext
@@ -36,7 +37,7 @@ class Scheduler @Inject() (val system: ActorSystem,
   def schedule(name:String, action:String, initialDelay:FiniteDuration, intervalKey:String):Unit = {
     config.withFiniteDuration(intervalKey) {
       interval =>
-        this.system.scheduler.schedule(initialDelay, interval, this.schedulerActor, name)
+        this.system.scheduler.schedule(initialDelay, interval, this.schedulerActor, RunJob(name))
         Logger.info(s"$action every $interval")
     }
   }

@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
+import org.joda.time.DateTime
 import play.api.data._
 import play.api.data.Forms._
 import org.maproulette.actions.{ItemType, SurveyType}
@@ -25,6 +26,8 @@ case class Answer(id:Long = -1, answer:String)
 case class Survey(challenge:Challenge, answers:List[Answer]) extends BaseObject[Long] {
   override def name: String = challenge.name
   override def id: Long = challenge.id
+  override def created:DateTime = challenge.created
+  override def modified:DateTime = challenge.modified
   def question : String = challenge.general.instruction
   override val itemType: ItemType = SurveyType()
 }

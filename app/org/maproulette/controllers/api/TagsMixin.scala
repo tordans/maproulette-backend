@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
-import com.fasterxml.jackson.databind.JsonMappingException
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController

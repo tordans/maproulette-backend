@@ -2,6 +2,7 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
+import org.joda.time.DateTime
 import org.junit.runner.RunWith
 import org.maproulette.models.dal.ProjectDAL
 import org.maproulette.session.User
@@ -21,7 +22,7 @@ class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
 
   "Projects" should {
     "write project object to database" in new WithApplication {
-      val newProject = Project(projectID, "NewProject_projecttest", Some("This is a newProject"))
+      val newProject = Project(projectID, "NewProject_projecttest", DateTime.now(), DateTime.now(), Some("This is a newProject"))
       projectID = projectDAL.insert(newProject, User.superUser).id
       projectDAL.retrieveById match {
         case Some(t) =>

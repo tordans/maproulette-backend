@@ -18,6 +18,7 @@ POST    /ui/admin/form/survey/:parentId/:itemId                         @control
 GET     /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormUI(projectId:Long, parentId:Long, parentType:String, itemId:Long)
 POST    /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormPost(projectId:Long, parentId:Long, parentType:String, itemId:Long)
 GET     /ui/admin/users                                                 @controllers.Application.users(limit:Int ?= -1, page:Int ?= 0, q:String ?= "")
+GET     /ui/admin/user/:userId/activity                                 @controllers.Application.userActivity(userId:Long)
 GET     /ui/metrics                                                     @controllers.Application.metrics(survey:Int ?= 0)
 GET     /ui/metrics/:challengeId                                        @controllers.Application.challengeMetrics(challengeId:Long, projects:String ?= "", survey:Int ?= 0)
 GET     /ui/error/:errorString                                          @controllers.Application.error(errorString)
@@ -25,12 +26,15 @@ GET     /ui/user/profile                                                @control
 POST    /ui/user/:id/settings                                           @controllers.FormEditController.userSettingsPost(id:Long)
 GET     /auth/authenticate                                              @controllers.AuthController.authenticate
 GET     /auth/signout                                                   @controllers.AuthController.signOut
+POST    /auth/signIn                                                    @controllers.AuthController.signIn(redirect:String ?= "")
 GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey(userId:Long ?= -1)
+POST    /auth/resetAllAPIKeys                                           @controllers.AuthController.resetAllAPIKeys
 DELETE  /auth/deleteUser/userId                                         @controllers.AuthController.deleteUser(userId:Long)
 GET     /auth/addUser/:userId/toProject/:projectId                      @controllers.AuthController.addUserToProject(userId:Long, projectId:Long)
 GET     /refreshProfile                                                 @controllers.Application.refreshProfile
 GET     /clearCaches                                                    @controllers.Application.clearCaches
 GET     /javascriptRoutes                                               @controllers.Application.javascriptRoutes
+PUT     /runJob/:name                                                   @controllers.Application.runJob(name:String)
 # MAPPING ROUTES
 GET     /map/:parentId/:taskId                                          @controllers.Application.mapTask(parentId:Long, taskId:Long)
 GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)
@@ -44,7 +48,7 @@ GET     /mapping/randomTask                                             @control
 # JsMessages Route
 GET     /jsMessages                                                     @controllers.Application.messages
 # Swagger route
-GET     /api/v2/docs                                                    @controllers.ApiHelpController.getResources
+GET     /docs/swagger-ui/*file                                          @controllers.Assets.at(path:String="/public/lib/swagger-ui", file:String)
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
 GET     /webjars/*file                                                  @controllers.WebJarAssets.at(file)

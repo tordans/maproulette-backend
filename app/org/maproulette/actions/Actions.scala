@@ -14,7 +14,7 @@ package org.maproulette.actions
   *
   * @param id The id of the action {@see Actions}
   * @param level The level at which the action will be stored in the database. The level is set in the
-  *              application config. And any action at that level and below will be writtern to the
+  *              application config. And any action at that level and below will be written to the
   *              database, anything above will be ignored.
   */
 class ActionType(id:Int, level:Int) {

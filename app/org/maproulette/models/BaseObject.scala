@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
+import org.joda.time.DateTime
 import org.maproulette.actions.ItemType
 
 /**
@@ -15,6 +16,8 @@ import org.maproulette.actions.ItemType
 trait BaseObject[Key] {
   def name:String
   def id:Key
+  def created:DateTime
+  def modified:DateTime
   def description:Option[String] = None
 
   val itemType:ItemType

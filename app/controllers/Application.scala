@@ -2,17 +2,19 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package controllers
 
-import javax.inject.Inject
+import javax.inject.{Inject, Named}
 
+import akka.actor.ActorRef
 import jsmessages.{JsMessages, JsMessagesFactory}
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
-import org.maproulette.exception.{NotFoundException, StatusMessage, StatusMessages}
-import org.maproulette.models.Task
+import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage, StatusMessages}
+import org.maproulette.jobs.SchedulerActor.RunJob
+import org.maproulette.models.{Challenge, Task}
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{SessionManager, User}
+import org.maproulette.session.{SearchParameters, SessionManager, User}
 import play.api.i18n.{I18nSupport, Messages, MessagesApi}
 import play.api.libs.json.{JsNumber, JsString, Json}
 import play.api.mvc._
@@ -28,7 +30,9 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              sessionManager:SessionManager,
                              override val dalManager: DALManager,
                              permission: Permission,
-                             val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
+                             val config:Config,
+                             @Named("scheduler-actor") schedulerActor: ActorRef
+                            ) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
 
   val jsMessages:JsMessages = jsMessagesFactory.all
   private val titleHeader:String = Messages("headers.title")
@@ -49,6 +53,14 @@ class Application @Inject() (val messagesApi: MessagesApi,
       dalManager.task.clearCaches
       dalManager.tag.clearCaches
       Ok(Json.toJson(StatusMessage("OK", JsString("All caches cleared."))))
+    }
+  }
+
+  def runJob(name:String) : Action[AnyContent] = Action.async { implicit request =>
+    implicit val requireSuperUser = true
+    sessionManager.authenticatedRequest { implicit user =>
+      schedulerActor ! RunJob(name)
+      Ok
     }
   }
 
@@ -209,6 +221,18 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
+  def userActivity(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    implicit val requireSuperUser = true
+    sessionManager.authenticatedUIRequest { implicit user =>
+      dalManager.user.retrieveById(userId) match {
+        case Some(activityUser) =>
+          getOkIndex(Messages("headers.users.activity.title"), user, views.html.admin.users.userActivity(activityUser))
+        case None =>
+          throw new InvalidException(s"User with id [$userId] not found")
+      }
+    }
+  }
+
   def profile(tab:Int) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
       getOkIndex(Messages("headers.profile"), user, views.html.user.profile(user, config, tab))
@@ -323,8 +347,11 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.SurveyController.read,
         org.maproulette.controllers.api.routes.javascript.TagController.getTags,
         org.maproulette.controllers.api.routes.javascript.TaskController.setTaskStatus,
+        org.maproulette.controllers.api.routes.javascript.TaskController.retrieveComments,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummary,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeSummaries,
+        org.maproulette.controllers.api.routes.javascript.DataController.getStatusActivity,
+        org.maproulette.controllers.api.routes.javascript.DataController.getStatusSummary,
         org.maproulette.controllers.api.routes.javascript.SurveyController.answerSurveyQuestion,
         org.maproulette.controllers.api.routes.javascript.DataController.getChallengeActivity,
         org.maproulette.controllers.api.routes.javascript.DataController.getProjectActivity,
@@ -333,6 +360,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.DataController.getUserChallengeSummary,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.getChallengeGeoJSON,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.getClusteredPoints,
+        org.maproulette.controllers.api.routes.javascript.ChallengeController.resetTaskInstructions,
         org.maproulette.controllers.api.routes.javascript.ProjectController.getClusteredPoints,
         org.maproulette.controllers.api.routes.javascript.ProjectController.getSearchedClusteredPoints,
         org.maproulette.controllers.api.routes.javascript.APIController.getSavedChallenges,

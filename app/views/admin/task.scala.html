@@ -19,6 +19,11 @@
           <button class="btn-xs btn-block btn-primary">@messages("task.new")</button>
         </a>
       </div>
+      <div class="pull-right">
+        <a href="@routes.FormEditController.challengeFormUI(projectId, parentId)">
+          <button class="btn-xs btn-block btn-primary">@messages("challenge.wizard.form.edit")</button>
+        </a>
+      </div>
     </div>
     <div class="box-body">
       <table id="taskTable" class="table table-bordered table-hover">
@@ -82,13 +87,26 @@
               {
                 data: "name",
                 name: "name",
-                title: "@messages("task.column.name")"
+                title: "@messages("task.column.name")",
+                render: function(data, type, full, meta) {
+                    var responseString = "<a";
+                    if (data.length > 20) {
+                      responseString += "data-toggle=\"tooltip\" title=\"" + data + "\"";
+                    }
+                    return responseString + ">" + data.substring(0, 20) + "</a>";
+                }
               },
               {
                 orderable: false,
                 data: "instruction",
                 name: "instruction",
-                title: "@messages("task.column.instruction")"
+                title: "@messages("task.column.instruction")",
+                render: function(data, type, full, meta) {
+                    if (!data || 0 === data.length) {
+                        return "@messages("task.column.instruction.none")";
+                    }
+                    return data.replace(/(.{1})/g, '$1​');
+                }
               },
               {
                 orderable: false,

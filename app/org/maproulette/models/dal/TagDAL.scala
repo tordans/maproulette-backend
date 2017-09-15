@@ -8,7 +8,7 @@ import javax.inject.{Inject, Provider, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.{CacheManager, TagCacheManager}
-import org.maproulette.exception.UniqueViolationException
+import org.maproulette.exception.{InvalidException, UniqueViolationException}
 import org.maproulette.models.Tag
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
@@ -45,6 +45,10 @@ class TagDAL @Inject() (override val db:Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(tag: Tag, user:User)(implicit c:Option[Connection]=None): Tag = {
+    if (tag.name.isEmpty) {
+      // do not allow empty tags
+      throw new InvalidException(s"Tags cannot be empty strings")
+    }
     this.permission.hasWriteAccess(tag, user)
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
@@ -65,10 +69,15 @@ class TagDAL @Inject() (override val db:Database,
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
   override def update(tag:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Tag] = {
+
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
+        if (name.nonEmpty) {
+          // do not allow empty tags
+          throw new InvalidException(s"Tags cannot be empty strings")
+        }
         val description = (tag \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val updatedTag = Tag(id, name, Some(description))
 
@@ -76,6 +85,39 @@ class TagDAL @Inject() (override val db:Database,
               WHERE id = $id RETURNING *""".as(this.parser.*).headOption
       }
     }
+  }
+
+  /**
+    * We override the retrieveByName function so that we make sure that we test against a lower case version
+    * of the name
+    */
+  override def retrieveByName(implicit name: String, parentId: Long, c: Option[Connection]): Option[Tag] = {
+    super.retrieveByName(name.toLowerCase, parentId, c)
+  }
+
+  /**
+    * Need to make sure all the names in the list are lowercase
+    */
+  override def retrieveListByName(implicit names: List[String], parentId: Long, c: Option[Connection]): List[Tag] = {
+    super.retrieveListByName(names.map(_.toLowerCase), parentId, c)
+  }
+
+  /**
+    * Need to make sure that the prefix is lowercase
+    */
+  override def retrieveListByPrefix(prefix: String, limit: Int, offset: Int, onlyEnabled: Boolean,
+                                    orderColumn: String, orderDirection: String)
+                                   (implicit parentId: Long, c: Option[Connection]): List[Tag] = {
+    super.retrieveListByPrefix(prefix.toLowerCase, limit, offset, onlyEnabled, orderColumn, orderDirection)
+  }
+
+  /**
+    * Make sure the searchString is lower case
+    */
+  override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean,
+                    orderColumn: String, orderDirection: String)
+                   (implicit parentId: Long, c: Option[Connection]): List[Tag] = {
+    super.find(searchString.toLowerCase, limit, offset, onlyEnabled, orderColumn, orderDirection)
   }
 
   /**
@@ -125,7 +167,7 @@ class TagDAL @Inject() (override val db:Database,
   def updateTagList(tags: List[Tag], user:User)(implicit c:Option[Connection]=None): List[Tag] = {
     if (tags.nonEmpty) {
       this.permission.hasSuperAccess(user)
-      implicit val names = tags.map(_.name)
+      implicit val names = tags.filter(_.name.nonEmpty).map(_.name)
       this.cacheManager.withCacheNameDeletion { () =>
         this.withMRTransaction { implicit c =>
           val sqlQuery =

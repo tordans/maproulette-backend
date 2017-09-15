@@ -103,7 +103,7 @@ osm.consumerSecret=<APPLICATION_CONSUMER_SECRET>
 
 [The wiki for this repo](https://github.com/maproulette/maproulette2/wiki) has some information on creating challenges
 
-See also [docs/api.md](docs/api.md) for current API documentation (not guaranteed to be stable yet).
+See also the Swagger API documentation. You can view the documentation by clicking on the "API Documentation" link on the bottom right hand corner of the MapRoulette site.
 
 ## Contact
 

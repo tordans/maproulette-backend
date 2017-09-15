@@ -3,6 +3,7 @@
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
+import org.joda.time.DateTime
 import org.maproulette.actions.{ItemType, TaskType}
 import org.maproulette.utils.Utils
 import play.api.data.Form
@@ -31,12 +32,14 @@ import play.api.libs.functional.syntax._
   */
 case class Task(override val id:Long,
                 override val name: String,
+                override val created:DateTime,
+                override val modified:DateTime,
                 parent: Long,
                 instruction: Option[String]=None,
                 location: Option[String]=None,
                 geometries:String,
                 status:Option[Int]=None,
-                priority:Int=Challenge.PRIORITY_HIGH) extends BaseObject[Long] {
+                priority:Int=Challenge.PRIORITY_HIGH) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
   def getGeometryProperties() : List[Map[String, String]] = {
@@ -147,7 +150,8 @@ object Task {
         case STATUS_CREATED => true
         case STATUS_FIXED => false
         case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
-        case STATUS_SKIPPED | STATUS_TOO_HARD => toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED
+        case STATUS_SKIPPED | STATUS_TOO_HARD =>
+          toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED || toSet == STATUS_SKIPPED || toSet == STATUS_TOO_HARD
         case STATUS_DELETED => toSet == STATUS_CREATED
         case STATUS_ALREADY_FIXED => false
       }
@@ -178,6 +182,8 @@ object Task {
     mapping(
       "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
+      "created" -> default(jodaDate, DateTime.now()),
+      "modified" -> default(jodaDate, DateTime.now()),
       "parent" -> longNumber,
       "instruction" -> optional(text),
       "location" -> optional(text),
@@ -187,5 +193,5 @@ object Task {
     )(Task.apply)(Task.unapply)
   )
 
-  def emptyTask(parentId:Long) : Task = Task(-1, "", parentId, Some(""), None, "")
+  def emptyTask(parentId:Long) : Task = Task(-1, "", DateTime.now(), DateTime.now(), parentId, Some(""), None, "")
 }

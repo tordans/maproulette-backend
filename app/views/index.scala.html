@@ -46,7 +46,7 @@
                     <a id="sidebar_toggle" href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
                         <span class="sr-only">Toggle navigation</span>
                     </a>
-                    @views.html.controls.topBar(user)
+                    @views.html.controls.topBar(user, config)
                 </nav>
             </header>
                 <!-- Left side column. contains the logo and sidebar -->
@@ -61,17 +61,24 @@
 
             <!-- Main Footer -->
             <footer id="footer" class="main-footer">
+                <div id='comments-link' class='hidden-xs' style='display: none;'>
+                    <a href='#' id='show-comments' data-toggle='popover' data-trigger='focus' role='button' tabindex='0'>
+                        <i class='fa fa-commenting-o' aria-hidden='true'> @messages("mapping.js.task.comments")</i>
+                    </a>
+                </div>
+
                 <div id="hotkey-cheatsheet-link" class="hidden-xs" style="display: none;">
-                  <a href="#" id="show-hotkeys" data-toggle="popover" data-trigger="focus" role="button" tabindex="0">View keyboard shortcuts</a>
+                  <a href="#" id="show-hotkeys" data-toggle="popover" data-trigger="focus" role="button" tabindex="0">@messages("mapping.js.cheatkeys.show")</a>
                 </div>
 
                     <!-- To the right -->
                 <div class="pull-right hidden-xs">
+                    <a href="/docs/swagger-ui/index.html?url=/assets/swagger.json" target="_blank">@messages("general.api")</a>
                     <a href="#" id="pi" data-toggle="modal" data-target="#geoJsonViewer" onclick='MRManager.updateGeoJsonViewer();'>&pi;</a>
                 </div>
 
                     <!-- Default to the left -->
-                <strong>MapRoulette @{config.getSemanticVersion}</strong> - @messages("footer.getintouch"): <a href="https://github.com/maproulette/maproulette2">GitHub</a> / <a href="mailto:maproulette@@maproulette.org">Email</a>
+                <strong>MapRoulette @{config.getSemanticVersion}</strong> - @messages("footer.getintouch"): <a href="https://github.com/maproulette/maproulette2">GitHub</a> / <a href="mailto:maproulette@@maproulette.org">@messages("general.email")</a>
 
                 <div class="clearfix" />
               </footer>

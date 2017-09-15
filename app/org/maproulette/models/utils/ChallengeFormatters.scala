@@ -1,5 +1,6 @@
 package org.maproulette.models.utils
 
+import org.joda.time.DateTime
 import org.maproulette.models._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -16,6 +17,9 @@ trait ChallengeWrites {
   implicit val challengeWrites: Writes[Challenge] = (
     (JsPath \ "id").write[Long] and
     (JsPath \ "name").write[String] and
+    (JsPath \ "created").write[DateTime] and
+    (JsPath \ "modified").write[DateTime] and
+    (JsPath \ "lastUpdated").write[DateTime] and
     (JsPath \ "description").writeNullable[String] and
     JsPath.write[ChallengeGeneral] and
     JsPath.write[ChallengeCreation] and
@@ -34,6 +38,9 @@ trait ChallengeReads extends DefaultReads {
   implicit val challengeReads: Reads[Challenge] = (
     (JsPath \ "id").read[Long] and
     (JsPath \ "name").read[String] and
+      ((JsPath \ "created").read[DateTime] or Reads.pure(DateTime.now())) and
+      ((JsPath \ "modified").read[DateTime] or Reads.pure(DateTime.now())) and
+      ((JsPath \ "lastUpdated").read[DateTime] or Reads.pure(DateTime.now())) and
     (JsPath \ "description").readNullable[String] and
     JsPath.read[ChallengeGeneral] and
     JsPath.read[ChallengeCreation] and

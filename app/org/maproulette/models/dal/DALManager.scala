@@ -22,7 +22,8 @@ class DALManager @Inject() (tagDAL: TagDAL,
                             userDAL: UserDAL,
                             userGroupDAL: UserGroupDAL,
                             actionManager: ActionManager,
-                            dataManager: DataManager) {
+                            dataManager: DataManager,
+                            statusActionManager: StatusActionManager) {
   def tag:TagDAL = tagDAL
   def task:TaskDAL = taskDAL
   def challenge:ChallengeDAL = challengeDAL
@@ -32,6 +33,7 @@ class DALManager @Inject() (tagDAL: TagDAL,
   def userGroup:UserGroupDAL = userGroupDAL
   def action:ActionManager = actionManager
   def data:DataManager = dataManager
+  def statusAction:StatusActionManager = statusActionManager
 
   def getManager(itemType:ItemType) : BaseDAL[Long, _] = {
     itemType match {

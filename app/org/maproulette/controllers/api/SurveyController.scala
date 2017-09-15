@@ -5,7 +5,6 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
-import io.swagger.annotations.Api
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
@@ -24,7 +23,6 @@ import play.api.mvc.{Action, AnyContent}
   *
   * @author cuthbertm
   */
-@Api(value = "/Survey", description = "Operations for Surveys", protocols = "http")
 class SurveyController @Inject() (override val childController:TaskController,
                                   override val sessionManager: SessionManager,
                                   override val actionManager: ActionManager,
@@ -111,8 +109,8 @@ class SurveyController @Inject() (override val childController:TaskController,
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         challengeId = Some(surveyId),
-        taskTags = tags.split(",").toList,
-        taskSearch = taskSearch
+        taskTags = Some(tags.split(",").toList),
+        taskSearch = Some(taskSearch)
       )
       val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
       result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))

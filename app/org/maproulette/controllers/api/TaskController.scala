@@ -2,14 +2,14 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
+import java.net.URLDecoder
 import java.sql.Connection
 import javax.inject.Inject
 
-import io.swagger.annotations.{Api, ApiOperation}
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
-import org.maproulette.models.{Challenge, Tag, Task}
+import org.maproulette.models.{Challenge, Comment, Tag, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
@@ -23,7 +23,6 @@ import play.api.mvc.{Action, AnyContent}
   *
   * @author cuthbertm
   */
-@Api(value = "/Task", description = "Operations for Tasks", protocols = "http")
 class TaskController @Inject() (override val sessionManager: SessionManager,
                                 override val actionManager: ActionManager,
                                 override val dal:TaskDAL,
@@ -38,10 +37,12 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   override implicit val itemType = TaskType()
   // json reads for automatically reading Tags from a posted json body
   implicit val tagReads: Reads[Tag] = Tag.tagReads
+  implicit val commentReads: Reads[Comment] = Comment.commentReads
+  implicit val commentWrites: Writes[Comment] = Comment.commentWrites
   override def dalWithTags:TagDALMixin[Task] = dal
 
   private def updateGeometryData(body: JsValue) : JsValue = {
-    (body \ "geometries").asOpt[String] match {
+    val updatedBody = (body \ "geometries").asOpt[String] match {
       case Some(value) =>
         // if it is a string, then it is either GeoJSON or a WKB
         // just check to see if { is the first character and then we can assume it is GeoJSON
@@ -62,6 +63,14 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
             // if the geometries are not supplied then just leave it
             body
         }
+    }
+    (updatedBody \ "location").asOpt[String] match {
+      case Some(value) => updatedBody
+      case None => (updatedBody \ "location").asOpt[JsValue] match {
+        case Some(value) =>
+          Utils.insertIntoJson(updatedBody, "location", value.toString(), true)
+        case None => updatedBody
+      }
     }
   }
 
@@ -110,7 +119,6 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task containing the tags
     * @return The html Result containing json array of tags
     */
-  @ApiOperation(value = "Gets the tags for ta task", nickname = "getTagsForTask", httpMethod = "GET")
   def getTagsForTask(implicit id: Long) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.getTags(id)))
@@ -136,11 +144,11 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
                      limit: Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
-        projectSearch = projectSearch,
-        challengeSearch = challengeSearch,
-        challengeTags = challengeTags.split(",").toList,
-        taskTags = tags.split(",").toList,
-        taskSearch = taskSearch
+        projectSearch = Some(projectSearch),
+        challengeSearch = Some(challengeSearch),
+        challengeTags = Some(challengeTags.split(",").toList),
+        taskTags = Some(tags.split(",").toList),
+        taskSearch = Some(taskSearch)
       )
       val result = this.dal.getRandomTasks(User.userOrMocked(user), params, limit)
       result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
@@ -158,7 +166,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  def setTaskStatus(id: Long, status: Int) : Action[AnyContent] = Action.async { implicit request =>
+  def setTaskStatus(id: Long, status: Int, comment:String="") : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (!Task.isValidStatus(status)) {
         throw new InvalidException(s"Cannot set task [$id] to invalid status [$status]")
@@ -168,8 +176,84 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
       }
       this.dal.setTaskStatus(task, status, user)
-      this.actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
+      val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
+      // add comment if any provided
+      if (comment.nonEmpty) {
+        val actionId = action match {
+          case Some(a) => Some(a.id)
+          case None => None
+        }
+        this.dal.addComment(user, task.id, comment, actionId)
+      }
       NoContent
+    }
+  }
+
+  /**
+    * Retrieves a specific comment for the user
+    *
+    * @param commentId The id of the comment to retrieve
+    * @return The comment
+    */
+  def retrieveComment(commentId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      this.dal.retrieveComment(commentId) match {
+        case Some(comment) => Ok(Json.toJson(comment))
+        case None => NotFound
+      }
+    }
+  }
+
+  /**
+    * Retrieves all the comments for a Task
+    *
+    * @param taskId The task to retrieve the comments for
+    * @return A list of comments
+    */
+  def retrieveComments(taskId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.retrieveComments(taskId)))
+    }
+  }
+
+  /**
+    * Adds a comment for a specific task
+    *
+    * @param taskId The id for a task
+    * @param comment The comment the user is leaving
+    * @param actionId The action if any associated with the comment
+    * @return Ok if successful.
+    */
+  def addComment(taskId:Long, comment:String, actionId:Option[Long]) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Created(Json.toJson(this.dal.addComment(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)))
+    }
+  }
+
+  /**
+    * Updates the original comment
+    *
+    * @param commentId The ID of the comment to update
+    * @param comment The comment to update
+    * @return
+    */
+  def updateComment(commentId:Long, comment:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dal.updateComment(user, commentId, URLDecoder.decode(comment, "UTF-8"))))
+    }
+  }
+
+  /**
+    * Deletes a comment from a task
+    *
+    * @param taskId The id of the task that the comment is associated with
+    * @param commentId The id of the comment that is being deleted
+    * @return Ok if successful,
+    */
+  def deleteComment(taskId:Long, commentId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.deleteComment(user, taskId, commentId)
+      Ok
     }
   }
 }

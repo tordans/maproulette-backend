@@ -7,10 +7,12 @@ import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
+import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models._
+import org.maproulette.models.utils.AND
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{Group, SearchParameters, User}
 import org.maproulette.session.dal.UserGroupDAL
@@ -46,10 +48,12 @@ class ProjectDAL @Inject() (override val db:Database,
   override val parser: RowParser[Project] = {
     get[Long]("projects.id") ~
       get[String]("projects.name") ~
+      get[DateTime]("projects.created") ~
+      get[DateTime]("projects.modified") ~
       get[Option[String]]("projects.description") ~
       get[Boolean]("projects.enabled") map {
-      case id ~ name ~ description ~ enabled =>
-        new Project(id, name, description, userGroupDAL.getProjectGroups(id, User.superUser), enabled)
+      case id ~ name ~ created ~ modified ~ description ~ enabled =>
+        new Project(id, name, created, modified, description, userGroupDAL.getProjectGroups(id, User.superUser), enabled)
     }
   }
 
@@ -60,13 +64,14 @@ class ProjectDAL @Inject() (override val db:Database,
       str("challenges.name") ~
       get[Option[String]]("blurb") ~
       str("location") ~
+      get[DateTime]("challenges.last_updated") ~
       int("difficulty") ~
       int("challenge_type") map {
-      case id ~ osm_id ~ username ~ name ~ blurb ~ location ~ difficulty ~ challengeType =>
+      case id ~ osm_id ~ username ~ name ~ blurb ~ location ~ modified ~ difficulty ~ challengeType =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
-        ClusteredPoint(id, osm_id, username, name, point, blurb.getOrElse(""), difficulty, challengeType)
+        ClusteredPoint(id, osm_id, username, name, point, blurb.getOrElse(""), modified, difficulty, challengeType)
     }
   }
 
@@ -202,16 +207,16 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param params search parameters
     * @return
     */
-  def getSearchedClusteredPoints(params: SearchParameters)
+  def getSearchedClusteredPoints(params: SearchParameters, limit:Int=0, offset:Int=0, featured:Boolean=false)
                                 (implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
-      parameters += ('cs -> this.search(params.challengeSearch))
-      parameters += ('ps -> this.search(params.projectSearch))
+      parameters += ('cs -> this.search(params.challengeSearch.getOrElse("")))
+      parameters += ('ps -> this.search(params.projectSearch.getOrElse("")))
       // search by tags if any
-      val challengeTags = if (params.challengeTags.nonEmpty) {
-        val tags = params.challengeTags.zipWithIndex.map{
+      val challengeTags = if (params.challengeTags.isDefined && params.challengeTags.get.nonEmpty) {
+        val tags = params.challengeTags.get.zipWithIndex.map{
           case (v, i) =>
             parameters += (s"tag_$i" -> this.search(v))
             s"t.name LIKE {tag_$i}"
@@ -233,7 +238,7 @@ class ProjectDAL @Inject() (override val db:Database,
       }
       val query = s"""
           SELECT c.id, u.osm_id, u.name, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
-                  c.difficulty, c.challenge_type
+                  c.difficulty, c.challenge_type, c.last_updated
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
           INNER JOIN users u ON u.osm_id = c.owner_id
@@ -241,12 +246,14 @@ class ProjectDAL @Inject() (override val db:Database,
           WHERE c.location IS NOT NULL AND EXISTS (
             SELECT id FROM tasks
             WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD}) LIMIT 1)
-          ${this.searchField("c.name", "AND", "cs")}
-          ${this.searchField("p.name", "AND", "ps")}
-          ${this.enabled(params.challengeEnabled, "c")} ${this.enabled(params.projectEnabled, "p")}
+          ${if (featured) { " AND c.featured = true"} else {""}}
+          ${this.searchField("c.name", "cs")}
+          ${this.searchField("p.name", "ps")}
+          ${this.enabled(params.enabledChallenge, "c")} ${this.enabled(params.enabledProject, "p")}
           ${if (params.projectId.isDefined && params.projectId.get > 0) {s" AND c.parent_id = ${params.projectId.get}"} else {""}}
           $locationClause
           ${challengeTags._2}
+          LIMIT ${sqlLimit(limit)} OFFSET $offset
          """
         this.sqlWithParameters(query, parameters).as(this.pointParser.*)
     }
@@ -264,7 +271,7 @@ class ProjectDAL @Inject() (override val db:Database,
                               enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT c.id, u.osm_id, u.name, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
-                    c.difficulty, c.challenge_type
+                    c.difficulty, c.challenge_type, c.last_updated
               FROM challenges c
               INNER JOIN projects p ON p.id = c.parent_id
               INNER JOIN users u ON u.osm_id = c.owner_id

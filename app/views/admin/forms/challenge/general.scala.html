@@ -8,18 +8,17 @@
     @if(user.isSuperUser) {
         @checkbox(challengeForm("general.featured"),
             label = messages("challenge.wizard.general.featured"),
-            default = false,
-            readOnly = false
+            help = messages("challenge.wizard.general.featured.help")
         )
     }
     <div class="form-group" style="display:none;">
-        @text(challengeForm("general.owner"),
-        label = messages("challenge.wizard.general.parent"),
+    @text(challengeForm("general.owner"),
+        label = messages("challenge.wizard.general.id"),
         placeholder = user.osmProfile.id+"",
         default = user.osmProfile.id+"",
         readOnly = true,
         forcedValue = user.osmProfile.id+""
-        )
+    )
     </div>
     <div class="form-group" style="display:none;">
     @text(challengeForm("id"),
@@ -49,7 +48,6 @@
     @select(challengeForm("general.enabled"),
         label = messages("challenge.wizard.general.visible"),
         optionList = List(("true", "true"), ("false", "false")),
-        isMultiple = false,
         help = messages("challenge.wizard.general.visible.help"),
         defaultSelected = Some("false")
     )
@@ -76,10 +74,14 @@
         placeholder = messages("challenge.wizard.general.instruction.placeholder"),
         help = messages("challenge.wizard.general.instruction.help")
     )
+    @text(challengeForm("general.checkinComment"),
+        label = messages("challenge.wizard.general.checkincomment"),
+        placeholder = messages("challenge.wizard.general.checkincomment.placeholder"),
+        help = messages("challenge.wizard.general.checkincomment.help")
+    )
     @select(challengeForm("general.difficulty"),
         label = messages("challenge.wizard.general.difficulty"),
         optionList = List(("Easy", "1"), ("Normal", "2"), ("Difficult", "3")),
-        isMultiple = false,
         help = messages("challenge.wizard.general.difficulty.help"),
         defaultSelected = Some("1")
     )

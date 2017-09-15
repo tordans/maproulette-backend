@@ -1,9 +1,12 @@
 logLevel := Level.Warn
 
 // The Typesafe repository
-resolvers += "Typesafe repository" at "https://dl.bintray.com/typesafe/maven-releases/"
+resolvers ++= Seq(
+  Resolver.bintrayRepo("scalaz", "releases"),
+  Resolver.bintrayIvyRepo("iheartradio", "sbt-plugins")
+)
 
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.5.4")
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.5.13")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-less" % "1.1.1")
 
@@ -16,3 +19,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-gzip" % "1.0.0")
 //addSbtPlugin("com.typesafe.sbt" % "sbt-rjs" % "1.0.7")
 
 addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.8.0")
+
+addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.6.0")

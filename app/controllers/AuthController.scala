@@ -3,6 +3,7 @@
 package controllers
 
 import com.google.inject.Inject
+import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -12,8 +13,9 @@ import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{JsString, Json}
-import play.api.mvc.{Action, AnyContent, Controller, Result}
+import play.api.mvc._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 
@@ -44,26 +46,12 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
           sessionManager.retrieveUser(verifier) onComplete {
             case Success(user) =>
               // We received the authorized tokens in the OAuth object - store it before we proceed
-              p success Redirect(redirect, SEE_OTHER)
-                .withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
-                  SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
-                  SessionManager.KEY_USER_ID -> user.id.toString,
-                  SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
-                  SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
-                )
+              p success this.withOSMSession(user, Redirect(redirect, SEE_OTHER))
             case Failure(e) => p failure e
           }
         case None =>
-          val referer = request.headers.get(REFERER)
-          val redirectURL = if (StringUtils.isEmpty(redirect) && referer.isDefined) {
-            referer.get
-          } else if (StringUtils.isNotEmpty(redirect)) {
-            val applicationIndex = routes.Application.index().absoluteURL()
-            s"${applicationIndex.substring(0, applicationIndex.length - 1)}$redirect"
-          } else {
-            routes.Application.index().absoluteURL()
-          }
-          sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL() + s"?redirect=$redirectURL") match {
+          sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL() +
+              s"?redirect=${getRedirectURL(request, redirect)}") match {
             case Right(t) =>
               // We received the unauthorized tokens in the OAuth object - store it before we proceed
               p success Redirect(sessionManager.redirectUrl(t.token))
@@ -73,6 +61,23 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
                 )
             case Left(e) => p failure e
           }
+      }
+      p.future
+    }
+  }
+
+  def signIn(redirect:String) : Action[AnyContent] = Action.async { implicit request =>
+    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
+      val p = Promise[Result]
+      request.body.asFormUrlEncoded match {
+        case Some(data) =>
+          val username = data.getOrElse("signInUsername", ArrayBuffer("")).mkString
+          val apiKey = data.getOrElse("signInAPIKey", ArrayBuffer("")).mkString
+          this.sessionManager.retrieveUser(username, apiKey) match {
+            case Some(user) => p success this.withOSMSession(user, Redirect(getRedirectURL(request, redirect)))
+            case None => p failure new OAuthNotAuthorizedException("Invalid username or apiKey provided")
+          }
+        case None => p failure new OAuthNotAuthorizedException("Invalid username or apiKey provided")
       }
       p.future
     }
@@ -123,6 +128,21 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
   }
 
   /**
+    * Super user action that will reset all the api keys.
+    *
+    * @return Simple Ok if succeeded.
+    */
+  def resetAllAPIKeys() : Action[AnyContent] = Action.async { implicit request =>
+    implicit val requireSuperUser = true
+    sessionManager.authenticatedRequest { implicit user =>
+      dalManager.user.list(-1).foreach { apiUser =>
+        dalManager.user.generateAPIKey(apiUser, user)
+      }
+      Ok
+    }
+  }
+
+  /**
     * Adds a user to the Admin group for a project
     *
     * @param projectId The id of the project to add the user too
@@ -140,6 +160,27 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
           Ok(Json.toJson(StatusMessage("OK", JsString(s"User ${addUser.name} added to project $projectId"))))
         case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }
+    }
+  }
+
+  def withOSMSession(user:User, result:Result) : Result = {
+    result.withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
+      SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
+      SessionManager.KEY_USER_ID -> user.id.toString,
+      SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
+      SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
+    )
+  }
+
+  def getRedirectURL(implicit request:Request[AnyContent], redirect:String) : String = {
+    val referer = request.headers.get(REFERER)
+    if (StringUtils.isEmpty(redirect) && referer.isDefined) {
+      referer.get
+    } else if (StringUtils.isNotEmpty(redirect)) {
+      val applicationIndex = routes.Application.index().absoluteURL()
+      s"${applicationIndex.substring(0, applicationIndex.length - 1)}$redirect"
+    } else {
+      routes.Application.index().absoluteURL()
     }
   }
 }

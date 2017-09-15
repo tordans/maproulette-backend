@@ -4,7 +4,6 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import io.swagger.annotations.Api
 import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.Tag
@@ -21,7 +20,6 @@ import play.api.mvc.{Action, AnyContent}
   *
   * @author cuthbertm
   */
-@Api(value = "/Tag", description = "Operations for Tags", protocols = "http")
 class TagController @Inject() (override val sessionManager: SessionManager,
                                override val actionManager: ActionManager,
                                override val dal:TagDAL)
