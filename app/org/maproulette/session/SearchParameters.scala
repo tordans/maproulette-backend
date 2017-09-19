@@ -19,15 +19,17 @@ import play.api.mvc.{AnyContent, Request}
 case class SearchLocation(left:Double, bottom:Double, right:Double, top:Double)
 
 case class SearchParameters(projectId:Option[Long]=None,
-                            projectSearch:String="",
-                            projectEnabled:Boolean=true,
+                            projectSearch:Option[String]=None,
+                            projectEnabled:Option[Boolean]=None,
                             challengeId:Option[Long]=None,
-                            challengeTags:List[String]=List.empty,
-                            challengeSearch:String="",
-                            challengeEnabled:Boolean=true,
-                            taskTags:List[String]=List.empty,
-                            taskSearch:String="",
-                            taskStatus:List[Int]=List.empty,
+                            challengeTags:Option[List[String]]=None,
+                            challengeTagConjunction:Option[Boolean]=None,
+                            challengeSearch:Option[String]=None,
+                            challengeEnabled:Option[Boolean]=None,
+                            taskTags:Option[List[String]]=None,
+                            taskTagConjunction:Option[Boolean]=None,
+                            taskSearch:Option[String]=None,
+                            taskStatus:Option[List[Int]]=None,
                             props:Option[Map[String, String]]=None,
                             priority:Option[Int]=None,
                             location:Option[SearchLocation]=None,
@@ -47,8 +49,11 @@ case class SearchParameters(projectId:Option[Long]=None,
     case _ => priority
   }
 
-  def hasTaskTags : Boolean = taskTags.exists(tt => tt.nonEmpty)
-  def hasChallengeTags : Boolean = challengeTags.exists(ct => ct.nonEmpty)
+  def hasTaskTags : Boolean = taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
+  def hasChallengeTags : Boolean = challengeTags.getOrElse(List.empty).exists(ct => ct.nonEmpty)
+
+  def enabledProject : Boolean = projectEnabled.getOrElse(true)
+  def enabledChallenge : Boolean = challengeEnabled.getOrElse(true)
 }
 
 object SearchParameters {
@@ -76,5 +81,37 @@ object SearchParameters {
       case None => SearchParameters()
     }
     block(params)
+  }
+
+  def withQSSearch[T](block:SearchParameters => T)(implicit request:Request[AnyContent]) : T = {
+    val qsParams = SearchParameters(
+      Utils.optionStringToOptionLong(request.getQueryString("pid")),
+      request.getQueryString("ps"),
+      Utils.optionStringToOptionBoolean(request.getQueryString("pe")),
+      Utils.optionStringToOptionLong(request.getQueryString("cid")),
+      Utils.optionStringToOptionStringList(request.getQueryString("ct")),
+      Some(request.getQueryString("ctc").getOrElse("false").toBoolean),
+      request.getQueryString("cs"),
+      Utils.optionStringToOptionBoolean(request.getQueryString("ce")),
+      Utils.optionStringToOptionStringList(request.getQueryString("tt")),
+      Some(request.getQueryString("ttc").getOrElse("false").toBoolean),
+      request.getQueryString("ts"),
+      request.getQueryString("tStatus") match {
+        case Some(v) => Utils.toIntList(v)
+        case None => None
+      },
+      None,
+      Utils.optionStringToOptionInt(request.getQueryString("tp")),
+      request.getQueryString("tbb") match {
+        case Some(v) if v.nonEmpty =>
+          v.split(",") match {
+            case x if x.size == 4 => Some(SearchLocation(x(0).toDouble, x(1).toDouble, x(2).toDouble, x(3).toDouble))
+            case _ => None
+          }
+        case _ => None
+      },
+      request.getQueryString("o")
+    )
+    block(qsParams)
   }
 }

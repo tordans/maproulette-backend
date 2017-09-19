@@ -75,6 +75,10 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     p.future
   }
 
+  def retrieveUser(username:String, apiKey:String) : Option[User] = {
+    dalManager.user.retrieveByUsernameAndAPIKey(username, apiKey)
+  }
+
   /**
     * Retrieves the request token and then makes a callback to the MapRoulette auth URL
     *
@@ -127,33 +131,44 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     val p = Promise[Option[User]]
     val userId = request.session.get(SessionManager.KEY_USER_ID)
     val osmId = request.session.get(SessionManager.KEY_OSM_ID)
-    tokenPair match {
-      case Some(pair) => getUser(pair, userId, create) onComplete {
-        case Success(optionUser) => p success optionUser
-        case Failure(f) => p failure f
-      }
-      case None =>
-        request.headers.get(SessionManager.KEY_API) match {
+    // if in dev mode we just default every request to super user request
+    config.isDevMode match {
+      case true =>
+        p success Some(User.superUser)
+      case false =>
+        val apiUser = request.headers.get(SessionManager.KEY_API) match {
           case Some(apiKey) =>
             // The super key gives complete access to everything. By default the super key is not
             // enabled, but if it is anybody with that key can do anything in the system. This is
             // generally not a good idea to have it enabled, but useful for internal systems or
             // dev testing.
             if (this.config.superKey.nonEmpty && StringUtils.equals(this.config.superKey.get, apiKey)) {
-              p success Some(User.superUser)
+              Some(User.superUser)
             } else {
               try {
                 val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
                 this.dalManager.user.retrieveByAPIKey(apiKey, User.superUser)(decryptedKey(0).toLong) match {
-                  case Some(user) => p success Some(user)
-                  case None => p success None
+                  case Some(user) => Some(user)
+                  case None => None
                 }
               } catch {
-                case e: NumberFormatException => p failure new OAuthNotAuthorizedException(s"Invalid APIKey supplied => $apiKey")
-                case e: Exception => p failure e
+                case e: Exception =>
+                  Logger.error(e.getMessage, e)
+                  None
               }
             }
-          case None => p success None
+          case None => None
+        }
+        apiUser match {
+          case Some(user) => p success Some(user)
+          case None =>
+            tokenPair match {
+              case Some(pair) => getUser(pair, userId, create) onComplete {
+                case Success(optionUser) => p success optionUser
+                case Failure(f) => p failure f
+              }
+              case None => p success None
+            }
         }
     }
     p.future

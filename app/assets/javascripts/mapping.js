@@ -176,13 +176,26 @@ L.Control.ControlPanel = L.Control.extend({
         // we create all the containers first so that the ordering will always be consistent
         // no matter what controls a user decides to put on the map
         var container = L.DomUtil.create('div', 'mp-control');
-        var prevDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        container.id = "controlpanel_root";
+        L.DomUtil.addClass(container, "hidden");
+        var table = L.DomUtil.create('table', '', container);
+        var row1 = L.DomUtil.create('tr', '', table);
+        var commentData = L.DomUtil.create('td', '', row1);
+        var commentDiv = L.DomUtil.create('div', 'mp-control-component hidden', commentData);
+        commentDiv.id = "controlpanel_comment";
+        var comment = L.DomUtil.create('input', 'mp-control-comment', commentDiv);
+        comment.id = "controlpanel_comment_text";
+        comment.type  = "text";
+        comment.placeholder = Messages("mapping.js.control.comment");
+        var row2 = L.DomUtil.create('tr', '', table);
+        var controlData = L.DomUtil.create('td', '', row2);
+        var prevDiv = L.DomUtil.create('div', 'mp-control-component pull-left', controlData);
         prevDiv.id = "controlpanel_previous";
-        var editDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        var editDiv = L.DomUtil.create('div', 'mp-control-component pull-left', controlData);
         editDiv.id = "controlpanel_edit";
-        var fpDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        var fpDiv = L.DomUtil.create('div', 'mp-control-component pull-left', controlData);
         fpDiv.id = "controlpanel_fp";
-        var nextDiv = L.DomUtil.create('div', 'mp-control-component pull-left', container);
+        var nextDiv = L.DomUtil.create('div', 'mp-control-component pull-left', controlData);
         nextDiv.id = "controlpanel_next";
         return container;
     },
@@ -193,6 +206,12 @@ L.Control.ControlPanel = L.Control.extend({
         this.options.controls[1] = editControl;
         this.options.controls[2] = fpControl;
         this.options.controls[3] = nextControl;
+        $("#controlpanel_comment_text").text("");
+        if (!this.options.controls[0]) {
+            L.DomUtil.removeClass(L.DomUtil.get("controlpanel_comment"), "hidden");
+        } else {
+            L.DomUtil.addClass(L.DomUtil.get("controlpanel_comment"), "hidden");
+        }
         this.updateControls();
     },
     // generic function to update the controls on the map
@@ -269,6 +288,12 @@ L.Control.ControlPanel = L.Control.extend({
     enableControls: function() {
         L.DomUtil.removeClass(L.DomUtil.get("controlpanel_edit"), "mp-control-component-locked");
         L.DomUtil.removeClass(L.DomUtil.get("controlpanel_fp"), "mp-control-component-locked");
+    },
+    hide: function() {
+        L.DomUtil.addClass(L.DomUtil.get("controlpanel_root"), "hidden");
+    },
+    show: function() {
+        L.DomUtil.removeClass(L.DomUtil.get("controlpanel_root"), "hidden");
     }
 });
 // -----------------------------------------------------
@@ -360,7 +385,7 @@ function Challenge() {
         data = {id:-1};
         MRManager.updateMapOptions("map", new Point(0, 0));
     };
-    
+
     this.resetTask = function() {
         this.data = {id:-1};
     };
@@ -564,7 +589,10 @@ function Task() {
             ToastUtils.Success(Messages("mapping.js.task.status.result", data.name, TaskStatus.getStatusName(status)));
             self.getRandomNextTask(MRManager.getSuccessHandler(success), errorHandler);
         };
-        jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatus(data.id, status)
+        // get the comment.
+        var comment = $("#controlpanel_comment_text").val();
+        $("#controlpanel_comment_text").val("");
+        jsRoutes.org.maproulette.controllers.api.TaskController.setTaskStatus(data.id, status, comment)
             .ajax({success: statusSetSuccess, error: errorHandler});
     };
 }
@@ -608,12 +636,12 @@ var MRManager = (function() {
         var sidebarWidth = $("#sidebar").width();
         if (sidebarWidth == 50) {
             mapDiv.animate({left: '230px'});
-            notifications.animate({left: '270px'});
-            menuOpenNotifications.animate({left: '270px'});
+            notifications.animate({left: '240px'});
+            menuOpenNotifications.animate({left: '240px'});
         } else if (sidebarWidth == 230) {
             mapDiv.animate({left: '50px'});
-            notifications.animate({left: '90px'});
-            menuOpenNotifications.animate({left: '90px'});
+            notifications.animate({left: '60px'});
+            menuOpenNotifications.animate({left: '60px'});
         }
     };
 
@@ -621,7 +649,7 @@ var MRManager = (function() {
         updateMapOptions(element, point);
 
         // handles click events that are executed when submitting the custom geojson from the geojson viewer
-        $('#geojson_submit').on('click', function() {
+        $('#geojson_submit').on('click', function () {
             disableKeys = false;
             if ($('#geojson_text').val().length < 1) {
                 $('#geoJsonViewer').modal("hide");
@@ -634,10 +662,10 @@ var MRManager = (function() {
         $("#sidebar_toggle").on("click", resizeMap);
         signedIn = userSignedIn;
         //register the keyboard shortcuts
-        $('#searchQ').on('focus', function() {
+        $('#searchQ').on('focus', function () {
             searchInFocus = true;
         });
-        $('#searchQ').on('focusout', function() {
+        $('#searchQ').on('focusout', function () {
             searchInFocus = false;
         });
         registerHotKeys();
@@ -806,7 +834,8 @@ var MRManager = (function() {
                 }
                 if (data[i].type == 1 || data[i].type == 4) {
                     // This section below is for the pie chart and small activity chart when the popup is opened
-                    popupString += Messages('challenge.difficulty.title') + " " + Messages('challenge.difficulty.' + data[i].difficulty);
+                    popupString += Messages('challenge.difficulty.title') + " " + Messages('challenge.difficulty.' + data[i].difficulty) + "<br/>";
+                    popupString += Messages('mapping.js.challenge.lastUpdated') + ": " + moment(data[i].modified).format("MM/DD/YYYY");
                     if (typeof data[i].ownerName !== 'undefined' || data[i].ownerName == -1) {
                         popupString += "<br/>" + Messages('challenge.owner') + " <a target='_blank' href='http://osm.org/user/" + data[i].ownerName + "'>" + data[i].ownerName + "</a>" +
                                         "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + data[i].ownerName + "'> <i class='fa fa-commenting-o aria-hidden='true'></i></a>";
@@ -865,11 +894,16 @@ var MRManager = (function() {
         map.fitBounds(geojsonLayer.getBounds(), { maxZoom: map.options.zoom });
         controlPanel.update(signedIn, debugMode, true, true, true);
         resetEditControls();
-        var challengeId = currentTask.getChallenge().getData().id;
+        var challengeData = currentTask.getChallenge().getData();
         // update the browser url to reflect the current task
-        window.history.pushState("", "", "/map/" + challengeId + "/" + currentTask.getData().id);
+        window.history.pushState("", "", "/map/" + challengeData.id + "/" + currentTask.getData().id);
         // show the task text as a notification
-        var taskInstruction = "##### " + Messages("mapping.js.instruction.challenge") + ": " + currentTask.getChallenge().getData().name + "\n---------\n\n";
+        var taskInstruction = "";
+        if (LoggedInUser.userId == challengeData.owner) {
+            taskInstruction = "##### [" + Messages("mapping.js.instruction.challenge") + ": " + challengeData.name + "](/ui/admin/list/" + challengeData.parent + "/Challenge/tasks/" + challengeData.id + ")\n---------\n\n";
+        } else {
+            taskInstruction = "##### " + Messages("mapping.js.instruction.challenge") + ": " + challengeData.name + "\n---------\n\n";
+        }
         if (currentTask.getData().instruction === "") {
             taskInstruction += currentTask.getChallenge().getData().instruction;
         } else {
@@ -879,12 +913,20 @@ var MRManager = (function() {
         finalText += Messages("mapping.js.instruction.status") + ": " + TaskStatus.getStatusName(currentTask.getData().status);
         if (typeof currentTask.getData().last_modified_user !== 'undefined') {
             finalText += "<br/>" + Messages('mapping.js.instruction.lastModifiedUser') + ": <a target='_blank' href='http://osm.org/user/" + currentTask.getData().last_modified_user + "'>" + currentTask.getData().last_modified_user + "</a>" +
-                "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + currentTask.getData().last_modified_user + "'> <i class='fa fa-commenting-o aria-hidden='true'></i></a>";
+                "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + currentTask.getData().last_modified_user + "'> <i class='fa fa-commenting-o' aria-hidden='true'></i></a>";
         }
+        finalText += "<br/>" + Messages("mapping.js.instruction.created") + ": " + moment(currentTask.getData().created).format('MM/DD/YYYY') + " | ";
+        finalText += Messages("mapping.js.instruction.modified") + ": " + moment(currentTask.getData().modified).format('MM/DD/YYYY');
+        updateCommentList();
         ToastUtils.Info(finalText, {timeOut: 0});
         // let the user know where they are
         displayAdminArea();
         updateChallengeInfo(currentTask.getData().parentId);
+    };
+
+    var updateCommentList = function() {
+        initializeComments(currentTask.getData().id, "show-comments", 'bottom');
+        $("#comments-link").show();
     };
 
     var resetEditControls = function() {
@@ -927,6 +969,7 @@ var MRManager = (function() {
      * Based on the challenge type (4 is Survey) will add or remove the survey panel from the map
      */
     var updateMRControls = function() {
+        controlPanel.show();
         if (signedIn && !debugMode && currentTask.getChallenge().isSurvey()) {
             surveyPanel.updateSurvey(currentTask.getChallenge().getData().instruction,
                 currentTask.getChallenge().getData().answers);
@@ -949,10 +992,10 @@ var MRManager = (function() {
     var displayAdminArea = function () {
         Utils.getLocation(map.getCenter().lat, map.getCenter().lng, 
             function(data) {
-                ToastUtils.Info(Utils.mqResultToString(data.address), {timeOut:10000});
+                ToastUtils.Info(Utils.mqResultToString(data.address), {timeOut:0});
             },
             function(data) {
-                ToastUtils.Error(Messages('mapping.js.location.notfound'), {timeOut:10000});
+                ToastUtils.Error(Messages('mapping.js.location.notfound'), {timeOut:0});
             }
         );
     };
@@ -1135,7 +1178,7 @@ var MRManager = (function() {
       cheatSheet += "</table>";
 
       $("#show-hotkeys").popover({
-        title: "Keyboard Shortcuts <span class='pull-right'><i class='fa fa-times'></i></span>",
+        title: Messages("mapping.js.cheatkeys.title") + " <span class='pull-right'><i class='fa fa-times'></i></span>",
         content: cheatSheet,
         html: true,
         placement: 'top',
@@ -1182,7 +1225,7 @@ var MRManager = (function() {
 
     var getCommentHashtags = function() {
         // add comment specific to challenge, make sure the name has no whitespace
-        return "%23maproulette%20" + currentTask.getChallenge().getData().name.replace(/ /g, "_");
+        return encodeURI(currentTask.getChallenge().getData().checkinComment);
     };
 
     var openTaskInId = function () {

@@ -46,6 +46,9 @@
                                             <span class="sr-only">@messages("users.column.actions.options.toggle")</span>
                                         </button>
                                         <ul class="dropdown-menu" role="menu">
+                                            @if(u._1.isSuperUser) {
+                                                <li><a href="@routes.Application.userActivity(u._1.id)">@messages("users.column.actions.activity")</a></li>
+                                            }
                                             <li><a href="#" onclick="#">@messages("users.column.actions.view")</a></li>
                                             <li><a href="#" onclick="regenerateKey(@{u._1.id});">@messages("users.column.actions.regenerate")</a></li>
                                             <li><a href="#" onclick="addUserToProject(@u._1.id);">@messages("users.column.actions.add")</a></li>

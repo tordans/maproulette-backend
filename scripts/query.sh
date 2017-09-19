@@ -1,0 +1,2 @@
+#!/bin/ba#!/bin/bash
+docker exec -i mr2-postgis bash -c "psql -U mr2dbuser -d mr2_prod -c \"SELECT u.name, a.*, c.id, 'http://maproulette.org/map/' || c.id::text || '/' || t.id::text FROM actions a INNER JOIN tasks t ON t.id = a.item_id INNER JOIN challenges c ON c.id = t.parent_id INNER JOIN users u ON u.osm_id = a.osm_user_id WHERE (c.parent_id = 473 OR c.parent_id = 920) AND a.status > 0 and a.created > now() - '1 day'::interval ORDER BY u.name, a.created ASC;\" > rawdata.out"

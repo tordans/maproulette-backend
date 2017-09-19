@@ -68,7 +68,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
   def getSequentialNextTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId, Some(params.taskStatus))))
+        Ok(getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId, Some(params.taskStatus.getOrElse(List.empty)))))
       }
     }
   }
@@ -83,7 +83,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
   def getSequentialPreviousTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId, Some(params.taskStatus))))
+        Ok(getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId, Some(params.taskStatus.getOrElse(List.empty)))))
       }
     }
   }
@@ -125,7 +125,9 @@ class MappingController @Inject() (sessionManager:SessionManager,
            |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
            |   "status":$currentStatus, $userString
            |   "geometry":${t._1.geometries},
-           |   "locked":$locked
+           |   "locked":$locked,
+           |   "created":"${t._1.created}",
+           |   "modified":"${t._1.modified}"
            |}
             """.stripMargin)
     case None => throw new NotFoundException(s"Could not find task")

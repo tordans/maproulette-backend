@@ -98,9 +98,9 @@ $().ready(function() {
         var opquery = $("#creation_overpassQL").val();
         $('#creation_overpassQL').val(opquery.replace(/[^\x20-\x7E\x0A]+/g, ''));
         // get the rules for the high, medium and low priorities
-        $('#highPriorityRule').val(JSON.stringify($('#priority-high-builder').queryBuilder('getRules')));
-        $('#mediumPriorityRule').val(JSON.stringify($('#priority-medium-builder').queryBuilder('getRules')));
-        $('#lowPriorityRule').val(JSON.stringify($('#priority-low-builder').queryBuilder('getRules')));
+        $('#priority_highPriorityRule').val(JSON.stringify($('#priority-high-builder').queryBuilder('getRules')));
+        $('#priority_mediumPriorityRule').val(JSON.stringify($('#priority-medium-builder').queryBuilder('getRules')));
+        $('#priority_lowPriorityRule').val(JSON.stringify($('#priority-low-builder').queryBuilder('getRules')));
         // finally submit the form
         $("#challengeForm").submit();
     });

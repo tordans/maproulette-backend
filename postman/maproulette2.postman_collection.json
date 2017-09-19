@@ -1,0 +1,1755 @@
+{
+	"variables": [],
+	"info": {
+		"name": "maproulette2",
+		"_postman_id": "fc293308-9da6-f4cc-0e4e-a634dc3111e8",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "challenge",
+			"description": "",
+			"item": [
+				{
+					"name": "Challenge Project Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleProjectID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"description": "Creates a base project for all the other Map Roulette API Testing"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"A simple challenge containing only the basic elements for a challenge\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple challenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleChallenge\",\n    \"description\":\"A simple challenge containing only the basic elements for a challenge\",\n    \"parent\":{{SimpleProjectID}},\n    \"instruction\":\"Instruction for the simple challenge\",\n    \"enabled\":false\n}"
+						},
+						"description": "Creates the most basic challenge with the least set of options in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Tag Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TagsChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TagsChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"A simple challenge containing only the basic elements for a challenge and two tags\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple tag challenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TagsChallenge\",\n    \"description\":\"A simple challenge containing only the basic elements for a challenge and two tags\",\n    \"parent\":{{SimpleProjectID}},\n    \"instruction\":\"Instruction for the simple tag challenge\",\n    \"enabled\":false,\n    \"tags\":\"tag1,tag2\",\n    \"children\": [\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"description": "Creates the most basic challenge with the least set of options and a couple of tags in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"TagsChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"A simple challenge containing only the basic elements for a challenge and two tags\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple tag challenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Tasks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"Task1\"] = jsonData[0].name === \"Task 1\";",
+									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Tasks Batch Upload",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 201\"] = responseCode.code === 201;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n    {\n        \"name\":\"Task 3\",\n        \"description\":\"Task 3 description\",\n        \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n    },\n    {\n        \"name\":\"Task 4\",\n        \"description\":\"Task 4 description\",\n        \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n    }\n]"
+						},
+						"description": "Batch Upload two tasks to the challenge"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Tasks Take 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"Task1\"] = jsonData[0].name === \"Task 1\";",
+									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";",
+									"tests[\"Task3\"] = jsonData[2].name === \"Task 3\";",
+									"tests[\"Task4\"] = jsonData[3].name === \"Task 4\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge GetTags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"tag1\"] = jsonData[0].name === \"tag1\"",
+									"tests[\"tag2\"] = jsonData[1].name === \"tag2\""
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the tags for a challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge DisassociateTags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 204\"] = responseCode.code === 204;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags?tags=tag1",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Disassociates the tags from the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge GetTags afterDelete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"tag1\"] = jsonData[0].name === \"tag2\""
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the tags for a challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"TagsChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"Updated challenge description\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple tag challenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\":\"Updated challenge description\"\n}"
+						},
+						"description": "Updates the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "TagChallenge Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the Tag challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Project Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the project that was used for the challenge tests."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "project",
+			"description": "",
+			"item": [
+				{
+					"name": "Project Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleProjectID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"description": "Creates a base project for all the other Map Roulette API Testing"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Creation With Children",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"ProjectWithChildren\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"ProjectWithChildren\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing 2 children.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"ProjectWithChildren\",\n    \"description\":\"Test project containing 2 children.\",\n    \"enabled\":false,\n    \"children\": [\n        {\n            \"name\":\"Challenge1 Child\",\n            \"description\":\"Challenge1 Child description\",\n            \"instruction\":\"Challenge1 Child instruction\",\n            \"children\":[\n                {\n                    \"name\":\"Task 1\",\n                    \"description\":\"Task 1 description\",\n                    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n                },\n                {\n                    \"name\":\"Task 2\",\n                    \"description\":\"Task 2 description\",\n                    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n                }\n            ]\n        },\n        {\n            \"name\":\"Challenge2 Child\",\n            \"description\":\"Challenge2 Child description\",\n            \"instruction\":\"Challenge2 Child instruction\"\n        }\n    ]\n}"
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Project Children",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"name\"] = jsonData[0].name === \"Challenge1 Child\";",
+									"tests[\"description\"] = jsonData[0].description === \"Challenge1 Child description\";",
+									"tests[\"instruction\"] = jsonData[0].instruction === \"Challenge1 Child instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/challenges",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the children of the project"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Children 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"jsonData.name === \"ProjectWithChildren\";",
+									"tests[\"name\"] = jsonData.children[0].name === \"Challenge1 Child\";",
+									"tests[\"description\"] = jsonData.children[0].description === \"Challenge1 Child description\";",
+									"tests[\"instruction\"] = jsonData.children[0].instruction === \"Challenge1 Child instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/children",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the children of the project"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Random Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"jsonData[0].name === \"Task 2\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/tasks?cs=Child&s=2",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the children of the project"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Clustered Points",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/search/clustered?search=%7B%22challengeSearch%22%3A%22Challenge2%22%7D",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the children of the project"
+					},
+					"response": []
+				},
+				{
+					"name": "Project With Children Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the project just created with the children"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing. (Update)\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\":\"Test project containing all children used for api testing. (Update)\"\n}"
+						},
+						"description": "Updates the project description"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing. (Update)\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the project from the supplied ID. Will need to modify the ID based on the ID returned from the creation API."
+					},
+					"response": []
+				},
+				{
+					"name": "Project List",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"Body matches name\"] = responseBody.has(\"SimpleProject\");",
+									"tests[\"Body matches description\"] = responseBody.has(\"Test project containing all children used for api testing. (Update)\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/projects?limit=-1",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"APITestProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"description": "Lists all the projects in the system"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Find",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Body matches name\"] = responseBody.has(\"SimpleProject\");",
+									"tests[\"Body matches description\"] = responseBody.has(\"Test project containing all children used for api testing. (Update)\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/projects/find?q=SimpleProject",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"APITestProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"description": "Find the APITestProject in the system."
+					},
+					"response": []
+				},
+				{
+					"name": "Project By Name",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing. (Update)\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/projectByName/SimpleProject",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"APITestProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"description": "Retrieve the project by the provided name"
+					},
+					"response": []
+				},
+				{
+					"name": "Project Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the project created by the project creation. Would need to modify the supplied ID."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "tag",
+			"description": "",
+			"item": [
+				{
+					"name": "Tag Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestTagID\", jsonData.id);",
+									"tests[\"name\"] = jsonData.name === \"testtag1\";",
+									"tests[\"description\"] = jsonData.description === \"TestTag1 description\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/tag",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestTag1\",\n    \"description\":\"TestTag1 description\"\n}"
+						},
+						"description": "Creates a basic tag"
+					},
+					"response": []
+				},
+				{
+					"name": "Tag Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"name\"] = jsonData.name === \"testtag1\";",
+									"tests[\"description\"] = jsonData.description === \"TestTag1 description\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Gets the tag"
+					},
+					"response": []
+				},
+				{
+					"name": "Tag Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"name\"] = jsonData.name === \"updatedtesttag1\";",
+									"tests[\"description\"] = jsonData.description === \"Updated Tag description\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"UpdatedTestTag1\",\n    \"description\":\"Updated Tag description\"\n}"
+						},
+						"description": "Updates a basic tag"
+					},
+					"response": []
+				},
+				{
+					"name": "Tag Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the tag"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "task",
+			"description": "",
+			"item": [
+				{
+					"name": "Setup Project",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestProject\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TestProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestProject\",\n    \"description\":\"Test project.\",\n    \"enabled\":false\n}"
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Setup Challenge",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestChallenge\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TestChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"TestChallenge description\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"TestChallenge instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestChallenge\",\n    \"parent\": {{TestProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete All Task Challenges",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Tasks Deleted",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"No children found\"] = jsonData.length === 0"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Create new Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewTask\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"NewTask\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n}"
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task/{{NewTask}}",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"NewTask\",\n    \"description\":\"NewTask description\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n}"
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "UpdateTask",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction UPDATE\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task/{{NewTask}}",
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE\"\n}"
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Add 1st Task Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewComment\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"comment\"] = jsonData.comment === \"This is a comment\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Update 1st Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/comment/{{NewComment}}?comment=This%20is%20an%20updated%20comment",
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Add 2nd Task Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"comment\"] = jsonData.comment === \"This is a comment Number2\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment%20Number2",
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve Single Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/comment/{{NewComment}}",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve All Comments",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"Comment1\"] = jsonData.length == 2;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comments",
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comment/{{NewComment}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Teardown",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"url": "http://localhost:9000/api/v2/project/{{TestProject}}",
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test",
+								"description": ""
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"description": "Deletes the project just created with the children"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

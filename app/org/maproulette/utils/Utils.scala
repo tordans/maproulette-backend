@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.utils
 
+import org.apache.commons.lang3.StringUtils
+import org.joda.time.DateTime
 import play.api.mvc.Results._
 import play.api.libs.json._
 import play.api.mvc.Result
@@ -78,5 +80,43 @@ object Utils extends DefaultWrites {
       case (obj, (key, JsObject(o))) if objects & o.isEmpty => obj - key
       case (obj, (_, _)) => obj
     }
+  }
+
+  def optionStringToOptionInt(value:Option[String]) : Option[Int] = value match {
+    case Some(v) => Some(v.toInt)
+    case None => None
+  }
+
+  def optionStringToOptionLong(value:Option[String]): Option[Long] = value match {
+    case Some(v) => Some(v.toLong)
+    case None => None
+  }
+
+  def optionStringToOptionBoolean(value:Option[String]) : Option[Boolean] = value match {
+    case Some(v) => Some(v.toBoolean)
+    case None => None
+  }
+
+  def optionStringToOptionStringList(value:Option[String]) : Option[List[String]] = value match {
+    case Some(v) if v.nonEmpty => Some(v.split(",").toList)
+    case None => None
+  }
+
+  def toLongList(stringList:String) : Option[List[Long]] = if (stringList.isEmpty) {
+    None
+  } else {
+    Some(stringList.split(",").toList.map(_.toLong))
+  }
+
+  def toIntList(stringList:String) : Option[List[Int]] = if (stringList.isEmpty) {
+    None
+  } else {
+    Some(stringList.split(",").toList.map(_.toInt))
+  }
+
+  def getDate(date:String) : Option[DateTime] = if (StringUtils.isEmpty(date)) {
+    None
+  } else {
+    Some(DateTime.parse(date))
   }
 }

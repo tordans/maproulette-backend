@@ -4,11 +4,12 @@ package org.maproulette.jobs
 
 import javax.inject.{Inject, Singleton}
 
-import akka.actor.Actor
+import akka.actor.{Actor, Props}
 import play.api.{Application, Logger}
 import play.api.db.Database
 import anorm._
 import org.maproulette.Config
+import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.metrics.Metrics
 import org.maproulette.models.Task.STATUS_CREATED
 
@@ -28,11 +29,11 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
   )
 
   override def receive: Receive = {
-  case "cleanLocks" => this.cleanLocks()
-  case "runChallengeSchedules" => this.runChallengeSchedules()
-  case "updateLocations" => this.updateLocations()
-  case "cleanOldTasks" => this.cleanOldTasks()
-}
+    case RunJob("cleanLocks") => this.cleanLocks()
+    case RunJob("runChallengeSchedules") => this.runChallengeSchedules()
+    case RunJob("updateLocations") => this.updateLocations()
+    case RunJob("cleanOldTasks") => this.cleanOldTasks()
+  }
 
   /**
     * This job will remove all stale locks from the system. A stale lock is a lock that has maintained
@@ -73,6 +74,10 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
                                   FROM tasks
                                   WHERE parent_id = rec.id)
                           WHERE id = rec.id;
+                          UPDATE challenges SET last_updated = (SELECT MAX(modified)
+                                  FROM tasks
+                                  WHERE parent_id = rec.id)
+                          WHERE id = rec.id;
                         END LOOP;
                       END$$;"""
 
@@ -103,4 +108,10 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
       }
     }
   }
+}
+
+object SchedulerActor {
+  def props = Props[SchedulerActor]
+
+  case class RunJob(name:String)
 }

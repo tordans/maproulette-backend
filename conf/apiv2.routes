@@ -1,99 +1,2207 @@
-# Project API
+###
+# tags: [ Project ]
+# summary: Create a Project
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create a new project from the supplied JSON in the body.
+#               When creating a Project object you can within the same json body include Challenge
+#               children under the "children" key, and within each Challenge Task children can be
+#               created using another "children" key under the parent Challenge. When creating the
+#               the Project, leave the ID field out of the body json, if updating (generally use the
+#               PUT method) include the ID field.
+# responses:
+#   '200':
+#     description: The newly created Project with a unique id
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+#   '304':
+#     description: Not updated responding with empty payload if Project already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Project
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the project body, include the key "children" to create Challenge children objects.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+###
 POST    /project                                    @org.maproulette.controllers.api.ProjectController.create
+###
+# tags: [ Project ]
+# summary: Create a batch of Projects
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create multiple new projects from the JSONArray supplied in the body. Each JSON object
+#               is basically a project object that is processed similarly to the singular /project POST. If
+#               projects already exist with the name, they will simply be skipped, ie. not updated.
+# responses:
+#   '200':
+#     description: A simple OK status message
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '304':
+#     description: Not updated responding with empty payload if Project already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Project
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the project body, include the key "children" a Project JSON object within the array to create Challenge children objects.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Project'
+###
 POST    /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPost
+###
+# tags: [ Project ]
+# summary: Updates a Project
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update an already existing project from the supplied JSON in the body.
+#               When updating the Project object you can within the same json body include Challenge
+#               children under the "children" key, and within each Challenge Task children can be
+#               created or updated using another "children" key under the parent Challenge.
+# responses:
+#   '200':
+#     description: The updated JSON Project
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+#   '304':
+#     description: Not updated responding with empty payload if Project already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Project
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the project that is being updated
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the project body, include the key "children" to create or update Challenge children objects.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+###
 PUT     /project/:id                                @org.maproulette.controllers.api.ProjectController.update(id:Long)
+###
+# tags: [ Project ]
+# summary: Update a batch of Projects
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update multiple already existing projects from the JSONArray supplied in the body. Each JSON object
+#               is basically a project object that is processed similarly to the singular /project POST. If a project
+#               does not exist it will be created from scratch
+# responses:
+#   '200':
+#     description: A simple OK status message
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '304':
+#     description: Not updated responding with empty payload if Project already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Project
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the project body, include the key "children" a Project JSON object within the array to create Challenge children objects.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Project'
+###
 PUT     /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPut
+###
+# tags: [ Project ]
+# summary: Retrieves an already existing Project
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Retrieves an already existing project based on the supplied ID in the URL.
+# responses:
+#   '200':
+#     description: The retrieved Project
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+#   '404':
+#     description: ID field supplied but no object found matching the id
+# parameters:
+#   - name: id
+#     description: The id of the project to retrieve
+###
 GET     /project/:id                                @org.maproulette.controllers.api.ProjectController.read(id:Long)
+###
+# tags: [ Project ]
+# summary: Retrieves an already existing Project
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Retrieves an already existing project based on the name of the project rather than an ID
+# responses:
+#   '200':
+#     description: The retrieved Project with a unique id
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+#   '404':
+#     description: No project found matching the provided name
+# parameters:
+#   - name: id
+#     description: Ignore this field, it is not used
+#   - name: name
+#     description: The name of the project being retrieved
+###
 GET     /projectByName/:name                        @org.maproulette.controllers.api.ProjectController.readByName(id:Long ?= -1, name:String)
+###
+# tags: [ Project ]
+# summary: Deletes an existing Project
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Deletes an existing project based on the supplied ID. This will delete all the children Challenges and Tasks under the project as well.
+# responses:
+#   '200':
+#     description: A status message containing the ID of the project that was just deleted
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No project found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the project being deleted
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /project/:id                                @org.maproulette.controllers.api.ProjectController.delete(id:Long)
+###
+# tags: [ Project ]
+# summary: Find project matching search criteria
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Finds a list of projects that match a specific search criteria. The search criteria is simply a string that is contained in the project name. String case sensitivity is ignored.
+# responses:
+#   '200':
+#     description: A list of projects found
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Project'
+#   '404':
+#     description: No project found matching the match the provided search string
+# parameters:
+#   - name: q
+#     description: The search string used to match the project names. Default value is empty string, ie. will match everything.
+#   - name: parentId
+#     description: This field will be ignored for this request
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     description: Flag to set if only wanting enabled projects returned. Default value is true.
+###
 GET     /projects/find                              @org.maproulette.controllers.api.ProjectController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
-GET     /projects                                   @org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Project ]
+# summary: List all the projects.
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Lists all the projects in the system
+# responses:
+#   '200':
+#     description: A list of all the projects
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Project'
+# parameters:
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /projects                                   @org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
+###
+# tags: [ Project ]
+# summary: List all the projects challenges.
+# produces: [ application/json ]
+# description: Lists all the challenges that are children of the supplied project.
+# responses:
+#   '200':
+#     description: A list of all the challenges
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: id
+#     description: The project ID.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Project ]
+# summary: Create challenges for project
+# consumes: [ application/json ]
+# description: Creates one or more challenges as child objects under the supplied project.
+#               Like the create method for the project, any challenges can contain the key "children"
+#               to subsequently create tasks within that child challenge as well. For any challenges
+#               that contain the "id" field, it will attempt to look for the existing challenge and
+#               update it. If no challenge found with provided ID in challenge json object, then the
+#               field will be ignored and a new challenge will be created.
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload for Challenge children. It is required that the body is a JSON array.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The id of the parent project where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON array with challenges, include the key "children" to create or update Task children objects within the challenge object.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+###
 POST    /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.createChildren(id:Long)
+###
+# tags: [ Project ]
+# summary: Create challenges for project
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Creates one or more challenges as child objects under the supplied project.
+#               Like the create method for the project, any challenges can contain the key "children"
+#               to subsequently create tasks within that child challenge as well. For any challenges
+#               that contain the "id" field, it will attempt to look for the existing challenge and
+#               update it. If no challenge found with provided ID in challenge json object, then the
+#               field will be ignored and a new challenge will be created.
+#               *NOTE* This call functions exactly the same as the POST request.
+# responses:
+#   '200':
+#     description: The project
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+# parameters:
+#   - name: id
+#     description: The id of the parent project where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON array with challenges, include the key "children" to create or update Task children objects within the challenge object.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+###
 PUT     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.updateChildren(id:Long)
+###
+# tags: [ Project ]
+# summary: Retrieves children for project
+# produces: [ application/json ]
+# description: Retrieves all the children for a project in an expanded list. Unlike the GET
+#               request /project/{id}/challenges, this function will wrap the json array list
+#               inside of the parent Project object, so that you see the full hierarchy. It will
+#               not however include the children Tasks of the challenges.
+# responses:
+#   '200':
+#     description: The project will all the children Challenge objects of the project in a JSON array in the key "children"
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Project'
+# parameters:
+#   - name: id
+#     description: The id of the parent project.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /project/:id/children                       @org.maproulette.controllers.api.ProjectController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Project ]
+# summary: Retrieves random Task
+# produces: [ application/json ]
+# description: Retrieves a random Task based on the search criteria and contained within the current project
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     description: The id of the parent project limiting the tasks to only a descendent of that project.
+#   - name: cs
+#     description: The challenge search string. Retrieve only tasks that have the search string contained within the challenge name. Match is case insensitive.
+#   - name: ct
+#     description: A comma separated list of challenge tags. The search will then only retrieve random tasks that are children of challenges that contain those tags
+#   - name: tags
+#     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
+#   - name: s
+#     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 1.
+###
 GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, cs:String ?= "", ct:String ?= "", tags:String ?= "", s:String ?= "", limit:Int ?= 1)
+###
+# tags: [ Project ]
+# summary: Retrieves clustered challenge points
+# produces: [ application/json ]
+# description: Retrieves all the challenges for a specific project as clustered points to potentially display on a map
+# responses:
+#   '200':
+#     description: The clustered point representation for a Challenge. If none found will return an empty list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+# parameters:
+#   - name: id
+#     description: The id of the parent project.
+#   - name: challenges
+#     description: The challenge search string. Retrieve only challenge clustered points that have the search string contained within the challenge name. Match is case insensitive.
+###
 GET     /project/clustered/:id                      @org.maproulette.controllers.api.ProjectController.getClusteredPoints(id:Long, challenges:String ?= "")
+###
+# tags: [ Project ]
+# summary: Retrieves clustered challenge points
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Retrieves all the challenges as clustered points to potentially display on a map
+# responses:
+#   '200':
+#     description: The clustered point representation for a Challenge. If none found will return an empty list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+# parameters:
+#   - name: search
+#     description: The challenge search parameters. This is a URL encoded JSON object containing multiple different search parameters.
+###
 GET     /project/search/clustered                   @org.maproulette.controllers.api.ProjectController.getSearchedClusteredPoints(search ?= "")
-# Challenge API
+###
+# tags: [ Challenge ]
+# summary: Create a Challenge
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create a new challenge from the supplied JSON in the body.
+#               When creating a Challenge object you can within the same json body include Task
+#               children under the "children" key. When creating the Challenge, leave the ID field
+#               out of the body json, if updating (generally use the PUT method) include the ID field.
+# responses:
+#   '200':
+#     description: The newly created Challenge with a unique id.
+#                   The Challenge object is flattened so the "general", "creation", "priority", and "extra"
+#                   fields are remove and the keys from that object are moved into the challenge object
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#   '304':
+#     description: Not updated responding with empty payload if Challenge already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Challenge
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Challenge body, include the key "children" to create Task children objects.
+#                   Although the model schema shows a hierarchy include "general", "creation", "priority" and "extra" this
+#                   JSON structure can be flatten and you can exclude those top level keys and have the children in the root level.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+###
 POST    /challenge                                  @org.maproulette.controllers.api.ChallengeController.create
+###
+# tags: [ Challenge ]
+# summary: Create a batch of Challenges
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create multiple new challenges from the JSONArray supplied in the body. Each JSON object
+#               is basically a challenges object that is processed similarly to the singular /challenge POST. If
+#               challenges already exist with the name, they will simply be skipped, ie. not updated.
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Challenge already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Challenge
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the challenge body, include the key "children" a Challenge JSON object within the array to create Task children objects.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+###
 POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost
+###
+# tags: [ Challenge ]
+# summary: Updates a Challenge
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update an already existing challenge from the supplied JSON in the body.
+#               When updating the Challenge object you can within the same json body include Task
+#               children under the "children" key.
+# responses:
+#   '200':
+#     description: The updated JSON Challenge
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#   '304':
+#     description: Not updated responding with empty payload if Challenge already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Challenge
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the Challenge that is being updated
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Challenge body, include the key "children" to create or update Task children objects.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+###
 PUT     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.update(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Update a batch of Challenges
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update multiple already existing Challenges from the JSONArray supplied in the body. Each JSON object
+#               is basically a Challenge object that is processed similarly to the singular /challenge POST. If a project
+#               does not exist it will be created from scratch
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Challenge already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Challenge
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Challenge body, include the key "children" in a Challenge JSON object within the array to create Task children objects.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+###
 PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
+###
+# tags: [ Challenge ]
+# summary: Retrieves an already existing Challenge
+# produces: [ application/json ]
+# description: Retrieves an already existing Challenge based on the supplied ID in the URL.
+# responses:
+#   '200':
+#     description: The retrieved Challenge
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#   '404':
+#     description: ID field supplied but no object found matching the id
+# parameters:
+#   - name: id
+#     description: The id of the Challenge to retrieve
+###
 GET     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.read(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Retrieves an already existing Challenge
+# produces: [ application/json ]
+# description: Retrieves an already existing Challenge based on the name of the Challenge rather than an ID
+# responses:
+#   '200':
+#     description: The retrieved Challenge
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#   '404':
+#     description: No Challenge found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the parent Project of the Challenge
+#   - name: name
+#     description: The name of the Challenge being retrieved
+###
 GET     /project/:id/challenge/:name                @org.maproulette.controllers.api.ChallengeController.readByName(id:Long, name:String)
+###
+# tags: [ Challenge ]
+# summary: Retrieves an already existing Challenge
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Retrieves an already existing Challenge based on the ID of the Challenge, and then will check whether the challenge is a Survey and automatically return Challenge as a Survey instead.
+# responses:
+#   '200':
+#     description: The retrieved Challenge or Survey, if the Challenge is just a Challenge and not a Survey only the portion within the "challenge" key will be return as the root object
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+#   '404':
+#     description: No Challenge found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the the Challenge
+###
 GET     /challengeOrSurvey/:id                      @org.maproulette.controllers.api.ChallengeController.getChallenge(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Deletes an existing Challenge
+# description: Deletes an existing Challenge based on the supplied ID. This will delete all children Tasks under the Challenge.
+# responses:
+#   '200':
+#     description: A status message containing the ID of the Challenge that was just deleted
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Challenge found matching the provided id
+# parameters:
+#   - name: id
+#     description: The id of the Challenge being deleted
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.delete(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Deletes all Challenge Tasks
+# description: Deletes all the existing tasks within a challenge. This API will also give the option to delete tasks based on the tasks current status.
+#               So can delete all "false positive" tasks, or all "fixed and created" tasks.
+# responses:
+#   '200':
+#     description: Empty Ok stating that it completed successfully
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Challenge found matching the provided id
+# parameters:
+#   - name: id
+#     description: The id of the Challenge being deleted
+#   - name: statusFilters
+#     description: A comma separated list of status ID's. 0 = Created, 1 = Fixed, 2 = False Positive, 3 = Skipped, 4 = Deleted, 5 = Already Fixed, 6 = Too Hard
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+DELETE  /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.deleteTasks(id:Long, statusFilters ?= "")
+###
+# tags: [ Challenge ]
+# summary: Find Challenge matching search criteria
+# produces: [ application/json ]
+# description: Finds a list of Challenges that match a specific search criteria. The search criteria is simply a string that is contained in the Challenge name. String case sensitivity is ignored.
+# responses:
+#   '200':
+#     description: A list of Challenges found
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: q
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match everything.
+#   - name: parentId
+#     description: This field will be ignored for this request
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     description: Flag to set if only wanting enabled Challenges returned. Default value is true.
+###
 GET     /challenges/find                            @org.maproulette.controllers.api.ChallengeController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
+###
+# tags: [ Challenge ]
+# summary: Extended Find Challenge matching search criteria
+# produces: [ application/json ]
+# description: Finds a list of Challenges that match a specific search criteria. The search criteria is uses multiple values from the query string
+# responses:
+#   '200':
+#     description: A list of Challenges found
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: pid
+#     description: The id of the project to limit your search too
+#   - name: ps
+#     description: The search string used to match the project names. Default value is empty string, ie. will match all projects.
+#   - name: pe
+#     description: Boolean variable true|false that limits the search by enabled projects only if set to true. Default will is true.
+#   - name: ct
+#     description: Comma separated list of tags to limit the returned challenges by
+#   - name: cs
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
+#   - name: ce
+#     description: Boolean variable true|false that limits the search by enabled projects only if set to true. Default will is true.
+###
+GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0)
+
+###
+# tags: [ Challenge ]
+# summary: Retrieve tags for Challenge
+# produces: [ application/json ]
+# description: Retrieves all the Tags that have been added to the specified Challenge
+# responses:
+#   '200':
+#     description: A list of Tags associated with the Challenge. Empty array if not found.
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+# parameters:
+#   - name: id
+#     description: The ID of the challenge
+###
 GET     /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.getTagsForChallenge(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Retrieve challenges based on provided tags
+# produces: [ application/json ]
+# description: Retrieves all the challenges that contain at least one of the supplied tags.
+# responses:
+#   '200':
+#     description: A list of Challenges that contain at least one of the supplied tags. An empty list otherwise.
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#   '400':
+#     description: If not tags are supplied a BadRequest response will be returned
+# parameters:
+#   - name: tags
+#     description: A comma separated list of tags
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /challenges/tags                            @org.maproulette.controllers.api.ChallengeController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
+# summary: Delete Challenge Tags
+# description: Deletes all the supplied tags from the Challenge
+# responses:
+#   '304':
+#     description: A basic 304 with NoContent will be returned on a successful delete
+#   '400':
+#     description: If no tags are supplied a BadRequest response will be returned
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the challenge
+#   - name: tags
+#     description: A comma separated list of tags
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.deleteTagsFromItem(id:Long, tags:String ?= "")
-GET     /challenges                                 @org.maproulette.controllers.api.ChallengeController.list(limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
+# summary: List all the Challenges.
+# produces: [ application/json ]
+# description: Lists all the Challenges in the system
+# responses:
+#   '200':
+#     description: A list of all the Challenges
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /challenges                                 @org.maproulette.controllers.api.ChallengeController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
+###
+# tags: [ Challenge ]
+# summary: List all the Challenges Tasks.
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Lists all the Tasks that are children of the supplied Challenge.
+# responses:
+#   '200':
+#     description: A list of all the Tasks
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     description: The project ID.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
+# summary: Create Tasks for Challenge
+# consumes: [ application/json ]
+# description: Creates one or more Tasks as child objects under the supplied Challenge. For any Tasks
+#               that contain the "id" field, it will attempt to look for the existing Task and
+#               update it. If no Task found with provided ID in Task json object, then the
+#               field will be ignored and a new Task will be created.
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON array with Tasks.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 POST    /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.createChildren(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Create Tasks for Challenge
+# consumes: [ application/json ]
+# description: Creates one or more Tasks as child objects under the supplied Challenge. For any Tasks
+#               that contain the "id" field, it will attempt to look for the existing Task and
+#               update it. If no Task found with provided ID in Task json object, then the
+#               field will be ignored and a new Task will be created.
+#               *NOTE* This PUT request works exactly the same as the equivalent POST request
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON array with Tasks.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Retrieves children for Challenge
+# produces: [ application/json ]
+# description: Retrieves all the children for a Challenge in an expanded list. Unlike the GET
+#               request /challenge/{id}/tasks, this function will wrap the json array list
+#               inside of the parent Challenge object, so that you see the full hierarchy.
+# responses:
+#   '200':
+#     description: The Challenge with all the Task Challenge objects of the Challenge in a JSON array in the key "children"
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /challenge/:id/children                     @org.maproulette.controllers.api.ChallengeController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
+# summary: Retrieves random Task
+# produces: [ application/json ]
+# description: Retrieves a random Task based on the search criteria and contained within the current Challenge
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
+#   - name: tags
+#     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
+#   - name: s
+#     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 1.
+###
 GET     /challenge/:cid/tasks/random                @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
+###
+# tags: [ Challenge ]
+# summary: Retrieves random Task
+# produces: [ application/json ]
+# description: Retrieves a random Task based on the search criteria and contained within the current Challenge
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
+#   - name: tags
+#     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
+#   - name: s
+#     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 1.
+###
 GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
+###
+# tags: [ Challenge ]
+# summary: Retrieves Challenge GeoJSON
+# produces: [ application/json ]
+# description: Retrieves the GeoJSON for the Challenge that represents all the Task children of the Challenge.
+# responses:
+#   '200':
+#     description: Standard GeoJSON Challenge Geometry
+#   '404':
+#     description: ID field supplied but no object found matching the id
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
+#   - name: filter
+#     description: Can filter the Tasks returned by the status of the Task. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
+###
 GET     /challenge/view/:id                         @org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(id:Long, filter:String ?= "")
+###
+# tags: [ Challenge ]
+# summary: Retrieves clustered Task points
+# produces: [ application/json ]
+# description: Retrieves all the Tasks for a specific Challenge as clustered points to potentially display on a map
+# responses:
+#   '200':
+#     description: An array of clustered point representations for a Task. If none found will return an empty list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+# parameters:
+#   - name: id
+#     description: The id of the parent project.
+#   - name: filter
+#     description: Can filter the Tasks returned by the status of the Task. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
+###
 GET     /challenge/clustered/:id                    @org.maproulette.controllers.api.ChallengeController.getClusteredPoints(id:Long, filter:String ?= "")
+###
+# tags: [ Challenge ]
+# summary: Update Task Priorities
+# produces: [ application/json ]
+# description: Updates all the Task priorities in a Challenge based on the priority rules setup in the Challenge
+# responses:
+#   '200':
+#     description: A simple OK status.
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The id of the parent project.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 PUT     /challenge/:id/updateTaskPriorities         @org.maproulette.controllers.api.ChallengeController.updateTaskPriorities(id:Long)
-# Survey API
+###
+# tags: [ Challenge ]
+# summary: Reset Task Instructions
+# description: This will reset all the task instructions so that the task instructions revert to the Challenge instruction.
+# responses:
+#   '200':
+#     description: A simple OK status.
+#   '400':
+#     description: If the Challenge does not contain any instructions, then it will not revert the task instructions
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The Challenge for the supplied ID was not found
+# parameters:
+#   - name: id
+#     description: The id of the parent project.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+PUT     /challenge/:id/resetTaskInstructions        @org.maproulette.controllers.api.ChallengeController.resetTaskInstructions(id:Long)
+###
+# tags: [ Survey ]
+# summary: Create a Survey
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create a new survey from the supplied JSON in the body. A survey is just a special
+#               type of Challenge that includes a question with answers.
+#               When creating a Survey object you can within the same json body include Task
+#               children under the "children" key. When creating the Survey, leave the ID field
+#               out of the body json, if updating (generally use the PUT method) include the ID field.
+# responses:
+#   '200':
+#     description: The newly created Survey with a unique id. The Survey object contains a challenge object
+#                   however the Challenge object is flattened so the "general", "creation", "priority", and "extra"
+#                   fields are remove and the keys from that object are moved into the challenge object.
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+#   '304':
+#     description: Not updated responding with empty payload if Survey already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Survey
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Survey body, include the key "children" to create Task children objects.
+#                   The survey object is just a special type of Challenge object, and simply has a couple of top level
+#                   properties and then contains a challenge object.
+#                   Although the model schema for the Challenge shows a hierarchy include "general", "creation", "priority" and "extra" this
+#                   JSON structure can be flatten and you can exclude those top level keys and have the children in the root level.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+###
 POST    /survey                                     @org.maproulette.controllers.api.SurveyController.create
+###
+# tags: [ Survey ]
+# summary: Create a batch of Surveys
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create multiple new Surveys from the JSONArray supplied in the body. Each JSON object
+#               is basically a Survey object that is processed similarly to the singular /survey POST. If
+#               surveys already exist with the name, they will simply be skipped, ie. not updated.
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Survey already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Survey
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Survey body, include the key "children" a Survey JSON object within the array to create Task children objects.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+###
 POST    /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPost
+###
+# tags: [ Survey ]
+# summary: Updates a Survey
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update an already existing Survey from the supplied JSON in the body.
+#               When updating the Survey object you can within the same json body include Task
+#               children under the "children" key.
+# responses:
+#   '200':
+#     description: The updated JSON Survey
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+#   '304':
+#     description: Not updated responding with empty payload if Survey already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Survey
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the Survey that is being updated
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Survey body, include the key "children" to create or update Task children objects.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+###
 PUT     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.update(id:Long)
+###
+# tags: [ Survey ]
+# summary: Update a batch of Surveys
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update multiple already existing Surveys from the JSONArray supplied in the body. Each JSON object
+#               is basically a Survey object that is processed similarly to the singular /survey POST. If a Survey
+#               does not exist it will be created from scratch
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Survey already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Survey
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Survey body, include the key "children" in a Survey JSON object within the array to create Task children objects.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+###
 PUT     /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPut
+###
+# tags: [ Survey ]
+# summary: Retrieves an already existing Survey
+# produces: [ application/json ]
+# description: Retrieves an already existing Survey based on the supplied ID in the URL.
+# responses:
+#   '200':
+#     description: The retrieved Survey
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+#   '404':
+#     description: ID field supplied but no Survey found matching the id
+# parameters:
+#   - name: id
+#     description: The id of the Survey to retrieve
+###
 GET     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.read(id:Long)
+###
+# tags: [ Survey ]
+# summary: Retrieves an already existing Survey
+# produces: [ application/json ]
+# description: Retrieves an already existing Survey based on the name of the Survey rather than an ID
+# responses:
+#   '200':
+#     description: The retrieved Survey
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+#   '404':
+#     description: No Survey found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the parent Project of the Survey
+#   - name: name
+#     description: The name of the Survey being retrieved
+###
 GET     /project/:id/survey/:name                   @org.maproulette.controllers.api.SurveyController.readByName(id:Long, name:String)
+###
+# tags: [ Survey ]
+# summary: Deletes an existing Survey
+# description: Deletes an existing Survey based on the supplied ID. This will delete all children Tasks under the Survey.
+# responses:
+#   '200':
+#     description: A status message containing the ID of the Survey that was just deleted
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Survey found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the Survey being deleted
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /survey/:id                                 @org.maproulette.controllers.api.SurveyController.delete(id:Long)
+###
+# tags: [ Survey ]
+# summary: Find Survey matching search criteria
+# produces: [ application/json ]
+# description: Finds a list of Surveys that match a specific search criteria. The search criteria is simply a string that is contained in the Survey name. String case sensitivity is ignored.
+# responses:
+#   '200':
+#     description: A list of Surveys found
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+# parameters:
+#   - name: q
+#     description: The search string used to match the Survey names. Default value is empty string, ie. will match everything.
+#   - name: parentId
+#     description: This field will limit the results to a specific project
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     description: Flag to set if only wanting enabled Challenges returned. Default value is true.
+###
 GET     /surveys/find                               @org.maproulette.controllers.api.SurveyController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
+###
+# tags: [ Survey ]
+# summary: Retrieve tags for Survey
+# produces: [ application/json ]
+# description: Retrieves all the Tags that have been added to the specified Survey
+# responses:
+#   '200':
+#     description: A list of Tags associated with the Survey. Empty array if not found.
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+# parameters:
+#   - name: id
+#     description: The ID of the Survey
+###
 GET     /survey/:id/tags                            @org.maproulette.controllers.api.SurveyController.getTagsForSurvey(id:Long)
+###
+# tags: [ Survey ]
+# summary: Retrieve Surveys based on provided tags
+# produces: [ application/json ]
+# description: Retrieves all the Surveys that contain at least one of the supplied tags.
+# responses:
+#   '200':
+#     description: A list of Surveys that contain at least one of the supplied tags. An empty list otherwise.
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+#   '400':
+#     description: If no tags are supplied a BadRequest response will be returned
+# parameters:
+#   - name: tags
+#     description: A comma separated list of tags
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /surveys/tags                               @org.maproulette.controllers.api.SurveyController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Survey ]
+# summary: Delete Survey Tags
+# description: Deletes all the supplied tags from the Survey
+# responses:
+#   '304':
+#     description: A basic 304 with NoContent will be returned on a successful delete
+#   '400':
+#     description: If no tags are supplied a BadRequest response will be returned
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the Survey
+#   - name: tags
+#     description: A comma separated list of tags
+#     required: true
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /survey/:id/tags                            @org.maproulette.controllers.api.SurveyController.deleteTagsFromItem(id:Long, tags:String ?= "")
-GET     /surveys                                    @org.maproulette.controllers.api.SurveyController.list(limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Survey ]
+# summary: List all the Surveys.
+# produces: [ application/json ]
+# description: Lists all the Surveys in the system
+# responses:
+#   '200':
+#     description: A list of all the Surveys
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+# parameters:
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /surveys                                    @org.maproulette.controllers.api.SurveyController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
+###
+# tags: [ Survey ]
+# summary: List all the projects Surveys.
+# produces: [ application/json ]
+# description: Lists all the Tasks that are children of the supplied Survey.
+# responses:
+#   '200':
+#     description: A list of all the Tasks
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     description: The project ID.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Survey ]
+# summary: Create Tasks for Survey
+# consumes: [ application/json ]
+# description: Creates one or more Tasks as child objects under the supplied Survey. For any Tasks
+#               that contain the "id" field, it will attempt to look for the existing Task and
+#               update it. If no Task found with provided ID in Task json object, then the
+#               field will be ignored and a new Task will be created.
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The id of the parent Survey where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON array with Tasks.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 POST    /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.createChildren(id:Long)
+###
+# tags: [ Survey ]
+# summary: Create Tasks for Survey
+# consumes: [ application/json ]
+# description: Creates one or more Tasks as child objects under the supplied Survey. For any Tasks
+#               that contain the "id" field, it will attempt to look for the existing Task and
+#               update it. If no Task found with provided ID in Task json object, then the
+#               field will be ignored and a new Task will be created.
+#               *NOTE* This PUT request works exactly the same as the equivalent POST request
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The id of the parent Survey where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON array with Tasks.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 PUT     /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.updateChildren(id:Long)
+###
+# tags: [ Survey ]
+# summary: Retrieves children for Survey
+# produces: [ application/json ]
+# description: Retrieves all the children for a Survey in an expanded list. Unlike the GET
+#               request /challenge/{id}/tasks, this function will wrap the json array list
+#               inside of the parent Survey object, so that you see the full hierarchy.
+# responses:
+#   '200':
+#     description: The Survey with all the Task Survey objects of the Survey in a JSON array in the key "children"
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Survey'
+# parameters:
+#   - name: id
+#     description: The id of the parent Survey.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /survey/:id/children                        @org.maproulette.controllers.api.SurveyController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Survey ]
+# summary: Retrieves random Task
+# produces: [ application/json ]
+# description: Retrieves a random Task based on the search criteria and contained within the current Survey
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     description: The id of the parent Survey limiting the tasks to only a descendent of that Survey.
+#   - name: tags
+#     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
+#   - name: s
+#     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 1.
+###
 GET     /survey/:cid/tasks/random                   @org.maproulette.controllers.api.SurveyController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
+###
+# tags: [ Survey ]
+# summary: Answers Survey Question
+# consumes: [ application/json ]
+# description: For a given task within the Survey will set the answerId to the answer for the question set by the Survey.
+# responses:
+#   '304':
+#     description: No Content, just a successful answer to the Survey question
+#   '400':
+#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Survey or No Task found that match the supplied ID's
+# parameters:
+#   - name: id
+#     description: The id of the Survey that contains the question and answers
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: taskId
+#     description: The id of the task that the answer relates too
+#   - name: answerId
+#     description: The id of the answer
+###
 PUT     /survey/:id/task/:taskId/:answerId          @org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(id:Long, taskId:Long, answerId:Long)
-# Task API
+###
+# tags: [ Task ]
+# summary: Create a Task
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create a new Task from the supplied JSON in the body. When creating the Task, leave the ID field
+#               out of the body json, if updating (generally use the PUT method) include the ID field.
+# responses:
+#   '200':
+#     description: The newly created Task with a unique id.
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '304':
+#     description: Not updated responding with empty payload if Survey already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Task
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Task body.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 POST    /task                                       @org.maproulette.controllers.api.TaskController.create
+###
+# tags: [ Task ]
+# summary: Create a batch of Tasks
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create multiple new Tasks from the JSONArray supplied in the body. Each JSON object
+#               is basically a Task object that is processed similarly to the singular /sask POST. If
+#               Tasks already exist with the name, they will simply be skipped, ie. not updated.
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Task already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Task
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Task body.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 POST    /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPost
+###
+# tags: [ Task ]
+# summary: Updates a Task
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update an already existing Task from the supplied JSON in the body.
+# responses:
+#   '200':
+#     description: The updated JSON Task
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '304':
+#     description: Not updated responding with empty payload if Task already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Task
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the Task that is being updated
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Task body.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 PUT     /task/:id                                   @org.maproulette.controllers.api.TaskController.update(id:Long)
+###
+# tags: [ Task ]
+# summary: Update a batch of Tasks
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update multiple already existing Tasks from the JSONArray supplied in the body. Each JSON object
+#               is basically a Task object that is processed similarly to the singular /task POST. If a Task
+#               does not exist it will be created from scratch
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Task already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Task
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Task body.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+###
 PUT     /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPut
+###
+# tags: [ Task ]
+# summary: Retrieves an already existing Task
+# produces: [ application/json ]
+# description: Retrieves an already existing Task based on the supplied ID in the URL.
+# responses:
+#   '200':
+#     description: The retrieved Task
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '404':
+#     description: ID field supplied but no Task found matching the id
+# parameters:
+#   - name: id
+#     description: The id of the Task to retrieve
+###
 GET     /task/:id                                   @org.maproulette.controllers.api.TaskController.read(id:Long)
+###
+# tags: [ Task ]
+# summary: Retrieves an already existing Task
+# produces: [ application/json ]
+# description: Retrieves an already existing Task based on the name of the Task rather than an ID
+# responses:
+#   '200':
+#     description: The retrieved Task
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '404':
+#     description: No Task found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the parent Challenge of the Task
+#   - name: name
+#     description: The name of the Task being retrieved
+###
 GET     /challenge/:id/task/:name                   @org.maproulette.controllers.api.TaskController.readByName(id:Long, name:String)
+###
+# tags: [ Task ]
+# summary: Deletes an existing Task
+# description: Deletes an existing Task based on the supplied ID.
+# responses:
+#   '200':
+#     description: A status message containing the ID of the Task that was just deleted
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Task found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the Task being deleted
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /task/:id                                   @org.maproulette.controllers.api.TaskController.delete(id:Long)
+###
+# tags: [ Task ]
+# summary: Find Task matching search criteria
+# produces: [ application/json ]
+# description: Finds a list of Tasks that match a specific search criteria. The search criteria is simply a string that is contained in the Task name. String case sensitivity is ignored.
+# responses:
+#   '200':
+#     description: A list of Tasks found
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: q
+#     description: The search string used to match the Task names. Default value is empty string, ie. will match everything.
+#   - name: parentId
+#     description: This limits the search to the provided challenge and no tasks outside of the provided challenge ID.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     description: Flag to set if only want to see Tasks from enabled Challenges returned. Default value is true.
+###
 GET     /tasks/find                                 @org.maproulette.controllers.api.TaskController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
+###
+# tags: [ Task ]
+# summary: Retrieve tags for Task
+# produces: [ application/json ]
+# description: Retrieves all the Tags that have been added to the specified Task
+# responses:
+#   '200':
+#     description: A list of Tags associated with the Task. Empty array if not found.
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+# parameters:
+#   - name: id
+#     description: The ID of the Task
+###
 GET     /task/:id/tags                              @org.maproulette.controllers.api.TaskController.getTagsForTask(id:Long)
+###
+# tags: [ Task ]
+# summary: Retrieve Tasks based on provided tags
+# produces: [ application/json ]
+# description: Retrieves all the Tasks that contain at least one of the supplied tags.
+# responses:
+#   '200':
+#     description: A list of Tasks that contain at least one of the supplied tags. An empty list otherwise.
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '400':
+#     description: If no tags are supplied a BadRequest response will be returned
+# parameters:
+#   - name: tags
+#     description: A comma separated list of tags
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /tasks/tags                                 @org.maproulette.controllers.api.TaskController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Task ]
+# summary: Delete Task Tags
+# description: Deletes all the supplied tags from the Task
+# responses:
+#   '304':
+#     description: A basic 304 with NoContent will be returned on a successful delete
+#   '400':
+#     description: If no tags are supplied a BadRequest response will be returned
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the Task
+#   - name: tags
+#     description: A comma separated list of tags
+#     required: true
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /task/:id/tags                              @org.maproulette.controllers.api.TaskController.deleteTagsFromItem(id:Long, tags:String ?= "")
+###
+# tags: [ Task ]
+# summary: Retrieves random Task
+# produces: [ application/json ]
+# description: Retrieves a random Task based on the search criteria.
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: ps
+#     description: The search string to match the names of projects to limit the Task pool from. The string is case insensitive.
+#   - name: cs
+#     description: The search string to match the names of challenges to limit the Task pool from. The string is case insensitive.
+#   - name: ct
+#     description: The challenge tags to limit the parent challenges that will limit the Task pool.
+#   - name: tags
+#     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
+#   - name: ts
+#     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 1.
+###
 GET     /tasks/random                               @org.maproulette.controllers.api.TaskController.getRandomTasks(ps:String ?= "", cs:String ?= "", ct:String ?= "", tags:String ?= "", ts:String ?= "", limit:Int ?= 1)
-PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int)
-# Tag API
+###
+# tags: [ Task ]
+# summary: Update Task Status
+# produces: [ application/json ]
+# description: Will update a Tasks status to one of the following. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
+# responses:
+#   '304':
+#     description: No Content, update successful
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: status
+#     description: The status to update the Task too. Following status Integers can be used. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
+#   - name: comment
+#     description: Any comment that is provided by the user when setting the status
+###
+PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int, comment:String ?= "")
+###
+# tags: [ Comment ]
+# summary: Retrieves a comment
+# produces: [ application/json ]
+# description: Retrieves a comment based on a specific ID.
+# responses:
+#   '200':
+#     description: The comment
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Comment'
+#   '404':
+#     description: If the comment is not found
+# parameters:
+#   - name: id
+#     description: The ID for the comment
+###
+GET     /comment/:id                                @org.maproulette.controllers.api.TaskController.retrieveComment(id:Long)
+###
+# tags: [ Comment ]
+# summary: Retrieves comments for a Task
+# produces: [ application/json ]
+# description: Retrieves all the comments for a specific Task
+# responses:
+#   '200':
+#     description: The comments
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Comment'
+#   '404':
+#     description: If the Task is not found
+# parameters:
+#   - name: id
+#     description: The ID for the Task
+###
+GET     /task/:id/comments                          @org.maproulette.controllers.api.TaskController.retrieveComments(id:Long)
+###
+# tags: [ Comment ]
+# summary: Adds comment to Task
+# description: Adds a comment to a Task
+# responses:
+#   '201':
+#     description: The comment that was added with the new ID
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Comment'
+#   '404':
+#     description: If the Task is not found
+# parameters:
+#   - name: id
+#     description: The ID for the Task
+#   - name: comment
+#     description: A URLEncoded comment for the Task
+#   - name: actionId
+#     description: An optional action ID that may be associated with the comment
+###
+POST    /task/:id/comment                           @org.maproulette.controllers.api.TaskController.addComment(id:Long, comment:String, actionId:Option[Long])
+###
+# tags: [ Comment ]
+# summary: Update comment on Task
+# description: Updates an existing comment on a Task. Only the original user who made the comment or a SuperUser can update the comment
+# responses:
+#   '200':
+#     description: The comment that was added with the new ID
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Comment'
+#   '401':
+#     description: If the user is not the original user who made the comment or a super user
+#   '404':
+#     description: If the Task is not found
+# parameters:
+#   - name: commentId
+#     description: The ID of the original comment
+#   - name: comment
+#     description: A URLEncoded comment for the Task
+###
+PUT    /comment/:commentId                          @org.maproulette.controllers.api.TaskController.updateComment(commentId:Long, comment:String)
+###
+# tags: [ Comment ]
+# summary: Deletes comment from Task
+# description: Deletes a comment from the specific Task
+# responses:
+#   '200':
+#     description: The deletion was successful
+#   '404':
+#     description: If the Task or Comment is not found
+# parameters:
+#   - name: id
+#     description: The ID for the Task
+#   - name: commentId
+#     description: The ID for the Comment
+###
+DELETE  /task/:id/comment/:commentId                @org.maproulette.controllers.api.TaskController.deleteComment(id:Long, commentId:Long)
+###
+# tags: [ Tag ]
+# summary: Create a Tag
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create a new Tag from the supplied JSON in the body. When creating the Task, leave the ID field
+#               out of the body json, if updating (generally use the PUT method) include the ID field.
+# responses:
+#   '200':
+#     description: The newly created Tag with a unique id.
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+#   '304':
+#     description: Not updated responding with empty payload if Survey already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Tag
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Tag body.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+###
 POST    /tag                                        @org.maproulette.controllers.api.TagController.create
+###
+# tags: [ Tag ]
+# summary: Create a batch of Tags
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will create multiple new Tag from the JSONArray supplied in the body. Each JSON object
+#               is basically a Tag object that is processed similarly to the singular /tag POST. If
+#               Tags already exist with the name, they will simply be skipped, ie. not updated.
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Tag already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Tag
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Tag body.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+###
 POST    /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPost
+###
+# tags: [ Tag ]
+# summary: Updates a Tag
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update an already existing Tag from the supplied JSON in the body.
+# responses:
+#   '200':
+#     description: The updated JSON Tag
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+#   '304':
+#     description: Not updated responding with empty payload if Tag already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Tag
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     description: The ID of the Tag that is being updated
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Tag body.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+###
 PUT     /tag/:id                                    @org.maproulette.controllers.api.TagController.update(id:Long)
+###
+# tags: [ Tag ]
+# summary: Update a batch of Tags
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will update multiple already existing Tags from the JSONArray supplied in the body. Each JSON object
+#               is basically a Tag object that is processed similarly to the singular /tag POST. If a Tag
+#               does not exist it will be created from scratch
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '304':
+#     description: Not updated responding with empty payload if Tag already exists and nothing to update
+#   '400':
+#     description: Invalid json payload for Tag
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the Tag body.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+###
 PUT     /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPut
+###
+# tags: [ Tag ]
+# summary: Retrieves an already existing Tag
+# produces: [ application/json ]
+# description: Retrieves an already existing Tag based on the supplied ID in the URL.
+# responses:
+#   '200':
+#     description: The retrieved Tag
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+#   '404':
+#     description: ID field supplied but no Tag found matching the id
+# parameters:
+#   - name: id
+#     description: The id of the Tag to retrieve
+###
 GET     /tag/:id                                    @org.maproulette.controllers.api.TagController.read(id:Long)
+###
+# tags: [ Tag ]
+# summary: Deletes an existing Tag
+# description: Deletes an existing Tag based on the supplied ID.
+# responses:
+#   '200':
+#     description: A status message containing the ID of the Tag that was just deleted
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Tag found matching the provided name
+# parameters:
+#   - name: id
+#     description: The id of the Tag being deleted
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 DELETE  /tag/:id                                    @org.maproulette.controllers.api.TagController.delete(id:Long)
+###
+# tags: [ Tag ]
+# summary: Finds Tags
+# produces: [ application/json ]
+# description: Retrieves existing tags based on a prefix for the tag. So if search for "tes" will retrieve all tags that start with "tes", like "tester", "testing", "test". The search string is case insensitive.
+# responses:
+#   '200':
+#     description: The retrieved Tags
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+# parameters:
+#   - name: id
+#     description: The id of the Tag to retrieve
+#   - name: limit
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
 GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
-# Data Controller
+### NoDocs ###
 GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, priority:Int ?= -1)
+### NoDocs ###
 GET     /data/challenge/:challengeId/users          @org.maproulette.controllers.api.DataController.getUserChallengeSummary(challengeId:Long, start:String ?= "", end:String ?= "", survey:Int ?= 0, priority:Int ?= -1)
+### NoDocs ###
 POST    /data/challenge/summary                     @org.maproulette.controllers.api.DataController.getChallengeSummaries(projectList:String ?= "", priority:Int ?= -1)
+### NoDocs ###
 GET     /data/user/activity                         @org.maproulette.controllers.api.DataController.getRecentUserActivity(limit:Int ?= -1, offset:Int ?= 0)
+### NoDocs ###
 GET     /data/user/summary                          @org.maproulette.controllers.api.DataController.getUserSummary(projectList:String ?= "", start:String ?= "", end:String ?= "", survey:Int ?= 0, priority:Int ?= -1)
+### NoDocs ###
 GET     /data/project/activity                      @org.maproulette.controllers.api.DataController.getProjectActivity(projectList:String ?= "", start:String ?= "", end:String ?= "")
+### NoDocs ###
 GET     /data/project/summary                       @org.maproulette.controllers.api.DataController.getProjectSummary(projectList:String ?= "")
+### NoDocs ###
 GET     /data/challenge/:challengeId/activity       @org.maproulette.controllers.api.DataController.getChallengeActivity(challengeId:Long, start:String ?= "", end:String ?= "", priority:Int ?= -1)
-# Default API Contoller
+### NoDocs ###
+GET     /data/raw/activity                          @org.maproulette.controllers.api.DataController.getRawActivity(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "")
+### NoDocs ###
+GET     /data/status/activity                       @org.maproulette.controllers.api.DataController.getStatusActivity(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", newStatus:String ?= "", oldStatus:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+### NoDocs ###
+GET     /data/status/summary                        @org.maproulette.controllers.api.DataController.getStatusSummary(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ User ]
+# summary: Retrieves Users Json information
+# produces: [ application/json ]
+# description: Retrieves User Json based on the supplied ID
+# responses:
+#   '200':
+#     description: The retrieved User
+#     schema:
+#       $ref: '#/definitions/org.maproulette.session.User'
+#   '404':
+#     description: If User with provided ID is not found.
+# parameters:
+#   - name: userId
+#     description: The id of the user to retrieve
+###
+GET     /user/:userId                               @org.maproulette.controllers.api.UserController.getUser(userId:Long)
+###
+# tags: [ User ]
+# summary: Retrieves Users Json information
+# produces: [ application/json ]
+# description: Retrieves User Json based on the supplied OSM username
+# responses:
+#   '200':
+#     description: The retrieved User
+#     schema:
+#       $ref: '#/definitions/org.maproulette.session.User'
+#   '404':
+#     description: If User with provided OSM username is not found.
+# parameters:
+#   - name: username
+#     description: The OSM username of the user to retrieve
+###
+GET     /osmuser/:username                               @org.maproulette.controllers.api.UserController.getUserByOSMUsername(username:String)
+###
+# tags: [ User ]
+# summary: Retrieves Users Saved Challenged
+# produces: [ application/json ]
+# description: Retrieves that list of challenges that has been saved by the User
+# responses:
+#   '200':
+#     description: The retrieved Challenges
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: userId
+#     description: The id of the user to retrieve the challenges for
+###
 GET     /user/:userId/saved                         @org.maproulette.controllers.api.APIController.getSavedChallenges(userId:Long)
+###
+# tags: [ User ]
+# summary: Saves Challenge for a User
+# description: Saves a Challenge to a user account
+# responses:
+#   '200':
+#     description: A simple OK status message
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '404':
+#     description: If User or Challenge for provided ID's is not found.
+# parameters:
+#   - name: userId
+#     description: The id of the user to save the challenges for
+#   - name: challengeId
+#     description: The id of the challenge to save
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
 POST    /user/:userId/save/:challengeId             @org.maproulette.controllers.api.APIController.saveChallenge(userId:Long, challengeId:Long)
-# Handles invalid paths that use the  prefix
+###
+# tags: [ User ]
+# summary: Updates UserSettings
+# description: Updates the user settings for a specified user
+# responses:
+#   '200':
+#     description: A response of the User object that was just updated
+#     schema:
+#       $ref: '#/definitions/org.maproulette.session.User'
+#   '404':
+#     description: If User or Challenge for provided ID's is not found.
+# parameters:
+#   - name: userId
+#     description: The id of the user to update the settings for
+#   - name: body
+#     in: body
+#     description: The JSON structure for the users UserSettings.
+#     required: true
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.session.UserSettings'
+###
+PUT    /user/:userId                                @org.maproulette.controllers.api.UserController.updateUser(userId:Long)
+### NoDocs ###
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+### NoDocs ###
 PUT     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+### NoDocs ###
 GET     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+### NoDocs ###
 DELETE  /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
+### NoDocs ###
 HEAD    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)

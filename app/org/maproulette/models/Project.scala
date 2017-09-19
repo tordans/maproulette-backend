@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
+import org.joda.time.DateTime
 import org.maproulette.actions.{ItemType, ProjectType}
 import play.api.data._
 import play.api.data.Forms._
@@ -17,6 +18,8 @@ import play.api.libs.json.{Json, Reads, Writes}
   */
 case class Project(override val id: Long,
                    override val name: String,
+                   override val created:DateTime,
+                   override val modified:DateTime,
                    override val description: Option[String]=None,
                    groups:List[Group]=List.empty,
                    enabled:Boolean=false) extends BaseObject[Long] {
@@ -34,18 +37,22 @@ object Project {
     mapping(
       "id" -> default(longNumber,-1L),
       "name" -> nonEmptyText,
+      "created" -> default(jodaDate, DateTime.now()),
+      "modified" -> default(jodaDate, DateTime.now()),
       "description" -> optional(text),
       "groups" -> list(
         mapping(
           "id" -> longNumber,
           "name" -> nonEmptyText,
           "projectId" -> longNumber,
-          "groupType" -> number(min = 1, max = 1)
+          "groupType" -> number(min = 1, max = 1),
+          "created" -> default(jodaDate, DateTime.now()),
+          "modified" -> default(jodaDate, DateTime.now())
         )(Group.apply)(Group.unapply)
       ),
       "enabled" -> boolean
     )(Project.apply)(Project.unapply)
   )
 
-  def emptyProject : Project = Project(-1, "")
+  def emptyProject : Project = Project(-1, "", DateTime.now(), DateTime.now())
 }

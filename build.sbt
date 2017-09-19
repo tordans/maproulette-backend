@@ -1,6 +1,6 @@
 name := "MapRouletteV2"
 
-version := "2.0.3"
+version := "2.1.0"
 
 scalaVersion := "2.11.8"
 
@@ -15,10 +15,13 @@ compileScalastyle := org.scalastyle.sbt.ScalastylePlugin.scalastyle.in(Compile).
 //(compile in Compile) <<= (compile in Compile) dependsOn compileScalastyle
 
 lazy val `MapRouletteV2` = (project in file("."))
-  .enablePlugins(PlayScala).dependsOn(swagger)
-  .enablePlugins(SbtWeb)
+  .enablePlugins(PlayScala, SbtWeb, SwaggerPlugin)
 
-lazy val swagger = RootProject(uri("https://github.com/CreditCardsCom/swagger-play.git"))
+swaggerDomainNameSpaces := Seq("org.maproulette.models", "org.maproulette.exception", "org.maproulette.session", "org.maproulette.actions", "org.maproulette.data")
+
+swaggerOutputTransformers := Seq(envOutputTransformer)
+
+swaggerRoutesFile := "apiv2.routes"
 
 pipelineStages := Seq(digest, gzip)
 
@@ -31,14 +34,14 @@ libraryDependencies ++= Seq(
   evolutions,
   specs2 % Test,
   filters,
+  "org.webjars" % "swagger-ui" % "3.0.5",
   "com.typesafe.play" %% "anorm" % "3.0.0-M1",
   "postgresql" % "postgresql" % "9.1-901-1.jdbc4",
   "net.postgis" % "postgis-jdbc" % "2.2.0",
   "joda-time" % "joda-time" % "2.9.2",
   "com.vividsolutions" % "jts" % "1.13",
-  "io.swagger" %% "swagger-play2" % "1.5.2-SNAPSHOT",
   "org.julienrf" %% "play-jsmessages" % "2.0.0",
-  "org.webjars" %% "webjars-play" % "2.5.0",
+  "org.webjars" %% "webjars-play" % "2.5.0-4",
   "org.webjars" % "bootstrap" % "3.3.6",
   "org.webjars" % "font-awesome" % "4.5.0",
   "org.webjars" % "ionicons" % "2.0.1",
@@ -70,7 +73,7 @@ dependencyOverrides += "org.webjars" % "momentjs" % "2.12.0"
 unmanagedResourceDirectories in Test <+=  baseDirectory ( _ /"target/web/public/test" )
 
 resolvers ++= Seq(
-  "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
+  Resolver.bintrayRepo("scalaz", "releases"),
   "Atlassian Releases" at "https://maven.atlassian.com/public/",
   Resolver.sonatypeRepo("snapshots")
 )

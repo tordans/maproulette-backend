@@ -3,16 +3,15 @@
 package org.maproulette.data
 
 import java.sql.Connection
-import java.text.SimpleDateFormat
-import java.util.{Calendar, Date}
 import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
+import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.actions.Actions
 import org.maproulette.models.Task
-import org.maproulette.models.utils.DALHelper
+import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import play.api.Application
 import play.api.db.Database
 
@@ -53,17 +52,18 @@ case class UserSurveySummary(distinctTotalUsers:Int,
                              answerPerUser:Double,
                              answersPerChallenge:Double)
 case class ChallengeSummary(id:Long, name:String, actions:ActionSummary)
-case class ChallengeActivity(date:Date, status:Int, statusName:String, count:Int)
+case class ChallengeActivity(date:DateTime, status:Int, statusName:String, count:Int)
+case class RawActivity(date:DateTime, osmUserId:Long, osmUsername:String, projectId:Long,
+                       projectName:String, challengeId:Long, challengeName:String,
+                       taskId:Long, oldStatus:Int, status:Int)
 
 /**
   * @author cuthbertm
   */
 @Singleton
 class DataManager @Inject()(config: Config, db:Database)(implicit application:Application) extends DALHelper {
-  private val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
-
   private def getDistinctUsers(projectFilter:String, survey:Boolean=false, onlyEnabled:Boolean=true,
-                               start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int])(implicit c:Connection) : Int = {
+                               start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int])(implicit c:Connection) : Int = {
     SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
              FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
              #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}
@@ -71,7 +71,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   }
 
   private def getDistinctUsersPerChallenge(projectFilter:String, survey:Boolean=false, onlyEnabled:Boolean=true,
-                                           start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int])(implicit c:Connection) : Double = {
+                                           start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int])(implicit c:Connection) : Double = {
     SQL"""SELECT AVG(count) AS count FROM (
             SELECT #${if (survey) {"survey_id"} else {"challenge_id"}}, COUNT(DISTINCT osm_user_id) AS count
             FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
@@ -81,7 +81,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   }
 
   private def getActiveUsers(projectFilter:String, survey:Boolean=false, onlyEnabled:Boolean=true,
-                             start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int])(implicit c:Connection) : Int = {
+                             start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int])(implicit c:Connection) : Int = {
     SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
           FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
           #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}  #$projectFilter
@@ -90,14 +90,11 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   }
 
   def getUserSurveySummary(projectList:Option[List[Long]]=None, surveyId:Option[Long]=None,
-                           start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]) : UserSurveySummary = {
+                           start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]) : UserSurveySummary = {
     this.db.withConnection { implicit c =>
       val surveyProjectFilter = surveyId match {
         case Some(id) => s"AND survey_id = $id"
-        case None => projectList match {
-          case Some(pl) => s"AND project_id IN (${pl.mkString(",")})"
-          case None => ""
-        }
+        case None => getLongListFilter(projectList, "project_id")
       }
 
       val perUser:Double = SQL"""SELECT AVG(answered) AS answered FROM (
@@ -125,14 +122,11 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   }
 
   def getUserChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
-                              start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]) : UserSummary = {
+                              start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]) : UserSummary = {
     this.db.withConnection { implicit c =>
       val challengeProjectFilter = challengeId match {
         case Some(id) => s"AND sa.challenge_id = $id"
-        case None => projectList match {
-          case Some(pl) => s"AND sa.project_id IN (${pl.mkString(",")})"
-          case None => ""
-        }
+        case None => getLongListFilter(projectList, "sa.project_id")
       }
       val actionParser = for {
         available <- get[Option[Double]]("available")
@@ -218,10 +212,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
       } yield ChallengeSummary(id, name, ActionSummary(total, available, fixed, falsePositive, skipped, deleted, alreadyFixed, tooHard))
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND t.parent_id = $id"
-        case _ => projectList match {
-          case Some(pl) => s"AND c.parent_id IN (${pl.mkString(",")})"
-          case None => ""
-        }
+        case _ => getLongListFilter(projectList, "c.parent_id")
       }
       val priorityFilter = priority match {
         case Some(p) => s"AND t.priority = $p"
@@ -301,19 +292,16 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     *            end is set, then will ignore the end date
     */
   def getChallengeActivity(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
-                         start:Option[Date]=None, end:Option[Date]=None, priority:Option[Int]=None) : List[ChallengeActivity] = {
+                         start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]=None) : List[ChallengeActivity] = {
     this.db.withConnection { implicit c =>
       val parser = for {
-        seriesDate <- date("series_date")
+        seriesDate <- get[DateTime]("series_date")
         status <- int("status")
         count <- int("count")
       } yield ChallengeActivity(seriesDate, status, Task.getStatusName(status).getOrElse("Unknown"), count)
       val challengeProjectFilter = challengeId match {
         case Some(id) => s"AND challenge_id = $id"
-        case None => projectList match {
-          case Some(pl) => s"AND project_id IN (${pl.mkString(",")})"
-          case None => ""
-        }
+        case None => getLongListFilter(projectList, "project_id")
       }
       val dates = this.getDates(start, end)
       SQL"""
@@ -334,30 +322,51 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     }
   }
 
-  private def getDates(start:Option[Date]=None, end:Option[Date]=None) : (String, String) = {
-    val startDate = start match {
-      case Some(s) => dateFormat.format(s)
-      case None =>
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DATE, DataManager.PREVIOUS_WEEK)
-        dateFormat.format(cal.getTime)
+  /**
+    * Gets the raw activity from the status action logs, it joins the user, projects and challenges
+    * table to get the names for the various objects
+    *
+    * @param userFilter A filter for users
+    * @param projectFilter A filter for projects
+    * @param challengeFilter A filter for challenges
+    * @param start A filter for the start date
+    * @param end A filter for the end date
+    * @return Returns a list of activity
+    */
+  def getRawActivity(userFilter:Option[List[Long]]=None, projectFilter:Option[List[Long]]=None, challengeFilter:Option[List[Long]]=None,
+                     start:Option[DateTime]=None, end:Option[DateTime]=None) : List[RawActivity] = {
+    this.db.withConnection { implicit c =>
+      val parser = for {
+        date <- get[DateTime]("status_actions.created")
+        osmUserId <- long("status_actions.osm_user_id")
+        osmUsername <- str("users.name")
+        projectId <- long("status_actions.project_id")
+        projectName <- str("projects.name")
+        challengeId <- long("status_actions.challenge_id")
+        challengeName <- str("challenges.name")
+        taskId <- long("status_actions.task_id")
+        oldStatus <- int("status_actions.old_status")
+        status <- int("status_actions.status")
+      } yield RawActivity(date, osmUserId, osmUsername, projectId, projectName, challengeId,
+                          challengeName, taskId, oldStatus, status)
+      SQL"""
+         SELECT sa.created, sa.osm_user_id, u.name, sa.project_id, p.name, sa.challenge_id,
+                 c.name, sa.task_id, sa.old_status, sa.status
+         FROM status_actions sa
+         LEFT JOIN users u ON u.osm_id = sa.osm_user_id
+         INNER JOIN projects p ON p.id = sa.project_id
+         INNER JOIN challenges c ON c.id = sa.challenge_id
+         WHERE #${getDateClause("sa.created", start, end)}
+         #${getLongListFilter(projectFilter, "sa.project_id")}
+         #${getLongListFilter(challengeFilter, "sa.challenge_id")}
+         #${getLongListFilter(userFilter, "sa.osm_user_id")}
+         """.as(parser.*)
     }
-    val endDate = end match {
-      case Some(e) => dateFormat.format(e)
-      case None => dateFormat.format(new Date())
-    }
-    (startDate, endDate)
-  }
-
-  private def getDateClause(start:Option[Date]=None, end:Option[Date]=None, prefix:String="",
-                            clausePrefix:String="WHERE") : String = {
-    val dates = getDates(start, end)
-    s"$clausePrefix $prefix.created::date BETWEEN '${dates._1}' AND '${dates._2}'"
   }
 
   private def getEnabledPriorityClause(onlyEnabled:Boolean=true, isSurvey:Boolean=true,
-                                        start:Option[Date]=None, end:Option[Date]=None,
-                                        priority:Option[Int]=None, ignoreDates:Boolean=false) : String = {
+                                       start:Option[DateTime]=None, end:Option[DateTime]=None,
+                                       priority:Option[Int]=None, ignoreDates:Boolean=false) : String = {
     val priorityClauses = priority match {
       case Some(p) => ("INNER JOIN tasks t ON t.id = sa.task_id", s"AND t.priority = $p")
       case None => ("", "")
@@ -368,12 +377,12 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
           |INNER JOIN projects p ON p.id = c.parent_id
           |WHERE c.enabled = true and p.enabled = true
           |${priorityClauses._2}
-          |${if(!ignoreDates) {getDateClause(start, end, "sa", "AND")} else {""}}
+          |${if(!ignoreDates) {getDateClause("sa.created", start, end)(Some(AND()))} else {""}}
        """.stripMargin
     } else if (!ignoreDates) {
       s"""
          |${priorityClauses._1}
-         |${getDateClause(start, end, "sa")}
+         |${getDateClause("sa.created", start, end)(Some(WHERE()))}
          |${priorityClauses._2}
        """.stripMargin
     } else {

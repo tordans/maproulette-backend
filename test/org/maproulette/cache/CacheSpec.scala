@@ -1,5 +1,6 @@
 package org.maproulette.cache
 
+import org.joda.time.DateTime
 import org.junit.runner.RunWith
 import org.maproulette.actions.{ItemType, ProjectType}
 import org.maproulette.models.BaseObject
@@ -9,7 +10,10 @@ import org.specs2.runner.JUnitRunner
 /**
   * @author cuthbertm
   */
-case class TestBaseObject(override val id:Long, override val name:String) extends BaseObject[Long] {
+case class TestBaseObject(override val id:Long,
+                          override val name:String,
+                          override val created:DateTime=DateTime.now(),
+                          override val modified:DateTime=DateTime.now()) extends BaseObject[Long] {
   override val itemType: ItemType = ProjectType()
 }
 

@@ -571,6 +571,57 @@ var rebuildChallenge = function(parentId, challengeId, success) {
   });
 };
 
+var resetTaskInstructions = function(challengeId, success) {
+    ToastUtils.Info(Messages('main.js.api.resetinginstructions', challengeId));
+    jsRoutes.org.maproulette.controllers.api.ChallengeController.resetTaskInstructions(challengeId).ajax({
+        success: function(data) {
+            if (typeof success === 'undefined') {
+                ToastUtils.Info(Messages('main.js.api.resetinginstructions.success', challengeId));
+            } else {
+                success(data);
+            }
+        }
+    });
+};
+
 var showAPIKey = function() {
     toastr.info(currentAPIKey);
+};
+
+var initializeComments = function(taskId, commentId, placement) {
+    var populateComments = function(data, dialogID) {
+        var $comments = Messages("mapping.js.task.comments.none");
+        if (data.length > 0) {
+            $comments = $("<table/>");
+            for (var i in data) {
+                var $row = $('<tr/>');
+                var $rowTD = $('<td/>');
+                $rowTD.append("<a target='_blank' href='http://osm.org/user/" + data[i].osm_username + "'>" + data[i].osm_username + "</a>" +
+                    "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + data[i].osm_username + "'> <i class='fa fa-commenting-o' aria-hidden='true'></i></a> - ");
+                $rowTD.append("<i class='small'>" + moment(data[i].created).format("MM/DD/YY h:mm:ssa") + "</i>");
+                $rowTD.append("<br/>" + data[i].comment);
+                $row.append($rowTD);
+                $comments.append($row);
+            }
+        }
+        $("#" + dialogID).empty();
+        $("#" + dialogID).append($comments);
+    };
+
+    $("#" + commentId).popover({
+        title: Messages("mapping.js.task.comments") + " <span class='pull-right'><i class='fa fa-times'></i></span>",
+        content: function() {
+            var dialogID = "comment-dialog-" + taskId;
+            jsRoutes.org.maproulette.controllers.api.TaskController.retrieveComments(taskId).ajax({
+                success: function(data) { populateComments(data, dialogID); },
+                error: function(data) {
+                    $("#" + dialogID).empty();
+                    $("#" + dialogID).append(Messages("mapping.js.task.comments.loading.error"));
+                }
+            });
+            return '<div id="' + dialogID + '" class="comment-dialog">Loading comments...</div>';
+        },
+        html: true,
+        placement: placement
+    });
 };

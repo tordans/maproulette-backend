@@ -2,7 +2,7 @@
 @import views.html.admin.forms.elements._
 @(challengeForm:Form[Challenge])(implicit messages: Messages)
 <span class="help-block">@messages("challenge.wizard.priority.description")</span>
-@select(challengeForm("defaultPriority"),
+@select(challengeForm("priority.defaultPriority"),
     label = messages("challenge.wizard.priority.default.label"),
     optionList = List((messages("challenge.wizard.priority.expression.high"), "0"), (messages("challenge.wizard.priority.expression.medium"), "1"), (messages("challenge.wizard.priority.expression.low"), "2")),
     isMultiple = false,
@@ -17,31 +17,31 @@
     <label class="col-sm-2 control-label">@messages("challenge.wizard.priority.expression.high")</label>
     <div id="priority-high-builder" class="col-sm-8"></div>
 </div>
-<input type="text" readonly="readonly" id="highPriorityRule" name="highPriorityRule" style="display:none"/>
+<input type="text" readonly="readonly" id="priority_highPriorityRule" name="priority.highPriorityRule" style="display:none"/>
 <div class="form-group">
     <label class="col-sm-2 control-label">@messages("challenge.wizard.priority.expression.medium")</label>
     <div id="priority-medium-builder" class="col-sm-8"></div>
 </div>
-<input type="text" readonly="readonly" id="mediumPriorityRule" name="mediumPriorityRule" style="display:none"/>
+<input type="text" readonly="readonly" id="priority_mediumPriorityRule" name="priority.mediumPriorityRule" style="display:none"/>
 <div class="form-group">
     <label class="col-sm-2 control-label">@messages("challenge.wizard.priority.expression.low")</label>
     <div id="priority-low-builder" class="col-sm-8"></div>
 </div>
-<input type="text" readonly="readonly" id="lowPriorityRule" name="lowPriorityRule" style="display:none"/>
+<input type="text" readonly="readonly" id="priority_lowPriorityRule" name="priority.lowPriorityRule" style="display:none"/>
 <div>
     <a class="btn btn-primary pull-right" onclick="openIEBox();">@messages("challenge.wizard.priority.expression.iebox")</a>
 </div>
 <script type="application/javascript">
     $().ready(function() {
-        var highRule = '@challengeForm("highPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
+        var highRule = '@challengeForm("priority.highPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
         if (highRule != "" && highRule != "{}") {
             $('#priority-high-builder').queryBuilder('setRules', JSON.parse(highRule));
         }
-        var mediumRule = '@challengeForm("mediumPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
+        var mediumRule = '@challengeForm("priority.mediumPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
         if (mediumRule != "" && mediumRule != "{}") {
             $('#priority-medium-builder').queryBuilder('setRules', JSON.parse(mediumRule));
         }
-        var lowRule = '@challengeForm("lowPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
+        var lowRule = '@challengeForm("priority.lowPriorityRule").value.getOrElse("")'.split("&quot;").join("\"");
         if (lowRule != "" && lowRule != "{}") {
             $('#priority-low-builder').queryBuilder('setRules', JSON.parse(lowRule));
         }

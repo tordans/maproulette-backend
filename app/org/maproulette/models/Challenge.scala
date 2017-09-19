@@ -3,6 +3,7 @@
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
+import org.joda.time.DateTime
 import play.api.data._
 import play.api.data.Forms._
 import org.maproulette.actions.{Actions, ChallengeType, ItemType}
@@ -32,7 +33,8 @@ case class ChallengeGeneral(owner:Long,
                             blurb:Option[String]=None,
                             enabled:Boolean=false,
                             challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
-                            featured:Boolean=false) extends DefaultWrites
+                            featured:Boolean=false,
+                            checkinComment:String="") extends DefaultWrites
 case class ChallengeCreation(overpassQL:Option[String]=None, remoteGeoJson:Option[String]=None) extends DefaultWrites
 case class ChallengePriority(defaultPriority:Int=Challenge.PRIORITY_HIGH,
                              highPriorityRule:Option[String]=None,
@@ -42,7 +44,8 @@ case class ChallengeExtra(defaultZoom:Int=Challenge.DEFAULT_ZOOM,
                           minZoom:Int=Challenge.MIN_ZOOM,
                           maxZoom:Int=Challenge.MAX_ZOOM,
                           defaultBasemap:Option[Int]=None,
-                          customBasemap:Option[String]=None) extends DefaultWrites
+                          customBasemap:Option[String]=None,
+                          updateTasks:Boolean=false) extends DefaultWrites
 
 /**
   * The ChallengeFormFix case class is built so that we can nest the form objects as there is a limit
@@ -50,6 +53,9 @@ case class ChallengeExtra(defaultZoom:Int=Challenge.DEFAULT_ZOOM,
   */
 case class Challenge(override val id:Long,
                      override val name:String,
+                     override val created:DateTime,
+                     override val modified:DateTime,
+                     lastUpdated:DateTime,
                      override val description:Option[String]=None,
                       general:ChallengeGeneral,
                       creation:ChallengeCreation,
@@ -131,6 +137,9 @@ object Challenge {
     mapping(
       "id" -> default(longNumber, -1L),
       "name" -> nonEmptyText,
+      "created" -> default(jodaDate, DateTime.now()),
+      "modified" -> default(jodaDate, DateTime.now()),
+      "lastUpdated" -> default(jodaDate, DateTime.now()),
       "description" -> optional(text),
       "general" -> mapping(
         "owner" -> longNumber,
@@ -140,7 +149,8 @@ object Challenge {
         "blurb" -> optional(text),
         "enabled" -> boolean,
         "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
-        "featured" -> default(boolean, false)
+        "featured" -> default(boolean, false),
+        "checkinComment" -> default(text, "")
       )(ChallengeGeneral.apply)(ChallengeGeneral.unapply),
       "creation" -> mapping(
         "overpassQL" -> optional(text),
@@ -157,14 +167,16 @@ object Challenge {
         "minZoom" -> default(number, MIN_ZOOM),
         "maxZoom" -> default(number, MAX_ZOOM),
         "defaultBasemap" -> optional(number),
-        "customBasemap" -> optional(text)
+        "customBasemap" -> optional(text),
+        "updateTasks" -> default(boolean, false)
       )(ChallengeExtra.apply)(ChallengeExtra.unapply),
       "status" -> default(optional(number), None)
     )(Challenge.apply)(Challenge.unapply)
   )
 
   def emptyChallenge(ownerId:Long, parentId:Long) : Challenge = Challenge(
-    -1, "", None, ChallengeGeneral(-1, -1, ""), ChallengeCreation(), ChallengePriority(), ChallengeExtra()
+    -1, "", DateTime.now(), DateTime.now(), DateTime.now(), None, ChallengeGeneral(-1, -1, ""),
+    ChallengeCreation(), ChallengePriority(), ChallengeExtra()
   )
 
   val STATUS_NA = 0

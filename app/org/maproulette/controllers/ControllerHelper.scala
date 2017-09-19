@@ -54,11 +54,15 @@ trait ControllerHelper {
     */
   protected def getIndex(status:Status, title:String, user:User, content:Html)
                         (implicit request:Request[Any], messages:Messages) : Result = {
+    val activities = config.isDevMode match {
+      case true => List.empty
+      case false => dalManager.action.getRecentActivity(user, config.numberOfActivities, 0)
+    }
     val result = status(views.html.index(title, user, config,
       dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0),
       dalManager.challenge.getNewChallenges(config.numberOfChallenges, 0),
       dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0),
-      dalManager.action.getRecentActivity(user, config.numberOfActivities, 0),
+      activities,
       dalManager.user.getSavedChallenges(user.id, user)
     )(content))
 

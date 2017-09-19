@@ -283,7 +283,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
            (implicit parentId:Long = -1, c:Option[Connection]=None) : List[T] = {
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
-                      WHERE ${this.searchField("name", "")} ${this.enabled(onlyEnabled)}
+                      WHERE ${this.searchField("name")(None)} ${this.enabled(onlyEnabled)}
                       ${this.parentFilter(parentId)}
                       ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
@@ -302,7 +302,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     this.cacheManager.withIDListCaching { implicit uncachedIDs =>
       this.withMRConnection { implicit c =>
         val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
-                        WHERE ${this.searchField("name", "")}
+                        WHERE ${this.searchField("name")(None)}
                         ${this.enabled(onlyEnabled)} ${this.parentFilter(parentId)}
                         ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""

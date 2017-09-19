@@ -100,7 +100,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
       permission.hasWriteAccess(ProjectType(), user)(parentId)
       dalManager.challenge.retrieveById(itemId) match {
         case Some(c) =>
-          val clonedChallenge = c.copy(id = -1)
+          val clonedChallenge = c.copy(id = -1, name = "")
           val tags = Some(dalManager.tag.listByChallenge(itemId).map(_.name))
           if (c.general.challengeType == Actions.ITEM_TYPE_SURVEY) {
             val surveyForm = Survey.surveyForm.fill(Survey(clonedChallenge, dalManager.survey.getAnswers(c.id)))
@@ -152,7 +152,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         dalManager.project.retrieveById(parentId) match {
           case Some(p) =>
             permission.hasWriteAccess(ProjectType(), user)(parentId)
-            val tags = request.body.dataParts("tags").head.split(",").toList
+            val tags = request.body.dataParts("tags").head.split(",").toList.filter(_.nonEmpty)
             Challenge.challengeForm.bindFromRequest.fold(
               formWithErrors => {
                 getIndex(BadRequest, this.adminHeader, user,
@@ -282,11 +282,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                 )
               },
               task => {
-                if (itemId > -1) {
-                  dalManager.task.update(Json.toJson(task), user)(itemId)
-                } else {
-                  dalManager.task.insert(task, user)
-                }
+                dalManager.task.mergeUpdate(task, user)(itemId)
                 Redirect(routes.Application.adminUITaskList(projectId, parentType, parentId)).flashing("success" -> "Project saved!")
               }
             )

@@ -6,6 +6,7 @@ import java.util.UUID
 import javax.inject.{Inject, Singleton}
 
 import org.apache.commons.lang3.StringUtils
+import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.{Challenge, Task}
@@ -162,7 +163,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
   private def createNewTask(user:User, name:String, parent:Challenge, geometry:JsObject,
                             properties:JsValue) : Boolean = {
-    val newTask = Task(-1, name,
+    val newTask = Task(-1, name, DateTime.now(), DateTime.now(),
       parent.id,
       Some(""),
       None,
@@ -210,7 +211,15 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   private def getProperties(value:JsValue, key:String) : JsValue = {
     (value \ key).asOpt[JsObject] match {
       case Some(JsObject(p)) =>
-        val updatedMap = p.map { kv => kv._1 -> kv._2.toString() }.toMap
+        val updatedMap = p.map {
+          kv =>
+            val strValue = if (kv._2.isInstanceOf[JsNumber]) {
+              kv._2.toString()
+            } else {
+              kv._2.as[String]
+            }
+            kv._1 -> strValue
+        }.toMap
         Json.toJson(updatedMap)
       case _ => Json.obj()
     }

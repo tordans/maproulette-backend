@@ -2,8 +2,9 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
+import org.joda.time.DateTime
 import org.junit.runner.RunWith
-import org.maproulette.models.dal.{TaskDAL, ProjectDAL, ChallengeDAL}
+import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL, TaskDAL}
 import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -21,14 +22,14 @@ class TaskSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDAL, ta
 
   "Tasks" should {
     "write tasks object to database" in new WithApplication {
-      val projectID = projectDAL.insert(Project(-1, "RootProject_tasktest"), User.superUser).id
-      val challengeID = challengeDAL.insert(Challenge(-1, "ChallengeProject", None,
+      val projectID = projectDAL.insert(Project(-1, "RootProject_tasktest", DateTime.now(), DateTime.now()), User.superUser).id
+      val challengeID = challengeDAL.insert(Challenge(-1, "ChallengeProject", DateTime.now(), DateTime.now(), DateTime.now(), None,
         ChallengeGeneral(-1, projectID, ""),
         ChallengeCreation(),
         ChallengePriority(),
         ChallengeExtra()
       ), User.superUser).id
-      val newTask = Task(-1, "NewTask", challengeID, Some("Instructions for task"),
+      val newTask = Task(-1, "NewTask", DateTime.now(), DateTime.now(), challengeID, Some("Instructions for task"),
         Some("""{"type":"Point","coordinates":[77.6255107,40.5872232]}"""), "")
       taskID = taskDAL.insert(newTask, User.superUser).id
       taskDAL.retrieveById match {

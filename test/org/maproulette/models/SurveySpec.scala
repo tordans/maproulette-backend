@@ -2,8 +2,9 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
+import org.joda.time.DateTime
 import org.junit.runner.RunWith
-import org.maproulette.models.dal.{SurveyDAL, ProjectDAL}
+import org.maproulette.models.dal.{ProjectDAL, SurveyDAL}
 import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -21,9 +22,9 @@ class SurveySpec @Inject() (projectDAL: ProjectDAL, surveyDAL: SurveyDAL) extend
 
   "Surveys" should {
     "write survey object to database" in new WithApplication {
-      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest"), User.superUser).id
+      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest", DateTime.now(), DateTime.now()), User.superUser).id
       val answers = List(Answer(-1, "Answer1"), Answer(-1, "Answer2"))
-      val newSurvey = Survey(Challenge(surveyID, "newSurvey", Some("This is a new survey"),
+      val newSurvey = Survey(Challenge(surveyID, "newSurvey", DateTime.now(), DateTime.now(), DateTime.now(), Some("This is a new survey"),
         ChallengeGeneral(-1, projectID, "Default Question"),
         ChallengeCreation(),
         ChallengePriority(),

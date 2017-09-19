@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.actions
 
-import java.sql.Timestamp
 import javax.inject.{Inject, Singleton}
 
 import anorm.SqlParser._
@@ -14,12 +13,9 @@ import play.api.{Application, Logger}
 import play.api.db.Database
 
 import scala.collection.mutable.ListBuffer
-import org.maproulette.models.Task
 import org.maproulette.models.utils.DALHelper
 import play.api.libs.json.{Json, Reads, Writes}
 import scala.concurrent.ExecutionContext.Implicits.global
-
-import scala.concurrent.Future
 
 /**
   * This file handles retrieving the action summaries from the database. This primarily revolves
@@ -28,7 +24,8 @@ import scala.concurrent.Future
   *
   * @author cuthbertm
   */
-case class ActionItem(created:Option[DateTime]=None,
+case class ActionItem(id:Long=(-1),
+                      created:Option[DateTime]=None,
                       osmUserId:Option[Long]=None,
                       typeId:Option[Int]=None,
                       itemId:Option[Long]=None,
@@ -54,8 +51,8 @@ case class ActionLimits(columns:List[Int]=List.empty,
                         itemLimit:List[Long]=List.empty,
                         statusLimit:List[Int]=List.empty,
                         actionLimit:List[Int]=List.empty,
-                        startTime:Option[Timestamp]=None,
-                        endTime:Option[Timestamp]=None)
+                        startTime:Option[DateTime]=None,
+                        endTime:Option[DateTime]=None)
 
 @Singleton
 class ActionManager @Inject()(config: Config, db:Database)(implicit application:Application) extends DALHelper {
@@ -80,6 +77,7 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     * A anorm row parser for the actions table
     */
   implicit val parser: RowParser[ActionItem] = {
+      get[Long]("actions.id") ~
       get[Option[DateTime]]("created") ~
       get[Option[Long]]("actions.osm_user_id") ~
       get[Option[Int]]("actions.type_id") ~
@@ -87,8 +85,8 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
       get[Option[Int]]("actions.action") ~
       get[Option[Int]]("actions.status") ~
       get[Option[String]]("actions.extra") map {
-      case created ~ osmUserId ~ typeId ~ itemId ~ action ~ status ~ extra => {
-        new ActionItem(created, osmUserId, typeId, itemId, action, status, extra)
+      case id ~ created ~ osmUserId ~ typeId ~ itemId ~ action ~ status ~ extra => {
+        new ActionItem(id, created, osmUserId, typeId, itemId, action, status, extra)
       }
     }
   }
@@ -102,44 +100,30 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     * @param extra And extra information that you want to send along with the creation of the action
     * @return true if created
     */
-  def setAction(user:Option[User]=None, item:Item with ItemType, action:ActionType, extra:String) : Future[Boolean] = {
-    Future {
-      if (action.getLevel > config.actionLevel) {
-        Logger.trace("Action not logged, action level higher than threshold in configuration.")
-        false
-      } else {
-        db.withTransaction { implicit c =>
-          val statusId = action match {
-            case t:TaskStatusSet => t.status
-            case _ => 0
-          }
-          val userId = user match {
-            case Some(u) => Some(u.osmProfile.id)
-            case None => None
-          }
-          SQL"""INSERT INTO actions (osm_user_id, type_id, item_id, action, status, extra)
-                VALUES ($userId, ${item.typeId}, ${item.itemId}, ${action.getId},
-                          $statusId, $extra)""".execute()
-        }
-      }
-    }
-  }
-
-  /**
-    * The status action is set in a different table for performance and efficiency reasons
-    *
-    * @param user The user set the task status
-    * @param task The task that is having it's status set
-    * @param status The new updated status that was replaced
-    * @return
-    */
-  def setStatusAction(user:User, task:Task, status:Int) : Future[Boolean] = {
-    Future {
+  def setAction(user:Option[User]=None, item:Item with ItemType, action:ActionType, extra:String) : Option[ActionItem] = {
+    if (action.getLevel > config.actionLevel) {
+      Logger.trace("Action not logged, action level higher than threshold in configuration.")
+      None
+    } else {
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO status_actions (osm_user_id, project_id, challenge_id, task_id, old_status, status)
-                SELECT ${user.osmProfile.id}, parent_id, ${task.parent}, ${task.id}, ${task.status}, $status
-                FROM challenges WHERE id = ${task.parent}
-          """.execute()
+        val statusId = action match {
+          case t:TaskStatusSet => t.status
+          case _ => 0
+        }
+        val userId = user match {
+          case Some(u) => Some(u.osmProfile.id)
+          case None => None
+        }
+        val query = """
+               INSERT INTO actions (osm_user_id, type_id, item_id, action, status, extra)
+               VALUES ({userId}, {typeId}, {itemId}, {actionId}, {statusId}, {extra}) RETURNING *"""
+        SQL(query).on('userId -> userId,
+          'typeId -> item.typeId,
+          'itemId -> item.itemId,
+          'actionId -> action.getId,
+          'statusId -> statusId,
+          'extra -> extra
+        ).as(parser.*).headOption
       }
     }
   }
@@ -155,9 +139,11 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
     */
   def getRecentActivity(user:User, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0) : List[ActionItem] =
     getActivityList(limit, offset,
-      ActionLimits(osmUserLimit = List(user.osmProfile.id),
+      ActionLimits(
+        osmUserLimit = List(user.osmProfile.id),
         actionLimit = List(Actions.ACTION_TYPE_TASK_STATUS_SET,
-          Actions.ACTION_TYPE_QUESTION_ANSWERED)))
+          Actions.ACTION_TYPE_QUESTION_ANSWERED)
+      ))
 
   /**
     * Gets the activity list from the actions table
@@ -170,12 +156,12 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
   def getActivityList(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, actionLimits: ActionLimits) : List[ActionItem] = {
     val parameters = new ListBuffer[NamedParameter]()
     val whereClause = new StringBuilder()
-    val typeQuery = if (actionLimits.typeLimit.nonEmpty) {
+    if (actionLimits.typeLimit.nonEmpty) {
       parameters += ('typeIds -> actionLimits.typeLimit)
       whereClause ++= "type_id IN ({typeIds})"
     }
 
-    val itemQuery = if (actionLimits.itemLimit.nonEmpty) {
+    if (actionLimits.itemLimit.nonEmpty) {
       parameters += ('itemIds -> actionLimits.itemLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "
@@ -183,7 +169,7 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
       whereClause ++= "item_id IN ({itemIds})"
     }
 
-    val actionQuery = if (actionLimits.actionLimit.nonEmpty) {
+    if (actionLimits.actionLimit.nonEmpty) {
       parameters += ('actions -> actionLimits.actionLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "
@@ -191,7 +177,7 @@ class ActionManager @Inject()(config: Config, db:Database)(implicit application:
       whereClause ++= "action IN ({actions})"
     }
 
-    val userQuery = if (actionLimits.osmUserLimit.nonEmpty) {
+    if (actionLimits.osmUserLimit.nonEmpty) {
       parameters += ('userIds -> actionLimits.osmUserLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "

@@ -1,5 +1,6 @@
 @import org.maproulette.session.User
-@(user:User)(implicit messages: Messages)
+@import org.maproulette.Config
+@(user:User, config:Config)(implicit req: play.api.mvc.RequestHeader, messages: Messages)
 
     <!-- Navbar Right Menu -->
 <div class="navbar-custom-menu">
@@ -7,8 +8,8 @@
             <!-- User Account Menu -->
         <li class="dropdown user user-menu">
                 <!-- Menu Toggle Button -->
-            @if(user.guest) {
-                <a href="#" onclick="signIn();" class="dropdown-toggle">
+            @if(user.guest && !config.signIn) {
+                <a href="#" onclick="signInOSM();" class="dropdown-toggle">
             } else {
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown">
             }
@@ -23,7 +24,43 @@
                 }
                 </span>
             </a>
-            @if(!user.guest) {
+            @if(user.guest && config.signIn) {
+                <ul class="dropdown-menu">
+                    <li class="user-header">
+                    @helper.form(routes.AuthController.signIn(req.uri), 'id -> "loginForm", 'class -> "form-horizontal") {
+                            <div class="box-body">
+                                <div class="form-group">
+                                    <div class="col-sm-10">
+                                        <input type="text" class="form-control" id="signInUsername" name="signInUsername" placeholder="@messages("user.osm.username.placeholder")">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-10">
+                                        <input type="password" class="form-control" id="signInAPIKey" name="signInAPIKey" placeholder="@messages("user.osm.apikey.placeholder")">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <!--div class="pull-left col-md-8">
+                                        <div class="checkbox">
+                                            <label>
+                                                <input type="checkbox" id="signInRememberMe" name="signInRememberMe"> @*messages("user.rememberme")*@
+                                            </label>
+                                        </div>
+                                    </div-->
+                                    <div class="pull-right col-md-2">
+                                        <button type="submit" class="btn btn-info pull-right">@messages("user.signin")</button>
+                                    </div>
+                                </div>
+                            </div>
+                    }
+                    </li>
+                    <li class="user-footer">
+                        <div class="pull-right">
+                            <a href="#" onclick="signInOSM();" class="btn btn-default btn-flat">@messages("user.signin.osm")</a>
+                        </div>
+                    </li>
+                </ul>
+            } else { @if(!user.guest) {
                 <ul class="dropdown-menu">
                         <!-- The user image in the menu -->
                     <li class="user-header">
@@ -41,7 +78,7 @@
                         </div>
                     </li>
                 </ul>
-            }
+            }}
         </li>
             <!-- Control Sidebar Toggle Button -->
         <li>
@@ -50,7 +87,7 @@
     </ul>
 </div>
 <script type="application/javascript">
-    function signIn() {
+    function signInOSM() {
         var redirectURL;
         if (typeof MRManager !== 'undefined') {
             redirectURL = MRManager.getCurrentMapURL();

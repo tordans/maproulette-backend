@@ -1,4 +1,4 @@
-@(field:Field, label:String = "", default:Boolean = false, readOnly:Boolean = false)
+@(field:Field, label:String = "", default:Boolean = false, readOnly:Boolean = false, help:String = "")
 
 <div class="form-group @if(field.hasErrors) {has-error}">
     <label class="col-sm-2 control-label">@label</label>
@@ -9,6 +9,7 @@
                 value="true"
                 @if(field.value.getOrElse(""+default) == "true") {checked="checked"}
                 @if(readOnly) { disabled } />
+      <span class="help-block">@help</span>
       <span class="help-block">@{field.error.map { error => error.message }}</span>
     </div>
 </div>

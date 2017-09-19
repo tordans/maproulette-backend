@@ -1,5 +1,7 @@
 general.titleA=Map
 general.titleB=Roulette
+general.api=API Documentation
+general.email=Email
 
 common.basemap.osm=OSM
 common.basemap.ocm=OpenCycleMap
@@ -9,8 +11,14 @@ headers.title=MapRoulette
 headers.administration=MapRoulette Administration
 headers.metrics=MapRoulette Metrics
 headers.users=MapRoulette Users
+headers.users.activity=MapRoulette Activity for User {0}
+headers.users.activity.title=MapRoulette User Activity
 headers.profile=MapRoulette Profile
 headers.error=MapRoulette Error
+headers.directory=MapRoulette Challenges
+
+directory.title=Challenges
+directory.none=No Challenges Found
 
 sidebar.avatarURL=User Image
 sidebar.online=Online
@@ -53,11 +61,19 @@ rightsidebar.general.info=Some information about this general settings option
 footer.getintouch=Get in touch
 
 user.signin=Sign In
+user.signin.osm=Sign In using OSM
 user.osmmember=OSM member since
 user.apikey.view=View APIKey
 user.apikey.new=Rebuild APIKey
+user.apikey.set=Set APIKey Manually
+user.apikey.update=Update
 user.profile=Profile
 user.signout=Sign out
+user.rememberme=Remember Me
+user.osm.username=OSM Username
+user.osm.username.placeholder=Username...
+user.osm.apikey=APIKey
+user.osm.apikey.placeholder=APIKey...
 
 user.profile.header=User Profile
 user.profile.aboutme=About Me
@@ -160,6 +176,7 @@ task.column.priority.medium=Medium
 task.column.priority.low=Low
 task.column.name=Name
 task.column.instruction=Instruction
+task.column.instruction.none=No specific instruction for task set.
 task.column.location=Location
 task.column.status=Status
 task.column.actions=Actions
@@ -241,6 +258,7 @@ challenge.visibility=The parent Project is currently not Visible. Any Challenges
 challenge.column.visible=Visible
 challenge.column.id=ID
 challenge.column.name=Name
+challenge.column.lastUpdated=Last Updated
 challenge.column.metrics=Tasks All/Fixed/False Positive
 challenge.column.type=Challenge Type
 challenge.column.status=Status
@@ -261,6 +279,7 @@ challenge.column.actions.metrics=View Metrics
 challenge.column.actions.view=View
 challenge.column.actions.rebuild=Rebuild
 challenge.column.actions.start=Start
+challenge.column.actions.resetinstructions=Reset Instructions
 challenge.notfound=No Challenges Found
 challenge.owner=Owner:
 
@@ -295,6 +314,7 @@ challenge.wizard.creation.rerun=Rerun
 
 challenge.wizard.general.title=Standard challenge information.
 challenge.wizard.general.featured=Featured
+challenge.wizard.general.featured.help=If selecting challenge will show up front and center on the side bar
 challenge.wizard.general.id=ID
 challenge.wizard.general.parent=Parent ID
 challenge.wizard.general.type=Challenge Type
@@ -312,6 +332,9 @@ challenge.wizard.general.blurb.help=Please enter the blurb for the challenge. (o
 challenge.wizard.general.instruction=Instruction
 challenge.wizard.general.instruction.placeholder=Challenge Instruction
 challenge.wizard.general.instruction.help=Please enter the instruction for the challenge.
+challenge.wizard.general.checkincomment=Checkin Comment
+challenge.wizard.general.checkincomment.placeholder=Challenge Checkin Comment
+challenge.wizard.general.checkincomment.help=Enter the checkin comments that will be associated with any changes you make in your editor of choice
 challenge.wizard.general.difficulty=Difficulty
 challenge.wizard.general.difficulty.help=Please enter the difficulty level for the challenge
 challenge.wizard.general.tags=Tags
@@ -341,6 +364,8 @@ challenge.wizard.extra.select=Select a challenge basemap
 challenge.wizard.extra.basemap.custom=Custom Basemap...
 challenge.wizard.extra.basemap.custom.placeholer=Custom Basemap
 challenge.wizard.extra.basemap.custom.help=This is the custom basemap that will be used for the challenge, it will override any user or challenge settings that define a default basemap. Eg. http://'{s}'.tile.openstreetmap.org/'{z}'/'{x}'/'{y}'.png
+challenge.wizard.extra.updateTasks=Update Tasks
+challenge.wizard.extra.updateTasks.help=By selecting this option old stale (not updated in 7 days) tasks (Tasks still in Created or Skipped state) will be periodically deleted. 
 
 challenge.wizard.schedule.description=Below you can schedule when your task data will be updated. This can only be used for challenges that were created by an overpass query or a remote url for geojson.
 
@@ -349,6 +374,7 @@ challenge.difficulty.1=Easy
 challenge.difficulty.2=Normal
 challenge.difficulty.3=Expert
 
+mapping.js.control.comment=Optional Comment
 mapping.js.control.edit.information=Please select how you would like to fix this task.
 mapping.js.control.edit.id=Edit in iD
 mapping.js.control.edit.josm=Edit in JOSM
@@ -394,10 +420,20 @@ mapping.js.challenge.saved=Challenge Saved!
 mapping.js.instruction.challenge=Challenge
 mapping.js.instruction.status=Status
 mapping.js.instruction.lastModifiedUser=Last user to modify task
+mapping.js.instruction.created=Created
+mapping.js.instruction.modified=Modified
+mapping.js.challenge.lastUpdated=Last Updated
+mapping.js.task.comments=Comments
+mapping.js.task.comments.loading.error=Failed to load comments
+mapping.js.task.comments.none=No Comments
+mapping.js.cheatkeys.title=Keyboard Shortcuts
+mapping.js.cheatkeys.show=View keyboard shortcuts
 
 main.js.deletion=Deleting
 main.js.api.generation=Generating API Key for user [{0}]
-main.js.api.rebuilding=Rebuilding challenge [{0}]
+main.js.api.rebuilding=Rebuilding Challenge [{0}]
+main.js.api.resetinginstructions=Resetting all Task instructions for Challenge [{0}]
+main.js.api.resetinginstructions.success=Successfully reset all Task instructions for Challenge [{0}]
 
 metrics.js.error=Unable to retrieve data for activity chart.
 metrics.js.status.available=Available
@@ -408,6 +444,7 @@ metrics.js.status.alreadyfixed=Already Fixed
 metrics.js.status.toohard=Too Hard
 
 users.administration.title=Administration
+users.administration.activity.title=User Activity
 users.title=Users (OSM)
 users.column.id=ID
 users.column.osmid=OSM ID
@@ -417,6 +454,7 @@ users.column.apikey=API Key
 users.column.actions=Actions
 users.column.actions.options=Options
 users.column.actions.options.toggle=Toggle Dropdown
+users.column.actions.activity=View Activity
 users.column.actions.view=View
 users.column.actions.regenerate=Regenerate Key
 users.column.actions.add=Add to Project
@@ -429,6 +467,20 @@ users.addto.field.projects.help=Please select the project to add the user to
 users.addto.action.add=Add User
 users.addto.action.cancel=Cancel
 users.addto.success=User successfully added to project
+users.profile.activity.fixed=Fixed {0} tasks <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
+users.profile.activity.falsepositive=Set {0} tasks to false positive <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
+users.profile.activity.skipped=Skipped {0} tasks <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
+users.profile.activity.toohard=Set {0} tasks to Too Hard <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
+users.profile.activity.alreadyfixed=Set {0} tasks to Already Fixed <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
+users.profile.activity.summary.failure=Failed to load activity summary for user
+users.profile.activity.failure=Failed to load activity for user
+users.profile.activity.see=See Activity Details
+users.profile.activity.none=No User Activity
+users.profile.activity.table.time=Time
+users.profile.activity.table.challenge=Challenge ID
+users.profile.activity.table.challengename=Challenge Name
+users.profile.activity.table.task=Task ID
+users.profile.activity.table.changeset=Changeset
 
 geojson.title=GeoJSON Viewer
 geojson.description=For details about GeoJSON, <a href="http://geojson.org/geojson-spec.html" target="_blank">read the spec</a>.

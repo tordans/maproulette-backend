@@ -239,6 +239,7 @@ challenge.visibility=Das übergeordnete Projekt ist derzeit nicht sichtbar. Alle
 challenge.column.visible=Sichtbar
 challenge.column.id=ID
 challenge.column.name=Name
+challenge.column.lastUpdated=Letzte Aktualisierung
 challenge.column.metrics=Aufgaben Alle/Behoben/Falsch Positiv
 challenge.column.type=Kampagnentyp
 challenge.column.status=Status
@@ -391,6 +392,9 @@ mapping.js.challenge.saved=Kampagne gespeichert!
 mapping.js.instruction.challenge=Kampagne
 mapping.js.instruction.status=Status
 mapping.js.instruction.lastModifiedUser=Letzter Benutzer, der die Aufgabe bearbeitet hat
+mapping.js.instruction.created=Erstellt
+mapping.js.instruction.modified=Geändert
+mapping.js.challenge.lastUpdated=Letzte Aktualisierung
 
 main.js.deletion=Lösche
 main.js.api.generation=API Schlüssel für Benutzer [{0}] wird erstellt

@@ -2,8 +2,9 @@ package org.maproulette.models
 
 import javax.inject.Inject
 
+import org.joda.time.DateTime
 import org.junit.runner.RunWith
-import org.maproulette.models.dal.{ProjectDAL, ChallengeDAL}
+import org.maproulette.models.dal.{ChallengeDAL, ProjectDAL}
 import org.maproulette.session.User
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -21,8 +22,8 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
 
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
-      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest"), User.superUser).id
-      val newChallenge = Challenge(challengeID, "NewChallenge", Some("This is a new challenge"),
+      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest", DateTime.now(), DateTime.now()), User.superUser).id
+      val newChallenge = Challenge(challengeID, "NewChallenge", DateTime.now(), DateTime.now(), DateTime.now(), Some("This is a new challenge"),
         ChallengeGeneral(-1, projectID, ""),
         ChallengeCreation(),
         ChallengePriority(),

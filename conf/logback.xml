@@ -10,7 +10,7 @@
         <appender-ref ref="STDOUT" />
     </logger>
 
-    <logger name="play" level="DEBUG">
+    <logger name="play" level="INFO">
         <appender-ref ref="STDOUT" />
     </logger>
 
@@ -18,4 +18,13 @@
         <appender-ref ref="STDOUT" />
     </logger>
 
+    <!-- Set logging for all Akka library classes to INFO -->
+    <logger name="akka" level="INFO">
+        <appender-ref ref="STDOUT" />
+
+    </logger>
+    <!-- Set a specific actor to DEBUG -->
+    <logger name="actors.MyActor" level="INFO">
+        <appender-ref ref="STDOUT" />
+    </logger>
 </configuration>
