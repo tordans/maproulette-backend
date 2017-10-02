@@ -88,7 +88,7 @@
                                         @if(c._1.general.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
                                             <li><a href="@routes.FormEditController.challengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
                                         } else {
-                                            <li><a href="@routes.FormEditController.surveyFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
+                                            <li><a href="@routes.FormEditController.challengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
                                         }
                                         <li><a href="@routes.FormEditController.cloneChallengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.clone")</a></li>
                                         <li><a href="#" onclick="deleteChallenge(@c._1.id);">@messages("challenge.column.actions.delete")</a></li>
@@ -96,11 +96,7 @@
                                         <li class="divider"></li>
                                         <li><a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">@messages("challenge.column.actions.new")</a></li>
                                         <li class="divider"></li>
-                                        @if(c._1.general.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
-                                            <li><a href="@routes.Application.challengeMetrics(c._1.id, "")">@messages("challenge.column.actions.metrics")</a></li>
-                                        } else {
-                                            <li><a href="@routes.Application.challengeMetrics(c._1.id, "", 1)">@messages("challenge.column.actions.metrics")</a></li>
-                                        }
+                                        <li><a href="@routes.Application.challengeMetrics(c._1.id, "")">@messages("challenge.column.actions.metrics")</a></li>
                                         <li><a href="@routes.Application.viewChallenge(c._1.id)">@messages("challenge.column.actions.view")</a></li>
                                         <li class="divider"></li>
                                         @if(!c._1.creation.overpassQL.getOrElse("").isEmpty || !c._1.creation.remoteGeoJson.getOrElse("").isEmpty) {

@@ -16,13 +16,14 @@ import play.api.Application
 import play.api.db.Database
 
 case class ActionSummary(total:Double,
-                          available:Double,
-                             fixed:Double,
-                             falsePositive:Double,
-                             skipped:Double,
-                             deleted:Double,
-                             alreadyFixed:Double,
-                             tooHard:Double) {
+                         available:Double,
+                         fixed:Double,
+                         falsePositive:Double,
+                         skipped:Double,
+                         deleted:Double,
+                         alreadyFixed:Double,
+                         tooHard:Double,
+                         answered:Double) {
   // available in the database means it is created state, available in the UI, means that it is in state
   // AVAILABLE, SKIPPED or TOO HARD
   def trueAvailable : Double = available + skipped + deleted
@@ -52,6 +53,7 @@ case class UserSurveySummary(distinctTotalUsers:Int,
                              answerPerUser:Double,
                              answersPerChallenge:Double)
 case class ChallengeSummary(id:Long, name:String, actions:ActionSummary)
+case class SurveySummary(id:Long, name:String, count:Int)
 case class ChallengeActivity(date:DateTime, status:Int, statusName:String, count:Int)
 case class RawActivity(date:DateTime, osmUserId:Long, osmUsername:String, projectId:Long,
                        projectName:String, challengeId:Long, challengeName:String,
@@ -136,12 +138,14 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         deleted <- get[Option[Double]]("deleted")
         alreadyFixed <- get[Option[Double]]("already_fixed")
         tooHard <- get[Option[Double]]("too_hard")
+        answered <- get[Option[Double]]("answered")
       } yield ActionSummary(0, available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
-                            skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0), tooHard.getOrElse(0))
+                            skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0),
+                            tooHard.getOrElse(0), answered.getOrElse(0))
 
       val perUser = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                   AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
-                                  AVG(too_hard) AS too_hard
+                                  AVG(too_hard) AS too_hard, AVG(answered) AS answered
                               FROM (
                                 SELECT sa.osm_user_id,
                                     SUM(CASE sa.status WHEN 0 THEN 1 ELSE 0 END) AS available,
@@ -150,7 +154,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                     SUM(CASE sa.status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                     SUM(CASE sa.status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                     SUM(CASE sa.status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
-                                    SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
+                                    SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
+                                    SUM(CASE sa.status WHEN 7 THEN 1 ELSE 0 END) AS answered
                                 FROM status_actions sa
                                 #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
                                 #$challengeProjectFilter
@@ -158,7 +163,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                               ) AS t""".as(actionParser.*).head
       val perChallenge = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                         AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
-                                        AVG(too_hard) as too_hard
+                                        AVG(too_hard) AS too_hard, AVG(answered) AS answered
                                   FROM (
                                     SELECT osm_user_id, challenge_id,
                                         SUM(CASE sa.status WHEN 0 THEN 1 ELSE 0 END) AS available,
@@ -167,7 +172,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                         SUM(CASE sa.status WHEN 3 THEN 1 ELSE 0 END) AS skipped,
                                         SUM(CASE sa.status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                         SUM(CASE sa.status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
-                                        SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
+                                        SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
+                                        SUM(CASE sa.status WHEN 7 THEN 1 ELSE 0 END) AS answered
                                     FROM status_actions sa
                                     #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
                                     #$challengeProjectFilter
@@ -184,6 +190,39 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         this.getActiveUsers(challengeProjectFilter, false, challengeId.isEmpty, start, end, priority),
         perUser,
         perChallenge)
+    }
+  }
+
+  /**
+    * Gets the summarized survey data
+    *
+    * @param surveyId The id for the survey
+    * @param priority The optional priority value
+    * @return a list of SurveySummary object
+    */
+  def getSurveySummary(surveyId:Long, priority:Option[Int]=None) : List[SurveySummary] = {
+    this.db.withConnection { implicit c =>
+      val parser = for {
+        answer_id <- int("answer_id")
+        answer <- str("answer")
+        count <- int("count")
+      } yield SurveySummary(answer_id, answer, count)
+      val priorityFilter = priority match {
+        case Some(p) => s"AND t.priority = $p"
+        case None => ""
+      }
+      SQL"""(SELECT answer_id, answer, COUNT(answer_id)
+            FROM survey_answers sa
+            INNER JOIN answers a ON a.id = sa.answer_id
+            INNER JOIN tasks t ON t.id = sa.task_id
+            WHERE sa.survey_id = $surveyId
+            #$priorityFilter
+            GROUP BY answer_id, answer)
+            UNION
+            (
+              SELECT -3, 'total', COUNT(*) FROM tasks t WHERE parent_id = $surveyId #$priorityFilter
+            )
+        """.as(parser.*)
     }
   }
 
@@ -209,7 +248,9 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
         deleted <- int("deleted")
         alreadyFixed <- int("already_fixed")
         tooHard <- int("too_hard")
-      } yield ChallengeSummary(id, name, ActionSummary(total, available, fixed, falsePositive, skipped, deleted, alreadyFixed, tooHard))
+        answered <- int("answered")
+      } yield ChallengeSummary(id, name, ActionSummary(total, available, fixed, falsePositive,
+                                skipped, deleted, alreadyFixed, tooHard, answered))
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND t.parent_id = $id"
         case _ => getLongListFilter(projectList, "c.parent_id")
@@ -228,7 +269,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                         (CAST(false_positive AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS false_positive_perc,
                         (CAST(skipped AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS skipped_perc,
                         (CAST(already_fixed AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS already_fixed_perc,
-                        (CAST(too_hard AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS too_hard_perc
+                        (CAST(too_hard AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS too_hard_perc,
+                        (CAST(answered AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS answered_perc
                       FROM (
                       SELECT t.parent_id, c.name,
                                 SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,
@@ -238,7 +280,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                                 SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
                                 SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
                                 SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
-                                SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard
+                                SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
+                                SUM(CASE t.status WHEN 7 THEN 1 ELSE 0 END) AS answered
                               FROM tasks t
                               INNER JOIN challenges c ON c.id = t.parent_id
                               INNER JOIN projects p ON p.id = c.parent_id
@@ -278,6 +321,41 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
                       challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
                       $challengeFilter ${this.searchField("c.name")}"""
       SQL(query).on('ss -> this.search(searchString)).as(int("total").single)
+    }
+  }
+
+  /**
+    * Gets the survey activity which includes the answers for the survey
+    *
+    * @param surveyId The id for the survey
+    * @param start the start date
+    * @param end the end date
+    * @param priority any priority being applied
+    * @return A list of challenge activities
+    */
+  def getSurveyActivity(surveyId:Long, start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]=None) : List[ChallengeActivity] = {
+    this.db.withConnection { implicit c =>
+      val parser = for {
+        seriesDate <- get[DateTime]("series_date")
+        answer_id <- get[Option[Int]]("survey_answers.answer_id")
+        answer <- get[Option[String]]("answers.answer")
+        count <- int("count")
+      } yield ChallengeActivity(seriesDate, answer_id.getOrElse(-2), answer.getOrElse("N/A"), count)
+      val dates = this.getDates(start, end)
+      SQL"""
+           SELECT series_date, answer_id, answer,
+              CASE WHEN count IS NULL THEN 0 ELSE count END AS count
+           FROM (SELECT CURRENT_DATE + i AS series_date
+                  FROM generate_series(date '#${dates._1}' - CURRENT_DATE, date '#${dates._2}' - CURRENT_DATE) i) d
+                  LEFT JOIN (
+                    SELECT sa.created::date, sa.answer_id, a.answer, COUNT(sa.answer_id) AS count
+                    FROM survey_answers sa
+                    INNER JOIN answers a ON a.id = sa.answer_id
+                    #${this.getEnabledPriorityClause(false, true, start, end, priority)}
+                    AND sa.survey_id = $surveyId
+                    GROUP BY sa.created::date, sa.answer_id, a.answer
+                    ORDER BY sa.created::date, sa.answer_id, a.answer ASC
+                ) sa ON d.series_date = sa.created""".as(parser.*)
     }
   }
 

@@ -168,24 +168,34 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     */
   def setTaskStatus(id: Long, status: Int, comment:String="") : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      if (!Task.isValidStatus(status)) {
-        throw new InvalidException(s"Cannot set task [$id] to invalid status [$status]")
-      }
-      val task = this.dal.retrieveById(id) match {
-        case Some(t) => t
-        case None => throw new NotFoundException(s"Task with $id not found, can not set status.")
-      }
-      this.dal.setTaskStatus(task, status, user)
-      val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
-      // add comment if any provided
-      if (comment.nonEmpty) {
-        val actionId = action match {
-          case Some(a) => Some(a.id)
-          case None => None
-        }
-        this.dal.addComment(user, task.id, comment, actionId)
-      }
+      this.customTaskStatus(id, TaskStatusSet(status), user, comment)
       NoContent
+    }
+  }
+
+  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="") = {
+    val status = actionType match {
+      case t:TaskStatusSet => t.status
+      case q:QuestionAnswered => Task.STATUS_ANSWERED
+      case _ => Task.STATUS_CREATED
+    }
+
+    if (!Task.isValidStatus(status)) {
+      throw new InvalidException(s"Cannot set task [$taskId] to invalid status [$status]")
+    }
+    val task = this.dal.retrieveById(taskId) match {
+      case Some(t) => t
+      case None => throw new NotFoundException(s"Task with $taskId not found, can not set status.")
+    }
+    this.dal.setTaskStatus(task, status, user)
+    val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
+    // add comment if any provided
+    if (comment.nonEmpty) {
+      val actionId = action match {
+        case Some(a) => Some(a.id)
+        case None => None
+      }
+      this.dal.addComment(user, task.id, comment, actionId)
     }
   }
 

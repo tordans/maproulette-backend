@@ -180,24 +180,27 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def metrics(survey:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def metrics : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      if (survey == 1) {
-        getOkIndex(this.metricsHeader, user, views.html.metrics.surveyMetrics(user, config, None, ""))
-      } else {
-        getOkIndex(this.metricsHeader, user, views.html.metrics.challengeMetrics(user, config, None, ""))
-      }
+      getOkIndex(this.metricsHeader, user, views.html.metrics.challengeMetrics(user, config, None, ""))
     }
   }
 
-  def challengeMetrics(challengeId:Long, projects:String, survey:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def challengeMetrics(challengeId:Long, projects:String) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      if (survey == 1) {
-        getOkIndex(this.metricsHeader, user,
-          views.html.metrics.surveyMetrics(user, config, dalManager.survey.retrieveById(challengeId), projects))
-      } else {
-        getOkIndex(this.metricsHeader, user,
-          views.html.metrics.challengeMetrics(user, config, dalManager.challenge.retrieveById(challengeId), projects))
+      val challenge = dalManager.challenge.retrieveById(challengeId)
+      challenge match {
+        case Some(c) => c.general.challengeType match {
+          case Actions.ITEM_TYPE_CHALLENGE =>
+            getOkIndex(this.metricsHeader, user,
+              views.html.metrics.challengeMetrics(user, config, challenge, projects))
+          case Actions.ITEM_TYPE_SURVEY =>
+            val answers = dalManager.survey.getAnswers(challengeId)
+            getOkIndex(this.metricsHeader, user,
+              views.html.metrics.surveyMetrics(user, config, c, answers))
+        }
+        case None =>
+          getOkIndex(this.metricsHeader, user, views.html.metrics.challengeMetrics(user, config, None, ""))
       }
     }
   }
@@ -341,7 +344,6 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ProjectController.find,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.find,
         org.maproulette.controllers.api.routes.javascript.SurveyController.find,
-        org.maproulette.controllers.api.routes.javascript.ChallengeController.getChallenge,
         org.maproulette.controllers.api.routes.javascript.ProjectController.read,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.read,
         org.maproulette.controllers.api.routes.javascript.SurveyController.read,

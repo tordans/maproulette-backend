@@ -34,6 +34,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   implicit val rawActivityWrites = Json.writes[RawActivity]
   implicit val statusActionItemWrites = Json.writes[StatusActionItem]
   implicit val statusActionSummaryWrites = Json.writes[DailyStatusActionSummary]
+  implicit val surveySummaryWrites = Json.writes[SurveySummary]
 
   implicit val stringIntMap:Writes[Map[String, Int]] = new Writes[Map[String, Int]] {
     def writes(map:Map[String, Int]) : JsValue =
@@ -85,11 +86,17 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getChallengeSummary(id:Long, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeSummary(id:Long, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(
-        this.dataManager.getChallengeSummary(challengeId = Some(id), priority = this.getPriority(priority))
-      ))
+      if (survey == 1) {
+        Ok(Json.toJson(
+          this.dataManager.getSurveySummary(id, this.getPriority(priority))
+        ))
+      } else {
+        Ok(Json.toJson(
+          this.dataManager.getChallengeSummary(challengeId = Some(id), priority = this.getPriority(priority))
+        ))
+      }
     }
   }
 
@@ -101,11 +108,17 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getChallengeActivity(challengeId:Long, start:String, end:String, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeActivity(challengeId:Long, start:String, end:String, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(
-        this.dataManager.getChallengeActivity(None, Some(challengeId), Utils.getDate(start), Utils.getDate(end), this.getPriority(priority))
-      ))
+      if (survey == 1) {
+        Ok(Json.toJson(
+          this.dataManager.getSurveyActivity(challengeId, Utils.getDate(start), Utils.getDate(end), this.getPriority(priority))
+        ))
+      } else {
+        Ok(Json.toJson(
+          this.dataManager.getChallengeActivity(None, Some(challengeId), Utils.getDate(start), Utils.getDate(end), this.getPriority(priority))
+        ))
+      }
     }
   }
 

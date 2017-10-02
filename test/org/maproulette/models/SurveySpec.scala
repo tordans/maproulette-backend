@@ -24,18 +24,18 @@ class SurveySpec @Inject() (projectDAL: ProjectDAL, surveyDAL: SurveyDAL) extend
     "write survey object to database" in new WithApplication {
       val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest", DateTime.now(), DateTime.now()), User.superUser).id
       val answers = List(Answer(-1, "Answer1"), Answer(-1, "Answer2"))
-      val newSurvey = Survey(Challenge(surveyID, "newSurvey", DateTime.now(), DateTime.now(), DateTime.now(), Some("This is a new survey"),
+      val newSurvey = Challenge(surveyID, "newSurvey", DateTime.now(), DateTime.now(), DateTime.now(), Some("This is a new survey"),
         ChallengeGeneral(-1, projectID, "Default Question"),
         ChallengeCreation(),
         ChallengePriority(),
         ChallengeExtra()
-      ), answers)
-      surveyID = surveyDAL.insert(newSurvey, User.superUser).challenge.id
+      )
+      surveyID = surveyDAL.insert(newSurvey, User.superUser).id
       surveyDAL.retrieveById match {
         case Some(t) =>
           t.name mustEqual newSurvey.name
           t.description mustEqual newSurvey.description
-          t.question mustEqual newSurvey.question
+          t.general.instruction mustEqual newSurvey.general.instruction
         case None =>
           // fail here automatically because we should have retrieved the tag
           1 mustEqual 2

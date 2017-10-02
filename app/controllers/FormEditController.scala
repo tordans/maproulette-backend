@@ -102,17 +102,10 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         case Some(c) =>
           val clonedChallenge = c.copy(id = -1, name = "")
           val tags = Some(dalManager.tag.listByChallenge(itemId).map(_.name))
-          if (c.general.challengeType == Actions.ITEM_TYPE_SURVEY) {
-            val surveyForm = Survey.surveyForm.fill(Survey(clonedChallenge, dalManager.survey.getAnswers(c.id)))
-            getOkIndex(this.adminHeader, user,
-              views.html.admin.forms.surveyForm(user, c.name, parentId, surveyForm)
-            )
-          } else {
-            val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
-            getOkIndex(this.adminHeader, user,
-              views.html.admin.forms.challengeForm(user, c.name, parentId, challengeForm, tags)
-            )
-          }
+          val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
+          getOkIndex(this.adminHeader, user,
+            views.html.admin.forms.challengeForm(user, c.name, parentId, challengeForm, tags)
+          )
         case None =>
           throw new NotFoundException(s"No challenge found to clone matching the given id [$itemId]")
       }
@@ -160,10 +153,14 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                 )
               },
               challenge => {
+                val dal = challenge.general.challengeType match {
+                  case Actions.ITEM_TYPE_SURVEY => dalManager.survey
+                  case _ => dalManager.challenge
+                }
                 val updatedChallenge = if (itemId > -1) {
-                  dalManager.challenge.update(Json.toJson(challenge), user)(itemId).get
+                  dal.update(Json.toJson(challenge), user)(itemId).get
                 } else {
-                  dalManager.challenge.insert(challenge, user)
+                  dal.insert(challenge, user)
                 }
                 // update the data in the challenge
                 val rerun = request.body.dataParts.getOrElse("rerun", Vector("false")).head.toBoolean
@@ -175,7 +172,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                   challengeService.buildChallengeTasks(user, updatedChallenge, uploadData)
                 }
 
-                dalManager.challenge.updateItemTagNames(updatedChallenge.id, tags, user)
+                dal.updateItemTagNames(updatedChallenge.id, tags, user)
                 Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)).flashing("success" -> "Project saved!")
               }
             )
@@ -192,54 +189,6 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           challengeService.rebuildChallengeTasks(user, c)
           Ok
         case None => throw new NotFoundException(s"No challenge found with id $challengeId")
-      }
-    }
-  }
-
-  def surveyFormUI(parentId:Long, itemId:Long) : Action[AnyContent] = Action.async { implicit request =>
-    sessionManager.authenticatedUIRequest { implicit user =>
-      dalManager.project.retrieveById(parentId) match {
-        case Some(p) =>
-          permission.hasWriteAccess(ProjectType(), user)(parentId)
-          val survey: Survey = if (itemId > -1) {
-            dalManager.survey.retrieveById(itemId) match {
-              case Some(sur) => sur
-              case None => Survey.emptySurvey(user.osmProfile.id, parentId)
-            }
-          } else {
-            Survey.emptySurvey(user.osmProfile.id, parentId)
-          }
-          val surveyForm = Survey.surveyForm.fill(survey)
-          getOkIndex(this.adminHeader, user,
-            views.html.admin.forms.surveyForm(user, p.name, parentId, surveyForm)
-          )
-        case None => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
-      }
-    }
-  }
-
-  def surveyFormPost(parentId:Long, itemId:Long) : Action[AnyContent] = Action.async { implicit request =>
-    sessionManager.authenticatedUIRequest { implicit user =>
-      dalManager.project.retrieveById(parentId) match {
-        case Some(p) =>
-          permission.hasWriteAccess(ProjectType(), user)(parentId)
-          Survey.surveyForm.bindFromRequest.fold(
-            formWithErrors => {
-              getIndex(BadRequest, this.adminHeader, user,
-                views.html.admin.forms.surveyForm(user, p.name, parentId, formWithErrors)
-              )
-            },
-            survey => {
-              if (itemId > -1) {
-                implicit val answerWrites = Survey.answerWrites
-                dalManager.survey.update(Json.toJson(survey)(Survey.surveyWrites), user)(itemId)
-              } else {
-                dalManager.survey.insert(survey, user)
-              }
-              Redirect(routes.Application.adminUIChildList(Actions.ITEM_TYPE_SURVEY_NAME, parentId)).flashing("success" -> "Project saved!")
-            }
-          )
-        case None => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
       }
     }
   }

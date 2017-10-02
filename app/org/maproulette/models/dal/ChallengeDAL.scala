@@ -201,6 +201,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.general.parent)
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.general.difficulty)
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
+        val challengeType = (updates \ "challengeType").asOpt[Int].getOrElse(cachedItem.general.challengeType)
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.general.blurb.getOrElse(""))
         val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.general.instruction)
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.general.enabled)
@@ -232,7 +233,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                 medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) { Option.empty[String] } else { Some(mediumPriorityRule) }},
                 low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap,
-                custom_basemap = $customBasemap, updatetasks = $updateTasks
+                custom_basemap = $customBasemap, updatetasks = $updateTasks, challenge_type = $challengeType
               WHERE id = $id RETURNING *""".as(parser.*).headOption
       }
     }

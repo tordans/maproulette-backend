@@ -138,18 +138,36 @@ class TagDAL @Inject() (override val db:Database,
   }
 
   /**
-    * Get all the tags for a specific challenge
+    * Gets all the tags for a specific challenge
     *
-    * @param id The id of the challenge
-    * @return List of tags for the challenge
+    * @param id The id of the challenge\
+    * @return List of Tags associated with the challenge
     */
   def listByChallenge(id:Long)(implicit c:Option[Connection]=None) : List[Tag] = {
+    this.listByChallenges(List(id)).flatMap(_._2).toList
+  }
+
+  /**
+    * Get all the tags for a list of challenge
+    *
+    * @param id The id list of the challenges
+    * @return Map of challenge ids to tags associated with challenge
+    */
+  def listByChallenges(id:List[Long])(implicit c:Option[Connection]=None) : Map[Long, List[Tag]] = {
     implicit val ids:List[Long] = List()
-    this.cacheManager.withIDListCaching { implicit uncached =>
-      this.withMRConnection { implicit c =>
-        SQL"""SELECT * FROM tags AS t
-              INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id
-              WHERE tc.challenge_id = $id""".as(this.parser.*)
+    this.withMRConnection { implicit c =>
+      val challengeTagParser:RowParser[(Long, Tag)] = {
+        this.parser ~
+        get[Long]("tags_on_challenges.challenge_id") map {
+          case tag ~ challengeId => (challengeId, tag)
+        }
+      }
+
+      val result = SQL"""SELECT * FROM tags AS t
+            INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id
+            WHERE tc.challenge_id IN ($id)""".as(challengeTagParser.*)
+      result.groupBy(_._1).map {
+        case (k, v) => (k, v.map(_._2))
       }
     }
   }

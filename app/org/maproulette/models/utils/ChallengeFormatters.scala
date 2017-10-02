@@ -2,8 +2,8 @@ package org.maproulette.models.utils
 
 import org.joda.time.DateTime
 import org.maproulette.models._
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json._
 
 /**
   * @author cuthbertm
@@ -11,7 +11,16 @@ import play.api.libs.functional.syntax._
 trait ChallengeWrites {
   implicit val challengeGeneralWrites: Writes[ChallengeGeneral] = Json.writes[ChallengeGeneral]
   implicit val challengeCreationWrites: Writes[ChallengeCreation] = Json.writes[ChallengeCreation]
-  implicit val challengePriorityWrites: Writes[ChallengePriority] = Json.writes[ChallengePriority]
+
+  implicit object challengePriorityWrites extends Writes[ChallengePriority] {
+    override def writes(challengePriority: ChallengePriority): JsValue =
+      JsObject(Seq(
+        "defaultPriority" -> JsNumber(challengePriority.defaultPriority),
+        "highPriorityRule" -> Json.parse(challengePriority.highPriorityRule.getOrElse("{}")),
+        "mediumPriorityRule" -> Json.parse(challengePriority.mediumPriorityRule.getOrElse("{}")),
+        "lowPriorityRule" -> Json.parse(challengePriority.lowPriorityRule.getOrElse("{}"))
+      ))
+  }
   implicit val challengeExtraWrites: Writes[ChallengeExtra] = Json.writes[ChallengeExtra]
 
   implicit val challengeWrites: Writes[Challenge] = (
@@ -38,9 +47,9 @@ trait ChallengeReads extends DefaultReads {
   implicit val challengeReads: Reads[Challenge] = (
     (JsPath \ "id").read[Long] and
     (JsPath \ "name").read[String] and
-      ((JsPath \ "created").read[DateTime] or Reads.pure(DateTime.now())) and
-      ((JsPath \ "modified").read[DateTime] or Reads.pure(DateTime.now())) and
-      ((JsPath \ "lastUpdated").read[DateTime] or Reads.pure(DateTime.now())) and
+    ((JsPath \ "created").read[DateTime] or Reads.pure(DateTime.now())) and
+    ((JsPath \ "modified").read[DateTime] or Reads.pure(DateTime.now())) and
+    ((JsPath \ "lastUpdated").read[DateTime] or Reads.pure(DateTime.now())) and
     (JsPath \ "description").readNullable[String] and
     JsPath.read[ChallengeGeneral] and
     JsPath.read[ChallengeCreation] and

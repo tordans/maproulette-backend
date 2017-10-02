@@ -403,7 +403,7 @@ function Challenge() {
      */
     this.updateChallenge = function(challengeId, success, error) {
         if (data.id != challengeId) {
-            jsRoutes.org.maproulette.controllers.api.ChallengeController.getChallenge(challengeId).ajax({
+            jsRoutes.org.maproulette.controllers.api.ChallengeController.read(challengeId).ajax({
                 success: function (update) {
                     if (typeof update.challenge === 'undefined') {
                         data = update;
@@ -449,7 +449,10 @@ function Challenge() {
         if (this.isSurvey()) {
             ToastUtils.Success(Messages("mapping.js.task.answered") + " [" + data.instruction + "]");
             MRManager.loading();
-            jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId).ajax({
+            // get the comment.
+            var comment = $("#controlpanel_comment_text").val();
+            $("#controlpanel_comment_text").val("");
+            jsRoutes.org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(data.id, taskId, answerId, comment).ajax({
                 success: MRManager.getSuccessHandler(function() {
                     if (typeof success === 'undefined') {
                         MRManager.getNextTask();
@@ -891,7 +894,9 @@ var MRManager = (function() {
             throw err;
         }
         // limit taskDisplay maxZoom by the default zoom set in the challenge.
-        map.fitBounds(geojsonLayer.getBounds(), { maxZoom: map.options.zoom });
+        // The fly to option could be nice, however for now, let's leave as is.
+        //map.flyToBounds(geojsonLayer.getBounds(), { maxZoom: map.options.maxZoom });
+        map.fitBounds(geojsonLayer.getBounds(), { maxZoom: map.options.maxZoom });
         controlPanel.update(signedIn, debugMode, true, true, true);
         resetEditControls();
         var challengeData = currentTask.getChallenge().getData();
@@ -1286,6 +1291,8 @@ var MRManager = (function() {
             url: josmUri,
             success: function (t) {
                 if (t.indexOf('OK') === -1) {
+                    // if failure try opening in Id.
+                    openTaskInId();
                     ToastUtils.Error(Messages('mapping.js.task.josm.noresponse'));
                 } else {
                     editPanel.setAsResult();
@@ -1293,6 +1300,8 @@ var MRManager = (function() {
                 }
             },
             error: function (e) {
+                // if failure try opening in Id.
+                openTaskInId();
                 ToastUtils.Error(Messages('mapping.js.task.josm.noresponse'));
             }
         });

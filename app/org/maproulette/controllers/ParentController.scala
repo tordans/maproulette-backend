@@ -34,6 +34,14 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
   protected val cWrites:Writes[C]
 
   /**
+    * Injects anything classes that override this function want too.
+    *
+    * @param obj The object to inject the new values into
+    * @return A json representation of the object
+    */
+  def injectChildren(obj:C)(implicit writes:Writes[C]) = Json.toJson(obj)
+
+  /**
     * Function can be implemented to extract more information than just the default create data,
     * to build other objects with the current object at the core. No data will be returned from this
     * function, it purely does work in the background AFTER creating the current object
@@ -148,7 +156,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
   def listChildren(id:Long, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
     implicit val writes:Writes[C] = this.cWrites
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.dal.listChildren(limit, offset)(id)))
+      Ok(Json.toJson(this.dal.listChildren(limit, offset)(id).map(this.injectChildren)))
     }
   }
 

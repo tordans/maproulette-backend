@@ -99,6 +99,7 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
           val tasksDeleted =
             SQL("""DELETE FROM tasks t USING challenges c
                     WHERE t.parent_id = c.id AND c.updateTasks = true AND t.status IN ({statuses})
+                     AND AGE(NOW(), c.modified) > {duration}::INTERVAL
                      AND AGE(NOW(), t.modified) > {duration}::INTERVAL""").on(
               'duration -> ParameterValue.toParameterValue(String.valueOf(duration)),
               'statuses -> ParameterValue.toParameterValue(oldTasksStatusFilter)
