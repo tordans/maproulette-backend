@@ -10,6 +10,9 @@ import org.maproulette.actions.{Actions, ChallengeType, ItemType}
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
 
+// Answer cass class for Surveys
+case class Answer(id:Long = -1, answer:String)
+
 case class PriorityRule(operator:String, key:String, value:String) {
   def doesMatch(properties:Map[String, String]) : Boolean = {
     properties.find(pair => StringUtils.equalsIgnoreCase(pair._1, key)) match {
@@ -57,11 +60,11 @@ case class Challenge(override val id:Long,
                      override val modified:DateTime,
                      lastUpdated:DateTime,
                      override val description:Option[String]=None,
-                      general:ChallengeGeneral,
-                      creation:ChallengeCreation,
-                      priority:ChallengePriority,
-                      extra: ChallengeExtra,
-                      status:Option[Int]=Some(0)) extends BaseObject[Long] with DefaultWrites {
+                     general:ChallengeGeneral,
+                     creation:ChallengeCreation,
+                     priority:ChallengePriority,
+                     extra: ChallengeExtra,
+                     status:Option[Int]=Some(0)) extends BaseObject[Long] with DefaultWrites {
 
   override val itemType: ItemType = ChallengeType()
 
@@ -98,6 +101,9 @@ case class Challenge(override val id:Long,
 }
 
 object Challenge {
+  implicit val answerWrites: Writes[Answer] = Json.writes[Answer]
+  implicit val answerReads: Reads[Answer] = Json.reads[Answer]
+
   val writes = new Object with ChallengeWrites
   val reads = new Object with ChallengeReads
 
@@ -112,6 +118,10 @@ object Challenge {
   val DEFAULT_ZOOM = 13
   val MIN_ZOOM = 1
   val MAX_ZOOM = 19
+
+  val KEY_ANSWER = "answers"
+  val defaultAnswerValid = Answer(-1, "Valid")
+  val defaultAnswerInvalid = Answer(-2, "Invalid")
 
   /**
     * This will check to make sure that the json rule is fully valid. The simple check just makes sure

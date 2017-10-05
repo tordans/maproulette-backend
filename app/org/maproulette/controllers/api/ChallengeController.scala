@@ -6,13 +6,12 @@ import java.sql.Connection
 import javax.inject.Inject
 
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions.{ActionManager, Actions, ChallengeType, TaskViewed}
+import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
 import org.maproulette.exception.{NotFoundException, StatusMessage}
 import org.maproulette.models.dal._
-import org.maproulette.models.{Challenge, ClusteredPoint, Survey, Task}
+import org.maproulette.models._
 import org.maproulette.services.ChallengeService
-import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -30,10 +29,7 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     override val sessionManager: SessionManager,
                                     override val actionManager: ActionManager,
                                     override val dal: ChallengeDAL,
-                                    surveyDAL: SurveyDAL,
-                                    taskDAL: TaskDAL,
-                                    userDAL: UserDAL,
-                                    projectDAL: ProjectDAL,
+                                    dalManager: DALManager,
                                     override val tagDAL: TagDAL,
                                     challengeService: ChallengeService)
   extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
@@ -47,11 +43,29 @@ class ChallengeController @Inject()(override val childController: TaskController
   // json reads for automatically reading tasks from a posted json body
   override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
-  override implicit val itemType = ChallengeType()
-  // json writes for automatically writing surveys to a json body response
-  implicit val sWrites: Writes[Survey] = Survey.surveyWrites
+  override implicit val itemType: ItemType = ChallengeType()
+  implicit val answerWrites: Writes[Answer] = Challenge.answerWrites
 
   override def dalWithTags: TagDALMixin[Challenge] = dal
+
+
+  /**
+    * Classes can override this function to inject values into the object before it is sent along
+    * with the response
+    *
+    * @param obj the object being sent in the response
+    * @return A Json representation of the object
+    */
+  override def inject(obj: Challenge) = {
+    val tags = tagDAL.listByChallenge(obj.id)
+    val withTagsJson = Utils.insertIntoJson(Json.toJson(obj), Tag.KEY, Json.toJson(tags.map(_.name)))
+    obj.general.challengeType match {
+      case Actions.ITEM_TYPE_SURVEY =>
+        // if no answers provided with Challenge, then provide the default answers
+        Utils.insertIntoJson(withTagsJson, Challenge.KEY_ANSWER, Json.toJson(this.dalManager.survey.getAnswers(obj.id)))
+      case _ => withTagsJson
+    }
+  }
 
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
@@ -76,7 +90,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     // if we can't find the parent ID, just use the user's default project instead
     (jsonBody \ "parent").asOpt[Long] match {
       case Some(v) => jsonBody
-      case None => Utils.insertIntoJson(jsonBody, "parent", this.userDAL.getHomeProject(user).id)
+      case None => Utils.insertIntoJson(jsonBody, "parent", this.dalManager.user.getHomeProject(user).id)
     }
   }
 
@@ -106,29 +120,6 @@ class ChallengeController @Inject()(override val childController: TaskController
   def getTagsForChallenge(id: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.getTags(id)))
-    }
-  }
-
-  /**
-    * Only slightly different from the base read function, if it detects that this is a survey
-    * get the answers for the survey and wrap it up in a Survey object
-    *
-    * @param id The id of the object that is being retrieved
-    * @return 200 Ok, 204 NoContent if not found
-    */
-  def getChallenge(implicit id: Long): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      this.dal.retrieveById match {
-        case Some(value) =>
-          if (value.general.challengeType == Actions.ITEM_TYPE_SURVEY) {
-            val answers = this.surveyDAL.getAnswers(value.id)
-            Ok(Json.toJson(Survey(value, answers)))
-          } else {
-            Ok(Json.toJson(value))
-          }
-        case None =>
-          NoContent
-      }
     }
   }
 
@@ -182,7 +173,7 @@ class ChallengeController @Inject()(override val childController: TaskController
         taskSearch = Some(taskSearch),
         taskTags = Some(tags.split(",").toList)
       )
-      val result = this.taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, limit)
+      val result = this.dalManager.task.getRandomTasksWithPriority(User.userOrMocked(user), params, limit)
       result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
@@ -204,7 +195,7 @@ class ChallengeController @Inject()(override val childController: TaskController
         taskSearch = Some(taskSearch),
         taskTags = Some(tags.split(",").toList)
       )
-      val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
+      val result = this.dalManager.task.getRandomTasks(User.userOrMocked(user), params, limit)
       result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
     }
@@ -278,7 +269,16 @@ class ChallengeController @Inject()(override val childController: TaskController
   def extendedFind(limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withQSSearch { implicit params =>
-        Ok(Json.toJson(this.dal.extendedFind(params, limit, page)))
+        val challenges = this.dal.extendedFind(params, limit, page)
+        if (challenges.isEmpty) {
+          NotFound
+        } else {
+          val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
+          val jsonList = challenges.map { c =>
+            Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
+          }
+          Ok(Json.toJson(jsonList))
+        }
       }
     }
   }

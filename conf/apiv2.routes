@@ -153,6 +153,7 @@ PUT     /projects                                   @org.maproulette.controllers
 #     description: ID field supplied but no object found matching the id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the project to retrieve
 ###
 GET     /project/:id                                @org.maproulette.controllers.api.ProjectController.read(id:Long)
@@ -171,8 +172,10 @@ GET     /project/:id                                @org.maproulette.controllers
 #     description: No project found matching the provided name
 # parameters:
 #   - name: id
+#     in: query
 #     description: Ignore this field, it is not used
 #   - name: name
+#     in: path
 #     description: The name of the project being retrieved
 ###
 GET     /projectByName/:name                        @org.maproulette.controllers.api.ProjectController.readByName(id:Long ?= -1, name:String)
@@ -193,6 +196,7 @@ GET     /projectByName/:name                        @org.maproulette.controllers
 #     description: No project found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the project being deleted
 #   - name: apiKey
 #     in: header
@@ -217,14 +221,19 @@ DELETE  /project/:id                                @org.maproulette.controllers
 #     description: No project found matching the match the provided search string
 # parameters:
 #   - name: q
+#     in: query
 #     description: The search string used to match the project names. Default value is empty string, ie. will match everything.
 #   - name: parentId
+#     in: query
 #     description: This field will be ignored for this request
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 #   - name: onlyEnabled
+#     in: query
 #     description: Flag to set if only wanting enabled projects returned. Default value is true.
 ###
 GET     /projects/find                              @org.maproulette.controllers.api.ProjectController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
@@ -242,9 +251,14 @@ GET     /projects/find                              @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Project'
 # parameters:
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     in: query
+#     description: Flag to set if only wanting enabled projects returned. Default value is true.
 ###
 GET     /projects                                   @org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
 ###
@@ -260,10 +274,13 @@ GET     /projects                                   @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The project ID.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
@@ -286,6 +303,7 @@ GET     /project/:id/challenges                     @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project where all the children are being created.
 #   - name: apiKey
 #     in: header
@@ -320,6 +338,7 @@ POST    /project/:id/challenges                     @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Project'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project where all the children are being created.
 #   - name: apiKey
 #     in: header
@@ -350,10 +369,13 @@ PUT     /project/:id/challenges                     @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Project'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /project/:id/children                       @org.maproulette.controllers.api.ProjectController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
@@ -370,16 +392,22 @@ GET     /project/:id/children                       @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project limiting the tasks to only a descendent of that project.
 #   - name: cs
+#     in: query
 #     description: The challenge search string. Retrieve only tasks that have the search string contained within the challenge name. Match is case insensitive.
 #   - name: ct
+#     in: query
 #     description: A comma separated list of challenge tags. The search will then only retrieve random tasks that are children of challenges that contain those tags
 #   - name: tags
+#     in: query
 #     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
 #   - name: s
+#     in: query
 #     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 1.
 ###
 GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, cs:String ?= "", ct:String ?= "", tags:String ?= "", s:String ?= "", limit:Int ?= 1)
@@ -395,8 +423,10 @@ GET     /project/:id/tasks                          @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project.
 #   - name: challenges
+#     in: query
 #     description: The challenge search string. Retrieve only challenge clustered points that have the search string contained within the challenge name. Match is case insensitive.
 ###
 GET     /project/clustered/:id                      @org.maproulette.controllers.api.ProjectController.getClusteredPoints(id:Long, challenges:String ?= "")
@@ -413,6 +443,7 @@ GET     /project/clustered/:id                      @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: search
+#     in: query
 #     description: The challenge search parameters. This is a URL encoded JSON object containing multiple different search parameters.
 ###
 GET     /project/search/clustered                   @org.maproulette.controllers.api.ProjectController.getSearchedClusteredPoints(search ?= "")
@@ -507,6 +538,7 @@ POST    /challenges                                 @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Challenge that is being updated
 #   - name: apiKey
 #     in: header
@@ -584,29 +616,13 @@ GET     /challenge/:id                              @org.maproulette.controllers
 #     description: No Challenge found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Project of the Challenge
 #   - name: name
+#     in: path
 #     description: The name of the Challenge being retrieved
 ###
 GET     /project/:id/challenge/:name                @org.maproulette.controllers.api.ChallengeController.readByName(id:Long, name:String)
-###
-# tags: [ Challenge ]
-# summary: Retrieves an already existing Challenge
-# consumes: [ application/json ]
-# produces: [ application/json ]
-# description: Retrieves an already existing Challenge based on the ID of the Challenge, and then will check whether the challenge is a Survey and automatically return Challenge as a Survey instead.
-# responses:
-#   '200':
-#     description: The retrieved Challenge or Survey, if the Challenge is just a Challenge and not a Survey only the portion within the "challenge" key will be return as the root object
-#     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
-#   '404':
-#     description: No Challenge found matching the provided name
-# parameters:
-#   - name: id
-#     description: The id of the the Challenge
-###
-GET     /challengeOrSurvey/:id                      @org.maproulette.controllers.api.ChallengeController.getChallenge(id:Long)
 ###
 # tags: [ Challenge ]
 # summary: Deletes an existing Challenge
@@ -622,6 +638,7 @@ GET     /challengeOrSurvey/:id                      @org.maproulette.controllers
 #     description: No Challenge found matching the provided id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Challenge being deleted
 #   - name: apiKey
 #     in: header
@@ -644,8 +661,10 @@ DELETE  /challenge/:id                              @org.maproulette.controllers
 #     description: No Challenge found matching the provided id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Challenge being deleted
 #   - name: statusFilters
+#     in: query
 #     description: A comma separated list of status ID's. 0 = Created, 1 = Fixed, 2 = False Positive, 3 = Skipped, 4 = Deleted, 5 = Already Fixed, 6 = Too Hard
 #   - name: apiKey
 #     in: header
@@ -667,14 +686,19 @@ DELETE  /challenge/:id/tasks                        @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: q
+#     in: query
 #     description: The search string used to match the Challenge names. Default value is empty string, ie. will match everything.
 #   - name: parentId
+#     in: query
 #     description: This field will be ignored for this request
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 #   - name: onlyEnabled
+#     in: query
 #     description: Flag to set if only wanting enabled Challenges returned. Default value is true.
 ###
 GET     /challenges/find                            @org.maproulette.controllers.api.ChallengeController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
@@ -691,17 +715,29 @@ GET     /challenges/find                            @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: pid
+#     in: query
 #     description: The id of the project to limit your search too
 #   - name: ps
+#     in: query
 #     description: The search string used to match the project names. Default value is empty string, ie. will match all projects.
 #   - name: pe
+#     in: query
 #     description: Boolean variable true|false that limits the search by enabled projects only if set to true. Default will is true.
 #   - name: ct
+#     in: query
 #     description: Comma separated list of tags to limit the returned challenges by
 #   - name: cs
+#     in: query
 #     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
 #   - name: ce
+#     in: query
 #     description: Boolean variable true|false that limits the search by enabled projects only if set to true. Default will is true.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0)
 
@@ -718,6 +754,7 @@ GET     /challenges/extendedFind                    @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the challenge
 ###
 GET     /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.getTagsForChallenge(id:Long)
@@ -736,10 +773,13 @@ GET     /challenge/:id/tags                         @org.maproulette.controllers
 #     description: If not tags are supplied a BadRequest response will be returned
 # parameters:
 #   - name: tags
+#     in: query
 #     description: A comma separated list of tags
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenges/tags                            @org.maproulette.controllers.api.ChallengeController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
@@ -756,8 +796,10 @@ GET     /challenges/tags                            @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the challenge
 #   - name: tags
+#     in: query
 #     description: A comma separated list of tags
 #   - name: apiKey
 #     in: header
@@ -779,9 +821,14 @@ DELETE  /challenge/:id/tags                         @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     in: query
+#     description: Only retrieve challenges that are enabled, default is false.
 ###
 GET     /challenges                                 @org.maproulette.controllers.api.ChallengeController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
 ###
@@ -798,10 +845,13 @@ GET     /challenges                                 @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The project ID.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
@@ -822,6 +872,7 @@ GET     /challenge/:id/tasks                        @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Challenge where all the children are being created.
 #   - name: apiKey
 #     in: header
@@ -855,6 +906,7 @@ POST    /challenge/:id/tasks                        @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Challenge where all the children are being created.
 #   - name: apiKey
 #     in: header
@@ -884,10 +936,13 @@ PUT     /challenge/:id/tasks                        @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Challenge.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenge/:id/children                     @org.maproulette.controllers.api.ChallengeController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
@@ -903,13 +958,17 @@ GET     /challenge/:id/children                     @org.maproulette.controllers
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
-#   - name: id
+#   - name: cid
+#     in: path
 #     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
 #   - name: tags
+#     in: query
 #     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
 #   - name: s
+#     in: query
 #     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 1.
 ###
 GET     /challenge/:cid/tasks/random                @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
@@ -925,13 +984,17 @@ GET     /challenge/:cid/tasks/random                @org.maproulette.controllers
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
-#   - name: id
+#   - name: cid
+#     in: path
 #     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
 #   - name: tags
+#     in: query
 #     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
 #   - name: s
+#     in: query
 #     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 1.
 ###
 GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
@@ -947,8 +1010,10 @@ GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers
 #     description: ID field supplied but no object found matching the id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
 #   - name: filter
+#     in: query
 #     description: Can filter the Tasks returned by the status of the Task. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
 ###
 GET     /challenge/view/:id                         @org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(id:Long, filter:String ?= "")
@@ -964,8 +1029,10 @@ GET     /challenge/view/:id                         @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project.
 #   - name: filter
+#     in: query
 #     description: Can filter the Tasks returned by the status of the Task. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
 ###
 GET     /challenge/clustered/:id                    @org.maproulette.controllers.api.ChallengeController.getClusteredPoints(id:Long, filter:String ?= "")
@@ -983,6 +1050,7 @@ GET     /challenge/clustered/:id                    @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project.
 #   - name: apiKey
 #     in: header
@@ -1006,6 +1074,7 @@ PUT     /challenge/:id/updateTaskPriorities         @org.maproulette.controllers
 #     description: The Challenge for the supplied ID was not found
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent project.
 #   - name: apiKey
 #     in: header
@@ -1030,7 +1099,7 @@ PUT     /challenge/:id/resetTaskInstructions        @org.maproulette.controllers
 #                   however the Challenge object is flattened so the "general", "creation", "priority", and "extra"
 #                   fields are remove and the keys from that object are moved into the challenge object.
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 #   '304':
 #     description: Not updated responding with empty payload if Survey already exists and nothing to update
 #   '400':
@@ -1046,13 +1115,13 @@ PUT     /challenge/:id/resetTaskInstructions        @org.maproulette.controllers
 #   - name: body
 #     in: body
 #     description: The JSON structure for the Survey body, include the key "children" to create Task children objects.
-#                   The survey object is just a special type of Challenge object, and simply has a couple of top level
-#                   properties and then contains a challenge object.
+#                   The survey object is just a special type of Challenge object, and is identical to the Challenge
+#                   object other than including the "answers" key.
 #                   Although the model schema for the Challenge shows a hierarchy include "general", "creation", "priority" and "extra" this
-#                   JSON structure can be flatten and you can exclude those top level keys and have the children in the root level.
+#                   JSON structure can be flattened and you can exclude those top level keys and have the children in the root level.
 #     required: true
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 POST    /survey                                     @org.maproulette.controllers.api.SurveyController.create
 ###
@@ -1084,7 +1153,7 @@ POST    /survey                                     @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 POST    /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPost
 ###
@@ -1099,7 +1168,7 @@ POST    /surveys                                    @org.maproulette.controllers
 #   '200':
 #     description: The updated JSON Survey
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 #   '304':
 #     description: Not updated responding with empty payload if Survey already exists and nothing to update
 #   '400':
@@ -1108,6 +1177,7 @@ POST    /surveys                                    @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Survey that is being updated
 #   - name: apiKey
 #     in: header
@@ -1119,7 +1189,7 @@ POST    /surveys                                    @org.maproulette.controllers
 #     description: The JSON structure for the Survey body, include the key "children" to create or update Task children objects.
 #     required: true
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 PUT     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.update(id:Long)
 ###
@@ -1151,7 +1221,7 @@ PUT     /survey/:id                                 @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 PUT     /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPut
 ###
@@ -1163,11 +1233,12 @@ PUT     /surveys                                    @org.maproulette.controllers
 #   '200':
 #     description: The retrieved Survey
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 #   '404':
 #     description: ID field supplied but no Survey found matching the id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Survey to retrieve
 ###
 GET     /survey/:id                                 @org.maproulette.controllers.api.SurveyController.read(id:Long)
@@ -1180,13 +1251,15 @@ GET     /survey/:id                                 @org.maproulette.controllers
 #   '200':
 #     description: The retrieved Survey
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 #   '404':
 #     description: No Survey found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Project of the Survey
 #   - name: name
+#     in: path
 #     description: The name of the Survey being retrieved
 ###
 GET     /project/:id/survey/:name                   @org.maproulette.controllers.api.SurveyController.readByName(id:Long, name:String)
@@ -1205,6 +1278,7 @@ GET     /project/:id/survey/:name                   @org.maproulette.controllers
 #     description: No Survey found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Survey being deleted
 #   - name: apiKey
 #     in: header
@@ -1223,17 +1297,22 @@ DELETE  /survey/:id                                 @org.maproulette.controllers
 #     description: A list of Surveys found
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: q
+#     in: query
 #     description: The search string used to match the Survey names. Default value is empty string, ie. will match everything.
 #   - name: parentId
+#     in: query
 #     description: This field will limit the results to a specific project
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 #   - name: onlyEnabled
+#     in: query
 #     description: Flag to set if only wanting enabled Challenges returned. Default value is true.
 ###
 GET     /surveys/find                               @org.maproulette.controllers.api.SurveyController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
@@ -1250,9 +1329,10 @@ GET     /surveys/find                               @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Survey
 ###
-GET     /survey/:id/tags                            @org.maproulette.controllers.api.SurveyController.getTagsForSurvey(id:Long)
+GET     /survey/:id/tags                            @org.maproulette.controllers.api.SurveyController.getTagsForChallenge(id:Long)
 ###
 # tags: [ Survey ]
 # summary: Retrieve Surveys based on provided tags
@@ -1263,15 +1343,18 @@ GET     /survey/:id/tags                            @org.maproulette.controllers
 #     description: A list of Surveys that contain at least one of the supplied tags. An empty list otherwise.
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 #   '400':
 #     description: If no tags are supplied a BadRequest response will be returned
 # parameters:
 #   - name: tags
+#     in: query
 #     description: A comma separated list of tags
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /surveys/tags                               @org.maproulette.controllers.api.SurveyController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
@@ -1288,8 +1371,10 @@ GET     /surveys/tags                               @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Survey
 #   - name: tags
+#     in: query
 #     description: A comma separated list of tags
 #     required: true
 #   - name: apiKey
@@ -1309,12 +1394,17 @@ DELETE  /survey/:id/tags                            @org.maproulette.controllers
 #     description: A list of all the Surveys
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     in: query
+#     description: Flag to set if only wanting enabled Challenges returned. Default value is true.
 ###
 GET     /surveys                                    @org.maproulette.controllers.api.SurveyController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
 ###
@@ -1330,10 +1420,13 @@ GET     /surveys                                    @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The project ID.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /survey/:id/tasks                           @org.maproulette.controllers.api.SurveyController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
@@ -1354,6 +1447,7 @@ GET     /survey/:id/tasks                           @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Survey where all the children are being created.
 #   - name: apiKey
 #     in: header
@@ -1387,6 +1481,7 @@ POST    /survey/:id/tasks                           @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Survey where all the children are being created.
 #   - name: apiKey
 #     in: header
@@ -1413,13 +1508,16 @@ PUT     /survey/:id/tasks                           @org.maproulette.controllers
 #   '200':
 #     description: The Survey with all the Task Survey objects of the Survey in a JSON array in the key "children"
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Survey'
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Survey.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /survey/:id/children                        @org.maproulette.controllers.api.SurveyController.expandedList(id:Long, limit:Int ?= 10, page:Int ?= 0)
@@ -1435,13 +1533,17 @@ GET     /survey/:id/children                        @org.maproulette.controllers
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
-#   - name: id
+#   - name: cid
+#     in: query
 #     description: The id of the parent Survey limiting the tasks to only a descendent of that Survey.
 #   - name: tags
+#     in: query
 #     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
 #   - name: s
+#     in: query
 #     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 1.
 ###
 GET     /survey/:cid/tasks/random                   @org.maproulette.controllers.api.SurveyController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
@@ -1461,6 +1563,7 @@ GET     /survey/:cid/tasks/random                   @org.maproulette.controllers
 #     description: No Survey or No Task found that match the supplied ID's
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Survey that contains the question and answers
 #   - name: apiKey
 #     in: header
@@ -1468,11 +1571,16 @@ GET     /survey/:cid/tasks/random                   @org.maproulette.controllers
 #     required: true
 #     type: string
 #   - name: taskId
+#     in: path
 #     description: The id of the task that the answer relates too
 #   - name: answerId
+#     in: path
 #     description: The id of the answer
+#   - name: comment
+#     in: query
+#     description: Any comment associated with the answer to the survey question
 ###
-PUT     /survey/:id/task/:taskId/:answerId          @org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(id:Long, taskId:Long, answerId:Long)
+PUT     /survey/:id/task/:taskId/:answerId          @org.maproulette.controllers.api.SurveyController.answerSurveyQuestion(id:Long, taskId:Long, answerId:Long, comment:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Create a Task
@@ -1556,6 +1664,7 @@ POST    /tasks                                      @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Task that is being updated
 #   - name: apiKey
 #     in: header
@@ -1616,6 +1725,7 @@ PUT     /tasks                                      @org.maproulette.controllers
 #     description: ID field supplied but no Task found matching the id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Task to retrieve
 ###
 GET     /task/:id                                   @org.maproulette.controllers.api.TaskController.read(id:Long)
@@ -1633,8 +1743,10 @@ GET     /task/:id                                   @org.maproulette.controllers
 #     description: No Task found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the parent Challenge of the Task
 #   - name: name
+#     in: path
 #     description: The name of the Task being retrieved
 ###
 GET     /challenge/:id/task/:name                   @org.maproulette.controllers.api.TaskController.readByName(id:Long, name:String)
@@ -1653,6 +1765,7 @@ GET     /challenge/:id/task/:name                   @org.maproulette.controllers
 #     description: No Task found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Task being deleted
 #   - name: apiKey
 #     in: header
@@ -1674,14 +1787,19 @@ DELETE  /task/:id                                   @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: q
+#     in: query
 #     description: The search string used to match the Task names. Default value is empty string, ie. will match everything.
 #   - name: parentId
+#     in: query
 #     description: This limits the search to the provided challenge and no tasks outside of the provided challenge ID.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 #   - name: onlyEnabled
+#     in: query
 #     description: Flag to set if only want to see Tasks from enabled Challenges returned. Default value is true.
 ###
 GET     /tasks/find                                 @org.maproulette.controllers.api.TaskController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
@@ -1698,6 +1816,7 @@ GET     /tasks/find                                 @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Task
 ###
 GET     /task/:id/tags                              @org.maproulette.controllers.api.TaskController.getTagsForTask(id:Long)
@@ -1716,10 +1835,13 @@ GET     /task/:id/tags                              @org.maproulette.controllers
 #     description: If no tags are supplied a BadRequest response will be returned
 # parameters:
 #   - name: tags
+#     in: query
 #     description: A comma separated list of tags
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /tasks/tags                                 @org.maproulette.controllers.api.TaskController.getItemsBasedOnTags(tags:String ?= "", limit:Int ?= 10, page:Int ?= 0)
@@ -1736,8 +1858,10 @@ GET     /tasks/tags                                 @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Task
 #   - name: tags
+#     in: query
 #     description: A comma separated list of tags
 #     required: true
 #   - name: apiKey
@@ -1760,16 +1884,22 @@ DELETE  /task/:id/tags                              @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: ps
+#     in: query
 #     description: The search string to match the names of projects to limit the Task pool from. The string is case insensitive.
 #   - name: cs
+#     in: query
 #     description: The search string to match the names of challenges to limit the Task pool from. The string is case insensitive.
 #   - name: ct
+#     in: query
 #     description: The challenge tags to limit the parent challenges that will limit the Task pool.
 #   - name: tags
+#     in: query
 #     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
 #   - name: ts
+#     in: query
 #     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 1.
 ###
 GET     /tasks/random                               @org.maproulette.controllers.api.TaskController.getRandomTasks(ps:String ?= "", cs:String ?= "", ct:String ?= "", tags:String ?= "", ts:String ?= "", limit:Int ?= 1)
@@ -1791,9 +1921,14 @@ GET     /tasks/random                               @org.maproulette.controllers
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the task
 #   - name: status
+#     in: path
 #     description: The status to update the Task too. Following status Integers can be used. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
 #   - name: comment
+#     in: query
 #     description: Any comment that is provided by the user when setting the status
 ###
 PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int, comment:String ?= "")
@@ -1811,6 +1946,7 @@ PUT     /task/:id/:status                           @org.maproulette.controllers
 #     description: If the comment is not found
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID for the comment
 ###
 GET     /comment/:id                                @org.maproulette.controllers.api.TaskController.retrieveComment(id:Long)
@@ -1829,6 +1965,7 @@ GET     /comment/:id                                @org.maproulette.controllers
 #     description: If the Task is not found
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID for the Task
 ###
 GET     /task/:id/comments                          @org.maproulette.controllers.api.TaskController.retrieveComments(id:Long)
@@ -1845,10 +1982,13 @@ GET     /task/:id/comments                          @org.maproulette.controllers
 #     description: If the Task is not found
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID for the Task
 #   - name: comment
+#     in: query
 #     description: A URLEncoded comment for the Task
 #   - name: actionId
+#     in: query
 #     description: An optional action ID that may be associated with the comment
 ###
 POST    /task/:id/comment                           @org.maproulette.controllers.api.TaskController.addComment(id:Long, comment:String, actionId:Option[Long])
@@ -1867,8 +2007,10 @@ POST    /task/:id/comment                           @org.maproulette.controllers
 #     description: If the Task is not found
 # parameters:
 #   - name: commentId
+#     in: path
 #     description: The ID of the original comment
 #   - name: comment
+#     in: query
 #     description: A URLEncoded comment for the Task
 ###
 PUT    /comment/:commentId                          @org.maproulette.controllers.api.TaskController.updateComment(commentId:Long, comment:String)
@@ -1883,8 +2025,10 @@ PUT    /comment/:commentId                          @org.maproulette.controllers
 #     description: If the Task or Comment is not found
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID for the Task
 #   - name: commentId
+#     in: path
 #     description: The ID for the Comment
 ###
 DELETE  /task/:id/comment/:commentId                @org.maproulette.controllers.api.TaskController.deleteComment(id:Long, commentId:Long)
@@ -1971,6 +2115,7 @@ POST    /tags                                       @org.maproulette.controllers
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
+#     in: path
 #     description: The ID of the Tag that is being updated
 #   - name: apiKey
 #     in: header
@@ -2031,6 +2176,7 @@ PUT     /tags                                       @org.maproulette.controllers
 #     description: ID field supplied but no Tag found matching the id
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Tag to retrieve
 ###
 GET     /tag/:id                                    @org.maproulette.controllers.api.TagController.read(id:Long)
@@ -2049,6 +2195,7 @@ GET     /tag/:id                                    @org.maproulette.controllers
 #     description: No Tag found matching the provided name
 # parameters:
 #   - name: id
+#     in: path
 #     description: The id of the Tag being deleted
 #   - name: apiKey
 #     in: header
@@ -2069,16 +2216,19 @@ DELETE  /tag/:id                                    @org.maproulette.controllers
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
-#   - name: id
-#     description: The id of the Tag to retrieve
+#   - name: prefix
+#     in: query
+#     description: The prefix for the tags you are looking for
 #   - name: limit
+#     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
+#     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 ### NoDocs ###
-GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, priority:Int ?= -1)
+GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, survey:Int ?= -1, priority:Int ?= -1)
 ### NoDocs ###
 GET     /data/challenge/:challengeId/users          @org.maproulette.controllers.api.DataController.getUserChallengeSummary(challengeId:Long, start:String ?= "", end:String ?= "", survey:Int ?= 0, priority:Int ?= -1)
 ### NoDocs ###
@@ -2092,7 +2242,7 @@ GET     /data/project/activity                      @org.maproulette.controllers
 ### NoDocs ###
 GET     /data/project/summary                       @org.maproulette.controllers.api.DataController.getProjectSummary(projectList:String ?= "")
 ### NoDocs ###
-GET     /data/challenge/:challengeId/activity       @org.maproulette.controllers.api.DataController.getChallengeActivity(challengeId:Long, start:String ?= "", end:String ?= "", priority:Int ?= -1)
+GET     /data/challenge/:challengeId/activity       @org.maproulette.controllers.api.DataController.getChallengeActivity(challengeId:Long, start:String ?= "", end:String ?= "", survey:Int ?= 0, priority:Int ?= -1)
 ### NoDocs ###
 GET     /data/raw/activity                          @org.maproulette.controllers.api.DataController.getRawActivity(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "")
 ### NoDocs ###

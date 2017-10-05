@@ -15,6 +15,7 @@
                     <option value="@Challenge.PRIORITY_MEDIUM">@messages("metrics.challenge.priority.medium")</option>
                     <option value="@Challenge.PRIORITY_LOW">@messages("metrics.challenge.priority.low")</option>
                 </select>
+                <br/>
             </div>
         </div>
     }
@@ -220,17 +221,17 @@
         };
         @challenge match {
             case Some(c) => {
-                jsRoutes.org.maproulette.controllers.api.DataController.getChallengeActivity(@c.id, start, end, currentPriority).ajax(activityCallback);
+                jsRoutes.org.maproulette.controllers.api.DataController.getChallengeActivity(@c.id, start, end, -1, currentPriority).ajax(activityCallback);
                 jsRoutes.org.maproulette.controllers.api.DataController.getUserChallengeSummary(@c.id, start, end, -1, currentPriority).ajax(userCallback);
                 if (!dco) {
-                    Metrics.getChallengeSummaryPieChart($("#statusPieChart"), @c.id, true, receiveSummaryData, currentPriority);
+                    Metrics.getChallengeSummaryPieChart($("#statusPieChart"), @c.id, true, receiveSummaryData, currentPriority, false);
                 }
             }
             case None => {
                 jsRoutes.org.maproulette.controllers.api.DataController.getProjectActivity("@projects", start, end).ajax(activityCallback);
                 jsRoutes.org.maproulette.controllers.api.DataController.getUserSummary("@projects", start, end).ajax(userCallback);
                 if (!dco) {
-                    Metrics.getProjectSummaryPieChart($("#statusPieChart"), "@projects", true, receiveSummaryData);
+                    Metrics.getProjectSummaryPieChart($("#statusPieChart"), "@projects", true, receiveSummaryData, false);
                 }
             }
         }

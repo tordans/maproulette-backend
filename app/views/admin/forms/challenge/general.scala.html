@@ -37,14 +37,13 @@
         forcedValue = parentId+""
     )
     </div>
-    <div class="form-group" style="display:none;">
-    @text(challengeForm("general.challengeType"),
+    @select(challengeForm("general.challengeType"),
         label = messages("challenge.wizard.general.type"),
-        placeholder = Actions.ITEM_TYPE_CHALLENGE+"",
-        default = Actions.ITEM_TYPE_CHALLENGE+"",
-        readOnly = true
+        optionList = List((Actions.ITEM_TYPE_CHALLENGE_NAME, Actions.ITEM_TYPE_CHALLENGE+""),
+            (Actions.ITEM_TYPE_SURVEY_NAME, Actions.ITEM_TYPE_SURVEY+"")),
+        help = messages(""),
+        defaultSelected = Some(Actions.ITEM_TYPE_CHALLENGE+"")
     )
-    </div>
     @select(challengeForm("general.enabled"),
         label = messages("challenge.wizard.general.visible"),
         optionList = List(("true", "true"), ("false", "false")),

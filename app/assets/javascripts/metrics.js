@@ -1,17 +1,25 @@
 (function(Metrics, $, undefined) {
-    Metrics.getChallengeSummaryPieChart = function(canvas, challengeId, showLabels, callback, priority) {
-        jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId, priority).ajax({
+    Metrics.getChallengeSummaryPieChart = function(canvas, challengeId, showLabels, callback, priority, survey) {
+        jsRoutes.org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId, (survey) ? 1 : -1, priority).ajax({
             success: function(data) {
-                handleChallengeSummaryData(canvas, data, showLabels, callback);
+                if (survey) {
+                    handleSurveySummaryData(canvas, data, showLabels, callback);
+                } else {
+                    handleChallengeSummaryData(canvas, data, showLabels, callback);
+                }
             },
             failure: dataErrorHandler
         });
     };
     
-    Metrics.getProjectSummaryPieChart = function(canvas, projects, showLabels, callback) {
+    Metrics.getProjectSummaryPieChart = function(canvas, projects, showLabels, callback, survey) {
         jsRoutes.org.maproulette.controllers.api.DataController.getProjectSummary(projects).ajax({
             success: function(data) {
-                handleChallengeSummaryData(canvas, data, showLabels, callback);
+                if (survey) {
+                    handleSurveySummaryData(canvas, data, showLabels, callback);
+                } else {
+                    handleChallengeSummaryData(canvas, data, showLabels, callback);
+                }
             },
             failure: dataErrorHandler
         });
@@ -79,6 +87,23 @@
         });
     };
 
+    function handleSurveySummaryData(canvas, data, showLabels, callback) {
+        var names = new Array(data.length-1);
+        var counts = new Array(data.length-1);
+        var counter = 0;
+        for (var i = 0; i < data.length; i++) {
+            if (data[i].id != -3) {
+                names[counter] = data[i].name;
+                counts[counter] = data[i].count;
+                counter++;
+            }
+        }
+        updatePieChart(canvas, showLabels, names, counts);
+        if (typeof callback !== "undefined") {
+            callback(data);
+        }
+    }
+
     function handleChallengeSummaryData(canvas, data, showLabels, callback) {
         var numOfChallenges = data.length;
         var totalTasks = 0;
@@ -104,8 +129,16 @@
             }
         }
         updatePieChart(canvas, showLabels,
-            totalTasks - fixedTasks - falsePositiveTasks - alreadyFixedTasks - tooHardTasks,
-            fixedTasks, falsePositiveTasks, skippedTasks, alreadyFixedTasks, tooHardTasks);
+            [
+                Messages('metrics.js.status.available'),
+                Messages('metrics.js.status.fixed'),
+                Messages('metrics.js.status.falsepositive'),
+                Messages('metrics.js.status.skipped'),
+                Messages('metrics.js.status.alreadyfixed'),
+                Messages('metrics.js.status.toohard')
+            ],
+            [totalTasks - fixedTasks - falsePositiveTasks - alreadyFixedTasks - tooHardTasks,
+            fixedTasks, falsePositiveTasks, skippedTasks, alreadyFixedTasks, tooHardTasks]);
         if (typeof callback !== "undefined") {
             callback({
                 numOfChallenges: numOfChallenges,
@@ -125,24 +158,21 @@
         ToastUtils.Error(Messages('metrics.js.error') + "\n" + data);
     }
 
-    function updatePieChart(canvas, showLabels, available, fixed, falsePositive, skipped, alreadyFixed, tooHard) {
+    var backgroundColor = ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)", "rgba(160, 32, 240, 1)"];
+    var hoverBackgroundColor = ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)", "rgba(160, 32, 240, 1)"];
+
+    function updatePieChart(canvas, showLabels, labels, results) {
         canvas.empty();
+
         var pieChart = new Chart(canvas, {
             type:"doughnut",
             data: {
-                labels: [
-                    Messages('metrics.js.status.available'),
-                    Messages('metrics.js.status.fixed'),
-                    Messages('metrics.js.status.falsepositive'),
-                    Messages('metrics.js.status.skipped'),
-                    Messages('metrics.js.status.alreadyfixed'),
-                    Messages('metrics.js.status.toohard')
-                ],
+                labels: labels,
                 datasets: [
                     {
-                        data: [available, fixed, falsePositive, skipped, alreadyFixed, tooHard],
-                        backgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)", "rgba(160, 32, 240, 1)"],
-                        hoverBackgroundColor: ["rgba(0, 0, 0, 1)", "rgba(0, 166, 90, 1)", "rgba(221, 75, 57, 1)", "rgba(243, 156, 18, 1)", "rgba(0, 192, 239, 1)", "rgba(160, 32, 240, 1)"]
+                        data: results,
+                        backgroundColor: backgroundColor.slice(0, labels.length),
+                        hoverBackgroundColor: hoverBackgroundColor.slice(0, labels.length)
                     }
                 ]
             },

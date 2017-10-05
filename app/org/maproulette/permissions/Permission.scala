@@ -73,10 +73,8 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
       obj.itemType match {
         case UserType() => hasReadAccess(obj, user)
         case ProjectType() => hasProjectAccess(Some(obj.asInstanceOf[Project]), user)
-        case ChallengeType() =>
+        case ChallengeType() | SurveyType() =>
           hasProjectAccess(dalManager.get().challenge.retrieveRootObject(Right(obj.asInstanceOf[Challenge]), user), user)
-        case SurveyType() =>
-          hasProjectAccess(dalManager.get().survey.retrieveRootObject(Right(obj.asInstanceOf[Survey]), user), user)
         case TaskType() =>
           hasProjectAccess(dalManager.get().task.retrieveRootObject(Right(obj.asInstanceOf[Task]), user), user)
         case TagType() =>

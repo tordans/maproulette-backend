@@ -120,6 +120,7 @@ metrics.challenge.average=Average Completion %
 metrics.challenge.fixed=Fixed
 metrics.challenge.avgfalsepositiverate=Average False Positive Rate
 metrics.challenge.falsepositives=False Positives
+metrics.challenge.answered=Answered
 metrics.challenge.users=Users
 metrics.challenge.activity=Challenge Activity
 metrics.challenge.completion=Challenge Completion
@@ -318,6 +319,7 @@ challenge.wizard.general.featured.help=If selecting challenge will show up front
 challenge.wizard.general.id=ID
 challenge.wizard.general.parent=Parent ID
 challenge.wizard.general.type=Challenge Type
+challenge.wizard.general.type.help=Challenges are the normal style of MapRoulette, Surveys allow for simply surveying results.
 challenge.wizard.general.visible=Visible
 challenge.wizard.general.visible.help=Please set whether the challenge is visible or not.
 challenge.wizard.general.name=Name
@@ -373,6 +375,9 @@ challenge.difficulty.title=Difficulty:
 challenge.difficulty.1=Easy
 challenge.difficulty.2=Normal
 challenge.difficulty.3=Expert
+
+challenge.survey.answer.valid=Valid
+challenge.survey.answer.invalid=Invalid
 
 mapping.js.control.comment=Optional Comment
 mapping.js.control.edit.information=Please select how you would like to fix this task.
@@ -472,6 +477,7 @@ users.profile.activity.falsepositive=Set {0} tasks to false positive <span class
 users.profile.activity.skipped=Skipped {0} tasks <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
 users.profile.activity.toohard=Set {0} tasks to Too Hard <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
 users.profile.activity.alreadyfixed=Set {0} tasks to Already Fixed <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
+users.profile.activity.answered=Answered {0} tasks <span class="time"><i class="fa fa-clock-o"></i> {1}</span>
 users.profile.activity.summary.failure=Failed to load activity summary for user
 users.profile.activity.failure=Failed to load activity for user
 users.profile.activity.see=See Activity Details

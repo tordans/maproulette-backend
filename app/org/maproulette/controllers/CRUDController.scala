@@ -39,6 +39,15 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   val actionManager:ActionManager
 
   /**
+    * Classes can override this function to inject values into the object before it is sent along
+    * with the response
+    *
+    * @param obj the object being sent in the response
+    * @return A Json representation of the object
+    */
+  def inject(obj:T) : JsValue = Json.toJson(obj)
+
+  /**
     * Function can be implemented to extract more information than just the default create data,
     * to build other objects with the current object at the core. No data will be returned from this
     * function, it purely does work in the background AFTER creating the current object
@@ -96,12 +105,12 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
             if (element.id > -1) {
               // if you provide the ID in the post method we will send you to the update path
               this.internalUpdate(request.body, user)(element.id.toString, -1) match {
-                case Some(value) => Ok(Json.toJson(value))
+                case Some(value) => Ok(this.inject(value))
                 case None => NotModified
               }
             } else {
               this.internalCreate(request.body, element, user) match {
-                case Some(value) => Created(Json.toJson(value))
+                case Some(value) => Created(this.inject(value))
                 case None => NotModified
               }
             }
@@ -159,7 +168,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     this.sessionManager.authenticatedRequest { implicit user =>
       try {
         this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
-          case Some(value) => Ok(Json.toJson(value))
+          case Some(value) => Ok(this.inject(value))
           case None =>  throw new NotFoundException(s"No object found with id [$id]")
         }
       } catch {
@@ -202,7 +211,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   def read(implicit id:Long) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveById match {
-        case Some(value) => Ok(Json.toJson(value))
+        case Some(value) => Ok(this.inject(value))
         case None => NotFound
       }
     }
@@ -219,7 +228,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   def readByName(id:Long, name:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveByName(name, id) match {
-        case Some(value) => Ok(Json.toJson(value))
+        case Some(value) => Ok(this.inject(value))
         case None => NotFound
       }
     }
@@ -261,7 +270,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
           result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
         case _ => //ignore, only update view actions if it is a task type
       }
-      Ok(Json.toJson(result))
+      Ok(Json.toJson(result.map(this.inject)))
     }
   }
 
@@ -337,7 +346,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId)))
+      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId).map(this.inject)))
     }
   }
 }

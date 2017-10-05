@@ -2,15 +2,14 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
-import java.sql.Connection
 import javax.inject.Inject
 
 import org.maproulette.actions._
-import org.maproulette.controllers.ParentController
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.{Answer, Survey, Task}
-import org.maproulette.models.dal.{SurveyDAL, TagDAL, TagDALMixin, TaskDAL}
-import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.models.{Answer, Challenge, Task}
+import org.maproulette.models.dal._
+import org.maproulette.services.ChallengeService
+import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent}
@@ -27,24 +26,30 @@ class SurveyController @Inject() (override val childController:TaskController,
                                   override val sessionManager: SessionManager,
                                   override val actionManager: ActionManager,
                                   override val dal: SurveyDAL,
-                                  taskDAL: TaskDAL,
-                                  override val tagDAL: TagDAL)
-  extends ParentController[Survey, Task] with TagsMixin[Survey] {
+                                  dalManager: DALManager,
+                                  override val tagDAL: TagDAL,
+                                  challengeService: ChallengeService)
+  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService) {
 
-  // json reads for automatically reading Challenges from a posted json body
-  override implicit val tReads: Reads[Survey] = Survey.surveyReads
-  // json writes for automatically writing Challenges to a json body response
-  override implicit val tWrites: Writes[Survey] = Survey.surveyWrites
-  // json writes for automatically writing Tasks to a json body response
-  override protected val cWrites: Writes[Task] = Task.TaskFormat
-  // json reads for automatically reading tasks from a posted json body
-  override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()
 
-  override def dalWithTags:TagDALMixin[Survey] = dal
-
-  private implicit val answerWrites = Survey.answerWrites
+  /**
+    * Classes can override this function to inject values into the object before it is sent along
+    * with the response
+    *
+    * @param obj the object being sent in the response
+    * @return A Json representation of the object
+    */
+  override def inject(obj: Challenge) = {
+    val json = super.inject(obj)
+    // if no answers provided with Challenge, then provide the default answers
+    val answers = this.dalManager.survey.getAnswers(obj.id) match {
+      case a if a.isEmpty => List(Challenge.defaultAnswerValid, Challenge.defaultAnswerInvalid)
+      case a => a
+    }
+    Utils.insertIntoJson(json, Challenge.KEY_ANSWER, Json.toJson(answers))
+  }
 
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
@@ -55,91 +60,39 @@ class SurveyController @Inject() (override val childController:TaskController,
     */
   override def updateCreateBody(body: JsValue, user:User): JsValue = {
     val jsonBody = super.updateCreateBody(body, user:User)
-    var challengeBody = (jsonBody \ "challenge").as[JsValue]
-    challengeBody = Utils.insertJsonID(challengeBody)
-    challengeBody = Utils.insertIntoJson(challengeBody, "enabled", true)(BooleanWrites)
-    challengeBody = Utils.insertIntoJson(challengeBody, "challengeType", Actions.ITEM_TYPE_SURVEY)(IntWrites)
-    challengeBody = Utils.insertIntoJson(challengeBody, "featured", false)(BooleanWrites)
-
-    val returnBody = Utils.insertIntoJson(jsonBody, "challenge", challengeBody, true)(JsValueWrites)
     //if answers are supplied in a simple json string array, then convert to the answer types
-    val answerArray = (challengeBody \ "answers").as[List[String]].map(a => Answer(answer = a))
-    Utils.insertIntoJson(returnBody, "answers", answerArray, true)
-  }
-
-  /**
-    * Function can be implemented to extract more information than just the default create data,
-    * to build other objects with the current object at the core. No data will be returned from this
-    * function, it purely does work in the background AFTER creating the current object
-    *
-    * @param body          The Json body of data
-    * @param createdObject The object that was created by the create function
-    * @param user          The user that is executing the function
-    */
-  override def extractAndCreate(body: JsValue, createdObject: Survey, user: User)(implicit c:Option[Connection]=None): Unit = {
-    super.extractAndCreate(body, createdObject, user)
-    this.extractTags(body, createdObject, user)
-  }
-
-  /**
-    * Gets a json list of tags of the Survey
-    *
-    * @param id The id of the survey containing the tags
-    * @return The html Result containing json array of tags
-    */
-  def getTagsForSurvey(implicit id: Long) : Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.getTags(id)))
-    }
-  }
-
-  /**
-    * Gets a random task that is a child of the survey.
-    *
-    * @param surveyId The survey id that is the parent of the tasks that you would be searching for.
-    * @param tags A comma separated list of tags that optionally can be used to further filter the tasks
-    * @param taskSearch Filter based on the name of the task
-    * @param limit Limit of how many tasks should be returned
-    * @return A list of Tasks that match the supplied filters
-    */
-  def getRandomTasks(surveyId: Long,
-                     tags: String,
-                     taskSearch: String,
-                     limit:Int) : Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      val params = SearchParameters(
-        challengeId = Some(surveyId),
-        taskTags = Some(tags.split(",").toList),
-        taskSearch = Some(taskSearch)
-      )
-      val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit)
-      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
-      Ok(Json.toJson(result))
-    }
+    val answerArray = (jsonBody \ "answers").as[List[String]].map(a => Answer(answer = a))
+    Utils.insertIntoJson(jsonBody, "answers", answerArray, true)
   }
 
   /**
     * Answers a question for a survey
     *
-    * @param surveyId The id of the survey
+    * @param challengeId The id of the survey
     * @param taskId The id of the task being viewed
     * @param answerId The id of the answer
     * @return
     */
-  def answerSurveyQuestion(surveyId:Long, taskId:Long, answerId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def answerSurveyQuestion(challengeId:Long, taskId:Long, answerId:Long, comment:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       // make sure that the survey and answer exists first
-      this.dal.retrieveById(surveyId) match {
-        case Some(survey) =>
-          survey.answers.find(_.id == answerId) match {
-            case Some(a) =>
-              this.dal.answerQuestion(survey, taskId, answerId, user)
-              this.actionManager.setAction(Some(user), this.itemType.convertToItem(taskId), QuestionAnswered(answerId), a.answer)
-              NoContent
-            case None =>
-              throw new NotFoundException(s"Requested answer [$answerId] for survey does not exist.")
+      this.dal.retrieveById(challengeId) match {
+        case Some(challenge) =>
+          val ans = if (answerId != -1 && answerId != -2) {
+            this.dalManager.survey.getAnswers(challengeId).find(_.id == answerId) match {
+              case None =>
+                throw new NotFoundException(s"Requested answer [$answerId] for survey does not exist.")
+              case Some(a) => a.answer
+            }
+          } else if (answerId == -1) {
+            Challenge.defaultAnswerValid.answer
+          } else {
+            Challenge.defaultAnswerInvalid.answer
           }
-        case None => throw new NotFoundException(s"Requested survey [$surveyId] to answer question from does not exist.")
+          this.dal.answerQuestion(challenge, taskId, answerId, user)
+          this.childController.customTaskStatus(taskId, QuestionAnswered(answerId), user, comment)
+          NoContent
+        case None => throw new NotFoundException(s"Requested survey [$challengeId] to answer question from does not exist.")
       }
     }
   }

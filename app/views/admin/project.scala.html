@@ -59,10 +59,9 @@
                                                 <li class="divider"></li>
                                             }
                                             <li><a href="@routes.FormEditController.challengeFormUI(p._1.id, -1)">@messages("project.column.actions.new.challenge")</a></li>
-                                            <li><a href="@routes.FormEditController.surveyFormUI(p._1.id, -1)">@messages("project.column.actions.new.survey")</a></li>
+                                            <li><a href="@routes.FormEditController.challengeFormUI(p._1.id, -1)">@messages("project.column.actions.new.survey")</a></li>
                                             <li class="divider"></li>
                                             <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"")">@messages("project.column.actions.metrics.challenge")</a></li>
-                                            <li><a href="@routes.Application.challengeMetrics(-1, p._1.id+"", 1)">@messages("project.column.actions.metrics.survey")</a></li>
                                         </ul>
                                     </div>
                                 </td>

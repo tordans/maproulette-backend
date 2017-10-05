@@ -3,12 +3,11 @@
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Singleton}
+import javax.inject.{Inject, Provider, Singleton}
 
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.actions.Actions
-import org.maproulette.cache.CacheManager
 import org.maproulette.exception.InvalidException
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
@@ -20,54 +19,18 @@ import play.api.libs.json.{JsValue, Json}
   * @author cuthbertm
   */
 @Singleton
-class SurveyDAL @Inject() (override val db:Database,
-                           taskDAL: TaskDAL,
-                           challengeDAL: ChallengeDAL,
+class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                            override val tagDAL: TagDAL,
+                           projectDAL: Provider[ProjectDAL],
                            override val permission:Permission)
-  extends ParentDAL[Long, Survey, Task] with TagDALMixin[Survey] {
-
-  // The manager for the survey cache
-  override val cacheManager = new CacheManager[Long, Survey]
-  // The name of the survey table
-  override val tableName: String = "challenges"
-  // The name of the table for it's children Tasks
-  override val childTable: String = "tasks"
-  // The row parser for it's children defined in the TaskDAL
-  override val childParser = taskDAL.parser
-  override val childColumns: String = taskDAL.retrieveColumns
-
-  override val parser: RowParser[Survey] = {
-    this.challengeDAL.parser map {
-      case challenge => Survey(challenge, this.getAnswers(challenge.id))
-    }
-  }
+  extends ChallengeDAL(db, taskDAL, tagDAL, projectDAL, permission) {
 
   private val answerParser: RowParser[Answer] = {
     get[Long]("answers.id") ~
-    get[String]("answers.answer") map {
+      get[String]("answers.answer") map {
       case id ~ answer => new Answer(id, answer)
     }
   }
-
-
-  /**
-    * This will retrieve the root object in the hierarchy of the object, by default the root
-    * object is itself.
-    *
-    * @param obj This is either the id of the object, or the object itself
-    * @param user
-    * @param c   The connection if any
-    * @return The object that it is retrieving
-    */
-  override def retrieveRootObject(obj: Either[Long, Survey], user: User)
-                                 (implicit c:Option[Connection]=None): Option[Project] = {
-    obj match {
-      case Left(id) => this.challengeDAL.retrieveRootObject(Left(id), user)
-      case Right(value) => this.challengeDAL.retrieveRootObject(Right(value.challenge), user)
-    }
-  }
-
 
   /**
     * Retrieves the answers for the survey given the survey id
@@ -76,32 +39,55 @@ class SurveyDAL @Inject() (override val db:Database,
     * @return List of answers for the survey
     */
   def getAnswers(surveyId:Long)(implicit c:Option[Connection]=None) : List[Answer] = {
-    this.withMRConnection { implicit c =>
+    val answers = this.withMRConnection { implicit c =>
       SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(this.answerParser.*)
+    }
+    // if no answers are found, then use the default answers
+    answers match {
+      case a if a.isEmpty => List(Challenge.defaultAnswerValid, Challenge.defaultAnswerInvalid)
+      case a => a
     }
   }
 
   /**
-    * Inserts a new Challenge (survey) into the database, it will use the insert from the Challenge
+    * Answers a question by inserting a record in the survey_answers table. This will allow users
+    * to answer the question for the same task multiple times. This way you will get an idea of the
+    * answers based on multiple users feedback
+    *
+    * @param survey The survey that is being evaluated
+    * @param taskId The id of the task that is viewed when answering the question
+    * @param answerId The id for the selected answer
+    * @param user The user answering the question, if none will default to a guest user on the database
+    * @return
+    */
+  def answerQuestion(survey:Challenge, taskId:Long, answerId:Long, user:User)(implicit c:Option[Connection]=None) : Option[Long] = {
+    this.withMRTransaction { implicit c =>
+      SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
+            VALUES (${user.osmProfile.id}, ${survey.general.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
+    }
+  }
+
+  /**
+    * Inserts answers for a new Challenge into the database, it will use the insert from the Challenge
     * super class and then insert all the answers into the answer table
     *
-    * @param survey The survey to insert into the database
+    * @param challenge The challenge associated with the answer
+    * @param answers The list of answers for the survey
+    * @param user The user executing the request
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(survey: Survey, user:User)(implicit c:Option[Connection]=None): Survey = {
-    if (survey.answers.size < 2) {
+  def insertAnswers(challenge:Challenge, answers:List[String], user:User)(implicit c:Option[Connection]=None): Unit = {
+    if (answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
-    this.permission.hasWriteAccess(survey.challenge, user)
+    this.permission.hasWriteAccess(challenge, user)
     this.withMRTransaction { implicit c =>
-      val newChallenge = this.challengeDAL.insert(survey.challenge.copy(general = survey.challenge.general.copy(challengeType = Actions.ITEM_TYPE_SURVEY)), user)
       // insert the answers into the table
-      val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${newChallenge.id}, {answer})"""
-      val parameters = survey.answers.map(answer => {
-        Seq[NamedParameter]("answer" -> answer.answer)
+      val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${challenge.id}, {answer})"""
+      val parameters = answers.map(answer => {
+        Seq[NamedParameter]("answer" -> answer)
       })
       BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
-      Survey(newChallenge, this.getAnswers(newChallenge.id))
     }
   }
 
@@ -113,13 +99,10 @@ class SurveyDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Survey] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Challenge] = {
     this.withMRTransaction { implicit c =>
-      val updatedChallenge = (updates \ "challenge").asOpt[JsValue] match {
-        case Some(c) => this.challengeDAL.update(c, user)
-        case None => this.challengeDAL.update(Json.parse(s"""{"id":$id}"""), user)
-      }
-      implicit val answerReads = Survey.answerReads
+      val updatedChallenge = super.update(updates, user)
+      implicit val answerReads = Challenge.answerReads
       // list of answers to delete
       (updates \ "answers" \ "delete").asOpt[List[Long]] match {
         case Some(values) => SQL"""DELETE FROM answers WHERE id IN ($values)""".execute()
@@ -143,41 +126,7 @@ class SurveyDAL @Inject() (override val db:Database,
           BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
         case None => //ignore
       }
-      Some(Survey(updatedChallenge.get, this.getAnswers(updatedChallenge.get.id)))
+      updatedChallenge
     }
   }
-
-  /**
-    * Answers a question by inserting a record in the survey_answers table. This will allow users
-    * to answer the question for the same task multiple times. This way you will get an idea of the
-    * answers based on multiple users feedback
-    *
-    * @param survey The survey that is being evaluated
-    * @param taskId The id of the task that is viewed when answering the question
-    * @param answerId The id for the selected answer
-    * @param user The user answering the question, if none will default to a guest user on the database
-    * @return
-    */
-  def answerQuestion(survey:Survey, taskId:Long, answerId:Long, user:User)(implicit c:Option[Connection]=None) : Option[Long] = {
-    this.withMRTransaction { implicit c =>
-      SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
-            VALUES (${user.osmProfile.id}, ${survey.challenge.general.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
-    }
-  }
-
-  override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean,
-                     orderColumn: String, orderDirection: String)
-                    (implicit parentId: Long, c:Option[Connection]=None): List[Survey] =
-    this.challengeDAL.findByType(searchString, limit, offset, onlyEnabled, orderColumn,
-      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, this.getAnswers(c.id)))
-
-  /**
-    * This is a dangerous function as it will return all the objects available, so it could take up
-    * a lot of memory
-    */
-  override def list(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String,
-                    orderColumn: String, orderDirection: String)
-                   (implicit parentId: Long, c:Option[Connection]=None): List[Survey] =
-    this.challengeDAL.listByType(limit, offset, onlyEnabled, searchString, orderColumn,
-      orderDirection, Actions.ITEM_TYPE_SURVEY).map(c => Survey(c, this.getAnswers(c.id)))
 }

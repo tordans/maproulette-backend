@@ -24,4 +24,6 @@ case class Tag(override val id: Long,
 object Tag {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]
   implicit val tagReads: Reads[Tag] = Json.reads[Tag]
+
+  val KEY = "tags"
 }

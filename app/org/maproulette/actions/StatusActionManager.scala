@@ -44,7 +44,9 @@ case class DailyStatusActionSummary(date:DateTime,
                                     alreadyFixedUpdates:Int,
                                     lastAlreadyFixedUpdated:Option[DateTime],
                                     tooHardUpdates:Int,
-                                    lastTooHardUpdated:Option[DateTime])
+                                    lastTooHardUpdated:Option[DateTime],
+                                    answeredUpdates:Int,
+                                    lastAnsweredUpdated:Option[DateTime])
 
 case class StatusActionLimits(startDate:Option[DateTime]=None,
                               endDate:Option[DateTime]=None,
@@ -96,11 +98,13 @@ class StatusActionManager @Inject()(config: Config, db:Database)(implicit applic
       get[Int]("alreadyFixed") ~
       get[Option[DateTime]]("lastAlreadyFixed") ~
       get[Int]("tooHard") ~
-      get[Option[DateTime]]("lastTooHard") map {
+      get[Option[DateTime]]("lastTooHard") ~
+      get[Int]("answered") ~
+      get[Option[DateTime]]("lastAnswered") map {
       case daily ~ osmUserId ~ osmUsername ~ fixed ~ lastFixed ~ falsePositive ~ lastFalsePositive ~ skipped ~ lastSkipped ~
-            alreadyFixed ~ lastAlreadyFixed ~ tooHard ~ lastTooHard => {
+            alreadyFixed ~ lastAlreadyFixed ~ tooHard ~ lastTooHard ~ answered ~ lastAnswered => {
         new DailyStatusActionSummary(daily, osmUserId, osmUsername, fixed, lastFixed, falsePositive, lastFalsePositive,
-          skipped, lastSkipped, alreadyFixed, lastAlreadyFixed, tooHard, lastTooHard
+          skipped, lastSkipped, alreadyFixed, lastAlreadyFixed, tooHard, lastTooHard, answered, lastAnswered
         )
       }
     }
@@ -170,7 +174,9 @@ class StatusActionManager @Inject()(config: Config, db:Database)(implicit applic
          |    COUNT(sa.status) FILTER (where sa.status = 5) AS alreadyFixed,
          |    MAX(sa.created) FILTER (where sa.status = 5) AS lastAlreadyFixed,
          |    COUNT(sa.status) FILTER (where sa.status = 6) AS tooHard,
-         |    MAX(sa.created) FILTER (where sa.status = 6) AS lastTooHard
+         |    MAX(sa.created) FILTER (where sa.status = 6) AS lastTooHard,
+         |    COUNT(sa.status) FILTER (where sa.status = 7) AS answered,
+         |    MAX(sa.created) FILTER (where sa.status = 7) AS lastAnswered
          |FROM status_actions sa
          |INNER JOIN users u ON u.osm_id = sa.osm_user_id
          | ${if (whereClause.nonEmpty) { s"WHERE ${whereClause.toString}" } else { "" }}

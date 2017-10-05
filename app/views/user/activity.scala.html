@@ -48,6 +48,9 @@
                 if (data[row].tooHardUpdates > 0) {
                     activityTimeline.append(buildBox(data[row].date, timelineDate, data[row].tooHardUpdates, data[row].lastTooHardUpdated, 6, "fa-gear bg-purple", "toohard"));
                 }
+                if (data[row].answeredUpdates > 0) {
+                    activityTimeline.append(buildBox(data[row].date, timelineDate, data[row].answeredUpdates, data[row].lastAnswered, 7, "fa-question-circle bg-green", "answered"));
+                }
             }
         }
         activityTimeline.append("<li><i onclick='loadNextActivity();' class='fa fa-clock-o bg-gray'></i></li>");
