@@ -45,6 +45,7 @@ class ChallengeController @Inject()(override val childController: TaskController
   // The type of object that this controller deals with.
   override implicit val itemType: ItemType = ChallengeType()
   implicit val answerWrites: Writes[Answer] = Challenge.answerWrites
+  implicit val commentWrites: Writes[Comment] = Comment.commentWrites
 
   override def dalWithTags: TagDALMixin[Challenge] = dal
 
@@ -256,6 +257,18 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.deleteTasks(user, challengeId, statusFilters.split(",").map(_.toInt).toList)
       Ok
+    }
+  }
+
+  /**
+    * Retrieve all the comments for a specific challenge
+    *
+    * @param challengeId The id of the challenge
+    * @return A map of task id's to comments that exist for a specific challenge
+    */
+  def retrieveComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dalManager.task.retrieveCommentsForChallenge(challengeId, limit, page).map(c => c._1+"" -> c._2)))
     }
   }
 

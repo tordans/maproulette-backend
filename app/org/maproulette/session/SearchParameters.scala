@@ -33,6 +33,7 @@ case class SearchParameters(projectId:Option[Long]=None,
                             props:Option[Map[String, String]]=None,
                             priority:Option[Int]=None,
                             location:Option[SearchLocation]=None,
+                            fuzzySearch:Option[Int]=None,
                             owner:Option[String]=None) {
   def getProjectId : Option[Long] = projectId match {
     case Some(v) if v == -1 => None
@@ -110,6 +111,7 @@ object SearchParameters {
           }
         case _ => None
       },
+      Utils.optionStringToOptionInt(request.getQueryString("fuzzy")),
       request.getQueryString("o")
     )
     block(qsParams)
