@@ -92,6 +92,31 @@ trait DALHelper {
     s"${this.getSqlKey} LOWER($column) LIKE LOWER({$key})"
 
   /**
+    * Adds fuzzy search to any query. This will include the Levenshtein, Metaphone and Soundex functions
+    * that will search the string. On large datasets this could potentially decrease performance
+    *
+    * @param column The column that we are comparing
+    * @param key The key used in anorm for the value to compare with
+    * @param levenshsteinScore The levenshstein score, which is the difference between the strings
+    * @param metaphoneSize The maximum size of the metaphone code
+    * @param conjunction Default AND
+    * @return A string with all the fuzzy search functions
+    */
+  def fuzzySearch(column:String, key:String="ss", levenshsteinScore:Int = 3, metaphoneSize:Int = 4)
+                 (implicit conjunction:Option[SQLKey]=Some(AND())) : String = {
+    val score = if (levenshsteinScore > 0) {
+      levenshsteinScore
+    } else {
+      3
+    }
+    s"""${this.getSqlKey} ($column <> '' AND
+          (LEVENSHTEIN(LOWER($column), LOWER({$key})) < $score OR
+            METAPHONE(LOWER($column), 4) = METAPHONE(LOWER({$key}), $metaphoneSize) OR
+            SOUNDEX(LOWER($column)) = SOUNDEX(LOWER({$key})))
+          )"""
+  }
+
+  /**
     * Corrects the search string by adding % before and after string, so that it doesn't rely
     * on simply an exact match. If value not supplied, then will simply return %
     *

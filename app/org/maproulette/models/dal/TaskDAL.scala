@@ -705,6 +705,26 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Retrieves a map of all the comments for all the tasks in a challenge
+    *
+    * @param challengeId The challenge to retrieve the comments for
+    * @param c An option connection
+    * @return A map of task id's to list of comments
+    */
+  def retrieveCommentsForChallenge(challengeId:Long, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)(implicit c:Option[Connection] = None) : Map[Long, List[Comment]] = {
+    withMRConnection { implicit c =>
+      SQL"""SELECT * FROM task_comments tc
+            INNER JOIN users u ON u.osm_id = tc.osm_id
+            INNER JOIN tasks t ON t.id = tc.task_id
+            WHERE t.parent_id = $challengeId
+            ORDER BY t.parent_id, tc.created DESC
+            LIMIT #${this.sqlLimit(limit)} OFFSET $offset""".as((long("task_id") ~ this.commentParser).*)
+        .groupBy(_._1)
+        .map(tuple => (tuple._1, tuple._2.map(_._2)))
+    }
+  }
+
+  /**
     * Add comment to a task
     *
     * @param user The user adding the comment

@@ -587,8 +587,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id"
           searchParameters.projectSearch match {
             case Some(ps) if ps.nonEmpty =>
-              whereClause ++= this.searchField("p.name", "ps")(None)
-              parameters += ('ps -> s"$ps%")
+              searchParameters.fuzzySearch match {
+                case Some(x) =>
+                  whereClause ++= this.fuzzySearch("p.name", "ps", x)(None)
+                  parameters += ('ps -> ps)
+                case None =>
+                  whereClause ++= this.searchField("p.name", "ps")(None)
+                  parameters += ('ps -> s"%$ps%")
+              }
             case _ => // we can ignore this
           }
           this.appendInWhereClause(whereClause, this.enabled(searchParameters.projectEnabled.getOrElse(false), "p")(None))
@@ -596,8 +602,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
 
       searchParameters.challengeSearch match {
         case Some(cs) if cs.nonEmpty =>
-          this.appendInWhereClause(whereClause, this.searchField("c.name", "cs")(None))
-          parameters += ('cs -> s"$cs%")
+          searchParameters.fuzzySearch match {
+            case Some(x) =>
+              whereClause ++= this.fuzzySearch("c.name", "cs", x)(None)
+              parameters += ('cs -> cs)
+            case None =>
+              this.appendInWhereClause(whereClause, this.searchField("c.name", "cs")(None))
+              parameters += ('cs -> s"%$cs%")
+          }
         case _ => // ignore
       }
 
