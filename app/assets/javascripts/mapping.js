@@ -901,7 +901,7 @@ var MRManager = (function() {
         resetEditControls();
         var challengeData = currentTask.getChallenge().getData();
         // update the browser url to reflect the current task
-        window.history.pushState("", "", "/map/" + challengeData.id + "/" + currentTask.getData().id);
+        window.history.pushState("", "", Utils.appendQueryString("/map/" + challengeData.id + "/" + currentTask.getData().id));
         // show the task text as a notification
         var taskInstruction = "";
         if (LoggedInUser.userId == challengeData.owner) {
@@ -1013,6 +1013,7 @@ var MRManager = (function() {
      * @param taskId The taskId if you are looking for a specific task
      */
     var addTaskToMap = function(parentId, taskId) {
+        currentSearchParameters.qsUpdate(true);
         currentTask.setSeedData(parentId, taskId);
         if (typeof taskId === 'undefined' || taskId == -1) {
             if (debugMode) {
@@ -1350,7 +1351,7 @@ var MRManager = (function() {
      * Search Parameters will be lost if you just refresh with this URL
      */
     var getCurrentMapURL = function() {
-        return "/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id;
+        return Utils.appendQueryString("/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
     };
     
     var getCurrentTaskData = function() {
@@ -1422,5 +1423,4 @@ var MRManager = (function() {
         getMapBounds:getMapBounds,
         updateMapOptions:updateMapOptions
     };
-
 }());

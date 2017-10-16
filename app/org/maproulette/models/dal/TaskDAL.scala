@@ -527,11 +527,73 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
-    * Gets a random task based on the tags, and can include project and challenge restrictions as well.
-    * The sql query that is built to execute this could be costly on larger datasets, the reason being is
-    * that it will basically execute the same query twice, once to retrieve the objects that match
-    * the criteria and the second time to get an accurate random offset to choose a random tasks from
-    * all the matching tasks in the set. This will most likely always be called with a limit of 1.
+    * Retrieves a random challenge from the list of possible challenges in the search list
+    *
+    * @param params The params to search for the random challenge
+    * @param c The connection to the database, will create one if not already created
+    * @return The id of the random challenge
+    */
+  private def getRandomChallenge(params: SearchParameters)(implicit c:Option[Connection]=None) : Option[Long] = {
+    params.challengeId match {
+      case Some(id) if id > -1 => Some(id)
+      case _ =>
+        withMRConnection { implicit c =>
+          val parameters = new ListBuffer[NamedParameter]()
+          val whereClause = new StringBuilder
+          val queryBuilder = new StringBuilder
+
+          if (params.enabledChallenge) {
+            appendInWhereClause(whereClause, "c.enabled = true")
+          }
+          if (params.enabledProject) {
+            appendInWhereClause(whereClause, "p.enabled = true")
+          }
+
+          val challengeTagIds = if (params.hasChallengeTags) {
+            this.tagDAL.retrieveListByName(params.challengeTags.get.map(_.toLowerCase)).map(_.id)
+          } else {
+            List.empty
+          }
+
+          if (challengeTagIds.nonEmpty) {
+            queryBuilder ++= "INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id "
+            appendInWhereClause(whereClause, "tc.tag_id IN ({challengeTagIds})")
+            parameters += ('challengeTagIds -> ParameterValue.toParameterValue(challengeTagIds))
+          }
+          if (params.challengeSearch.nonEmpty) {
+            appendInWhereClause(whereClause, s"${searchField("c.name", "challengeSearch")(None)}")
+            parameters += ('challengeSearch -> search(params.challengeSearch.getOrElse("")))
+          }
+
+          params.getProjectId match {
+            case Some(id) =>
+              appendInWhereClause(whereClause, "p.id = {projectId}")
+              parameters += ('projectId -> ParameterValue.toParameterValue(id))
+            case None =>
+              if (params.projectSearch.nonEmpty) {
+                appendInWhereClause(whereClause, s"${searchField("p.name", "projectSearch")(None)}")
+                parameters += ('projectSearch -> search(params.projectSearch.getOrElse("")))
+              }
+          }
+
+          val query = s"""
+                        SELECT c.id FROM challenges c
+                        INNER JOIN projects p ON p.id = c.parent_id
+                        ${queryBuilder.toString}
+                        WHERE ${whereClause.toString}
+                        ORDER BY RANDOM() LIMIT 1
+                      """
+          sqlWithParameters(query, parameters).as(long("id").*).headOption
+        }
+    }
+  }
+
+  /**
+    * Gets a random task. This will first retrieve a random challenge from the list of criteria for the
+    * challenges. If a challenge id is provided all other search criteria will be ignored. Generally
+    * this would be called to get a single random task, if multiple random tasks are requested all
+    * the random tasks will be retrieved from the random challenge that was selected. So for multiple
+    * tasks it will be all grouped from the same challenge.
     *
     * @param user The user executing the request
     * @param params The search parameters that will define the filters for the random selection
@@ -540,111 +602,72 @@ class TaskDAL @Inject()(override val db: Database,
     */
   def getRandomTasks(user:User, params: SearchParameters, limit:Int = -1, priority:Int=Challenge.PRIORITY_HIGH)
                     (implicit c:Option[Connection]=None) : List[Task] = {
-    val enabledClause = if (params.enabledProject || (params.enabledProject && params.enabledChallenge)) {
-      "c.enabled = TRUE AND p.enabled = TRUE AND"
-    } else {
-      ""
-    }
+    getRandomChallenge(params) match {
+      case Some(challengeId) =>
+        val taskTagIds = if (params.hasTaskTags) {
+          this.tagDAL.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
+        } else {
+          List.empty
+        }
 
-    val taskTagIds = if (params.hasTaskTags) {
-      this.tagDAL.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
-    } else {
-      List.empty
-    }
-
-    val challengeTagIds = if (params.hasChallengeTags) {
-      this.tagDAL.retrieveListByName(params.challengeTags.get.map(_.toLowerCase)).map(_.id)
-    } else {
-      List.empty
-    }
-
-    val firstQuery =
-      s"""SELECT tasks.$retrieveColumns FROM tasks
-          INNER JOIN challenges c ON c.id = tasks.parent_id
-          INNER JOIN projects p ON p.id = c.parent_id
+        val select =
+          s"""SELECT tasks.$retrieveColumns FROM tasks
           LEFT JOIN locked l ON l.item_id = tasks.id
        """.stripMargin
-    val secondQuery =
-      """SELECT COUNT(*) FROM tasks
-         INNER JOIN challenges c ON c.id = tasks.parent_id
-         INNER JOIN projects p ON p.id = c.parent_id
-         LEFT JOIN locked l ON l.item_id = tasks.id
-      """.stripMargin
 
-    val parameters = new ListBuffer[NamedParameter]()
-    val queryBuilder = new StringBuilder
-    // The default where clause will check to see if the parents are enabled, that the task is
-    // not locked (or if it is, it is locked by the current user) and that the status of the task
-    // is either Created or Skipped
-    val whereClause = new StringBuilder(
-      s"""WHERE $enabledClause tasks.priority = $priority AND
+        val parameters = new ListBuffer[NamedParameter]()
+        val queryBuilder = new StringBuilder
+        // The default where clause will check to see if the parents are enabled, that the task is
+        // not locked (or if it is, it is locked by the current user) and that the status of the task
+        // is either Created or Skipped
+        val taskStatusList = params.taskStatus match {
+          case Some(l) if l.nonEmpty => l
+          case _ => List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
+        }
+        val whereClause = new StringBuilder(
+          s"""WHERE tasks.priority = $priority AND
+              tasks.parent_id = $challengeId AND
               (l.id IS NULL OR l.user_id = ${user.id}) AND
-              tasks.status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}, ${Task.STATUS_TOO_HARD})""")
+              tasks.status IN ({statusList})""")
+        parameters += ('statusList -> ParameterValue.toParameterValue(taskStatusList))
 
-    params.getChallengeId match {
-      case Some(id) =>
-        whereClause ++= " AND tasks.parent_id = {parentId} "
-        parameters += ('parentId -> ParameterValue.toParameterValue(id))
-      case None =>
-        if (challengeTagIds.nonEmpty) {
-          queryBuilder ++= "INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id "
-          whereClause ++= " AND tc.tag_id IN ({challengeids})"
-          parameters += ('challengeids -> ParameterValue.toParameterValue(challengeTagIds))
+        if (taskTagIds.nonEmpty) {
+          queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
+          appendInWhereClause(whereClause, "tt.tag_id IN ({tagids})")
+          parameters += ('tagids -> ParameterValue.toParameterValue(taskTagIds))
         }
-        if (params.challengeSearch.nonEmpty) {
-          whereClause ++= s" ${searchField("c.name", "challengeSearch")}"
-          parameters += ('challengeSearch -> search(params.challengeSearch.getOrElse("")))
+        if (params.taskSearch.nonEmpty) {
+          appendInWhereClause(whereClause, s"${searchField("tasks.name", "taskSearch")(None)}")
+          parameters += ('taskSearch -> search(params.taskSearch.getOrElse("")))
         }
-    }
-
-    params.getProjectId match {
-      case Some(id) =>
-        whereClause ++= " AND p.id = {projectId} "
-        parameters += ('projectId -> ParameterValue.toParameterValue(id))
-      case None =>
-        if (params.projectSearch.nonEmpty) {
-          whereClause ++= s" ${searchField("p.name", "projectSearch")}"
-          parameters += ('projectSearch -> search(params.projectSearch.getOrElse("")))
-        }
-    }
-
-    if (taskTagIds.nonEmpty) {
-      queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
-      whereClause ++= " AND tt.tag_id IN ({tagids}) "
-      parameters += ('tagids -> ParameterValue.toParameterValue(taskTagIds))
-    }
-    if (params.taskSearch.nonEmpty) {
-      whereClause ++= s" ${searchField("tasks.name", "taskSearch")}"
-      parameters += ('taskSearch -> search(params.taskSearch.getOrElse("")))
-    }
 
 
-    val query = s"$firstQuery ${queryBuilder.toString} ${whereClause.toString} " +
-      s"OFFSET FLOOR(RANDOM()*(" +
-      s"$secondQuery ${queryBuilder.toString} ${whereClause.toString}" +
-      s")) LIMIT ${this.sqlLimit(limit)}"
+        val query = s"$select ${queryBuilder.toString} ${whereClause.toString} " +
+          s"ORDER BY tasks.status, RANDOM() LIMIT ${this.sqlLimit(limit)}"
 
-    implicit val ids = List[Long]()
-    this.cacheManager.withIDListCaching { implicit cachedItems =>
-      this.withMRTransaction { implicit c =>
-        // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
-        // task can be locked at a time
-        this.unlockAllItems(user, Some(TaskType()))
-        val tasks = sqlWithParameters(query, parameters).as(this.parser.*)
-        // once we have the tasks, we need to lock each one, if any fail to lock we just remove
-        // them from the list. A guest user will not lock any tasks, but when logged in will be
-        // required to refetch the current task, and if it is locked, then will have to get another
-        // task
-        if (!user.guest) {
-          val taskList = tasks.filter(lockItem(user, _) > 0)
-          if (taskList.isEmpty) {
-            throw new NotFoundException("No tasks found.")
+        implicit val ids = List[Long]()
+        this.cacheManager.withIDListCaching { implicit cachedItems =>
+          this.withMRTransaction { implicit c =>
+            // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
+            // task can be locked at a time
+            this.unlockAllItems(user, Some(TaskType()))
+            val tasks = sqlWithParameters(query, parameters).as(this.parser.*)
+            // once we have the tasks, we need to lock each one, if any fail to lock we just remove
+            // them from the list. A guest user will not lock any tasks, but when logged in will be
+            // required to refetch the current task, and if it is locked, then will have to get another
+            // task
+            if (!user.guest) {
+              val taskList = tasks.filter(lockItem(user, _) > 0)
+              if (taskList.isEmpty) {
+                throw new NotFoundException("No tasks found.")
+              }
+              taskList
+            } else {
+              tasks
+            }
           }
-          taskList
-        } else {
-          tasks
         }
-      }
+      case None => List.empty
     }
   }
 

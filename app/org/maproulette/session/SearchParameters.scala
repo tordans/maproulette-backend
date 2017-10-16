@@ -69,7 +69,8 @@ object SearchParameters {
 
   /**
     * Retrieves the search cookie from the cookie list and creates a search parameter object
-    * to send along with the request
+    * to send along with the request. It will also check the query string and if any parameters
+    * are found it will override the values in the cookie.
     *
     * @param block The block of code to be executed after the cookie has been retrieved
     * @param request The request that the cookie came in on
@@ -81,7 +82,78 @@ object SearchParameters {
       case Some(c) => convert(c.value)
       case None => SearchParameters()
     }
-    block(params)
+
+    block(SearchParameters(
+      //projectID
+      this.getLongParameter(request.getQueryString("pid"), params.projectId),
+      //projectSearch
+      this.getStringParameter(request.getQueryString("ps"), params.projectSearch),
+      //projectEnabled
+      this.getBooleanParameter(request.getQueryString("pe"), params.projectEnabled),
+      //challengeID
+      this.getLongParameter(request.getQueryString("cid"), params.challengeId),
+      //challengeTags
+      request.getQueryString("ct") match {
+        case Some(v) => Some(v.split(",").toList)
+        case None => params.challengeTags
+      },
+      //challengeTagConjunction
+      this.getBooleanParameter(request.getQueryString("ctc"), Some(params.challengeTagConjunction.getOrElse(false))),
+      //challengeSearch
+      this.getStringParameter(request.getQueryString("cs"), params.challengeSearch),
+      //challengeEnabled
+      this.getBooleanParameter(request.getQueryString("ce"), params.challengeEnabled),
+      //taskTags
+      request.getQueryString("tt") match {
+        case Some(v) => Some(v.split(",").toList)
+        case None => params.taskTags
+      },
+      //taskTagConjunction
+      this.getBooleanParameter(request.getQueryString("ttc"), Some(params.taskTagConjunction.getOrElse(false))),
+      //taskSearch
+      this.getStringParameter(request.getQueryString("ts"), params.taskSearch),
+      //taskStatus
+      request.getQueryString("tStatus") match {
+        case Some(v) => Utils.toIntList(v)
+        case None => params.taskStatus
+      },
+      None,
+      //taskPriority
+      this.getIntParameter(request.getQueryString("tp"), params.priority),
+      //taskBoundingBox
+      request.getQueryString("ttb") match {
+        case Some(v) if v.nonEmpty =>
+          v.split(",") match {
+            case x if x.size == 4 => Some(SearchLocation(x(0).toDouble, x(1).toDouble, x(2).toDouble, x(3).toDouble))
+            case _ => None
+          }
+        case None => params.location
+      },
+      //FuzzySearch
+      this.getIntParameter(request.getQueryString("fuzzy"), params.fuzzySearch),
+      //Owner
+      this.getStringParameter(request.getQueryString("o"), params.owner)
+    ))
+  }
+
+  private def getBooleanParameter(value:Option[String], default:Option[Boolean]) : Option[Boolean] = value match {
+    case Some(v) => Some(v.toBoolean)
+    case None => default
+  }
+
+  private def getLongParameter(value:Option[String], default:Option[Long]) : Option[Long] = value match {
+    case Some(v) => Some(v.toLong)
+    case None => default
+  }
+
+  private def getIntParameter(value:Option[String], default:Option[Int]) : Option[Int] = value match {
+    case Some(v) => Some(v.toInt)
+    case None => default
+  }
+
+  private def getStringParameter(value:Option[String], default:Option[String]) : Option[String] = value match {
+    case Some(v) => Some(v)
+    case None => default
   }
 
   def withQSSearch[T](block:SearchParameters => T)(implicit request:Request[AnyContent]) : T = {

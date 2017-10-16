@@ -169,14 +169,16 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def getRandomTasksWithPriority(challengeId: Long, taskSearch: String, tags: String, limit: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val params = SearchParameters(
-        challengeId = Some(challengeId),
-        taskSearch = Some(taskSearch),
-        taskTags = Some(tags.split(",").toList)
-      )
-      val result = this.dalManager.task.getRandomTasksWithPriority(User.userOrMocked(user), params, limit)
-      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
-      Ok(Json.toJson(result))
+      SearchParameters.withSearch { p =>
+        val params = p.copy(
+          challengeId = Some(challengeId),
+          taskSearch = Some(taskSearch),
+          taskTags = Some(tags.split(",").toList)
+        )
+        val result = this.dalManager.task.getRandomTasksWithPriority(User.userOrMocked(user), params, limit)
+        result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
+        Ok(Json.toJson(result))
+      }
     }
   }
 
@@ -191,14 +193,16 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def getRandomTasks(challengeId: Long, taskSearch: String, tags: String, limit: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val params = SearchParameters(
-        challengeId = Some(challengeId),
-        taskSearch = Some(taskSearch),
-        taskTags = Some(tags.split(",").toList)
-      )
-      val result = this.dalManager.task.getRandomTasks(User.userOrMocked(user), params, limit)
-      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
-      Ok(Json.toJson(result))
+      SearchParameters.withSearch { p =>
+        val params = p.copy(
+          challengeId = Some(challengeId),
+          taskSearch = Some(taskSearch),
+          taskTags = Some(tags.split(",").toList)
+        )
+        val result = this.dalManager.task.getRandomTasks(User.userOrMocked(user), params, limit)
+        result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
+        Ok(Json.toJson(result))
+      }
     }
   }
 
@@ -281,7 +285,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def extendedFind(limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      SearchParameters.withQSSearch { implicit params =>
+      SearchParameters.withSearch { implicit params =>
         val challenges = this.dal.extendedFind(params, limit, page)
         if (challenges.isEmpty) {
           NotFound
