@@ -169,6 +169,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       case Some(value) => value
       case None => throw new UniqueViolationException(s"Challenge with name ${challenge.name} already exists in the database")
     }
+
+
   }
 
   /**

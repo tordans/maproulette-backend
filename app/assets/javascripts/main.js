@@ -195,7 +195,7 @@ function SearchParameters() {
         Cookies.set('search', search);
     };
 
-    this.reset = function() {
+    var reset = function() {
         search = defaultState;
         update();
     };
@@ -209,35 +209,37 @@ function SearchParameters() {
         update();
     };
 
-    var setValueByQS = function(key, convert) {
-        var value = Utils.getQSParameterByName(key);
+    var setValueByQS = function(qsKey, cookieKey, convert) {
+        var value = Utils.getQSParameterByName(qsKey);
         if (typeof value !== 'undefined' && value !== "" && value !== null) {
             if (typeof convert !== 'undefined') {
-                setValue(key, convert(value));
+                setValue(cookieKey, convert(value));
             } else {
-                setValue(key, value);
+                setValue(cookieKey, value);
             }
         }
     };
 
-    this.qsUpdate = function(reset) {
-        if (reset) {
+    this.qsUpdate = function(resetCookie) {
+        if (resetCookie) {
             reset();
         }
-        setValueByQS("projectId", parseInt);
-        setValueByQS("projectSearch");
-        setValueByQS("projectEnabled", Boolean);
-        setValueByQS("challengeId", parseInt);
-        setValueByQS("challengeEnabled", Boolean);
-        setValueByQS("challengeSearch");
-        setValueByQS("challengeTags", function(v) { return v.split(","); });
-        setValueByQS("taskSearch");
-        setValueByQS("taskTags", function(v) { return v.split(","); });
-        setValueByQS("taskStatus", function(v) { return v.split(",").map(Number); });
-        //setValueByQS("props");
-        setValueByQS("priority", parseInt);
-        setValueByQS("location");
-        setValueByQS("owner");
+        setValueByQS("pid", "projectId", parseInt);
+        setValueByQS("ps", "projectSearch");
+        setValueByQS("pe", "projectEnabled", Boolean);
+        setValueByQS("cid", "challengeId", parseInt);
+        setValueByQS("ct", "challengeTags", function(v) { return v.split(","); });
+        setValueByQS("ctc", "challengeTagConjunction", Boolean);
+        setValueByQS("cs", "challengeSearch");
+        setValueByQS("ce", "challengeEnabled", Boolean);
+        setValueByQS("tt", "taskTags", function(v) { return v.split(","); });
+        setValueByQS("ttc", "taskTagConjunction", Boolean);
+        setValueByQS("ts", "taskSearch");
+        setValueByQS("tStatus", "taskStatus", function(v) { return v.split(",").map(Number); });
+        setValueByQS("tp", "priority", parseInt);
+        setValueByQS("tbb", "location");
+        setValueByQS("fuzzy", "fuzzy", parseInt);
+        setValueByQS("o", "owner");
     };
     
     var search = Cookies.getJSON('search');
@@ -274,6 +276,21 @@ function SearchParameters() {
     this.setChallengeId = function(id) {
         setValue("challengeId", id);
     };
+    this.getChallengeTags = function() {
+        return getValue("challengeTags");
+    };
+    this.setChallengeTags = function(tags) {
+        if (typeof tags === 'string') {
+            tags = tags.split(",");
+        }
+        setValue("challengeTags", tags);
+    };
+    this.getChallengeTagConjunction = function() {
+        return getValue("challengeTagConjunction");
+    };
+    this.setChallengeTagConjunction = function(conjunction) {
+        setValue("challengeTagConjunction", conjunction);
+    };
     this.getChallengeSearch = function() {
         return getValue("challengeSearch");
     };
@@ -286,23 +303,8 @@ function SearchParameters() {
     this.setChallengeEnabled = function(enabled) {
         setValue("challengeEnabled", enabled);
     };
-    this.getChallengeTags = function() {
-        return getValue("challengeTags");
-    };
-    this.setChallengeTags = function(tags) {
-        if (typeof tags === 'string') {
-            tags = tags.split(",");
-        }
-        setValue("challengeTags", tags);
-    };
-    this.getTaskSearch = function() {
-        return getValue("taskSearch");
-    };
-    this.setTaskSearch = function(search) {
-        setValue("taskSearch", search);
-    };
     this.getTaskTags = function() {
-        return getValue("taskTags");    
+        return getValue("taskTags");
     };
     this.setTaskTags = function(tags) {
         if (typeof tags === 'string') {
@@ -310,17 +312,26 @@ function SearchParameters() {
         }
         setValue("taskTags", tags);
     };
+    this.getTaskTagConjunction = function() {
+        return getValue("taskTagConjunction");
+    };
+    this.setTaskTagConjunction = function(conjunction) {
+        setValue("taskTagConjunction", conjunction);
+    };
+    this.getTaskSearch = function() {
+        return getValue("taskSearch");
+    };
+    this.setTaskSearch = function(search) {
+        setValue("taskSearch", search);
+    };
     this.getTaskStatus = function() {
         return getValue("taskStatus");
     };
     this.setTaskStatus = function(status) {
+        if (typeof status === 'string') {
+            status = status.split(",").map(Number);
+        }
         setValue("taskStatus", status);
-    };
-    this.getOSMProperties = function() {
-        return getValue("props");
-    };
-    this.setOSMProperties = function(props) {
-        setValue("props", props);
     };
     this.getPriority = function() {
         return getValue("priority");
@@ -333,6 +344,12 @@ function SearchParameters() {
     };
     this.setSearchLocation = function(left, bottom, right, top) {
         setValue("location", {left:left, bottom:bottom, right:right, top:top});
+    };
+    this.getFuzzySearch = function() {
+        return getValue("fuzzy");
+    };
+    this.setFuzzySearch = function(fuzzy) {
+        setValue("fuzzy", fuzzy);
     };
     this.getOwner = function() {
         return getValue("owner");
@@ -360,16 +377,6 @@ var deleteProject = function(itemId) {
  */
 var deleteChallenge = function(itemId) {
     deleteItem("Challenge", itemId);
-};
-
-/**
- * Helper for the generic delete function, this will delete a specific survey
- * Only an Admin user for the specific parent project will be able to delete the survey or Super user
- * 
- * @param itemId The id of the survey
- */
-var deleteSurvey = function(itemId) {
-    deleteItem("Survey", itemId);
 };
 
 /**
@@ -414,8 +421,6 @@ var deleteItem = function(itemType, itemId) {
         jsRoutes.org.maproulette.controllers.api.ProjectController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "Challenge") {
         jsRoutes.org.maproulette.controllers.api.ChallengeController.delete(itemId).ajax(apiCallback);
-    } else if (itemType == "Survey") {
-        jsRoutes.org.maproulette.controllers.api.SurveyController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "Task") {
         jsRoutes.org.maproulette.controllers.api.TaskController.delete(itemId).ajax(apiCallback);
     } else if (itemType == "User") {
@@ -435,13 +440,6 @@ var findProjects = function(search, parentId, limit, offset, onlyEnabled, handle
  */
 var findChallenges = function(search, parentId, limit, offset, onlyEnabled, handler, errorHandler) {
     findItem("Challenge", search, parentId, limit, offset, onlyEnabled, handler, errorHandler);
-};
-
-/**
- * Helper function to specifically find surveys, see generic find function for information on parameters
- */
-var findSurveys = function(search, parentId, limit, offset, onlyEnabled, handler, errorHandler) {
-    findItem("Survey", search, parentId, limit, offset, onlyEnabled, handler, errorHandler);
 };
 
 /**
@@ -472,8 +470,6 @@ var findItem = function(itemType, search, parentId, limit, offset, onlyEnabled, 
         jsRoutes.org.maproulette.controllers.api.ProjectController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback);
     } else if (itemType == "Challenge") {
         jsRoutes.org.maproulette.controllers.api.ChallengeController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback);
-    } else if (itemType == "Survey") {
-        jsRoutes.org.maproulette.controllers.api.SurveyController.find(search, parentId, limit, offset, onlyEnabled).ajax(apiCallback); 
     } else if (itemType == "Tag") {
         jsRoutes.org.maproulette.controllers.api.TagController.getTags(search, limit, offset).ajax(apiCallback);
     }
@@ -494,13 +490,6 @@ var getChallenge = function(challengeId, handler, errorHandler) {
 };
 
 /**
- * Helper function to specifically get a survey, see generic get function for information on parameters
- */
-var getSurvey = function(surveyId, handler, errorHandler) {
-    getItem("Survey", surveyId, handler, errorHandler);
-};
-
-/**
  * A generic get function that will make an API call to the server to get a specific object
  *
  * @param itemType The type of object you are trying to retrieve
@@ -517,8 +506,6 @@ var getItem = function(itemType, itemId, handler, errorHandler) {
         jsRoutes.org.maproulette.controllers.api.ProjectController.read(itemId).ajax(apiCallback);
     } else if (itemType == "Challenge") {
         jsRoutes.org.maproulette.controllers.api.ChallengeController.read(itemId).ajax(apiCallback);
-    } else if (itemType == "Survey") {
-        jsRoutes.org.maproulette.controllers.api.SurveyController.read(itemId).ajax(apiCallback);
     }
 };
 

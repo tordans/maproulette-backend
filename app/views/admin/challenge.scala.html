@@ -85,11 +85,7 @@
                                         <span class="sr-only">@messages("challenge.column.actions.options.toggle")</span>
                                     </button>
                                     <ul class="dropdown-menu" role="menu">
-                                        @if(c._1.general.challengeType == Actions.ITEM_TYPE_CHALLENGE) {
-                                            <li><a href="@routes.FormEditController.challengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
-                                        } else {
-                                            <li><a href="@routes.FormEditController.challengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
-                                        }
+                                        <li><a href="@routes.FormEditController.challengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.edit")</a></li>
                                         <li><a href="@routes.FormEditController.cloneChallengeFormUI(c._1.general.parent, c._1.id)">@messages("challenge.column.actions.clone")</a></li>
                                         <li><a href="#" onclick="deleteChallenge(@c._1.id);">@messages("challenge.column.actions.delete")</a></li>
                                         <li><a href="#" onclick="resetTaskInstructions(@c._1.id)">@messages("challenge.column.actions.resetinstructions")</a></li>

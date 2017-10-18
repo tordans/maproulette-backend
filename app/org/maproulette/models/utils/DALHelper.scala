@@ -72,7 +72,7 @@ trait DALHelper {
   def appendInWhereClause(whereClause:StringBuilder, value:String)
                          (implicit conjunction:Option[SQLKey]=Some(AND())) : Unit = {
     if (whereClause.nonEmpty && value.nonEmpty) {
-      whereClause ++= s"${this.getSqlKey} $value"
+      whereClause ++= s" ${this.getSqlKey} $value"
     } else {
       whereClause ++= value
     }
