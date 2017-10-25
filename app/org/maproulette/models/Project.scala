@@ -33,6 +33,8 @@ object Project {
   implicit val projectWrites: Writes[Project] = Json.writes[Project]
   implicit val projectReads: Reads[Project] = Json.reads[Project]
 
+  val KEY_GROUPS = "groups"
+
   val projectForm = Form(
     mapping(
       "id" -> default(longNumber,-1L),
@@ -40,7 +42,7 @@ object Project {
       "created" -> default(jodaDate, DateTime.now()),
       "modified" -> default(jodaDate, DateTime.now()),
       "description" -> optional(text),
-      "groups" -> list(
+      KEY_GROUPS -> list(
         mapping(
           "id" -> longNumber,
           "name" -> nonEmptyText,
