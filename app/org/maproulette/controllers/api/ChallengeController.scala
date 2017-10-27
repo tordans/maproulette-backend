@@ -291,8 +291,11 @@ class ChallengeController @Inject()(override val childController: TaskController
           NotFound
         } else {
           val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
+          val projects = Some(this.dalManager.project.retrieveListById(-1, 0)(challenges.map(c => c.general.parent)).map(p => p.id -> p).toMap)
           val jsonList = challenges.map { c =>
-            Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
+            val updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
+            val projectJson = Json.toJson(projects.get(c.general.parent)).as[JsObject] - Project.KEY_GROUPS
+            Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
           }
           Ok(Json.toJson(jsonList))
         }

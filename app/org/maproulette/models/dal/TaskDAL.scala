@@ -304,12 +304,15 @@ class TaskDAL @Inject()(override val db: Database,
         SQL"""DELETE FROM #$tableName WHERE task_id = $taskId""".executeUpdate()
       }
       val features = (value \ "features").as[List[JsValue]]
+      if (features.isEmpty) {
+        c.rollback()
+        throw new InvalidException(s"No features found for task [$taskId].")
+      }
       val indexedValues = features.zipWithIndex
       val rows = indexedValues.map {
         case (_, i) => s"({taskId}, ST_SetSRID(ST_GeomFromGeoJSON({geom_$i}),4326), {props_$i}::hstore)"
       }.mkString(",")
       val parameters = indexedValues.flatMap { case (featureJson, i) =>
-        val geometry = ()
         val props = (featureJson \ "properties").asOpt[JsValue] match {
           case Some(p) => p.as[Map[String, String]].map(v => s""""${v._1}"=>"${v._2.replaceAll("\\\"", "\\\\\"")}"""").mkString(",")
           case None => ""

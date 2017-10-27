@@ -90,8 +90,9 @@ class ProjectController @Inject() (override val childController:ChallengeControl
 
   def getSearchedClusteredPoints(searchCookie:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val searchParams = SearchParameters.convert(searchCookie)
-      Ok(Json.toJson(this.dal.getSearchedClusteredPoints(searchParams)))
+      SearchParameters.withSearch { params =>
+        Ok(Json.toJson(this.dal.getSearchedClusteredPoints(params)))
+      }
     }
   }
 

@@ -155,37 +155,4 @@ object SearchParameters {
     case Some(v) => Some(v)
     case None => default
   }
-
-  def withQSSearch[T](block:SearchParameters => T)(implicit request:Request[AnyContent]) : T = {
-    val qsParams = SearchParameters(
-      Utils.optionStringToOptionLong(request.getQueryString("pid")),
-      request.getQueryString("ps"),
-      Utils.optionStringToOptionBoolean(request.getQueryString("pe")),
-      Utils.optionStringToOptionLong(request.getQueryString("cid")),
-      Utils.optionStringToOptionStringList(request.getQueryString("ct")),
-      Some(request.getQueryString("ctc").getOrElse("false").toBoolean),
-      request.getQueryString("cs"),
-      Utils.optionStringToOptionBoolean(request.getQueryString("ce")),
-      Utils.optionStringToOptionStringList(request.getQueryString("tt")),
-      Some(request.getQueryString("ttc").getOrElse("false").toBoolean),
-      request.getQueryString("ts"),
-      request.getQueryString("tStatus") match {
-        case Some(v) => Utils.toIntList(v)
-        case None => None
-      },
-      None,
-      Utils.optionStringToOptionInt(request.getQueryString("tp")),
-      request.getQueryString("tbb") match {
-        case Some(v) if v.nonEmpty =>
-          v.split(",") match {
-            case x if x.size == 4 => Some(SearchLocation(x(0).toDouble, x(1).toDouble, x(2).toDouble, x(3).toDouble))
-            case _ => None
-          }
-        case _ => None
-      },
-      Utils.optionStringToOptionInt(request.getQueryString("fuzzy")),
-      request.getQueryString("o")
-    )
-    block(qsParams)
-  }
 }

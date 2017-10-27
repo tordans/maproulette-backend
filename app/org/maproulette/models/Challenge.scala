@@ -120,6 +120,7 @@ object Challenge {
   val MAX_ZOOM = 19
 
   val KEY_ANSWER = "answers"
+  val KEY_PARENT = "parent"
   val defaultAnswerValid = Answer(-1, "Valid")
   val defaultAnswerInvalid = Answer(-2, "Invalid")
 

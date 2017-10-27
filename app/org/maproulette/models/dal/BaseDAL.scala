@@ -76,6 +76,16 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     }
   }
 
+  def keyToSQL[Key] : ToSql[Key] = {
+    new ToSql[Key] {
+      override def fragment(value: Key): (String, Int) =
+        value match {
+          case v:List[Long @unchecked] => ToSql.listToSql[Long].fragment(v)
+          case _ => throw new Exception("Invalid use of function keyToSQL, should only be used for List[Long]] type")
+        }
+    }
+  }
+
   def getDatabase : Database = this.db
 
   /**
@@ -227,7 +237,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
             s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                           WHERE id IN ({inString})
                           LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(p = keyToStatement),
+          SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedIDs)(s = keyToSQL, p = keyToStatement),
             'offset -> offset).as(this.parser.*)
         }
       }
@@ -247,7 +257,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     } else {
       this.cacheManager.withNameListCaching { implicit uncachedNames =>
         this.withMRConnection { implicit c =>
-          val query = s"SELECT ${this.retrieveColumns} FROM ${this.tableName} WHERE name in ({inString}) ${this.parentFilter(parentId)}"
+          val query = s"SELECT ${this.retrieveColumns} FROM ${this.tableName} WHERE name IN ({inString}) ${this.parentFilter(parentId)}"
           SQL(query).on('inString -> ParameterValue.toParameterValue(uncachedNames)).as(this.parser.*)
         }
       }

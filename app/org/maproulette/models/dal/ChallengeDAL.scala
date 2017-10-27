@@ -584,8 +584,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val joinClause = new StringBuilder()
 
       searchParameters.projectId match {
-        case Some(pid) => whereClause ++= s"c.parent_id = $pid"
-        case None =>
+        case Some(pid) if pid > -1 => whereClause ++= s"c.parent_id = $pid"
+        case _ =>
           joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id"
           searchParameters.projectSearch match {
             case Some(ps) if ps.nonEmpty =>
@@ -606,7 +606,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case Some(cs) if cs.nonEmpty =>
           searchParameters.fuzzySearch match {
             case Some(x) =>
-              whereClause ++= this.fuzzySearch("c.name", "cs", x)(None)
+              this.appendInWhereClause(whereClause, this.fuzzySearch("c.name", "cs", x)(None))
               parameters += ('cs -> cs)
             case None =>
               this.appendInWhereClause(whereClause, this.searchField("c.name", "cs")(None))
