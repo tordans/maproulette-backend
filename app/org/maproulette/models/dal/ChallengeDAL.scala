@@ -66,7 +66,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.enabled") ~
       get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
-      get[String]("challenges.checkin_comment") ~
+      get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.overpass_ql") ~
       get[Option[String]]("challenges.remote_geo_json") ~
       get[Option[Int]]("challenges.status") ~
@@ -101,7 +101,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case None => DateTime.now();
         }
         new Challenge(id, name, created, modified, updated, description,
-          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment),
+          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
