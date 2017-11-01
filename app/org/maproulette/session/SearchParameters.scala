@@ -121,7 +121,7 @@ object SearchParameters {
       //taskPriority
       this.getIntParameter(request.getQueryString("tp"), params.priority),
       //taskBoundingBox
-      request.getQueryString("ttb") match {
+      request.getQueryString("tbb") match {
         case Some(v) if v.nonEmpty =>
           v.split(",") match {
             case x if x.size == 4 => Some(SearchLocation(x(0).toDouble, x(1).toDouble, x(2).toDouble, x(3).toDouble))
