@@ -2009,7 +2009,7 @@ GET     /user/:userId                               @org.maproulette.controllers
 #   - name: username
 #     description: The OSM username of the user to retrieve
 ###
-GET     /osmuser/:username                               @org.maproulette.controllers.api.UserController.getUserByOSMUsername(username:String)
+GET     /osmuser/:username                          @org.maproulette.controllers.api.UserController.getUserByOSMUsername(username:String)
 ###
 # tags: [ User ]
 # summary: Retrieves Users Saved Challenged
@@ -2024,6 +2024,11 @@ GET     /osmuser/:username                               @org.maproulette.contro
 # parameters:
 #   - name: userId
 #     description: The id of the user to retrieve the challenges for
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
 ###
 GET     /user/:userId/saved                         @org.maproulette.controllers.api.APIController.getSavedChallenges(userId:Long)
 ###
@@ -2049,6 +2054,29 @@ GET     /user/:userId/saved                         @org.maproulette.controllers
 #     type: string
 ###
 POST    /user/:userId/save/:challengeId             @org.maproulette.controllers.api.APIController.saveChallenge(userId:Long, challengeId:Long)
+###
+# tags: [ User ]
+# summary: Unsaves Challenge for a User
+# description: Unsaves a Challenge to a user account
+# responses:
+#   '200':
+#     description: A simple OK status message
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '404':
+#     description: If User or Challenge for provided ID's is not found.
+# parameters:
+#   - name: userId
+#     description: The id of the user to unsave the challenges for
+#   - name: challengeId
+#     description: The id of the challenge to unsave
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+POST   /user/:userId/unsave/:challengeId            @org.maproulette.controllers.api.APIController.unsaveChallenge(userId:Long, challengeId:Long)
 ###
 # tags: [ User ]
 # summary: Updates UserSettings

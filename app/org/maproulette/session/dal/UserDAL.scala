@@ -513,6 +513,21 @@ class UserDAL @Inject() (override val db:Database,
   }
 
   /**
+    * Unsaves a challenge from the users profile
+    *
+    * @param userId The id of the user that has previously saved the challenge
+    * @param challengeId The id of the challenge to remove from the user profile
+    * @param user The user executing the unsave function
+    * @param c The existing connection if any
+    */
+  def unsaveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      SQL(s"""DELETE FROM saved_challenges WHERE user_id = $userId AND challenge_id = $challengeId""").execute()
+    }
+  }
+
+  /**
     * Retrieves the user's home project
     *
     * @param user The user to search for the home project

@@ -33,6 +33,13 @@ class APIController @Inject() (dalManager: DALManager, sessionManager: SessionMa
     }
   }
 
+  def unsaveChallenge(userId:Long, challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      dalManager.user.unsaveChallenge(userId, challengeId, user)
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"Challenge $challengeId unsaved from user $userId"))))
+    }
+  }
+
   /**
     * In the routes file this will be mapped to any /api/v2/ paths. It is the last mapping to take
     * place so if it doesn't match any of the other routes it will fall into this invalid path.
