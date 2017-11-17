@@ -83,18 +83,15 @@
         </a>
       </li>
       <li>
-        <div class="pull-right">
-          <a href="#" onclick="viewMetrics();">
-            <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.metrics")</button>
-          </a>
-        </div>
-      </li>
-      <li>
-        <div class="pull-right">
-          <a href="#" onclick="viewChallenge();" data-toggle="control-sidebar">
-            <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.view")</button>
-          </a>
-        </div>
+        <a href="#" onclick="viewMetrics();">
+          <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.metrics")</button>
+        </a>
+        <a href="#" onclick="viewChallenge();" data-toggle="control-sidebar">
+          <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.view")</button>
+        </a>
+        <a href="#" onclick="extractComments();">
+          <button class="btn-xs btn-block btn-primary">@messages("rightsidebar.tasks.button.extract")</button>
+        </a>
       </li>
     </ul>
   </div>
@@ -135,22 +132,10 @@
       }
     </ul>
   </div>
-    <!-- Settings tab content -->
-  <!--div class="tab-pane" id="control-sidebar-settings-tab">
-    <form method="post">
-      <h3 class="control-sidebar-heading">@messages("rightsidebar.general.header")</h3>
-      <div class="form-group">
-        <label class="control-sidebar-subheading">
-          @messages("rightsidebar.general.usage")
-          <input type="checkbox" class="pull-right" checked>
-        </label>
-        <p>@messages("rightsidebar.general.info")</p>
-      </div>
-    </form>
-  </div-->
 </div>
 <script type="application/javascript">
-  if (typeof MRManager === 'undefined') {
+  // check if page is a challenge status type of page - this is a page that starts with map
+  if (!$(location).attr('pathname').startsWith("/map")) {
     $("#control-sidebar-home-upper-tab").remove();
     $("#control-sidebar-home-tab").remove();
     $("#control-sidebar-activity-tab").addClass("active");
@@ -166,6 +151,16 @@
 
   function viewMetrics() {
     location.href = "/ui/metrics/" + MRManager.getCurrentChallengeData().id;
+  }
+
+  function extractComments() {
+    var file_path = '/api/v2/challenge/' + MRManager.getCurrentChallengeData().id + "/comments/extract";
+    var a = document.createElement('A');
+    a.href = file_path;
+    a.download = "extract.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   function updateChallengeInfo(challengeId) {

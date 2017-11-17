@@ -152,6 +152,9 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                   case None => None
                 }
               } catch {
+                case ne: NumberFormatException =>
+                  Logger.warn("Could not decrypt user key, generally this is not an issue")
+                  None
                 case e: Exception =>
                   Logger.error(e.getMessage, e)
                   None

@@ -49,6 +49,7 @@ rightsidebar.tasks.falsepositive=False Positive Tasks
 rightsidebar.tasks.alreadyfixed=Already Fixed Tasks
 rightsidebar.tasks.button.metrics=View Metrics
 rightsidebar.tasks.button.view=View Challenge
+rightsidebar.tasks.button.extract=Extract Comments
 rightsidebar.recent=Recent Activity
 rightsidebar.recent.answered=Question Answered
 rightsidebar.recent.completed=Completed Task

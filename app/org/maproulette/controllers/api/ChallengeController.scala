@@ -5,6 +5,7 @@ package org.maproulette.controllers.api
 import java.sql.Connection
 import javax.inject.Inject
 
+import akka.util.ByteString
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
@@ -14,8 +15,9 @@ import org.maproulette.models._
 import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
+import play.api.http.HttpEntity
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent}
+import play.api.mvc.{Action, AnyContent, ResponseHeader, Result}
 
 /**
   * The challenge controller handles all operations for the Challenge objects.
@@ -273,6 +275,30 @@ class ChallengeController @Inject()(override val childController: TaskController
   def retrieveComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dalManager.task.retrieveCommentsForChallenge(challengeId, limit, page).map(c => c._1+"" -> c._2)))
+    }
+  }
+
+  /**
+    * Extracts all the comments and returns them in a nice format like csv.
+    *
+    * @param challengeId The id of the challenge
+    * @param limit limit the number of results
+    * @param page Used for paging
+    * @return A csv list of comments for the challenge
+    */
+  def extractComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val comments = this.dalManager.task.retrieveCommentsForChallenge(challengeId, limit, page)
+      val urlPrefix = s"http://${request.host}/"
+      val csv = comments.flatMap(c =>
+        c._2.map(comment =>
+          s"""$challengeId,${c._1},${comment.osm_id},${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${c._1}"""
+        )
+      )
+      Result(
+        header = ResponseHeader(OK, Map.empty),
+        body = HttpEntity.Strict(ByteString(csv.mkString("\n")), Some("text/csv"))
+      )
     }
   }
 

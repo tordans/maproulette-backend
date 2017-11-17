@@ -92,6 +92,7 @@
                                         <li class="divider"></li>
                                         <li><a href="@routes.FormEditController.taskFormUI(parentId, c._1.id, Actions.ITEM_TYPE_CHALLENGE_NAME, -1)">@messages("challenge.column.actions.new")</a></li>
                                         <li class="divider"></li>
+                                        <li><a href="/api/v2/challenge/@{c._1.id}/comments/extract" download="extract.csv">@messages("rightsidebar.tasks.button.extract")</a></li>
                                         <li><a href="@routes.Application.challengeMetrics(c._1.id, "")">@messages("challenge.column.actions.metrics")</a></li>
                                         <li><a href="@routes.Application.viewChallenge(c._1.id)">@messages("challenge.column.actions.view")</a></li>
                                         <li class="divider"></li>
