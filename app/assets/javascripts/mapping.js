@@ -407,7 +407,6 @@ function Challenge() {
                 success: function (update) {
                     if (typeof update.challenge === 'undefined') {
                         data = update;
-                        // remove the survey panel from the map
                     } else {
                         data = update.challenge;
                         data.answers = update.answers;

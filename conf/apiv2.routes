@@ -1108,6 +1108,28 @@ PUT     /challenge/:id/resetTaskInstructions        @org.maproulette.controllers
 ###
 GET     /challenge/:id/comments                     @org.maproulette.controllers.api.ChallengeController.retrieveComments(id:Long, limit:Int ?= 10, page:Int ?= 0)
 ###
+# tags: [ Challenge ]
+# summary: Retrieve all comments for Challenge
+# description: This will retrieve all the comments for all the children tasks of a given challenge and respond with a csv
+# response:
+#   '200':
+#     description: A CSV file containing the following data "ChallengeID,TaskID,OSM_UserID,OSM_Username,Comments"
+#   '404':
+#     description: No Challenge with provided ID found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID of the challenge
+#     required: true
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /challenge/:id/comments/extract             @org.maproulette.controllers.api.ChallengeController.extractComments(id:Long, limit:Int ?= -1, page:Int ?= 0)
+###
 # tags: [ Survey ]
 # summary: Create a Survey
 # consumes: [ application/json ]

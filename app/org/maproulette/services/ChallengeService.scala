@@ -70,22 +70,28 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
   private def createTasksFromFeatures(user:User, parent:Challenge, jsonData:JsValue) = {
     val featureList = (jsonData \ "features").as[List[JsValue]]
-    featureList.map { value =>
-      val name = (value \ "id").asOpt[String] match {
-        case Some(n) => n
-        case None => (value \ "name").asOpt[String] match {
-          case Some(na) => na
-          case None =>
-            // if we still don't find anything, create a UUID for it.
-            // The caveat to this is that if you upload the same file again, it will create
-            // duplicate tasks
-            UUID.randomUUID().toString
+    try {
+      featureList.map { value =>
+        val name = (value \ "id").asOpt[String] match {
+          case Some(n) => n
+          case None => (value \ "name").asOpt[String] match {
+            case Some(na) => na
+            case None =>
+              // if we still don't find anything, create a UUID for it.
+              // The caveat to this is that if you upload the same file again, it will create
+              // duplicate tasks
+              UUID.randomUUID().toString
+          }
         }
+        this.createNewTask(user, name, parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
       }
-      this.createNewTask(user, name, parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
+      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
+      Logger.debug(s"${featureList.size} tasks created from json file.")
+    } catch {
+      case e:Exception =>
+        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(parent.id)
+        Logger.error(s"${featureList.size} tasks failed to be created from json file.", e)
     }
-    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
-    Logger.debug(s"${featureList.size} tasks created from json file.")
   }
 
   /**
@@ -213,10 +219,10 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       case Some(JsObject(p)) =>
         val updatedMap = p.map {
           kv =>
-            val strValue = if (kv._2.isInstanceOf[JsNumber]) {
-              kv._2.toString()
-            } else {
-              kv._2.as[String]
+            val strValue = kv._2 match {
+              case v:JsNumber => v.toString()
+              case v:JsArray => v.as[Seq[String]].mkString(",")
+              case v => v.as[String]
             }
             kv._1 -> strValue
         }.toMap
