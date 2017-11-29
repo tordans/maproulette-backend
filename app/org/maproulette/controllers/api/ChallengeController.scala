@@ -191,9 +191,10 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param taskSearch  Filter based on the name of the task
     * @param tags        A comma separated list of tags that optionally can be used to further filter the tasks
     * @param limit       Limit of how many tasks should be returned
+    * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of Tasks that match the supplied filters
     */
-  def getRandomTasks(challengeId: Long, taskSearch: String, tags: String, limit: Int): Action[AnyContent] = Action.async { implicit request =>
+  def getRandomTasks(challengeId: Long, taskSearch: String, tags: String, limit: Int, proximityId:Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
@@ -201,7 +202,7 @@ class ChallengeController @Inject()(override val childController: TaskController
           taskSearch = Some(taskSearch),
           taskTags = Some(tags.split(",").toList)
         )
-        val result = this.dalManager.task.getRandomTasks(User.userOrMocked(user), params, limit)
+        val result = this.dalManager.task.getRandomTasks(User.userOrMocked(user), params, limit, None, Utils.negativeToOption(proximityId))
         result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
         Ok(Json.toJson(result))
       }
