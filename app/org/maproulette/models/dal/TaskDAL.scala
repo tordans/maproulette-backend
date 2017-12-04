@@ -508,19 +508,19 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1)
+  def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1, proximityId:Option[Long] = None)
                                 (implicit c: Option[Connection] = None): List[Task] = {
-    val highPriorityTasks = Try(this.getRandomTasks(user, params, limit)) match {
+    val highPriorityTasks = Try(this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_HIGH), proximityId)) match {
       case Success(res) => res
       case Failure(f) => List.empty
     }
     if (highPriorityTasks.isEmpty) {
-      val mediumPriorityTasks = Try(this.getRandomTasks(user, params, limit, Challenge.PRIORITY_MEDIUM)) match {
+      val mediumPriorityTasks = Try(this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_MEDIUM), proximityId)) match {
         case Success(res) => res
         case Failure(f) => List.empty
       }
       if (mediumPriorityTasks.isEmpty) {
-        this.getRandomTasks(user, params, limit, Challenge.PRIORITY_LOW)
+        this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_LOW), proximityId)
       } else {
         mediumPriorityTasks
       }
@@ -601,9 +601,12 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user The user executing the request
     * @param params The search parameters that will define the filters for the random selection
     * @param limit The amount of tags that should be returned
+    * @param priority An optional priority, so that we only look for tasks in a specific priority range
+    * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasks(user:User, params: SearchParameters, limit:Int = -1, priority:Int=Challenge.PRIORITY_HIGH)
+  def getRandomTasks(user:User, params: SearchParameters, limit:Int = -1,
+                     priority:Option[Int]=None, proximityId:Option[Long] = None)
                     (implicit c:Option[Connection]=None) : List[Task] = {
     getRandomChallenge(params) match {
       case Some(challengeId) =>
@@ -628,11 +631,16 @@ class TaskDAL @Inject()(override val db: Database,
           case _ => List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
         }
         val whereClause = new StringBuilder(
-          s"""WHERE tasks.priority = $priority AND
-              tasks.parent_id = $challengeId AND
+          s"""WHERE tasks.parent_id = $challengeId AND
               (l.id IS NULL OR l.user_id = ${user.id}) AND
-              tasks.status IN ({statusList})""")
+              tasks.status IN ({statusList})
+            """)
         parameters += ('statusList -> ParameterValue.toParameterValue(taskStatusList))
+
+        priority match {
+          case Some(p) => appendInWhereClause(whereClause, s"tasks.priority = $p")
+          case None => //Ignore
+        }
 
         if (taskTagIds.nonEmpty) {
           queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
@@ -644,9 +652,15 @@ class TaskDAL @Inject()(override val db: Database,
           parameters += ('taskSearch -> search(params.taskSearch.getOrElse("")))
         }
 
+        val proximityOrdering = proximityId match {
+          case Some(id) =>
+            appendInWhereClause(whereClause, s"tasks.id != $id")
+            s"ST_Distance(tasks.location, (SELECT location FROM tasks WHERE id = $id)),"
+          case None => ""
+        }
 
         val query = s"$select ${queryBuilder.toString} ${whereClause.toString} " +
-          s"ORDER BY tasks.status, RANDOM() LIMIT ${this.sqlLimit(limit)}"
+          s"ORDER BY $proximityOrdering tasks.status, RANDOM() LIMIT ${this.sqlLimit(limit)}"
 
         implicit val ids = List[Long]()
         this.cacheManager.withIDListCaching { implicit cachedItems =>

@@ -119,4 +119,9 @@ object Utils extends DefaultWrites {
   } else {
     Some(DateTime.parse(date))
   }
+
+  def negativeToOption(value:Long) : Option[Long] = value match {
+    case v if v < 0 => None
+    case v => Some(v)
+  }
 }
