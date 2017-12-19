@@ -11,10 +11,10 @@ import org.maproulette.actions._
 import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage, StatusMessages}
 import org.maproulette.jobs.SchedulerActor.RunJob
-import org.maproulette.models.{Challenge, Task}
+import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.session.{SessionManager, User}
 import play.api.i18n.{I18nSupport, Messages, MessagesApi}
 import play.api.libs.json.{JsNumber, JsString, Json}
 import play.api.mvc._

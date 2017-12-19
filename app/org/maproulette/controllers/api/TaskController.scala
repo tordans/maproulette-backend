@@ -11,7 +11,7 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
 import org.maproulette.models.{Challenge, Comment, Tag, Task}
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent}
@@ -155,6 +155,26 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
       val result = this.dal.getRandomTasks(User.userOrMocked(user), params, limit, None, Utils.negativeToOption(proximityId))
       result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
       Ok(Json.toJson(result))
+    }
+  }
+
+  /**
+    * Gets all the tasks within a bounding box
+    *
+    * @param left The minimum latitude for the bounding box
+    * @param bottom The minimum longitude for the bounding box
+    * @param right The maximum latitude for the bounding box
+    * @param top The maximum longitude for the bounding box
+    * @param limit Limit for the number of returned tasks
+    * @param offset The offset used for paging
+    * @return
+    */
+  def getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { p =>
+        val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
+        Ok(Json.toJson(this.dal.getTasksInBoundingBox(params, limit, offset)))
+      }
     }
   }
 

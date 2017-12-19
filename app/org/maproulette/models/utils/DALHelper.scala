@@ -10,6 +10,7 @@ import anorm._
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import org.maproulette.session.SearchParameters
 import org.maproulette.data.DataManager
 
 import scala.collection.mutable.ListBuffer
@@ -206,6 +207,67 @@ trait DALHelper {
     this.testColumnName(column)
     val dates = getDates(start, end)
     s"${this.getSqlKey} $column::date BETWEEN '${dates._1}' AND '${dates._2}'"
+  }
+
+  def addSearchToQuery(params:SearchParameters, whereClause:StringBuilder,
+                       projectPrefix:String="p", challengePrefix:String="c")(implicit projectSearch:Boolean=true) : ListBuffer[NamedParameter] = {
+    val parameters = new ListBuffer[NamedParameter]()
+
+    if (!projectSearch) {
+      params.projectId match {
+        case Some(pid) if pid > -1 => whereClause ++= s"$challengePrefix.parent_id = $pid"
+        case _ =>
+          params.projectSearch match {
+            case Some(ps) if ps.nonEmpty =>
+              params.fuzzySearch match {
+                case Some(x) =>
+                  whereClause ++= this.fuzzySearch(s"$projectPrefix.name", "ps", x)(None)
+                  parameters += ('ps -> ps)
+                case None =>
+                  whereClause ++= this.searchField(s"$projectPrefix.name", "ps")(None)
+                  parameters += ('ps -> s"%$ps%")
+              }
+            case _ => // we can ignore this
+          }
+          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
+      }
+    }
+
+    params.challengeSearch match {
+      case Some(cs) if cs.nonEmpty =>
+        params.fuzzySearch match {
+          case Some(x) =>
+            this.appendInWhereClause(whereClause, this.fuzzySearch(s"$challengePrefix.name", "cs", x)(None))
+            parameters += ('cs -> cs)
+          case None =>
+            this.appendInWhereClause(whereClause, this.searchField(s"$challengePrefix.name", "cs")(None))
+            parameters += ('cs -> s"%$cs%")
+        }
+      case _ => // ignore
+    }
+    parameters
+  }
+
+  def addChallengeTagMatchingToQuery(params:SearchParameters, whereClause:StringBuilder,
+                            joinClause:StringBuilder, challengePrefix:String="c") : ListBuffer[NamedParameter] = {
+    val parameters = new ListBuffer[NamedParameter]()
+
+    params.challengeTags match {
+      case Some(ct) if ct.nonEmpty =>
+        joinClause ++= s"""
+                  INNER JOIN tags_on_challenges toc ON toc.challenge_id = $challengePrefix.id
+                  INNER JOIN tags tgs ON tgs.id = toc.tag_id
+                  """
+        val tags = ListBuffer[String]()
+        ct.zipWithIndex.foreach(tagWithIndex => {
+          parameters += new NamedParameter(s"tag${tagWithIndex._2}", tagWithIndex._1)
+          tags += s"{tag${tagWithIndex._2}}"
+        })
+
+        this.appendInWhereClause(whereClause, s"tgs.name IN (${tags.mkString(",")})")
+      case _ => // ignore
+    }
+    parameters
   }
 
   /**

@@ -10,7 +10,7 @@ import anorm._
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.actions.{ActionManager, StatusActionManager, TaskType}
+import org.maproulette.actions.{ActionManager, Actions, StatusActionManager, TaskType}
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.models.utils.{AND, DALHelper}
@@ -543,7 +543,7 @@ class TaskDAL @Inject()(override val db: Database,
         withMRConnection { implicit c =>
           val parameters = new ListBuffer[NamedParameter]()
           val whereClause = new StringBuilder
-          val queryBuilder = new StringBuilder
+          val joinClause = new StringBuilder
 
           if (params.enabledChallenge) {
             appendInWhereClause(whereClause, "c.enabled = true")
@@ -552,37 +552,13 @@ class TaskDAL @Inject()(override val db: Database,
             appendInWhereClause(whereClause, "p.enabled = true")
           }
 
-          val challengeTagIds = if (params.hasChallengeTags) {
-            this.tagDAL.retrieveListByName(params.challengeTags.get.map(_.toLowerCase)).map(_.id)
-          } else {
-            List.empty
-          }
-
-          if (challengeTagIds.nonEmpty) {
-            queryBuilder ++= "INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id "
-            appendInWhereClause(whereClause, "tc.tag_id IN ({challengeTagIds})")
-            parameters += ('challengeTagIds -> ParameterValue.toParameterValue(challengeTagIds))
-          }
-          if (params.challengeSearch.nonEmpty) {
-            appendInWhereClause(whereClause, s"${searchField("c.name", "challengeSearch")(None)}")
-            parameters += ('challengeSearch -> search(params.challengeSearch.getOrElse("")))
-          }
-
-          params.getProjectId match {
-            case Some(id) =>
-              appendInWhereClause(whereClause, "p.id = {projectId}")
-              parameters += ('projectId -> ParameterValue.toParameterValue(id))
-            case None =>
-              if (params.projectSearch.nonEmpty) {
-                appendInWhereClause(whereClause, s"${searchField("p.name", "projectSearch")(None)}")
-                parameters += ('projectSearch -> search(params.projectSearch.getOrElse("")))
-              }
-          }
+          parameters ++= addChallengeTagMatchingToQuery(params, whereClause, joinClause)
+          parameters ++= addSearchToQuery(params, whereClause)
 
           val query = s"""
                         SELECT c.id FROM challenges c
                         INNER JOIN projects p ON p.id = c.parent_id
-                        ${queryBuilder.toString}
+                        ${joinClause.toString}
                         WHERE ${whereClause.toString}
                         ORDER BY RANDOM() LIMIT 1
                       """
@@ -685,6 +661,67 @@ class TaskDAL @Inject()(override val db: Database,
           }
         }
       case None => List.empty
+    }
+  }
+
+  /**
+    * This function will retrieve all the tasks in a given bounded area. You can use various search
+    * parameters to limit the tasks retrieved in the bounding box area.
+    *
+    * @param params The search parameters from the cookie or the query string parameters.
+    * @param limit A limit for the number of returned tasks
+    * @param offset This allows paging for the tasks within in the bounding box
+    * @param c An available connection
+    * @return The list of Tasks found within the bounding box
+    */
+  def getTasksInBoundingBox(params:SearchParameters, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)
+                           (implicit c:Option[Connection] = None) : List[ClusteredPoint] = {
+    params.location match {
+      case Some(sl) =>
+        withMRConnection { implicit c =>
+          val parameters = new ListBuffer[NamedParameter]()
+          val whereClause = new StringBuilder(
+            s"WHERE t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)"
+          )
+          val joinClause = new StringBuilder(
+            """
+              INNER JOIN challenges c ON c.id = t.parent_id
+              INNER JOIN projects p ON p.id = c.parent_id
+            """
+          )
+
+          params.taskStatus match {
+            case Some(sl) if sl.nonEmpty => appendInWhereClause(whereClause, s"t.status IN ($sl)")
+            case _ => appendInWhereClause(whereClause, "t.status IN (0,3,6)")
+          }
+
+          params.priority match {
+            case Some(p) if p == 0 || p == 1 || p == 2 => appendInWhereClause(whereClause, s"t.priority = $p")
+            case _ => // ignore
+          }
+
+          parameters ++= addSearchToQuery(params, whereClause)
+          parameters ++= addChallengeTagMatchingToQuery(params, whereClause, joinClause)
+
+          val query =
+            s"""
+              SELECT t.id, t.name, t.instruction, t.status,
+                     ST_AsGeoJSON(t.location) AS location FROM tasks t
+              ${joinClause.toString()}
+              ${whereClause.toString()}
+              ORDER BY RANDOM()
+              LIMIT ${sqlLimit(limit)} OFFSET $offset
+            """
+          val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") map {
+            case id ~ name ~ instruction ~ location ~ status =>
+              val locationJSON = Json.parse(location)
+              val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+              val point = Point(coordinates(1), coordinates.head)
+              ClusteredPoint(id, -1, "", name, point, instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+          }
+          sqlWithParameters(query, parameters).as(pointParser.*)
+        }
+      case None => throw new InvalidException("Bounding Box required to retrieve tasks within a bounding box")
     }
   }
 
