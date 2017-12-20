@@ -1669,6 +1669,38 @@ DELETE  /task/:id/tags                              @org.maproulette.controllers
 GET     /tasks/random                               @org.maproulette.controllers.api.TaskController.getRandomTasks(ps:String ?= "", cs:String ?= "", ct:String ?= "", tags:String ?= "", ts:String ?= "", limit:Int ?= 1, proximity:Long ?= -1)
 ###
 # tags: [ Task ]
+# summary: Retrieves Tasks within a bounding box
+# produces: [ application/json ]
+# description: Retrieves tasks within a given bounding box.
+# responses:
+#   '200':
+#     description: The list of clusteredPoints representing Tasks that match the search criteria within the bounding box
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+# parameters:
+#   - name: left
+#     in: path
+#     description: The minimum latitude for the bounding box.
+#   - name: bottom
+#     in: path
+#     description: The minimum longitude for the bounding box.
+#   - name: right
+#     in: path
+#     description: The maximum latitude for the bounding box.
+#   - name: top
+#     in: path
+#     description: The maximum longitude for the bounding box.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 1.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0)
+###
+# tags: [ Task ]
 # summary: Update Task Status
 # produces: [ application/json ]
 # description: Will update a Tasks status to one of the following. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard

@@ -393,7 +393,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, -1, "", "", point, instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+          ClusteredPoint(id, -1, "", name, point, instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
       }
         SQL"""SELECT id, name, instruction, status,
                       ST_AsGeoJSON(location) AS location
@@ -583,53 +583,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val whereClause = new StringBuilder()
       val joinClause = new StringBuilder()
 
+      parameters ++= addSearchToQuery(searchParameters, whereClause)
+
       searchParameters.projectId match {
-        case Some(pid) if pid > -1 => whereClause ++= s"c.parent_id = $pid"
-        case _ =>
-          joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id"
-          searchParameters.projectSearch match {
-            case Some(ps) if ps.nonEmpty =>
-              searchParameters.fuzzySearch match {
-                case Some(x) =>
-                  whereClause ++= this.fuzzySearch("p.name", "ps", x)(None)
-                  parameters += ('ps -> ps)
-                case None =>
-                  whereClause ++= this.searchField("p.name", "ps")(None)
-                  parameters += ('ps -> s"%$ps%")
-              }
-            case _ => // we can ignore this
-          }
-          this.appendInWhereClause(whereClause, this.enabled(searchParameters.projectEnabled.getOrElse(false), "p")(None))
+        case Some(pid) if pid > -1 => //ignore
+        case _ => joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id"
       }
 
-      searchParameters.challengeSearch match {
-        case Some(cs) if cs.nonEmpty =>
-          searchParameters.fuzzySearch match {
-            case Some(x) =>
-              this.appendInWhereClause(whereClause, this.fuzzySearch("c.name", "cs", x)(None))
-              parameters += ('cs -> cs)
-            case None =>
-              this.appendInWhereClause(whereClause, this.searchField("c.name", "cs")(None))
-              parameters += ('cs -> s"%$cs%")
-          }
-        case _ => // ignore
-      }
-
-      searchParameters.challengeTags match {
-        case Some(ct) if ct.nonEmpty =>
-          joinClause ++= """
-                  INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id
-                  INNER JOIN tags t ON t.id = tc.tag_id
-                  """
-          val tags = ListBuffer[String]()
-          ct.zipWithIndex.foreach(tagWithIndex => {
-            parameters += new NamedParameter(s"tag${tagWithIndex._2}", tagWithIndex._1)
-            tags += s"{tag${tagWithIndex._2}}"
-          })
-
-          this.appendInWhereClause(whereClause, s"t.name IN (${tags.mkString(",")})")
-        case _ => // ignore
-      }
+      parameters ++= addChallengeTagMatchingToQuery(searchParameters, whereClause, joinClause)
 
       searchParameters.owner match {
         case Some(o) =>
