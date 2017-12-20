@@ -22,8 +22,8 @@ class ChallengeSpec @Inject() (projectDAL: ProjectDAL, challengeDAL: ChallengeDA
 
   "Challenges" should {
     "write challenge object to database" in new WithApplication {
-      val projectID = projectDAL.insert(Project(-1, "RootProject_challengeTest", DateTime.now(), DateTime.now()), User.superUser).id
-      val newChallenge = Challenge(challengeID, "NewChallenge", DateTime.now(), DateTime.now(), DateTime.now(), Some("This is a new challenge"),
+      val projectID = projectDAL.insert(Project(-1, User.DEFAULT_SUPER_USER_ID, "RootProject_challengeTest", DateTime.now(), DateTime.now()), User.superUser).id
+      val newChallenge = Challenge(challengeID, "NewChallenge", DateTime.now(), DateTime.now(), Some("This is a new challenge"),
         ChallengeGeneral(-1, projectID, ""),
         ChallengeCreation(),
         ChallengePriority(),

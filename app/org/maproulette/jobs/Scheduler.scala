@@ -37,7 +37,7 @@ class Scheduler @Inject() (val system: ActorSystem,
   def schedule(name:String, action:String, initialDelay:FiniteDuration, intervalKey:String):Unit = {
     config.withFiniteDuration(intervalKey) {
       interval =>
-        this.system.scheduler.schedule(initialDelay, interval, this.schedulerActor, RunJob(name))
+        this.system.scheduler.schedule(initialDelay, interval, this.schedulerActor, RunJob(name, action))
         Logger.info(s"$action every $interval")
     }
   }

@@ -33,6 +33,7 @@ case class SearchParameters(projectId:Option[Long]=None,
                             props:Option[Map[String, String]]=None,
                             priority:Option[Int]=None,
                             location:Option[SearchLocation]=None,
+                            bounding:Option[SearchLocation]=None,
                             fuzzySearch:Option[Int]=None,
                             owner:Option[String]=None) {
   def getProjectId : Option[Long] = projectId match {
@@ -120,14 +121,23 @@ object SearchParameters {
       None,
       //taskPriority
       this.getIntParameter(request.getQueryString("tp"), params.priority),
-      //taskBoundingBox
+      //taskBoundingBox for Challenge Location
       request.getQueryString("tbb") match {
         case Some(v) if v.nonEmpty =>
           v.split(",") match {
             case x if x.size == 4 => Some(SearchLocation(x(0).toDouble, x(1).toDouble, x(2).toDouble, x(3).toDouble))
             case _ => None
           }
-        case None => params.location
+        case _ => params.location
+      },
+      //taskBoundingBox for Challenge location
+      request.getQueryString("bb") match {
+        case Some(v) if v.nonEmpty =>
+          v.split(",") match {
+            case x if x.size == 4 => Some(SearchLocation(x(0).toDouble, x(1).toDouble, x(2).toDouble, x(3).toDouble))
+            case _ => None
+          }
+        case _ => None
       },
       //FuzzySearch
       this.getIntParameter(request.getQueryString("fuzzy"), params.fuzzySearch),

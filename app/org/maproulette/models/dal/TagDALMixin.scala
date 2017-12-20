@@ -33,7 +33,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
   def updateItemTags(id:Long, tags:List[Long], user:User, completeList:Boolean=false)(implicit c:Option[Connection]=None) : Unit = {
     this.retrieveById(id) match {
       case Some(item) =>
-        this.permission.hasWriteAccess(item, user)
+        this.permission.hasObjectWriteAccess(item, user)
         if (tags.nonEmpty) {
           this.withMRTransaction { implicit c =>
             if (completeList) {

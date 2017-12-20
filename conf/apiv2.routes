@@ -263,6 +263,41 @@ GET     /projects/find                              @org.maproulette.controllers
 GET     /projects                                   @org.maproulette.controllers.api.ProjectController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
 ###
 # tags: [ Project ]
+# summary: List all the managed projects.
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Lists all the managed projects in the system for the authenticated user
+# responses:
+#   '200':
+#     description: A list of all the projects
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Project'
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     in: query
+#     description: Flag to set if only wanting enabled projects returned. Default value is true.
+#   - name: onlyEnabled
+#     in: query
+#     description: Whether to only returned projects that are enabled or all of them. By default set to false and returns all of them
+#   - name: searchString
+#     in: query
+#     description: A simple search string that will filter out for a specific set of projects matching the search string.
+###
+GET     /projects/managed                           @org.maproulette.controllers.api.ProjectController.listManagedProjects(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false, searchString:String ?= "")
+###
+# tags: [ Project ]
 # summary: List all the projects challenges.
 # produces: [ application/json ]
 # description: Lists all the challenges that are children of the supplied project.
@@ -811,6 +846,26 @@ GET     /challenges/tags                            @org.maproulette.controllers
 #     type: string
 ###
 DELETE  /challenge/:id/tags                         @org.maproulette.controllers.api.ChallengeController.deleteTagsFromItem(id:Long, tags:String ?= "")
+###
+# tags: [ Challenge ]
+# summary: Featured Challenges.
+# produces: [ application/json ]
+# description: Get all the currently featured challenges
+# responses:
+#   '200':
+#     description: A list of all the featured Challenges
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /challenges/featured                        @org.maproulette.controllers.api.ChallengeController.getFeaturedChallenges(limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Challenge ]
 # summary: List all the Challenges.
@@ -1829,21 +1884,21 @@ PUT    /comment/:commentId                          @org.maproulette.controllers
 ###
 DELETE  /task/:id/comment/:commentId                @org.maproulette.controllers.api.TaskController.deleteComment(id:Long, commentId:Long)
 ###
-# tags: [ Tag ]
-# summary: Create a Tag
+# tags: [ Keyword ]
+# summary: Create a Keyword
 # consumes: [ application/json ]
 # produces: [ application/json ]
-# description: Will create a new Tag from the supplied JSON in the body. When creating the Task, leave the ID field
+# description: Will create a new Keyword from the supplied JSON in the body. When creating the Task, leave the ID field
 #               out of the body json, if updating (generally use the PUT method) include the ID field.
 # responses:
 #   '200':
-#     description: The newly created Tag with a unique id.
+#     description: The newly created Keyword with a unique id.
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 #   '304':
 #     description: Not updated responding with empty payload if Survey already exists and nothing to update
 #   '400':
-#     description: Invalid json payload for Tag
+#     description: Invalid json payload for Keyword
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
@@ -1854,27 +1909,31 @@ DELETE  /task/:id/comment/:commentId                @org.maproulette.controllers
 #     type: string
 #   - name: body
 #     in: body
-#     description: The JSON structure for the Tag body.
+#     description: The JSON structure for the Keyword body.
 #     required: true
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 ###
+POST    /keyword                                    @org.maproulette.controllers.api.TagController.create
+###
+# tags: [ Tag (Deprecated) ]
+###
 POST    /tag                                        @org.maproulette.controllers.api.TagController.create
 ###
-# tags: [ Tag ]
-# summary: Create a batch of Tags
+# tags: [ Keyword ]
+# summary: Create a batch of Keywords
 # consumes: [ application/json ]
 # produces: [ application/json ]
-# description: Will create multiple new Tag from the JSONArray supplied in the body. Each JSON object
-#               is basically a Tag object that is processed similarly to the singular /tag POST. If
-#               Tags already exist with the name, they will simply be skipped, ie. not updated.
+# description: Will create multiple new Keyword from the JSONArray supplied in the body. Each JSON object
+#               is basically a Keyword object that is processed similarly to the singular /keyword POST. If
+#               Keywords already exist with the name, they will simply be skipped, ie. not updated.
 # responses:
 #   '200':
 #     description: A simple OK status message
 #   '304':
-#     description: Not updated responding with empty payload if Tag already exists and nothing to update
+#     description: Not updated responding with empty payload if Keyword already exists and nothing to update
 #   '400':
-#     description: Invalid json payload for Tag
+#     description: Invalid json payload for Keyword
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
@@ -1885,34 +1944,38 @@ POST    /tag                                        @org.maproulette.controllers
 #     type: string
 #   - name: body
 #     in: body
-#     description: The JSON structure for the Tag body.
+#     description: The JSON structure for the Keyword body.
 #     required: true
 #     schema:
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 ###
+POST    /keywords                                   @org.maproulette.controllers.api.TagController.batchUploadPost
+###
+# tags: [ Tag (Deprecated) ]
+###
 POST    /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPost
 ###
-# tags: [ Tag ]
-# summary: Updates a Tag
+# tags: [ Keyword ]
+# summary: Updates a Keyword
 # consumes: [ application/json ]
 # produces: [ application/json ]
-# description: Will update an already existing Tag from the supplied JSON in the body.
+# description: Will update an already existing Keyword from the supplied JSON in the body.
 # responses:
 #   '200':
-#     description: The updated JSON Tag
+#     description: The updated JSON Keyword
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 #   '304':
-#     description: Not updated responding with empty payload if Tag already exists and nothing to update
+#     description: Not updated responding with empty payload if Keyword already exists and nothing to update
 #   '400':
-#     description: Invalid json payload for Tag
+#     description: Invalid json payload for Keyword
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: id
 #     in: path
-#     description: The ID of the Tag that is being updated
+#     description: The ID of the Keyword that is being updated
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
@@ -1920,27 +1983,31 @@ POST    /tags                                       @org.maproulette.controllers
 #     type: string
 #   - name: body
 #     in: body
-#     description: The JSON structure for the Tag body.
+#     description: The JSON structure for the Keyword body.
 #     required: true
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 ###
+PUT     /keyword/:id                                @org.maproulette.controllers.api.TagController.update(id:Long)
+###
+# tags: [ Tag (Deprecated) ]
+###
 PUT     /tag/:id                                    @org.maproulette.controllers.api.TagController.update(id:Long)
 ###
-# tags: [ Tag ]
-# summary: Update a batch of Tags
+# tags: [ Keyword ]
+# summary: Update a batch of Keywords
 # consumes: [ application/json ]
 # produces: [ application/json ]
-# description: Will update multiple already existing Tags from the JSONArray supplied in the body. Each JSON object
-#               is basically a Tag object that is processed similarly to the singular /tag POST. If a Tag
+# description: Will update multiple already existing Keywords from the JSONArray supplied in the body. Each JSON object
+#               is basically a Keyword object that is processed similarly to the singular /keyword POST. If a Keyword
 #               does not exist it will be created from scratch
 # responses:
 #   '200':
 #     description: A simple OK status message
 #   '304':
-#     description: Not updated responding with empty payload if Tag already exists and nothing to update
+#     description: Not updated responding with empty payload if Keyword already exists and nothing to update
 #   '400':
-#     description: Invalid json payload for Tag
+#     description: Invalid json payload for Keyword
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
@@ -1951,76 +2018,92 @@ PUT     /tag/:id                                    @org.maproulette.controllers
 #     type: string
 #   - name: body
 #     in: body
-#     description: The JSON structure for the Tag body.
+#     description: The JSON structure for the Keyword body.
 #     required: true
 #     schema:
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 ###
+PUT     /keywords                                   @org.maproulette.controllers.api.TagController.batchUploadPut
+###
+# tags: [ Tag (Deprecated) ]
+###
 PUT     /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPut
 ###
-# tags: [ Tag ]
-# summary: Retrieves an already existing Tag
+# tags: [ Keyword ]
+# summary: Retrieves an already existing Keyword
 # produces: [ application/json ]
-# description: Retrieves an already existing Tag based on the supplied ID in the URL.
+# description: Retrieves an already existing Keyword based on the supplied ID in the URL.
 # responses:
 #   '200':
-#     description: The retrieved Tag
+#     description: The retrieved Keyword
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 #   '404':
-#     description: ID field supplied but no Tag found matching the id
+#     description: ID field supplied but no Keyword found matching the id
 # parameters:
 #   - name: id
 #     in: path
-#     description: The id of the Tag to retrieve
+#     description: The id of the Keyword to retrieve
+###
+GET     /keyword/:id                                @org.maproulette.controllers.api.TagController.read(id:Long)
+###
+# tags: [ Tag (Deprecated) ]
 ###
 GET     /tag/:id                                    @org.maproulette.controllers.api.TagController.read(id:Long)
 ###
-# tags: [ Tag ]
-# summary: Deletes an existing Tag
-# description: Deletes an existing Tag based on the supplied ID.
+# tags: [ Keyword ]
+# summary: Deletes an existing Keyword
+# description: Deletes an existing Keyword based on the supplied ID.
 # responses:
 #   '200':
-#     description: A status message containing the ID of the Tag that was just deleted
+#     description: A status message containing the ID of the Keyword that was just deleted
 #     schema:
 #       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
 #   '401':
 #     description: The user is not authorized to make this request
 #   '404':
-#     description: No Tag found matching the provided name
+#     description: No Keyword found matching the provided name
 # parameters:
 #   - name: id
 #     in: path
-#     description: The id of the Tag being deleted
+#     description: The id of the Keyword being deleted
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
 ###
+DELETE  /keyword/:id                                @org.maproulette.controllers.api.TagController.delete(id:Long)
+###
+# tags: [ Tag (Deprecated) ]
+###
 DELETE  /tag/:id                                    @org.maproulette.controllers.api.TagController.delete(id:Long)
 ###
-# tags: [ Tag ]
-# summary: Finds Tags
+# tags: [ Keyword ]
+# summary: Finds Keywords
 # produces: [ application/json ]
-# description: Retrieves existing tags based on a prefix for the tag. So if search for "tes" will retrieve all tags that start with "tes", like "tester", "testing", "test". The search string is case insensitive.
+# description: Retrieves existing Keywords based on a prefix for the Keyword. So if search for "tes" will retrieve all Keywords that start with "tes", like "tester", "testing", "test". The search string is case insensitive.
 # responses:
 #   '200':
-#     description: The retrieved Tags
+#     description: The retrieved Keywords
 #     schema:
 #       type: array
 #       $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: prefix
 #     in: query
-#     description: The prefix for the tags you are looking for
+#     description: The prefix for the Keywords you are looking for
 #   - name: limit
 #     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
 #   - name: page
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /keywords                                   @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
+###
+# tags: [ Tag (Deprecated) ]
 ###
 GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 ### NoDocs ###
@@ -2059,7 +2142,13 @@ GET     /data/status/summary                        @org.maproulette.controllers
 #     description: If User with provided ID is not found.
 # parameters:
 #   - name: userId
+#     in: path
 #     description: The id of the user to retrieve
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
 ###
 GET     /user/:userId                               @org.maproulette.controllers.api.UserController.getUser(userId:Long)
 ###
@@ -2076,7 +2165,13 @@ GET     /user/:userId                               @org.maproulette.controllers
 #     description: If User with provided OSM username is not found.
 # parameters:
 #   - name: username
+#     in: path
 #     description: The OSM username of the user to retrieve
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
 ###
 GET     /osmuser/:username                          @org.maproulette.controllers.api.UserController.getUserByOSMUsername(username:String)
 ###
@@ -2092,14 +2187,21 @@ GET     /osmuser/:username                          @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: userId
+#     in: path
 #     description: The id of the user to retrieve the challenges for
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
 ###
-GET     /user/:userId/saved                         @org.maproulette.controllers.api.APIController.getSavedChallenges(userId:Long)
+GET     /user/:userId/saved                         @org.maproulette.controllers.api.UserController.getSavedChallenges(userId:Long, limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ User ]
 # summary: Saves Challenge for a User
@@ -2113,8 +2215,10 @@ GET     /user/:userId/saved                         @org.maproulette.controllers
 #     description: If User or Challenge for provided ID's is not found.
 # parameters:
 #   - name: userId
+#     in: path
 #     description: The id of the user to save the challenges for
 #   - name: challengeId
+#     in: path
 #     description: The id of the challenge to save
 #   - name: apiKey
 #     in: header
@@ -2122,7 +2226,7 @@ GET     /user/:userId/saved                         @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-POST    /user/:userId/save/:challengeId             @org.maproulette.controllers.api.APIController.saveChallenge(userId:Long, challengeId:Long)
+POST    /user/:userId/save/:challengeId             @org.maproulette.controllers.api.UserController.saveChallenge(userId:Long, challengeId:Long)
 ###
 # tags: [ User ]
 # summary: Unsaves Challenge for a User
@@ -2136,8 +2240,10 @@ POST    /user/:userId/save/:challengeId             @org.maproulette.controllers
 #     description: If User or Challenge for provided ID's is not found.
 # parameters:
 #   - name: userId
+#     in: path
 #     description: The id of the user to unsave the challenges for
 #   - name: challengeId
+#     in: path
 #     description: The id of the challenge to unsave
 #   - name: apiKey
 #     in: header
@@ -2145,7 +2251,88 @@ POST    /user/:userId/save/:challengeId             @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-POST   /user/:userId/unsave/:challengeId            @org.maproulette.controllers.api.APIController.unsaveChallenge(userId:Long, challengeId:Long)
+DELETE   /user/:userId/unsave/:challengeId          @org.maproulette.controllers.api.UserController.unsaveChallenge(userId:Long, challengeId:Long)
+###
+# tags: [ User ]
+# summary: Retrieves Users Saved Tasks
+# produces: [ application/json ]
+# description: Retrieves that list of tasks that has been saved by the User
+# responses:
+#   '200':
+#     description: The retrieved Tasks
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to retrieve the challenges for
+#   - name: challengeIds
+#     in: query
+#     description: A comma separated list of challenge Ids that you want to filter the tasks by
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+GET     /user/:userId/savedTasks                    @org.maproulette.controllers.api.UserController.getSavedTasks(userId:Long, challengeIds:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ User ]
+# summary: Saves a Task for a User
+# description: Saves a Task to a user account
+# responses:
+#   '200':
+#     description: A simple OK status message
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '404':
+#     description: If User or Task for provided ID's is not found.
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to save the tasks for
+#   - name: taskId
+#     in: path
+#     description: The id of the Task to save
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+POST    /user/:userId/saveTask/:taskId              @org.maproulette.controllers.api.UserController.saveTask(userId:Long, taskId:Long)
+###
+# tags: [ User ]
+# summary: Unsaves Task for a User
+# description: Unsaves a Task to a user account
+# responses:
+#   '200':
+#     description: A simple OK status message
+#     schema:
+#       $ref: '#/definitions/org.maproulette.exception.StatusMessage'
+#   '404':
+#     description: If User or Task for provided ID's is not found.
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to unsave the tasks for
+#   - name: taskId
+#     in: path
+#     description: The id of the task to unsave
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+DELETE   /user/:userId/unsaveTask/:taskId           @org.maproulette.controllers.api.UserController.unsaveTask(userId:Long, taskId:Long)
 ###
 # tags: [ User ]
 # summary: Updates UserSettings
@@ -2159,6 +2346,7 @@ POST   /user/:userId/unsave/:challengeId            @org.maproulette.controllers
 #     description: If User or Challenge for provided ID's is not found.
 # parameters:
 #   - name: userId
+#     in: path
 #     description: The id of the user to update the settings for
 #   - name: body
 #     in: body

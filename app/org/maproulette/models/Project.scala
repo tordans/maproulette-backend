@@ -6,7 +6,7 @@ import org.joda.time.DateTime
 import org.maproulette.actions.{ItemType, ProjectType}
 import play.api.data._
 import play.api.data.Forms._
-import org.maproulette.session.Group
+import org.maproulette.session.{Group, User}
 import play.api.libs.json.{Json, Reads, Writes}
 
 /**
@@ -17,12 +17,14 @@ import play.api.libs.json.{Json, Reads, Writes}
   * @author cuthbertm
   */
 case class Project(override val id: Long,
+                   ownerId: Long,
                    override val name: String,
                    override val created:DateTime,
                    override val modified:DateTime,
                    override val description: Option[String]=None,
                    groups:List[Group]=List.empty,
-                   enabled:Boolean=false) extends BaseObject[Long] {
+                   enabled:Boolean=false,
+                   displayName: Option[String]=None) extends BaseObject[Long] {
 
   override val itemType: ItemType = ProjectType()
 }
@@ -38,6 +40,7 @@ object Project {
   val projectForm = Form(
     mapping(
       "id" -> default(longNumber,-1L),
+      "ownerId" -> default(longNumber, User.DEFAULT_SUPER_USER_ID.toLong),
       "name" -> nonEmptyText,
       "created" -> default(jodaDate, DateTime.now()),
       "modified" -> default(jodaDate, DateTime.now()),
@@ -52,9 +55,10 @@ object Project {
           "modified" -> default(jodaDate, DateTime.now())
         )(Group.apply)(Group.unapply)
       ),
-      "enabled" -> boolean
+      "enabled" -> boolean,
+      "displayName" -> optional(text)
     )(Project.apply)(Project.unapply)
   )
 
-  def emptyProject : Project = Project(-1, "", DateTime.now(), DateTime.now())
+  def emptyProject : Project = Project(-1, User.DEFAULT_SUPER_USER_ID, "", DateTime.now(), DateTime.now())
 }

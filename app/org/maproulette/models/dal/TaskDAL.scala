@@ -147,7 +147,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
-    this.permission.hasWriteAccess(task, user)
+    this.permission.hasObjectWriteAccess(task, user)
     val updatedTask = this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         var parameters = Seq(
@@ -193,7 +193,7 @@ class TaskDAL @Inject()(override val db: Database,
     */
   override def update(value: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasWriteAccess(cachedItem, user)
+      this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
         val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -251,7 +251,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return
     */
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
-    this.permission.hasWriteAccess(element, user)
+    this.permission.hasObjectWriteAccess(element, user)
     // clear the cache, and force a refresh
     this.cacheManager.deleteByName(element.name)
     val updatedTask:Option[Task] = this.withMRTransaction { implicit c =>
@@ -373,7 +373,7 @@ class TaskDAL @Inject()(override val db: Database,
     this.withMRTransaction { implicit c =>
       implicit val id = taskId
       this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
-        this.permission.hasWriteAccess(task, user)
+        this.permission.hasObjectWriteAccess(task, user)
         // get the parent challenge, as we need the priority information
         val parentChallenge = this.challengeDAL.get().retrieveById(task.parent) match {
           case Some(c) => c
@@ -871,7 +871,7 @@ class TaskDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       this.retrieveById(taskId) match {
         case Some(task) =>
-          this.permission.hasWriteAccess(task, user)
+          this.permission.hasObjectWriteAccess(task, user)
           SQL("DELETE FROM task_comments WHERE id = {id}").on('id -> commentId)
         case None =>
           throw new NotFoundException("Task was not found.")

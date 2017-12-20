@@ -80,7 +80,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     if (answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
-    this.permission.hasWriteAccess(challenge, user)
+    this.permission.hasObjectWriteAccess(challenge, user)
     this.withMRTransaction { implicit c =>
       // insert the answers into the table
       val sqlQuery = s"""INSERT INTO answers (survey_id, answer) VALUES (${challenge.id}, {answer})"""

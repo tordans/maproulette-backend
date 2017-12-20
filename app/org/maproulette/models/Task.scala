@@ -96,8 +96,6 @@ object Task {
     override def reads(json: JsValue): JsResult[Task] = Json.fromJson[Task](json)(Json.reads[Task])
   }
 
-
-
   val STATUS_CREATED = 0
   val STATUS_CREATED_NAME = "Created"
   val STATUS_FIXED = 1

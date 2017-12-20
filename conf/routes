@@ -3,6 +3,8 @@
 # ~~~~
 # Home page
 GET     /                                                               @controllers.Application.index
+GET     /mr3                                                            @controllers.Application.mr3(path="")
+GET     /mr3/*path                                                      @controllers.Application.mr3(path)
 GET     /ui/admin/list/project                                          @controllers.Application.adminUIProjectList
 GET     /ui/admin/list/:itemType/:parentId                              @controllers.Application.adminUIChildList(itemType, parentId:Long)
 GET     /ui/admin/list/:projectId/:parentType/tasks/:parentId           @controllers.Application.adminUITaskList(projectId:Long, parentType:String, parentId:Long)

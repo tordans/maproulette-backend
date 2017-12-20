@@ -46,6 +46,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   // The row parser for it's children defined in the TaskDAL
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
+  override val retrieveColumns: String = "*, ST_AsGeoJSON(location) AS locationJSON, ST_AsGeoJSON(bounding) AS boundingJSON"
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -56,7 +57,6 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[String]("challenges.name") ~
       get[DateTime]("challenges.created") ~
       get[DateTime]("challenges.modified") ~
-      get[Option[DateTime]]("challenges.last_updated") ~
       get[Option[String]]("challenges.description") ~
       get[Long]("challenges.owner_id") ~
       get[Long]("challenges.parent_id") ~
@@ -79,11 +79,13 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.max_zoom") ~
       get[Option[Int]]("challenges.default_basemap") ~
       get[Option[String]]("challenges.custom_basemap") ~
-      get[Boolean]("challenges.updatetasks") map {
-      case id ~ name ~ created ~ modified ~ lastUpdated ~ description ~ ownerId ~ parentId ~ instruction ~
+      get[Boolean]("challenges.updatetasks") ~
+      get[Option[String]]("locationJSON") ~
+      get[Option[String]]("boundingJSON") map {
+      case id ~ name ~ created ~ modified ~ description ~ ownerId ~ parentId ~ instruction ~
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ overpassql ~ remoteGeoJson ~
         status ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
-        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks =>
+        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -96,16 +98,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
         }
-        val updated = lastUpdated match {
-          case Some(update) => update;
-          case None => DateTime.now();
-        }
-        new Challenge(id, name, created, modified, updated, description,
+        new Challenge(id, name, created, modified, description,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
-          status
+          status, location, bounding
         )
     }
   }
@@ -148,7 +146,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(challenge: Challenge, user:User)(implicit c:Option[Connection]=None): Challenge = {
-    this.permission.hasWriteAccess(challenge, user)
+    this.permission.hasObjectWriteAccess(challenge, user)
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, blurb,
@@ -184,7 +182,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Challenge] = {
     var updatedPriorityRules = false
     val updatedChallenge = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasWriteAccess(cachedItem, user)
+      this.permission.hasObjectWriteAccess(cachedItem, user)
       val highPriorityRule = (updates \ "highPriorityRule").asOpt[String].getOrElse(cachedItem.priority.highPriorityRule.getOrElse("")) match {
         case x if Challenge.isValidRule(Some(x)) => x
         case _ => ""
@@ -307,7 +305,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     */
   def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[Challenge] = {
     this.withMRConnection { implicit c =>
-      val query = s"""SELECT * FROM challenges c
+      val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
                       WHERE featured = TRUE ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
@@ -338,7 +336,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     */
   def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[Challenge] = {
     this.withMRConnection { implicit c =>
-      val query = s"""SELECT * FROM challenges c
+      val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON c.parent_id = p.id
                       WHERE ${this.enabled(enabledOnly, "c")(None)} ${this.enabled(enabledOnly, "p")}
                       ${this.order(Some("created"), "DESC", "c", true)}
@@ -528,7 +526,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           if (challenge.general.instruction.isEmpty) {
             throw new InvalidException("Cannot reset Task instructions if there is no Challenge instruction available.")
           }
-          this.permission.hasWriteAccess(challenge, user)
+          this.permission.hasObjectWriteAccess(challenge, user)
           SQL("UPDATE tasks SET instruction = '' WHERE parent_id = {id}").on('id -> challengeId).executeUpdate()
         case None =>
           throw new NotFoundException(s"No challenge found with id $challengeId")
@@ -552,7 +550,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         s"AND status IN (${statusFilter.mkString(",")}"
       }
       val query = s"""DELETE FROM tasks WHERE parent_id = {challengeId} $filter"""
-      SQL(query).on('challengeId -> challengeId).executeUpdate();
+      SQL(query).on('challengeId -> challengeId).executeUpdate()
     }
   }
 
@@ -568,6 +566,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * - challengeTagConjunction (ctc) = Whether the challenge tag list is inclusive or exclusive. True
     *     means exclusive, false inclusive. By default is inclusive
     * - location (tbb) = Provide a bounding box to limit the search window by
+    * - bounding (bb) = Provide a bounding box that will search for any challenge bounding box intersections
     * - owner (o) = Optionally can search by all challenges created by a specific owner
     *
     * @param searchParameters The object that contains all the search parameters that were retrieved from the query string
@@ -587,22 +586,28 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
 
       searchParameters.projectId match {
         case Some(pid) if pid > -1 => //ignore
-        case _ => joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id"
+        case _ => joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
       }
 
       parameters ++= addChallengeTagMatchingToQuery(searchParameters, whereClause, joinClause)
 
       searchParameters.owner match {
-        case Some(o) =>
+        case Some(o) if o.nonEmpty =>
           joinClause ++= "INNER JOIN users u ON u.id = c.owner_id"
           this.appendInWhereClause(whereClause, s"u.name = {owner}")
           parameters += ('owner -> o)
-        case None => // ignore
+        case _ => // ignore
       }
 
       searchParameters.location match {
         case Some(l) =>
           this.appendInWhereClause(whereClause, s"(c.location && ST_MakeEnvelope(${l.left}, ${l.bottom}, ${l.right}, ${l.top}, 4326))")
+        case None =>
+      }
+
+      searchParameters.bounding match {
+        case Some(b) =>
+          this.appendInWhereClause(whereClause, s"ST_Intersects(c.bounding, ST_MakeEnvelope(${b.left}, ${b.bottom}, ${b.right}, ${b.top}, 4326))")
         case None =>
       }
 

@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.permissions
 
+import java.sql.Connection
 import javax.inject.{Inject, Provider}
 
 import com.google.inject.Singleton
@@ -68,7 +69,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * @param obj The object in question
     * @param user The user requesting write access
     */
-  def hasWriteAccess(obj:BaseObject[Long], user:User) : Unit = {
+  def hasObjectWriteAccess(obj:BaseObject[Long], user:User)(implicit c:Option[Connection]=None) : Unit = {
     if (!user.isSuperUser) {
       obj.itemType match {
         case UserType() => hasReadAccess(obj, user)
@@ -94,13 +95,13 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     throw new IllegalAccessException(s"Only super users can perform this action.")
   }
 
-  def hasWriteAccess(itemType:ItemType, user:User)(implicit id:Long) : Unit = {
+  def hasWriteAccess(itemType:ItemType, user:User)(implicit id:Long, c:Option[Connection]=None) : Unit = {
     if (!user.isSuperUser) {
       itemType match {
         case UserType() => hasReadAccess(itemType, user)
         case _ =>
           dalManager.get().getManager(itemType).retrieveById match {
-            case Some(obj) => hasWriteAccess(obj.asInstanceOf[BaseObject[Long]], user)
+            case Some(obj) => hasObjectWriteAccess(obj.asInstanceOf[BaseObject[Long]], user)
             case None =>
               throw new NotFoundException(
                 s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check write access"

@@ -80,6 +80,13 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
+  def mr3(path:String) : Action[AnyContent] = Action.async { implicit request =>
+    sessionManager.userAwareUIRequest { implicit user =>
+      val userOrMocked = User.userOrMocked(user)
+      Ok(views.html.mr3(userOrMocked, config.mr3JSSource, config.mr3CSSSource))
+    }
+  }
+
   def showSearchResults : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
@@ -362,8 +369,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
         org.maproulette.controllers.api.routes.javascript.ChallengeController.resetTaskInstructions,
         org.maproulette.controllers.api.routes.javascript.ProjectController.getClusteredPoints,
         org.maproulette.controllers.api.routes.javascript.ProjectController.getSearchedClusteredPoints,
-        org.maproulette.controllers.api.routes.javascript.APIController.getSavedChallenges,
-        org.maproulette.controllers.api.routes.javascript.APIController.saveChallenge,
+        org.maproulette.controllers.api.routes.javascript.UserController.getSavedChallenges,
+        org.maproulette.controllers.api.routes.javascript.UserController.saveChallenge,
         routes.javascript.MappingController.getTaskDisplayGeoJSON,
         routes.javascript.MappingController.getSequentialNextTask,
         routes.javascript.MappingController.getSequentialPreviousTask,

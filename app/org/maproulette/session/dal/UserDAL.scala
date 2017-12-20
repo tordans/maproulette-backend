@@ -14,12 +14,12 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.actions.UserType
-import org.maproulette.models.dal.{BaseDAL, ChallengeDAL, ProjectDAL}
+import org.maproulette.models.dal.{BaseDAL, ChallengeDAL, ProjectDAL, TaskDAL}
 import org.maproulette.session._
 import play.api.db.Database
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.{Challenge, Project}
+import org.maproulette.models.{Challenge, Project, Task}
 import org.maproulette.permissions.Permission
 import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json}
@@ -41,6 +41,7 @@ class UserDAL @Inject() (override val db:Database,
                          userGroupDAL: UserGroupDAL,
                          projectDAL:ProjectDAL,
                          challengeDAL: ChallengeDAL,
+                         taskDAL: TaskDAL,
                          config:Config,
                          override val permission:Permission) extends BaseDAL[Long, User] {
 
@@ -211,7 +212,7 @@ class UserDAL @Inject() (override val db:Database,
     * @return None if failed to update or create.
     */
   override def insert(item:User, user: User)(implicit c:Option[Connection]=None): User = this.cacheManager.withOptionCaching { () =>
-    this.permission.hasWriteAccess(item, user)
+    this.permission.hasObjectWriteAccess(item, user)
     this.withMRTransaction { implicit c =>
       val ewkt = new WKTWriter().write(
         new GeometryFactory().createPoint(
@@ -286,7 +287,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   override def update(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[User] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasWriteAccess(cachedItem, user)
+      this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
           case "" => User.generateAPIKey(id)
@@ -458,11 +459,13 @@ class UserDAL @Inject() (override val db:Database,
       case Some(project) => project.id
       case None =>
         this.projectDAL.insert(Project(id = -1,
+          ownerId = user.osmProfile.id,
           name = homeName,
           created = DateTime.now(),
           modified = DateTime.now(),
           description = Some(s"Home project for user ${user.name}"),
-          enabled = false
+          enabled = false,
+          displayName = Some(s"${user.osmProfile.displayName}'s Project")
         ), User.superUser).id
     }
     // make sure the user is an admin of this project
@@ -478,10 +481,13 @@ class UserDAL @Inject() (override val db:Database,
     *
     * @param userId The id of the user you are requesting the saved challenges for
     * @param user The user making the request
+    * @param limit limits the number of children to be returned
+    * @param offset For paging, ie. the page number starting at 0
     * @param c The existing connection if any
     * @return a List of challenges
     */
-  def getSavedChallenges(userId:Long, user:User)(implicit c:Option[Connection]=None) : List[Challenge] = {
+  def getSavedChallenges(userId:Long, user:User, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
+                        (implicit c:Option[Connection]=None) : List[Challenge] = {
     this.permission.hasReadAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       val query = s"""
@@ -490,7 +496,7 @@ class UserDAL @Inject() (override val db:Database,
          |  SELECT challenge_id FROM saved_challenges
          |  WHERE user_id = $userId
          |  ORDER BY created
-         |  ${if (config.maxSavedChallenges > 0) {s"LIMIT ${config.maxSavedChallenges}"}}
+         |  LIMIT ${sqlLimit(limit)} OFFSET $offset
          |)
        """.stripMargin
       SQL(query).as(challengeDAL.parser.*)
@@ -508,7 +514,94 @@ class UserDAL @Inject() (override val db:Database,
   def saveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
     this.permission.hasWriteAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
-      SQL(s"""INSERT INTO saved_challenges (user_id, challenge_id) VALUES ($userId, $challengeId) ON CONFLICT(user_id, challenge_id) DO NOTHING""").executeInsert()
+      SQL(
+        s"""INSERT INTO saved_challenges (user_id, challenge_id)
+           |VALUES ($userId, $challengeId) ON
+           |CONFLICT(user_id, challenge_id) DO NOTHING""".stripMargin
+      ).executeInsert()
+    }
+  }
+
+  /**
+    * Unsaves a challenge from the users profile
+    *
+    * @param userId The id of the user that has previously saved the challenge
+    * @param challengeId The id of the challenge to remove from the user profile
+    * @param user The user executing the unsave function
+    * @param c The existing connection if any
+    */
+  def unsaveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      SQL(s"""DELETE FROM saved_challenges WHERE user_id = $userId AND challenge_id = $challengeId""").execute()
+    }
+  }
+
+  /**
+    * Gets the last X saved tasks for a user
+    *
+    * @param userId The id of the user you are requesting the saved challenges for
+    * @param user The user making the request
+    * @param challengeIds A sequence of challengeId to limit the response to a specific set of challenges
+    * @param limit limits the number of children to be returned
+    * @param offset For paging, ie. the page number starting at 0
+    * @param c The existing connection if any
+    * @return a List of challenges
+    */
+  def getSavedTasks(userId:Long, user:User, challengeIds:Seq[Long] = Seq.empty, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
+                   (implicit c:Option[Connection]=None) : List[Task] = {
+    this.permission.hasReadAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      val query = s"""
+                     |SELECT ${taskDAL.retrieveColumns} FROM tasks
+                     |WHERE id IN (
+                     |  SELECT task_id FROM saved_tasks
+                     |  WHERE user_id = $userId
+                     |  ${if (challengeIds.nonEmpty) {s"AND challenge_id IN (${challengeIds.mkString(",")})"} else {""} }
+                     |  ORDER BY created
+                     |  LIMIT ${sqlLimit(limit)} OFFSET $offset
+                     |)
+       """.stripMargin
+      SQL(query).as(taskDAL.parser.*)
+    }
+  }
+
+  /**
+    * Saves the task for the user, will validate that the task actually exists first based on the
+    * provided id
+    *
+    * @param userId The id of the user
+    * @param taskId the id of the task
+    * @param user the user executing the request
+    * @param c The existing connection if any
+    */
+  def saveTask(userId:Long, taskId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    withMRTransaction { implicit c =>
+      this.taskDAL.retrieveById(taskId) match {
+        case Some(task) =>
+          SQL(
+            s"""INSERT INTO saved_tasks (user_id, task_id, challenge_id)
+               |VALUES ($userId, ${task.id}, ${task.parent})
+               |ON CONFLICT(user_id, task_id) DO NOTHING""".stripMargin
+          ).executeInsert()
+        case None => throw new NotFoundException(s"No task found with ID $taskId")
+      }
+    }
+  }
+
+  /**
+    * Unsaves a task from the users profile
+    *
+    * @param userId The id of the user that has previously saved the challenge
+    * @param task_id The id of the task to remove from the user profile
+    * @param user The user executing the unsave function
+    * @param c The existing connection if any
+    */
+  def unsaveTask(userId:Long, task_id:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      SQL(s"""DELETE FROM saved_tasks WHERE user_id = $userId AND task_id = $task_id""").execute()
     }
   }
 

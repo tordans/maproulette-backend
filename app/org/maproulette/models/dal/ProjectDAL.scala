@@ -43,17 +43,20 @@ class ProjectDAL @Inject() (override val db:Database,
   override val childTable: String = "challenges"
   // anorm row parser for child as defined by the challenge data access layer
   override val childParser = childDAL.parser
+  override val childColumns = childDAL.retrieveColumns
 
   // The anorm row parser for the Project to map database records directly to Project objects
   override val parser: RowParser[Project] = {
     get[Long]("projects.id") ~
+      get[Long]("projects.owner_id") ~
       get[String]("projects.name") ~
       get[DateTime]("projects.created") ~
       get[DateTime]("projects.modified") ~
       get[Option[String]]("projects.description") ~
-      get[Boolean]("projects.enabled") map {
-      case id ~ name ~ created ~ modified ~ description ~ enabled =>
-        new Project(id, name, created, modified, description, userGroupDAL.getProjectGroups(id, User.superUser), enabled)
+      get[Boolean]("projects.enabled") ~
+      get[Option[String]]("projects.display_name") map {
+      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName =>
+        new Project(id, ownerId, name, created, modified, description, userGroupDAL.getProjectGroups(id, User.superUser), enabled, displayName)
     }
   }
 
@@ -82,7 +85,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(project: Project, user:User)(implicit c:Option[Connection]=None): Project = {
-    this.permission.hasWriteAccess(project, user)
+    this.permission.hasObjectWriteAccess(project, user)
     this.cacheManager.withOptionCaching { () =>
       // only super users can enable or disable projects
       val setProject = if (!user.isSuperUser || user.adminForProject(project.id)) {
@@ -92,8 +95,8 @@ class ProjectDAL @Inject() (override val db:Database,
         project
       }
       val newProject = this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO projects (name, description, enabled)
-              VALUES (${setProject.name}, ${setProject.description}, ${setProject.enabled})
+        SQL"""INSERT INTO projects (name, owner_id, displayName, description, enabled)
+              VALUES (${setProject.name}, ${user.id}, ${setProject.displayName}, ${setProject.description}, ${setProject.enabled})
               ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
       newProject match {
@@ -119,9 +122,11 @@ class ProjectDAL @Inject() (override val db:Database,
     */
   override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Project] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasWriteAccess(cachedItem, user)
+      this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
+        val displayName = (updates \ "displayName").asOpt[String].getOrElse(cachedItem.displayName.getOrElse(""))
+        val ownerId = (updates \ "ownerId").asOpt[Long].getOrElse(cachedItem.ownerId)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean] match {
           case Some(e) if !user.isSuperUser && !user.adminForProject(id) =>
@@ -132,6 +137,8 @@ class ProjectDAL @Inject() (override val db:Database,
         }
 
         SQL"""UPDATE projects SET name = $name,
+              owner_id = $ownerId,
+              display_name = $displayName,
               description = $description,
               enabled = $enabled
               WHERE id = $id RETURNING *""".as(this.parser.*).headOption

@@ -2,20 +2,23 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 
-import org.maproulette.exception.NotFoundException
+import org.maproulette.exception.{NotFoundException, StatusMessage}
+import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SessionManager, User, UserSettings}
-import play.api.libs.json.{DefaultWrites, JsValue, Json}
+import play.api.libs.json.{DefaultWrites, JsString, JsValue, Json}
 import play.api.mvc.{Action, AnyContent, BodyParsers, Controller}
 
 /**
   * @author cuthbertm
   */
-class UserController @Inject() (userDAL: UserDAL, sessionManager: SessionManager) extends Controller with DefaultWrites {
+class UserController @Inject()(userDAL: UserDAL, sessionManager: SessionManager) extends Controller with DefaultWrites {
 
   implicit val userWrites = User.userWrites
+  implicit val challengeWrites = Challenge.writes.challengeWrites
+  implicit val taskWrites = Task.TaskFormat
 
-  def getUser(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def getUser(userId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (userId == user.id || userId == user.osmProfile.id) {
         Ok(Json.toJson(user))
@@ -33,7 +36,7 @@ class UserController @Inject() (userDAL: UserDAL, sessionManager: SessionManager
     }
   }
 
-  def getUserByOSMUsername(username:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getUserByOSMUsername(username: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (user.name == username) {
         Ok(Json.toJson(user))
@@ -48,7 +51,7 @@ class UserController @Inject() (userDAL: UserDAL, sessionManager: SessionManager
     }
   }
 
-  def updateUser(id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def updateUser(id: Long): Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       // if the request body contains the API Key for update, let's update that separately
       (request.body \ "apiKey").asOpt[String] match {
@@ -60,6 +63,50 @@ class UserController @Inject() (userDAL: UserDAL, sessionManager: SessionManager
         case Some(u) => Ok(Json.toJson(u))
         case None => throw new NotFoundException(s"No user found to update with id '$id'")
       }
+    }
+  }
+
+  def getSavedChallenges(userId: Long, limit:Int, offset:Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.userDAL.getSavedChallenges(userId, user, limit, offset)))
+    }
+  }
+
+  def saveChallenge(userId: Long, challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.userDAL.saveChallenge(userId, challengeId, user)
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"Challenge $challengeId saved for user $userId"))))
+    }
+  }
+
+  def unsaveChallenge(userId: Long, challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.userDAL.unsaveChallenge(userId, challengeId, user)
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"Challenge $challengeId unsaved from user $userId"))))
+    }
+  }
+
+  def getSavedTasks(userId: Long, challengeIds:String, limit:Int, offset:Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val ids = challengeIds.split(",").filter(_.nonEmpty) match {
+        case v if v.nonEmpty => v.map(_.toLong).toSeq
+        case _ => Seq.empty[Long]
+      }
+      Ok(Json.toJson(this.userDAL.getSavedTasks(userId, user, ids, limit, offset)))
+    }
+  }
+
+  def saveTask(userId: Long, taskId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.userDAL.saveTask(userId, taskId, user)
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"Task $taskId saved for user $userId"))))
+    }
+  }
+
+  def unsaveTask(userId: Long, taskId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.userDAL.unsaveTask(userId, taskId, user)
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"Task $taskId unsaved from user $userId"))))
     }
   }
 }

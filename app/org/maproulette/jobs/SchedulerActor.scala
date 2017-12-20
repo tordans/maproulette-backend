@@ -29,10 +29,10 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
   )
 
   override def receive: Receive = {
-    case RunJob("cleanLocks") => this.cleanLocks()
-    case RunJob("runChallengeSchedules") => this.runChallengeSchedules()
-    case RunJob("updateLocations") => this.updateLocations()
-    case RunJob("cleanOldTasks") => this.cleanOldTasks()
+    case RunJob("cleanLocks", action) => this.cleanLocks(action)
+    case RunJob("runChallengeSchedules", action) => this.runChallengeSchedules(action)
+    case RunJob("updateLocations", action) => this.updateLocations(action)
+    case RunJob("cleanOldTasks", action) => this.cleanOldTasks(action)
   }
 
   /**
@@ -40,8 +40,8 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
     * the lock for over an hour. To enable, set:
     *    osm.scheduler.cleanLocks.interval=FiniteDuration
     */
-  def cleanLocks() : Unit = {
-    Logger.info("Running the clean locks job now...")
+  def cleanLocks(action:String) : Unit = {
+    Logger.info(action)
     this.db.withTransaction { implicit c =>
       val locksDeleted = SQL"""DELETE FROM locked WHERE AGE(NOW(), locked_time) > '1 hour'""".executeUpdate()
       Logger.info(s"$locksDeleted were found and deleted.")
@@ -53,8 +53,8 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
     * schedules in the challenge. To enable, set:
     *    osm.scheduler.runChallengeSchedules.interval=FiniteDuration
     */
-  def runChallengeSchedules() : Unit = {
-    Logger.info("Running the challenge schedules job now...")
+  def runChallengeSchedules(action:String) : Unit = {
+    Logger.info(action)
   }
 
 
@@ -62,22 +62,23 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
     * This job will update the locations of all the challenges periodically. To enable, set:
     *    osm.scheduler.updateLocations.interval=FiniteDuration
     */
-  def updateLocations() : Unit = {
-    Logger.info("Updating challenge locations...")
+  def updateLocations(action:String) : Unit = {
+    Logger.info(action)
     db.withTransaction { implicit c =>
       val query = """DO $$
                       DECLARE
                         rec RECORD;
                       BEGIN
-                        FOR rec IN SELECT id FROM challenges LOOP
+                        FOR rec IN SELECT id, modified, last_updated FROM challenges LOOP
                           UPDATE challenges SET location = (SELECT ST_Centroid(ST_Collect(ST_Makevalid(location)))
                                   FROM tasks
-                                  WHERE parent_id = rec.id)
-                          WHERE id = rec.id;
-                          UPDATE challenges SET last_updated = (SELECT MAX(modified)
+                                  WHERE parent_id = rec.id),
+                                bounding = (SELECT ST_Envelope(ST_Buffer((ST_SetSRID(ST_Extent(location), 4326))::geography,2)::geometry)
                                   FROM tasks
                                   WHERE parent_id = rec.id)
-                          WHERE id = rec.id;
+                          WHERE id = rec.id AND rec.modified > rec.last_updated;
+                          UPDATE challenges SET last_updated = NOW()
+                          WHERE id = rec.id AND rec.modified > rec.last_updated;
                         END LOOP;
                       END$$;"""
 
@@ -91,7 +92,7 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
     *    osm.scheduler.cleanOldTasks.interval=FiniteDuration
     *    osm.scheduler.cleanOldTasks.olderThan=FiniteDuration
     */
-  def cleanOldTasks() : Unit = {
+  def cleanOldTasks(action:String) : Unit = {
     config.withFiniteDuration(Config.KEY_SCHEDULER_CLEAN_TASKS_OLDER_THAN) { duration =>
       Metrics.timer("Cleaning old challenge tasks") { () =>
         db.withTransaction { implicit c =>
@@ -114,5 +115,5 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
 object SchedulerActor {
   def props = Props[SchedulerActor]
 
-  case class RunJob(name:String)
+  case class RunJob(name:String, action:String="")
 }

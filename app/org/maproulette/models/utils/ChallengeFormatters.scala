@@ -23,18 +23,26 @@ trait ChallengeWrites {
   }
   implicit val challengeExtraWrites: Writes[ChallengeExtra] = Json.writes[ChallengeExtra]
 
+  class jsonWrites(key:String) extends Writes[String] {
+    override def writes(value:String) : JsValue =
+      JsObject(Seq(
+        key -> Json.parse(value)
+      ))
+  }
+
   implicit val challengeWrites: Writes[Challenge] = (
     (JsPath \ "id").write[Long] and
     (JsPath \ "name").write[String] and
     (JsPath \ "created").write[DateTime] and
     (JsPath \ "modified").write[DateTime] and
-    (JsPath \ "lastUpdated").write[DateTime] and
     (JsPath \ "description").writeNullable[String] and
     JsPath.write[ChallengeGeneral] and
     JsPath.write[ChallengeCreation] and
     JsPath.write[ChallengePriority] and
     JsPath.write[ChallengeExtra] and
-    (JsPath \ "status").writeNullable[Int]
+    (JsPath \ "status").writeNullable[Int] and
+    (JsPath \ "location").writeNullable[String](new jsonWrites("location")) and
+    (JsPath \ "bounding").writeNullable[String](new jsonWrites("bounding"))
   )(unlift(Challenge.unapply))
 }
 
@@ -44,17 +52,22 @@ trait ChallengeReads extends DefaultReads {
   implicit val challengePriorityReads: Reads[ChallengePriority] = Json.reads[ChallengePriority]
   implicit val challengeExtraReads: Reads[ChallengeExtra] = Json.reads[ChallengeExtra]
 
+  class jsonReads(key:String) extends Reads[String] {
+    override def reads(value:JsValue) : JsResult[String] = JsSuccess(value.toString())
+  }
+
   implicit val challengeReads: Reads[Challenge] = (
     (JsPath \ "id").read[Long] and
     (JsPath \ "name").read[String] and
     ((JsPath \ "created").read[DateTime] or Reads.pure(DateTime.now())) and
     ((JsPath \ "modified").read[DateTime] or Reads.pure(DateTime.now())) and
-    ((JsPath \ "lastUpdated").read[DateTime] or Reads.pure(DateTime.now())) and
     (JsPath \ "description").readNullable[String] and
     JsPath.read[ChallengeGeneral] and
     JsPath.read[ChallengeCreation] and
     JsPath.read[ChallengePriority] and
     JsPath.read[ChallengeExtra] and
-    (JsPath \ "status").readNullable[Int]
+    (JsPath \ "status").readNullable[Int] and
+    (JsPath \ "location").readNullable[String](new jsonReads("location")) and
+    (JsPath \ "bounding").readNullable[String](new jsonReads("bounding"))
   )(Challenge.apply _)
 }
