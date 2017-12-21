@@ -74,7 +74,7 @@ class TagDAL @Inject() (override val db:Database,
       this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
-        if (name.nonEmpty) {
+        if (name.isEmpty) {
           // do not allow empty tags
           throw new InvalidException(s"Tags cannot be empty strings")
         }

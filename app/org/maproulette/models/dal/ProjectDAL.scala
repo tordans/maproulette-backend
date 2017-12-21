@@ -67,14 +67,16 @@ class ProjectDAL @Inject() (override val db:Database,
       str("challenges.name") ~
       get[Option[String]]("blurb") ~
       str("location") ~
+      str("bounding") ~
       get[DateTime]("challenges.last_updated") ~
       int("difficulty") ~
       int("challenge_type") map {
-      case id ~ osm_id ~ username ~ name ~ blurb ~ location ~ modified ~ difficulty ~ challengeType =>
+      case id ~ osm_id ~ username ~ name ~ blurb ~ location ~ bounding ~ modified ~ difficulty ~ challengeType =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
-        ClusteredPoint(id, osm_id, username, name, point, blurb.getOrElse(""), modified, difficulty, challengeType)
+        val boundingJSON = Json.parse(bounding)
+        ClusteredPoint(id, osm_id, username, name, point, boundingJSON, blurb.getOrElse(""), modified, difficulty, challengeType)
     }
   }
 
@@ -95,7 +97,7 @@ class ProjectDAL @Inject() (override val db:Database,
         project
       }
       val newProject = this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO projects (name, owner_id, displayName, description, enabled)
+        SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled)
               VALUES (${setProject.name}, ${user.id}, ${setProject.displayName}, ${setProject.description}, ${setProject.enabled})
               ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
@@ -126,7 +128,7 @@ class ProjectDAL @Inject() (override val db:Database,
       this.withMRTransaction { implicit c =>
         val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
         val displayName = (updates \ "displayName").asOpt[String].getOrElse(cachedItem.displayName.getOrElse(""))
-        val ownerId = (updates \ "ownerId").asOpt[Long].getOrElse(cachedItem.ownerId)
+        val owner = (updates \ "ownerId").asOpt[Long].getOrElse(cachedItem.owner)
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean] match {
           case Some(e) if !user.isSuperUser && !user.adminForProject(id) =>
@@ -137,7 +139,7 @@ class ProjectDAL @Inject() (override val db:Database,
         }
 
         SQL"""UPDATE projects SET name = $name,
-              owner_id = $ownerId,
+              owner_id = $owner,
               display_name = $displayName,
               description = $description,
               enabled = $enabled
@@ -244,7 +246,8 @@ class ProjectDAL @Inject() (override val db:Database,
         case None => ""
       }
       val query = s"""
-          SELECT c.id, u.osm_id, u.name, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
+          SELECT c.id, u.osm_id, u.name, c.name, c.blurb,
+                  ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
                   c.difficulty, c.challenge_type, c.last_updated
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
@@ -277,7 +280,8 @@ class ProjectDAL @Inject() (override val db:Database,
   def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
                               enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
-      SQL"""SELECT c.id, u.osm_id, u.name, c.name, c.blurb, ST_AsGeoJSON(c.location) AS location,
+      SQL"""SELECT c.id, u.osm_id, u.name, c.name, c.blurb,
+                    ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
                     c.difficulty, c.challenge_type, c.last_updated
               FROM challenges c
               INNER JOIN projects p ON p.id = c.parent_id

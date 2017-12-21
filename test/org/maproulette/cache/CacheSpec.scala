@@ -170,7 +170,7 @@ class CacheSpec extends Specification {
     "cache must expire values correctly" in {
       theCache.clear()
       cacheObject(1L, "test1")
-      theCache.add(TestBaseObject(2L, "test2"), Some(1))
+      theCache.addObject(TestBaseObject(2L, "test2"), Some(1))
       Thread.sleep(2000)
       theCache.trueSize mustEqual 1
       Thread.sleep(5000)

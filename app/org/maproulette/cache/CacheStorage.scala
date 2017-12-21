@@ -2,12 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.cache
 
-import org.joda.time.{LocalDateTime, Seconds}
 import org.maproulette.models.BaseObject
-
-import scala.collection.mutable.Map
-
-case class InnerValue[Key, Value<:BaseObject[Key]](value:Value, accessTime:LocalDateTime, localExpiry:Option[Int]=None)
 
 /**
   * This is a very basic Cache Storage class that will store all items in memory. Ultimately this
@@ -18,28 +13,8 @@ case class InnerValue[Key, Value<:BaseObject[Key]](value:Value, accessTime:Local
   *
   * @author cuthbertm
   */
-class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=CacheManager.DEFAULT_CACHE_LIMIT, cacheExpiry:Int=CacheManager.DEFAULT_CACHE_EXPIRY) {
-  protected val cache:Map[Key, InnerValue[Key, Value]] = Map.empty
-
-  /**
-    * Gets an object from the cache
-    *
-    * @param id The id of the object you are looking for
-    * @return The object from the cache, None if not found
-    */
-  def get(id:Key) : Option[Value] = synchronized {
-    this.cache.get(id) match {
-      case Some(value) =>
-        if (isExpired(value)) {
-          None
-        } else {
-          // because it has been touched, we need to update the accesstime
-          add(value.value)
-          Some(value.value)
-        }
-      case None => None
-    }
-  }
+class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=CacheManager.DEFAULT_CACHE_LIMIT, cacheExpiry:Int=CacheManager.DEFAULT_CACHE_EXPIRY)
+  extends BasicCache[Key, Value](cacheLimit, cacheExpiry) {
 
   /**
     * Finds an object from the cache based on the name instead of the id
@@ -67,33 +42,8 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=CacheManager.DEF
     * @param localExpiry You can add a custom expiry to a specific element in seconds
     * @return The object put in the cache, or None if it could not be placed in the cache
     */
-  def add(obj:Value, localExpiry:Option[Int]=None) : Option[Value] = synchronized {
-    if (this.cache.size == cacheLimit) {
-      val oldestEntry = this.cache.valuesIterator.reduceLeft((x, y) => if (x.accessTime.isBefore(y.accessTime)) x else y)
-      remove(oldestEntry.value.id)
-    } else if (this.cache.size > cacheLimit) {
-      // something has gone very wrong if the cacheLimit has already been exceeded, this really shouldn't ever happen
-      // in this case we go for the nuclear option, basically blow away the whole cache
-      this.cache.clear()
-    }
-    this.cache.put(obj.id, InnerValue(obj, new LocalDateTime(), localExpiry)) match {
-      case Some(value) => Some(value.value)
-      case None => None
-    }
-  }
-
-  /**
-    * Removes an object from the cache based on the id
-    *
-    * @param id the id of the object to be removed
-    * @return The object removed from the cache, or None if it could not be removed from the cache,
-    *         or was not originally in the cache
-    */
-  def remove(id:Key) : Option[Value] = synchronized {
-    this.cache.remove(id) match {
-      case Some(value) => Some(value.value)
-      case None => None
-    }
+  def addObject(obj:Value, localExpiry:Option[Int]=None) : Option[Value] = synchronized {
+    this.add(obj.id, obj, localExpiry)
   }
 
   /**
@@ -110,60 +60,10 @@ class CacheStorage[Key, Value<:BaseObject[Key]] (cacheLimit:Int=CacheManager.DEF
     }
   }
 
-  /**
-    * Fully clears the cache, this may not be applicable for non basic in memory caches
-    */
-  def clear() : Unit = this.cache.clear()
-
-  /**
-    * The current size of the cache
-    *
-    * @return
-    */
-  def size : Int = this.cache.size
-
-  /**
-    * True size is a little bit more accurate than size, however the performance will be a bit slower
-    * as this size will loop through all the objects in the cache and expire out any items that have
-    * expired. Thereby giving the true size at the end.
-    *
-    * @return
-    */
-  def trueSize : Int = this.cache.keysIterator.count(!isExpiredByKey(_))
-
-  /**
-    * Checks if an item is cached or not
-    *
-    * @param id The id of the object to check to see if it is in the cache
-    * @return true if the item is found in the cache
-    */
-  def isCached(id:Key) : Boolean = this.cache.contains(id)
-
   private def isExpiredByKey(key:Key) : Boolean = synchronized {
     this.cache.get(key) match {
       case Some(value) => isExpired(value)
       case None => true
-    }
-  }
-
-  /**
-    * Checks to see if the item has expired and should be removed from the cache. If it finds the
-    * item and it has expired it will automatically remove it from the cache.
-    *
-    * @param value The value to check in the cache
-    * @return true if it doesn't exist or has expired
-    */
-  private def isExpired(value:InnerValue[Key, Value]) : Boolean = synchronized {
-    val currentTime = new LocalDateTime()
-    val itemExpiry = value.localExpiry match {
-      case Some(v) => v
-      case None => cacheExpiry
-    }
-    if (currentTime.isAfter(value.accessTime.plus(Seconds.seconds(itemExpiry)))) {
-      remove(value.value.id.toString)
-      true
-    } else {
-      false
     }
   }
 }

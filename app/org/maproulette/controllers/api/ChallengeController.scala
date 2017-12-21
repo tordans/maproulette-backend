@@ -140,7 +140,7 @@ class ChallengeController @Inject()(override val childController: TaskController
           val filter = if (StringUtils.isEmpty(statusFilter)) {
             None
           } else {
-            Some(statusFilter.split(",").map(_.toInt).toList)
+            Some(Utils.split(statusFilter).map(_.toInt))
           }
           Ok(Json.parse(this.dal.getChallengeGeometry(challengeId, filter)))
         case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
@@ -154,7 +154,7 @@ class ChallengeController @Inject()(override val childController: TaskController
       val filter = if (StringUtils.isEmpty(statusFilter)) {
         None
       } else {
-        Some(statusFilter.split(",").map(_.toInt).toList)
+        Some(Utils.split(statusFilter).map(_.toInt))
       }
       Ok(Json.toJson(this.dal.getClusteredPoints(challengeId, filter)))
     }
@@ -175,7 +175,7 @@ class ChallengeController @Inject()(override val childController: TaskController
         val params = p.copy(
           challengeId = Some(challengeId),
           taskSearch = Some(taskSearch),
-          taskTags = Some(tags.split(",").toList)
+          taskTags = Some(Utils.split(tags))
         )
         val result = this.dalManager.task.getRandomTasksWithPriority(User.userOrMocked(user), params, limit)
         result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
@@ -200,7 +200,7 @@ class ChallengeController @Inject()(override val childController: TaskController
         val params = p.copy(
           challengeId = Some(challengeId),
           taskSearch = Some(taskSearch),
-          taskTags = Some(tags.split(",").toList)
+          taskTags = Some(Utils.split(tags))
         )
         val result = this.dalManager.task.getRandomTasks(User.userOrMocked(user), params, limit, None, Utils.negativeToOption(proximityId))
         result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
@@ -262,7 +262,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def deleteTasks(challengeId:Long, statusFilters:String="") : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      this.dal.deleteTasks(user, challengeId, statusFilters.split(",").map(_.toInt).toList)
+      this.dal.deleteTasks(user, challengeId, Utils.split(statusFilters).map(_.toInt))
       Ok
     }
   }

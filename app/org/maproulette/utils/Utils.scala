@@ -82,6 +82,11 @@ object Utils extends DefaultWrites {
     }
   }
 
+  def split(value:String, splitCharacter:String=",") : List[String] = value match {
+    case "" => List[String]()
+    case _ => value.split(splitCharacter).toList
+  }
+
   def optionStringToOptionInt(value:Option[String]) : Option[Int] = value match {
     case Some(v) => Some(v.toInt)
     case None => None
