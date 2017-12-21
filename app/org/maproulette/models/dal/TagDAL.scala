@@ -49,7 +49,7 @@ class TagDAL @Inject() (override val db:Database,
       // do not allow empty tags
       throw new InvalidException(s"Tags cannot be empty strings")
     }
-    this.permission.hasWriteAccess(tag, user)
+    this.permission.hasObjectWriteAccess(tag, user)
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description) VALUES ({name}, {description}) ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *")
@@ -71,7 +71,7 @@ class TagDAL @Inject() (override val db:Database,
   override def update(tag:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Tag] = {
 
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasWriteAccess(cachedItem, user)
+      this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val name = (tag \ "name").asOpt[String].getOrElse(cachedItem.name)
         if (name.nonEmpty) {

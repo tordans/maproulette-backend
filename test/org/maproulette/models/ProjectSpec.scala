@@ -22,7 +22,7 @@ class ProjectSpec @Inject() (projectDAL: ProjectDAL) extends Specification {
 
   "Projects" should {
     "write project object to database" in new WithApplication {
-      val newProject = Project(projectID, "NewProject_projecttest", DateTime.now(), DateTime.now(), Some("This is a newProject"))
+      val newProject = Project(projectID, User.DEFAULT_SUPER_USER_ID, "NewProject_projecttest", DateTime.now(), DateTime.now(), Some("This is a newProject"))
       projectID = projectDAL.insert(newProject, User.superUser).id
       projectDAL.retrieveById match {
         case Some(t) =>

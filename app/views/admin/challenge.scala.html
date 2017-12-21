@@ -62,7 +62,7 @@
                             </td>
                             <td>@c._1.id</td>
                             <td><a href="@routes.Application.adminUITaskList(parentId, Actions.ITEM_TYPE_CHALLENGE_NAME, c._1.id)">@c._1.name</a></td>
-                            <td>@DateTimeFormat.forPattern("MM/dd/yyyy").print(c._1.lastUpdated)</td>
+                            <td>@DateTimeFormat.forPattern("MM/dd/yyyy").print(c._1.modified)</td>
                             <td>@{c._2}/@{c._3}/@{c._4}</td>
                             <td>
                                 @if(!c._1.creation.overpassQL.getOrElse("").isEmpty) { Overpass } else {

@@ -62,6 +62,21 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   override def readByName(id: Long, name: String): Action[AnyContent] = super.readByName(-1, name)
 
   /**
+    * Retrieves the list of projects managed
+    *
+    * @param limit Limit of how many tasks should be returned
+    * @param offset offset for pagination
+    * @param onlyEnabled Only list the enabled projects
+    * @param searchString basic search string to find specific projects
+    * @return json list of managed projects
+    */
+  def listManagedProjects(limit:Int, offset:Int, onlyEnabled:Boolean, searchString:String) : Action[AnyContent] = Action.async { implicit response =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, searchString)))
+    }
+  }
+
+  /**
     * Gets a random task that is an descendant of the project.
     *
     * @param projectId The project id, ie. the ancestor of the child.

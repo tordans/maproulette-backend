@@ -837,7 +837,7 @@ var MRManager = (function() {
                 if (data[i].type == 1 || data[i].type == 4) {
                     // This section below is for the pie chart and small activity chart when the popup is opened
                     popupString += Messages('challenge.difficulty.title') + " " + Messages('challenge.difficulty.' + data[i].difficulty) + "<br/>";
-                    popupString += Messages('mapping.js.challenge.lastUpdated') + ": " + moment(data[i].modified).format("MM/DD/YYYY");
+                    popupString += Messages('mapping.js.challenge.modified') + ": " + moment(data[i].modified).format("MM/DD/YYYY");
                     if (typeof data[i].ownerName !== 'undefined' || data[i].ownerName == -1) {
                         popupString += "<br/>" + Messages('challenge.owner') + " <a target='_blank' href='http://osm.org/user/" + data[i].ownerName + "'>" + data[i].ownerName + "</a>" +
                                         "<a target='_blank' href='https://www.openstreetmap.org/message/new/" + data[i].ownerName + "'> <i class='fa fa-commenting-o aria-hidden='true'></i></a>";
@@ -1375,7 +1375,7 @@ var MRManager = (function() {
     };
 
     var saveChallenge = function(userId, challengeId) {
-        jsRoutes.org.maproulette.controllers.api.APIController.saveChallenge(userId, challengeId).ajax({
+        jsRoutes.org.maproulette.controllers.api.UserController.saveChallenge(userId, challengeId).ajax({
             success: function(data) {
                 ToastUtils.Success(Messages("mapping.js.challenge.saved"));
             },

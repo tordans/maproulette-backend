@@ -150,7 +150,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
   def delete(id: Key, user:User)(implicit c:Option[Connection]=None): T = {
     implicit val key = id
     val deletedItem = this.cacheManager.withDeletingCache(Long => retrieveById) { implicit deletedItem =>
-      this.permission.hasWriteAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
+      this.permission.hasObjectWriteAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
       this.withMRTransaction { implicit c =>
         val query = s"DELETE FROM ${this.tableName} WHERE id = {id}"
         SQL(query).on('id -> ParameterValue.toParameterValue(id)(p = keyToStatement)).executeUpdate()
