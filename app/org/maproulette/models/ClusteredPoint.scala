@@ -3,7 +3,7 @@
 package org.maproulette.models
 
 import org.joda.time.DateTime
-import play.api.libs.json.{Json, Reads, Writes}
+import play.api.libs.json.{JsValue, Json, Reads, Writes}
 
 /**
   * @author cuthbertm
@@ -26,7 +26,7 @@ case class Point(lat:Double, lng:Double)
   * @param type The type of this ClusteredPoint
   * @param status The status of the task, only used for task points, ie. not challenge points
   */
-case class ClusteredPoint(id:Long, owner:Long, ownerName:String, title:String, point:Point,
+case class ClusteredPoint(id:Long, owner:Long, ownerName:String, title:String, point:Point, bounding:JsValue,
                           blurb:String, modified:DateTime, difficulty:Int, `type`:Int, status:Int = -1)
 
 object ClusteredPoint {

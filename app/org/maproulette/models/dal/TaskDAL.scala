@@ -313,8 +313,15 @@ class TaskDAL @Inject()(override val db: Database,
         case (_, i) => s"({taskId}, ST_SetSRID(ST_GeomFromGeoJSON({geom_$i}),4326), {props_$i}::hstore)"
       }.mkString(",")
       val parameters = indexedValues.flatMap { case (featureJson, i) =>
-        val props = (featureJson \ "properties").asOpt[JsValue] match {
-          case Some(p) => p.as[Map[String, String]].map(v => s""""${v._1}"=>"${v._2.replaceAll("\\\"", "\\\\\"")}"""").mkString(",")
+        val props = (featureJson \ "properties").asOpt[JsObject] match {
+          case Some(JsObject(p)) =>
+            p.toMap.map(v => {
+              val toStr = v._2 match {
+                case obj:JsString => obj.value
+                case obj => obj.toString
+              }
+              s""""${v._1}"=>"${toStr.replaceAll("\\\"", "\\\\\"")}""""
+            }).mkString(",")
           case None => ""
         }
         Seq(
@@ -717,7 +724,7 @@ class TaskDAL @Inject()(override val db: Database,
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
-              ClusteredPoint(id, -1, "", name, point, instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+              ClusteredPoint(id, -1, "", name, point, JsString(""), instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }
@@ -759,7 +766,7 @@ class TaskDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       SQL("""SELECT * FROM task_comments tc
               INNER JOIN users u ON u.osm_id = tc.osm_id
-              WHERE id = {commentId}"""
+              WHERE tc.id = {commentId}"""
       ).on('commentId -> commentId).as(this.commentParser.*).headOption
     }
   }

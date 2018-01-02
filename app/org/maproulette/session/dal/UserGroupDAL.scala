@@ -7,7 +7,8 @@ import javax.inject.{Inject, Singleton}
 
 import anorm._
 import anorm.SqlParser._
-import org.maproulette.cache.CacheManager
+import org.maproulette.cache.{BasicCache, CacheManager}
+import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models.utils.TransactionManager
 import org.maproulette.session.{Group, User}
 import play.api.db.Database
@@ -23,6 +24,10 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
 
   // The cache manager for the users
   val cacheManager = new CacheManager[Long, Group]
+  // The cache manager containing project to list of group ID's
+  val projectCache = new BasicCache[Long, List[Long]]
+  // The cache manager containing user to list of group ID's
+  val userCache = new BasicCache[Long, List[Long]]
 
   // The anorm row parser to convert group records from the database to group objects
   val parser: RowParser[Group] = {
@@ -46,8 +51,20 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     */
   def createGroup(projectId:Long, name:String, groupType:Int, user:User)(implicit c:Option[Connection]=None) : Group = {
     this.hasAccess(user)
-    this.withMRTransaction { implicit c =>
-      SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(this.parser.*).head
+    this.cacheManager.withOptionCaching { () =>
+      this.withMRTransaction { implicit c =>
+        SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(this.parser.*).headOption
+      }
+    } match {
+      case Some(v) =>
+        // add to project cache
+        projectCache.get(projectId) match {
+          case Some(groups) =>
+            projectCache.add(projectId, groups :+ v.id)
+          case None =>
+        }
+        v
+      case None => throw new UniqueViolationException(s"Group with name $name already exists in the database")
     }
   }
 
@@ -59,10 +76,21 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param newName The new name of the group
     * @return The updated group
     */
-  def updateGroup(groupId:Long, newName:String, user:User)(implicit c:Option[Connection]=None) : Group = {
+  def updateGroup(groupId:Long, newName:String, user:User)(implicit c:Option[Connection]=None) : Option[Group] = {
     this.hasAccess(user)
-    this.withMRTransaction { implicit c =>
-      SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(this.parser.*).head
+    implicit val gid = groupId
+    this.cacheManager.withUpdatingCache(Long => getGroup) { implicit cachedItem =>
+      this.withMRTransaction { implicit c =>
+        SQL"""UPDATE groups SET name = $newName WHERE id = $groupId RETURNING *""".as(this.parser.*).headOption
+      }
+    }
+  }
+
+  def getGroup(implicit groupId:Long, c:Option[Connection]=None) : Option[Group] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        SQL"""SELECT * FROM groups WHERE id = $groupId""".as(this.parser.*).headOption
+      }
     }
   }
 
@@ -74,8 +102,12 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     */
   def deleteGroup(groupId:Long, user:User)(implicit c:Option[Connection]=None) : Int = {
     this.hasAccess(user)
-    this.withMRTransaction { implicit c =>
-      SQL"""DELETE FROM groups WHERE id = $groupId""".executeUpdate()
+    implicit val ids:List[Long] = List(groupId)
+    this.cacheManager.withCacheIDDeletion { () =>
+      clearCache(-1, groupId)
+      this.withMRTransaction { implicit c =>
+        SQL"""DELETE FROM groups WHERE id = $groupId""".executeUpdate()
+      }
     }
   }
 
@@ -87,8 +119,16 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     */
   def deleteGroupByName(name:String, user:User)(implicit c:Option[Connection]=None) : Int = {
     this.hasAccess(user)
-    this.withMRTransaction { implicit c =>
-      SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
+    implicit val names:List[String] = List(name)
+    // get the cache item first so we can remove from user and project caches
+    this.cacheManager.getByName(name) match {
+      case Some(v) => clearCache(-1, v.id)
+      case None =>
+    }
+    this.cacheManager.withCacheNameDeletion { () =>
+      this.withMRTransaction { implicit c =>
+        SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
+      }
     }
   }
 
@@ -98,13 +138,13 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param osmUserId The osm id of the user
     * @return A list of groups the user belongs too
     */
-  def getGroups(osmUserId:Long, user:User)(implicit c:Option[Connection]=None) : List[Group] = {
-    this.hasAccess(user)
-    this.withMRConnection { implicit c =>
-      SQL"""SELECT * FROM groups g
-            INNER JOIN user_groups ug ON ug.group_id = g.id
-            WHERE ug.osm_user_id = $osmUserId""".as(this.parser.*)
-    }
+  def getUserGroups(osmUserId:Long, user:User)(implicit c:Option[Connection]=None) : List[Group] = {
+    _getGroups(osmUserId, this.userCache,
+      s"""SELECT * FROM groups g
+        INNER JOIN user_groups ug ON ug.group_id = g.id
+        WHERE ug.osm_user_id = $osmUserId""",
+      user
+    )
   }
 
   /**
@@ -114,9 +154,84 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @return
     */
   def getProjectGroups(projectId:Long, user:User)(implicit c:Option[Connection]=None) : List[Group] = {
+    _getGroups(projectId, this.projectCache, s"SELECT * FROM groups g WHERE project_id = $projectId", user)
+  }
+
+  /**
+    * Clears both the project and user cache
+    *
+    * @param id
+    * @param groupId
+    */
+  def clearCache(id:Long = -1, groupId:Long = -1) : Unit = {
+    clearProjectCache(id, groupId)
+    clearUserCache(id, groupId)
+  }
+
+  /**
+    * Clears the project cache
+    *
+    * @param id If id is supplied will only remove the project with that id
+    */
+  def clearProjectCache(id:Long = -1, groupId:Long = -1) : Unit = {
+    _clearCache(id, groupId, this.projectCache)
+  }
+
+  /**
+    * Clears the user cache
+    *
+    * @param osmId If osmId is supplied will only remove the user with that osmId
+    */
+  def clearUserCache(osmId:Long = -1, groupId:Long = -1) : Unit = {
+    _clearCache(osmId, groupId, this.userCache)
+  }
+
+  private def _clearCache(id:Long = -1, groupId:Long = -1, cache:BasicCache[Long, List[Long]]) : Unit = {
+    if (id > -1) {
+      if (groupId > -1) {
+        cache.get(id) match {
+          case Some(v) =>
+            cache.add(id, v.filter(_ != groupId))
+          case None => //ignore
+        }
+      } else {
+        cache.remove(id)
+      }
+    } else {
+      if (groupId > -1) {
+        cache.cache.foreach(v => {
+          cache.add(v._1, v._2.value.filter(id => id != groupId))
+        })
+      } else {
+        cache.clear()
+      }
+    }
+  }
+
+  private def _getGroups(id:Long, cache:BasicCache[Long, List[Long]], sql:String, user:User)
+                        (implicit c:Option[Connection]=None) : List[Group] = {
     this.hasAccess(user)
-    this.withMRConnection { implicit c =>
-      SQL"""SELECT * FROM groups g WHERE project_id = $projectId""".as(this.parser.*)
+    val retGroups = cache.get(id) match {
+      case Some(ids) =>
+        // from the id cache, get all the groups in the group cache, if any are missing re-get everything
+        val projectGroups = ids.flatMap(id => this.cacheManager.cache.get(id))
+        if (projectGroups.lengthCompare(ids.size) != 0) {
+          List.empty[Group]
+        } else {
+          projectGroups
+        }
+      case None => List.empty
+    }
+    retGroups match {
+      case l if l.nonEmpty => l
+      case l =>
+        val groupList = this.withMRConnection { implicit c =>
+          SQL"""#$sql""".as(this.parser.*)
+        }
+        // add all the retrieved objects to the cache
+        groupList.foreach(group => this.cacheManager.cache.addObject(group))
+        cache.add(id, groupList.map(_.id))
+        groupList
     }
   }
 

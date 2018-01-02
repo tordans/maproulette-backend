@@ -17,7 +17,7 @@ import play.api.libs.json.{Json, Reads, Writes}
   * @author cuthbertm
   */
 case class Project(override val id: Long,
-                   ownerId: Long,
+                   owner: Long,
                    override val name: String,
                    override val created:DateTime,
                    override val modified:DateTime,
@@ -40,7 +40,7 @@ object Project {
   val projectForm = Form(
     mapping(
       "id" -> default(longNumber,-1L),
-      "ownerId" -> default(longNumber, User.DEFAULT_SUPER_USER_ID.toLong),
+      "owner" -> default(longNumber, User.DEFAULT_SUPER_USER_ID.toLong),
       "name" -> nonEmptyText,
       "created" -> default(jodaDate, DateTime.now()),
       "modified" -> default(jodaDate, DateTime.now()),

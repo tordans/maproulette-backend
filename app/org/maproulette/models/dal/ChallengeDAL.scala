@@ -17,7 +17,7 @@ import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JsString, JsValue, Json}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
@@ -161,7 +161,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule}, ${challenge.priority.mediumPriorityRule},
                       ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
-                      ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING *""".as(this.parser.*).headOption
+                      ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
       }
     } match {
       case Some(value) => value
@@ -234,7 +234,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                 low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, challenge_type = $challengeType
-              WHERE id = $id RETURNING *""".as(parser.*).headOption
+              WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
       }
     }
     // update the task priorities in the background
@@ -391,7 +391,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, -1, "", name, point, instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+          ClusteredPoint(id, -1, "", name, point, JsString(""), instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
       }
         SQL"""SELECT id, name, instruction, status,
                       ST_AsGeoJSON(location) AS location

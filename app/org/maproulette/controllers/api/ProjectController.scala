@@ -52,6 +52,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   override def updateCreateBody(body: JsValue, user:User): JsValue = {
     var jsonBody = super.updateCreateBody(body, user)
     jsonBody = Utils.insertIntoJson(jsonBody, "groups", Array.emptyShortArray)(arrayWrites[Short])
+    jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
     Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
   }
 
@@ -94,9 +95,9 @@ class ProjectController @Inject() (override val childController:ChallengeControl
       val params = SearchParameters(
         projectId = Some(projectId),
         challengeSearch = Some(challengeSearch),
-        challengeTags = Some(challengeTags.split(",").toList),
+        challengeTags = Some(Utils.split(challengeTags)),
         taskSearch = Some(taskSearch),
-        taskTags = Some(tags.split(",").toList)
+        taskTags = Some(Utils.split(tags))
       )
 
       val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit, None, Utils.negativeToOption(proximityId))
@@ -123,7 +124,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
       val cids = if (StringUtils.isEmpty(challengeIds)) {
         List.empty
       } else {
-        challengeIds.split(",").map(_.toLong).toList
+        Utils.split(challengeIds).map(_.toLong)
       }
       Ok(Json.toJson(this.dal.getClusteredPoints(pid, cids)))
     }

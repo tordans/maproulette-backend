@@ -89,7 +89,7 @@ trait TagsMixin[T<:BaseObject[Long]] {
             case e: NumberFormatException =>
               // this is the case where a name is supplied, so we will either search for a tag with
               // the same name or create a new tag with the current name
-              this.dal.retrieveByName(tag) match {
+              this.tagDAL.retrieveByName(tag) match {
                 case Some(t) => t.asInstanceOf[Tag]
                 case None => Tag(-1, tag)
               }
@@ -108,7 +108,7 @@ trait TagsMixin[T<:BaseObject[Long]] {
         }
       case _ => List.empty
     }
-    val tagIds = tagDAL.updateTagList(tags, user).map(_.id)
+    val tagIds = this.tagDAL.updateTagList(tags, user).map(_.id)
 
     if (tagIds.nonEmpty) {
       // now we have the ids for the supplied tags, then lets map them to the item created

@@ -42,7 +42,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_
           case Some(obj) => Some(obj.id)
           case None => block(name) match {
             case Some(obj) =>
-              this.cache.add(obj)
+              this.cache.addObject(obj)
               this.nameCache.put(name, obj.id)
               Some(obj.id)
             case None => None
@@ -94,7 +94,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_
           case None =>
             block() match {
               case Some(result) =>
-                this.cache.add(result)
+                this.cache.addObject(result)
                 Some(result)
               case None => None
             }
@@ -141,7 +141,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_
             if (delete) {
               this.cache.remove(updatedItem.id)
             } else {
-              this.cache.add(updatedItem)
+              this.cache.addObject(updatedItem)
             }
             Some(updatedItem)
           case None => None
@@ -180,12 +180,12 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_
         // we execute the block if there are uncachedID's or if the original ids passed in is empty
         val cachedItems = if (unCachedIDs.nonEmpty || ids.isEmpty) {
           val uncachedList = block(unCachedIDs)
-          (unCachedIDs zip uncachedList).foreach(obj => this.cache.add(obj._2))
+          (unCachedIDs zip uncachedList).foreach(obj => this.cache.addObject(obj._2))
           uncachedList ++ connected.flatMap(_._2)
         } else {
           connected.flatMap(_._2)
         }
-        cachedItems.filter(entry => ids.isEmpty || unCachedIDs.contains(entry.id)).foreach(this.cache.add(_))
+        cachedItems.filter(entry => ids.isEmpty || unCachedIDs.contains(entry.id)).foreach(this.cache.addObject(_))
         cachedItems
       case false => block(ids)
     }
@@ -244,7 +244,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_
         val unCachedIDs = connected.filter(value => value._2.isEmpty).map(_._1)
         if (unCachedIDs.nonEmpty) {
           val list = block(unCachedIDs)
-          list.foreach(this.cache.add(_))
+          list.foreach(this.cache.addObject(_))
           list ++ connected.flatMap(_._2)
         } else {
           connected.flatMap(_._2)
@@ -287,7 +287,7 @@ class CacheManager[Key, A<:BaseObject[Key]](cacheLimit:Int=CacheManager.DEFAULT_
       case Some(a) => a
       case None =>
         val created = create(item)
-        if (caching) this.cache.add(created)
+        if (caching) this.cache.addObject(created)
         created
     }
   }

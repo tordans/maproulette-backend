@@ -83,7 +83,7 @@ class UserDAL @Inject() (override val db:Database,
         new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
-            userGroupDAL.getGroups(osmId, User.superUser
+            userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
           UserSettings(defaultEditor, defaultBasemap, customBasemap, locale, emailOptIn, theme)
@@ -242,6 +242,9 @@ class UserDAL @Inject() (override val db:Database,
         'id -> item.id
       ).executeUpdate()
     }
+    // just in case expire the osm ID
+    userGroupDAL.clearUserCache(item.osmProfile.id)
+
     // We do this separately from the transaction because if we don't the user_group mappings
     // wont be accessible just yet.
     val retUser = this.db.withConnection { implicit c =>
@@ -310,6 +313,7 @@ class UserDAL @Inject() (override val db:Database,
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
 
         this.updateGroups(value, user)
+        this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
 
         val query = s"""UPDATE users SET api_key = {apiKey}, name = {name}, description = {description},
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
@@ -340,13 +344,16 @@ class UserDAL @Inject() (override val db:Database,
   def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Unit = {
     this.permission.hasWriteAccess(UserType(), user)
     this.withMRTransaction { implicit c =>
-      // list of grousp to delete
+      // list of groups to delete
       (value \ "groups" \ "delete").asOpt[List[Long]] match {
-        case Some(values) => SQL"""DELETE FROM user_groups WHERE group_id IN ($values)""".execute()
+        case Some(values) =>
+          values.foreach(this.userGroupDAL.clearCache(-1, _))
+          SQL"""DELETE FROM user_groups WHERE group_id IN ($values)""".execute()
         case None => //ignore
       }
       (value \ "groups" \ "add").asOpt[List[Long]] match {
         case Some(values) =>
+          values.foreach(this.userGroupDAL.clearCache(-1, _))
           val sqlQuery = s"""INSERT INTO user_groups (user_id, group_id) VALUES ($id, {groupId})"""
           val parameters = values.map(groupId => {
             Seq[NamedParameter]("groupId" -> groupId)
@@ -365,6 +372,10 @@ class UserDAL @Inject() (override val db:Database,
     */
   override def delete(id: Long, user:User)(implicit c:Option[Connection]=None) : User = {
     this.permission.hasSuperAccess(user)
+    retrieveById(id) match {
+      case Some(u) => userGroupDAL.clearUserCache(u.osmProfile.id)
+      case None => //no user, so can just ignore
+    }
     super.delete(id, user)
   }
 
@@ -378,6 +389,8 @@ class UserDAL @Inject() (override val db:Database,
   def deleteByOsmID(osmId:Long, user:User)(implicit c:Option[Connection]=None) : Int = {
     this.permission.hasSuperAccess(user)
     implicit val ids = List(osmId)
+    // expire the user group cache
+    userGroupDAL.clearUserCache(osmId)
     this.cacheManager.withCacheIDDeletion { () =>
       this.withMRTransaction { implicit c =>
         SQL"""DELETE FROM users WHERE osm_id = $osmId""".executeUpdate()
@@ -396,6 +409,8 @@ class UserDAL @Inject() (override val db:Database,
     this.permission.hasSuperAccess(user)
     implicit val osmKey = osmID
     implicit val superUser = user
+    // expire the user group cache
+    userGroupDAL.clearUserCache(osmID)
     this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
       this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO user_groups (osm_user_id, group_id)
@@ -403,7 +418,7 @@ class UserDAL @Inject() (override val db:Database,
             WHERE group_type = 1 AND project_id = $projectId
          """.executeUpdate()
       }
-      Some(cachedUser.copy(groups = userGroupDAL.getGroups(osmID, superUser)))
+      Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, superUser)))
     }.get
   }
 
@@ -416,6 +431,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Option[Connection]=None) : Unit = {
     this.permission.hasSuperAccess(user)
+    userGroupDAL.clearUserCache(osmID)
     this.withMRTransaction { implicit c =>
       SQL"""INSERT INTO user_groups (osm_user_id, group_id) VALUES ($osmID, ${group.id})""".executeUpdate()
     }
@@ -431,6 +447,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Option[Connection]=None) : Unit = {
     this.permission.hasSuperAccess(user)
+    userGroupDAL.clearUserCache(osmID)
     this.withMRTransaction { implicit c =>
       SQL"""DELETE FROM user_groups WHERE osm_user_id = $osmID AND group_id = ${group.id}""".executeUpdate()
     }
@@ -459,7 +476,7 @@ class UserDAL @Inject() (override val db:Database,
       case Some(project) => project.id
       case None =>
         this.projectDAL.insert(Project(id = -1,
-          ownerId = user.osmProfile.id,
+          owner = user.osmProfile.id,
           name = homeName,
           created = DateTime.now(),
           modified = DateTime.now(),
@@ -602,21 +619,6 @@ class UserDAL @Inject() (override val db:Database,
     this.permission.hasWriteAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       SQL(s"""DELETE FROM saved_tasks WHERE user_id = $userId AND task_id = $task_id""").execute()
-    }
-  }
-
-  /**
-    * Unsaves a challenge from the users profile
-    *
-    * @param userId The id of the user that has previously saved the challenge
-    * @param challengeId The id of the challenge to remove from the user profile
-    * @param user The user executing the unsave function
-    * @param c The existing connection if any
-    */
-  def unsaveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
-    this.permission.hasWriteAccess(UserType(), user)(userId)
-    withMRConnection { implicit c =>
-      SQL(s"""DELETE FROM saved_challenges WHERE user_id = $userId AND challenge_id = $challengeId""").execute()
     }
   }
 

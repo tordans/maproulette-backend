@@ -29,7 +29,7 @@ class TagCacheManager @Inject() (tagDAL: Provider[TagDAL], db:Database) extends 
     try {
       db.withConnection { implicit c =>
         this.cache.clear()
-        SQL"""SELECT * FROM tags""".as(tagDAL.get.parser.*).foreach(tag => cache.add(tag))
+        SQL"""SELECT * FROM tags""".as(tagDAL.get.parser.*).foreach(tag => cache.addObject(tag))
       }
     } finally {
       this.loadingLock.writeLock().unlock()
