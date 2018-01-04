@@ -86,7 +86,7 @@ SELECT create_index_if_not_exists('saved_tasks', 'user_id_challenge_id', '(user_
 -- Function that is used by a trigger to updated the modified column in the table
 CREATE OR REPLACE FUNCTION update_tasks() RETURNS TRIGGER AS $$
 DECLARE
-  task RECORD;
+  task RECORD;;
 BEGIN
   IF TG_OP='DELETE' THEN
     task = OLD;;
