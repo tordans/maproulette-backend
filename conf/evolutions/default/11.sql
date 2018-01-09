@@ -110,10 +110,14 @@ DECLARE
   rec RECORD;;
 BEGIN
   FOR rec IN SELECT id FROM challenges LOOP
-    UPDATE challenges SET bounding = (SELECT ST_Envelope(ST_Buffer((ST_SetSRID(ST_Extent(location), 4326))::geography,2)::geometry)
-            FROM tasks
-            WHERE parent_id = rec.id)
-    WHERE id = rec.id;;
+    BEGIN
+      UPDATE challenges SET bounding = (SELECT ST_Envelope(ST_Buffer((ST_SetSRID(ST_Extent(location), 4326))::geography,2)::geometry)
+        FROM tasks
+        WHERE parent_id = rec.id)
+      WHERE id = rec.id;;
+    EXCEPTION WHEN SQLSTATE 'XX000' THEN
+      RAISE NOTICE 'Failed to create bounding for challenge %', rec.id;;
+    END;;
   END LOOP;;
 END$$;;
 
