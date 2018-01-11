@@ -107,9 +107,12 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param user          The user that is executing the function
     */
   override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User)(implicit c: Option[Connection] = None): Unit = {
-    (body \ "localGeoJSON").asOpt[JsValue] match {
-      case Some(local) => challengeService.buildChallengeTasks(user, createdObject, Some(Json.stringify(local)))
-      case None => super.extractAndCreate(body, createdObject, user)
+    val localJson = (body \ "localGeoJSON").asOpt[JsValue] match {
+      case Some(local) => Some(Json.stringify(local))
+      case None => None
+    }
+    if (!this.challengeService.buildChallengeTasks(user, createdObject, localJson)) {
+      super.extractAndCreate(body, createdObject, user)
     }
     this.extractTags(body, createdObject, user)
   }

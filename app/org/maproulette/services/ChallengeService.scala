@@ -30,15 +30,16 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                                   config:Config, ws:WSClient, db:Database) extends DefaultReads {
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def rebuildChallengeTasks(user:User, challenge:Challenge) : Unit = this.buildChallengeTasks(user, challenge)
+  def rebuildChallengeTasks(user:User, challenge:Challenge) : Boolean = this.buildChallengeTasks(user, challenge)
 
-  def buildChallengeTasks(user:User, challenge:Challenge, json:Option[String]=None) : Unit = {
+  def buildChallengeTasks(user:User, challenge:Challenge, json:Option[String]=None) : Boolean = {
     if (!challenge.creation.overpassQL.getOrElse("").isEmpty) {
       this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
       Future {
         Logger.debug("Creating tasks for overpass query: " + challenge.creation.overpassQL.get)
         this.buildOverpassQLTasks(challenge, user)
       }
+      true
     } else {
       val usingLocalJson = json match {
         case Some(value) if StringUtils.isNotEmpty(value) =>
@@ -62,8 +63,11 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
               case Failure(f) =>
                 this.challengeDAL.update(Json.obj("overpassStatus" -> Challenge.STATUS_FAILED), user)(challenge.id)
             }
-          case None => // just do nothing
+            true
+          case None => false
         }
+      } else {
+        false
       }
     }
   }

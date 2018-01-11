@@ -75,7 +75,9 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
         case UserType() => hasReadAccess(obj, user)
         case ProjectType() => hasProjectAccess(Some(obj.asInstanceOf[Project]), user)
         case ChallengeType() | SurveyType() =>
-          hasProjectAccess(dalManager.get().challenge.retrieveRootObject(Right(obj.asInstanceOf[Challenge]), user), user)
+          if (obj.asInstanceOf[Challenge].general.owner != user.osmProfile.id) {
+            hasProjectAccess(dalManager.get().challenge.retrieveRootObject(Right(obj.asInstanceOf[Challenge]), user), user)
+          }
         case TaskType() =>
           hasProjectAccess(dalManager.get().task.retrieveRootObject(Right(obj.asInstanceOf[Task]), user), user)
         case TagType() =>
@@ -98,7 +100,11 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
   def hasWriteAccess(itemType:ItemType, user:User)(implicit id:Long, c:Option[Connection]=None) : Unit = {
     if (!user.isSuperUser) {
       itemType match {
-        case UserType() => hasReadAccess(itemType, user)
+        case UserType() =>
+          // we use read access here, simply because read and write access on a user is the same in that
+          // you are required to the super user or owner to access the User object. It is much stricter
+          // than other objects in the system
+          hasReadAccess(itemType, user)
         case _ =>
           dalManager.get().getManager(itemType).retrieveById match {
             case Some(obj) => hasObjectWriteAccess(obj.asInstanceOf[BaseObject[Long]], user)
@@ -115,7 +121,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     if (!user.isSuperUser) {
       project match {
         case Some(p) =>
-          if (!user.groups.exists(p.id == _.id)) {
+          if (project.get.owner != user.osmProfile.id && !user.groups.exists(p.id == _.id)) {
             throw new IllegalAccessException(s"User [${user.id}] does not have access to this project [${p.id}]")
           }
         case None =>
