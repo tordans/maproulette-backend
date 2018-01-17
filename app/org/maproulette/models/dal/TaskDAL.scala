@@ -334,7 +334,6 @@ class TaskDAL @Inject()(override val db: Database,
         .execute()
       c.commit()
     }
-    this.updateTaskLocation(taskId)
   }
 
   def updateTaskLocation(taskId: Long): Int = {
