@@ -114,7 +114,8 @@ class ChallengeController @Inject()(override val childController: TaskController
     if (!this.challengeService.buildChallengeTasks(user, createdObject, localJson)) {
       super.extractAndCreate(body, createdObject, user)
     }
-    this.extractTags(body, createdObject, user)
+    // we need to elevate the user permissions to super users to extract and create the tags
+    this.extractTags(body, createdObject, User.superUser)
   }
 
   /**
