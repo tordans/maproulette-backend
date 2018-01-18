@@ -98,7 +98,7 @@ class ProjectDAL @Inject() (override val db:Database,
       }
       val newProject = this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled)
-              VALUES (${setProject.name}, ${user.id}, ${setProject.displayName}, ${setProject.description}, ${setProject.enabled})
+              VALUES (${setProject.name}, ${user.osmProfile.id}, ${setProject.displayName}, ${setProject.description}, ${setProject.enabled})
               ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
       }
       newProject match {
