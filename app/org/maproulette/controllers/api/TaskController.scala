@@ -111,7 +111,8 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param user          The user that is executing the function
     */
   override def extractAndCreate(body: JsValue, createdObject: Task, user: User)
-                               (implicit c:Option[Connection]=None): Unit = this.extractTags(body, createdObject, user)
+                               (implicit c:Option[Connection]=None): Unit =
+    this.extractTags(body, createdObject, User.superUser)
 
   /**
     * Gets a json list of tags of the task

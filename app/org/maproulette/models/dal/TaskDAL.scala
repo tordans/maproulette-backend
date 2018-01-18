@@ -336,8 +336,8 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocation(taskId: Long): Int = {
-    this.db.withTransaction { implicit c =>
+  def updateTaskLocation(taskId: Long)(implicit c: Option[Connection] = None): Int = {
+    this.withMRTransaction { implicit c =>
       // Update the location of the particular task
       SQL"""UPDATE tasks
             SET location = (SELECT ST_Centroid(ST_Collect(ST_Makevalid(geom)))
@@ -347,8 +347,8 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocations(challengeId: Long): Int = {
-    this.db.withTransaction { implicit c =>
+  def updateTaskLocations(challengeId: Long)(implicit c: Option[Connection] = None): Int = {
+    this.withMRTransaction { implicit c =>
       // update all the tasks of a particular challenge
       SQL"""DO $$
             DECLARE
