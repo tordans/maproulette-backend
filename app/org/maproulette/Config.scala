@@ -4,6 +4,7 @@ package org.maproulette
 
 import javax.inject.{Inject, Singleton}
 
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.Actions
 import play.api.Application
 import play.api.libs.oauth.ConsumerKey
@@ -77,8 +78,24 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val signIn : Boolean = this.config.getBoolean(Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
 
-  lazy val mr3JSSource : String = this.config.getString(Config.KEY_MR3_JS_SOURCE).get
-  lazy val mr3CSSSource : String = this.config.getString(Config.KEY_MR3_CSS_SOURCE).get
+  lazy val mr3JSManifest : String = this.config.getString(Config.KEY_MR3_MANIFEST).get
+  lazy val mr3StaticPath : Option[String] = {
+    val static = this.config.getString(Config.KEY_MR3_STATIC_PATH).getOrElse("")
+    if (StringUtils.isEmpty(static)) {
+      None
+    } else {
+      Some(static)
+    }
+  }
+  lazy val mr3DevMode : Boolean = this.config.getBoolean(Config.KEY_MR3_DEV_MODE).getOrElse(Config.DEFAULT_MR3_DEV_MODE)
+  lazy val mr3Host : String = {
+    val host = this.config.getString(Config.KEY_MR3_HOST).getOrElse(Config.DEFAULT_MR3_HOST)
+    if (StringUtils.isEmpty(host)) {
+      Config.DEFAULT_MR3_HOST
+    } else {
+      host
+    }
+  }
 
   /**
     * Retrieves a FiniteDuration config value from the configuration and executes the
@@ -129,8 +146,10 @@ object Config {
   val KEY_OSM_CONSUMER_SECRET = s"$GROUP_OSM.consumerSecret"
 
   val GROUP_MR3 = "mr3"
-  val KEY_MR3_JS_SOURCE = s"$GROUP_MR3.jsSource"
-  val KEY_MR3_CSS_SOURCE = s"$GROUP_MR3.cssSource"
+  val KEY_MR3_MANIFEST = s"$GROUP_MR3.manifest"
+  val KEY_MR3_STATIC_PATH = s"$GROUP_MR3.staticPath"
+  val KEY_MR3_DEV_MODE = s"$GROUP_MR3.devMode"
+  val KEY_MR3_HOST = s"$GROUP_MR3.host"
 
   val KEY_OSM_QL_PROVIDER = s"$GROUP_OSM.ql.provider"
   val KEY_OSM_QL_TIMEOUT = s"$GROUP_OSM.ql.timeout"
@@ -142,4 +161,6 @@ object Config {
   val DEFAULT_RECENT_ACTIVITY = 5
   val DEFAULT_LIST_SIZE = 10
   val DEFAULT_SIGNIN = false
+  val DEFAULT_MR3_DEV_MODE = false
+  val DEFAULT_MR3_HOST = "/external"
 }
