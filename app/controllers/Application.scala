@@ -2,9 +2,12 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package controllers
 
+import java.nio.file.{Files, Paths}
 import javax.inject.{Inject, Named}
 
 import akka.actor.ActorRef
+import akka.util.CompactByteString
+import io.netty.handler.codec.http.HttpResponseStatus
 import jsmessages.{JsMessages, JsMessagesFactory}
 import org.maproulette.Config
 import org.maproulette.actions._
@@ -15,8 +18,11 @@ import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
+import play.api.Logger
+import play.api.http.HttpEntity
 import play.api.i18n.{I18nSupport, Messages, MessagesApi}
-import play.api.libs.json.{JsNumber, JsString, Json}
+import play.api.libs.json.{JsNumber, JsString, JsValue, Json}
+import play.api.libs.ws.WSClient
 import play.api.mvc._
 import play.api.routing._
 
@@ -31,6 +37,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
                              override val dalManager: DALManager,
                              permission: Permission,
                              val config:Config,
+                             ws:WSClient,
                              @Named("scheduler-actor") schedulerActor: ActorRef
                             ) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
 
@@ -80,10 +87,62 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
+  // TODO we should probably cache the source of js and css otherwise we have to pull the manifest
+  // every single time. Not efficient
   def mr3(path:String) : Action[AnyContent] = Action.async { implicit request =>
-    sessionManager.userAwareUIRequest { implicit user =>
-      val userOrMocked = User.userOrMocked(user)
-      Ok(views.html.mr3(userOrMocked, config.mr3JSSource, config.mr3CSSSource))
+    // retrieve the manifest and get the js and css source URI's.
+    // if using static path, just pull the file directly, otherwise pull from http source
+    val promise = Promise[JsValue]
+    config.mr3StaticPath match {
+      case Some(path) => promise success Json.parse(Files.readAllBytes(Paths.get(path + "/asset-manifest.json")))
+      case None =>
+        if (config.mr3DevMode) {
+          promise success Json.parse("""
+                      {
+                        "main.js" : "public/static/js/bundle.js",
+                        "main.css" : "public/static/css/bundle.css"
+                      }
+                      """)
+        } else {
+          this.ws.url(s"${config.mr3Host}/${config.mr3JSManifest}").get() onComplete {
+            case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
+              promise.success(Json.parse(detailsResponse.body))
+            case Failure(error) => promise failure error
+          }
+        }
+    }
+    val resultPromise = Promise[Result]
+    promise.future onComplete {
+      case Success(manifest) =>
+        val host = config.mr3Host
+        val source = (
+          s"$host/${(manifest \ "main.js").getOrElse(JsString("main.js")).as[String]}",
+          s"$host/${(manifest \ "main.css").getOrElse(JsString("main.css")).as[String]}"
+        )
+        sessionManager.userAwareUIRequest { implicit user =>
+          val userOrMocked = User.userOrMocked(user)
+          Ok(views.html.mr3(userOrMocked, source._1, source._2))
+        } onComplete {
+          case Success(result) => resultPromise success result
+          case Failure(error) => resultPromise failure error
+        }
+      case Failure(error) =>
+        Logger.error(error.getMessage, error)
+        resultPromise failure error
+    }
+    resultPromise.future
+  }
+
+  def externalResources(file:String) : Action[AnyContent] = Action { implicit request =>
+    //no session management of static resources, completely open
+    config.mr3StaticPath match {
+      case Some(path) =>
+        val byteArray = Files.readAllBytes(Paths.get(path + "/" + file))
+        Result(
+          ResponseHeader(OK),
+          HttpEntity.Strict(CompactByteString(byteArray), None)
+        )
+      case None => MethodNotAllowed("Method only allowed when MR3 static path set")
     }
   }
 
