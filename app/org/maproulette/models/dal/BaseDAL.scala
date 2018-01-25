@@ -302,8 +302,17 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
   }
 
   /**
-    * This is a dangerous function as it will return all the objects available, so it could take up
-    * a lot of memory
+    * List all of the objects for the type
+    *
+    * @param limit limit the number of objects returns, default 10
+    * @param offset The paging offset when limiting returned objects
+    * @param onlyEnabled Whether to returned only enabled objects, otherwise all will be returned
+    * @param searchString Search string to filter the returned objects by
+    * @param orderColumn How to order the objects
+    * @param orderDirection Which direction to order the objects. ASC or DESC
+    * @param parentId The parent object id if required
+    * @param c The implicit connection to use for the quer
+    * @return A list of objects
     */
   def list(limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
            orderColumn:String="id", orderDirection:String="ASC")
@@ -322,77 +331,4 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
       }
     }
   }
-
-  /**
-    * Locks an item in the database.
-    *
-    * @param user The user requesting the lock
-    * @param item The item wanting to be locked
-    * @param c A sql connection that is implicitly passed in from the calling function, this is an
-    *          implicit function because this will always be called from within the code and never
-    *          directly from an API call
-    * @return true if successful
-    */
-  def lockItem(user:User, item:T)(implicit c:Option[Connection]=None) : Int =
-    this.withMRTransaction { implicit c =>
-      // first check to see if the item is already locked
-      val checkQuery =
-        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
-        case Some(id) =>
-          if (id == user.id) {
-            val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
-            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
-          } else {
-            0
-            //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
-          }
-        case None =>
-          val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType.typeId}, {itemId}, ${user.id})"
-          SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
-      }
-    }
-
-  /**
-    * Unlocks an item in the database
-    *
-    * @param user The user requesting to unlock the item
-    * @param item The item being unlocked
-    * @param c A sql connection that is implicitly passed in from the calling function, this is an
-    *          implicit function because this will always be called from within the code and never
-    *          directly from an API call
-    * @return true if successful
-    */
-  def unlockItem(user:User, item:T)(implicit c:Option[Connection]=None) : Int =
-    this.withMRTransaction { implicit c =>
-      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
-        case Some(id) =>
-          if (id == user.id) {
-            val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
-            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
-          } else {
-            throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
-          }
-        case None => throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
-      }
-    }
-
-  /**
-    * Unlocks all the items that are associated with the current user
-    *
-    * @param user The user
-    * @param c an implicit connection, this function should generally be executed in conjunction
-    *          with other requests
-    * @return Number of locks removed
-    */
-  def unlockAllItems(user:User, itemType:Option[ItemType]=None)(implicit c:Option[Connection]=None) : Int =
-    this.withMRTransaction { implicit c =>
-      itemType match {
-        case Some(it) =>
-          SQL"""DELETE FROM locked WHERE user_id = ${user.id} AND item_type = ${it.typeId}""".executeUpdate()
-        case None =>
-          SQL"""DELETE FROM locked WHERE user_id = ${user.id}""".executeUpdate()
-      }
-    }
 }

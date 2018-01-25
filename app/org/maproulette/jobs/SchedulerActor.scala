@@ -12,6 +12,7 @@ import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.metrics.Metrics
 import org.maproulette.models.Task.STATUS_CREATED
+import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 
 /**
   * The main actor that handles all scheduled activities
@@ -20,7 +21,11 @@ import org.maproulette.models.Task.STATUS_CREATED
   * @author davis_20
   */
 @Singleton
-class SchedulerActor @Inject() (config:Config, application:Application, db:Database) extends Actor {
+class SchedulerActor @Inject() (config:Config,
+                                application:Application,
+                                db:Database,
+                                taskDAL:TaskDAL,
+                                virtualChallengeDAL:VirtualChallengeDAL) extends Actor {
   val appConfig = application.configuration
 
   // cleanOldTasks configuration
@@ -33,6 +38,8 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
     case RunJob("runChallengeSchedules", action) => this.runChallengeSchedules(action)
     case RunJob("updateLocations", action) => this.updateLocations(action)
     case RunJob("cleanOldTasks", action) => this.cleanOldTasks(action)
+    case RunJob("updateTaskLocations", action) => this.updateTaskLocations(action.toLong)
+    case RunJob("cleanExpiredVirtualChallenges", action) => this.cleanExpiredVirtualChallenges(action)
   }
 
   /**
@@ -83,8 +90,19 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
                       END$$;"""
 
       SQL(query).executeUpdate()
+      // TODO retrieve challenges that were updated and then update the caches, or simply clear them
     }
     Logger.info("Completed updating challenge locations.")
+  }
+
+  /**
+    * Makes sure that all the tasks for a particular challenge are updated
+    *
+    * @param challengeId The id of the challenge you want updated
+    */
+  def updateTaskLocations(challengeId:Long) : Unit = {
+    Logger.info(s"Updating tasks for challenge $challengeId")
+    taskDAL.updateTaskLocations(challengeId)
   }
 
   /**
@@ -106,7 +124,26 @@ class SchedulerActor @Inject() (config:Config, application:Application, db:Datab
               'statuses -> ParameterValue.toParameterValue(oldTasksStatusFilter)
             ).executeUpdate()
           Logger.info(s"$tasksDeleted old challenge tasks were found and deleted.")
+          // Clear the task cache if any were deleted
+          if (tasksDeleted > 0) {
+            taskDAL.cacheManager.clearCaches
+          }
         }
+      }
+    }
+  }
+
+  /**
+    * This job will delete expired Virtual Challenges. To enable, set:
+    *    osm.scheduler.cleanExpiredVCs.interval=FiniteDuration
+    */
+  def cleanExpiredVirtualChallenges(str: String) : Unit = {
+    db.withConnection { implicit c =>
+      val numberOfDeleted = SQL"""DELETE FROM virtual_challenges WHERE expired < NOW()""".executeUpdate()
+      Logger.info(s"$numberOfDeleted Virtual Challenges expired and removed from database")
+      // Clear the task cache if any were deleted
+      if (numberOfDeleted > 0) {
+        virtualChallengeDAL.cacheManager.clearCaches
       }
     }
   }

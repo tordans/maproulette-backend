@@ -40,7 +40,7 @@ class TaskDAL @Inject()(override val db: Database,
                         challengeDAL: Provider[ChallengeDAL],
                         actions: ActionManager,
                         statusActions:StatusActionManager)
-  extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] {
+  extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] with Locking[Task] {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // The cache manager for that tasks
@@ -147,40 +147,13 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
-    this.permission.hasObjectWriteAccess(task, user)
-    val updatedTask = this.cacheManager.withOptionCaching { () =>
-      this.withMRTransaction { implicit c =>
-        var parameters = Seq(
-          NamedParameter("name", ParameterValue.toParameterValue(task.name)),
-          NamedParameter("parent", ParameterValue.toParameterValue(task.parent)),
-          NamedParameter("instruction", ParameterValue.toParameterValue(task.instruction)),
-          NamedParameter("priority", ParameterValue.toParameterValue(task.priority))
-        )
-        val locationValue = if (task.location.isEmpty || StringUtils.isEmpty(task.location.get)) {
-          ("", "")
-        } else {
-          parameters = parameters :+ NamedParameter("location", ParameterValue.toParameterValue(task.location.get.toString))
-          ("location,", s"ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),")
-        }
-        // status is ignored on insert and always set to CREATED
-        val query =
-          s"""INSERT INTO tasks (name, parent_id, ${locationValue._1} instruction, status, priority)
-                      VALUES ({name}, {parent}, ${locationValue._2} {instruction}, ${Task.STATUS_CREATED}, {priority}
-                      ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING id"""
-        SQL(query).on(parameters: _*).as(long("id").*).headOption match {
-          case Some(id) =>
-            this.updateGeometries(id, Json.parse(task.geometries), false, true)
-            Some(task.copy(id = id))
-          case None => None
-        }
-      }
-    } match {
+    val newTask = this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
-      case None => throw new UniqueViolationException(s"Task with name ${task.name} already exists in the database")
+      case None => throw new Exception("Unknown failure occurred while creating new task.")
     }
     // update the task priority inside a future, so fire and forget and don't impact the performance of the insert
-    Future { this.updateTaskPriority(updatedTask.id, user) }
-    updatedTask
+    Future { this.updateTaskPriority(newTask.id, user) }
+    newTask
   }
 
   /**
@@ -193,54 +166,30 @@ class TaskDAL @Inject()(override val db: Database,
     */
   override def update(value: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasObjectWriteAccess(cachedItem, user)
-      this.withMRTransaction { implicit c =>
-        val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
-        val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-        val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-        val location = (value \ "location").asOpt[String].getOrElse(cachedItem.location.getOrElse(""))
-        val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-        if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
-          throw new InvalidException(s"Could not set status for task [$id], " +
-            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
-        }
-        val priority = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
-
-        var parameters = Seq(
-          NamedParameter("name", ParameterValue.toParameterValue(name)),
-          NamedParameter("parentId", ParameterValue.toParameterValue(parentId)),
-          NamedParameter("instruction", ParameterValue.toParameterValue(instruction)),
-          NamedParameter("status", ParameterValue.toParameterValue(status)),
-          NamedParameter("id", ParameterValue.toParameterValue(id)),
-          NamedParameter("priority", ParameterValue.toParameterValue(priority))
-        )
-        val locationInfo = if (StringUtils.isEmpty(location)) {
-          ""
-        } else {
-          parameters = parameters :+ NamedParameter("location", location)
-          "location = ST_SetSRID(ST_GeomFromGeoJSON({location}),4326),"
-        }
-
-        val query =
-          s"""UPDATE tasks SET name = {name}, parent_id = {parentId},
-                        instruction = {instruction}, $locationInfo status = {status},
-                        priority = {priority}
-                      WHERE id = {id}"""
-
-        SQL(query).on(parameters: _*).executeUpdate()
-        val geometries = (value \ "geometries").asOpt[String] match {
-          case Some(geom) =>
-            this.updateGeometries(id, Json.parse(geom))
-            geom
-          case None => cachedItem.geometries
-        }
-        Some(Task(id, name, cachedItem.created, DateTime.now(), parentId, Some(instruction), Some(location), geometries, Some(status), priority))
+      val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+      val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+      val location = (value \ "location").asOpt[String].getOrElse(cachedItem.location.getOrElse(""))
+      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
+        throw new InvalidException(s"Could not set status for task [$id], " +
+          s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
       }
+      val priority = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
+      val geometries = (value \ "geometries").asOpt[String].getOrElse("")
+
+      this.mergeUpdate(cachedItem.copy(name = name,
+        parent = parentId,
+        instruction = Some(instruction),
+        location = Some(location),
+        status = Some(status),
+        geometries = geometries,
+        priority = priority), user)
     }
   }
 
   /**
-    * This is a merge update function that will update the function if it exists otherwise it will
+    * This is a merge update function that will update the task if it exists otherwise it will
     * insert a new item.
     *
     * @param element The element that needs to be inserted or updated. Although it could be updated,
@@ -269,6 +218,7 @@ class TaskDAL @Inject()(override val db: Database,
         if (StringUtils.isNotEmpty(element.geometries)) {
           c.commit()
           this.updateGeometries(updatedTaskId, Json.parse(element.geometries))
+          this.updateTaskLocation(updatedTaskId)
         }
         Some(element.copy(id = updatedTaskId))
       }
@@ -336,21 +286,26 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocation(taskId: Long)(implicit c: Option[Connection] = None): Int = {
-    this.withMRTransaction { implicit c =>
-      // Update the location of the particular task
-      SQL"""UPDATE tasks
+  def updateTaskLocation(taskId: Long)(implicit c: Option[Connection] = None): Option[Task] = {
+    implicit val id = taskId
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
+      this.withMRTransaction { implicit c =>
+        // Update the location of the particular task
+        SQL"""UPDATE tasks
             SET location = (SELECT ST_Centroid(ST_Collect(ST_Makevalid(geom)))
                             FROM task_geometries WHERE task_id = $taskId)
-            WHERE id = $taskId
-        """.executeUpdate()
+            WHERE id = $taskId RETURNING #${this.retrieveColumns}
+        """.as(this.parser.singleOpt)
+      }
     }
   }
 
   def updateTaskLocations(challengeId: Long)(implicit c: Option[Connection] = None): Int = {
+    // clear the cache, because we don't know how many tasks have actually been updated
+    this.cacheManager.clearCaches
     this.withMRTransaction { implicit c =>
       // update all the tasks of a particular challenge
-      SQL"""DO $$
+      SQL"""DO $$$$
             DECLARE
               rec RECORD;
             BEGIN
@@ -361,7 +316,7 @@ class TaskDAL @Inject()(override val db: Database,
                           GROUP BY task_id LOOP
                 UPDATE tasks SET location = rec.location WHERE tasks.id = rec.task_id and parent_id = $challengeId;
               END LOOP;
-            END$$;
+            END$$$$;
         """.executeUpdate()
     }
   }
@@ -376,17 +331,26 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c      The database connection
     */
   def updateTaskPriority(taskId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
-    this.withMRTransaction { implicit c =>
-      implicit val id = taskId
-      this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
-        this.permission.hasObjectWriteAccess(task, user)
-        // get the parent challenge, as we need the priority information
-        val parentChallenge = this.challengeDAL.get().retrieveById(task.parent) match {
-          case Some(c) => c
-          case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
+    implicit val id = taskId
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
+      this.withMRTransaction { implicit c =>
+        implicit val id = taskId
+        this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
+          this.permission.hasObjectWriteAccess(task, user)
+          // get the parent challenge, as we need the priority information
+          val parentChallenge = this.challengeDAL.get().retrieveById(task.parent) match {
+            case Some(c) => c
+            case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
+          }
+          val newPriority = task.getTaskPriority(parentChallenge)
+          this.withMRTransaction { implicit c =>
+            // Update the location of the particular task
+            SQL"""UPDATE tasks
+              SET priority = $newPriority
+              WHERE id = $taskId RETURNING #${this.retrieveColumns}
+            """.as(this.parser.singleOpt)
+          }
         }
-        val newPriority = task.getTaskPriority(parentChallenge)
-        this.update(Json.obj("priority" -> newPriority), user)
       }
     }
   }
@@ -646,23 +610,9 @@ class TaskDAL @Inject()(override val db: Database,
 
         implicit val ids = List[Long]()
         this.cacheManager.withIDListCaching { implicit cachedItems =>
-          this.withMRTransaction { implicit c =>
-            // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
-            // task can be locked at a time
-            this.unlockAllItems(user, Some(TaskType()))
-            val tasks = sqlWithParameters(query, parameters).as(this.parser.*)
-            // once we have the tasks, we need to lock each one, if any fail to lock we just remove
-            // them from the list. A guest user will not lock any tasks, but when logged in will be
-            // required to refetch the current task, and if it is locked, then will have to get another
-            // task
-            if (!user.guest) {
-              val taskList = tasks.filter(lockItem(user, _) > 0)
-              if (taskList.isEmpty) {
-                throw new NotFoundException("No tasks found.")
-              }
-              taskList
-            } else {
-              tasks
+          this.withListLocking(user, Some(TaskType())) { () =>
+            this.withMRTransaction { implicit c =>
+              sqlWithParameters(query, parameters).as(this.parser.*)
             }
           }
         }

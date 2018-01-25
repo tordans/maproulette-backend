@@ -34,7 +34,7 @@ GET     /auth/addUser/:userId/toProject/:projectId                      @control
 GET     /refreshProfile                                                 @controllers.Application.refreshProfile
 GET     /clearCaches                                                    @controllers.Application.clearCaches
 GET     /javascriptRoutes                                               @controllers.Application.javascriptRoutes
-PUT     /runJob/:name                                                   @controllers.Application.runJob(name:String)
+PUT     /runJob/:name                                                   @controllers.Application.runJob(name:String, action:String ?= "")
 # MAPPING ROUTES
 GET     /map/:parentId/:taskId                                          @controllers.Application.mapTask(parentId:Long, taskId:Long)
 GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)

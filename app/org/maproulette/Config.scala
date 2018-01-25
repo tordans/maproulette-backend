@@ -52,6 +52,15 @@ class Config @Inject() (implicit val application:Application) {
   lazy val numberOfActivities : Int =
     this.config.getInt(Config.KEY_RECENT_ACTIVITY).getOrElse(Config.DEFAULT_RECENT_ACTIVITY)
 
+  lazy val virtualChallengeLimit : Double =
+    this.config.getDouble(Config.KEY_VIRTUAL_CHALLENGE_LIMIT).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_LIMIT)
+
+  lazy val virtualChallengeBatchSize : Int =
+    this.config.getInt(Config.KEY_VIRTUAL_CHALLENGE_BATCH_SIZE).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_BATCH_SIZE)
+
+  lazy val virtualChallengeExpiry : Duration =
+    Duration(this.config.getString(Config.KEY_VIRTUAL_CHALLENGE_EXPIRY).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_EXPIRY))
+
   lazy val getOSMOauth : OSMOAuth = {
     val osmServer = this.config.getString(Config.KEY_OSM_SERVER).get
     OSMOAuth(
@@ -135,6 +144,7 @@ object Config {
   val KEY_SCHEDULER_CLEAN_TASKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.interval"
   val KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.statusFilter"
   val KEY_SCHEDULER_CLEAN_TASKS_OLDER_THAN = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.olderThan"
+  val KEY_SCHEDULER_CLEAN_VC_INTEVAL = s"$SUB_GROUP_SCHEDULER.cleanExpiredVCs.interval"
 
   val GROUP_OSM = "osm"
   val KEY_OSM_SERVER = s"$GROUP_OSM.server"
@@ -151,11 +161,16 @@ object Config {
   val KEY_MR3_DEV_MODE = s"$GROUP_MR3.devMode"
   val KEY_MR3_HOST = s"$GROUP_MR3.host"
 
+  val GROUP_CHALLENGES = "challenges"
+  val KEY_VIRTUAL_CHALLENGE_LIMIT = s"$GROUP_CHALLENGES.virtual.limit"
+  val KEY_VIRTUAL_CHALLENGE_BATCH_SIZE = s"$GROUP_CHALLENGES.virtual.batchSize"
+  val KEY_VIRTUAL_CHALLENGE_EXPIRY = s"$GROUP_CHALLENGES.virtual.expiry"
+
   val KEY_OSM_QL_PROVIDER = s"$GROUP_OSM.ql.provider"
   val KEY_OSM_QL_TIMEOUT = s"$GROUP_OSM.ql.timeout"
 
   val DEFAULT_SESSION_TIMEOUT = 3600000L
-  val DEFAULT_TASK_RESET= 7
+  val DEFAULT_TASK_RESET = 7
   val DEFAULT_OSM_QL_TIMEOUT = 25
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5
@@ -163,4 +178,7 @@ object Config {
   val DEFAULT_SIGNIN = false
   val DEFAULT_MR3_DEV_MODE = false
   val DEFAULT_MR3_HOST = "/external"
+  val DEFAULT_VIRTUAL_CHALLENGE_LIMIT = 100
+  val DEFAULT_VIRTUAL_CHALLENGE_BATCH_SIZE = 500
+  val DEFAULT_VIRTUAL_CHALLENGE_EXPIRY ="6 hours"
 }
