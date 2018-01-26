@@ -1,10 +1,9 @@
 {
-	"variables": [],
 	"info": {
 		"name": "maproulette2",
 		"_postman_id": "fc293308-9da6-f4cc-0e4e-a634dc3111e8",
 		"description": "",
-		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
@@ -29,23 +28,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
 						},
 						"description": "Creates a base project for all the other Map Roulette API Testing"
 					},
@@ -71,23 +80,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"SimpleChallenge\",\n    \"description\":\"A simple challenge containing only the basic elements for a challenge\",\n    \"parent\":{{SimpleProjectID}},\n    \"instruction\":\"Instruction for the simple challenge\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
 						},
 						"description": "Creates the most basic challenge with the least set of options in the body json"
 					},
@@ -109,23 +128,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengeID}}"
+							]
 						},
 						"description": "Deletes the challenge for the provided ID"
 					},
@@ -151,23 +181,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"TagsChallenge\",\n    \"description\":\"A simple challenge containing only the basic elements for a challenge and two tags\",\n    \"parent\":{{SimpleProjectID}},\n    \"instruction\":\"Instruction for the simple tag challenge\",\n    \"enabled\":false,\n    \"tags\":\"tag1,tag2\",\n    \"children\": [\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
 						},
 						"description": "Creates the most basic challenge with the least set of options and a couple of tags in the body json"
 					},
@@ -192,23 +232,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}"
+							]
 						},
 						"description": "Gets the challenge for the provided ID"
 					},
@@ -231,23 +282,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tasks"
+							]
 						},
 						"description": "Gets the tasks of the challenge for the provided ID"
 					},
@@ -267,23 +330,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "[\n    {\n        \"name\":\"Task 3\",\n        \"description\":\"Task 3 description\",\n        \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n    },\n    {\n        \"name\":\"Task 4\",\n        \"description\":\"Task 4 description\",\n        \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n    }\n]"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tasks"
+							]
 						},
 						"description": "Batch Upload two tasks to the challenge"
 					},
@@ -308,23 +383,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tasks"
+							]
 						},
 						"description": "Gets the tasks of the challenge for the provided ID"
 					},
@@ -347,23 +434,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tags"
+							]
 						},
 						"description": "Gets the tags for a challenge for the provided ID"
 					},
@@ -383,23 +482,41 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags?tags=tag1",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags?tags=tag1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tags"
+							],
+							"query": [
+								{
+									"key": "tags",
+									"value": "tag1"
+								}
+							]
 						},
 						"description": "Disassociates the tags from the challenge for the provided ID"
 					},
@@ -421,23 +538,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tags",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tags"
+							]
 						},
 						"description": "Gets the tags for a challenge for the provided ID"
 					},
@@ -462,23 +591,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
 						"method": "PUT",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"description\":\"Updated challenge description\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}"
+							]
 						},
 						"description": "Updates the challenge for the provided ID"
 					},
@@ -500,23 +640,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}"
+							]
 						},
 						"description": "Deletes the Tag challenge for the provided ID"
 					},
@@ -538,25 +689,919 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
 						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID}}"
+							]
+						},
 						"description": "Deletes the project that was used for the challenge tests."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "VirtualChallenge",
+			"description": "",
+			"item": [
+				{
+					"name": "Challenge Project Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleProjectID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
+						},
+						"description": "Creates a base project for all the other Map Roulette API Testing"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TagsChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TagsChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"A simple challenge containing only the basic elements for a challenge and two tags\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple tag challenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TagsChallenge\",\n    \"description\":\"A simple challenge containing only the basic elements for a challenge and two tags\",\n    \"parent\":{{SimpleProjectID}},\n    \"instruction\":\"Instruction for the simple tag challenge\",\n    \"enabled\":false,\n    \"tags\":\"tag1,tag2\",\n    \"children\": [\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
+						},
+						"description": "Creates the most basic challenge with the least set of options and a couple of tags in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"TagsChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"A simple challenge containing only the basic elements for a challenge and two tags\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple tag challenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Tasks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"Task1\"] = jsonData[0].name === \"Task 1\";",
+									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"tasks"
+							]
+						},
+						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "52a22ad3-9739-4e09-9221-e5fea5718560",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"VirtualChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"test\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"name\":\"test\",\n\t\"searchParameters\":{\n\t\t\"location\": {\n\t\t\t\"left\":102,\n\t\t\t\"bottom\":0,\n\t\t\t\"right\":104,\n\t\t\t\"top\":2\n\t\t}\n\t}\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5e033501-5ba7-41b4-be01-a381af19764a",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"test\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Read By Name",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5e033501-5ba7-41b4-be01-a381af19764a",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"test\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallengebyname/test",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallengebyname",
+								"test"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "15d75894-c8c7-4b94-aa40-df2dc493dee9",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"testUpdate\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"name\":\"testUpdate\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge List",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "1a6e7819-860d-4a17-b2b8-6362f5ccda8f",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData[0].name === \"testUpdate\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenges",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenges"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Task List",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5c9994a2-c3c3-4bec-bebf-5176efd561c9",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"size\"] = jsonData.length === 10;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}",
+								"tasks"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Random Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "252d9d44-2975-4a1f-9d54-bc8a57e7b769",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}/task",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}",
+								"task"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge GeoJSON",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9d2536b9-3357-4448-b6d6-cf827a945ba6",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/view/{{VirtualChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"view",
+								"{{VirtualChallengeID}}"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Clustered Points",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "edf43e3b-fae6-4701-a734-f1e516779056",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/clustered/{{VirtualChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"clustered",
+								"{{VirtualChallengeID}}"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Delete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "a423abbb-b93e-478a-80d4-e0d2b09d5875",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Creation Expiry",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "52a22ad3-9739-4e09-9221-e5fea5718560",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"VirtualChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"test\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"name\":\"test\",\n\t\"searchParameters\":{\n\t\t\"location\": {\n\t\t\t\"left\":102,\n\t\t\t\"bottom\":0,\n\t\t\t\"right\":104,\n\t\t\t\"top\":2\n\t\t}\n\t},\n\t\"expiry\":\"1 s\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Expiry Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5e033501-5ba7-41b4-be01-a381af19764a",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"test\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/11",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"11"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Expiry Delete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "b40a12db-871d-437b-abc6-25d2b5b32ca7",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}"
+							]
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Project Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID}}"
+							]
+						},
+						"description": "Deletes the project that was used for the challenge tests."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "data",
+			"description": "",
+			"item": [
+				{
+					"name": "ChallengeSummary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/data/challenge/8953?priority=1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"data",
+								"challenge",
+								"8953"
+							],
+							"query": [
+								{
+									"key": "priority",
+									"value": "1",
+									"equals": true
+								}
+							]
+						},
+						"description": ""
 					},
 					"response": []
 				}
@@ -584,23 +1629,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
 						},
 						"description": "Creates a base project for all the other Map Roulette API Testing"
 					},
@@ -624,23 +1679,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"ProjectWithChildren\",\n    \"description\":\"Test project containing 2 children.\",\n    \"enabled\":false,\n    \"children\": [\n        {\n            \"name\":\"Challenge1 Child\",\n            \"description\":\"Challenge1 Child description\",\n            \"instruction\":\"Challenge1 Child instruction\",\n            \"children\":[\n                {\n                    \"name\":\"Task 1\",\n                    \"description\":\"Task 1 description\",\n                    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n                },\n                {\n                    \"name\":\"Task 2\",\n                    \"description\":\"Task 2 description\",\n                    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n                }\n            ]\n        },\n        {\n            \"name\":\"Challenge2 Child\",\n            \"description\":\"Challenge2 Child description\",\n            \"instruction\":\"Challenge2 Child instruction\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -664,23 +1729,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/challenges",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/challenges",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{ProjectWithChildren}}",
+								"challenges"
+							]
 						},
 						"description": "Gets the children of the project"
 					},
@@ -705,23 +1782,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/children",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/children",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{ProjectWithChildren}}",
+								"children"
+							]
 						},
 						"description": "Gets the children of the project"
 					},
@@ -743,23 +1832,45 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/tasks?cs=Child&s=2",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}/tasks?cs=Child&s=2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{ProjectWithChildren}}",
+								"tasks"
+							],
+							"query": [
+								{
+									"key": "cs",
+									"value": "Child"
+								},
+								{
+									"key": "s",
+									"value": "2"
+								}
+							]
 						},
 						"description": "Gets the children of the project"
 					},
@@ -780,23 +1891,41 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/search/clustered?search=%7B%22challengeSearch%22%3A%22Challenge2%22%7D",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/search/clustered?search=%7B%22challengeSearch%22%3A%22Challenge2%22%7D",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"search",
+								"clustered"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "%7B%22challengeSearch%22%3A%22Challenge2%22%7D"
+								}
+							]
 						},
 						"description": "Gets the children of the project"
 					},
@@ -818,23 +1947,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{ProjectWithChildren}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{ProjectWithChildren}}"
+							]
 						},
 						"description": "Deletes the project just created with the children"
 					},
@@ -857,23 +1997,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
 						"method": "PUT",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"description\":\"Test project containing all children used for api testing. (Update)\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID}}"
+							]
 						},
 						"description": "Updates the project description"
 					},
@@ -896,23 +2047,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID}}"
+							]
 						},
 						"description": "Gets the project from the supplied ID. Will need to modify the ID based on the ID returned from the creation API."
 					},
@@ -934,23 +2096,39 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/projects?limit=-1",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"APITestProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/projects?limit=-1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"projects"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "-1"
+								}
+							]
 						},
 						"description": "Lists all the projects in the system"
 					},
@@ -973,23 +2151,40 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/projects/find?q=SimpleProject",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"APITestProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/projects/find?q=SimpleProject",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"projects",
+								"find"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "SimpleProject"
+								}
+							]
 						},
 						"description": "Find the APITestProject in the system."
 					},
@@ -1012,23 +2207,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/projectByName/SimpleProject",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"APITestProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/projectByName/SimpleProject",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"projectByName",
+								"SimpleProject"
+							]
 						},
 						"description": "Retrieve the project by the provided name"
 					},
@@ -1050,23 +2256,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID}}"
+							]
 						},
 						"description": "Deletes the project created by the project creation. Would need to modify the supplied ID."
 					},
@@ -1096,23 +2313,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/tag",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"TestTag1\",\n    \"description\":\"TestTag1 description\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/tag",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"tag"
+							]
 						},
 						"description": "Creates a basic tag"
 					},
@@ -1135,23 +2362,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"tag",
+								"{{TestTagID}}"
+							]
 						},
 						"description": "Gets the tag"
 					},
@@ -1174,23 +2412,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
 						"method": "PUT",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"UpdatedTestTag1\",\n    \"description\":\"Updated Tag description\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"tag",
+								"{{TestTagID}}"
+							]
 						},
 						"description": "Updates a basic tag"
 					},
@@ -1212,23 +2461,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/tag/{{TestTagID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"tag",
+								"{{TestTagID}}"
+							]
 						},
 						"description": "Deletes the tag"
 					},
@@ -1258,23 +2518,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"TestProject\",\n    \"description\":\"Test project.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1299,23 +2569,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"TestChallenge\",\n    \"parent\": {{TestProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1327,32 +2607,44 @@
 						{
 							"listen": "test",
 							"script": {
+								"id": "ccbb60bf-2a2d-45b7-8ee1-e472b52afce2",
 								"type": "text/javascript",
 								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
 								]
 							}
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TestChallenge}}",
+								"tasks"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1374,23 +2666,35 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TestChallenge}}",
+								"tasks"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1414,23 +2718,33 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\":\"NewTask\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n}"
+							"raw": "{\n    \"name\":\"NewTask\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]}\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1453,23 +2767,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task/{{NewTask}}",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"name\":\"NewTask\",\n    \"description\":\"NewTask description\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1492,23 +2817,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task/{{NewTask}}",
 						"method": "PUT",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1531,18 +2867,37 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comment"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20a%20comment"
+								}
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1564,18 +2919,36 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/comment/{{NewComment}}?comment=This%20is%20an%20updated%20comment",
 						"method": "PUT",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/comment/{{NewComment}}?comment=This%20is%20an%20updated%20comment",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"comment",
+								"{{NewComment}}"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20an%20updated%20comment"
+								}
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1597,18 +2970,37 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment%20Number2",
 						"method": "POST",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment%20Number2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comment"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20a%20comment%20Number2"
+								}
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1630,18 +3022,30 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/comment/{{NewComment}}",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/comment/{{NewComment}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"comment",
+								"{{NewComment}}"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1663,18 +3067,31 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comments",
 						"method": "GET",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comments",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comments"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1694,18 +3111,32 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/task/{{NewTask}}/comment/{{NewComment}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment/{{NewComment}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comment",
+								"{{NewComment}}"
+							]
 						},
 						"description": "Creates a project with two children within the same request."
 					},
@@ -1727,23 +3158,34 @@
 						}
 					],
 					"request": {
-						"url": "http://localhost:9000/api/v2/project/{{TestProject}}",
 						"method": "DELETE",
 						"header": [
 							{
 								"key": "apiKey",
-								"value": "test",
-								"description": ""
+								"value": "test"
 							},
 							{
 								"key": "Content-Type",
-								"value": "application/json",
-								"description": ""
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
 							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{TestProject}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{TestProject}}"
+							]
 						},
 						"description": "Deletes the project just created with the children"
 					},

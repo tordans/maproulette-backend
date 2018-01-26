@@ -64,7 +64,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                 this.challengeDAL.update(Json.obj("overpassStatus" -> Challenge.STATUS_FAILED), user)(challenge.id)
             }
             true
-          case None => false
+          case _ => false
         }
       } else {
         false

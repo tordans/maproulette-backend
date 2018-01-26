@@ -63,10 +63,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def runJob(name:String) : Action[AnyContent] = Action.async { implicit request =>
+  def runJob(name:String, action:String) : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
-      schedulerActor ! RunJob(name)
+      schedulerActor ! RunJob(name, action)
       Ok
     }
   }
