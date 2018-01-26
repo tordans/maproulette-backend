@@ -305,7 +305,7 @@ class TaskDAL @Inject()(override val db: Database,
     this.cacheManager.clearCaches
     this.withMRTransaction { implicit c =>
       // update all the tasks of a particular challenge
-      SQL"""DO $$$$
+      val query = s"""DO $$$$
             DECLARE
               rec RECORD;
             BEGIN
@@ -317,7 +317,8 @@ class TaskDAL @Inject()(override val db: Database,
                 UPDATE tasks SET location = rec.location WHERE tasks.id = rec.task_id and parent_id = $challengeId;
               END LOOP;
             END$$$$;
-        """.executeUpdate()
+        """
+      SQL(query).executeUpdate()
     }
   }
 
