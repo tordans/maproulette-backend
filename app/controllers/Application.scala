@@ -99,8 +99,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
         if (config.mr3DevMode) {
           promise success Json.parse("""
                       {
-                        "main.js" : "public/static/js/bundle.js",
-                        "main.css" : "public/static/css/bundle.css"
+                        "main.js" : "static/js/bundle.js",
+                        "main.css" : "static/css/bundle.css"
                       }
                       """)
         } else {
