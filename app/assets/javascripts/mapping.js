@@ -576,7 +576,14 @@ function Task() {
         if (MRManager.usingPriority()) {
             taskFunction = jsRoutes.controllers.MappingController.getRandomNextTaskWithPriority;
         }
-        taskFunction().ajax({
+        var proximity = Utils.getQSParameterByName("proximity");
+        var proximityID = -1;
+        if (typeof proximity === 'string' && proximity === 'true') {
+            proximityID = data.id;
+        }
+        // make sure the the challenge is set
+        new SearchParameters().setChallengeId(data.parentId);
+        taskFunction(proximityID).ajax({
             success:function(update) {
                 updateData(update, MRManager.getSuccessHandler(success));
             },

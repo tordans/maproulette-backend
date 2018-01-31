@@ -43,8 +43,8 @@ GET     /show                                                           @control
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)
 GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
-GET     /mapping/randomTaskWithoutPriority                              @controllers.MappingController.getRandomNextTask
-GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTaskWithPriority
+GET     /mapping/randomTaskWithoutPriority                              @controllers.MappingController.getRandomNextTask(proximityId:Long ?= -1)
+GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTaskWithPriority(proximityId:Long ?= -1)
 # JsMessages Route
 GET     /jsMessages                                                     @controllers.Application.messages
 # Swagger route

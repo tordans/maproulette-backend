@@ -9,6 +9,7 @@ import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Lock, Task}
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
+import org.maproulette.utils.Utils
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, Controller}
 
@@ -36,10 +37,10 @@ class MappingController @Inject() (sessionManager:SessionManager,
     *
     * @return
     */
-  def getRandomNextTask : Action[AnyContent] = Action.async { implicit request =>
+  def getRandomNextTask(proximityId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1).headOption))
+        Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1, None, Utils.negativeToOption(proximityId)).headOption))
       }
     }
   }
@@ -50,10 +51,10 @@ class MappingController @Inject() (sessionManager:SessionManager,
     *
     * @return
     */
-  def getRandomNextTaskWithPriority : Action[AnyContent] = Action.async { implicit request =>
+  def getRandomNextTaskWithPriority(proximityId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSONNoLock(taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, 1).headOption))
+        Ok(getResponseJSONNoLock(taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, 1, Utils.negativeToOption(proximityId)).headOption))
       }
     }
   }
