@@ -112,7 +112,7 @@ trait Locking[T<:BaseObject[_]] extends TransactionManager {
       if (!user.guest) {
         val resultList = results.filter(lockItem(user, _) > 0)
         if (resultList.isEmpty) {
-          throw new NotFoundException("No objects found.")
+          List[T]()
         }
         resultList
       } else {

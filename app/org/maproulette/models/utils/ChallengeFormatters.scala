@@ -24,10 +24,7 @@ trait ChallengeWrites {
   implicit val challengeExtraWrites: Writes[ChallengeExtra] = Json.writes[ChallengeExtra]
 
   class jsonWrites(key:String) extends Writes[String] {
-    override def writes(value:String) : JsValue =
-      JsObject(Seq(
-        key -> Json.parse(value)
-      ))
+    override def writes(value:String) : JsValue = Json.parse(value)
   }
 
   implicit val challengeWrites: Writes[Challenge] = (

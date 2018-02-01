@@ -1064,6 +1064,50 @@ GET     /challenge/:cid/tasks/random                @org.maproulette.controllers
 GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1, proximity:Long ?= -1)
 ###
 # tags: [ Challenge ]
+# summary: Retrieves next Task
+# produces: [ application/json ]
+# description: Retrieves the next sequential Task based on the task ordering within the Challenge. If it is currently on the last task it will response with the first task in the challenge.
+# responses:
+#   '200':
+#     description: The next task in the list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: cid
+#     in: path
+#     description: The id of the parent Challenge.
+#   - name: id
+#     in: path
+#     description: The id of the current task being viewed, so that we can get context of what the next task should be
+#   - name: statusList
+#     in: query
+#     description: A comma separated list of Task status' to limit to the response by.
+###
+GET     /challenge/:cid/nextTask/:id                @org.maproulette.controllers.api.ChallengeController.getSequentialNextTask(cid:Long, id:Long, statusList:String ?= "")
+###
+# tags: [ Challenge ]
+# summary: Retrieves previous Task
+# produces: [ application/json ]
+# description: Retrieves the previous sequential Task based on the task ordering within the Challenge. If it is currently on the first task it will response with the last task in the challenge.
+# responses:
+#   '200':
+#     description: The previous task in the list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: cid
+#     in: path
+#     description: The id of the parent Challenge.
+#   - name: id
+#     in: path
+#     description: The id of the current task being viewed, so that we can get context of what the next task should be
+#   - name: statusList
+#     in: query
+#     description: A comma separated list of Task status' to limit to the response by.
+###
+GET     /challenge/:cid/previousTask/:id            @org.maproulette.controllers.api.ChallengeController.getSequentialPreviousTask(cid:Long, id:Long, statusList:String ?= "")
+###
+# tags: [ Challenge ]
 # summary: Retrieves Challenge GeoJSON
 # produces: [ application/json ]
 # description: Retrieves the GeoJSON for the Challenge that represents all the Task children of the Challenge.
@@ -1386,6 +1430,44 @@ GET     /virtualchallenge/:id/tasks                     @org.maproulette.control
 #     description: Id of task that you wish to find the next task based on the proximity of that task
 ###
 GET     /virtualchallenge/:cid/task                 @org.maproulette.controllers.api.VirtualChallengeController.getRandomTask(cid:Long, proximity:Long ?= -1)
+###
+# tags: [ Virtual Challenge ]
+# summary: Retrieves next Task
+# produces: [ application/json ]
+# description: Retrieves the next sequential Task based on the task ordering within the Virtual Challenge. If it is currently on the last task it will response with the first task in the Virtual Challenge.
+# responses:
+#   '200':
+#     description: The next task in the list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: cid
+#     in: path
+#     description: The id of the parent Virtual Challenge.
+#   - name: id
+#     in: path
+#     description: The id of the current task being viewed, so that we can get context of what the next task should be
+###
+GET     /virtualchallenge/:cid/nextTask/:id         @org.maproulette.controllers.api.VirtualChallengeController.getSequentialNextTask(cid:Long, id:Long)
+###
+# tags: [ Virtual Challenge ]
+# summary: Retrieves previous Task
+# produces: [ application/json ]
+# description: Retrieves the previous sequential Task based on the task ordering within the Virtual Challenge. If it is currently on the first task it will response with the last task in the Virtual Challenge.
+# responses:
+#   '200':
+#     description: The previous task in the list
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: cid
+#     in: path
+#     description: The id of the parent Virtual Challenge.
+#   - name: id
+#     in: path
+#     description: The id of the current task being viewed, so that we can get context of what the next task should be
+###
+GET     /virtualchallenge/:cid/previousTask/:id     @org.maproulette.controllers.api.VirtualChallengeController.getSequentialPreviousTask(cid:Long, id:Long)
 ###
 # tags: [ Virtual Challenge ]
 # summary: Retrieves Virtual Challenge GeoJSON

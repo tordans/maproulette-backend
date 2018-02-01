@@ -2,8 +2,11 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.utils
 
-import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.{StringEscapeUtils, StringUtils}
 import org.joda.time.DateTime
+import org.maproulette.exception.NotFoundException
+import org.maproulette.models.{Lock, Task}
+import org.maproulette.session.User
 import play.api.mvc.Results._
 import play.api.libs.json._
 import play.api.mvc.Result
@@ -128,5 +131,50 @@ object Utils extends DefaultWrites {
   def negativeToOption(value:Long) : Option[Long] = value match {
     case v if v < 0 => None
     case v => Some(v)
+  }
+
+  def getResponseJSONNoLock(task:Option[Task], userFunc: (User, Long, Int) => List[User]) : JsValue = task match {
+    case Some(t) => getResponseJSON(Some(t, Lock.emptyLock), userFunc)
+    case None => getResponseJSON(None, userFunc)
+  }
+
+  /**
+    * Builds the response JSON for mapping based on a Task
+    *
+    * @param task The optional task to check
+    * @return If None supplied as Task parameter then will throw NotFoundException
+    */
+  def getResponseJSON(task:Option[(Task, Lock)], userFunc: (User, Long, Int) => List[User]) : JsValue = task match {
+    case Some(t) =>
+      val currentStatus = t._1.status.getOrElse(Task.STATUS_CREATED)
+      val locked = t._2.lockedTime match {
+        case Some(_) => true
+        case None => false
+      }
+      val userString = userFunc(null, t._1.id, 1).headOption match {
+        case Some(user) =>
+          s"""
+             |   "last_modified_user_osm_id":${user.osmProfile.id},
+             |   "last_modified_user_id":${user.id},
+             |   "last_modified_user":"${user.osmProfile.displayName}",
+           """.stripMargin
+        case None => ""
+      }
+      Json.parse(
+        s"""
+           |{
+           |   "id":${t._1.id},
+           |   "parentId":${t._1.parent},
+           |   "name":"${t._1.name}",
+           |   "instruction":"${StringEscapeUtils.escapeJson(t._1.instruction.getOrElse(""))}",
+           |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
+           |   "status":$currentStatus, $userString
+           |   "geometry":${t._1.geometries},
+           |   "locked":$locked,
+           |   "created":"${t._1.created}",
+           |   "modified":"${t._1.modified}"
+           |}
+            """.stripMargin)
+    case None => throw new NotFoundException(s"Could not find task")
   }
 }

@@ -9,7 +9,7 @@ import org.maproulette.actions.{ActionManager, TaskViewed, VirtualChallengeType}
 import org.maproulette.controllers.CRUDController
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{ClusteredPoint, Task, VirtualChallenge}
-import org.maproulette.models.dal.VirtualChallengeDAL
+import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -23,6 +23,7 @@ import scala.concurrent.duration.Duration
 class VirtualChallengeController @Inject() (override val sessionManager: SessionManager,
                                             override val actionManager: ActionManager,
                                             override val dal:VirtualChallengeDAL,
+                                            taskDAL: TaskDAL,
                                             config:Config) extends CRUDController[VirtualChallenge] {
   override implicit val tReads: Reads[VirtualChallenge] = VirtualChallenge.virtualChallengeReads
   override implicit val tWrites: Writes[VirtualChallenge] = VirtualChallenge.virtualChallengeWrites
@@ -125,6 +126,32 @@ class VirtualChallengeController @Inject() (override val sessionManager: Session
           case None => throw new NotFoundException("No Virtual Challenge found with that challenge name.")
         }
       }
+    }
+  }
+
+  /**
+    * Gets the next task in sequential order for the specified virtual challenge
+    *
+    * @param challengeId The current virtual challenge id
+    * @param currentTaskId The current task id that is being viewed
+    * @return The next task in the list
+    */
+  def getSequentialNextTask(challengeId:Long, currentTaskId:Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Utils.getResponseJSON(this.dal.getSequentialNextTask(challengeId, currentTaskId), this.taskDAL.getLastModifiedUser));
+    }
+  }
+
+  /**
+    * Gets the previous task in sequential order for the specified challenge
+    *
+    * @param challengeId The current virtual challenge id
+    * @param currentTaskId The current task id that is being viewed
+    * @return The previous task in the list
+    */
+  def getSequentialPreviousTask(challengeId:Long, currentTaskId:Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Utils.getResponseJSON(this.dal.getSequentialPreviousTask(challengeId, currentTaskId), this.taskDAL.getLastModifiedUser));
     }
   }
 
