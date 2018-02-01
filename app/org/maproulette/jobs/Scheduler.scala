@@ -25,6 +25,7 @@ class Scheduler @Inject() (val system: ActorSystem,
   schedule("runChallengeSchedules", "Running challenge Schedules", 1.minute, Config.KEY_SCHEDULER_RUN_CHALLENGE_SCHEDULES_INTERVAL)
   schedule("updateLocations", "Updating locations", 1.minute, Config.KEY_SCHEDULER_UPDATE_LOCATIONS_INTERVAL)
   schedule("cleanOldTasks", "Cleaning old tasks", 1.minute, Config.KEY_SCHEDULER_CLEAN_TASKS_INTERVAL)
+  schedule("cleanExpiredVirtualChallenges", "Cleaning up expired Virtual Challenges", 1.minute, Config.KEY_SCHEDULER_CLEAN_VC_INTEVAL)
 
   /**
     * Conditionally schedules message event when configured with a valid duration

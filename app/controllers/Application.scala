@@ -63,10 +63,10 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def runJob(name:String) : Action[AnyContent] = Action.async { implicit request =>
+  def runJob(name:String, action:String) : Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
-      schedulerActor ! RunJob(name)
+      schedulerActor ! RunJob(name, action)
       Ok
     }
   }
@@ -99,8 +99,8 @@ class Application @Inject() (val messagesApi: MessagesApi,
         if (config.mr3DevMode) {
           promise success Json.parse("""
                       {
-                        "main.js" : "public/static/js/bundle.js",
-                        "main.css" : "public/static/css/bundle.css"
+                        "main.js" : "static/js/bundle.js",
+                        "main.css" : "static/css/bundle.css"
                       }
                       """)
         } else {

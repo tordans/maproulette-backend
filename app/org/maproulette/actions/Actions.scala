@@ -37,6 +37,7 @@ class ItemType(id:Int) {
       case ta:TagType => new TagItem(itemId)
       case u:UserType => new UserItem(itemId)
       case s:SurveyType => new SurveyItem(itemId)
+      case vc:VirtualChallengeType => new VirtualChallengeItem(itemId)
     }
   }
 }
@@ -52,6 +53,7 @@ case class TaskType() extends ItemType(Actions.ITEM_TYPE_TASK)
 case class TagType() extends ItemType(Actions.ITEM_TYPE_TAG)
 case class UserType() extends ItemType(Actions.ITEM_TYPE_USER)
 case class GroupType() extends ItemType(Actions.ITEM_TYPE_GROUP)
+case class VirtualChallengeType() extends ItemType(Actions.ITEM_TYPE_VIRTUAL_CHALLENGE)
 
 class ProjectItem(override val itemId:Long) extends ProjectType with Item
 class ChallengeItem(override val itemId:Long) extends ChallengeType with Item
@@ -59,6 +61,7 @@ class TaskItem(override val itemId:Long) extends TaskType with Item
 class TagItem(override val itemId:Long) extends TagType with Item
 class UserItem(override val itemId:Long) extends UserType with Item
 class SurveyItem(override val itemId:Long) extends SurveyType with Item
+class VirtualChallengeItem(override val itemId:Long) extends VirtualChallengeType with Item
 
 case class Updated() extends ActionType(Actions.ACTION_TYPE_UPDATED, Actions.ACTION_LEVEL_2)
 case class Created() extends ActionType(Actions.ACTION_TYPE_CREATED, Actions.ACTION_LEVEL_2)
@@ -88,6 +91,8 @@ object Actions {
   val ITEM_TYPE_USER_NAME = "User"
   val ITEM_TYPE_GROUP = 6
   val ITEM_TYPE_GROUP_NAME = "Group"
+  val ITEM_TYPE_VIRTUAL_CHALLENGE = 7
+  val ITEM_TYPE_VIRTUAL_CHALLENGE_NAME = "VirtualChallenge"
   val itemIDMap = Map(
     ITEM_TYPE_PROJECT -> (ITEM_TYPE_PROJECT_NAME, ProjectType()),
     ITEM_TYPE_CHALLENGE -> (ITEM_TYPE_CHALLENGE_NAME, ChallengeType()),
@@ -95,7 +100,8 @@ object Actions {
     ITEM_TYPE_TAG -> (ITEM_TYPE_TAG_NAME, TagType()),
     ITEM_TYPE_SURVEY -> (ITEM_TYPE_SURVEY_NAME, SurveyType()),
     ITEM_TYPE_USER -> (ITEM_TYPE_USER_NAME, UserType()),
-    ITEM_TYPE_GROUP -> (ITEM_TYPE_GROUP_NAME, GroupType())
+    ITEM_TYPE_GROUP -> (ITEM_TYPE_GROUP_NAME, GroupType()),
+    ITEM_TYPE_VIRTUAL_CHALLENGE -> (ITEM_TYPE_VIRTUAL_CHALLENGE_NAME, VirtualChallengeType())
   )
 
   val ACTION_TYPE_UPDATED = 0

@@ -233,18 +233,23 @@ trait DALHelper {
       }
     }
 
-    params.challengeSearch match {
-      case Some(cs) if cs.nonEmpty =>
-        params.fuzzySearch match {
-          case Some(x) =>
-            this.appendInWhereClause(whereClause, this.fuzzySearch(s"$challengePrefix.name", "cs", x)(None))
-            parameters += ('cs -> cs)
-          case None =>
-            this.appendInWhereClause(whereClause, this.searchField(s"$challengePrefix.name", "cs")(None))
-            parameters += ('cs -> s"%$cs%")
+    params.challengeId match {
+      case Some(cid) if cid > -1 => this.appendInWhereClause(whereClause, s"$challengePrefix.id = $cid")
+      case _ =>
+        params.challengeSearch match {
+          case Some(cs) if cs.nonEmpty =>
+            params.fuzzySearch match {
+              case Some(x) =>
+                this.appendInWhereClause(whereClause, this.fuzzySearch(s"$challengePrefix.name", "cs", x)(None))
+                parameters += ('cs -> cs)
+              case None =>
+                this.appendInWhereClause(whereClause, this.searchField(s"$challengePrefix.name", "cs")(None))
+                parameters += ('cs -> s"%$cs%")
+            }
+          case _ => // ignore
         }
-      case _ => // ignore
     }
+
     parameters
   }
 
