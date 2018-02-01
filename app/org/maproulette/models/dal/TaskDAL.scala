@@ -601,7 +601,14 @@ class TaskDAL @Inject()(override val db: Database,
 
         val proximityOrdering = proximityId match {
           case Some(id) =>
-            appendInWhereClause(whereClause, s"tasks.id != $id")
+            // This where clause will make sure that the user doesn't see the same task multiple times in the same hour.
+            // It addresses a specific issue with proximity that can cause a user to get into an infinite loop
+            appendInWhereClause(whereClause,
+              s"""NOT tasks.id IN (
+                 |SELECT task_id FROM status_actions
+                 |WHERE osm_user_id IN (${user.osmProfile.id})
+                 |  AND created >= NOW() - '1 hour'::INTERVAL
+                 |UNION SELECT $id)""".stripMargin)
             s"ST_Distance(tasks.location, (SELECT location FROM tasks WHERE id = $id)),"
           case None => ""
         }
