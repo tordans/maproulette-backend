@@ -8,11 +8,13 @@ import akka.actor.{Actor, Props}
 import play.api.{Application, Logger}
 import play.api.db.Database
 import anorm._
+import anorm.JodaParameterMetaData._
+import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.metrics.Metrics
 import org.maproulette.models.Task.STATUS_CREATED
-import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
+import org.maproulette.models.dal.DALManager
 
 /**
   * The main actor that handles all scheduled activities
@@ -24,8 +26,7 @@ import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 class SchedulerActor @Inject() (config:Config,
                                 application:Application,
                                 db:Database,
-                                taskDAL:TaskDAL,
-                                virtualChallengeDAL:VirtualChallengeDAL) extends Actor {
+                                dALManager: DALManager) extends Actor {
   val appConfig = application.configuration
 
   // cleanOldTasks configuration
@@ -71,6 +72,7 @@ class SchedulerActor @Inject() (config:Config,
     */
   def updateLocations(action:String) : Unit = {
     Logger.info(action)
+    val currentTime = DateTime.now()
     db.withTransaction { implicit c =>
       val query = """DO $$
                       DECLARE
@@ -90,7 +92,14 @@ class SchedulerActor @Inject() (config:Config,
                       END$$;"""
 
       SQL(query).executeUpdate()
-      // TODO retrieve challenges that were updated and then update the caches, or simply clear them
+      c.commit()
+      SQL("SELECT id FROM challenges WHERE last_updated > {currentTime}")
+        .on('currentTime -> ParameterValue.toParameterValue(currentTime))
+        .as(SqlParser.long("id").*)
+        .foreach(id => {
+          Logger.debug(s"Flushing challenge cache of challenge with id $id")
+          this.dALManager.challenge.cacheManager.cache.remove(id)
+        })
     }
     Logger.info("Completed updating challenge locations.")
   }
@@ -102,7 +111,7 @@ class SchedulerActor @Inject() (config:Config,
     */
   def updateTaskLocations(challengeId:Long) : Unit = {
     Logger.info(s"Updating tasks for challenge $challengeId")
-    taskDAL.updateTaskLocations(challengeId)
+    this.dALManager.task.updateTaskLocations(challengeId)
   }
 
   /**
@@ -126,7 +135,7 @@ class SchedulerActor @Inject() (config:Config,
           Logger.info(s"$tasksDeleted old challenge tasks were found and deleted.")
           // Clear the task cache if any were deleted
           if (tasksDeleted > 0) {
-            taskDAL.cacheManager.clearCaches
+            this.dALManager.task.cacheManager.clearCaches
           }
         }
       }
@@ -143,7 +152,7 @@ class SchedulerActor @Inject() (config:Config,
       Logger.info(s"$numberOfDeleted Virtual Challenges expired and removed from database")
       // Clear the task cache if any were deleted
       if (numberOfDeleted > 0) {
-        virtualChallengeDAL.cacheManager.clearCaches
+        this.dALManager.virtualChallenge.cacheManager.clearCaches
       }
     }
   }

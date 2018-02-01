@@ -17,6 +17,7 @@ import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 class DALManager @Inject() (tagDAL: TagDAL,
                             taskDAL: TaskDAL,
                             challengeDAL: ChallengeDAL,
+                            virtualChallengeDAL: VirtualChallengeDAL,
                             surveyDAL: SurveyDAL,
                             projectDAL: ProjectDAL,
                             userDAL: UserDAL,
@@ -27,6 +28,7 @@ class DALManager @Inject() (tagDAL: TagDAL,
   def tag:TagDAL = tagDAL
   def task:TaskDAL = taskDAL
   def challenge:ChallengeDAL = challengeDAL
+  def virtualChallenge:VirtualChallengeDAL = virtualChallengeDAL
   def survey:SurveyDAL = surveyDAL
   def project:ProjectDAL = projectDAL
   def user:UserDAL = userDAL
@@ -39,6 +41,7 @@ class DALManager @Inject() (tagDAL: TagDAL,
     itemType match {
       case ProjectType() => projectDAL
       case ChallengeType() => challengeDAL
+      case VirtualChallengeType() => virtualChallengeDAL
       case SurveyType() => surveyDAL
       case TaskType() => taskDAL
       case UserType() => userDAL

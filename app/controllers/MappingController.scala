@@ -4,13 +4,9 @@ package controllers
 
 import javax.inject.Inject
 
-import org.apache.commons.lang3.StringEscapeUtils
-import org.maproulette.exception.NotFoundException
-import org.maproulette.models.{Lock, Task}
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
-import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, Controller}
 
 /**
@@ -27,7 +23,7 @@ class MappingController @Inject() (sessionManager:SessionManager,
     */
   def getTaskDisplayGeoJSON(taskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
-      Ok(getResponseJSONNoLock(taskDAL.retrieveById(taskId)))
+      Ok(Utils.getResponseJSONNoLock(taskDAL.retrieveById(taskId), taskDAL.getLastModifiedUser))
     }
   }
 
@@ -40,7 +36,8 @@ class MappingController @Inject() (sessionManager:SessionManager,
   def getRandomNextTask(proximityId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1, None, Utils.negativeToOption(proximityId)).headOption))
+        Ok(Utils.getResponseJSONNoLock(taskDAL.getRandomTasks(User.userOrMocked(user), params, 1, None,
+          Utils.negativeToOption(proximityId)).headOption, taskDAL.getLastModifiedUser))
       }
     }
   }
@@ -54,7 +51,8 @@ class MappingController @Inject() (sessionManager:SessionManager,
   def getRandomNextTaskWithPriority(proximityId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSONNoLock(taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, 1, Utils.negativeToOption(proximityId)).headOption))
+        Ok(Utils.getResponseJSONNoLock(taskDAL.getRandomTasksWithPriority(User.userOrMocked(user), params, 1,
+          Utils.negativeToOption(proximityId)).headOption, taskDAL.getLastModifiedUser))
       }
     }
   }
@@ -69,7 +67,8 @@ class MappingController @Inject() (sessionManager:SessionManager,
   def getSequentialNextTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId, Some(params.taskStatus.getOrElse(List.empty)))))
+        Ok(Utils.getResponseJSON(taskDAL.getNextTaskInSequence(parentId, currentTaskId,
+          Some(params.taskStatus.getOrElse(List.empty))), taskDAL.getLastModifiedUser))
       }
     }
   }
@@ -84,53 +83,9 @@ class MappingController @Inject() (sessionManager:SessionManager,
   def getSequentialPreviousTask(parentId:Long, currentTaskId:Long) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
-        Ok(getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId, Some(params.taskStatus.getOrElse(List.empty)))))
+        Ok(Utils.getResponseJSON(taskDAL.getPreviousTaskInSequence(parentId, currentTaskId,
+          Some(params.taskStatus.getOrElse(List.empty))), taskDAL.getLastModifiedUser))
       }
     }
-  }
-
-  private def getResponseJSONNoLock(task:Option[Task]) : JsValue = task match {
-    case Some(t) => getResponseJSON(Some(t, Lock.emptyLock))
-    case None => getResponseJSON(None)
-  }
-
-  /**
-    * Builds the response JSON for mapping based on a Task
-    *
-    * @param task The optional task to check
-    * @return If None supplied as Task parameter then will throw NotFoundException
-    */
-  private def getResponseJSON(task:Option[(Task, Lock)]) : JsValue = task match {
-    case Some(t) =>
-      val currentStatus = t._1.status.getOrElse(Task.STATUS_CREATED)
-      val locked = t._2.lockedTime match {
-        case Some(_) => true
-        case None => false
-      }
-      val userString = taskDAL.getLastModifiedUser(null, t._1.id).headOption match {
-        case Some(user) =>
-          s"""
-             |   "last_modified_user_osm_id":${user.osmProfile.id},
-             |   "last_modified_user_id":${user.id},
-             |   "last_modified_user":"${user.osmProfile.displayName}",
-           """.stripMargin
-        case None => ""
-      }
-      Json.parse(
-        s"""
-           |{
-           |   "id":${t._1.id},
-           |   "parentId":${t._1.parent},
-           |   "name":"${t._1.name}",
-           |   "instruction":"${StringEscapeUtils.escapeJson(t._1.instruction.getOrElse(""))}",
-           |   "statusName":"${Task.getStatusName(currentStatus).getOrElse(Task.STATUS_CREATED_NAME)}",
-           |   "status":$currentStatus, $userString
-           |   "geometry":${t._1.geometries},
-           |   "locked":$locked,
-           |   "created":"${t._1.created}",
-           |   "modified":"${t._1.modified}"
-           |}
-            """.stripMargin)
-    case None => throw new NotFoundException(s"Could not find task")
   }
 }

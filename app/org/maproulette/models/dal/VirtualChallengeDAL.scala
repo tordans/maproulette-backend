@@ -10,7 +10,7 @@ import org.maproulette.Config
 import org.maproulette.actions.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.InvalidException
-import org.maproulette.models.{ClusteredPoint, Point, Task, VirtualChallenge}
+import org.maproulette.models._
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchLocation, SearchParameters, User}
@@ -198,6 +198,80 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
           .on(
             'statusList -> ParameterValue.toParameterValue(taskStatusList)
           ).as(taskDAL.parser.*).headOption
+      }
+    }
+  }
+
+  /**
+    * Simple query to retrieve the next task in the sequence
+    *
+    * @param id      The parent of the task
+    * @param currentTaskId The current task that we are basing our query from
+    * @return An optional task, if no more tasks in the list will retrieve the first task
+    */
+  def getSequentialNextTask(id:Long, currentTaskId:Long)(implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
+    this.withMRConnection { implicit c =>
+      val lp = for {
+        task <- taskDAL.parser
+        lock <- lockedParser
+      } yield task -> lock
+      val query =
+        s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+                      LEFT JOIN locked ON locked.item_id = tasks.id
+                      WHERE tasks.id = (SELECT task_id
+                                        FROM virtual_challenge_tasks
+                                        WHERE task_id > $currentTaskId AND virtual_challenge_id = $id
+                                        LIMIT 1)
+          """
+      SQL(query).as(lp.*).headOption match {
+        case Some(t) => Some(t)
+        case None =>
+          val loopQuery =
+            s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+                              LEFT JOIN locked ON locked.item_id = tasks.id
+                              WHERE tasks.id = (SELECT task_id
+                                                FROM virtual_challenge_tasks
+                                                WHERE virtual_challenge_id = $id
+                                                ORDER BY id ASC LIMIT 1)
+              """
+          SQL(loopQuery).as(lp.*).headOption
+      }
+    }
+  }
+
+  /**
+    * Simple query to retrieve the previous task in the sequence
+    *
+    * @param id      The parent of the task
+    * @param currentTaskId The current task that we are basing our query from
+    * @return An optional task, if no more tasks in the list will retrieve the last task
+    */
+  def getSequentialPreviousTask(id:Long, currentTaskId:Long)(implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
+    this.withMRConnection { implicit c =>
+      val lp = for {
+        task <- taskDAL.parser
+        lock <- lockedParser
+      } yield task -> lock
+      val query =
+        s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+                      LEFT JOIN locked ON locked.item_id = tasks.id
+                      WHERE tasks.id = (SELECT task_id
+                                        FROM virtual_challenge_tasks
+                                        WHERE task_id < $currentTaskId AND virtual_challenge_id = $id
+                                        LIMIT 1)
+          """
+      SQL(query).as(lp.*).headOption match {
+        case Some(t) => Some(t)
+        case None =>
+          val loopQuery =
+            s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+                              LEFT JOIN locked ON locked.item_id = tasks.id
+                              WHERE tasks.id = (SELECT task_id
+                                                FROM virtual_challenge_tasks
+                                                WHERE virtual_challenge_id = $id
+                                                ORDER BY id DESC LIMIT 1)
+              """
+          SQL(loopQuery).as(lp.*).headOption
       }
     }
   }

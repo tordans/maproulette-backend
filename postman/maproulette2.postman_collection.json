@@ -271,12 +271,15 @@
 						{
 							"listen": "test",
 							"script": {
+								"id": "166ebb2c-eda3-4c07-9e30-71e275566ff5",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"Task1\"] = jsonData[0].name === \"Task 1\";",
-									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";"
+									"postman.setGlobalVariable(\"TagsChallengeTask1ID\", jsonData[0].id);",
+									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";",
+									"postman.setGlobalVariable(\"TagsChallengeTask2ID\", jsonData[1].id);"
 								]
 							}
 						}
@@ -313,6 +316,110 @@
 							]
 						},
 						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Next Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "040adc26-6e95-4944-b364-3aab59535897",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"Task 2\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/nextTask/{{TagsChallengeTask1ID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"nextTask",
+								"{{TagsChallengeTask1ID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Previous Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5d92aa7b-b9d9-420a-a54b-789a87c04175",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"Task 1\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}/previousTask/{{TagsChallengeTask2ID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TagsChallengeID}}",
+								"previousTask",
+								"{{TagsChallengeTask2ID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
 					},
 					"response": []
 				},
@@ -964,7 +1071,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n\t\"name\":\"test\",\n\t\"searchParameters\":{\n\t\t\"location\": {\n\t\t\t\"left\":102,\n\t\t\t\"bottom\":0,\n\t\t\t\"right\":104,\n\t\t\t\"top\":2\n\t\t}\n\t}\n}"
+							"raw": "{\n\t\"name\":\"test\",\n\t\"searchParameters\":{\n\t\t\"challengeId\": {{TagsChallengeID}},\n\t\t\"location\": {\n\t\t\t\"left\":102,\n\t\t\t\"bottom\":0,\n\t\t\t\"right\":104,\n\t\t\t\"top\":2\n\t\t}\n\t}\n}"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/virtualchallenge",
@@ -1167,12 +1274,14 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5c9994a2-c3c3-4bec-bebf-5176efd561c9",
+								"id": "34912ad6-d31c-4bf9-8830-85ec811bf09b",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"size\"] = jsonData.length === 10;"
+									"tests[\"size\"] = jsonData.length === 2;",
+									"postman.setGlobalVariable(\"VChallengeTask1ID\", jsonData[0].id);",
+									"postman.setGlobalVariable(\"VChallengeTask2ID\", jsonData[1].id);"
 								]
 							}
 						}
@@ -1245,6 +1354,112 @@
 							]
 						},
 						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Next Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "ddbeaf5d-4f6b-49f7-aa23-1a1523ad2ecd",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"id\"] = jsonData.id === pm.variables.get(\"VChallengeTask2ID\");",
+									"",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}/nextTask/{{VChallengeTask1ID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}",
+								"nextTask",
+								"{{VChallengeTask1ID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Virtual Challenge Previous Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "b604695f-ce62-444d-92fd-a14a4c068997",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"id\"] = jsonData.id === pm.variables.get(\"VChallengeTask1ID\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge/{{VirtualChallengeID}}/previousTask/{{VChallengeTask2ID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge",
+								"{{VirtualChallengeID}}",
+								"previousTask",
+								"{{VChallengeTask2ID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
 					},
 					"response": []
 				},
@@ -3192,6 +3407,11 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "user",
+			"description": "",
+			"item": []
 		}
 	]
 }

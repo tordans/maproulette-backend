@@ -214,6 +214,36 @@ class ChallengeController @Inject()(override val childController: TaskController
   }
 
   /**
+    * Gets the next task in sequential order for the specified challenge
+    *
+    * @param challengeId The current challenge id
+    * @param currentTaskId The current task id that is being viewed
+    * @param statusList Filter by task status
+    * @return The next task in the list
+    */
+  def getSequentialNextTask(challengeId:Long, currentTaskId:Long, statusList:String): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Utils.getResponseJSON(this.dalManager.task.getNextTaskInSequence(challengeId, currentTaskId,
+        Utils.toIntList(statusList)), this.dalManager.task.getLastModifiedUser));
+    }
+  }
+
+  /**
+    * Gets the previous task in sequential order for the specified challenge
+    *
+    * @param challengeId The current challenge id
+    * @param currentTaskId The current task id that is being viewed
+    * @param statusList Filter by task status
+    * @return The previous task in the list
+    */
+  def getSequentialPreviousTask(challengeId:Long, currentTaskId:Long, statusList:String): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Utils.getResponseJSON(this.dalManager.task.getPreviousTaskInSequence(challengeId, currentTaskId,
+        Utils.toIntList(statusList)), this.dalManager.task.getLastModifiedUser));
+    }
+  }
+
+  /**
     * Gets the featured challenges
     *
     * @param limit  The number of challenges to get
