@@ -2,6 +2,7 @@ package org.maproulette.models.utils
 
 import org.joda.time.DateTime
 import org.maproulette.models._
+import org.maproulette.utils.Utils.{jsonReads, jsonWrites}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
@@ -22,10 +23,6 @@ trait ChallengeWrites {
       ))
   }
   implicit val challengeExtraWrites: Writes[ChallengeExtra] = Json.writes[ChallengeExtra]
-
-  class jsonWrites(key:String) extends Writes[String] {
-    override def writes(value:String) : JsValue = Json.parse(value)
-  }
 
   implicit val challengeWrites: Writes[Challenge] = (
     (JsPath \ "id").write[Long] and
@@ -48,10 +45,6 @@ trait ChallengeReads extends DefaultReads {
   implicit val challengeCreationReads: Reads[ChallengeCreation] = Json.reads[ChallengeCreation]
   implicit val challengePriorityReads: Reads[ChallengePriority] = Json.reads[ChallengePriority]
   implicit val challengeExtraReads: Reads[ChallengeExtra] = Json.reads[ChallengeExtra]
-
-  class jsonReads(key:String) extends Reads[String] {
-    override def reads(value:JsValue) : JsResult[String] = JsSuccess(value.toString())
-  }
 
   implicit val challengeReads: Reads[Challenge] = (
     (JsPath \ "id").read[Long] and

@@ -227,7 +227,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     details.get() onComplete {
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
-          val newUser = User(detailsResponse.body, accessToken, config)
+          val newUser = User.generate(detailsResponse.body, accessToken, config)
           val osmUser = this.dalManager.user.insert(newUser, user)
           p success Some(this.dalManager.user.initializeHomeProject(osmUser))
         } catch {

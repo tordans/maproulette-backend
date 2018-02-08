@@ -3411,7 +3411,108 @@
 		{
 			"name": "user",
 			"description": "",
-			"item": []
+			"item": [
+				{
+					"name": "Get Super User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "cbcada60-281a-4af6-a5ce-fab6e9cff186",
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"id\"] = jsonData.id === -999;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/user/-999",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"user",
+								"-999"
+							]
+						},
+						"description": "Gets the super user that is automatically created with the system."
+					},
+					"response": []
+				},
+				{
+					"name": "Get OSM Super User ",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "a015f41e-3b14-4edf-a905-1af643a30a9e",
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"id\"] = jsonData.id === -999;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/osmuser/SuperUser",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"osmuser",
+								"SuperUser"
+							]
+						},
+						"description": "Gets the super user that is automatically created with the system by using the super user mocked OSM name."
+					},
+					"response": []
+				}
+			]
 		}
 	]
 }
