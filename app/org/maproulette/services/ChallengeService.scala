@@ -223,12 +223,19 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       case Some(JsObject(p)) =>
         val updatedMap = p.map {
           kv =>
-            val strValue = kv._2 match {
-              case v:JsNumber => v.toString()
-              case v:JsArray => v.as[Seq[String]].mkString(",")
-              case v => v.as[String]
+            try {
+              val strValue = kv._2 match {
+                case v: JsNumber => v.toString()
+                case v: JsArray => v.as[Seq[String]].mkString(",")
+                case v => v.as[String]
+              }
+              kv._1 -> strValue
+            } catch {
+              // if we can't convert it into a string, then just use the toString method and hope we get something sensible
+              // other option could be just to ignore it.
+              case e:Throwable =>
+                kv._1 -> kv._2.toString()
             }
-            kv._1 -> strValue
         }.toMap
         Json.toJson(updatedMap)
       case _ => Json.obj()

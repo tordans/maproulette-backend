@@ -26,6 +26,7 @@ class Scheduler @Inject() (val system: ActorSystem,
   schedule("updateLocations", "Updating locations", 1.minute, Config.KEY_SCHEDULER_UPDATE_LOCATIONS_INTERVAL)
   schedule("cleanOldTasks", "Cleaning old tasks", 1.minute, Config.KEY_SCHEDULER_CLEAN_TASKS_INTERVAL)
   schedule("cleanExpiredVirtualChallenges", "Cleaning up expired Virtual Challenges", 1.minute, Config.KEY_SCHEDULER_CLEAN_VC_INTEVAL)
+  schedule("OSMChangesetMatcher", "Matches OSM changesets to tasks", 1.minute, Config.KEY_SCHEDULER_OSM_MATCHER_INTERVAL)
 
   /**
     * Conditionally schedules message event when configured with a valid duration

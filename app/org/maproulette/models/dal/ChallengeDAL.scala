@@ -58,6 +58,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[DateTime]("challenges.created") ~
       get[DateTime]("challenges.modified") ~
       get[Option[String]]("challenges.description") ~
+      get[Option[String]]("challenges.info_link") ~
       get[Long]("challenges.owner_id") ~
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.instruction") ~
@@ -82,7 +83,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") map {
-      case id ~ name ~ created ~ modified ~ description ~ ownerId ~ parentId ~ instruction ~
+      case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ overpassql ~ remoteGeoJson ~
         status ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
         defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding =>
@@ -98,7 +99,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
         }
-        new Challenge(id, name, created, modified, description,
+        new Challenge(id, name, created, modified, description, infoLink,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
@@ -149,13 +150,13 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     this.permission.hasObjectWriteAccess(challenge, user)
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, blurb,
+        SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
                                       instruction, enabled, challenge_type, featured, checkin_comment,
                                       overpass_ql, remote_geo_json, status, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
                                       max_zoom, default_basemap, custom_basemap, updatetasks)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
-                      ${challenge.description}, ${challenge.general.blurb}, ${challenge.general.instruction},
+                      ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
                       ${challenge.general.checkinComment}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule}, ${challenge.priority.mediumPriorityRule},
@@ -199,6 +200,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val parentId = (updates \ "parentId").asOpt[Long].getOrElse(cachedItem.general.parent)
         val difficulty = (updates \ "difficulty").asOpt[Int].getOrElse(cachedItem.general.difficulty)
         val description =(updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
+        val infoLink =(updates \ "infoLink").asOpt[String].getOrElse(cachedItem.infoLink.getOrElse(""))
         val challengeType = (updates \ "challengeType").asOpt[Int].getOrElse(cachedItem.general.challengeType)
         val blurb = (updates \ "blurb").asOpt[String].getOrElse(cachedItem.general.blurb.getOrElse(""))
         val instruction = (updates \ "instruction").asOpt[String].getOrElse(cachedItem.general.instruction)
@@ -224,7 +226,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val updateTasks = (updates \ "updateTasks").asOpt[Boolean].getOrElse(cachedItem.extra.updateTasks)
 
         SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
-                description = $description, blurb = $blurb, instruction = $instruction,
+                description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
                 enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, overpass_ql = $overpassQL,
                 remote_geo_json = $remoteGeoJson, status = $overpassStatus, default_priority = $defaultPriority,
                 high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) { Option.empty[String] } else { Some(highPriorityRule) }},

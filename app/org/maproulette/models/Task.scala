@@ -39,7 +39,8 @@ case class Task(override val id:Long,
                 location: Option[String]=None,
                 geometries:String,
                 status:Option[Int]=None,
-                priority:Int=Challenge.PRIORITY_HIGH) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
+                priority:Int=Challenge.PRIORITY_HIGH,
+                changesetId:Option[Long]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
   def getGeometryProperties() : List[Map[String, String]] = {
@@ -191,7 +192,8 @@ object Task {
       "location" -> optional(text),
       "geometries" -> nonEmptyText,
       "status" -> optional(number),
-      "priority" -> default(number, Challenge.PRIORITY_HIGH)
+      "priority" -> default(number, Challenge.PRIORITY_HIGH),
+      "changesetId" -> optional(longNumber)
     )(Task.apply)(Task.unapply)
   )
 

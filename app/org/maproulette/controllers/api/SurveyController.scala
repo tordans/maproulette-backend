@@ -12,6 +12,7 @@ import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, AnyContent}
 
 /**
@@ -28,8 +29,9 @@ class SurveyController @Inject() (override val childController:TaskController,
                                   override val dal: SurveyDAL,
                                   dalManager: DALManager,
                                   override val tagDAL: TagDAL,
-                                  challengeService: ChallengeService)
-  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService) {
+                                  challengeService: ChallengeService,
+                                  wsClient: WSClient)
+  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService, wsClient) {
 
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()

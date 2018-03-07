@@ -14,7 +14,9 @@ import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent}
+import play.api.mvc.{Action, AnyContent, Result}
+import scala.concurrent.Promise
+import scala.util.{Failure, Success}
 
 /**
   * The Task controller handles all operations for the Task objects.
@@ -28,6 +30,8 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
                                 override val dal:TaskDAL,
                                 override val tagDAL: TagDAL)
   extends CRUDController[Task] with TagsMixin[Task] {
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   // json reads for automatically reading Tasks from a posted json body
   override implicit val tReads: Reads[Task] = Task.TaskFormat
@@ -219,6 +223,27 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         case None => None
       }
       this.dal.addComment(user, task.id, comment, actionId)
+    }
+  }
+
+  /**
+    * Matches the task to a OSM Changeset, this will only
+    *
+    * @param taskId the id for the task
+    * @return The new Task object
+    */
+  def matchToOSMChangeSet(taskId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedFutureRequest { implicit user =>
+      this.dal.retrieveById(taskId) match {
+        case Some(t) =>
+          val promise = Promise[Result]
+          this.dal.matchToOSMChangeSet(t, user, false) onComplete {
+            case Success(response) => promise success Ok(Json.toJson(t))
+            case Failure(error) => promise failure error
+          }
+          promise.future
+        case None => throw new NotFoundException("Task not found to update taskId with")
+      }
     }
   }
 

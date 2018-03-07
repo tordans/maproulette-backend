@@ -1238,6 +1238,78 @@ GET     /challenge/:id/comments                     @org.maproulette.controllers
 ###
 GET     /challenge/:id/comments/extract             @org.maproulette.controllers.api.ChallengeController.extractComments(id:Long, limit:Int ?= -1, page:Int ?= 0)
 ###
+# tags: [ Challenge ]
+# summary: Match OSM Changesets
+# description: This will go through every task and try to match an OSM changeset with the task
+# response:
+#   '200':
+#     description: Will always return Ok unless not authenticated
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Challenge with provided ID found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID of the challenge
+#     required: true
+#   - name: skipSet
+#     in: query
+#     description: Will skip any tasks if the changesets are already set if this is set to true
+#     default: false
+###
+GET     /challenge/:id/matchChangesets          @org.maproulette.controllers.api.ChallengeController.matchChangeSets(id:Long, skipSet:Boolean ?= false)
+###
+# tags: [ Challenge ]
+# summary: Create Challenge from Github
+# description: This will pull the following files from Github, ${name}_create.json, ${name}_geojson.json, ${name}_info.md, and create a Challenge from it. The create file will be the json used to create the challenge. Similarly to if you supplied json in the create method. The info.md file is just an informational file that can be used later for challenge information to the user. And geojson.json which is used to generate the tasks. If the challenge has been previously created, it will just update the tasks from the geojson
+# response:
+#   '200':
+#     description: The retrieved Challenge
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No Project with provided ID found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID of the parent project
+#     required: true
+#   - name: username
+#     in: path
+#     description: username of the github user that owns the repo
+#     required: true
+#   - name: repo
+#     in: path
+#     description: Github repositories that contains the challenge files
+#     required: true
+#   - name: name
+#     in: path
+#     description: The name of the challenge that prefixes all the github files
+#     required: true
+###
+POST     /project/:projectId/challenge/:username/:repo/:name   @org.maproulette.controllers.api.ChallengeController.createFromGithub(projectId:Long, username:String, repo:String, name:String, rebuild:Boolean ?= false)
+###
+# tags: [ Challenge ]
+# summary: Extracts a Challenge Package
+# description: This will retrieve a package of the challenge, which will contain json to recreate the challenge, geojson to recreate the tasks, info page in md format if any, all the comments extracted from for the challenge and any metrics and the time the challenge was extracted.
+# response:
+#   '200':
+#     description: A gzipped file containing a package of the challenge
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: No project with provided ID found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID of the challenge
+#     required: true
+###
+GET     /challenge/:id/extract                      @org.maproulette.controllers.api.ChallengeController.extractPackage(id:Long)
+###
 # tags: [ Virtual Challenge ]
 # summary: Create a Virtual Challenge
 # consumes: [ application/json ]
@@ -2068,6 +2140,31 @@ GET     /tasks/random                               @org.maproulette.controllers
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0)
+###
+# tags: [ Task ]
+# summary: Update Task Changeset
+# produces: [ application/json ]
+# description: Will update the changeset of the task. It will do this by attempting to match the OSM changeset to the Task based on the geometry and the time that the changeset was executed.
+# responses:
+#   '200':
+#     description: The task that was updated. With the updated changeset value
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the task
+###
+PUT     /task/:id/changeset                         @org.maproulette.controllers.api.TaskController.matchToOSMChangeSet(id:Long)
 ###
 # tags: [ Task ]
 # summary: Update Task Status
