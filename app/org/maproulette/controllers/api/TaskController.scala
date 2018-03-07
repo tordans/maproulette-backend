@@ -6,16 +6,24 @@ import java.net.URLDecoder
 import java.sql.Connection
 import javax.inject.Inject
 
+import com.vividsolutions.jts.geom.Envelope
+import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
-import org.maproulette.models.{Challenge, Comment, Tag, Task}
+import org.maproulette.models._
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
+import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
+import org.wololo.jts2geojson.GeoJSONReader
+import play.api.Logger
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent, Result}
-import scala.concurrent.Promise
+import play.api.libs.ws.WSClient
+import play.api.mvc.{Action, AnyContent, Request, Result}
+
+import scala.concurrent.{Await, Promise}
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /**
@@ -28,7 +36,9 @@ import scala.util.{Failure, Success}
 class TaskController @Inject() (override val sessionManager: SessionManager,
                                 override val actionManager: ActionManager,
                                 override val dal:TaskDAL,
-                                override val tagDAL: TagDAL)
+                                override val tagDAL: TagDAL,
+                                wsClient:WSClient,
+                                config:Config)
   extends CRUDController[Task] with TagsMixin[Task] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -158,7 +168,10 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
         taskSearch = Some(taskSearch)
       )
       val result = this.dal.getRandomTasks(User.userOrMocked(user), params, limit, None, Utils.negativeToOption(proximityId))
-      result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
+      result.map(task => {
+        this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), "")
+        this.inject(task)
+      })
       Ok(Json.toJson(result))
     }
   }

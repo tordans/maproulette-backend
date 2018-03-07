@@ -7,9 +7,9 @@ import org.joda.time.DateTime
 import org.maproulette.actions.{ItemType, TaskType}
 import org.maproulette.utils.Utils
 import play.api.data.Form
+import play.api.data.format.Formats._
 import play.api.data.Forms._
 import play.api.libs.json._
-import play.api.libs.functional.syntax._
 
 /**
   * The primary object in MapRoulette is the task, this is the object that defines the actual problem
@@ -94,7 +94,9 @@ object Task {
       Utils.insertIntoJson(updated, "geometries", Json.parse(o.geometries), true)
     }
 
-    override def reads(json: JsValue): JsResult[Task] = Json.fromJson[Task](json)(Json.reads[Task])
+    override def reads(json: JsValue): JsResult[Task] = {
+      Json.fromJson[Task](json)(Json.reads[Task])
+    }
   }
 
   val STATUS_CREATED = 0

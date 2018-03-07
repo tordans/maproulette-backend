@@ -625,13 +625,18 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The id of the random challenge
     */
   private def getRandomChallenge(params: SearchParameters)(implicit c:Option[Connection]=None) : Option[Long] = {
-    params.challengeId match {
-      case Some(id) if id > -1 => Some(id)
-      case _ =>
+    params.getChallengeIds match {
+      case Some(v) if v.lengthCompare(1) == 0 => Some(v.head)
+      case v =>
         withMRConnection { implicit c =>
           val parameters = new ListBuffer[NamedParameter]()
           val whereClause = new StringBuilder
           val joinClause = new StringBuilder
+
+          v match {
+            case Some(l) if l.nonEmpty => appendInWhereClause(whereClause, s"c.id IN (${l.mkString(",")})")
+            case None => // ignore
+          }
 
           if (params.enabledChallenge) {
             appendInWhereClause(whereClause, "c.enabled = true")
@@ -765,7 +770,10 @@ class TaskDAL @Inject()(override val db: Database,
         withMRConnection { implicit c =>
           val parameters = new ListBuffer[NamedParameter]()
           val whereClause = new StringBuilder(
-            s"WHERE t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)"
+            s"""
+               WHERE t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)
+               AND p.deleted = false AND c.deleted = false
+              """
           )
           val joinClause = new StringBuilder(
             """
@@ -789,19 +797,21 @@ class TaskDAL @Inject()(override val db: Database,
 
           val query =
             s"""
-              SELECT t.id, t.name, t.instruction, t.status,
-                     ST_AsGeoJSON(t.location) AS location FROM tasks t
+              SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status,
+                     ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
               ${joinClause.toString()}
               ${whereClause.toString()}
               ORDER BY RANDOM()
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
-          val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") map {
-            case id ~ name ~ instruction ~ location ~ status =>
+          val pointParser = long("t.id") ~ str("t.name") ~ int("t.parent_id") ~ str("c.name") ~
+                            str("t.instruction") ~ str("location") ~ int("t.status") ~ int("t.priority") map {
+            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
-              ClusteredPoint(id, -1, "", name, point, JsString(""), instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+              ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
+                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }

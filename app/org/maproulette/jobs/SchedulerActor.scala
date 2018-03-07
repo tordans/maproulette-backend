@@ -45,6 +45,7 @@ class SchedulerActor @Inject() (config:Config,
     case RunJob("cleanExpiredVirtualChallenges", action) => this.cleanExpiredVirtualChallenges(action)
     case RunJob("FindChangeSets", action) => this.findChangeSets(action)
     case RunJob("OSMChangesetMatcher", action) => this.matchChangeSets(action)
+    case RunJob("cleanDeleted", action) => this.cleanDeleted(action)
   }
 
   /**
@@ -213,6 +214,20 @@ class SchedulerActor @Inject() (config:Config,
             }
           case _ => // Do nothing because there is nothing to do
         }
+      }
+    }
+  }
+
+  def cleanDeleted(action:String) : Unit = {
+    Logger.info(action)
+    db.withConnection { implicit c =>
+      val deletedProjects = SQL"DELETE FROM projects WHERE deleted = true RETURNING id".as(SqlParser.int("id").*)
+      if (deletedProjects.nonEmpty) {
+        Logger.debug(s"Finalized deletion of projects with id [${deletedProjects.mkString(",")}]")
+      }
+      val deletedChallenges = SQL"DELETE FROM challenges WHERE deleted = true RETURNING id".as(SqlParser.int("id").*)
+      if (deletedChallenges.nonEmpty) {
+        Logger.debug(s"Finalized deletion of challenges with id [${deletedChallenges.mkString(",")}]")
       }
     }
   }

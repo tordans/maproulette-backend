@@ -307,7 +307,10 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
   }
 
   /**
-    * Retrieves the json that contains the central points for all the tasks in the virtual challenge
+    * Retrieves the json that contains the central points for all the tasks in the virtual challenge.
+    * One caveat to Virtual Challenges, is that if a project or challenge is flagged as deleted that has tasks
+    * in the virtual challenge, then those tasks will remain part of the virtual challenge until the
+    * tasks are cleared from the database.
     *
     * @param challengeId The id of the virtual challenge
     * @param statusFilter Filter the displayed task cluster points by their status
@@ -320,15 +323,16 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") map {
-        case id ~ name ~ instruction ~ location ~ status =>
+      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") ~ int("priority") map {
+        case id ~ name ~ instruction ~ location ~ status ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, -1, "", name, point, JsString(""), instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+          ClusteredPoint(id, -1, "", name, -1, "", point, JsString(""),
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
       }
       SQL"""SELECT id, name, instruction, status,
-                      ST_AsGeoJSON(location) AS location
+                      ST_AsGeoJSON(location) AS location, priority
               FROM tasks WHERE id IN
               (SELECT task_id FROM virtual_challenge_tasks
                 WHERE virtual_challenge_id = $challengeId) #$filter"""

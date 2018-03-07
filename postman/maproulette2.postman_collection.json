@@ -162,6 +162,114 @@
 					"response": []
 				},
 				{
+					"name": "Challenge Retrieved Deleted",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "a2946065-6872-4c57-a68c-d9db2083e7cc",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"status\"] = jsonData.status === \"OK\";",
+									"tests[\"name\"] = jsonData.name === \"SimpleChallenge\";",
+									"tests[\"deleted\"] = jsonData.deleted === true;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengeID}}"
+							]
+						},
+						"description": "Deletes the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Immediate Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}?immediate=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengeID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true",
+									"equals": true
+								}
+							]
+						},
+						"description": "Deletes the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
 					"name": "Challenge Tag Creation",
 					"event": [
 						{
@@ -763,7 +871,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}",
+							"raw": "http://localhost:9000/api/v2/challenge/{{TagsChallengeID}}?immediate=true",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -774,6 +882,13 @@
 								"v2",
 								"challenge",
 								"{{TagsChallengeID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true",
+									"equals": true
+								}
 							]
 						},
 						"description": "Deletes the Tag challenge for the provided ID"
@@ -812,7 +927,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}?immediate=true",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -823,6 +938,13 @@
 								"v2",
 								"project",
 								"{{SimpleProjectID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true",
+									"equals": true
+								}
 							]
 						},
 						"description": "Deletes the project that was used for the challenge tests."
@@ -2487,7 +2609,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}",
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}?immediate=true",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -2498,6 +2620,13 @@
 								"v2",
 								"project",
 								"{{SimpleProjectID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true",
+									"equals": true
+								}
 							]
 						},
 						"description": "Deletes the project created by the project creation. Would need to modify the supplied ID."
@@ -3418,18 +3547,21 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "cbcada60-281a-4af6-a5ce-fab6e9cff186",
+								"id": "2740d979-7705-40db-a5af-a07618e427c0",
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"id\"] = jsonData.id === -999;"
+									"tests[\"id\"] = jsonData.id === -999;",
+									"tests[\"test1\"] = jsonData.properties.test1 === \"value1\";",
+									"tests[\"test2\"] = jsonData.properties.test2 === 8975;",
+									"tests[\"test3\"] = jsonData.properties.test3 === true;"
 								]
 							}
 						}
 					],
 					"request": {
-						"method": "GET",
+						"method": "PUT",
 						"header": [
 							{
 								"key": "apiKey",
@@ -3442,7 +3574,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": ""
+							"raw": "{\n\t\"properties\": {\n\t\t\"test1\":\"value1\",\n\t\t\"test2\":8975,\n\t\t\"test3\":true\n\t}\n}"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/user/-999",

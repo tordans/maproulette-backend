@@ -59,6 +59,7 @@ case class Challenge(override val id:Long,
                      override val created:DateTime,
                      override val modified:DateTime,
                      override val description:Option[String]=None,
+                     deleted:Boolean = false,
                      infoLink:Option[String]=None,
                      general:ChallengeGeneral,
                      creation:ChallengeCreation,
@@ -153,6 +154,7 @@ object Challenge {
       "created" -> default(jodaDate, DateTime.now()),
       "modified" -> default(jodaDate, DateTime.now()),
       "description" -> optional(text),
+      "deleted" -> default(boolean, false),
       "infoLink" -> optional(text),
       "general" -> mapping(
         "owner" -> longNumber,
@@ -190,7 +192,7 @@ object Challenge {
   )
 
   def emptyChallenge(ownerId:Long, parentId:Long) : Challenge = Challenge(
-    -1, "", DateTime.now(), DateTime.now(), None, None, ChallengeGeneral(-1, -1, ""),
+    -1, "", DateTime.now(), DateTime.now(), None, false, None, ChallengeGeneral(-1, -1, ""),
     ChallengeCreation(), ChallengePriority(), ChallengeExtra()
   )
 

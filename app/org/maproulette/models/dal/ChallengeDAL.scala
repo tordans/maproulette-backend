@@ -82,11 +82,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("locationJSON") ~
-      get[Option[String]]("boundingJSON") map {
+      get[Option[String]]("boundingJSON") ~
+      get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ overpassql ~ remoteGeoJson ~
         status ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
-        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding =>
+        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -99,7 +100,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
         }
-        new Challenge(id, name, created, modified, description, infoLink,
+        new Challenge(id, name, created, modified, description, deleted, infoLink,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
@@ -255,7 +256,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
-                      WHERE challenge_type = $challengeType
+                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
                       ${this.searchField("c.name")}
                       ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                       ${this.parentFilter(parentId)}
@@ -308,6 +309,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
                       WHERE featured = TRUE ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
+                      AND c.deleted = false and p.deleted = false
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -339,6 +341,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON c.parent_id = p.id
                       WHERE ${this.enabled(enabledOnly, "c")(None)} ${this.enabled(enabledOnly, "p")}
+                      AND c.deleted = false and p.deleted = false
                       ${this.order(Some("created"), "DESC", "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -386,16 +389,23 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") map {
-        case id ~ name ~ instruction ~ location ~ status =>
+      val pointParser = long("t.id") ~ str("t.name") ~ long("t.parent_id") ~ str("c.name") ~
+                        str("t.instruction") ~ str("location") ~ int("t.status") ~ int("t.priority") map {
+        case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          ClusteredPoint(id, -1, "", name, point, JsString(""), instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status)
+          ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
       }
-        SQL"""SELECT id, name, instruction, status,
-                      ST_AsGeoJSON(location) AS location
-              FROM tasks WHERE parent_id = $challengeId #$filter"""
+        SQL"""SELECT t.id, t.name, t.instruction, t.status, t.parent_id, c.name,
+                      ST_AsGeoJSON(t.location) AS location, t.priority
+              FROM tasks t
+              INNER JOIN challenges c ON c.id = t.parent_id
+              INNER JOIN projects p ON p.id = c.parent_id
+              WHERE t.parent_id = $challengeId
+                AND p.deleted = false AND c.deleted = false
+              #$filter"""
           .as(pointParser.*)
     }
   }
@@ -580,7 +590,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                   (implicit c:Option[Connection]=None) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
-      val whereClause = new StringBuilder()
+      // never include deleted items in the search
+      val whereClause = new StringBuilder("c.deleted = false AND p.deleted = false")
       val joinClause = new StringBuilder()
 
       parameters ++= addSearchToQuery(searchParameters, whereClause)
@@ -608,7 +619,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       }
 
       searchParameters.projectEnabled match {
-        case Some(true) if searchParameters.projectId.isEmpty => this.appendInWhereClause(whereClause, this.enabled(true, "p")(None))
+        case Some(true) => this.appendInWhereClause(whereClause, this.enabled(true, "p")(None))
         case _ =>
       }
 
@@ -622,7 +633,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
            |SELECT ${this.retrieveColumns} FROM challenges c
            |INNER JOIN projects p ON p.id = c.parent_id
            |$joinClause
-           |${if (whereClause.nonEmpty) { s"WHERE $whereClause" } else { "" }}
+           |${s"WHERE $whereClause"}
            |LIMIT ${this.sqlLimit(limit)} OFFSET $offset
          """.stripMargin
 

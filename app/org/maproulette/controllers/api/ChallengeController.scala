@@ -16,6 +16,7 @@ import org.maproulette.data.{ActionSummary, ChallengeSummary}
 import org.maproulette.exception.{MPExceptionUtil, NotFoundException, StatusMessage}
 import org.maproulette.models.dal._
 import org.maproulette.models._
+import org.maproulette.permissions.Permission
 import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
@@ -42,7 +43,8 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     dalManager: DALManager,
                                     override val tagDAL: TagDAL,
                                     challengeService: ChallengeService,
-                                    wsClient:WSClient)
+                                    wsClient:WSClient,
+                                    permission:Permission)
   extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -69,7 +71,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param obj the object being sent in the response
     * @return A Json representation of the object
     */
-  override def inject(obj: Challenge) = {
+  override def inject(obj: Challenge)(implicit request:Request[Any]) = {
     val tags = tagDAL.listByChallenge(obj.id)
     val withTagsJson = Utils.insertIntoJson(Json.toJson(obj), Tag.KEY, Json.toJson(tags.map(_.name)))
     obj.general.challengeType match {
@@ -91,6 +93,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     var jsonBody = super.updateCreateBody(body, user)
     jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "deleted", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
@@ -187,7 +190,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
-          challengeId = Some(challengeId),
+          challengeIds = Some(List(challengeId)),
           taskSearch = Some(taskSearch),
           taskTags = Some(Utils.split(tags))
         )
@@ -212,7 +215,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
-          challengeId = Some(challengeId),
+          challengeIds = Some(List(challengeId)),
           taskSearch = Some(taskSearch),
           taskTags = Some(Utils.split(tags))
         )
@@ -507,6 +510,44 @@ class ChallengeController @Inject()(override val childController: TaskController
             )
           }
         case None => Future { NotFound }
+      }
+    }
+  }
+
+  /**
+    * Clones a challenge with a new name
+    *
+    * @param itemId The item id of the challenge you want to clone
+    * @param newName The new name of the cloned challenge
+    * @return The newly created cloned challenge
+    */
+  def cloneChallenge(itemId:Long, newName:String) : Action[AnyContent] = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      dalManager.challenge.retrieveById(itemId) match {
+        case Some(c) =>
+          permission.hasWriteAccess(ProjectType(), user)(c.general.parent)
+          val clonedChallenge = c.copy(id = -1, name = newName)
+          Ok(Json.toJson(this.dal.insert(clonedChallenge, user)))
+        case None =>
+          throw new NotFoundException(s"No challenge found to clone matching the given id [$itemId]")
+      }
+    }
+  }
+
+  /**
+    * Rebuilds a challenge if it uses a remote geojson or overpass query to generate it's tasks
+    *
+    * @param challengeId The id of the challenge
+    * @return A 200 status OK
+    */
+  def rebuildChallenge(challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      dalManager.challenge.retrieveById(challengeId) match {
+        case Some(c) =>
+          permission.hasWriteAccess(ProjectType(), user)(c.general.parent)
+          challengeService.rebuildChallengeTasks(user, c)
+          Ok
+        case None => throw new NotFoundException(s"No challenge found with id $challengeId")
       }
     }
   }

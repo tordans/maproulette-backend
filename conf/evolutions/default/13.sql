@@ -7,6 +7,27 @@ SELECT create_index_if_not_exists('status_actions', 'osm_user_id_created', '(osm
 SELECT add_drop_column('tasks', 'changeset_id', 'integer DEFAULT -1');;
 SELECT add_drop_column('challenges', 'info_link', 'character varying');;
 
+-- Add deleted columns for challenges and projects
+SELECT add_drop_column('challenges', 'deleted', 'boolean default false');;
+SELECT add_drop_column('projects', 'deleted', 'boolean default false');;
+
+-- Add trigger function that will set challenges to deleted if the project is deleted
+CREATE OR REPLACE FUNCTION on_project_delete_update() RETURNS TRIGGER AS $$
+BEGIN
+  IF new.deleted = true AND old.deleted = false THEN
+    UPDATE challenges SET deleted = true WHERE parent_id = new.id;;
+  ELSEIF IF new.deleted = false AND old.deleted = true THEN
+    UPDATE challenges SET deleted = false WHERE parent_id = new.id;;
+  END IF;;
+  RETURN new;;
+END
+$$
+LANGUAGE plpgsql VOLATILE;;
+
+DROP TRIGGER IF EXISTS on_project_update_delete ON projects;;
+CREATE TRIGGER on_project_update_delete AFTER UPDATE ON projects
+  FOR EACH ROW EXECUTE PROCEDURE on_project_delete_update();;
+
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change simply adds the priority
 CREATE OR REPLACE FUNCTION create_update_task(task_name text,

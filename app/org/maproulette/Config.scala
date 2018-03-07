@@ -167,6 +167,7 @@ object Config {
   val KEY_SCHEDULER_OSM_MATCHER_BATCH_SIZE = s"$SUB_GROUP_SCHEDULER.osmMatcher.batchSize"
   val KEY_SCHEDULER_OSM_MATCHER_ENABLED = s"$SUB_GROUP_SCHEDULER.osmMatcher.enabled"
   val KEY_SCHEDULER_OSM_MATCHER_MANUAL = s"$SUB_GROUP_SCHEDULER.osmMatcher.manual"
+  val KEY_SCHEDULER_CLEAN_DELETED = s"$SUB_GROUP_SCHEDULER.cleanDeleted.interval"
 
   val GROUP_OSM = "osm"
   val KEY_OSM_SERVER = s"$GROUP_OSM.server"
