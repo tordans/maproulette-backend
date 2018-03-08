@@ -61,18 +61,18 @@ class ProjectDAL @Inject() (override val db:Database,
   }
 
   val pointParser = {
-    long("c.id") ~
+    long("challenges.id") ~
       int("users.osm_id") ~
       str("users.name") ~
-      str("c.name") ~
-      int("c.parent_id") ~
-      str("p.name") ~
-      get[Option[String]]("c.blurb") ~
+      str("challenges.name") ~
+      int("challenges.parent_id") ~
+      str("projects.name") ~
+      get[Option[String]]("challenges.blurb") ~
       str("location") ~
       str("bounding") ~
-      get[DateTime]("c.last_updated") ~
-      int("c.difficulty") ~
-      int("c.challenge_type") map {
+      get[DateTime]("challenges.last_updated") ~
+      int("challenges.difficulty") ~
+      int("challenges.challenge_type") map {
       case id ~ osm_id ~ username ~ name ~ parentId ~ parentName ~ blurb ~ location ~ bounding ~ modified ~ difficulty ~ challengeType =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
@@ -265,7 +265,7 @@ class ProjectDAL @Inject() (override val db:Database,
           ${this.enabled(params.enabledChallenge, "c")} ${this.enabled(params.enabledProject, "p")}
           AND c.deleted = false and p.deleted = false
           ${params.getProjectIds match {
-              case Some(v) if v.nonEmpty => s" AND c.parent_id IN (${params.projectIds.get})"
+              case Some(v) if v.nonEmpty => s" AND c.parent_id IN (${v.mkString(",")})"
               case None => ""
            }}
           $locationClause

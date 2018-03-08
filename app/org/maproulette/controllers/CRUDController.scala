@@ -246,8 +246,12 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.delete(id.toLong, user, immediate)
       this.actionManager.setAction(Some(user), this.itemType.convertToItem(id.toLong), Deleted(), "")
-      Ok(Json.toJson(StatusMessage("OK",
-        JsString(s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."))))
+      val message = if (immediate) {
+        JsString(s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}.")
+      } else {
+        JsString(s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id set for delayed deletion by user ${user.id}.")
+      }
+      Ok(Json.toJson(StatusMessage("OK", message)))
     }
   }
 

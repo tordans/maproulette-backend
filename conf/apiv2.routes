@@ -209,7 +209,7 @@ GET     /projectByName/:name                        @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-DELETE  /project/:id                                @org.maproulette.controllers.api.ProjectController.delete(id:Long, immediate:Boolean = false)
+DELETE  /project/:id                                @org.maproulette.controllers.api.ProjectController.delete(id:Long, immediate:Boolean ?= false)
 ###
 # tags: [ Project ]
 # summary: Undeletes a Project

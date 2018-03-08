@@ -804,8 +804,8 @@ class TaskDAL @Inject()(override val db: Database,
               ORDER BY RANDOM()
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
-          val pointParser = long("t.id") ~ str("t.name") ~ int("t.parent_id") ~ str("c.name") ~
-                            str("t.instruction") ~ str("location") ~ int("t.status") ~ int("t.priority") map {
+          val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
+                            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.priority") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]

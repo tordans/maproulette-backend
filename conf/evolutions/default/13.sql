@@ -85,4 +85,9 @@ END
 $$
 LANGUAGE plpgsql VOLATILE;;
 
+-- Add constraint that doesn't allow the same user to create a virtual challenge with the same name
+ALTER TABLE virtual_challenges DROP CONSTRAINT IF EXISTS CON_VIRTUAL_CHALLENGES_USER_ID_NAME;;
+ALTER TABLE virtual_challenges ADD CONSTRAINT CON_VIRTUAL_CHALLENGES_USER_ID_NAME
+  UNIQUE (owner_id, name);;
+
 # --- !Downs

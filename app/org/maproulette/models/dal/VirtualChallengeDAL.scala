@@ -42,10 +42,11 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
       get[DateTime]("virtual_challenges.created") ~
       get[DateTime]("virtual_challenges.modified") ~
       get[Option[String]]("virtual_challenges.description") ~
+      get[Long]("virtual_challenges.owner_id") ~
       get[String]("virtual_challenges.search_parameters") ~
       get[DateTime]("virtual_challenges.expiry") map {
-      case id ~ name ~ created ~ modified ~ description ~ searchParameters ~ expiry =>
-        new VirtualChallenge(id, name, created, modified, description, Json.parse(searchParameters).as[SearchParameters], expiry)
+      case id ~ name ~ created ~ modified ~ description ~ ownerId ~ searchParameters ~ expiry =>
+        new VirtualChallenge(id, name, created, modified, description, ownerId, Json.parse(searchParameters).as[SearchParameters], expiry)
     }
   }
 
@@ -58,9 +59,11 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(element: VirtualChallenge, user: User)(implicit c: Option[Connection]=None): VirtualChallenge = {
-    permission.hasWriteAccess(VirtualChallengeType(), user)(-1)
     this.cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
+        // check if any virtual challenges with the same name need to expire
+        // calling the retrieve function will also remove any expired virtual challenges
+        this.retrieveListByName(List(element.name))
         element.searchParameters.location match {
           case Some(box) if ((box.right - box.left) * (box.top - box.bottom)) < config.virtualChallengeLimit =>
               val query = """INSERT INTO virtual_challenges (owner_id, name, description, search_parameters, expiry)
@@ -351,6 +354,16 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     }
   }
 
+  /**
+    * For Virtual Challenges the retrieveByName function won't quite work as expected, there is a possibility
+    * that there are multiple Virtual Challenges with the same name. This function will simply return the
+    * first one. Generally retrieveListByName should be used instead.
+    *
+    * @param name The name you are looking up by
+    * @param parentId
+    * @param c
+    * @return The object that you are looking up, None if not found
+    */
   override def retrieveByName(implicit name: String, parentId: Long, c: Option[Connection]=None): Option[VirtualChallenge] = {
     super.retrieveByName match {
       case Some(vc) if vc.isExpired =>
@@ -361,22 +374,32 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
   }
 
   override def retrieveListById(limit: Int, offset: Int)(implicit ids: List[Long], c: Option[Connection]=None): List[VirtualChallenge] =
-    super.retrieveListById(limit, offset).filter(!_.isExpired)
+    this.removeExpiredFromList(super.retrieveListById(limit, offset))
 
   override def retrieveListByName(implicit names: List[String], parentId: Long, c: Option[Connection]=None): List[VirtualChallenge] =
-    super.retrieveListByName.filter(!_.isExpired)
+    this.removeExpiredFromList(super.retrieveListByName)
 
   override def retrieveListByPrefix(prefix: String, limit: Int, offset: Int, onlyEnabled: Boolean, orderColumn: String, orderDirection: String)
                                    (implicit parentId: Long, c: Option[Connection]=None): List[VirtualChallenge] =
-    super.retrieveListByPrefix(prefix, limit, offset, onlyEnabled, orderColumn, orderDirection).filter(!_.isExpired)
+    this.removeExpiredFromList(super.retrieveListByPrefix(prefix, limit, offset, onlyEnabled, orderColumn, orderDirection))
 
   override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean, orderColumn: String, orderDirection: String)
                    (implicit parentId: Long, c: Option[Connection]=None): List[VirtualChallenge] =
-    super.find(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection).filter(!_.isExpired)
+    this.removeExpiredFromList(super.find(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection))
 
   override def list(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String, orderColumn: String, orderDirection: String)
                    (implicit parentId: Long, c: Option[Connection]=None): List[VirtualChallenge] =
-    super.list(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection).filter(!_.isExpired)
+    this.removeExpiredFromList(super.list(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection))
 
+  private def removeExpiredFromList(superList:List[VirtualChallenge]) : List[VirtualChallenge] = {
+    superList.flatMap(vc => {
+      if (vc.isExpired) {
+        this.delete(vc.id, User.superUser)
+        None
+      } else {
+        Some(vc)
+      }
+    })
+  }
   // --- END OF OVERRIDDEN FUNCTIONS TO FILTER OUT ANY EXPIRED VIRTUAL CHALLENGES
 }

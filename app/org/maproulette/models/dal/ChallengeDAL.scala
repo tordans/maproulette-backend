@@ -389,8 +389,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      val pointParser = long("t.id") ~ str("t.name") ~ long("t.parent_id") ~ str("c.name") ~
-                        str("t.instruction") ~ str("location") ~ int("t.status") ~ int("t.priority") map {
+      val pointParser = long("tasks.id") ~ str("tasks.name") ~ long("tasks.parent_id") ~ str("challenges.name") ~
+                        str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.priority") map {
         case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]

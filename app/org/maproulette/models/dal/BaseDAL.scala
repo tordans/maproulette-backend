@@ -212,7 +212,7 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
     this.cacheManager.withOptionCaching { () =>
       this.withMRConnection { implicit c =>
         val query = s"SELECT ${this.retrieveColumns} FROM ${this.tableName} WHERE name = {name} ${this.parentFilter(parentId)}"
-        SQL(query).on('name -> name).as(this.parser.singleOpt)
+        SQL(query).on('name -> name).as(this.parser.*).headOption
       }
     }
   }
