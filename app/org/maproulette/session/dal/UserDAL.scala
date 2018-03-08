@@ -381,7 +381,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The user to delete
     * @return The rows that were deleted
     */
-  override def delete(id: Long, user:User)(implicit c:Option[Connection]=None) : User = {
+  override def delete(id: Long, user:User, immediate:Boolean=false)(implicit c:Option[Connection]=None) : User = {
     this.permission.hasSuperAccess(user)
     retrieveById(id) match {
       case Some(u) => userGroupDAL.clearUserCache(u.osmProfile.id)
