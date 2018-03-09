@@ -382,7 +382,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param statusFilter Filter the displayed task cluster points by their status
     * @return A list of clustered point objects
     */
-  def getClusteredPoints(challengeId:Long, statusFilter:Option[List[Int]]=None)
+  def getClusteredPoints(challengeId:Long, statusFilter:Option[List[Int]]=None, limit:Int=2500)
                                (implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val filter = statusFilter match {
@@ -405,7 +405,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
               INNER JOIN projects p ON p.id = c.parent_id
               WHERE t.parent_id = $challengeId
                 AND p.deleted = false AND c.deleted = false
-              #$filter"""
+                AND ST_AsGeoJSON(t.location) IS NOT NULL
+              #$filter
+              LIMIT #${sqlLimit(limit)}"""
           .as(pointParser.*)
     }
   }

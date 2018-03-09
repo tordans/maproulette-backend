@@ -16,7 +16,7 @@ CREATE OR REPLACE FUNCTION on_project_delete_update() RETURNS TRIGGER AS $$
 BEGIN
   IF new.deleted = true AND old.deleted = false THEN
     UPDATE challenges SET deleted = true WHERE parent_id = new.id;;
-  ELSEIF IF new.deleted = false AND old.deleted = true THEN
+  ELSEIF new.deleted = false AND old.deleted = true THEN
     UPDATE challenges SET deleted = false WHERE parent_id = new.id;;
   END IF;;
   RETURN new;;
