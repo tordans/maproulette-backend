@@ -165,7 +165,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
-  def getClusteredPoints(challengeId: Long, statusFilter: String): Action[AnyContent] = Action.async { implicit request =>
+  def getClusteredPoints(challengeId: Long, statusFilter: String, limit:Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       implicit val writes = ClusteredPoint.clusteredPointWrites
       val filter = if (StringUtils.isEmpty(statusFilter)) {
@@ -173,7 +173,7 @@ class ChallengeController @Inject()(override val childController: TaskController
       } else {
         Some(Utils.split(statusFilter).map(_.toInt))
       }
-      Ok(Json.toJson(this.dal.getClusteredPoints(challengeId, filter)))
+      Ok(Json.toJson(this.dal.getClusteredPoints(challengeId, filter, limit)))
     }
   }
 
