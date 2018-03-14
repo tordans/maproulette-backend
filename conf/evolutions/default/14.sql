@@ -1,8 +1,8 @@
 # --- MapRoulette Scheme
 
 # --- !Ups
-SELECT add_drop_column('task_comments', 'challenge_id', 'integer NOT NULL -1');;
-SELECT add_drop_column('task_comments', 'project_id', 'integer NOT NULL -1');;
+SELECT add_drop_column('task_comments', 'challenge_id', 'integer NOT NULL DEFAULT -1');;
+SELECT add_drop_column('task_comments', 'project_id', 'integer NOT NULL DEFAULT -1');;
 -- update current projects before adding the constraints
 UPDATE task_comments SET challenge_id = (SELECT parent_id FROM tasks WHERE task_comments.task_id = id),
                           project_id = (SELECT c.parent_id FROM challenges c
