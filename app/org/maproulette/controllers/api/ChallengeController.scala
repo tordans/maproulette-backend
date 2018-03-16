@@ -318,11 +318,11 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Retrieve all the comments for a specific challenge
     *
     * @param challengeId The id of the challenge
-    * @return A map of task id's to comments that exist for a specific challenge
+    * @return A list of comments that exist for a specific challenge
     */
   def retrieveComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.dalManager.task.retrieveCommentsForChallenge(challengeId, limit, page).map(c => c._1+"" -> c._2)))
+      Ok(Json.toJson(this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)))
     }
   }
 
@@ -344,13 +344,11 @@ class ChallengeController @Inject()(override val childController: TaskController
   }
 
   private def _extractComments(challengeId:Long, limit:Int, page:Int, host:String) : Seq[String] = {
-    val comments = this.dalManager.task.retrieveCommentsForChallenge(challengeId, limit, page)
+    val comments = this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)
     val urlPrefix = s"http://$host/"
-    comments.flatMap(c =>
-      c._2.map(comment =>
-        s"""$challengeId,${c._1},${comment.osm_id},${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${c._1}"""
-      )
-    ).toSeq
+    comments.map(comment =>
+      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}"""
+    )
   }
 
   /**
