@@ -1064,6 +1064,63 @@ POST    /challenge/:id/tasks                        @org.maproulette.controllers
 PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
 ###
 # tags: [ Challenge ]
+# summary: Add tasks to a challenge
+# consumes: [ application/json ]
+# description: This will create tasks within a challenge based on the provided geojson in the body of the PUT request
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload. It is required that the body is JSON.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the parent Challenge where all the children are being created.
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The geojson to build the tasks from.
+#     required: true
+###
+PUT     /challenge/:id/addTasks                     @org.maproulette.controllers.api.ChallengeController.addTasksToChallenge(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Add tasks to a challenge
+# consumes: [ application/json ]
+# description: This will create tasks within a challenge based on the provided file uploaded as part of the PUT request.
+# responses:
+#   '304':
+#     description: No Content, just a successful creation when getting this message
+#   '400':
+#     description: Invalid json payload. It is required that the file is JSON.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the parent Challenge where all the children are being created.
+#   - name: lineByLine
+#     in: query
+#     description: If the JSON provided includes seperate GeoJSON on each line, then this must be true
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The geojson to build the tasks from.
+#     required: true
+###
+PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true)
+###
+# tags: [ Challenge ]
 # summary: Retrieves children for Challenge
 # produces: [ application/json ]
 # description: Retrieves all the children for a Challenge in an expanded list. Unlike the GET
