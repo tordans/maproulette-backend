@@ -47,7 +47,20 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
           Future {
             if (isLineByLineGeoJson(splitJson)) {
-              splitJson.foreach(line => this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line)))
+              val failedLines = splitJson.zipWithIndex.flatMap(line => {
+                try {
+                  this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line._1))
+                  None
+                } catch {
+                  case e:Exception =>
+                    Some(line._2)
+                }
+              })
+              if (failedLines.nonEmpty) {
+                this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED, "statusMessage" -> s"GeoJSON lines [${failedLines.mkString(",")}] failed to parse"), user)(challenge.id)
+              } else {
+                this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+              }
             } else {
               this.createTasksFromJson(user, challenge, value)
             }
