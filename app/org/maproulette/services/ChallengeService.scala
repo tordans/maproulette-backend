@@ -44,6 +44,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       val usingLocalJson = json match {
         case Some(value) if StringUtils.isNotEmpty(value) =>
           val splitJson = value.split("\n")
+          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
           Future {
             if (isLineByLineGeoJson(splitJson)) {
               splitJson.foreach(line => this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line)))
@@ -77,8 +78,16 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     * @param json The geojson for the task
     * @return
     */
-  def createTaskFromJson(user:User, challenge:Challenge, json:String) : Option[Task] =
-    this.createTasksFromFeatures(user, challenge, Json.parse(json), true).headOption
+  def createTaskFromJson(user:User, challenge:Challenge, json:String) : Option[Task] = {
+    try {
+      this.createTasksFromFeatures(user, challenge, Json.parse(json), true).headOption
+    } catch {
+      case e:Exception =>
+        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> e.getMessage), user)(challenge.id)
+        throw e
+    }
+
+  }
 
   /**
     * Create multiple tasks from some provided GeoJSON. It will execute the creation in a future
@@ -89,9 +98,13 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     * @return
     */
   def createTasksFromJson(user:User, challenge:Challenge, json:String) : List[Task] = {
-    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
-    Logger.debug("Creating tasks from local GeoJSON file")
-    this.createTasksFromFeatures(user, challenge, Json.parse(json))
+    try {
+      this.createTasksFromFeatures(user, challenge, Json.parse(json))
+    } catch {
+      case e: Exception =>
+        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> e.getMessage), user)(challenge.id)
+        throw e
+    }
   }
 
   /**
@@ -119,7 +132,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           }
         } catch {
           case e:Exception =>
-            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
+            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> e.getMessage), user)(challenge.id)
         }
         if (seqJSON) {
           this.buildTasksFromRemoteJson(filePrefix, fileNumber + 1, challenge, user)
@@ -131,7 +144,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           // todo need to figure out if actual failure or if not finding the next file
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
         } else {
-          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
+          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "StatusMessage" -> f.getMessage), user)(challenge.id)
         }
     }
   }
@@ -145,6 +158,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     * @param single if true, then will use the json provided and create a single task
     */
   private def createTasksFromFeatures(user:User, parent:Challenge, jsonData:JsValue, single:Boolean=false) : List[Task] = {
+    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(parent.id)
     val featureList = (jsonData \ "features").as[List[JsValue]]
     try {
       val createdTasks = featureList.flatMap { value =>
@@ -178,7 +192,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       }
     } catch {
       case e:Exception =>
-        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(parent.id)
+        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> e.getMessage), user)(parent.id)
         Logger.error(s"${featureList.size} tasks failed to be created from json file.", e)
         List.empty
     }
@@ -191,6 +205,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     * @param user The user executing the query
     */
   private def buildOverpassQLTasks(challenge:Challenge, user:User) = {
+    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
     challenge.creation.overpassQL match {
       case Some(ql) if StringUtils.isNotEmpty(ql) =>
         // run the query and then create the tasks
@@ -246,14 +261,15 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                 }
               }
             } else {
-              this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
-              throw new InvalidException(s"Bad Request: ${result.body}")
+              this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> s"${result.statusText}:${result.body}"), user)(challenge.id)
+              throw new InvalidException(s"${result.statusText}: ${result.body}")
             }
           case Failure(f) =>
-            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED), user)(challenge.id)
+            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> f.getMessage), user)(challenge.id)
             throw f
         }
-      case None => // just ignore, we don't have to do anything if it wasn't set
+      case None =>
+        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> "overpass query not set"), user)(challenge.id)
     }
   }
 

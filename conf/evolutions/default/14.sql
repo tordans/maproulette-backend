@@ -18,4 +18,7 @@ ALTER TABLE task_comments ADD CONSTRAINT task_comments_project_id_fkey
    FOREIGN KEY (project_id) REFERENCES projects (id) MATCH SIMPLE
    ON UPDATE CASCADE ON DELETE CASCADE;;
 
+-- Add status failure text
+SELECT add_drop_column('challenges', 'status_message', 'text NULL');;
+
 # --- !Downs
