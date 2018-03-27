@@ -112,7 +112,7 @@ class TaskDAL @Inject()(override val db: Database,
           }
         }
       case Right(task) =>
-        this.permission.hasReadAccess(task, user)
+        this.permission.hasObjectReadAccess(task, user)
         this.projectDAL.get().cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT p.* FROM projects p
@@ -882,7 +882,7 @@ class TaskDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, s"challenge_id IN (${challengeIdList.mkString(",")})")
       }
       if (taskIdList.nonEmpty) {
-        this.appendInWhereClause(whereClause, s"challenge_id IN (${taskIdList.mkString(",")})")
+        this.appendInWhereClause(whereClause, s"task_id IN (${taskIdList.mkString(",")})")
       }
 
       SQL(s"""
@@ -966,7 +966,7 @@ class TaskDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       this.retrieveById(taskId) match {
         case Some(task) =>
-          this.permission.hasObjectWriteAccess(task, user)
+          this.permission.hasObjectAdminAccess(task, user)
           SQL("DELETE FROM task_comments WHERE id = {id}").on('id -> commentId)
         case None =>
           throw new NotFoundException("Task was not found.")
