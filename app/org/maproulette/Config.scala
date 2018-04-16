@@ -69,6 +69,21 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val changeSetEnabled : Boolean = this.config.getBoolean(Config.KEY_CHANGESET_ENABLED).getOrElse(Config.DEFAULT_CHANGESET_ENABLED)
 
+  lazy val taskScoreFixed : Int =
+    this.config.getInt(Config.KEY_TASK_SCORE_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_FIXED)
+
+  lazy val taskScoreFalsePositive : Int =
+    this.config.getInt(Config.KEY_TASK_SCORE_FALSE_POSITIVE).getOrElse(Config.DEFAULT_TASK_SCORE_FALSE_POSITIVE)
+
+  lazy val taskScoreAlreadyFixed : Int =
+    this.config.getInt(Config.KEY_TASK_SCORE_ALREADY_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_ALREADY_FIXED)
+
+  lazy val taskScoreTooHard : Int =
+    this.config.getInt(Config.KEY_TASK_SCORE_TOO_HARD).getOrElse(Config.DEFAULT_TASK_SCORE_TOO_HARD)
+
+  lazy val taskScoreSkipped : Int =
+    this.config.getInt(Config.KEY_TASK_SCORE_SKIPPED).getOrElse(Config.DEFAULT_TASK_SCORE_SKIPPED)
+
   lazy val osmMatcherEnabled : Boolean = this.config.getBoolean(Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED).getOrElse(Config.DEFAULT_OSM_MATCHER_ENABLED)
 
   lazy val osmMatcherManualOnly : Boolean = this.config.getBoolean(Config.KEY_SCHEDULER_OSM_MATCHER_MANUAL).getOrElse(Config.DEFAULT_OSM_MATCHER_MANUAL)
@@ -154,6 +169,11 @@ object Config {
   val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
   val KEY_SIGNIN = s"$GROUP_MAPROULETTE.signin"
+  val KEY_TASK_SCORE_FIXED = s"$GROUP_MAPROULETTE.task.score.fixed"
+  val KEY_TASK_SCORE_FALSE_POSITIVE = s"$GROUP_MAPROULETTE.task.score.falsePositive"
+  val KEY_TASK_SCORE_ALREADY_FIXED = s"$GROUP_MAPROULETTE.task.score.alreadyFixed"
+  val KEY_TASK_SCORE_TOO_HARD = s"$GROUP_MAPROULETTE.task.score.tooHard"
+  val KEY_TASK_SCORE_SKIPPED = s"$GROUP_MAPROULETTE.task.score.skipped"
 
   val SUB_GROUP_SCHEDULER = s"$GROUP_MAPROULETTE.scheduler"
   val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
@@ -194,6 +214,11 @@ object Config {
 
   val DEFAULT_SESSION_TIMEOUT = 3600000L
   val DEFAULT_TASK_RESET = 7
+  val DEFAULT_TASK_SCORE_FIXED = 5
+  val DEFAULT_TASK_SCORE_FALSE_POSITIVE = 3
+  val DEFAULT_TASK_SCORE_ALREADY_FIXED = 3
+  val DEFAULT_TASK_SCORE_TOO_HARD = 1
+  val DEFAULT_TASK_SCORE_SKIPPED = 0
   val DEFAULT_OSM_QL_TIMEOUT = 25
   val DEFAULT_NUM_OF_CHALLENGES = 3
   val DEFAULT_RECENT_ACTIVITY = 5
