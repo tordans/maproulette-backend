@@ -448,10 +448,11 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
   /**
     * Gets leaderboard of top-scoring users based on task completion activity
     * over the given period. Scoring for each completed task is based on status
-    * assigned to the task. Users are returned in descending order with top
-    * scores first; ties are broken by OSM user id with the lowest/earliest ids
-    * being ranked ahead of higher/later ids. Also included with each user are
-    * their top challenges (by amount of activity).
+    * assigned to the task (status point values are configurable). Users are
+    * returned in descending order with top scores first; ties are broken by
+    * OSM user id with the lowest/earliest ids being ranked ahead of
+    * higher/later ids. Also included with each user are their top challenges
+    * (by amount of activity).
     *
     * @param start the start date
     * @param end the end date
@@ -472,10 +473,11 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
 
       SQL"""SELECT users.id, users.name, users.avatar_url, SUM(
               CASE sa.status
-                WHEN ${Task.STATUS_FIXED} THEN 5          /* points */
-                WHEN ${Task.STATUS_FALSE_POSITIVE} THEN 3 /* points */
-                WHEN ${Task.STATUS_ALREADY_FIXED} THEN 3  /* points */
-                WHEN ${Task.STATUS_TOO_HARD} THEN 1       /* points */
+                WHEN ${Task.STATUS_FIXED} THEN ${config.taskScoreFixed}
+                WHEN ${Task.STATUS_FALSE_POSITIVE} THEN ${config.taskScoreFalsePositive}
+                WHEN ${Task.STATUS_ALREADY_FIXED} THEN ${config.taskScoreAlreadyFixed}
+                WHEN ${Task.STATUS_TOO_HARD} THEN ${config.taskScoreTooHard}
+                WHEN ${Task.STATUS_SKIPPED} THEN ${config.taskScoreSkipped}
                 ELSE 0
               END
             ) AS score
@@ -496,7 +498,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
     *
     * @param start the start date
     * @param end the end date
-    * @param limit limit the number of returned users
+    * @param limit limit the number of returned challenges
     * @param offset paging, starting at 0
     * @return Returns list of leaderboard challenges
     */
