@@ -213,7 +213,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user to update
     * @return None if failed to update or create.
     */
-  override def insert(item:User, user: User)(implicit c:Option[Connection]=None): User = this.cacheManager.withOptionCaching { () =>
+  override def insert(item:User, user: User)(implicit c:Connection=null): User = this.cacheManager.withOptionCaching { () =>
     this.permission.hasObjectAdminAccess(item, user)
     this.withMRTransaction { implicit c =>
       val ewkt = new WKTWriter().write(
@@ -280,7 +280,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param c an optional connection, if not provided a new connection from the pool will be retrieved
     * @return An optional user, if user with supplied ID not found, then will return empty optional
     */
-  def managedUpdate(settings:UserSettings, properties:Option[JsValue], user:User)(implicit id:Long, c:Option[Connection]=None) : Option[User] = {
+  def managedUpdate(settings:UserSettings, properties:Option[JsValue], user:User)(implicit id:Long, c:Connection=null) : Option[User] = {
     implicit val settingsWrite = User.settingsWrites
     val updateBody = Utils.insertIntoJson(Json.parse("{}"), "settings", Json.toJson(settings))
     this.update(properties match {
@@ -297,7 +297,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The id of the user to update
     * @return The user that was updated, None if no user was found with the id
     */
-  override def update(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[User] = {
+  override def update(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[User] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasObjectAdminAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
@@ -352,7 +352,7 @@ class UserDAL @Inject() (override val db:Database,
     }
   }
 
-  def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Unit = {
+  def updateGroups(value:JsValue, user:User)(implicit id:Long, c:Connection=null): Unit = {
     this.permission.hasAdminAccess(UserType(), user)
     this.withMRTransaction { implicit c =>
       // list of groups to delete
@@ -381,7 +381,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param id The user to delete
     * @return The rows that were deleted
     */
-  override def delete(id: Long, user:User, immediate:Boolean=false)(implicit c:Option[Connection]=None) : User = {
+  override def delete(id: Long, user:User, immediate:Boolean=false)(implicit c:Connection=null) : User = {
     this.permission.hasSuperAccess(user)
     retrieveById(id) match {
       case Some(u) => userGroupDAL.clearUserCache(u.osmProfile.id)
@@ -397,7 +397,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user deleting the user
     * @return
     */
-  def deleteByOsmID(osmId:Long, user:User)(implicit c:Option[Connection]=None) : Int = {
+  def deleteByOsmID(osmId:Long, user:User)(implicit c:Connection=null) : Int = {
     this.permission.hasSuperAccess(user)
     implicit val ids = List(osmId)
     // expire the user group cache
@@ -417,7 +417,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param groupType The type of group to add 1 - Admin, 2 - Write, 3 - Read
     * @param user The user that is adding the user to the project
     */
-  def addUserToProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Option[Connection]=None) : User = {
+  def addUserToProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : User = {
     this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user)
     implicit val osmKey = osmID
     implicit val superUser = user
@@ -443,7 +443,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user making the request
     * @param c
     */
-  def removeUserFromProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def removeUserFromProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user)
     implicit val osmKey = osmID
     implicit val superUser = user
@@ -466,7 +466,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param group The group that user is being added too
     * @param user The user that is adding the user to the project
     */
-  def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def addUserToGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasSuperAccess(user)
     userGroupDAL.clearUserCache(osmID)
     this.withMRTransaction { implicit c =>
@@ -482,7 +482,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user executing the request
     * @param c An implicit connection if applicable
     */
-  def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def removeUserFromGroup(osmID:Long, group:Group, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasSuperAccess(user)
     userGroupDAL.clearUserCache(osmID)
     this.withMRTransaction { implicit c =>
@@ -541,7 +541,7 @@ class UserDAL @Inject() (override val db:Database,
     * @return a List of challenges
     */
   def getSavedChallenges(userId:Long, user:User, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
-                        (implicit c:Option[Connection]=None) : List[Challenge] = {
+                        (implicit c:Connection=null) : List[Challenge] = {
     this.permission.hasReadAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       val query = s"""
@@ -565,7 +565,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user the user executing the request
     * @param c The existing connection if any
     */
-  def saveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def saveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasWriteAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       SQL(
@@ -584,7 +584,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user executing the unsave function
     * @param c The existing connection if any
     */
-  def unsaveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def unsaveChallenge(userId:Long, challengeId:Long, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasWriteAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       SQL(s"""DELETE FROM saved_challenges WHERE user_id = $userId AND challenge_id = $challengeId""").execute()
@@ -603,7 +603,7 @@ class UserDAL @Inject() (override val db:Database,
     * @return a List of challenges
     */
   def getSavedTasks(userId:Long, user:User, challengeIds:Seq[Long] = Seq.empty, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
-                   (implicit c:Option[Connection]=None) : List[Task] = {
+                   (implicit c:Connection=null) : List[Task] = {
     this.permission.hasReadAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       val query = s"""
@@ -629,7 +629,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user the user executing the request
     * @param c The existing connection if any
     */
-  def saveTask(userId:Long, taskId:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def saveTask(userId:Long, taskId:Long, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasWriteAccess(UserType(), user)(userId)
     withMRTransaction { implicit c =>
       this.taskDAL.retrieveById(taskId) match {
@@ -652,7 +652,7 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user executing the unsave function
     * @param c The existing connection if any
     */
-  def unsaveTask(userId:Long, task_id:Long, user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def unsaveTask(userId:Long, task_id:Long, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasWriteAccess(UserType(), user)(userId)
     withMRConnection { implicit c =>
       SQL(s"""DELETE FROM saved_tasks WHERE user_id = $userId AND task_id = $task_id""").execute()

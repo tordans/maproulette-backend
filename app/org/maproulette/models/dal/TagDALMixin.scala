@@ -30,7 +30,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param completeList If complete list is true, then it will treat the tag list as if it is the
     *                     authoritative list, and any tags not in that list should be removed
     */
-  def updateItemTags(id:Long, tags:List[Long], user:User, completeList:Boolean=false)(implicit c:Option[Connection]=None) : Unit = {
+  def updateItemTags(id:Long, tags:List[Long], user:User, completeList:Boolean=false)(implicit c:Connection=null) : Unit = {
     this.retrieveById(id) match {
       case Some(item) =>
         this.permission.hasObjectWriteAccess(item, user)
@@ -69,7 +69,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags that are being removed from the item
     * @param user The user executing the item
     */
-  def deleteItemTags(id:Long, tags:List[Long], user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def deleteItemTags(id:Long, tags:List[Long], user:User)(implicit c:Connection=null) : Unit = {
     if (tags.nonEmpty) {
       this.permission.hasAdminAccess(getItemTypeBasedOnTableName, user)(id)
       this.withMRTransaction { implicit c =>
@@ -86,7 +86,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags to be removed from the item
     * @param user The user executing the item
     */
-  def deleteItemStringTags(id:Long, tags:List[String], user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def deleteItemStringTags(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
     if (tags.nonEmpty) {
       this.permission.hasAdminAccess(getItemTypeBasedOnTableName, user)(id)
       val lowerTags = tags.map(_.toLowerCase)
@@ -107,7 +107,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param tags The tags to be applied to the item
     * @param user The user executing the item
     */
-  def updateItemTagNames(id:Long, tags:List[String], user:User)(implicit c:Option[Connection]=None) : Unit = {
+  def updateItemTagNames(id:Long, tags:List[String], user:User)(implicit c:Connection=null) : Unit = {
     val tagIds = tags.filter(_.nonEmpty).flatMap { tag => {
       this.tagDAL.retrieveByName(tag) match {
         case Some(t) => Some(t.id)
@@ -125,7 +125,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
     * @param offset For paging, where 0 is the first page
     * @return A list of tags that have the tags
     */
-  def getItemsBasedOnTags(tags:List[String], limit:Int, offset:Int)(implicit c:Option[Connection]=None) : List[T] = {
+  def getItemsBasedOnTags(tags:List[String], limit:Int, offset:Int)(implicit c:Connection=null) : List[T] = {
     val lowerTags = tags.map(_.toLowerCase)
     this.withMRConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit + ""

@@ -137,7 +137,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param c  The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj:Either[Long, Challenge], user:User)(implicit c:Option[Connection]=None): Option[Project] = {
+  override def retrieveRootObject(obj:Either[Long, Challenge], user:User)(implicit c:Connection=null): Option[Project] = {
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(ChallengeType(), user)(id)
@@ -166,7 +166,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param challenge The challenge to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(challenge: Challenge, user:User)(implicit c:Option[Connection]=None): Challenge = {
+  override def insert(challenge: Challenge, user:User)(implicit c:Connection=null): Challenge = {
     this.permission.hasObjectWriteAccess(challenge, user)
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
@@ -198,7 +198,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Challenge] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Challenge] = {
     var updatedPriorityRules = false
     val updatedChallenge = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasObjectWriteAccess(cachedItem, user)
@@ -267,12 +267,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
 
   override def find(searchString:String, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
             orderColumn:String="id", orderDirection:String="ASC")
-           (implicit parentId:Long = -1, c:Option[Connection]=None) : List[Challenge] =
+           (implicit parentId:Long = -1, c:Connection=null) : List[Challenge] =
     this.findByType(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection)
 
   def findByType(searchString:String, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
             orderColumn:String="id", orderDirection:String="ASC", challengeType:Int=Actions.ITEM_TYPE_CHALLENGE)
-           (implicit parentId:Long= -1, c:Option[Connection]=None) : List[Challenge] = {
+           (implicit parentId:Long= -1, c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
@@ -288,7 +288,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
 
   override def list(limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
                     orderColumn:String="id", orderDirection:String="ASC")
-                   (implicit parentId:Long= -1, c:Option[Connection]=None) : List[Challenge] =
+                   (implicit parentId:Long= -1, c:Connection=null) : List[Challenge] =
     this.listByType(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection)
 
   /**
@@ -297,7 +297,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     */
   def listByType(limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false, searchString:String="",
            orderColumn:String="id", orderDirection:String="ASC", challengeType:Int=Actions.ITEM_TYPE_CHALLENGE)
-          (implicit parentId:Long = -1, c:Option[Connection]=None) : List[Challenge] = {
+          (implicit parentId:Long = -1, c:Connection=null) : List[Challenge] = {
     implicit val ids = List.empty
     this.cacheManager.withIDListCaching { implicit uncachedIDs =>
       this.withMRConnection { implicit c =>
@@ -324,7 +324,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param enabledOnly if true will only return enabled challenges
     * @return list of challenges
     */
-  def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[Challenge] = {
+  def getFeaturedChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
@@ -344,7 +344,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param enabledOnly if true will only return enabled challenges
     * @return List of challenges
     */
-  def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[Challenge] = {
+  def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     List.empty
   }
 
@@ -356,7 +356,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param enabledOnly if true will only return enabled challenges
     * @return list of challenges
     */
-  def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[Challenge] = {
+  def getNewChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON c.parent_id = p.id
@@ -376,7 +376,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param c The implicit connection for the function
     * @return
     */
-  def getChallengeGeometry(challengeId:Long, statusFilter:Option[List[Int]]=None)(implicit c:Option[Connection]=None) : String = {
+  def getChallengeGeometry(challengeId:Long, statusFilter:Option[List[Int]]=None)(implicit c:Connection=null) : String = {
     this.withMRConnection { implicit c =>
       val filter = statusFilter match {
         case Some(s) => s"AND status IN (${s.mkString(",")}"
@@ -403,7 +403,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param c The implicit connection
     * @return A map of Task ID to geojson string
     */
-  def getLineByLineChallengeGeometry(challengeId:Long)(implicit c:Option[Connection]=None) : Map[Long, String] = {
+  def getLineByLineChallengeGeometry(challengeId:Long)(implicit c:Connection=null) : Map[Long, String] = {
     this.withMRConnection { implicit c =>
         SQL"""SELECT t.id, (
                   SELECT row_to_json(fc)::text as geometries
@@ -431,7 +431,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return A list of clustered point objects
     */
   def getClusteredPoints(challengeId:Long, statusFilter:Option[List[Int]]=None, limit:Int=2500)
-                        (implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
+                        (implicit c:Connection=null) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val filter = statusFilter match {
         case Some(s) => s"AND status IN (${s.mkString(",")}"
@@ -458,7 +458,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param id The id for the challenge
     * @return Map of status codes mapped to task counts
     */
-  def getSummary(id:Long)(implicit c:Option[Connection]=None) : Map[Int, Int] = {
+  def getSummary(id:Long)(implicit c:Connection=null) : Map[Int, Int] = {
     this.withMRConnection { implicit c =>
       val summaryParser = int("count") ~ get[Option[Int]]("tasks.status") map {
         case count ~ status => status.getOrElse(0) -> count
@@ -476,7 +476,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param id The id of the challenge
     * @param c The connection for the request
     */
-  def updateTaskPriorities(user:User)(implicit id:Long, c:Option[Connection]=None) : Unit = {
+  def updateTaskPriorities(user:User)(implicit id:Long, c:Connection=null) : Unit = {
     this.permission.hasWriteAccess(TaskType(), user)
     this.withMRConnection { implicit c =>
       val challenge = this.retrieveById(id) match {
@@ -522,7 +522,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return A list of children objects
     */
   override def listChildren(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                            orderColumn:String="id", orderDirection:String="ASC")(implicit id:Long, c:Option[Connection]=None) : List[Task] = {
+                            orderColumn:String="id", orderDirection:String="ASC")(implicit id:Long, c:Connection=null) : List[Task] = {
     // add a child caching option that will keep a list of children for the parent
     this.withMRConnection { implicit c =>
       // slightly different from the standard parser, in that it retrieves the geojson within the sql
@@ -570,7 +570,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param user A super user or the owner/admin of the challenge
     * @param c
     */
-  def resetTaskInstructions(user:User, challengeId:Long)(implicit c:Option[Connection]=None) : Unit = {
+  def resetTaskInstructions(user:User, challengeId:Long)(implicit c:Connection=null) : Unit = {
     this.withMRConnection { implicit c =>
       this.retrieveById(challengeId) match {
         case Some(challenge) =>
@@ -593,7 +593,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param statusFilter Filter the deletion by Task status, if empty will ignore status and just delete all Task children
     * @param c
     */
-  def deleteTasks(user:User, challengeId:Long, statusFilter:List[Int]=List.empty)(implicit c:Option[Connection]=None) : Unit = {
+  def deleteTasks(user:User, challengeId:Long, statusFilter:List[Int]=List.empty)(implicit c:Connection=null) : Unit = {
     this.withMRConnection { implicit c =>
       val filter = if (statusFilter.isEmpty) {
         ""
@@ -628,7 +628,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return A list of challenges, empty list if not challenges found matching the given criteria
     */
   def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
-                  (implicit c:Option[Connection]=None) : List[Challenge] = {
+                  (implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // never include deleted items in the search
