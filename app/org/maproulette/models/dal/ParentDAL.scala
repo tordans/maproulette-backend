@@ -35,7 +35,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param immediate If set to true it will delete it immediately, otherwise will delay the delete and simply set a flag for later deletion
     * @return Count of deleted row(s)
     */
-  override def delete(id: Key, user: User, immediate: Boolean)(implicit c: Option[Connection]): T = {
+  override def delete(id: Key, user: User, immediate: Boolean)(implicit c:Connection=null): T = {
     implicit val key = id
     val deletedItem = this.cacheManager.withDeletingCache(Long => retrieveById) { implicit deletedItem =>
       this.permission.hasObjectAdminAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
@@ -65,7 +65,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param c
     * @return The object that is undeleted
     */
-  def undelete(id:Key, user:User)(implicit c:Option[Connection] = None) : T = {
+  def undelete(id:Key, user:User)(implicit c:Connection=null) : T = {
     implicit val key = id
     val deletedItem = this.cacheManager.withDeletingCache(Long => retrieveById) { implicit deletedItem =>
       this.permission.hasObjectWriteAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
@@ -90,7 +90,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @return A list of children objects
     */
   def listChildren(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key, c:Option[Connection]=None) : List[C] = {
+                   orderColumn:String="id", orderDirection:String="ASC")(implicit id:Key, c:Connection=null) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.childColumns} FROM ${this.childTable}
@@ -114,7 +114,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @return A list of children objects
     */
   def listChildrenByName(limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, onlyEnabled:Boolean=false, searchString:String="",
-                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String, c:Option[Connection]=None) : List[C] = {
+                         orderColumn:String="id", orderDirection:String="ASC")(implicit name:String, c:Connection=null) : List[C] = {
     // add a child caching option that will keep a list of children for the parent
     this.withMRConnection { implicit c =>
       // TODO currently it will only check if the parent is enabled and not the child, this is because
@@ -139,7 +139,7 @@ trait ParentDAL[Key, T<:BaseObject[Key], C<:BaseObject[Key]] extends BaseDAL[Key
     * @param id The id for the parent
     * @return A integer value representing the total number of children
     */
-  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key, c:Option[Connection]=None) : Int = {
+  def getTotalChildren(onlyEnabled:Boolean=false, searchString:String="")(implicit id:Key, c:Connection=null) : Int = {
     this.withMRConnection { implicit c =>
       val query =
         s"""SELECT COUNT(*) as TotalChildren FROM ${this.childTable}

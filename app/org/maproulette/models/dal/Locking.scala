@@ -25,7 +25,7 @@ trait Locking[T<:BaseObject[_]] extends TransactionManager {
     *          directly from an API call
     * @return true if successful
     */
-  def lockItem(user:User, item:T)(implicit c:Option[Connection]=None) : Int =
+  def lockItem(user:User, item:T)(implicit c:Connection=null) : Int =
     this.withMRTransaction { implicit c =>
       // first check to see if the item is already locked
       val checkQuery =
@@ -55,7 +55,7 @@ trait Locking[T<:BaseObject[_]] extends TransactionManager {
     *          directly from an API call
     * @return true if successful
     */
-  def unlockItem(user:User, item:T)(implicit c:Option[Connection]=None) : Int =
+  def unlockItem(user:User, item:T)(implicit c:Connection=null) : Int =
     this.withMRTransaction { implicit c =>
       val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
@@ -78,7 +78,7 @@ trait Locking[T<:BaseObject[_]] extends TransactionManager {
     *          with other requests
     * @return Number of locks removed
     */
-  def unlockAllItems(user:User, itemType:Option[ItemType]=None)(implicit c:Option[Connection]=None) : Int =
+  def unlockAllItems(user:User, itemType:Option[ItemType]=None)(implicit c:Connection=null) : Int =
     this.withMRTransaction { implicit c =>
       itemType match {
         case Some(it) =>
@@ -99,7 +99,7 @@ trait Locking[T<:BaseObject[_]] extends TransactionManager {
     * @return List of objects
     */
   def withListLocking(user:User, itemType:Option[ItemType]=None)(block:() => List[T])
-                  (implicit c:Option[Connection]=None) : List[T] = {
+                  (implicit c:Connection=null) : List[T] = {
     this.withMRTransaction { implicit c =>
       // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
       // task can be locked at a time
@@ -132,7 +132,7 @@ trait Locking[T<:BaseObject[_]] extends TransactionManager {
     * @return Option object
     */
   def withSingleLocking(user:User, itemType:Option[ItemType]=None)(block:() => Option[T])
-                      (implicit c:Option[Connection]=None) : Option[T] = {
+                      (implicit c:Connection=null) : Option[T] = {
     this.withMRTransaction { implicit c =>
       // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
       // task can be locked at a time

@@ -98,7 +98,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj: Either[Long, Task], user: User)(implicit c: Option[Connection] = None): Option[Project] = {
+  override def retrieveRootObject(obj: Either[Long, Task], user: User)(implicit c:Connection=null): Option[Project] = {
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(TaskType(), user)(id)
@@ -124,9 +124,9 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  private def getTaskGeometries(id: Long)(implicit c: Option[Connection] = None): String = taskGeometries(id, "task_geometries")
+  private def getTaskGeometries(id: Long)(implicit c:Connection=null): String = taskGeometries(id, "task_geometries")
 
-  def getSuggestedFix(id: Long)(implicit c: Option[Connection] = None): String = taskGeometries(id, "task_suggested_fix")
+  def getSuggestedFix(id: Long)(implicit c:Connection=null): String = taskGeometries(id, "task_suggested_fix")
 
   /**
     * Retrieve all the geometries for the task
@@ -134,7 +134,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param id Id for the task
     * @return A feature collection geojson of all the task geometries
     */
-  private def taskGeometries(id: Long, tableName: String)(implicit c: Option[Connection] = None): String = {
+  private def taskGeometries(id: Long, tableName: String)(implicit c:Connection=null): String = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
@@ -155,7 +155,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
+  override def insert(task: Task, user: User)(implicit c:Connection=null): Task = {
     val newTask = this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
       case None => throw new Exception("Unknown failure occurred while creating new task.")
@@ -173,7 +173,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param id    The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(value: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+  override def update(value: JsValue, user: User)(implicit id: Long, c:Connection=null): Option[Task] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
       val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
@@ -210,7 +210,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c       A connection to execute against
     * @return
     */
-  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c:Connection=null): Option[Task] = {
     this.permission.hasObjectWriteAccess(element, user)
     // before clearing the cache grab the cachedItem
     // by setting the delete implicit to true we clear out the cache for the element
@@ -256,7 +256,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param value  The JSON value for the suggested fix
     * @param c
     */
-  def addSuggestedFix(taskId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit =
+  def addSuggestedFix(taskId: Long, value: JsValue)(implicit c:Connection=null): Unit =
     updateGeometries(taskId, value, false, true, "task_suggested_fix")
 
   /**
@@ -267,7 +267,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param setLocation Whether to set the location based on the geometries or not
     */
   private def updateGeometries(taskId: Long, value: JsValue, setLocation: Boolean = false, isNew: Boolean = false,
-                               tableName: String = "task_geometries")(implicit c: Option[Connection] = None): Unit = {
+                               tableName: String = "task_geometries")(implicit c:Connection=null): Unit = {
     this.withMRTransaction { implicit c =>
       if (!isNew) {
         SQL"""DELETE FROM #$tableName WHERE task_id = $taskId""".executeUpdate()
@@ -305,7 +305,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocation(taskId: Long)(implicit c: Option[Connection] = None): Option[Task] = {
+  def updateTaskLocation(taskId: Long)(implicit c:Connection=null): Option[Task] = {
     implicit val id = taskId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
       this.withMRTransaction { implicit c =>
@@ -319,7 +319,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocations(challengeId: Long)(implicit c: Option[Connection] = None): Int = {
+  def updateTaskLocations(challengeId: Long)(implicit c:Connection=null): Int = {
     // clear the cache, because we don't know how many tasks have actually been updated
     this.cacheManager.clearCaches
     this.withMRTransaction { implicit c =>
@@ -350,7 +350,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param taskId The id for the task to update the priority for
     * @param c      The database connection
     */
-  def updateTaskPriority(taskId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
+  def updateTaskPriority(taskId: Long, user: User)(implicit c:Connection=null): Unit = {
     implicit val id = taskId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
       this.withMRTransaction { implicit c =>
@@ -387,7 +387,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user   The user setting the status
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(task: Task, status: Int, user: User)(implicit c: Option[Connection] = None): Int = {
+  def setTaskStatus(task: Task, status: Int, user: User)(implicit c:Connection=null): Int = {
     if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
@@ -434,7 +434,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user The user making the request
     * @param c An implicit connection
     */
-  def matchToOSMChangeSet(task:Task, user:User, immediate:Boolean=true)(implicit c:Option[Connection]=None) : Future[Boolean] = {
+  def matchToOSMChangeSet(task:Task, user:User, immediate:Boolean=true)(implicit c:Connection=null) : Future[Boolean] = {
     val result = Promise[Boolean]
     if (config.allowMatchOSM) {
       task.status match {
@@ -534,7 +534,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
   def getNextTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
-                           (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
+                           (implicit c:Connection=null): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -573,7 +573,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
   def getPreviousTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
-                               (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
+                               (implicit c:Connection=null): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -604,7 +604,7 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1, proximityId:Option[Long] = None)
-                                (implicit c: Option[Connection] = None): List[Task] = {
+                                (implicit c:Connection=null): List[Task] = {
     val highPriorityTasks = Try(this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_HIGH), proximityId)) match {
       case Success(res) => res
       case Failure(f) => List.empty
@@ -631,7 +631,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c The connection to the database, will create one if not already created
     * @return The id of the random challenge
     */
-  private def getRandomChallenge(params: SearchParameters)(implicit c:Option[Connection]=None) : Option[Long] = {
+  private def getRandomChallenge(params: SearchParameters)(implicit c:Connection=null) : Option[Long] = {
     params.getChallengeIds match {
       case Some(v) if v.lengthCompare(1) == 0 => Some(v.head)
       case v =>
@@ -679,7 +679,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return A list of task clusters
     */
   def getTaskClusters(params:SearchParameters, numberOfPoints:Int=100)
-                     (implicit c:Option[Connection]=None) : List[TaskCluster] = {
+                     (implicit c:Connection=null) : List[TaskCluster] = {
     this.withMRConnection { implicit c =>
       val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~
                               str("geom") ~ str("bounding") map {
@@ -737,7 +737,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return A list of clustered task points
     */
   def getTasksInCluster(clusterId:Int, params:SearchParameters, numberOfPoints:Int=100)
-                       (implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
+                       (implicit c:Connection=null) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val whereClause = new StringBuilder
       val joinClause = new StringBuilder(
@@ -787,7 +787,7 @@ class TaskDAL @Inject()(override val db: Database,
     */
   def getRandomTasks(user:User, params: SearchParameters, limit:Int = -1,
                      priority:Option[Int]=None, proximityId:Option[Long] = None)
-                    (implicit c:Option[Connection]=None) : List[Task] = {
+                    (implicit c:Connection=null) : List[Task] = {
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
@@ -872,7 +872,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The list of Tasks found within the bounding box
     */
   def getTasksInBoundingBox(params:SearchParameters, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)
-                           (implicit c:Option[Connection] = None) : List[ClusteredPoint] = {
+                           (implicit c:Connection=null) : List[ClusteredPoint] = {
     params.location match {
       case Some(sl) =>
         withMRConnection { implicit c =>
@@ -917,7 +917,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c     An implicit connection to use, if not found will create a new connection
     * @return A list of users that modified the task
     */
-  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(implicit c: Option[Connection] = None): List[User] = {
+  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(implicit c:Connection=null): List[User] = {
     withMRConnection { implicit c =>
       val query =
         s"""
@@ -938,7 +938,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c
     * @return An optional comment
     */
-  def retrieveComment(commentId:Long)(implicit c:Option[Connection] = None) : Option[Comment] = {
+  def retrieveComment(commentId:Long)(implicit c:Connection=null) : Option[Comment] = {
     withMRConnection { implicit c =>
       SQL("""SELECT * FROM task_comments tc
               INNER JOIN users u ON u.osm_id = tc.osm_id
@@ -959,7 +959,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The list of comments for the task
     */
   def retrieveComments(projectIdList:List[Long], challengeIdList:List[Long], taskIdList:List[Long],
-                       limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)(implicit c:Option[Connection] = None) : List[Comment] = {
+                       limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)(implicit c:Connection=null) : List[Comment] = {
     withMRConnection { implicit c =>
       val whereClause = new StringBuilder("")
       if (projectIdList.nonEmpty) {
@@ -992,7 +992,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param actionId the id for the action if any action associated
     * @param c
     */
-  def addComment(user:User, taskId:Long, comment:String, actionId:Option[Long])(implicit c:Option[Connection] = None) : Comment = {
+  def addComment(user:User, taskId:Long, comment:String, actionId:Option[Long])(implicit c:Connection=null) : Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(comment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -1022,7 +1022,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c
     * @return The updated comment
     */
-  def updateComment(user:User, commentId:Long, updatedComment:String)(implicit c:Option[Connection] = None) : Comment = {
+  def updateComment(user:User, commentId:Long, updatedComment:String)(implicit c:Connection=null) : Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(updatedComment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -1049,7 +1049,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param commentId The id for the comment being deleted
     * @param c
     */
-  def deleteComment(user:User, taskId:Long, commentId:Long)(implicit c:Option[Connection] = None) : Unit = {
+  def deleteComment(user:User, taskId:Long, commentId:Long)(implicit c:Connection=null) : Unit = {
     withMRConnection { implicit c =>
       this.retrieveById(taskId) match {
         case Some(task) =>
