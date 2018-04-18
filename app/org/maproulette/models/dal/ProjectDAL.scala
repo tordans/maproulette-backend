@@ -88,7 +88,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param project The project to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(project: Project, user:User)(implicit c:Option[Connection]=None): Project = {
+  override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
     //permissions don't need to be checked, anyone can create a project
     //this.permission.hasObjectWriteAccess(project, user)
     this.cacheManager.withOptionCaching { () =>
@@ -127,7 +127,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating.
     * @return An optional object, it will return None if no object found with a matching id that was supplied.
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Project] = {
+  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Project] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
@@ -160,7 +160,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return A list of projects managed by the user
     */
   def listManagedProjects(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-                          searchString:String="")(implicit c:Option[Connection]=None) : List[Project] = {
+                          searchString:String="")(implicit c:Connection=null) : List[Project] = {
     if (user.isSuperUser) {
       this.list(limit, offset, onlyEnabled, searchString)
     } else {
@@ -193,7 +193,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return A map of project ids to tuple with number of challenge and survey children for the project
     */
   def getChildrenCounts(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-                        searchString:String="")(implicit c:Option[Connection]=None) : Map[Long, (Int, Int)] = {
+                        searchString:String="")(implicit c:Connection=null) : Map[Long, (Int, Int)] = {
     this.withMRConnection { implicit c =>
       val parser = for {
         id <- long("id")
@@ -223,7 +223,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return
     */
   def getSearchedClusteredPoints(params: SearchParameters, limit:Int=0, offset:Int=0, featured:Boolean=false)
-                                (implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
+                                (implicit c:Connection=null) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
@@ -288,7 +288,7 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return A list of ClusteredPoint objects
     */
   def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
-                              enabledOnly:Boolean=true)(implicit c:Option[Connection]=None) : List[ClusteredPoint] = {
+                              enabledOnly:Boolean=true)(implicit c:Connection=null) : List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
                     ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,

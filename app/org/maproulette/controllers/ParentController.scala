@@ -53,7 +53,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param createdObject The object that was created by the create function
     * @param user the user executing the request
     */
-  override def extractAndCreate(body: JsValue, createdObject: T, user:User)(implicit c:Option[Connection]=None): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: T, user:User)(implicit c:Connection=null): Unit = {
     implicit val reads:Reads[C] = cReads
     (body \ "children").asOpt[List[JsValue]] match {
       case Some(children) => children map { child =>

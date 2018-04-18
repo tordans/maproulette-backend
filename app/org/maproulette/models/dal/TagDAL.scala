@@ -44,7 +44,7 @@ class TagDAL @Inject() (override val db:Database,
     * @param tag The tag object to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(tag: Tag, user:User)(implicit c:Option[Connection]=None): Tag = {
+  override def insert(tag: Tag, user:User)(implicit c:Connection=null): Tag = {
     if (tag.name.isEmpty) {
       // do not allow empty tags
       throw new InvalidException(s"Tags cannot be empty strings")
@@ -68,7 +68,7 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(tag:JsValue, user:User)(implicit id:Long, c:Option[Connection]=None): Option[Tag] = {
+  override def update(tag:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Tag] = {
 
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasObjectWriteAccess(cachedItem, user)
@@ -91,14 +91,14 @@ class TagDAL @Inject() (override val db:Database,
     * We override the retrieveByName function so that we make sure that we test against a lower case version
     * of the name
     */
-  override def retrieveByName(implicit name: String, parentId: Long, c: Option[Connection]): Option[Tag] = {
+  override def retrieveByName(implicit name: String, parentId: Long, c:Connection=null): Option[Tag] = {
     super.retrieveByName(name.toLowerCase, parentId, c)
   }
 
   /**
     * Need to make sure all the names in the list are lowercase
     */
-  override def retrieveListByName(implicit names: List[String], parentId: Long, c: Option[Connection]): List[Tag] = {
+  override def retrieveListByName(implicit names: List[String], parentId: Long, c:Connection=null): List[Tag] = {
     super.retrieveListByName(names.map(_.toLowerCase), parentId, c)
   }
 
@@ -107,7 +107,7 @@ class TagDAL @Inject() (override val db:Database,
     */
   override def retrieveListByPrefix(prefix: String, limit: Int, offset: Int, onlyEnabled: Boolean,
                                     orderColumn: String, orderDirection: String)
-                                   (implicit parentId: Long, c: Option[Connection]): List[Tag] = {
+                                   (implicit parentId: Long, c:Connection=null): List[Tag] = {
     super.retrieveListByPrefix(prefix.toLowerCase, limit, offset, onlyEnabled, orderColumn, orderDirection)
   }
 
@@ -116,7 +116,7 @@ class TagDAL @Inject() (override val db:Database,
     */
   override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean,
                     orderColumn: String, orderDirection: String)
-                   (implicit parentId: Long, c: Option[Connection]): List[Tag] = {
+                   (implicit parentId: Long, c:Connection=null): List[Tag] = {
     super.find(searchString.toLowerCase, limit, offset, onlyEnabled, orderColumn, orderDirection)
   }
 
@@ -126,7 +126,7 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id fo the task
     * @return List of tags for the task
     */
-  def listByTask(id:Long)(implicit c:Option[Connection]=None) : List[Tag] = {
+  def listByTask(id:Long)(implicit c:Connection=null) : List[Tag] = {
     implicit val ids:List[Long] = List()
     this.cacheManager.withIDListCaching { implicit uncached =>
       this.withMRConnection { implicit c =>
@@ -143,7 +143,7 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id of the challenge\
     * @return List of Tags associated with the challenge
     */
-  def listByChallenge(id:Long)(implicit c:Option[Connection]=None) : List[Tag] = {
+  def listByChallenge(id:Long)(implicit c:Connection=null) : List[Tag] = {
     this.listByChallenges(List(id)).flatMap(_._2).toList
   }
 
@@ -153,7 +153,7 @@ class TagDAL @Inject() (override val db:Database,
     * @param id The id list of the challenges
     * @return Map of challenge ids to tags associated with challenge
     */
-  def listByChallenges(id:List[Long])(implicit c:Option[Connection]=None) : Map[Long, List[Tag]] = {
+  def listByChallenges(id:List[Long])(implicit c:Connection=null) : Map[Long, List[Tag]] = {
     implicit val ids:List[Long] = List()
     this.withMRConnection { implicit c =>
       val challengeTagParser:RowParser[(Long, Tag)] = {
@@ -182,7 +182,7 @@ class TagDAL @Inject() (override val db:Database,
     * @return Returns the list of tags that were inserted, this would include any newly created
     *         ids of tags.
     */
-  def updateTagList(tags: List[Tag], user:User)(implicit c:Option[Connection]=None): List[Tag] = {
+  def updateTagList(tags: List[Tag], user:User)(implicit c:Connection=null): List[Tag] = {
     if (tags.nonEmpty) {
       this.permission.hasSuperAccess(user)
       implicit val names = tags.filter(_.name.nonEmpty).map(_.name)

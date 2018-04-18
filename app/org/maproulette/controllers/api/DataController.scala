@@ -29,6 +29,8 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   implicit val userSurveySummaryWrites = Json.writes[UserSurveySummary]
   implicit val actionSummaryWrites = Json.writes[ActionSummary]
   implicit val userSummaryWrites = Json.writes[UserSummary]
+  implicit val challengeLeaderboardWrites = Json.writes[LeaderboardChallenge]
+  implicit val userLeaderboardWrites = Json.writes[LeaderboardUser]
   implicit val challengeSummaryWrites = Json.writes[ChallengeSummary]
   implicit val challengeActivityWrites = Json.writes[ChallengeActivity]
   implicit val rawActivityWrites = Json.writes[RawActivity]
@@ -86,6 +88,42 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
+  /**
+    * Gets the top scoring users, based on task completion, over the given
+    * start and end dates.
+    *
+    * @param start the start date
+    * @param end the end date
+    * @param limit the limit on the number of users returned
+    * @param offset paging, starting at 0
+    * @return Top-ranked users with scores based on task completion activity
+    */
+  def getUserLeaderboard(start:String, end:String, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dataManager.getUserLeaderboard(
+        Utils.getDate(start), Utils.getDate(end), limit, offset
+      )))
+    }
+  }
+
+  /**
+    * Gets the user's top challenges, based on activity, over the given start
+    * and end dates.
+    *
+    * @param start the start date
+    * @param end the end date
+    * @param limit the limit on the number of challenges returned
+    * @param offset paging, starting at 0
+    * @return Top challenges based on user's activity
+    */
+  def getUserTopChallenges(userId:Long, start:String, end:String, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dataManager.getUserTopChallenges(
+        userId, Utils.getDate(start), Utils.getDate(end), limit, offset
+      )))
+    }
+  }
+
   def getChallengeSummary(id:Long, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       if (survey == 1) {
@@ -101,7 +139,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   }
 
   def getProjectSummary(projects:String) : Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
+    this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(
         this.dataManager.getChallengeSummary(Utils.toLongList(projects))
       ))

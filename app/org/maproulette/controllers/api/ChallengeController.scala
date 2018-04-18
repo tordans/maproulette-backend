@@ -5,8 +5,8 @@ package org.maproulette.controllers.api
 import java.io._
 import java.sql.Connection
 import java.util.zip.{ZipEntry, ZipOutputStream}
-import javax.inject.Inject
 
+import javax.inject.Inject
 import akka.util.ByteString
 import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
@@ -61,8 +61,15 @@ class ChallengeController @Inject()(override val childController: TaskController
   override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType: ItemType = ChallengeType()
-  implicit val answerWrites: Writes[Answer] = Challenge.answerWrites
-  implicit val commentWrites: Writes[Comment] = Comment.commentWrites
+
+  // implicit writes used for various JSON responses
+  implicit val answerWrites = Challenge.answerWrites
+  implicit val commentWrites = Comment.commentWrites
+  implicit val pointWrites = ClusteredPoint.pointWrites
+  implicit val clusteredPointWrites = ClusteredPoint.clusteredPointWrites
+  implicit val taskClusterWrites = TaskCluster.taskClusterWrites
+  implicit val searchParameterWrites = SearchParameters.paramsWrites
+  implicit val searchLocationWrites = SearchParameters.locationWrites
 
   override def dalWithTags: TagDALMixin[Challenge] = dal
 
@@ -121,7 +128,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param createdObject The object that was created by the create function
     * @param user          The user that is executing the function
     */
-  override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User)(implicit c: Option[Connection] = None): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User)(implicit c:Connection=null): Unit = {
     val localJson = (body \ "localGeoJSON").asOpt[JsValue] match {
       case Some(local) => Some(Json.stringify(local))
       case None => None
@@ -167,9 +174,17 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
+  /**
+    * Gets the tasks in the form of ClusteredPoints, which is just a task with limited information,
+    * and the geometry associated with it is just the centroid of the task geometry
+    *
+    * @param challengeId The challenge id, ie. the parent of the tasks
+    * @param statusFilter Filter by status of the task
+    * @param limit limit the number of tasks returned
+    * @return A list of ClusteredPoint's
+    */
   def getClusteredPoints(challengeId: Long, statusFilter: String, limit:Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      implicit val writes = ClusteredPoint.clusteredPointWrites
       val filter = if (StringUtils.isEmpty(statusFilter)) {
         None
       } else {

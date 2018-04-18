@@ -3,7 +3,6 @@
 package org.maproulette.jobs
 
 import javax.inject.{Inject, Singleton}
-
 import akka.actor.{Actor, Props}
 import play.api.{Application, Logger}
 import play.api.db.Database
@@ -16,7 +15,10 @@ import org.maproulette.metrics.Metrics
 import org.maproulette.models.Task
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
+import org.maproulette.services.{KeepRight, KeepRightBox, KeepRightError, KeepRightService}
 import org.maproulette.session.User
+
+import scala.util.{Failure, Success}
 
 /**
   * The main actor that handles all scheduled activities
@@ -28,8 +30,10 @@ import org.maproulette.session.User
 class SchedulerActor @Inject() (config:Config,
                                 application:Application,
                                 db:Database,
-                                dALManager: DALManager) extends Actor {
+                                dALManager: DALManager,
+                                keepRightService: KeepRightService) extends Actor {
   val appConfig = application.configuration
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   // cleanOldTasks configuration
   lazy val oldTasksStatusFilter = appConfig.getIntSeq(Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
@@ -46,6 +50,7 @@ class SchedulerActor @Inject() (config:Config,
     case RunJob("FindChangeSets", action) => this.findChangeSets(action)
     case RunJob("OSMChangesetMatcher", action) => this.matchChangeSets(action)
     case RunJob("cleanDeleted", action) => this.cleanDeleted(action)
+    case RunJob("KeepRightUpdate", action) => this.keepRightUpdate(action)
   }
 
   /**
@@ -229,6 +234,55 @@ class SchedulerActor @Inject() (config:Config,
       if (deletedChallenges.nonEmpty) {
         Logger.debug(s"Finalized deletion of challenges with id [${deletedChallenges.mkString(",")}]")
       }
+    }
+  }
+
+  def keepRightUpdate(action:String) : Unit = {
+    Logger.info(action)
+    val slidingValue = this.config.config.getInt(KeepRight.KEY_SLIDING).getOrElse(KeepRight.DEFAULT_SLIDING)
+    val slidingErrors = keepRightService.errorList.sliding(slidingValue, slidingValue).toList
+
+    val integrationList:List[(List[KeepRightError], KeepRightBox)] =
+      if (config.config.getBoolean(KeepRight.KEY_ENABLED).getOrElse(false)) {
+        if (keepRightService.boundingBoxes.nonEmpty && keepRightService.errorList.nonEmpty) {
+          slidingErrors.flatMap(error =>
+            keepRightService.boundingBoxes map { bounding =>
+              (error, bounding)
+            }
+          )
+        } else {
+          List.empty
+        }
+      } else {
+        List.empty
+      }
+    integrationList.headOption match {
+      case Some(h) => this._integrateKeepRight(h, integrationList.tail)
+      case None => //just do nothing
+    }
+  }
+
+  /**
+    * We essentially create this recursive function, so that we don't take down the KeepRight servers
+    * by bombarding it with tons of API requests.
+    *
+    * @param head The head of the list, which is a tuple containing a KeepRightError and a KeepRightBox
+    * @param tail The tail list of box objects
+    */
+  private def _integrateKeepRight(head:(List[KeepRightError], KeepRightBox),
+                                  tail:List[(List[KeepRightError], KeepRightBox)]) : Unit = {
+    keepRightService.integrate(head._1.map(_.id), head._2) onComplete {
+      case Success(x) =>
+        if (!x) {
+          Logger.warn(s"KeepRight challenge failed, but continuing to next one")
+        }
+        tail.headOption match {
+          case Some(head) => this._integrateKeepRight(head, tail.tail)
+          case None => // just do nothing because we are finished
+        }
+      case Failure(f) =>
+        // something went wrong, we should bail out immediately
+        Logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
     }
   }
 }

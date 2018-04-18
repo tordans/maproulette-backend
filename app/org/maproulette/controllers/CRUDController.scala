@@ -56,7 +56,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param createdObject The object that was created by the create function
     * @param user The user that is executing the function
     */
-  def extractAndCreate(body:JsValue, createdObject:T, user:User)(implicit c:Option[Connection]=None) : Unit = { }
+  def extractAndCreate(body:JsValue, createdObject:T, user:User)(implicit c:Connection=null) : Unit = { }
 
   /**
     * This function allows sub classes to modify the body, primarily this would be used for inserting
@@ -131,7 +131,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param user The user that is executing this request
     * @return The createdObject (not any of it's children if creating multiple objects, only top level)
     */
-  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Option[Connection]=None) : Option[T] = {
+  def internalCreate(requestBody:JsValue, element:T, user:User)(implicit c:Connection=null) : Option[T] = {
     this.dal.mergeUpdate(element, user)(element.id) match {
       case Some(created) =>
         this.extractAndCreate(requestBody, created, user)
@@ -188,7 +188,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long, c:Option[Connection]=None) : Option[T] = {
+  def internalUpdate(requestBody:JsValue, user:User)(implicit id:String, parentId:Long, c:Connection=null) : Option[T] = {
     val updatedObject = if (Utils.isDigit(id)) {
       this.dal.update(requestBody, user)(id.toLong)
     } else {

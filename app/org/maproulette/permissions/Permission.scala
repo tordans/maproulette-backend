@@ -26,7 +26,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * @param obj The object you are checking to see if the user has read access on the object
     * @param user The user requesting the access.
     */
-  def hasObjectReadAccess(obj:BaseObject[Long], user:User)(implicit c:Option[Connection]=None) : Unit =  if (!user.isSuperUser) {
+  def hasObjectReadAccess(obj:BaseObject[Long], user:User)(implicit c:Connection=null) : Unit =  if (!user.isSuperUser) {
     obj.itemType match {
       case UserType() if obj.id != user.id & obj.asInstanceOf[User].osmProfile.id != user.osmProfile.id =>
         throw new IllegalAccessException(s"User does not have read access to requested user object [${obj.id}]")
@@ -45,7 +45,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * @param user The user checking whether they have access or not
     * @param id The id of the object
     */
-  def hasReadAccess(itemType:ItemType, user:User)(implicit id:Long, c:Option[Connection]=None) : Unit = {
+  def hasReadAccess(itemType:ItemType, user:User)(implicit id:Long, c:Connection=null) : Unit = {
     val retrieveFunction = itemType match {
       case UserType() => dalManager.get().user.retrieveById
       case GroupType() => dalManager.get().userGroup.getGroup
@@ -66,7 +66,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * @param obj The object in question
     * @param user The user requesting write access
     */
-  def hasObjectWriteAccess(obj:BaseObject[Long], user:User, groupType:Int = Group.TYPE_WRITE_ACCESS)(implicit c:Option[Connection]=None) : Unit =
+  def hasObjectWriteAccess(obj:BaseObject[Long], user:User, groupType:Int = Group.TYPE_WRITE_ACCESS)(implicit c:Connection=null) : Unit =
     if (!user.isSuperUser) {
       obj.itemType match {
         case UserType() => this.hasObjectReadAccess(obj, user)
@@ -89,7 +89,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
       }
     }
 
-  def hasWriteAccess(itemType:ItemType, user:User, groupType:Int = Group.TYPE_WRITE_ACCESS)(implicit id:Long, c:Option[Connection]=None) : Unit =
+  def hasWriteAccess(itemType:ItemType, user:User, groupType:Int = Group.TYPE_WRITE_ACCESS)(implicit id:Long, c:Connection=null) : Unit =
     if (!user.isSuperUser) {
       itemType match {
         case UserType() =>
@@ -123,7 +123,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * @param user The user making the request
     * @param c An implicit database connection
     */
-  def hasObjectAdminAccess(obj:BaseObject[Long], user:User)(implicit c:Option[Connection]=None) : Unit =
+  def hasObjectAdminAccess(obj:BaseObject[Long], user:User)(implicit c:Connection=null) : Unit =
     this.hasObjectWriteAccess(obj, user, Group.TYPE_ADMIN)
 
   /**
@@ -134,7 +134,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * @param id The id of the object
     * @param c An implicit database connection
     */
-  def hasAdminAccess(itemType:ItemType, user:User)(implicit id:Long, c:Option[Connection]=None) : Unit =
+  def hasAdminAccess(itemType:ItemType, user:User)(implicit id:Long, c:Connection=null) : Unit =
     this.hasWriteAccess(itemType, user, Group.TYPE_ADMIN)
 
   /**
@@ -146,10 +146,10 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     throw new IllegalAccessException(s"Only super users can perform this action.")
   }
 
-  def hasProjectTypeAccess(user:User, groupType:Int = Group.TYPE_ADMIN)(implicit id:Long, c:Option[Connection]=None) : Unit =
+  def hasProjectTypeAccess(user:User, groupType:Int = Group.TYPE_ADMIN)(implicit id:Long, c:Connection=null) : Unit =
     this.hasProjectAccess(dalManager.get().project.retrieveById, user, groupType)
 
-  def hasProjectAccess(project:Option[Project], user:User, groupType:Int = Group.TYPE_ADMIN)(implicit c:Option[Connection]=None) : Unit = if (!user.isSuperUser) {
+  def hasProjectAccess(project:Option[Project], user:User, groupType:Int = Group.TYPE_ADMIN)(implicit c:Connection=null) : Unit = if (!user.isSuperUser) {
     project match {
       case Some(p) =>
         if (project.get.owner != user.osmProfile.id && !user.groups.exists(g => p.id == g.projectId && g.groupType <= groupType)) {
