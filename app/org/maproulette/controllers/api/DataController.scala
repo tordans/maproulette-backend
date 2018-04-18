@@ -139,7 +139,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   }
 
   def getProjectSummary(projects:String) : Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
+    this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(
         this.dataManager.getChallengeSummary(Utils.toLongList(projects))
       ))
