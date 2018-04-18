@@ -21,7 +21,7 @@ case class OSMQLProvider(providerURL:String, requestTimeout:Duration)
   */
 @Singleton
 class Config @Inject() (implicit val application:Application) {
-  private val config = application.configuration
+  val config = application.configuration
 
   lazy val logoURL = this.config.getString(Config.KEY_LOGO) match {
     case Some(logo) => logo
@@ -188,6 +188,7 @@ object Config {
   val KEY_SCHEDULER_OSM_MATCHER_ENABLED = s"$SUB_GROUP_SCHEDULER.osmMatcher.enabled"
   val KEY_SCHEDULER_OSM_MATCHER_MANUAL = s"$SUB_GROUP_SCHEDULER.osmMatcher.manual"
   val KEY_SCHEDULER_CLEAN_DELETED = s"$SUB_GROUP_SCHEDULER.cleanDeleted.interval"
+  val KEY_SCHEDULER_KEEPRIGHT = s"$SUB_GROUP_SCHEDULER.keepright.interval"
 
   val GROUP_OSM = "osm"
   val KEY_OSM_SERVER = s"$GROUP_OSM.server"
