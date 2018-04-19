@@ -483,7 +483,8 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
             ) AS score
             FROM status_actions sa, users
             WHERE #${getDateClause("sa.created", start, end)} AND
-                  users.osm_id = sa.osm_user_id
+                  users.osm_id = sa.osm_user_id AND
+                  users.leaderboard_opt_out = FALSE
             GROUP BY sa.osm_user_id, users.id
             ORDER BY score DESC, sa.osm_user_id ASC
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}

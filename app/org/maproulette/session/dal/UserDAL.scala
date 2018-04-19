@@ -70,12 +70,13 @@ class UserDAL @Inject() (override val db:Database,
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.custom_basemap_url") ~
       get[Option[Boolean]]("users.email_opt_in") ~
+      get[Option[Boolean]]("users.leaderboard_opt_out") ~
       get[Option[String]]("users.locale") ~
       get[Option[Int]]("users.theme") ~
       get[Option[String]]("properties") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
         homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
-        customBasemap ~ emailOptIn ~ locale ~ theme ~ properties =>
+        customBasemap ~ emailOptIn ~ leaderboardOptOut ~ locale ~ theme ~ properties =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
@@ -87,7 +88,7 @@ class UserDAL @Inject() (override val db:Database,
             userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, customBasemap, locale, emailOptIn, theme),
+          UserSettings(defaultEditor, defaultBasemap, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
           properties
         )
     }
@@ -319,6 +320,7 @@ class UserDAL @Inject() (override val db:Database,
         val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
+        val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
         val properties = (value \ "properties").asOpt[String].getOrElse(cachedItem.properties.getOrElse("{}"))
 
@@ -329,7 +331,8 @@ class UserDAL @Inject() (override val db:Database,
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, custom_basemap_url = {customBasemap},
-                                          locale = {locale}, email_opt_in = {emailOptIn}, theme = {theme}, properties = {properties}
+                                          locale = {locale}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
+                                          theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns}"""
         SQL(query).on(
           'apiKey -> apiKey,
@@ -345,6 +348,7 @@ class UserDAL @Inject() (override val db:Database,
           'customBasemap -> customBasemap,
           'locale -> locale,
           'emailOptIn -> emailOptIn,
+          'leaderboardOptOut -> leaderboardOptOut,
           'theme -> theme,
           'properties -> properties
         ).as(this.parser.*).headOption
