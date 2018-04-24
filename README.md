@@ -47,6 +47,7 @@ For more details on the app registration process, see the [OSM OAuth wiki page](
     - Consumer key from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_KEY`: `export MR_OAUTH_CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`
     - Consumer secret from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_SECRET`: `export MR_OAUTH_CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`
     - OSM server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER='http://master.dev.openstreetmap.org'`
+    - APIHost used for Swagger API documentation as `API_HOST`: `export API_HOST=localhost:9000`
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
@@ -69,7 +70,8 @@ If you are having issues getting the activator to run, you can configure your in
     - Database connection JDBC string as `MR_DATABASE_URL`: `export MR_DATABASE_URL='jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm'`
     - Consumer key from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_KEY`: `export MR_OAUTH_CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`
     - Consumer secret from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_SECRET`: `export MR_OAUTH_CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`
-    - OpenStreetMap server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER=http://master.dev.openstreetmap.org`
+    - OSM server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER=http://master.dev.openstreetmap.org`
+    - APIHost used for Swagger API documentation as `API_HOST`: `export API_HOST=localhost:9000`
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
 * Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
