@@ -54,20 +54,22 @@ case class OSMProfile(id: Long,
 /**
   * Settings that are not defined by the OSM user profile, but specific to MapRoulette
   *
-  * @param defaultEditor  The default editor that the user wants to use
-  * @param defaultBasemap The default basemap that the user wants to see, will be overridden by default basemap for the challenge if set
-  * @param customBasemap  It default basemap is custom, then this is the url to the tile server
-  * @param locale         The locale for the user, if not set will default to en
-  * @param emailOptIn     If the user has opted in to receive emails
-  * @param theme          The theme to display in MapRoulette. Optionally - 0=skin-black, 1=skin-black-light,
-  *                       2=skin-blue, 3=skin-blue-light, 4=skin-green, 5=skin-green-light,
-  *                       6=skin-purple, 7=skin-purple-light, 8=skin-red, 9=skin-red-light, 10=skin-yellow, 11=skin-yellow-light
+  * @param defaultEditor     The default editor that the user wants to use
+  * @param defaultBasemap    The default basemap that the user wants to see, will be overridden by default basemap for the challenge if set
+  * @param customBasemap     It default basemap is custom, then this is the url to the tile server
+  * @param locale            The locale for the user, if not set will default to en
+  * @param emailOptIn        If the user has opted in to receive emails
+  * @param leaderboardOptOut If the user has opted out of the public leaderboard
+  * @param theme             The theme to display in MapRoulette. Optionally - 0=skin-black, 1=skin-black-light,
+  *                          2=skin-blue, 3=skin-blue-light, 4=skin-green, 5=skin-green-light,
+  *                          6=skin-purple, 7=skin-purple-light, 8=skin-red, 9=skin-red-light, 10=skin-yellow, 11=skin-yellow-light
   */
 case class UserSettings(defaultEditor: Option[Int] = None,
                         defaultBasemap: Option[Int] = None,
                         customBasemap: Option[String] = None,
                         locale: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
+                        leaderboardOptOut: Option[Boolean] = None,
                         theme: Option[Int] = None) {
   def getTheme: String = theme match {
     case Some(t) => t match {
@@ -274,6 +276,7 @@ object User {
       "customBasemap" -> optional(text),
       "locale" -> optional(text),
       "emailOptIn" -> optional(boolean),
+      "leaderboardOptOut" -> optional(boolean),
       "theme" -> optional(number)
     )(UserSettings.apply)(UserSettings.unapply)
   )

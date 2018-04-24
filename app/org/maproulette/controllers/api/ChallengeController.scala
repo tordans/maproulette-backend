@@ -33,8 +33,8 @@ import scala.util.{Failure, Success}
 /**
   * The challenge controller handles all operations for the Challenge objects.
   * This includes CRUD operations and searching/listing.
-  * See {@link org.maproulette.controllers.ParentController} for more details on parent object operations
-  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  * See ParentController for more details on parent object operations
+  * See CRUDController for more details on CRUD object operations
   *
   * @author cuthbertm
   */
@@ -606,4 +606,17 @@ class ChallengeController @Inject()(override val childController: TaskController
         }
       }
     }}
+
+  /**
+    * Moves a challenge from one project to another. This requires admin access on both projects
+    *
+    * @param newProjectId The new project to move the challenge too
+    * @param challengeId The challenge that you are moving
+    * @return Ok with no message
+    */
+  def moveChallenge(newProjectId:Long, challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(dalManager.challenge.moveChallenge(newProjectId, challengeId, user)))
+    }
+  }
 }

@@ -26,6 +26,8 @@ class Bootstrap @Inject()(appLifeCycle:ApplicationLifecycle, db:Database, config
         case Some("*") =>
           Logger.info("WARNING: Configuration is setting all users to super users. Make sure this is what you want.")
           SQL"""INSERT INTO user_groups (group_id, osm_user_id) (SELECT -999 AS group_id, osm_id FROM users WHERE NOT osm_id = -999)""".executeUpdate()
+        case Some("") =>
+          Logger.info("WARNING: Configuration has NO super users. Make sure this is what you want.")
         case _ =>
           val inserts = config.superAccounts.map(s => s"(-999, $s)").mkString(",")
           SQL"""INSERT INTO user_groups (group_id, osm_user_id) VALUES #$inserts""".executeUpdate()
