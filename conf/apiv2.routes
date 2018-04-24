@@ -848,7 +848,26 @@ GET     /challenges/find                            @org.maproulette.controllers
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0)
-
+###
+# tags: [ Challenge ]
+# summary: Move Challenge to another Project
+# produces: [ application/json ]
+# description: Will move a challenge into another project
+# responses:
+#   '200':
+#     description: Empty status body
+#     schema:
+#       type: array
+#       $ref: '#/definitions/org.maproulette.models.Tag'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID of the challenge
+#   - name: projectId
+#     in: path
+#     description: The ID of the project you are moving the challenge too.
+###
+POST     /challenge/:id/project/:projectId           @org.maproulette.controllers.api.ChallengeController.moveChallenge(projectId:Long, id:Long)
 ###
 # tags: [ Challenge ]
 # summary: Retrieve tags for Challenge
