@@ -3,14 +3,14 @@
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Provider, Singleton}
 
+import javax.inject.{Inject, Provider, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.actions.{Actions, ChallengeType, TaskType}
+import org.maproulette.actions.{Actions, ChallengeType, ProjectType, TaskType}
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.models._
@@ -508,6 +508,28 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           pointer += 1
         } while (currentTasks.size == 50)
         this.taskDAL.clearCaches
+      }
+    }
+  }
+
+  /**
+    * Moves a challenge from one project to another. You are required to have admin access on both
+    * the current project and the project you are moving the challenge too
+    *
+    * @param newParent The id of the new parent project
+    * @param challengeId The id of the challenge that you are moving
+    * @param c an implicit connection
+    */
+  def moveChallenge(newParent:Long, challengeId:Long, user:User)(implicit c:Connection=null) : Option[Challenge] = {
+    this.permission.hasAdminAccess(ProjectType(), user)(newParent)
+    implicit val id = challengeId
+    this.retrieveById match {
+      case Some(c) => this.permission.hasObjectAdminAccess(c, user)
+      case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
+    }
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+      this.withMRTransaction { implicit c =>
+        SQL"UPDATE challenges SET parent_id = $newParent WHERE id = $challengeId RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
       }
     }
   }
