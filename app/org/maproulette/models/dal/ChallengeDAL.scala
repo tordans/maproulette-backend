@@ -692,7 +692,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       }
 
       searchParameters.challengeDifficulty match {
-        case Some(v) if v != -1 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
+        case Some(v) if v > 0 && v < 4 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
         case _ =>
       }
 
