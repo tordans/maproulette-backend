@@ -27,6 +27,7 @@ case class SearchParameters(projectIds:Option[List[Long]]=None,
                             challengeTagConjunction:Option[Boolean]=None,
                             challengeSearch:Option[String]=None,
                             challengeEnabled:Option[Boolean]=None,
+                            challengeDifficulty:Option[Int]=None,
                             taskTags:Option[List[String]]=None,
                             taskTagConjunction:Option[Boolean]=None,
                             taskSearch:Option[String]=None,
@@ -50,6 +51,11 @@ case class SearchParameters(projectIds:Option[List[Long]]=None,
   def getPriority : Option[Int] = priority match {
     case Some(v) if v == -1 => None
     case _ => priority
+  }
+
+  def getChallengeDifficulty : Option[Int] = challengeDifficulty match {
+    case Some(v) if v == -1 => None
+    case _ => challengeDifficulty
   }
 
   def hasTaskTags : Boolean = taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
@@ -128,6 +134,8 @@ object SearchParameters {
       this.getStringParameter(request.getQueryString("cs"), params.challengeSearch),
       //challengeEnabled
       this.getBooleanParameter(request.getQueryString("ce"), params.challengeEnabled),
+      //challengeDifficulty
+      this.getIntParameter(request.getQueryString("cd"), params.challengeDifficulty),
       //taskTags
       request.getQueryString("tt") match {
         case Some(v) => Some(v.split(",").toList)

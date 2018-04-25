@@ -691,6 +691,11 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case _ =>
       }
 
+      searchParameters.challengeDifficulty match {
+        case Some(v) if v != -1 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
+        case _ =>
+      }
+
       val query =
         s"""
            |SELECT ${this.retrieveColumns} FROM challenges c
