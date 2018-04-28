@@ -2782,6 +2782,8 @@ GET     /data/raw/activity                          @org.maproulette.controllers
 ### NoDocs ###
 GET     /data/status/activity                       @org.maproulette.controllers.api.DataController.getStatusActivity(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", newStatus:String ?= "", oldStatus:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 ### NoDocs ###
+GET     /data/status/latestActivity                 @org.maproulette.controllers.api.DataController.getLatestChallengeActivity(projectIds:String ?= "", challengeIds:String ?= "", entries:Int ?= 1)
+### NoDocs ###
 GET     /data/status/summary                        @org.maproulette.controllers.api.DataController.getStatusSummary(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ User ]
