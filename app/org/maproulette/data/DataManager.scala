@@ -491,6 +491,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
             ) AS score
             FROM status_actions sa, users
             WHERE #${getDateClause("sa.created", start, end)} AND
+                  sa.old_status <> sa.status AND
                   users.osm_id = sa.osm_user_id AND
                   users.leaderboard_opt_out = FALSE
                   #${getLongListFilter(userFilter, "users.id")}
