@@ -840,6 +840,9 @@ GET     /challenges/find                            @org.maproulette.controllers
 #   - name: ce
 #     in: query
 #     description: Boolean variable true|false that limits the search by enabled projects only if set to true. Default will is true.
+#   - name: cd
+#     in: query
+#     description: The difficulty level to limit the returned challenges by. Following difficulty Integers can be used. 1 - Easy, 2 - Normal, 3 - Expert, -1 - Any difficulty. Default value is -1.
 #   - name: limit
 #     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
