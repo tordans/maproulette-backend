@@ -424,7 +424,7 @@ class UserDAL @Inject() (override val db:Database,
   def addUserToProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : User = {
     this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user)
     implicit val osmKey = osmID
-    implicit val superUser = user
+    implicit val requestingUser = user
     // expire the user group cache
     userGroupDAL.clearUserCache(osmID)
     this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
@@ -434,7 +434,7 @@ class UserDAL @Inject() (override val db:Database,
             WHERE group_type = $groupType AND project_id = $projectId
          """.executeUpdate()
       }
-      Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, superUser)))
+      Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
     }.get
   }
 
@@ -450,7 +450,7 @@ class UserDAL @Inject() (override val db:Database,
   def removeUserFromProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user)
     implicit val osmKey = osmID
-    implicit val superUser = user
+    implicit val requestingUser = user
     userGroupDAL.clearUserCache(osmID)
     this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
       this.withMRTransaction { implicit c =>
@@ -459,7 +459,7 @@ class UserDAL @Inject() (override val db:Database,
                 (SELECT id FROM groups WHERE group_type = $groupType AND project_id = $projectId)
            """.executeUpdate()
       }
-      Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, superUser)))
+      Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
     }.get
   }
 
