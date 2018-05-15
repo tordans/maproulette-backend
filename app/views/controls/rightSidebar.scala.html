@@ -105,7 +105,7 @@
             <div class="menu-info">
               <h4 class="control-sidebar-subheading">@messages("rightsidebar.recent.answered")
                 @ua.itemId match {
-                  case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case Some(value) => {<a href="@routes.Application.mapRedirect(-1, value, true)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>
@@ -118,7 +118,7 @@
             <div class="menu-info">
               <h4 class="control-sidebar-subheading">@messages("rightsidebar.recent.completed")
                 @ua.itemId match {
-                  case Some(value) => {<a href="@routes.Application.mapTask(-1, value)">[@{ua.extra.getOrElse("Undefined")}]</a>}
+                  case Some(value) => {<a href="@routes.Application.mapRedirect(-1, value, true)">[@{ua.extra.getOrElse("Undefined")}]</a>}
                   case None => {NOT FOUND}
                 }
               </h4>

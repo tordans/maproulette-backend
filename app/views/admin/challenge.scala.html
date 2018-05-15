@@ -94,7 +94,7 @@
                                         <li class="divider"></li>
                                         <li><a href="/api/v2/challenge/@{c._1.id}/comments/extract" download="extract.csv">@messages("rightsidebar.tasks.button.extract")</a></li>
                                         <li><a href="@routes.Application.challengeMetrics(c._1.id, "")">@messages("challenge.column.actions.metrics")</a></li>
-                                        <li><a href="@routes.Application.viewChallenge(c._1.id)">@messages("challenge.column.actions.view")</a></li>
+                                        <li><a href="@routes.Application.viewRedirect(c._1.id, true)">@messages("challenge.column.actions.view")</a></li>
                                         <li class="divider"></li>
                                         @if(!c._1.creation.overpassQL.getOrElse("").isEmpty || !c._1.creation.remoteGeoJson.getOrElse("").isEmpty) {
                                             <li><a href="#" onclick="rebuildChallenge(@c._1.general.parent, @c._1.id);">@messages("challenge.column.actions.rebuild")</a></li>

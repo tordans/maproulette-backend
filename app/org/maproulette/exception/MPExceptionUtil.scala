@@ -23,6 +23,9 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 object MPExceptionUtil {
+
+  import play.api.http.Status._
+
   /**
     * Used for Actions, wraps the code block and if InvalidException found will send a BadRequest,
     * all other exceptions sent back as InternalServerError
@@ -130,7 +133,7 @@ object MPExceptionUtil {
     }
   }
 
-  def internalAsyncUIExceptionCatcher(user:User, config:Config, dalManager:DALManager)(block:() => Future[Result])
+  def internalAsyncUIExceptionCatcher(user:User, config:Config, dalManager:DALManager, oldUI:Boolean=false)(block:() => Future[Result])
                                      (implicit request:Request[Any], messages:Messages,
                                       webJarAssets: WebJarAssets) : Future[Result] = {
     val p = Promise[Result]
@@ -138,14 +141,28 @@ object MPExceptionUtil {
     Try(block()) match {
       case Success(s) => s onComplete {
         case Success(result) => p success result
-        case Failure(f) => p success manageUIException(f, tempUser, config, dalManager)
+        case Failure(f) =>
+          if (oldUI) {
+            p success manageOldUIException(f, tempUser, config, dalManager)
+          } else {
+            p success manageUIException(f)
+          }
       }
-      case Failure(f) => p success manageUIException(f, tempUser, config, dalManager)
+      case Failure(f) =>
+        if (oldUI) {
+          p success manageOldUIException(f, tempUser, config, dalManager)
+        } else {
+          p success manageUIException(f)
+        }
     }
     p.future
   }
 
-  private def manageUIException(e:Throwable, user:User, config:Config, dalManager:DALManager)
+  private def manageUIException(e:Throwable) : Result = {
+    Redirect(s"/mr3/error?errormsg=${e.getMessage}", PERMANENT_REDIRECT)
+  }
+
+  private def manageOldUIException(e:Throwable, user:User, config:Config, dalManager:DALManager)
                                (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
     val featuredChallenges = dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0)
     val hotChallenges = dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0)
