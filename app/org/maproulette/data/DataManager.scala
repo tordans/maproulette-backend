@@ -491,6 +491,7 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
             ) AS score
             FROM status_actions sa, users
             WHERE #${getDateClause("sa.created", start, end)} AND
+                  sa.old_status <> sa.status AND
                   users.osm_id = sa.osm_user_id AND
                   users.leaderboard_opt_out = FALSE
                   #${getLongListFilter(userFilter, "users.id")}
@@ -543,6 +544,46 @@ class DataManager @Inject()(config: Config, db:Database)(implicit application:Ap
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
        """.as(parser.*)
     }
+
+  /**
+    * Gets the most recent activity entries for each challenge, regardless of date.
+    *
+    * @param projectIds restrict to specified projects
+    * @param challengeIds restrict to specified challenges
+    * @param entries the number of most recent activity entries per challenge. Defaults to 1.
+    * @return most recent activity entries for each challenge
+    */
+  def getLatestChallengeActivity(projectFilter:Option[List[Long]]=None, challengeFilter:Option[List[Long]]=None, entries:Int=1) : List[RawActivity] = {
+    db.withConnection { implicit c =>
+      val parser = for {
+        date <- get[DateTime]("status_actions.created")
+        osmUserId <- long("status_actions.osm_user_id")
+        osmUsername <- str("users.name")
+        projectId <- long("status_actions.project_id")
+        projectName <- str("projects.name")
+        challengeId <- long("status_actions.challenge_id")
+        challengeName <- str("challenges.name")
+        taskId <- long("status_actions.task_id")
+        oldStatus <- int("status_actions.old_status")
+        status <- int("status_actions.status")
+      } yield RawActivity(date, osmUserId, osmUsername, projectId, projectName, challengeId,
+                          challengeName, taskId, oldStatus, status)
+
+      SQL"""SELECT sa.*, challenges.name, projects.name, users.name FROM challenges, projects, users
+            JOIN LATERAL (
+              SELECT * FROM status_actions
+              WHERE challenge_id = challenges.id
+              AND old_status <> status
+              ORDER BY created DESC
+              LIMIT ${entries}
+            ) sa ON true
+            WHERE challenges.parent_id = projects.id
+            AND users.osm_id = sa.osm_user_id
+            #${getLongListFilter(projectFilter, "projects.id")}
+            #${getLongListFilter(challengeFilter, "challenges.id")}
+      """.as(parser.*)
+    }
+  }
 
   private def getEnabledPriorityClause(onlyEnabled:Boolean=true, isSurvey:Boolean=true,
                                        start:Option[DateTime]=None, end:Option[DateTime]=None,

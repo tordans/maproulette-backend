@@ -3,8 +3,8 @@
 package controllers
 
 import java.nio.file.{Files, Paths}
-import javax.inject.{Inject, Named}
 
+import javax.inject.{Inject, Named}
 import akka.actor.ActorRef
 import akka.util.CompactByteString
 import io.netty.handler.codec.http.HttpResponseStatus
@@ -27,7 +27,7 @@ import play.api.mvc._
 import play.api.routing._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 class Application @Inject() (val messagesApi: MessagesApi,
@@ -45,6 +45,9 @@ class Application @Inject() (val messagesApi: MessagesApi,
   private val titleHeader:String = Messages("headers.title")
   private val adminHeader:String = Messages("headers.administration")
   private val metricsHeader:String = Messages("headers.metrics")
+
+  // caching for the javascript files, so that we don't have to call them every time
+  var manifestDetails:Option[JsValue] = None
 
   def untrail(path:String) = Action {
     MovedPermanently(s"/$path")
@@ -75,44 +78,48 @@ class Application @Inject() (val messagesApi: MessagesApi,
     Ok(this.jsMessages(Some("window.Messages")))
   }
 
+  def mapRedirect(challengeId:Long, taskId:Long, oldui:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    if (oldui) {
+      mapTask(challengeId, taskId).apply(request)
+    } else {
+      Future { Redirect(s"/mr3/challenge/$challengeId/task/$taskId") }
+    }
+  }
+
+  def viewRedirect(challengeId:Long, oldui:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    if (oldui) {
+      viewChallenge(challengeId).apply(request)
+    } else {
+      Future { Redirect(s"/mr3/browse/challenge/$challengeId") }
+    }
+  }
+
   /**
     * The primary entry point to the application
     *
     * @return The index HTML
     */
-  def index : Action[AnyContent] = Action.async { implicit request =>
-    sessionManager.userAwareUIRequest { implicit user =>
-      val userOrMocked = User.userOrMocked(user)
-      getOkIndex(this.titleHeader, userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
+  def index(oldUI:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    if (oldUI) {
+      sessionManager.userAwareUIRequest { implicit user =>
+        val userOrMocked = User.userOrMocked(user)
+        getOkIndex(this.titleHeader, userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
+      }
+    } else {
+      this._mr3("")
     }
   }
 
-  // TODO we should probably cache the source of js and css otherwise we have to pull the manifest
-  // every single time. Not efficient
   def mr3(path:String) : Action[AnyContent] = Action.async { implicit request =>
+    this._mr3(path)
+  }
+
+  private def _mr3(path:String)(implicit request:Request[AnyContent]) : Future[Result] = {
     // retrieve the manifest and get the js and css source URI's.
     // if using static path, just pull the file directly, otherwise pull from http source
-    val promise = Promise[JsValue]
-    config.mr3StaticPath match {
-      case Some(path) => promise success Json.parse(Files.readAllBytes(Paths.get(s"$path/${config.mr3JSManifest}")))
-      case None =>
-        if (config.mr3DevMode) {
-          promise success Json.parse("""
-                      {
-                        "main.js" : "static/js/bundle.js",
-                        "main.css" : "static/css/bundle.css"
-                      }
-                      """)
-        } else {
-          this.ws.url(s"${config.mr3Host}/${config.mr3JSManifest}").get() onComplete {
-            case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
-              promise.success(Json.parse(detailsResponse.body))
-            case Failure(error) => promise failure error
-          }
-        }
-    }
+
     val resultPromise = Promise[Result]
-    promise.future onComplete {
+    getManifestDetails onComplete {
       case Success(manifest) =>
         val host = config.mr3Host
         val source = (
@@ -131,6 +138,37 @@ class Application @Inject() (val messagesApi: MessagesApi,
         resultPromise failure error
     }
     resultPromise.future
+  }
+
+  private def getManifestDetails : Future[JsValue] = {
+    manifestDetails match {
+      case Some(details) => Future { details }
+      case None =>
+        val promise = Promise[JsValue]
+        config.mr3StaticPath match {
+          case Some(path) =>
+            manifestDetails = Some(Json.parse(Files.readAllBytes(Paths.get(s"$path/${config.mr3JSManifest}"))).asInstanceOf[JsValue])
+            promise success manifestDetails.get
+          case None =>
+            if (config.mr3DevMode) {
+              manifestDetails = Some(Json.parse("""
+                      {
+                        "main.js" : "static/js/bundle.js",
+                        "main.css" : "static/css/bundle.css"
+                      }
+                      """).asInstanceOf[JsValue])
+              promise success manifestDetails.get
+            } else {
+              this.ws.url(s"${config.mr3Host}/${config.mr3JSManifest}").get() onComplete {
+                case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
+                  manifestDetails = Some(Json.parse(detailsResponse.body).asInstanceOf[JsValue])
+                  promise success manifestDetails.get
+                case Failure(error) => promise failure error
+              }
+            }
+        }
+        promise.future
+    }
   }
 
   def externalResources(file:String) : Action[AnyContent] = Action { implicit request =>

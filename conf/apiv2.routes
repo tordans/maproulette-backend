@@ -840,6 +840,9 @@ GET     /challenges/find                            @org.maproulette.controllers
 #   - name: ce
 #     in: query
 #     description: Boolean variable true|false that limits the search by enabled projects only if set to true. Default will is true.
+#   - name: cd
+#     in: query
+#     description: The difficulty level to limit the returned challenges by. Following difficulty Integers can be used. 1 - Easy, 2 - Normal, 3 - Expert, -1 - Any difficulty. Default value is -1.
 #   - name: limit
 #     in: query
 #     description: Limit the number of results returned in the response. Default value is 10.
@@ -2781,6 +2784,8 @@ GET     /data/challenge/:challengeId/activity       @org.maproulette.controllers
 GET     /data/raw/activity                          @org.maproulette.controllers.api.DataController.getRawActivity(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "")
 ### NoDocs ###
 GET     /data/status/activity                       @org.maproulette.controllers.api.DataController.getStatusActivity(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", newStatus:String ?= "", oldStatus:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+### NoDocs ###
+GET     /data/status/latestActivity                 @org.maproulette.controllers.api.DataController.getLatestChallengeActivity(projectIds:String ?= "", challengeIds:String ?= "", entries:Int ?= 1)
 ### NoDocs ###
 GET     /data/status/summary                        @org.maproulette.controllers.api.DataController.getStatusSummary(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 ###

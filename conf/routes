@@ -2,9 +2,13 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 # Home page
-GET     /                                                               @controllers.Application.index
+GET     /                                                               @controllers.Application.index(oldui:Boolean ?= false)
+# Routing to new MR3
 GET     /mr3                                                            @controllers.Application.mr3(path="")
 GET     /mr3/*path                                                      @controllers.Application.mr3(path)
+# Routes to support old task mappings
+GET     /map/:parentId/:taskId                                          @controllers.Application.mapRedirect(parentId:Long, taskId:Long, oldui:Boolean ?= false)
+GET     /view/:parentId                                                 @controllers.Application.viewRedirect(parentId:Long, oldui:Boolean ?= false)
 # UI ROUTES (Soon to be Deprecated)
 GET     /ui/admin/list/project                                          @controllers.Application.adminUIProjectList
 GET     /ui/admin/list/:itemType/:parentId                              @controllers.Application.adminUIChildList(itemType, parentId:Long)
@@ -26,9 +30,7 @@ GET     /ui/error/:errorString                                          @control
 GET     /ui/user/profile                                                @controllers.Application.profile(tab:Int ?= 0)
 POST    /ui/user/:id/settings                                           @controllers.FormEditController.userSettingsPost(id:Long)
 # MAPPING ROUTES (Soon to be Deprecated)
-GET     /map/:parentId/:taskId                                          @controllers.Application.mapTask(parentId:Long, taskId:Long)
 GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)
-GET     /view/:parentId                                                 @controllers.Application.viewChallenge(parentId:Long)
 GET     /show                                                           @controllers.Application.showSearchResults
 GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
 GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)

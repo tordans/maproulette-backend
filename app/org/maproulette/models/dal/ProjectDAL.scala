@@ -169,11 +169,13 @@ class ProjectDAL @Inject() (override val db:Database,
           List.empty
         } else {
           val query =
-            s"""SELECT p.* FROM projects p
-              INNER JOIN groups g ON g.project_id = p.id
-              WHERE g.id IN ({ids}) ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
-              LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+            s"""SELECT distinct p.* FROM projects p, groups g
+                WHERE p.owner_id = {osmId} OR
+                (g.project_id = p.id AND g.id IN ({ids}))
+                ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
+                LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
           SQL(query).on('ss -> this.search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
+            'osmId -> user.osmProfile.id,
             'ids -> user.groups.map(_.id))
             .as(this.parser.*)
         }

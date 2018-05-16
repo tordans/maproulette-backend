@@ -259,6 +259,23 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
+  /**
+    * Gets the most recent activity entries for each challenge, regardless of date.
+    *
+    * @param projectIds restrict to specified projects
+    * @param challengeIds restrict to specified challenges
+    * @param entries the number of most recent activity entries per challenge. Defaults to 1.
+    * @return most recent activity entries for each challenge
+    */
+  def getLatestChallengeActivity(projectIds:String, challengeIds:String,
+                                 entries:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dataManager.getLatestChallengeActivity(
+        Utils.toLongList(projectIds), Utils.toLongList(challengeIds), entries
+      )))
+    }
+  }
+
   def getStatusSummary(userIds:String, projectIds:String, challengeIds:String, start:String, end:String,
                        limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
