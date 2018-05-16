@@ -907,7 +907,7 @@ var MRManager = (function() {
         resetEditControls();
         var challengeData = currentTask.getChallenge().getData();
         // update the browser url to reflect the current task
-        window.history.pushState("", "", Utils.appendQueryString("/map/" + challengeData.id + "/" + currentTask.getData().id));
+        window.history.pushState("", "", Utils.appendQueryString("/map/" + challengeData.id + "/" + currentTask.getData().id + "?oldui=true"));
         // show the task text as a notification
         var taskInstruction = "";
         if (LoggedInUser.userId == challengeData.owner) {
@@ -1357,7 +1357,7 @@ var MRManager = (function() {
      * Search Parameters will be lost if you just refresh with this URL
      */
     var getCurrentMapURL = function() {
-        return Utils.appendQueryString("/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id);
+        return Utils.appendQueryString("/map/" + currentTask.getChallenge().getData().id + "/" + currentTask.getData().id + "?oldui=true");
     };
     
     var getCurrentTaskData = function() {
