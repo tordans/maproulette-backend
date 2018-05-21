@@ -1,5 +1,5 @@
 @import org.maproulette.Config
-@(config:Config)(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
+@(config:Config)(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 @views.html.includes.metricsIncludes(config.isDebugMode)
 <div class="post">
     <div class="box-body">

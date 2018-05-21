@@ -4,22 +4,21 @@ package org.maproulette.session
 
 import javax.inject.Inject
 import javax.inject.Singleton
-
-import controllers.WebJarAssets
-import io.netty.handler.codec.http.HttpResponseStatus
-import oauth.signpost.exception.{OAuthException, OAuthNotAuthorizedException}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.models.dal.DALManager
+import org.maproulette.utils.Crypto
+import org.webjars.play.WebJarsUtil
 import play.api.i18n.Messages
 import play.api.Logger
 import play.api.db.Database
-import play.api.libs.Crypto
 import play.api.libs.oauth._
 import play.api.libs.ws.WSClient
 import play.api.mvc.{AnyContent, Request, RequestHeader, Result}
+import play.shaded.ahc.io.netty.handler.codec.http.HttpResponseStatus
+import play.shaded.oauth.oauth.signpost.exception.{OAuthException, OAuthNotAuthorizedException}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -31,7 +30,7 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Config, db:Database) {
+class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Config, db:Database, crypto: Crypto) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // URLs used for OAuth 1.0a
@@ -146,7 +145,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
               Some(User.superUser)
             } else {
               try {
-                val decryptedKey = Crypto.decryptAES(apiKey).split("\\|")
+                val decryptedKey = crypto.decrypt(apiKey).split("\\|")
                 this.dalManager.user.retrieveByAPIKey(apiKey, User.superUser)(decryptedKey(0).toLong) match {
                   case Some(user) => Some(user)
                   case None => None
@@ -253,7 +252,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @return The result from the block of code
     */
   def userAwareUIRequest(block:Option[User] => Result)
-                        (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Future[Result] = {
+                        (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       this.userAware(block)
     }
@@ -298,7 +297,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @return
     */
   def authenticatedUIRequest(block:User => Result)
-                            (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets,
+                            (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil,
                              requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       this.authenticated(Left(block))
@@ -306,7 +305,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   }
 
   def authenticatedFutureUIRequest(block:User => Future[Result])
-                                  (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets,
+                                  (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil,
                                    requireSuperUser:Boolean=false) : Future[Result] = {
     MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
       this.authenticated(Right(block))

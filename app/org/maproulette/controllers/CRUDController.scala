@@ -24,7 +24,9 @@ import play.api.mvc._
   *
   * @author cuthbertm
   */
-trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites with StatusMessages {
+trait CRUDController[T<:BaseObject[Long]] extends BaseController with DefaultWrites with StatusMessages {
+  this:AbstractController =>
+
   // Data access layer that has to be instantiated by the class that mixes in the trait
   protected val dal:BaseDAL[Long, T]
   // The default reads that allows the class to read the json from a posted json body
@@ -37,6 +39,8 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
   val sessionManager:SessionManager
   // The action manager which should be injected into the implementing class using @Inject
   val actionManager:ActionManager
+
+  val bodyParsers:PlayBodyParsers
 
   /**
     * Classes can override this function to inject values into the object before it is sent along
@@ -68,8 +72,8 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     */
   def updateCreateBody(body:JsValue, user:User) : JsValue = {
     var jsonBody = Utils.insertJsonID(body)
-    jsonBody = Utils.insertIntoJson(jsonBody, "created", DateTime.now())(DefaultJodaDateWrites)
-    Utils.insertIntoJson(jsonBody, "modified", DateTime.now())(DefaultJodaDateWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "created", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
+    Utils.insertIntoJson(jsonBody, "modified", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
   }
 
   /**
@@ -93,7 +97,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     *
     * @return 201 Created with the json body of the created object
     */
-  def create() : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def create() : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val result = this.updateCreateBody(request.body, user).validate[T]
       result.fold(
@@ -164,7 +168,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  def update(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def update(implicit id:Long) : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       try {
         this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
@@ -303,7 +307,7 @@ trait CRUDController[T<:BaseObject[Long]] extends Controller with DefaultWrites 
     * @param update Whether to update any objects found matching in the database
     * @return 200 OK basic message saying all items where uploaded
     */
-  def batchUpload(update:Boolean) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def batchUpload(update:Boolean) : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       request.body.validate[List[JsValue]].fold(
         errors => {

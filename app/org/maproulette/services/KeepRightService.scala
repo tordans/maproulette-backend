@@ -55,9 +55,9 @@ class KeepRightService @Inject() (projectDAL: ProjectDAL, challengeDAL: Challeng
     case Some(cl) =>
       val errors = cl map { item =>
         KeepRightError(
-          item.getInt(KeepRight.KEY_ID).get,
-          item.getString(KeepRight.KEY_NAME).get,
-          item.getString(KeepRight.KEY_TAGS).get.split(",").toList
+          item.get[Int](KeepRight.KEY_ID),
+          item.get[String](KeepRight.KEY_NAME),
+          item.get[String](KeepRight.KEY_TAGS).split(",").toList
         )
       }
       errors.toList
@@ -111,8 +111,8 @@ class KeepRightService @Inject() (projectDAL: ProjectDAL, challengeDAL: Challeng
   // This will create a challenge for each KeepRight Check and each country
   def integrate(checkIDs:List[Int]=List.empty, bounding:KeepRightBox) : Future[Boolean] = {
     val p = Promise[Boolean]
-    val cidList = URLEncoder.encode(this.errorList.filter(cid => checkIDs.isEmpty || checkIDs.contains(cid.id)).map(_.id).mkString(","))
-    val timeout = Duration(this.config.config.getString(KeepRight.KEY_TIMEOUT).getOrElse(KeepRight.DEFAULT_TIMEOUT))
+    val cidList = URLEncoder.encode(this.errorList.filter(cid => checkIDs.isEmpty || checkIDs.contains(cid.id)).map(_.id).mkString(","), "UTF-8")
+    val timeout = Duration(this.config.config.getOptional[String](KeepRight.KEY_TIMEOUT).getOrElse(KeepRight.DEFAULT_TIMEOUT))
     val url = s"https://keepright.at/export.php?format=gpx&ch=$cidList&left=${bounding.latMin}&bottom=${bounding.longMin}&right=${bounding.latMax}&top=${bounding.longMax}"
     Logger.debug(s"Executing KeepRight export request for URL: $url")
     wsClient.url(url).withRequestTimeout(timeout).get() onComplete {

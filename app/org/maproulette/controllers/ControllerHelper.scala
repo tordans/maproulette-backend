@@ -2,14 +2,16 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers
 
-import controllers.WebJarAssets
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{SessionManager, User}
-import play.api.i18n.{Lang, Messages}
-import play.api.mvc.{Controller, Request, Result}
+import org.webjars.play.WebJarsUtil
+import play.api.i18n.Messages
+import play.api.mvc._
 import play.twirl.api.Html
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 
 /**
   * Helper functions that help the controller with various http related functions
@@ -17,11 +19,11 @@ import play.twirl.api.Html
   * @author cuthbertm
   */
 trait ControllerHelper {
-  this:Controller =>
+  this:AbstractController =>
 
   implicit val config:Config
-  def webJarAssets : WebJarAssets
-  implicit def requestWebJarAssets : WebJarAssets = webJarAssets
+  def webJarsUtil : WebJarsUtil
+  implicit def requestWebJasrUtil : WebJarsUtil = webJarsUtil
   val dalManager:DALManager
 
   /**
@@ -70,6 +72,7 @@ trait ControllerHelper {
     if (!user.guest) {
       result.addingToSession(SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString)
     }
-    messages.messages.setLang(result, new Lang(user.getUserLocale))
+    //messages.messages.setLang(result, new Lang(user.getUserLocale))
+    result
   }
 }

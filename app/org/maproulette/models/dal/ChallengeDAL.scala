@@ -310,7 +310,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                         ${this.order(Some(orderColumn), orderDirection, "c", true)}
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> this.search(searchString),
-          'offset -> ParameterValue.toParameterValue(offset)
+          'offset -> ToParameterValue.apply[Int].apply(offset)
         ).as(this.parser.*)
       }
     }
@@ -579,7 +579,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> this.search(searchString),
-        'id -> ParameterValue.toParameterValue(id)(p = keyToStatement),
+        'id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
         'offset -> offset)
         .as(geometryParser.*)
     }

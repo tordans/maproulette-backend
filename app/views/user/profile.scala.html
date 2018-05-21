@@ -1,8 +1,8 @@
 @import org.maproulette.session.User
 @import org.maproulette.session.UserSettings
 @import org.maproulette.Config
-@import org.maproulette.actions.DailyStatusActionSummary
-@(user:User, config:Config, activeTab:Int=0, settingsForm:Option[Form[UserSettings]]=None)(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
+@import org.webjars.play.WebJarAssets
+@(user:User, config:Config, activeTab:Int=0, settingsForm:Option[Form[UserSettings]]=None)(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 <!-- Content Header (Page header) -->
 <section class="content-header">

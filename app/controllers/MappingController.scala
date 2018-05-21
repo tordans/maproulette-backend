@@ -3,17 +3,17 @@
 package controllers
 
 import javax.inject.Inject
-
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
-import play.api.mvc.{Action, AnyContent, Controller}
+import play.api.mvc._
 
 /**
   * @author cuthbertm
   */
-class MappingController @Inject() (sessionManager:SessionManager,
-                                   taskDAL: TaskDAL) extends Controller {
+class MappingController @Inject() (components: ControllerComponents,
+                                   sessionManager:SessionManager,
+                                   taskDAL: TaskDAL) extends AbstractController(components) {
 
   /**
     * Will return the specific geojson for the requested task

@@ -2,17 +2,17 @@
 @import org.maproulette.actions.Actions
 @import org.maproulette.session.User
 @import org.maproulette.models.Challenge
-@(user:User, parentName:String, parentId:Long, challengeForm:Form[Challenge], tags:Option[List[String]])(implicit messages: Messages, webJarAssets: WebJarAssets)
+@(user:User, parentName:String, parentId:Long, challengeForm:Form[Challenge], tags:Option[List[String]])(implicit messages: Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 @views.html.admin.common.header(messages("challenge.wizard.form.administration"), null,
     Map(
         messages("challenge.wizard.form.projects") -> ("fa fa-folder", Some(routes.Application.adminUIProjectList())),
         parentName -> ("", Some(routes.Application.adminUIChildList(Actions.ITEM_TYPE_CHALLENGE_NAME, parentId)))
     )
 )
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/js/fuelux.min.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/js/query-builder.standalone.min.js"))"></script>
-<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/css/fuelux.min.css"))"/>
-<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/css/query-builder.default.min.css"))"/>
+@webJarsUtil.locate(s"dist/js/fuelux.min.js").script()
+@webJarsUtil.locate(s"dist/js/query-builder.standalone.min.js").script()
+@webJarsUtil.locate(s"dist/css/fuelux.min.css").css()
+@webJarsUtil.locate(s"dist/css/query-builder.default.min.css").css()
 
 @defining(!(challengeForm("id").value.getOrElse("-1").toInt == -1)) { isInEdit =>
     <section class="content fuelux">

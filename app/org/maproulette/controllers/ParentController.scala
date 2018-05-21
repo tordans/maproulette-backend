@@ -10,7 +10,7 @@ import org.maproulette.models.dal.ParentDAL
 import org.maproulette.session.User
 import play.api.Logger
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent, BodyParsers}
+import play.api.mvc.{AbstractController, Action, AnyContent, BodyParsers}
 
 /**
   * Base controller for parent objects, namely Projects and Challenges. This controller helps in
@@ -20,6 +20,8 @@ import play.api.mvc.{Action, AnyContent, BodyParsers}
   * @author cuthbertm
   */
 trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDController[T] {
+  this:AbstractController =>
+
   // The data access layer for the parent
   override protected val dal: ParentDAL[Long, T, C]
   // The CRUD controller of the child, in the case of a Challenge this is technically a ParentController
@@ -123,7 +125,7 @@ trait ParentController[T<:BaseObject[Long], C<:BaseObject[Long]] extends CRUDCon
     * @param id The id of the parent
     * @return 201 Created with no content
     */
-  def createChildren(implicit id:Long) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def createChildren(implicit id:Long) : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.retrieveById match {
         case Some(parent) =>

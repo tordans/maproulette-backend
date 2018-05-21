@@ -1,30 +1,30 @@
 @import org.maproulette.session.User
-@(user:User, debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
+@(user:User, debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader, webJarsUtil: org.webjars.play.WebJarsUtil)
 @minified() = {@{debugMode match { case true => ""; case false => ".min" }}}
 <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
 <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
 <![if lt IE 9]>
-    <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"html5shiv${minified()}.js"))"></script>
-    <script src="@routes.WebJarAssets.at(webJarAssets.locate(s"respond${minified()}.js"))"></script>
+    @webJarsUtil.locate(s"html5shiv${minified()}.js").script()
+    @webJarsUtil.locate(s"respond${minified()}.js").script()
 <![endif]>
 
     <!-- REQUIRED JS SCRIPTS -->
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js.cookie.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"marked.min.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery${minified()}.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"jquery-ui${minified()}.js"))"></script>
+@webJarsUtil.locate(s"js.cookie.js").script()
+@webJarsUtil.locate(s"marked.min.js").script()
+@webJarsUtil.locate(s"jquery${minified()}.js").script()
+@webJarsUtil.locate(s"jquery-ui${minified()}.js").script()
     <!-- Latest compiled and minified JavaScript -->
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"moment${minified()}.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"bootstrap${minified()}.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"toastr.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/jquery.dataTables${minified()}.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/dataTables.bootstrap${minified()}.js"))"></script>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/tag-it.js"))"></script>
+@webJarsUtil.locate(s"moment${minified()}.js").script()
+@webJarsUtil.locate(s"bootstrap${minified()}.js").script()
+@webJarsUtil.locate(s"toastr.js").script()
+@webJarsUtil.locate(s"js/jquery.dataTables${minified()}.js").script()
+@webJarsUtil.locate(s"js/dataTables.bootstrap${minified()}.js").script()
+@webJarsUtil.locate(s"js/tag-it.js").script()
 <script src="@routes.Assets.versioned("javascripts/main.js")"></script>
     <!-- AdminLTE App -->
 <script src="@routes.Assets.versioned(s"AdminLTE/app${minified()}.js")"></script>
 <!-- JsMessages -->
-<script src="@routes.Application.messages()"></script>
+<script src="@routes.Application.i18nMessages()"></script>
 
     <!-- Embedded Javascript router -->
 @helper.javascriptRouter("jsRoutes")(

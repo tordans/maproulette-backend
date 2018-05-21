@@ -17,6 +17,9 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
+
 /**
   * @author cuthbertm
   */

@@ -12,6 +12,9 @@ import org.maproulette.session.User
 import play.api.{Application, Logger}
 import play.api.db.Database
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
+
 import scala.collection.mutable.ListBuffer
 import org.maproulette.models.utils.DALHelper
 import play.api.libs.json.{Json, Reads, Writes}

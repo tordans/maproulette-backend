@@ -36,8 +36,8 @@ class SchedulerActor @Inject() (config:Config,
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // cleanOldTasks configuration
-  lazy val oldTasksStatusFilter = appConfig.getIntSeq(Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
-    Seq(new Integer(STATUS_CREATED))
+  lazy val oldTasksStatusFilter = appConfig.getOptional[Seq[Int]](Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
+    Seq[Int](new Integer(STATUS_CREATED))
   )
 
   override def receive: Receive = {
@@ -104,7 +104,7 @@ class SchedulerActor @Inject() (config:Config,
       SQL(query).executeUpdate()
       c.commit()
       SQL("SELECT id FROM challenges WHERE last_updated > {currentTime}")
-        .on('currentTime -> ParameterValue.toParameterValue(currentTime))
+        .on('currentTime -> ToParameterValue.apply[DateTime].apply(currentTime))
         .as(SqlParser.long("id").*)
         .foreach(id => {
           Logger.debug(s"Flushing challenge cache of challenge with id $id")
@@ -139,8 +139,8 @@ class SchedulerActor @Inject() (config:Config,
                     WHERE t.parent_id = c.id AND c.updateTasks = true AND t.status IN ({statuses})
                      AND AGE(NOW(), c.modified) > {duration}::INTERVAL
                      AND AGE(NOW(), t.modified) > {duration}::INTERVAL""").on(
-              'duration -> ParameterValue.toParameterValue(String.valueOf(duration)),
-              'statuses -> ParameterValue.toParameterValue(oldTasksStatusFilter)
+              'duration -> ToParameterValue.apply[String].apply(String.valueOf(duration)),
+              'statuses -> ToParameterValue.apply[Seq[Int]].apply(oldTasksStatusFilter)
             ).executeUpdate()
           Logger.info(s"$tasksDeleted old challenge tasks were found and deleted.")
           // Clear the task cache if any were deleted
@@ -204,7 +204,7 @@ class SchedulerActor @Inject() (config:Config,
         values(0) match {
           case "p" =>
             dALManager.project.listChildren(-1).foreach(c => {
-              dALManager.challenge.listChildren(-1)(c.id).filter(_.status == Task.STATUS_FIXED).foreach(t =>
+              dALManager.challenge.listChildren(-1)(c.id).filter(_.status.contains(Task.STATUS_FIXED)).foreach(t =>
                 dALManager.task.matchToOSMChangeSet(t, User.superUser, false)
               )
             })
@@ -239,11 +239,11 @@ class SchedulerActor @Inject() (config:Config,
 
   def keepRightUpdate(action:String) : Unit = {
     Logger.info(action)
-    val slidingValue = this.config.config.getInt(KeepRight.KEY_SLIDING).getOrElse(KeepRight.DEFAULT_SLIDING)
+    val slidingValue = this.config.config.getOptional[Int](KeepRight.KEY_SLIDING).getOrElse(KeepRight.DEFAULT_SLIDING)
     val slidingErrors = keepRightService.errorList.sliding(slidingValue, slidingValue).toList
 
     val integrationList:List[(List[KeepRightError], KeepRightBox)] =
-      if (config.config.getBoolean(KeepRight.KEY_ENABLED).getOrElse(false)) {
+      if (config.config.getOptional[Boolean](KeepRight.KEY_ENABLED).getOrElse(false)) {
         if (keepRightService.boundingBoxes.nonEmpty && keepRightService.errorList.nonEmpty) {
           slidingErrors.flatMap(error =>
             keepRightService.boundingBoxes map { bounding =>

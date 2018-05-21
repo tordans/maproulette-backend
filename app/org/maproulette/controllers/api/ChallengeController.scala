@@ -8,7 +8,6 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 
 import javax.inject.Inject
 import akka.util.ByteString
-import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions._
 import org.maproulette.controllers.ParentController
@@ -25,6 +24,7 @@ import play.api.libs.Files
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
+import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 
 import scala.concurrent.{Future, Promise}
 import scala.io.Source
@@ -46,8 +46,10 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     override val tagDAL: TagDAL,
                                     challengeService: ChallengeService,
                                     wsClient:WSClient,
-                                    permission:Permission)
-  extends ParentController[Challenge, Task] with TagsMixin[Challenge] {
+                                    permission:Permission,
+                                    components: ControllerComponents,
+                                    override val bodyParsers:PlayBodyParsers)
+  extends AbstractController(components) with ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -591,7 +593,7 @@ class ChallengeController @Inject()(override val childController: TaskController
             request.body.file("json") match {
               case Some(f) if StringUtils.isNotEmpty(f.filename) =>
                 // todo this should probably be streamed instead of all pulled into memory
-                val sourceData = Source.fromFile(f.ref.file).getLines()
+                val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
                 if (lineByLine) {
                   sourceData.foreach(challengeService.createTaskFromJson(user, c, _))
                 } else {

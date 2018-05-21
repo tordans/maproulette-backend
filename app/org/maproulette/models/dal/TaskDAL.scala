@@ -222,14 +222,14 @@ class TaskDAL @Inject()(override val db: Database,
       val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {priority}, {changesetId}, {reset})"
 
       val updatedTaskId = SQL(query).on(
-        NamedParameter("name", ParameterValue.toParameterValue(element.name)),
-        NamedParameter("parentId", ParameterValue.toParameterValue(element.parent)),
-        NamedParameter("instruction", ParameterValue.toParameterValue(element.instruction.getOrElse(""))),
-        NamedParameter("status", ParameterValue.toParameterValue(element.status.getOrElse(Task.STATUS_CREATED))),
-        NamedParameter("id", ParameterValue.toParameterValue(element.id)),
-        NamedParameter("priority", ParameterValue.toParameterValue(element.priority)),
-        NamedParameter("changesetId", ParameterValue.toParameterValue(element.changesetId.getOrElse(-1L))),
-        NamedParameter("reset", ParameterValue.toParameterValue(config.taskReset + " days"))
+        NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
+        NamedParameter("parentId", ToParameterValue.apply[Long].apply(element.parent)),
+        NamedParameter("instruction", ToParameterValue.apply[String].apply(element.instruction.getOrElse(""))),
+        NamedParameter("status", ToParameterValue.apply[Int].apply(element.status.getOrElse(Task.STATUS_CREATED))),
+        NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
+        NamedParameter("priority", ToParameterValue.apply[Int].apply(element.priority)),
+        NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
+        NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days"))
       ).as(long("create_update_task").*).head
       c.commit()
       // These updates were originally only done on insert or when the geometry actual was updated. However
@@ -294,10 +294,10 @@ class TaskDAL @Inject()(override val db: Database,
           case None => ""
         }
         Seq(
-          NamedParameter(s"geom_$i", ParameterValue.toParameterValue((featureJson \ "geometry").as[JsValue].toString)),
-          NamedParameter(s"props_$i", ParameterValue.toParameterValue(props))
+          NamedParameter(s"geom_$i", ToParameterValue.apply[String].apply((featureJson \ "geometry").as[JsValue].toString)),
+          NamedParameter(s"props_$i", ToParameterValue.apply[String].apply(props))
         )
-      } ++ Seq(NamedParameter("taskId", ParameterValue.toParameterValue(taskId)))
+      } ++ Seq(NamedParameter("taskId", ToParameterValue.apply[Long].apply(taskId)))
       SQL(s"INSERT INTO $tableName (task_id, geom, properties) VALUES " + rows)
         .on(parameters: _*)
         .execute()
@@ -509,7 +509,7 @@ class TaskDAL @Inject()(override val db: Database,
     val prevHours = statusAction.created.minusHours(config.changeSetTimeLimit.toHours.toInt).toString(format)
     val nextHours = statusAction.created.plusHours(config.changeSetTimeLimit.toHours.toInt).toString(format)
     ws.url(s"${config.getOSMServer}/api/0.6/changesets?user=${statusAction.osmUserId}&time=$prevHours,$nextHours")
-      .withHeaders("User-Agent" -> "MapRoulette").get() onComplete {
+      .withHttpHeaders("User-Agent" -> "MapRoulette").get() onComplete {
       case Success(response) =>
         if (response.status == 200) {
           val changeSetList = ChangesetParser.parse(XML.loadString(response.body)).filter(!_.open)
@@ -815,7 +815,7 @@ class TaskDAL @Inject()(override val db: Database,
               (l.id IS NULL OR l.user_id = ${user.id}) AND
               tasks.status IN ({statusList})
             """)
-        parameters += ('statusList -> ParameterValue.toParameterValue(taskStatusList))
+        parameters += ('statusList -> ToParameterValue.apply[List[Int]].apply(taskStatusList))
 
         priority match {
           case Some(p) => appendInWhereClause(whereClause, s"tasks.priority = $p")
@@ -825,7 +825,7 @@ class TaskDAL @Inject()(override val db: Database,
         if (taskTagIds.nonEmpty) {
           queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
           appendInWhereClause(whereClause, "tt.tag_id IN ({tagids})")
-          parameters += ('tagids -> ParameterValue.toParameterValue(taskTagIds))
+          parameters += ('tagids -> ToParameterValue.apply[List[Long]].apply(taskTagIds))
         }
         if (params.taskSearch.nonEmpty) {
           appendInWhereClause(whereClause, s"${searchField("tasks.name", "taskSearch")(None)}")
