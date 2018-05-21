@@ -3,9 +3,10 @@
 package org.maproulette.session.dal
 
 import java.sql.Connection
+import java.util.UUID
+
 import javax.inject.Inject
 import javax.inject.Singleton
-
 import anorm._
 import anorm.SqlParser._
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory, Point}
@@ -21,7 +22,7 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Challenge, Project, Task}
 import org.maproulette.permissions.Permission
-import org.maproulette.utils.Utils
+import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json.{JsString, JsValue, Json}
 import play.api.libs.oauth.RequestToken
 
@@ -43,6 +44,7 @@ class UserDAL @Inject() (override val db:Database,
                          challengeDAL: ChallengeDAL,
                          taskDAL: TaskDAL,
                          config:Config,
+                         crypto: Crypto,
                          override val permission:Permission) extends BaseDAL[Long, User] {
 
   import org.maproulette.utils.AnormExtension._
@@ -93,6 +95,8 @@ class UserDAL @Inject() (override val db:Database,
         )
     }
   }
+
+  private def generateAPIKey(id:Long) : String = crypto.encrypt(id + "|" + UUID.randomUUID())
 
   /**
     * Find the user based on the user's osm ID. If found on cache, will return cached object
@@ -222,7 +226,7 @@ class UserDAL @Inject() (override val db:Database,
           new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
         )
       )
-      val newAPIKey = User.generateAPIKey(item.osmProfile.id)
+      val newAPIKey = this.generateAPIKey(item.osmProfile.id)
 
       val query = s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
                               name = {name}, description = {description}, avatar_url = {avatarURL},
@@ -303,7 +307,7 @@ class UserDAL @Inject() (override val db:Database,
       this.permission.hasObjectAdminAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
-          case "" => User.generateAPIKey(id)
+          case "" => this.generateAPIKey(id)
           case v => v
         }
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
@@ -502,7 +506,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   def generateAPIKey(apiKeyUser:User, user:User) : Option[User] = {
     this.permission.hasAdminAccess(UserType(), user)(apiKeyUser.id)
-    this.update(Json.parse(s"""{"apiKey":"${User.generateAPIKey(apiKeyUser.osmProfile.id)}"}"""), User.superUser)(apiKeyUser.id)
+    this.update(Json.parse(s"""{"apiKey":"${this.generateAPIKey(apiKeyUser.osmProfile.id)}"}"""), User.superUser)(apiKeyUser.id)
   }
 
   /**

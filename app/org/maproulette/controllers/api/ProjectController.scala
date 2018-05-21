@@ -3,7 +3,6 @@
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
@@ -12,13 +11,13 @@ import org.maproulette.models.{Challenge, ClusteredPoint, Project, Task}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent}
+import play.api.mvc._
 
 /**
   * The project controller handles all operations for the Project objects.
   * This includes CRUD operations and searching/listing.
-  * See {@link org.maproulette.controllers.ParentController} for more details on parent object operations
-  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  * See ParentController for more details on parent object operations
+  * See CRUDController for more details on CRUD object operations
   *
   * @author cuthbertm
   */
@@ -26,8 +25,10 @@ class ProjectController @Inject() (override val childController:ChallengeControl
                                    override val sessionManager:SessionManager,
                                    override val actionManager: ActionManager,
                                    override val dal:ProjectDAL,
-                                   taskDAL: TaskDAL)
-  extends ParentController[Project, Challenge] {
+                                   components: ControllerComponents,
+                                   taskDAL: TaskDAL,
+                                   override val bodyParsers:PlayBodyParsers)
+  extends AbstractController(components) with ParentController[Project, Challenge] {
 
   // json reads for automatically reading Projects from a posted json body
   override implicit val tReads: Reads[Project] = Project.projectReads

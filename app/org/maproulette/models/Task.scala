@@ -7,9 +7,12 @@ import org.joda.time.DateTime
 import org.maproulette.actions.{ItemType, TaskType}
 import org.maproulette.utils.Utils
 import play.api.data.Form
-import play.api.data.format.Formats._
 import play.api.data.Forms._
 import play.api.libs.json._
+import play.api.data.JodaForms._
+
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 
 /**
   * The primary object in MapRoulette is the task, this is the object that defines the actual problem

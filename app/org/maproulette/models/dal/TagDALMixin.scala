@@ -46,8 +46,8 @@ trait TagDALMixin[T<:BaseObject[Long]] {
             }.mkString(",")
             val parameters = indexedValues.flatMap{ case(value, i) =>
               Seq(
-                NamedParameter(s"itemid_$i", ParameterValue.toParameterValue(id)),
-                NamedParameter(s"tagid_$i", ParameterValue.toParameterValue(value))
+                NamedParameter(s"itemid_$i", ToParameterValue.apply[Long].apply(id)),
+                NamedParameter(s"tagid_$i", ToParameterValue.apply[Long].apply(value))
               )
             }
 
@@ -140,7 +140,7 @@ trait TagDALMixin[T<:BaseObject[Long]] {
                       INNER JOIN tags tg ON tg.id = tt.tag_id
                       WHERE c.enabled = TRUE AND p.enabled = TRUE AND tg.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""
-      SQL(query).on('tags -> ParameterValue.toParameterValue(lowerTags), 'offset -> offset).as(this.parser.*)
+      SQL(query).on('tags -> ToParameterValue.apply[List[String]].apply(lowerTags), 'offset -> offset).as(this.parser.*)
     }
   }
 

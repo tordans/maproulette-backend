@@ -3,7 +3,6 @@
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-
 import org.maproulette.Config
 import org.maproulette.actions._
 import org.maproulette.data._
@@ -13,7 +12,9 @@ import org.maproulette.session.SessionManager
 import org.maproulette.utils.Utils
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent, AnyContentAsFormUrlEncoded, Controller}
+import play.api.mvc._
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 
 /**
   * @author cuthbertm
@@ -21,7 +22,8 @@ import play.api.mvc.{Action, AnyContent, AnyContentAsFormUrlEncoded, Controller}
 class DataController @Inject() (sessionManager: SessionManager, challengeDAL: ChallengeDAL,
                                 dataManager: DataManager, config:Config,
                                 actionManager: ActionManager,
-                                statusActionManager: StatusActionManager) extends Controller {
+                                components: ControllerComponents,
+                                statusActionManager: StatusActionManager) extends AbstractController(components) {
 
   implicit val actionWrites = actionManager.actionItemWrites
   implicit val dateWrites = Writes.dateWrites("yyyy-MM-dd")

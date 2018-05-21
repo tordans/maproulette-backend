@@ -17,6 +17,9 @@ import org.maproulette.session.{SearchLocation, SearchParameters, User}
 import play.api.db.Database
 import play.api.libs.json.{JsString, JsValue, Json}
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
+
 /**
   * @author mcuthbert
   */
@@ -81,7 +84,7 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
             'name -> element.name,
             'description -> element.description,
             'parameters -> Json.toJson(element.searchParameters).toString(),
-            'expiry -> ParameterValue.toParameterValue(String.valueOf(element.expiry))
+            'expiry -> ToParameterValue.apply[String].apply(String.valueOf(element.expiry))
           ).as(this.parser.single)
           c.commit()
           element.taskIdList match {
@@ -126,7 +129,7 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
               .on(
                 'name -> name,
                 'description -> description,
-                'expiry -> ParameterValue.toParameterValue(String.valueOf(expiry)),
+                'expiry -> ToParameterValue.apply[String].apply(String.valueOf(expiry)),
                 'id -> id
               ).as(this.parser.*).headOption
         }
@@ -219,7 +222,7 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
       withMRTransaction { implicit c =>
         SQL(query)
           .on(
-            'statusList -> ParameterValue.toParameterValue(taskStatusList)
+            'statusList -> ToParameterValue.apply[List[Int]].apply(taskStatusList)
           ).as(taskDAL.parser.*).headOption
       }
     }

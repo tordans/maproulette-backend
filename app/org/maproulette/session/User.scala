@@ -4,6 +4,8 @@ package org.maproulette.session
 
 import java.util.{Locale, UUID}
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.Config
@@ -12,7 +14,6 @@ import org.maproulette.models.BaseObject
 import org.maproulette.utils.Utils
 import play.api.data.Form
 import play.api.data.Forms._
-import play.api.libs.Crypto
 import play.api.libs.json._
 import play.api.libs.oauth.RequestToken
 
@@ -280,6 +281,4 @@ object User {
       "theme" -> optional(number)
     )(UserSettings.apply)(UserSettings.unapply)
   )
-
-  def generateAPIKey(id: Long): String = Crypto.encryptAES(id + "|" + UUID.randomUUID())
 }

@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.Config
 @import org.maproulette.models.Challenge
-@(user:User, config:Config, challenge:Option[Challenge]=None, projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
+@(user:User, config:Config, challenge:Option[Challenge]=None, projects:String="")(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 @colSize() = {@{if (challenge.isEmpty) { "3" } else { "4" }}}
 @views.html.includes.metricsIncludes(config.isDebugMode)
 @views.html.admin.common.header("Metrics", challenge.getOrElse(Challenge.emptyChallenge(-1, -1).copy(name = if (projects.isEmpty) { messages("metrics.challenge.all") } else { messages("metrics.challenge.projects", projects) })).name)

@@ -14,7 +14,11 @@ import scala.util.{Failure, Success}
 /**
   * @author cuthbertm
   */
-class UserController @Inject()(userDAL: UserDAL, userGroupDAL:UserGroupDAL, sessionManager: SessionManager) extends Controller with DefaultWrites {
+class UserController @Inject()(userDAL: UserDAL,
+                               userGroupDAL:UserGroupDAL,
+                               sessionManager: SessionManager,
+                               components: ControllerComponents,
+                               bodyParsers: PlayBodyParsers) extends AbstractController(components) with DefaultWrites {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   implicit val userReadWrite = User.UserFormat
@@ -54,7 +58,7 @@ class UserController @Inject()(userDAL: UserDAL, userGroupDAL:UserGroupDAL, sess
     }
   }
 
-  def updateUser(id: Long): Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def updateUser(id: Long): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       // if the request body contains the API Key for update, let's update that separately
       (request.body \ "apiKey").asOpt[String] match {
@@ -150,7 +154,7 @@ class UserController @Inject()(userDAL: UserDAL, userGroupDAL:UserGroupDAL, sess
     }
   }
 
-  def addUsersToProject(projectId:Long, groupType:Int) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def addUsersToProject(projectId:Long, groupType:Int) : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val jsBody = request.body
       if (!jsBody.isInstanceOf[JsArray]) {
@@ -199,7 +203,7 @@ class UserController @Inject()(userDAL: UserDAL, userGroupDAL:UserGroupDAL, sess
     }
   }
 
-  def removeUsersFromProject(projectId:Long, groupType:Int) : Action[JsValue] = Action.async(BodyParsers.parse.json) { implicit request =>
+  def removeUsersFromProject(projectId:Long, groupType:Int) : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val jsBody = request.body
       if (!jsBody.isInstanceOf[JsArray]) {

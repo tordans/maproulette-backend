@@ -3,7 +3,6 @@
 package controllers
 
 import com.google.inject.Inject
-import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -11,9 +10,11 @@ import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception._
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{Group, SessionManager, User}
+import org.webjars.play.WebJarsUtil
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc._
+import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Promise
@@ -24,11 +25,12 @@ import scala.util.{Failure, Success}
   *
   * @author cuthbertm
   */
-class AuthController @Inject() (val messagesApi: MessagesApi,
-                                override val webJarAssets: WebJarAssets,
+class AuthController @Inject() (messagesApi: MessagesApi,
+                                components: ControllerComponents,
+                                override val webJarsUtil: WebJarsUtil,
                                 sessionManager:SessionManager,
                                 override val dalManager:DALManager,
-                                val config:Config) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
+                                val config:Config) extends AbstractController(components) with I18nSupport with ControllerHelper with StatusMessages {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -46,7 +48,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
           sessionManager.retrieveUser(verifier) onComplete {
             case Success(user) =>
               // We received the authorized tokens in the OAuth object - store it before we proceed
-              p success this.withOSMSession(user, Redirect(redirect, SEE_OTHER))
+              p success this.withOSMSession(user, Redirect(redirect, SEE_OTHER).withHeaders(("Cache-Control", "no-chache")))
             case Failure(e) => p failure e
           }
         case None =>
@@ -55,6 +57,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
             case Right(t) =>
               // We received the unauthorized tokens in the OAuth object - store it before we proceed
               p success Redirect(sessionManager.redirectUrl(t.token))
+                .withHeaders(("Cache-Control", "no-chache"))
                 .withSession(SessionManager.KEY_TOKEN -> t.token,
                   SessionManager.KEY_SECRET -> t.secret,
                   SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
@@ -74,7 +77,7 @@ class AuthController @Inject() (val messagesApi: MessagesApi,
           val username = data.getOrElse("signInUsername", ArrayBuffer("")).mkString
           val apiKey = data.getOrElse("signInAPIKey", ArrayBuffer("")).mkString
           this.sessionManager.retrieveUser(username, apiKey) match {
-            case Some(user) => p success this.withOSMSession(user, Redirect(getRedirectURL(request, redirect)))
+            case Some(user) => p success this.withOSMSession(user, Redirect(getRedirectURL(request, redirect)).withHeaders(("Cache-Control", "no-chache")))
             case None => p failure new OAuthNotAuthorizedException("Invalid username or apiKey provided")
           }
         case None => p failure new OAuthNotAuthorizedException("Invalid username or apiKey provided")

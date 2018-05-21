@@ -2,16 +2,16 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.exception
 
-import controllers.WebJarAssets
-import oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.Config
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.User
+import org.webjars.play.WebJarsUtil
 import play.api.Logger
 import play.api.i18n.Messages
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.{Request, Result}
 import play.api.mvc.Results._
+import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
@@ -60,7 +60,7 @@ object MPExceptionUtil {
     * @return The error page with the error that occurred.
     */
   def internalUIExceptionCatcher(user:User, config:Config, dalManager:DALManager)(block:() => Result)
-                                (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
+                                (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil) : Result = {
     val tempUser = user.copy(settings = user.settings.copy(theme = Some(User.THEME_RED)))
     val featuredChallenges = dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0)
     val hotChallenges = dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0)
@@ -135,7 +135,7 @@ object MPExceptionUtil {
 
   def internalAsyncUIExceptionCatcher(user:User, config:Config, dalManager:DALManager, oldUI:Boolean=false)(block:() => Future[Result])
                                      (implicit request:Request[Any], messages:Messages,
-                                      webJarAssets: WebJarAssets) : Future[Result] = {
+                                      webJarsUtil: WebJarsUtil) : Future[Result] = {
     val p = Promise[Result]
     val tempUser = user.copy(settings = user.settings.copy(theme = Some(User.THEME_RED)))
     Try(block()) match {
@@ -159,11 +159,12 @@ object MPExceptionUtil {
   }
 
   private def manageUIException(e:Throwable) : Result = {
-    Redirect(s"/mr3/error?errormsg=${e.getMessage}", PERMANENT_REDIRECT)
+    Logger.debug(e.getMessage, e)
+    Redirect(s"/mr3/error?errormsg=${e.getMessage}", PERMANENT_REDIRECT).withHeaders(("Cache-Control", "no-chache"))
   }
 
   private def manageOldUIException(e:Throwable, user:User, config:Config, dalManager:DALManager)
-                               (implicit request:Request[Any], messages:Messages, webJarAssets: WebJarAssets) : Result = {
+                               (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil) : Result = {
     val featuredChallenges = dalManager.challenge.getFeaturedChallenges(config.numberOfChallenges, 0)
     val hotChallenges = dalManager.challenge.getHotChallenges(config.numberOfChallenges, 0)
     val newChallenges = dalManager.challenge.getNewChallenges(config.numberOfChallenges, 0)

@@ -5,6 +5,9 @@ import org.maproulette.actions.{ItemType, VirtualChallengeType}
 import org.maproulette.session.SearchParameters
 import play.api.libs.json.{DefaultWrites, Json, Reads, Writes}
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
+
 /**
   * @author mcuthbert
   */

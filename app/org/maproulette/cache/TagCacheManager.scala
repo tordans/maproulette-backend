@@ -8,8 +8,7 @@ import javax.inject.{Provider, Inject, Singleton}
 import anorm._
 import org.maproulette.models.Tag
 import org.maproulette.models.dal.TagDAL
-import play.api.db.{Database, DB}
-import play.api.Play.current
+import play.api.db.Database
 
 /**
   * This is not currently a real cache manager, it will just store elements that have been loaded into memory.

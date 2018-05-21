@@ -4,8 +4,8 @@ package org.maproulette.controllers.api
 
 import java.net.URLDecoder
 import java.sql.Connection
-import javax.inject.Inject
 
+import javax.inject.Inject
 import com.vividsolutions.jts.geom.Envelope
 import org.maproulette.Config
 import org.maproulette.actions._
@@ -20,7 +20,7 @@ import org.wololo.jts2geojson.GeoJSONReader
 import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Action, AnyContent, Request, Result}
+import play.api.mvc._
 
 import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration._
@@ -38,8 +38,10 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
                                 override val dal:TaskDAL,
                                 override val tagDAL: TagDAL,
                                 wsClient:WSClient,
-                                config:Config)
-  extends CRUDController[Task] with TagsMixin[Task] {
+                                config:Config,
+                                components: ControllerComponents,
+                                override val bodyParsers:PlayBodyParsers)
+  extends AbstractController(components) with CRUDController[Task] with TagsMixin[Task] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 

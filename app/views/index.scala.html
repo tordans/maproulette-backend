@@ -5,7 +5,7 @@
 @(title:String, user:User, config:Config, hotChallenges:List[Challenge],
         newChallenges:List[Challenge], featuredChallenges:List[Challenge],
         recentActivity:List[ActionItem], savedChallenges:List[Challenge])(content:Html)(implicit req: play.api.mvc.RequestHeader,
-        messages: Messages, webJarAssets: WebJarAssets)
+        messages: Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 <!DOCTYPE html>
 <html>
     <head>

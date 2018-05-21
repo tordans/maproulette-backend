@@ -7,7 +7,6 @@ import java.nio.file.{Files, Paths}
 import javax.inject.{Inject, Named}
 import akka.actor.ActorRef
 import akka.util.CompactByteString
-import io.netty.handler.codec.http.HttpResponseStatus
 import jsmessages.{JsMessages, JsMessagesFactory}
 import org.maproulette.Config
 import org.maproulette.actions._
@@ -18,33 +17,44 @@ import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
+import org.webjars.play.WebJarsUtil
 import play.api.Logger
 import play.api.http.HttpEntity
-import play.api.i18n.{I18nSupport, Messages, MessagesApi}
+import play.api.i18n.{I18nSupport, Lang, Messages}
 import play.api.libs.json.{JsNumber, JsString, JsValue, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import play.api.routing._
+import play.shaded.ahc.io.netty.handler.codec.http.HttpResponseStatus
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
-class Application @Inject() (val messagesApi: MessagesApi,
+class Application @Inject() (components: ControllerComponents,
                              jsMessagesFactory: JsMessagesFactory,
-                             override val webJarAssets: WebJarAssets,
+                             override val webJarsUtil: WebJarsUtil,
                              sessionManager:SessionManager,
                              override val dalManager: DALManager,
                              permission: Permission,
                              val config:Config,
                              ws:WSClient,
                              @Named("scheduler-actor") schedulerActor: ActorRef
-                            ) extends Controller with I18nSupport with ControllerHelper with StatusMessages {
+                            ) extends AbstractController(components) with I18nSupport with ControllerHelper with StatusMessages {
 
   val jsMessages:JsMessages = jsMessagesFactory.all
-  private val titleHeader:String = Messages("headers.title")
-  private val adminHeader:String = Messages("headers.administration")
-  private val metricsHeader:String = Messages("headers.metrics")
+
+  private def titleHeader(user:User) : String = {
+    components.messagesApi("headers.title")(new Lang(user.getUserLocale))
+  }
+
+  private def adminHeader(user:User) : String = {
+    components.messagesApi("headers.administration")(new Lang(user.getUserLocale))
+  }
+
+  private def metricsHeader(user:User) : String = {
+    components.messagesApi("headers.metrics")(new Lang(user.getUserLocale))
+  }
 
   // caching for the javascript files, so that we don't have to call them every time
   var manifestDetails:Option[JsValue] = None
@@ -74,7 +84,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     }
   }
 
-  def messages : Action[AnyContent] = Action { implicit request =>
+  def i18nMessages : Action[AnyContent] = Action { implicit request =>
     Ok(this.jsMessages(Some("window.Messages")))
   }
 
@@ -103,7 +113,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
     if (oldUI) {
       sessionManager.userAwareUIRequest { implicit user =>
         val userOrMocked = User.userOrMocked(user)
-        getOkIndex(this.titleHeader, userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
+        getOkIndex(components.messagesApi("headers.title")(new Lang(userOrMocked.getUserLocale)), userOrMocked, views.html.main(userOrMocked, config.isDebugMode))
       }
     } else {
       this._mr3("")
@@ -187,7 +197,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
   def showSearchResults : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex(this.titleHeader, userOrMocked,
+      getOkIndex(this.titleHeader(userOrMocked), userOrMocked,
         views.html.main(user = userOrMocked,
           debugMode = config.isDebugMode,
           searchView = true))
@@ -217,7 +227,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
   def map(parentId:Long, taskId:Long, view:Boolean) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.userAwareUIRequest { implicit user =>
       val userOrMocked = User.userOrMocked(user)
-      getOkIndex(this.titleHeader, userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId, view))
+      getOkIndex(this.titleHeader(userOrMocked), userOrMocked, views.html.main(userOrMocked, config.isDebugMode, parentId, taskId, view))
     }
   }
 
@@ -267,7 +277,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
         }
         case None => views.html.error.error(Messages("errors.application.adminUIList.invalid"))
       }
-      getOkIndex(this.adminHeader, user, view)
+      getOkIndex(this.adminHeader(user), user, view)
     }
   }
 
@@ -276,7 +286,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
       permission.hasWriteAccess(ProjectType(), user)(projectId)
       dalManager.project.retrieveById(projectId) match {
         case Some(p) => dalManager.challenge.retrieveById(parentId) match {
-          case Some(c) => getOkIndex(this.adminHeader, user, views.html.admin.task(user, p.name, projectId, c.name, parentType, parentId))
+          case Some(c) => getOkIndex(this.adminHeader(user), user, views.html.admin.task(user, p.name, projectId, c.name, parentType, parentId))
           case _ => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
         }
         case _ => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
@@ -286,7 +296,7 @@ class Application @Inject() (val messagesApi: MessagesApi,
 
   def metrics : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedUIRequest { implicit user =>
-      getOkIndex(this.metricsHeader, user, views.html.metrics.challengeMetrics(user, config, None, ""))
+      getOkIndex(this.metricsHeader(user), user, views.html.metrics.challengeMetrics(user, config, None, ""))
     }
   }
 
@@ -296,15 +306,15 @@ class Application @Inject() (val messagesApi: MessagesApi,
       challenge match {
         case Some(c) => c.general.challengeType match {
           case Actions.ITEM_TYPE_CHALLENGE =>
-            getOkIndex(this.metricsHeader, user,
+            getOkIndex(this.metricsHeader(user), user,
               views.html.metrics.challengeMetrics(user, config, challenge, projects))
           case Actions.ITEM_TYPE_SURVEY =>
             val answers = dalManager.survey.getAnswers(challengeId)
-            getOkIndex(this.metricsHeader, user,
+            getOkIndex(this.metricsHeader(user), user,
               views.html.metrics.surveyMetrics(user, config, c, answers))
         }
         case None =>
-          getOkIndex(this.metricsHeader, user, views.html.metrics.challengeMetrics(user, config, None, ""))
+          getOkIndex(this.metricsHeader(user), user, views.html.metrics.challengeMetrics(user, config, None, ""))
       }
     }
   }

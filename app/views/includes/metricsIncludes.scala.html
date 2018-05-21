@@ -1,11 +1,11 @@
-@(debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader, webJarAssets: WebJarAssets)
+@(debugMode:Boolean)(implicit req: play.api.mvc.RequestHeader, webJarsUtil: org.webjars.play.WebJarsUtil)
 @minified() = {@{debugMode match { case true => ""; case false => ".min" }}}
 
 <!-- Moment js -->
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"${minified().toString().replace(".","").replace("n", "n/")}moment${minified()}.js"))"></script>
+@webJarsUtil.locate(s"${minified().toString().replace(".","").replace("n", "n/")}moment${minified()}.js").script()
 <!-- Bootstrap daterangepicker -->
-<link rel="stylesheet" href="@routes.WebJarAssets.at(webJarAssets.locate(s"css/bootstrap-daterangepicker.css"))"/>
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"js/bootstrap-daterangepicker.js"))"></script>
+<link rel="stylesheet" href="@webJarsUtil.locate(s"css/bootstrap-daterangepicker.css").css()"/>
+@webJarsUtil.locate(s"js/bootstrap-daterangepicker.js").script()
 <!-- Chart.js -->
-<script src="@routes.WebJarAssets.at(webJarAssets.locate(s"dist/Chart${minified()}.js"))"></script>
+@webJarsUtil.locate(s"dist/Chart${minified()}.js").script()
 <script src="@routes.Assets.versioned("javascripts/metrics.js")"></script>

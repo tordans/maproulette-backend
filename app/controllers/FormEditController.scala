@@ -3,7 +3,6 @@
 package controllers
 
 import javax.inject.Inject
-
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.Config
 import org.maproulette.actions.{Actions, ProjectType}
@@ -15,30 +14,33 @@ import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import org.maproulette.permissions.Permission
 import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SessionManager, User}
+import org.webjars.play.WebJarsUtil
 import play.api.db.Database
-import play.api.i18n.{I18nSupport, Messages, MessagesApi}
+import play.api.i18n.{I18nSupport, Lang, Messages}
 import play.api.libs.Files
 import play.api.libs.json.{DefaultReads, Json}
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Action, AnyContent, Controller, MultipartFormData}
+import play.api.mvc._
 
 import scala.io.Source
 
 /**
   * @author cuthbertm
   */
-class FormEditController @Inject() (val messagesApi: MessagesApi,
+class FormEditController @Inject() (components: ControllerComponents,
                                     ws:WSClient,
-                                    override val webJarAssets: WebJarAssets,
+                                    override val webJarsUtil: WebJarsUtil,
                                     sessionManager:SessionManager,
                                     override val dalManager: DALManager,
                                     challengeService: ChallengeService,
                                     val config:Config,
                                     db:Database,
                                     permission: Permission)
-  extends Controller with I18nSupport with ControllerHelper with DefaultReads with ChallengeWrites with ChallengeReads {
+  extends AbstractController(components) with I18nSupport with ControllerHelper with DefaultReads with ChallengeWrites with ChallengeReads {
 
-  private val adminHeader:String = Messages("headers.administration")
+  private def adminHeader(user:User) : String = {
+    components.messagesApi("headers.administration")(new Lang(user.getUserLocale))
+  }
 
   def userSettingsPost(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
     implicit val settingsWrite = User.settingsWrites
@@ -69,7 +71,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
         Project.emptyProject
       }
       val projectForm = Project.projectForm.fill(project)
-      getOkIndex(this.adminHeader, user, views.html.admin.forms.projectForm(user, parentId, projectForm, Map.empty))
+      getOkIndex(this.adminHeader(user), user, views.html.admin.forms.projectForm(user, parentId, projectForm, Map.empty))
     }
   }
 
@@ -77,7 +79,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
     sessionManager.authenticatedUIRequest { implicit user =>
       Project.projectForm.bindFromRequest.fold(
         formWithErrors => {
-          getIndex(BadRequest, this.adminHeader, user,
+          getIndex(BadRequest, this.adminHeader(user), user,
             views.html.admin.forms.projectForm(user, parentId, formWithErrors, Map.empty))
         },
         project => {
@@ -103,7 +105,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           val clonedChallenge = c.copy(id = -1, name = "")
           val tags = Some(dalManager.tag.listByChallenge(itemId).map(_.name))
           val challengeForm = Challenge.challengeForm.fill(clonedChallenge)
-          getOkIndex(this.adminHeader, user,
+          getOkIndex(this.adminHeader(user), user,
             views.html.admin.forms.challengeForm(user, c.name, parentId, challengeForm, tags)
           )
         case None =>
@@ -131,7 +133,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
           } else {
             None
           }
-          getOkIndex(this.adminHeader, user,
+          getOkIndex(this.adminHeader(user), user,
             views.html.admin.forms.challengeForm(user, p.name, parentId, challengeForm, challengeTags)
           )
         case None => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
@@ -148,7 +150,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
             val tags = request.body.dataParts("tags").head.split(",").toList.filter(_.nonEmpty)
             Challenge.challengeForm.bindFromRequest.fold(
               formWithErrors => {
-                getIndex(BadRequest, this.adminHeader, user,
+                getIndex(BadRequest, this.adminHeader(user), user,
                   views.html.admin.forms.challengeForm(user, p.name, parentId, formWithErrors, Some(tags))
                 )
               },
@@ -167,7 +169,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
                 if (itemId < 0 || rerun) {
                   val uploadData = request.body.file("localGeoJSON") match {
                     case Some(f) if StringUtils.isNotEmpty(f.filename) =>
-                      Some(Source.fromFile(f.ref.file).getLines().mkString("\n"))
+                      Some(Source.fromFile(f.ref.getAbsoluteFile).getLines().mkString("\n"))
                     case _ => None
                   }
                   challengeService.buildTasks(user, updatedChallenge, uploadData)
@@ -209,7 +211,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
               Task.emptyTask(parentId)
             }
             val taskForm = Task.taskForm.fill(task)
-            getOkIndex(this.adminHeader, user,
+            getOkIndex(this.adminHeader(user), user,
               views.html.admin.forms.taskForm(projectId, p.name, parentId, c.name, parentType, taskForm)
             )
           case None => throw new NotFoundException(Messages("errors.application.adminUIList.notfound"))
@@ -227,7 +229,7 @@ class FormEditController @Inject() (val messagesApi: MessagesApi,
             permission.hasWriteAccess(ProjectType(), user)(projectId)
             Task.taskForm.bindFromRequest.fold(
               formWithErrors => {
-                getIndex(BadRequest, this.adminHeader, user,
+                getIndex(BadRequest, this.adminHeader(user), user,
                   views.html.admin.forms.taskForm(projectId, p.name, parentId, c.name, parentType, formWithErrors)
                 )
               },
