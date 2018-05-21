@@ -23,14 +23,14 @@ case class OSMQLProvider(providerURL:String, requestTimeout:Duration)
 class Config @Inject() (implicit val application:Application) {
   val config = application.configuration
 
-  lazy val logoURL = this.config.getString(Config.KEY_LOGO) match {
+  lazy val logoURL = this.config.getOptional[String](Config.KEY_LOGO) match {
     case Some(logo) => logo
     case None => "/assets/images/logo.png"// default to the MapRoulette Icon
   }
 
-  lazy val superKey : Option[String] = this.config.getString(Config.KEY_SUPER_KEY)
+  lazy val superKey : Option[String] = this.config.getOptional[String](Config.KEY_SUPER_KEY)
 
-  lazy val superAccounts : List[String] = this.config.getString(Config.KEY_SUPER_ACCOUNTS) match {
+  lazy val superAccounts : List[String] = this.config.getOptional[String](Config.KEY_SUPER_ACCOUNTS) match {
     case Some(accs) => accs.split(",").toList
     case None => List.empty
   }
@@ -38,98 +38,98 @@ class Config @Inject() (implicit val application:Application) {
   lazy val ignoreSessionTimeout : Boolean = this.sessionTimeout == -1
 
   lazy val isDebugMode : Boolean =
-    this.config.getBoolean(Config.KEY_DEBUG).getOrElse(false)
+    this.config.getOptional[Boolean](Config.KEY_DEBUG).getOrElse(false)
 
   lazy val isDevMode : Boolean =
-    this.config.getBoolean(Config.KEY_DEVMODE).getOrElse(false)
+    this.config.getOptional[Boolean](Config.KEY_DEVMODE).getOrElse(false)
 
   lazy val actionLevel : Int =
-    this.config.getInt(Config.KEY_ACTION_LEVEL).getOrElse(Actions.ACTION_LEVEL_2)
+    this.config.getOptional[Int](Config.KEY_ACTION_LEVEL).getOrElse(Actions.ACTION_LEVEL_2)
 
   lazy val numberOfChallenges : Int =
-    this.config.getInt(Config.KEY_NUM_OF_CHALLENGES).getOrElse(Config.DEFAULT_NUM_OF_CHALLENGES)
+    this.config.getOptional[Int](Config.KEY_NUM_OF_CHALLENGES).getOrElse(Config.DEFAULT_NUM_OF_CHALLENGES)
 
   lazy val numberOfActivities : Int =
-    this.config.getInt(Config.KEY_RECENT_ACTIVITY).getOrElse(Config.DEFAULT_RECENT_ACTIVITY)
+    this.config.getOptional[Int](Config.KEY_RECENT_ACTIVITY).getOrElse(Config.DEFAULT_RECENT_ACTIVITY)
 
   lazy val osmMatcherBatchSize : Int =
-    this.config.getInt(Config.KEY_SCHEDULER_OSM_MATCHER_BATCH_SIZE).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_BATCH_SIZE)
+    this.config.getOptional[Int](Config.KEY_SCHEDULER_OSM_MATCHER_BATCH_SIZE).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_BATCH_SIZE)
 
   lazy val virtualChallengeLimit : Double =
-    this.config.getDouble(Config.KEY_VIRTUAL_CHALLENGE_LIMIT).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_LIMIT)
+    this.config.getOptional[Double](Config.KEY_VIRTUAL_CHALLENGE_LIMIT).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_LIMIT)
 
   lazy val virtualChallengeBatchSize : Int =
-    this.config.getInt(Config.KEY_VIRTUAL_CHALLENGE_BATCH_SIZE).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_BATCH_SIZE)
+    this.config.getOptional[Int](Config.KEY_VIRTUAL_CHALLENGE_BATCH_SIZE).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_BATCH_SIZE)
 
   lazy val virtualChallengeExpiry : Duration =
-    Duration(this.config.getString(Config.KEY_VIRTUAL_CHALLENGE_EXPIRY).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_EXPIRY))
+    Duration(this.config.getOptional[String](Config.KEY_VIRTUAL_CHALLENGE_EXPIRY).getOrElse(Config.DEFAULT_VIRTUAL_CHALLENGE_EXPIRY))
 
   lazy val changeSetTimeLimit : Duration =
-    Duration(this.config.getString(Config.KEY_CHANGESET_TIME_LIMIT).getOrElse(Config.DEFAULT_CHANGESET_HOUR_LIMIT))
+    Duration(this.config.getOptional[String](Config.KEY_CHANGESET_TIME_LIMIT).getOrElse(Config.DEFAULT_CHANGESET_HOUR_LIMIT))
 
-  lazy val changeSetEnabled : Boolean = this.config.getBoolean(Config.KEY_CHANGESET_ENABLED).getOrElse(Config.DEFAULT_CHANGESET_ENABLED)
+  lazy val changeSetEnabled : Boolean = this.config.getOptional[Boolean](Config.KEY_CHANGESET_ENABLED).getOrElse(Config.DEFAULT_CHANGESET_ENABLED)
 
   lazy val taskScoreFixed : Int =
-    this.config.getInt(Config.KEY_TASK_SCORE_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_FIXED)
+    this.config.getOptional[Int](Config.KEY_TASK_SCORE_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_FIXED)
 
   lazy val taskScoreFalsePositive : Int =
-    this.config.getInt(Config.KEY_TASK_SCORE_FALSE_POSITIVE).getOrElse(Config.DEFAULT_TASK_SCORE_FALSE_POSITIVE)
+    this.config.getOptional[Int](Config.KEY_TASK_SCORE_FALSE_POSITIVE).getOrElse(Config.DEFAULT_TASK_SCORE_FALSE_POSITIVE)
 
   lazy val taskScoreAlreadyFixed : Int =
-    this.config.getInt(Config.KEY_TASK_SCORE_ALREADY_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_ALREADY_FIXED)
+    this.config.getOptional[Int](Config.KEY_TASK_SCORE_ALREADY_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_ALREADY_FIXED)
 
   lazy val taskScoreTooHard : Int =
-    this.config.getInt(Config.KEY_TASK_SCORE_TOO_HARD).getOrElse(Config.DEFAULT_TASK_SCORE_TOO_HARD)
+    this.config.getOptional[Int](Config.KEY_TASK_SCORE_TOO_HARD).getOrElse(Config.DEFAULT_TASK_SCORE_TOO_HARD)
 
   lazy val taskScoreSkipped : Int =
-    this.config.getInt(Config.KEY_TASK_SCORE_SKIPPED).getOrElse(Config.DEFAULT_TASK_SCORE_SKIPPED)
+    this.config.getOptional[Int](Config.KEY_TASK_SCORE_SKIPPED).getOrElse(Config.DEFAULT_TASK_SCORE_SKIPPED)
 
-  lazy val osmMatcherEnabled : Boolean = this.config.getBoolean(Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED).getOrElse(Config.DEFAULT_OSM_MATCHER_ENABLED)
+  lazy val osmMatcherEnabled : Boolean = this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED).getOrElse(Config.DEFAULT_OSM_MATCHER_ENABLED)
 
-  lazy val osmMatcherManualOnly : Boolean = this.config.getBoolean(Config.KEY_SCHEDULER_OSM_MATCHER_MANUAL).getOrElse(Config.DEFAULT_OSM_MATCHER_MANUAL)
+  lazy val osmMatcherManualOnly : Boolean = this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_MANUAL).getOrElse(Config.DEFAULT_OSM_MATCHER_MANUAL)
 
   lazy val allowMatchOSM = changeSetEnabled || osmMatcherEnabled || osmMatcherManualOnly
 
-  lazy val getOSMServer : String = this.config.getString(Config.KEY_OSM_SERVER).get
+  lazy val getOSMServer : String = this.config.getOptional[String](Config.KEY_OSM_SERVER).get
 
   lazy val getOSMOauth : OSMOAuth = {
     val osmServer = this.getOSMServer
     OSMOAuth(
-      osmServer + this.config.getString(Config.KEY_OSM_USER_DETAILS_URL).get,
-      osmServer + this.config.getString(Config.KEY_OSM_REQUEST_TOKEN_URL).get,
-      osmServer + this.config.getString(Config.KEY_OSM_ACCESS_TOKEN_URL).get,
-      osmServer + this.config.getString(Config.KEY_OSM_AUTHORIZATION_URL).get,
-      ConsumerKey(this.config.getString(Config.KEY_OSM_CONSUMER_KEY).get,
-        this.config.getString(Config.KEY_OSM_CONSUMER_SECRET).get)
+      osmServer + this.config.getOptional[String](Config.KEY_OSM_USER_DETAILS_URL).get,
+      osmServer + this.config.getOptional[String](Config.KEY_OSM_REQUEST_TOKEN_URL).get,
+      osmServer + this.config.getOptional[String](Config.KEY_OSM_ACCESS_TOKEN_URL).get,
+      osmServer + this.config.getOptional[String](Config.KEY_OSM_AUTHORIZATION_URL).get,
+      ConsumerKey(this.config.getOptional[String](Config.KEY_OSM_CONSUMER_KEY).get,
+        this.config.getOptional[String](Config.KEY_OSM_CONSUMER_SECRET).get)
     )
   }
 
   lazy val getOSMQLProvider : OSMQLProvider = OSMQLProvider(
-    this.config.getString(Config.KEY_OSM_QL_PROVIDER).get,
-    Duration(this.config.getInt(Config.KEY_OSM_QL_TIMEOUT).getOrElse(Config.DEFAULT_OSM_QL_TIMEOUT), "s")
+    this.config.getOptional[String](Config.KEY_OSM_QL_PROVIDER).get,
+    Duration(this.config.getOptional[Int](Config.KEY_OSM_QL_TIMEOUT).getOrElse(Config.DEFAULT_OSM_QL_TIMEOUT), "s")
   )
 
   lazy val getSemanticVersion : String =
-    this.config.getString(Config.KEY_SEMANTIC_VERSION).getOrElse("N/A")
+    this.config.getOptional[String](Config.KEY_SEMANTIC_VERSION).getOrElse("N/A")
 
-  lazy val sessionTimeout : Long = this.config.getLong(Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
+  lazy val sessionTimeout : Long = this.config.getOptional[Long](Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
 
-  lazy val taskReset : Int = this.config.getInt(Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
+  lazy val taskReset : Int = this.config.getOptional[Int](Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
 
-  lazy val signIn : Boolean = this.config.getBoolean(Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
+  lazy val signIn : Boolean = this.config.getOptional[Boolean](Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
 
-  lazy val mr3JSManifest : String = this.config.getString(Config.KEY_MR3_MANIFEST).get
+  lazy val mr3JSManifest : String = this.config.getOptional[String](Config.KEY_MR3_MANIFEST).get
   lazy val mr3StaticPath : Option[String] = {
-    val static = this.config.getString(Config.KEY_MR3_STATIC_PATH).getOrElse("")
+    val static = this.config.getOptional[String](Config.KEY_MR3_STATIC_PATH).getOrElse("")
     if (StringUtils.isEmpty(static)) {
       None
     } else {
       Some(static)
     }
   }
-  lazy val mr3DevMode : Boolean = this.config.getBoolean(Config.KEY_MR3_DEV_MODE).getOrElse(Config.DEFAULT_MR3_DEV_MODE)
+  lazy val mr3DevMode : Boolean = this.config.getOptional[Boolean](Config.KEY_MR3_DEV_MODE).getOrElse(Config.DEFAULT_MR3_DEV_MODE)
   lazy val mr3Host : String = {
-    val host = this.config.getString(Config.KEY_MR3_HOST).getOrElse(Config.DEFAULT_MR3_HOST)
+    val host = this.config.getOptional[String](Config.KEY_MR3_HOST).getOrElse(Config.DEFAULT_MR3_HOST)
     if (StringUtils.isEmpty(host)) {
       Config.DEFAULT_MR3_HOST
     } else {
@@ -145,7 +145,7 @@ class Config @Inject() (implicit val application:Application) {
     * @param block The block of code executed if a FiniteDuration is found
     */
   def withFiniteDuration(key:String)(block:(FiniteDuration) => Unit):Unit = {
-    application.configuration.getString(key)
+    application.configuration.getOptional[String](key)
       .map(Duration(_)).filter(_.isFinite())
       .map(duration => FiniteDuration(duration._1, duration._2))
       .foreach(block(_))

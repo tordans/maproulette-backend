@@ -7,6 +7,9 @@ import org.maproulette.actions.{GroupType, ItemType}
 import org.maproulette.models.BaseObject
 import play.api.libs.json.{Json, Reads, Writes}
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
+
 /**
   * @author cuthbertm
   */

@@ -3,7 +3,6 @@
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-
 import org.maproulette.actions._
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Answer, Challenge, Task}
@@ -14,13 +13,13 @@ import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Action, AnyContent, Request}
+import play.api.mvc._
 
 /**
   * The survey controller handles all operations for the Survey objects.
   * This includes CRUD operations and searching/listing.
-  * See {@link org.maproulette.controllers.ParentController} for more details on parent object operations
-  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  * See ParentController for more details on parent object operations
+  * See CRUDController for more details on CRUD object operations
   *
   * @author cuthbertm
   */
@@ -32,8 +31,10 @@ class SurveyController @Inject() (override val childController:TaskController,
                                   override val tagDAL: TagDAL,
                                   challengeService: ChallengeService,
                                   wsClient: WSClient,
-                                  permission:Permission)
-  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService, wsClient, permission) {
+                                  permission:Permission,
+                                  components: ControllerComponents,
+                                  override val bodyParsers:PlayBodyParsers)
+  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService, wsClient, permission, components, bodyParsers) {
 
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()

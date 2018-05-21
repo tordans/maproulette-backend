@@ -174,7 +174,7 @@ class ProjectDAL @Inject() (override val db:Database,
                 (g.project_id = p.id AND g.id IN ({ids}))
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('ss -> this.search(searchString), 'offset -> ParameterValue.toParameterValue(offset),
+          SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
             'osmId -> user.osmProfile.id,
             'ids -> user.groups.map(_.id))
             .as(this.parser.*)

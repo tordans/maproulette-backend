@@ -1,7 +1,7 @@
 @import org.maproulette.session.User
 @import org.maproulette.Config
 @import org.maproulette.models.{Challenge, Answer}
-@(user:User, config:Config, survey:Challenge, answers:List[Answer])(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarAssets: WebJarAssets)
+@(user:User, config:Config, survey:Challenge, answers:List[Answer])(implicit req: play.api.mvc.RequestHeader, messages: Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 @views.html.includes.metricsIncludes(config.isDebugMode)
 @views.html.admin.common.header("Metrics", survey.name)
 <section class="content">

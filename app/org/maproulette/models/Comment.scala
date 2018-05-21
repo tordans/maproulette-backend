@@ -2,6 +2,8 @@ package org.maproulette.models
 
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, Reads, Writes}
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 
 /**
   * A comment can be associated to a Task, a comment contains the osm user that made the comment,

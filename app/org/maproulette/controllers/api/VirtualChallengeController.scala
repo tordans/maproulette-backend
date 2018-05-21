@@ -1,7 +1,6 @@
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -13,7 +12,7 @@ import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent}
+import play.api.mvc._
 
 import scala.concurrent.duration.Duration
 
@@ -24,7 +23,11 @@ class VirtualChallengeController @Inject() (override val sessionManager: Session
                                             override val actionManager: ActionManager,
                                             override val dal:VirtualChallengeDAL,
                                             taskDAL: TaskDAL,
-                                            config:Config) extends CRUDController[VirtualChallenge] {
+                                            config:Config,
+                                            components: ControllerComponents,
+                                            override val bodyParsers:PlayBodyParsers)
+    extends AbstractController(components) with CRUDController[VirtualChallenge] {
+
   override implicit val tReads: Reads[VirtualChallenge] = VirtualChallenge.virtualChallengeReads
   override implicit val tWrites: Writes[VirtualChallenge] = VirtualChallenge.virtualChallengeWrites
   override implicit val itemType = VirtualChallengeType()
@@ -54,7 +57,7 @@ class VirtualChallengeController @Inject() (override val sessionManager: Session
       case Some(ex) => Duration(ex).toMillis.toInt
       case None => config.virtualChallengeExpiry.toMillis.toInt
     }
-    val expiryUpdate = Utils.insertIntoJson(jsonBody, "expiry", DateTime.now().plusMillis(expiryValue), true)(DefaultJodaDateWrites)
+    val expiryUpdate = Utils.insertIntoJson(jsonBody, "expiry", DateTime.now().plusMillis(expiryValue), true)(JodaWrites.JodaDateTimeNumberWrites)
     val searchUpdate = Utils.insertIntoJson(expiryUpdate, "searchParameters", SearchParameters())
     Utils.insertIntoJson(searchUpdate, "ownerId", user.osmProfile.id)
   }

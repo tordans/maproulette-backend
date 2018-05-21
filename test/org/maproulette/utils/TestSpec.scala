@@ -9,7 +9,7 @@ import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
 import org.maproulette.session._
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import play.api.db.Databases
 import org.mockito.Mockito._
 import org.mockito.Matchers.{eq => eqM, _}

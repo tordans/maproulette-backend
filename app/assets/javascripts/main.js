@@ -145,7 +145,10 @@ var Utils = {
         var queryString = "";
         if (qs.length > 1) {
             queryString = qs[1];
-        }    
+        }
+        if (url.includes("?")) {
+            return url + "&" + queryString;
+        }
         return url + "?" + queryString;
     },
     getDefaultValue: function(property, defaultValue) {

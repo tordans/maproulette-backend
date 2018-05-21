@@ -10,6 +10,7 @@ import org.maproulette.actions.{Actions, ChallengeType, ItemType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
+import play.api.data.JodaForms._
 
 // Answer cass class for Surveys
 case class Answer(id:Long = -1, answer:String)

@@ -60,6 +60,57 @@
 					"response": []
 				},
 				{
+					"name": "Challenge Project Creation 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "0a7e23c4-b5e4-4b5a-b23e-e96e3e28dfd4",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleProjectID2\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject2\";",
+									"tests[\"description\"] = jsonData.description === \"Test project just to test moving challenges.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleProject2\",\n    \"description\":\"Test project just to test moving challenges.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
+						},
+						"description": "Creates a base project for all the other Map Roulette API Testing"
+					},
+					"response": []
+				},
+				{
 					"name": "Challenge Creation",
 					"event": [
 						{
@@ -105,6 +156,54 @@
 								"api",
 								"v2",
 								"challenge"
+							]
+						},
+						"description": "Creates the most basic challenge with the least set of options in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Move",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "72e60338-d2f3-4730-bb66-6fe7f513d03d",
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"parent\"] = jsonData.parent == postman.getGlobalVariable(\"SimpleProjectID2\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}/project/{{SimpleProjectID2}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengeID}}",
+								"project",
+								"{{SimpleProjectID2}}"
 							]
 						},
 						"description": "Creates the most basic challenge with the least set of options in the body json"
@@ -991,6 +1090,61 @@
 								"v2",
 								"project",
 								"{{SimpleProjectID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Deletes the project that was used for the challenge tests."
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Project 2 Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID2}}?immediate=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID2}}"
 							],
 							"query": [
 								{

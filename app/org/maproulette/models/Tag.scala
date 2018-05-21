@@ -6,6 +6,9 @@ import org.joda.time.DateTime
 import org.maproulette.actions.{ItemType, TagType}
 import play.api.libs.json._
 
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
+
 /**
   * Tags sit outside of the object hierarchy and have no parent or children objects associated it.
   * It simply has a many to one mapping between tags and tasks. This allows tasks to be easily

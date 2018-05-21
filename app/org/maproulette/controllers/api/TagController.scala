@@ -3,7 +3,6 @@
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-
 import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
 import org.maproulette.models.Tag
@@ -11,19 +10,21 @@ import org.maproulette.models.dal.TagDAL
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
-import play.api.mvc.{Action, AnyContent}
+import play.api.mvc._
 
 /**
   * The Tag controller handles all operations for the Challenge objects.
   * This includes CRUD operations and searching/listing.
-  * See {@link org.maproulette.controllers.CRUDController} for more details on CRUD object operations
+  * See CRUDController for more details on CRUD object operations
   *
   * @author cuthbertm
   */
 class TagController @Inject() (override val sessionManager: SessionManager,
                                override val actionManager: ActionManager,
-                               override val dal:TagDAL)
-  extends CRUDController[Tag] {
+                               override val dal:TagDAL,
+                               components: ControllerComponents,
+                               override val bodyParsers:PlayBodyParsers)
+  extends AbstractController(components) with CRUDController[Tag] {
 
   // json reads for automatically reading Tags from a posted json body
   override implicit val tReads: Reads[Tag] = Tag.tagReads
