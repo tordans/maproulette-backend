@@ -29,6 +29,7 @@ import org.wololo.jts2geojson.GeoJSONReader
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
+import scala.util.control.Exception.allCatch
 import scala.xml.XML
 
 /**
@@ -183,7 +184,8 @@ class TaskDAL @Inject()(override val db: Database,
       // status should probably not be allowed to be set through the update function, and rather
       // it should be forced to use the setTaskStatus function
       val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
         throw new InvalidException(s"Could not set status for task [$id], " +
           s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
       }
