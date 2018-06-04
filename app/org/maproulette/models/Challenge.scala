@@ -155,8 +155,16 @@ object Challenge {
   val DIFFICULTY_EXPERT = 3
 
   val PRIORITY_HIGH = 0
+  val PRIORITY_HIGH_NAME = "High"
   val PRIORITY_MEDIUM = 1
+  val PRIORITY_MEDIUM_NAME = "Medium"
   val PRIORITY_LOW = 2
+  val PRIORITY_LOW_NAME = "Low"
+  val priorityMap = Map(
+    PRIORITY_HIGH -> PRIORITY_HIGH_NAME,
+    PRIORITY_MEDIUM -> PRIORITY_MEDIUM_NAME,
+    PRIORITY_LOW -> PRIORITY_LOW_NAME,
+  )
 
   val DEFAULT_ZOOM = 13
   val MIN_ZOOM = 1

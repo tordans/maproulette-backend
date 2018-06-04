@@ -371,6 +371,30 @@ class ChallengeController @Inject()(override val childController: TaskController
   }
 
   /**
+    * Extracts all the tasks and returns them in a nice format like csv.
+    *
+    * @param challengeId The id of the challenge
+    * @param limit limit the number of results
+    * @param page Used for paging
+    * @return A csv list of tasks for the challenge
+    */
+  def extractTaskSummaries(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Result(
+        header = ResponseHeader(OK, Map.empty),
+        body = HttpEntity.Strict(ByteString(_extractTaskSummaries(challengeId, limit, page).mkString("\n")), Some("text/csv"))
+      )
+    }
+  }
+
+  private def _extractTaskSummaries(challengeId:Long, limit:Int, page:Int) : Seq[String] = {
+    val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page)
+    tasks.map(task =>
+      s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}","${Challenge.priorityMap.get(task.priority).get}","${task.username.getOrElse("")}""""
+    )
+  }
+
+  /**
     * Uses the search parameters from the query string to find challenges
     *
     * @param limit limits the amount of results returned

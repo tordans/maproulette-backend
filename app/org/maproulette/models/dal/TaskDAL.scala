@@ -29,6 +29,7 @@ import org.wololo.jts2geojson.GeoJSONReader
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
+import scala.util.control.Exception.allCatch
 import scala.xml.XML
 
 /**
@@ -89,6 +90,8 @@ class TaskDAL @Inject()(override val db: Database,
         Comment(id, osm_id, osm_name, taskId, challengeId, projectId, created, comment, action_id)
     }
   }
+
+  case class TaskSummary(taskId:Long, name:String, status:Int, priority:Int, username:Option[String])
 
   /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
@@ -181,7 +184,8 @@ class TaskDAL @Inject()(override val db: Database,
       // status should probably not be allowed to be set through the update function, and rather
       // it should be forced to use the setTaskStatus function
       val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status)) {
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
         throw new InvalidException(s"Could not set status for task [$id], " +
           s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
       }
@@ -982,6 +986,33 @@ class TaskDAL @Inject()(override val db: Database,
       ).as(this.commentParser.*)
     }
   }
+
+  def retrieveTaskSummaries(challengeId:Long, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0) : List[TaskSummary] =
+    db.withConnection { implicit c =>
+      val parser = for {
+        taskId <- long("tasks.id")
+        name <- str("tasks.name")
+        status <- int("tasks.status")
+        priority <- int("tasks.priority")
+        username <- get[Option[String]]("users.username")
+      } yield TaskSummary(taskId, name, status, priority, username)
+
+      SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username
+            FROM tasks t LEFT OUTER JOIN (
+              SELECT sa.task_id, sa.status, sa.osm_user_id, u.name AS username
+              FROM users u, status_actions sa INNER JOIN (
+                SELECT task_id, MAX(created) AS latest
+                FROM status_actions
+                WHERE challenge_id=#${challengeId}
+                GROUP BY task_id
+              ) AS sa_inner
+              ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
+              WHERE sa.osm_user_id = u.osm_id
+            ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
+            WHERE t.parent_id = #${challengeId}
+            LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
+      """.as(parser.*)
+    }
 
   /**
     * Add comment to a task
