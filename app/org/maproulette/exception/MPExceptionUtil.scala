@@ -160,7 +160,7 @@ object MPExceptionUtil {
 
   private def manageUIException(e:Throwable) : Result = {
     Logger.debug(e.getMessage, e)
-    Redirect(s"/mr3/error?errormsg=${e.getMessage}", PERMANENT_REDIRECT).withHeaders(("Cache-Control", "no-chache"))
+    Redirect(s"/mr3/error?errormsg=${e.getMessage}", PERMANENT_REDIRECT).withHeaders(("Cache-Control", "no-cache"))
   }
 
   private def manageOldUIException(e:Throwable, user:User, config:Config, dalManager:DALManager)

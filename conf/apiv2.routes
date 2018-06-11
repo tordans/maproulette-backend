@@ -65,7 +65,9 @@ POST    /project                                    @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Project'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
 ###
 POST    /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPost
 ###
@@ -135,7 +137,9 @@ PUT     /project/:id                                @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Project'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
 ###
 PUT     /projects                                   @org.maproulette.controllers.api.ProjectController.batchUploadPut
 ###
@@ -245,7 +249,9 @@ PUT  /project/:id/undelete                         @org.maproulette.controllers.
 #     description: A list of projects found
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Project'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
 #   '404':
 #     description: No project found matching the match the provided search string
 # parameters:
@@ -277,7 +283,9 @@ GET     /projects/find                              @org.maproulette.controllers
 #     description: A list of all the projects
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Project'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
 # parameters:
 #   - name: limit
 #     in: query
@@ -301,7 +309,9 @@ GET     /projects                                   @org.maproulette.controllers
 #     description: A list of all the projects
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Project'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
 # parameters:
 #   - name: apiKey
 #     in: header
@@ -335,7 +345,9 @@ GET     /projects/managed                           @org.maproulette.controllers
 #     description: A list of all the challenges
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: id
 #     in: path
@@ -380,7 +392,9 @@ GET     /project/:id/challenges                     @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 POST    /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.createChildren(id:Long)
 ###
@@ -415,7 +429,9 @@ POST    /project/:id/challenges                     @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 PUT     /project/:id/challenges                     @org.maproulette.controllers.api.ProjectController.updateChildren(id:Long)
 ###
@@ -453,7 +469,9 @@ GET     /project/:id/children                       @org.maproulette.controllers
 #     description: The list of tasks that match the search criteria
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -593,7 +611,9 @@ POST    /challenge                                  @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost
 ###
@@ -661,7 +681,9 @@ PUT     /challenge/:id                              @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
 ###
@@ -791,7 +813,9 @@ DELETE  /challenge/:id/tasks                        @org.maproulette.controllers
 #     description: A list of Challenges found
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: q
 #     in: query
@@ -820,7 +844,9 @@ GET     /challenges/find                            @org.maproulette.controllers
 #     description: A list of Challenges found
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: pid
 #     in: query
@@ -861,7 +887,9 @@ GET     /challenges/extendedFind                    @org.maproulette.controllers
 #     description: Empty status body
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Tag'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -881,7 +909,9 @@ POST     /challenge/:id/project/:projectId           @org.maproulette.controller
 #     description: A list of Tags associated with the Challenge. Empty array if not found.
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Tag'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -898,7 +928,9 @@ GET     /challenge/:id/tags                         @org.maproulette.controllers
 #     description: A list of Challenges that contain at least one of the supplied tags. An empty list otherwise.
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 #   '400':
 #     description: If not tags are supplied a BadRequest response will be returned
 # parameters:
@@ -948,7 +980,9 @@ DELETE  /challenge/:id/tags                         @org.maproulette.controllers
 #     description: A list of all the featured Challenges
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: limit
 #     in: query
@@ -968,7 +1002,9 @@ GET     /challenges/featured                        @org.maproulette.controllers
 #     description: A list of all the Challenges
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: limit
 #     in: query
@@ -992,7 +1028,9 @@ GET     /challenges                                 @org.maproulette.controllers
 #     description: A list of all the Tasks
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -1035,7 +1073,9 @@ GET     /challenge/:id/tasks                        @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 ###
 POST    /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.createChildren(id:Long)
 ###
@@ -1069,7 +1109,9 @@ POST    /challenge/:id/tasks                        @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 ###
 PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
 ###
@@ -1140,7 +1182,10 @@ PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers
 #   '200':
 #     description: The Challenge with all the Task Challenge objects of the Challenge in a JSON array in the key "children"
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: id
 #     in: path
@@ -1214,7 +1259,9 @@ PUT     /challenge/:id/rebuild                      @org.maproulette.controllers
 #     description: The list of tasks that match the search criteria
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -1243,7 +1290,9 @@ GET     /challenge/:cid/tasks/random                @org.maproulette.controllers
 #     description: The list of tasks that match the search criteria
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -1334,7 +1383,10 @@ GET     /challenge/view/:id                         @org.maproulette.controllers
 #   '200':
 #     description: An array of clustered point representations for a Task. If none found will return an empty list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: id
 #     in: path
@@ -1675,7 +1727,9 @@ DELETE  /virtualchallenge/:id                           @org.maproulette.control
 #     description: A list of all the Virtual Challenges
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.VirtualChallenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.VirtualChallenge'
 # parameters:
 #   - name: limit
 #     in: query
@@ -1696,7 +1750,9 @@ GET     /virtualchallenges                              @org.maproulette.control
 #     description: A list of all the Tasks
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -1719,7 +1775,9 @@ GET     /virtualchallenge/:id/tasks                     @org.maproulette.control
 #     description: The task if any is found
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -1796,7 +1854,10 @@ GET     /virtualchallenge/view/:id                  @org.maproulette.controllers
 #   '200':
 #     description: An array of clustered point representations for a Task. If none found will return an empty list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: id
 #     in: path
@@ -1876,7 +1937,9 @@ POST    /survey                                     @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 POST    /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPost
 ###
@@ -1944,7 +2007,9 @@ PUT     /survey/:id                                 @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 ###
 PUT     /surveys                                    @org.maproulette.controllers.api.SurveyController.batchUploadPut
 ###
@@ -1957,7 +2022,9 @@ PUT     /surveys                                    @org.maproulette.controllers
 #     description: The list of tasks that match the search criteria
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: cid
 #     in: query
@@ -2071,7 +2138,9 @@ POST    /task                                       @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 ###
 POST    /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPost
 ###
@@ -2137,7 +2206,9 @@ PUT     /task/:id                                   @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 ###
 PUT     /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPut
 ###
@@ -2213,7 +2284,9 @@ DELETE  /task/:id                                   @org.maproulette.controllers
 #     description: A list of Tasks found
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: q
 #     in: query
@@ -2242,7 +2315,9 @@ GET     /tasks/find                                 @org.maproulette.controllers
 #     description: A list of Tags associated with the Task. Empty array if not found.
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Tag'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -2259,7 +2334,9 @@ GET     /task/:id/tags                              @org.maproulette.controllers
 #     description: A list of Tasks that contain at least one of the supplied tags. An empty list otherwise.
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 #   '400':
 #     description: If no tags are supplied a BadRequest response will be returned
 # parameters:
@@ -2310,7 +2387,9 @@ DELETE  /task/:id/tags                              @org.maproulette.controllers
 #     description: The list of tasks that match the search criteria
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: ps
 #     in: query
@@ -2345,7 +2424,9 @@ GET     /tasks/random                               @org.maproulette.controllers
 #     description: The list of clusteredPoints representing Tasks that match the search criteria within the bounding box
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: left
 #     in: path
@@ -2430,7 +2511,10 @@ PUT     /task/:id/:status                           @org.maproulette.controllers
 #   '200':
 #     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.TaskCluster'
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
 # parameters:
 #   - name: points
 #     in: query
@@ -2446,7 +2530,10 @@ GET     /taskCluster                                @org.maproulette.controllers
 #   '200':
 #     description: An array of tasks that are contained in a cluster. If none found will return an empty list.
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
 # parameters:
 #   - name: id
 #     in: path
@@ -2487,7 +2574,9 @@ GET     /comment/:id                                @org.maproulette.controllers
 #     description: The comments
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Comment'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Comment'
 #   '404':
 #     description: If the Task is not found
 # parameters:
@@ -2624,7 +2713,9 @@ POST    /tag                                        @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Tag'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Tag'
 ###
 POST    /keywords                                   @org.maproulette.controllers.api.TagController.batchUploadPost
 ###
@@ -2698,7 +2789,9 @@ PUT     /tag/:id                                    @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Tag'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Tag'
 ###
 PUT     /keywords                                   @org.maproulette.controllers.api.TagController.batchUploadPut
 ###
@@ -2765,7 +2858,9 @@ DELETE  /tag/:id                                    @org.maproulette.controllers
 #     description: The retrieved Keywords
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Tag'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Tag'
 # parameters:
 #   - name: prefix
 #     in: query
@@ -2866,7 +2961,9 @@ GET     /osmuser/:username                          @org.maproulette.controllers
 #     description: The retrieved Challenges
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Challenge'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
 # parameters:
 #   - name: userId
 #     in: path
@@ -2944,7 +3041,9 @@ DELETE   /user/:userId/unsave/:challengeId          @org.maproulette.controllers
 #     description: The retrieved Tasks
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: userId
 #     in: path
@@ -3036,7 +3135,9 @@ DELETE   /user/:userId/unsaveTask/:taskId           @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: array
-#       $ref: '#/definitions/org.maproulette.session.UserSettings'
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.session.UserSettings'
 ###
 PUT    /user/:userId                                @org.maproulette.controllers.api.UserController.updateUser(userId:Long)
 ###
@@ -3095,6 +3196,8 @@ PUT     /user/:userId/project/:projectId/:groupType  @org.maproulette.controller
 #     required: true
 #     schema:
 #       type: array
+#       items:
+#         type: integer
 ###
 PUT     /user/project/:projectId/:groupType         @org.maproulette.controllers.api.UserController.addUsersToProject(projectId:Long, groupType:Int)
 ###
@@ -3140,6 +3243,8 @@ DELETE  /user/:userId/project/:projectId/:groupType  @org.maproulette.controller
 #     required: true
 #     schema:
 #       type: array
+#       items:
+#         type: integer
 ###
 DELETE  /user/project/:projectId/:groupType         @org.maproulette.controllers.api.UserController.removeUsersFromProject(projectId:Long, groupType:Int)
 ### NoDocs ###
