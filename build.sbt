@@ -39,7 +39,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-json-joda" % "2.6.9",
   "com.typesafe.play" %% "play-json" % "2.6.9",
   "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
-  "org.webjars" % "swagger-ui" % "3.0.5",
+  "org.webjars" % "swagger-ui" % "3.14.2",
   "org.playframework.anorm" %% "anorm" % "2.6.2",
   "postgresql" % "postgresql" % "9.1-901-1.jdbc4",
   "net.postgis" % "postgis-jdbc" % "2.2.0",
