@@ -166,7 +166,17 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
           case None =>
             tokenPair match {
               case Some(pair) => getUser(pair, userId, create) onComplete {
-                case Success(optionUser) => p success optionUser
+                case Success(optionUser) =>
+                  // if user doesn't have an APIKey then automatically generate one for them
+                  optionUser match {
+                    case Some(u) =>
+                      u.apiKey match {
+                        case None | Some("") => dalManager.user.generateAPIKey(u, User.superUser)
+                        case _ => // ignore
+                      }
+                    case None => // just ignore, we don't need to do anything if no user was found
+                  }
+                  p success optionUser
                 case Failure(f) => p failure f
               }
               case None => p success None

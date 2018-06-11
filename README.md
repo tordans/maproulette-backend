@@ -103,9 +103,11 @@ osm.consumerSecret=<APPLICATION_CONSUMER_SECRET>
 
 ## Creating new Challenges
 
-[The wiki for this repo](https://github.com/maproulette/maproulette2/wiki) has some information on creating challenges
+[The wiki for this repo](https://github.com/maproulette/maproulette2/wiki) has some information on creating challenges.
 
-See also the Swagger API documentation. You can view the documentation by clicking on the "API Documentation" link on the bottom right hand corner of the MapRoulette site.
+[Challenge API](docs/challenge_api.md) has further information about creating challenges through the API.
+
+See also the Swagger API documentation. You can view the documentation by going to the URL ```docs/swagger-ui/index.html?url=/assets/swagger.json``` on any MapRoulette instance.
 
 ## Contact
 
