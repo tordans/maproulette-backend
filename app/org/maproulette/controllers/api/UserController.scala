@@ -25,6 +25,18 @@ class UserController @Inject()(userDAL: UserDAL,
   implicit val challengeWrites = Challenge.writes.challengeWrites
   implicit val taskWrites = Task.TaskFormat
 
+  def deleteUser(osmId:Long, anonymize:Boolean): Action[AnyContent] = Action.async { implicit request =>
+    implicit val requireSuperUser = true
+    this.sessionManager.authenticatedRequest { implicit user =>
+      if (anonymize) {
+        this.userDAL.anonymizeUser(osmId, user)
+      }
+      // delete the user
+      this.userDAL.deleteByOsmID(osmId, user)
+      Ok(Json.toJson(StatusMessage("OK", JsString(s"User with osm ID $osmId deleted from the database${if (anonymize) {" and anonymized"} else {""}}"))))
+    }
+  }
+
   def getUser(userId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (userId == user.id || userId == user.osmProfile.id) {

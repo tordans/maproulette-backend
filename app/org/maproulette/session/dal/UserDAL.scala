@@ -418,6 +418,25 @@ class UserDAL @Inject() (override val db:Database,
   }
 
   /**
+    * Anonymizes all user data in the database
+    *
+    * @param osmId The OSM id of the user you wish to anonymize
+    * @param user The user requesting action, can only be a super user
+    * @param c An implicit connection
+    */
+  def anonymizeUser(osmId:Long, user:User)(implicit c:Connection=null) : Unit = {
+    this.permission.hasSuperAccess(user)
+    this.withMRTransaction { implicit c =>
+      // anonymize all status actions set
+      SQL"""UPDATE status_actions SET osm_user_id = -1 WHERE osm_user_id = $osmId""".executeUpdate()
+      // set all comments made to "COMMENT_DELETED"
+      SQL"""UPDATE task_comments SET comment = '*COMMENT DELETED*', osm_id = -1 WHERE osm_id = $osmId""".executeUpdate()
+      // anonymize all survey_answers answered
+      SQL"""UPDATE survey_answers SET osm_user_id = -1 WHERE osm_user_id = $osmId""".executeUpdate()
+    }
+  }
+
+  /**
     * Adds a user to a project
     *
     * @param osmID The OSM ID of the user to add to the project
