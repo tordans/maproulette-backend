@@ -3004,6 +3004,27 @@ DELETE  /user/:osmId                                @org.maproulette.controllers
 PUT     /user/:userId/apikey                        @org.maproulette.controllers.api.UserController.generateAPIKey(userId:Long)
 ###
 # tags: [ User ]
+# summary: Search for users by OSM username
+# produces: [ application/json ]
+# description: Retrieves list of matching users
+# responses:
+#   '200':
+#     description: The retrieved users
+#     schema:
+#       $ref: '#/definitions/org.maproulette.session.User'
+# parameters:
+#   - name: username
+#     in: path
+#     description: The OSM username or username fragment to search
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+GET     /users/find/:username                          @org.maproulette.controllers.api.UserController.searchUserByOSMUsername(username:String, limit:Int ?= 10)
+###
+# tags: [ User ]
 # summary: Retrieves Users Saved Challenged
 # produces: [ application/json ]
 # description: Retrieves that list of challenges that has been saved by the User
@@ -3206,6 +3227,26 @@ PUT    /user/:userId                                @org.maproulette.controllers
 PUT     /user/:userId/refresh                        @org.maproulette.controllers.api.UserController.refreshProfile(userId:Long)
 ###
 # tags: [ User ]
+# summary: Gets a list of users managing project
+# description: Gets list of users managing project along with their groupTypes (1 - Admin, 2 - Write, 3 - Read)
+# responses:
+#   '200':
+#     description: The retrieved project managers
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.session.User'
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: projectId
+#     in: path
+#     description: The id of the project
+###
+GET     /user/project/:projectId                     @org.maproulette.controllers.api.UserController.getUsersManagingProject(projectId:Long, osmIds:String ?= "")
+###
+# tags: [ User ]
 # summary: Add user to project group
 # description: Adds a user with the specific ids to a Admin, Write or Read project group
 # responses:
@@ -3224,7 +3265,28 @@ PUT     /user/:userId/refresh                        @org.maproulette.controller
 #     in: path
 #     description: Either 1 - Admin, 2 - Write, 3 - Read
 ###
-PUT     /user/:userId/project/:projectId/:groupType  @org.maproulette.controllers.api.UserController.addUserToProject(userId:Long, projectId:Long, groupType:Int)
+POST     /user/:userId/project/:projectId/:groupType  @org.maproulette.controllers.api.UserController.addUserToProject(userId:Long, projectId:Long, groupType:Int)
+###
+# tags: [ User ]
+# summary: Set project group for user, removing any prior groups
+# description: Sets a user with the specific ids to a Admin, Write or Read project group
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to add
+#   - name: projectId
+#     in: path
+#     description: The id of the project to add the user too
+#   - name: groupType
+#     in: path
+#     description: Either 1 - Admin, 2 - Write, 3 - Read
+###
+PUT     /user/:userId/project/:projectId/:groupType  @org.maproulette.controllers.api.UserController.setUserProjectGroup(userId:Long, projectId:Long, groupType:Int)
 ###
 # tags: [ User ]
 # summary: Adds a list of user to project group
@@ -3269,7 +3331,7 @@ PUT     /user/project/:projectId/:groupType         @org.maproulette.controllers
 #     description: The id of the project to add the user too
 #   - name: groupType
 #     in: path
-#     description: Either 1 - Admin, 2 - Write, 3 - Read
+#     description: Either -1 all, 1 - Admin, 2 - Write, 3 - Read
 ###
 DELETE  /user/:userId/project/:projectId/:groupType  @org.maproulette.controllers.api.UserController.removeUserFromProject(userId:Long, projectId:Long, groupType:Int)
 ###

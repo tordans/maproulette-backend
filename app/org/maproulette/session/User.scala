@@ -51,6 +51,31 @@ case class OSMProfile(id: Long,
                       homeLocation: Location,
                       created: DateTime,
                       requestToken: RequestToken)
+/**
+  * A user search result containing a few public fields from user's OSM Profile.
+  *
+  * @param osmId        The osm id
+  * @param displayName  The display name for the osm user
+  * @param avatarURL    The avatar URL to enabling displaying of their avatar
+  */
+case class UserSearchResult(osmId: Long,
+                            displayName: String,
+                            avatarURL: String)
+/**
+  * Information specific to a user managing a project. Includes the project id,
+  * a few basic fields about the user, and their group types for the project.
+  *
+  * @param projectId    The project id
+  * @param osmId        The user's osm id
+  * @param displayName  The display name for the osm user
+  * @param avatarURL    The avatar URL to enabling displaying of their avatar
+  * @param groupTypes   List of the user's group types for the project
+  */
+case class ProjectManager(projectId: Long,
+                          osmId: Long,
+                          displayName: String,
+                          avatarURL: String,
+                          groupTypes: List[Int] = List())
 
 /**
   * Settings that are not defined by the OSM user profile, but specific to MapRoulette
@@ -154,6 +179,8 @@ object User {
   implicit val locationReads: Reads[Location] = Json.reads[Location]
   implicit val osmWrites: Writes[OSMProfile] = Json.writes[OSMProfile]
   implicit val osmReads: Reads[OSMProfile] = Json.reads[OSMProfile]
+  implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
+  implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
   implicit object UserFormat extends Format[User] {
     override def writes(o: User): JsValue = {
       implicit val taskWrites: Writes[User] = Json.writes[User]
