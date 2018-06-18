@@ -83,20 +83,26 @@ class UserDAL @Inject() (override val db:Database,
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
         }
+        // decrypt the API key if there is one.
+        val decryptedKey = apiKey match {
+          case Some(key) if key.nonEmpty => Some(s"$id|${crypto.decrypt(key)}")
+          case _ => None
+        }
+
         // If the modified date is too old, then lets update this user information from OSM
         new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
             userGroupDAL.getUserGroups(osmId, User.superUser
           ),
-          apiKey, false,
+          decryptedKey, false,
           UserSettings(defaultEditor, defaultBasemap, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
           properties
         )
     }
   }
 
-  private def generateAPIKey(id:Long) : String = crypto.encrypt(id + "|" + UUID.randomUUID())
+  private def generateAPIKey : String = crypto.encrypt(UUID.randomUUID().toString)
 
   /**
     * Find the user based on the user's osm ID. If found on cache, will return cached object
@@ -226,7 +232,7 @@ class UserDAL @Inject() (override val db:Database,
           new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
         )
       )
-      val newAPIKey = this.generateAPIKey(item.osmProfile.id)
+      val newAPIKey = this.generateAPIKey
 
       val query = s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
                               name = {name}, description = {description}, avatar_url = {avatarURL},
@@ -307,7 +313,7 @@ class UserDAL @Inject() (override val db:Database,
       this.permission.hasObjectAdminAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
-          case "" => this.generateAPIKey(id)
+          case "" => this.generateAPIKey
           case v => v
         }
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
@@ -418,6 +424,25 @@ class UserDAL @Inject() (override val db:Database,
   }
 
   /**
+    * Anonymizes all user data in the database
+    *
+    * @param osmId The OSM id of the user you wish to anonymize
+    * @param user The user requesting action, can only be a super user
+    * @param c An implicit connection
+    */
+  def anonymizeUser(osmId:Long, user:User)(implicit c:Connection=null) : Unit = {
+    this.permission.hasSuperAccess(user)
+    this.withMRTransaction { implicit c =>
+      // anonymize all status actions set
+      SQL"""UPDATE status_actions SET osm_user_id = -1 WHERE osm_user_id = $osmId""".executeUpdate()
+      // set all comments made to "COMMENT_DELETED"
+      SQL"""UPDATE task_comments SET comment = '*COMMENT DELETED*', osm_id = -1 WHERE osm_id = $osmId""".executeUpdate()
+      // anonymize all survey_answers answered
+      SQL"""UPDATE survey_answers SET osm_user_id = -1 WHERE osm_user_id = $osmId""".executeUpdate()
+    }
+  }
+
+  /**
     * Adds a user to a project
     *
     * @param osmID The OSM ID of the user to add to the project
@@ -431,6 +456,7 @@ class UserDAL @Inject() (override val db:Database,
     implicit val requestingUser = user
     // expire the user group cache
     userGroupDAL.clearUserCache(osmID)
+    this.verifyProjectGroups(projectId)
     this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
       this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO user_groups (osm_user_id, group_id)
@@ -506,7 +532,7 @@ class UserDAL @Inject() (override val db:Database,
     */
   def generateAPIKey(apiKeyUser:User, user:User) : Option[User] = {
     this.permission.hasAdminAccess(UserType(), user)(apiKeyUser.id)
-    this.update(Json.parse(s"""{"apiKey":"${this.generateAPIKey(apiKeyUser.osmProfile.id)}"}"""), User.superUser)(apiKeyUser.id)
+    this.update(Json.parse(s"""{"apiKey":"${this.generateAPIKey}"}"""), User.superUser)(apiKeyUser.id)
   }
 
   /**
@@ -678,6 +704,30 @@ class UserDAL @Inject() (override val db:Database,
     this.projectDAL.retrieveByName(homeName) match {
       case Some(project) => project
       case None => throw new NotFoundException("You should never get this exception, Home project should always exist for user.")
+    }
+  }
+
+  /**
+    * This function will quickly verify that the project groups have been created correctly and if not,
+    * then it will create them
+    *
+    * @param projectId The id of the project you are checking
+    */
+  private def verifyProjectGroups(projectId:Long) : Unit = {
+    this.projectDAL.retrieveById(projectId) match {
+      case Some(p) =>
+        val groups = p.groups
+        // must contain at least 1 admin group, 1 write group and 1 read group
+        if (groups.count(_.groupType == Group.TYPE_ADMIN) < 1) {
+          userGroupDAL.createGroup(projectId, s"${p.name}_Admin", Group.TYPE_ADMIN, User.superUser)
+        }
+        if (groups.count(_.groupType == Group.TYPE_WRITE_ACCESS) < 1) {
+          userGroupDAL.createGroup(projectId, s"${p.name}_Write", Group.TYPE_WRITE_ACCESS, User.superUser)
+        }
+        if (groups.count(_.groupType == Group.TYPE_READ_ONLY) < 1) {
+          userGroupDAL.createGroup(projectId, s"${p.name}_Read", Group.TYPE_READ_ONLY, User.superUser)
+        }
+      case None => throw new NotFoundException(s"No project found with id $projectId")
     }
   }
 }
