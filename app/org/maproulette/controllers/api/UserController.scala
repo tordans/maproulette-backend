@@ -2,6 +2,7 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
+import org.maproulette.models.dal.ProjectDAL
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 import org.maproulette.session.{SessionManager, User, UserSettings}
@@ -17,6 +18,7 @@ import scala.util.{Failure, Success}
 class UserController @Inject()(userDAL: UserDAL,
                                userGroupDAL:UserGroupDAL,
                                sessionManager: SessionManager,
+                               projectDAL: ProjectDAL,
                                components: ControllerComponents,
                                bodyParsers: PlayBodyParsers) extends AbstractController(components) with DefaultWrites {
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -196,6 +198,11 @@ class UserController @Inject()(userDAL: UserDAL,
     if (addUser.groups.exists(g => g.projectId == projectId && g.groupType == groupType)) {
       throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
     }
+    // quick verification to make sure that the project exists
+    this.projectDAL.retrieveById(projectId) match {
+      case Some(_) => // just ignore
+      case None => throw new NotFoundException(s"Could not find project with ID $projectId")
+    }
     this.userDAL.addUserToProject(addUser.osmProfile.id, projectId, groupType, user)
   }
 
@@ -232,6 +239,38 @@ class UserController @Inject()(userDAL: UserDAL,
     }
   }
 
+  /**
+    * Generates a new API key for the user. A user can then use the API key to make API calls directly against
+    * the server. Only the current API key for the user will work on any authenticated API calls, any previous
+    * keys are immediately discarded once a new one is created.
+    *
+    * @return Will return NoContent if cannot create the key (which most likely means that no user was
+    *         found, or will return the api key as plain text.
+    */
+  def generateAPIKey(userId:Long = -1) : Action[AnyContent] = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      val newAPIUser = if (user.isSuperUser && userId != -1) {
+        this.userDAL.retrieveById(userId) match {
+          case Some(u) => u
+          case None => // look for the user under the OSM_ID
+            this.userDAL.retrieveByOSMID(userId, user) match {
+              case Some(u) => u
+              case None => throw new NotFoundException(s"No user found with id [$userId], no API key could be generated.")
+            }
+        }
+      } else {
+        user
+      }
+      this.userDAL.generateAPIKey(newAPIUser, user) match {
+        case Some(updated) => updated.apiKey match {
+          case Some(api) => Ok(api)
+          case None => NoContent
+        }
+        case None => NoContent
+      }
+    }
+  }
+
   private def _removeUser(userId:Long, projectId:Long, groupType:Int, user:User) : Unit = {
     val addUser = this.userDAL.retrieveById(userId) match {
       case Some(addUser) => addUser
@@ -239,8 +278,13 @@ class UserController @Inject()(userDAL: UserDAL,
         // check to see if the osm id was supplied instead
         this.userDAL.retrieveByOSMID(userId, user) match {
           case Some(u) => u
-          case None => throw new NotFoundException(s"Could not found user with ID $userId")
+          case None => throw new NotFoundException(s"Could not find user with ID $userId")
         }
+    }
+    // just check to make sure that the project exists
+    this.projectDAL.retrieveById(projectId) match {
+      case Some(_) => // just ignore
+      case None => throw new NotFoundException(s"Could not find project with ID $projectId")
     }
     this.userDAL.removeUserFromProject(addUser.osmProfile.id, projectId, groupType, user)
   }
