@@ -724,6 +724,7 @@ class TaskDAL @Inject()(override val db: Database,
                ${joinClause.toString}
                $where
              ) AS ksub
+             WHERE location IS NOT NULL
              GROUP BY kmeans
              ORDER BY kmeans
            """
@@ -758,14 +759,14 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val query =
-        s"""SELECT * FROM (
+        s"""SELECT *, ST_AsGeoJSON(location) AS location FROM (
                       SELECT ST_ClusterKMeans(t.location,
            							                      (SELECT
            								                      CASE WHEN COUNT(*) < 10 THEN COUNT(*) ELSE 10 END
                                               FROM tasks t
                                               ${joinClause.toString}
                                               $where)::Integer
-           						  ) OVER () as kmeans, *
+           						  ) OVER () as kmeans, t.*, c.name
              	        FROM tasks t
                       ${joinClause.toString}
              	        $where

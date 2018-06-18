@@ -145,8 +145,9 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
               Some(User.superUser)
             } else {
               try {
-                val decryptedKey = crypto.decrypt(apiKey).split("\\|")
-                this.dalManager.user.retrieveByAPIKey(apiKey, User.superUser)(decryptedKey(0).toLong) match {
+                val apiSplit = apiKey.split("\\|")
+                val encryptedApiKey = crypto.encrypt(apiSplit(1))
+                this.dalManager.user.retrieveByAPIKey(encryptedApiKey, User.superUser)(apiSplit(0).toLong) match {
                   case Some(user) => Some(user)
                   case None => None
                 }
