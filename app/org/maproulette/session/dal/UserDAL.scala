@@ -102,6 +102,27 @@ class UserDAL @Inject() (override val db:Database,
     }
   }
 
+  // The anorm row parser to convert user records to search results
+  val searchResultParser: RowParser[UserSearchResult] = {
+    get[Long]("users.osm_id") ~
+    get[String]("users.name") ~
+    get[Option[String]]("users.avatar_url") map {
+      case osmId ~ displayName ~ avatarURL =>
+        UserSearchResult(osmId, displayName, avatarURL.getOrElse("")),
+    }
+  }
+  // The anorm row parser to convert user records to project manager
+  val projectManagerParser: RowParser[ProjectManager] = {
+    get[Long]("project_id") ~
+    get[Long]("users.osm_id") ~
+    get[String]("users.name") ~
+    get[Option[String]]("users.avatar_url") ~
+    get[List[Int]]("group_types") map {
+      case projectId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
+        ProjectManager(projectId, osmId, displayName, avatarURL.getOrElse(""), groupTypes),
+    }
+  }
+
   private def generateAPIKey : String = crypto.encrypt(UUID.randomUUID().toString)
 
   /**
@@ -167,6 +188,25 @@ class UserDAL @Inject() (override val db:Database,
       }
     } else {
       throw new IllegalAccessException("Only Superuser allowed to look up users by just OSM username")
+    }
+  }
+
+  /**
+    * Allow users to search for other users by OSM username.
+    *
+    * @param username The username or username fragment to search for.
+    * @param limit The maximum number of results to retrieve.
+    * @return A (possibly empty) list of UserSearchResult objects.
+    */
+  def searchByOSMUsername(username:String, limit:Int = Config.DEFAULT_LIST_SIZE) : List[UserSearchResult] = {
+    this.db.withConnection { implicit c =>
+      val query =
+        s"""SELECT osm_id, name, avatar_url
+            FROM users
+            WHERE name ILIKE '${username}%'
+            ORDER BY (users.name ILIKE '${username}') DESC, users.name
+            LIMIT ${limit}"""
+      SQL(query).on('name -> username).as(this.searchResultParser.*)
     }
   }
 
@@ -473,24 +513,83 @@ class UserDAL @Inject() (override val db:Database,
     *
     * @param osmID The OSM ID of the user
     * @param projectId The id of the project to remove the user from
-    * @param groupType The type of group to add 1 - Admin, 2 - Write, 3 - Read
+    * @param groupType The type of group to remove -1 - all, 1 - Admin, 2 - Write, 3 - Read
     * @param user The user making the request
     * @param c
     */
   def removeUserFromProject(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : Unit = {
     this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user)
     implicit val osmKey = osmID
-    implicit val requestingUser = user
+    implicit val requestingUser = User.superUser
+
     userGroupDAL.clearUserCache(osmID)
     this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
       this.withMRTransaction { implicit c =>
+        if (groupType == -1) {
+          SQL"""DELETE FROM user_groups
+                WHERE osm_user_id = $osmKey AND group_id IN
+                  (SELECT id FROM groups WHERE project_id = $projectId)
+            """.executeUpdate()
+        } else {
+          SQL"""DELETE FROM user_groups
+                WHERE osm_user_id = $osmKey AND group_id =
+                  (SELECT id FROM groups WHERE group_type = $groupType AND project_id = $projectId)
+            """.executeUpdate()
+        }
+      }
+      Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
+    }.get
+  }
+
+  /**
+    * Sets the group type of a user in a project, first deleting any prior group types,
+    * in a single transaction.
+    *
+    * @param osmID The OSM ID of the user
+    * @param projectId The id of the project to remove the user from
+    * @param groupType The type of group to set 1 - Admin, 2 - Write, 3 - Read
+    * @param user The user making the request
+    * @param c
+    */
+  def setUserProjectGroup(osmID:Long, projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : Unit = {
+    this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user)
+    implicit val osmKey = osmID
+    implicit val requestingUser = User.superUser
+    userGroupDAL.clearUserCache(osmID)
+    this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
+      this.withMRTransaction { implicit c =>
+        // Remove all groups types for project from user and then add desired group type
         SQL"""DELETE FROM user_groups
-              WHERE group_id =
-                (SELECT id FROM groups WHERE group_type = $groupType AND project_id = $projectId)
+              WHERE osm_user_id = $osmKey AND group_id IN (SELECT id FROM groups WHERE project_id = $projectId)
+           """.executeUpdate()
+        SQL"""INSERT INTO user_groups (osm_user_id, group_id)
+              SELECT $osmID, id FROM groups
+              WHERE group_type = $groupType AND project_id = $projectId
            """.executeUpdate()
       }
       Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
     }.get
+  }
+
+  /**
+    * Retrieve list of all users possessing a group type for the project.
+    *
+    * @param projectId The project
+    * @param osmIdFilter: A filter for manager OSM ids
+    * @param user The user making the request
+    * @return A list of ProjectManager objects.
+    */
+  def getUsersManagingProject(projectId:Long, osmIdFilter:Option[List[Long]]=None, user:User) : List[ProjectManager] = {
+    this.permission.hasProjectAccess(this.projectDAL.retrieveById(projectId), user, Group.TYPE_READ_ONLY)
+
+    this.db.withConnection { implicit c =>
+      SQL"""SELECT ${projectId} AS project_id, u.*, array_agg(g.group_type) AS group_types
+            FROM users u, groups g, user_groups ug
+            WHERE ug.group_id = g.id AND ug.osm_user_id = u.osm_id AND g.project_id = ${projectId}
+            #${getLongListFilter(osmIdFilter, "u.osm_id")}
+            GROUP BY u.id
+      """.as(this.projectManagerParser.*)
+    }
   }
 
   /**

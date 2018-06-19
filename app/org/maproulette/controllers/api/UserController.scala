@@ -1,11 +1,13 @@
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
+import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
 import org.maproulette.models.dal.ProjectDAL
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 import org.maproulette.session.{SessionManager, User, UserSettings}
+import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc._
 
@@ -26,6 +28,8 @@ class UserController @Inject()(userDAL: UserDAL,
   implicit val userReadWrite = User.UserFormat
   implicit val challengeWrites = Challenge.writes.challengeWrites
   implicit val taskWrites = Task.TaskFormat
+  implicit val userSearchResultWrites = User.searchResultWrites
+  implicit val projectManagerWrites = User.projectManagerWrites
 
   def deleteUser(osmId:Long, anonymize:Boolean): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
@@ -68,6 +72,16 @@ class UserController @Inject()(userDAL: UserDAL,
           case Some(u) => Ok(Json.toJson(u))
           case None => throw new NotFoundException(s"No user found with OSM username '$username'")
         }
+      }
+    }
+  }
+
+  def searchUserByOSMUsername(username: String, limit: Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      if (StringUtils.isEmpty(username)) {
+        Ok(Json.toJson(List[JsValue]()))
+      } else {
+        Ok(Json.toJson(this.userDAL.searchByOSMUsername(username, limit)))
       }
     }
   }
@@ -185,6 +199,33 @@ class UserController @Inject()(userDAL: UserDAL,
     }
   }
 
+  /**
+    * Sets the group type of the user in a project, first removing any prior
+    * group types.
+    *
+    * @param userId The id of the User to add
+    * @param projectId The project to add too
+    * @param groupType The type of group 1 - Admin, 2 - Write, 3 - Read
+    * @return Standard status message
+    */
+  def setUserProjectGroup(userId:Long, projectId:Long, groupType:Int) : Action[AnyContent] = Action.async { implicit request =>
+    sessionManager.authenticatedRequest { implicit user =>
+      val addUser = this.userDAL.retrieveById(userId) match {
+        case Some(addUser) => addUser
+        case None =>
+          // check to see if the osm id was supplied instead. Superuser promotion required.
+          this.userDAL.retrieveByOSMID(userId, User.superUser) match {
+            case Some(u) => u
+            case None => throw new NotFoundException(s"Could not found user with ID $userId")
+          }
+      }
+      this.userDAL.setUserProjectGroup(addUser.osmProfile.id, projectId, groupType, user)
+      // clear group caches
+      this.userGroupDAL.clearCache()
+      Ok(Json.toJson(this.userDAL.getUsersManagingProject(projectId, None, user)))
+    }
+  }
+
   private def _addUser(userId:Long, projectId:Long, groupType:Int, user:User) : Unit = {
     val addUser = this.userDAL.retrieveById(userId) match {
       case Some(addUser) => addUser
@@ -275,8 +316,8 @@ class UserController @Inject()(userDAL: UserDAL,
     val addUser = this.userDAL.retrieveById(userId) match {
       case Some(addUser) => addUser
       case None =>
-        // check to see if the osm id was supplied instead
-        this.userDAL.retrieveByOSMID(userId, user) match {
+        // check to see if the osm id was supplied instead. Superuser promotion required.
+        this.userDAL.retrieveByOSMID(userId, User.superUser) match {
           case Some(u) => u
           case None => throw new NotFoundException(s"Could not find user with ID $userId")
         }
@@ -287,5 +328,11 @@ class UserController @Inject()(userDAL: UserDAL,
       case None => throw new NotFoundException(s"Could not find project with ID $projectId")
     }
     this.userDAL.removeUserFromProject(addUser.osmProfile.id, projectId, groupType, user)
+  }
+
+  def getUsersManagingProject(projectId:Long, osmIds: String): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.userDAL.getUsersManagingProject(projectId, Utils.toLongList(osmIds), user)))
+    }
   }
 }
