@@ -556,6 +556,7 @@ class UserDAL @Inject() (override val db:Database,
     implicit val osmKey = osmID
     implicit val requestingUser = User.superUser
     userGroupDAL.clearUserCache(osmID)
+    this.verifyProjectGroups(projectId)
     this.cacheManager.withUpdatingCache(Long => retrieveByOSMID) { cachedUser =>
       this.withMRTransaction { implicit c =>
         // Remove all groups types for project from user and then add desired group type
