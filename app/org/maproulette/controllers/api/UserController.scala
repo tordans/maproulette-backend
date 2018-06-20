@@ -43,6 +43,12 @@ class UserController @Inject()(userDAL: UserDAL,
     }
   }
 
+  def whoami(): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(user))
+    }
+  }
+
   def getUser(userId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (userId == user.id || userId == user.osmProfile.id) {
