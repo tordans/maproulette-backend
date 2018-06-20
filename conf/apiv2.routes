@@ -2907,6 +2907,26 @@ GET     /data/status/latestActivity                 @org.maproulette.controllers
 GET     /data/status/summary                        @org.maproulette.controllers.api.DataController.getStatusSummary(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ User ]
+# summary: Retrieves current user's JSON information
+# produces: [ application/json ]
+# description: Retrieves current logged-in user's JSON
+# responses:
+#   '200':
+#     description: The current logged-in User
+#     schema:
+#       $ref: '#/definitions/org.maproulette.session.User'
+#   '401':
+#     description: If user is not logged in.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+GET     /user/whoami                               @org.maproulette.controllers.api.UserController.whoami()
+###
+# tags: [ User ]
 # summary: Retrieves Users Json information
 # produces: [ application/json ]
 # description: Retrieves User Json based on the supplied ID
