@@ -814,6 +814,8 @@ class UserDAL @Inject() (override val db:Database,
     * @param projectId The id of the project you are checking
     */
   private def verifyProjectGroups(projectId:Long) : Unit = {
+    this.projectDAL.clearCache(projectId)
+
     this.projectDAL.retrieveById(projectId) match {
       case Some(p) =>
         val groups = p.groups
