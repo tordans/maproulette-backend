@@ -68,6 +68,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
       get[Option[String]]("challenges.checkin_comment") ~
+      get[Option[String]]("challenges.checkin_source") ~
       get[Option[String]]("challenges.overpass_ql") ~
       get[Option[String]]("challenges.remote_geo_json") ~
       get[Option[Int]]("challenges.status") ~
@@ -86,7 +87,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-        difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ overpassql ~ remoteGeoJson ~
+        difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
         status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
         defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
@@ -102,7 +103,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case r => r
         }
         new Challenge(id, name, created, modified, description, deleted, infoLink,
-          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse("")),
+          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse(""), checkin_source.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
@@ -171,14 +172,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
-                                      instruction, enabled, challenge_type, featured, checkin_comment,
+                                      instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
                                       max_zoom, default_basemap, custom_basemap, updatetasks)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
-                      ${challenge.general.checkinComment}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
+                      ${challenge.general.checkinComment}, ${challenge.general.checkinSource} ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
@@ -227,6 +228,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val enabled = (updates \ "enabled").asOpt[Boolean].getOrElse(cachedItem.general.enabled)
         val featured = (updates \ "featured").asOpt[Boolean].getOrElse(cachedItem.general.featured)
         val checkinComment = (updates \ "checkinComment").asOpt[String].getOrElse(cachedItem.general.checkinComment)
+        val checkinSource = (updates \ "checkinSource").asOpt[String].getOrElse(cachedItem.general.checkinSource)
         val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.creation.overpassQL.getOrElse(""))
         val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.creation.remoteGeoJson.getOrElse(""))
         val status = (updates \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(Challenge.STATUS_NA))
@@ -248,7 +250,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
 
         SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
-                enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, overpass_ql = $overpassQL,
+                enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, checkin_source = $checkinSource, overpass_ql = $overpassQL,
                 remote_geo_json = $remoteGeoJson, status = $status, status_message = $statusMessage, default_priority = $defaultPriority,
                 high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) { Option.empty[String] } else { Some(highPriorityRule) }},
                 medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) { Option.empty[String] } else { Some(mediumPriorityRule) }},
