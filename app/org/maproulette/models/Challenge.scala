@@ -75,7 +75,8 @@ case class ChallengeGeneral(owner:Long,
                             enabled:Boolean=false,
                             challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                             featured:Boolean=false,
-                            checkinComment:String="") extends DefaultWrites
+                            checkinComment:String="",
+                            checkinSource:String="") extends DefaultWrites
 case class ChallengeCreation(overpassQL:Option[String]=None, remoteGeoJson:Option[String]=None) extends DefaultWrites
 case class ChallengePriority(defaultPriority:Int=Challenge.PRIORITY_HIGH,
                              highPriorityRule:Option[String]=None,
@@ -213,7 +214,8 @@ object Challenge {
         "enabled" -> boolean,
         "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
         "featured" -> default(boolean, false),
-        "checkinComment" -> default(text, "")
+        "checkinComment" -> default(text, ""),
+        "checkinSource" -> default(text, "")
       )(ChallengeGeneral.apply)(ChallengeGeneral.unapply),
       "creation" -> mapping(
         "overpassQL" -> optional(text),
