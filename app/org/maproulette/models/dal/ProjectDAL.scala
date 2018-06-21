@@ -308,4 +308,18 @@ class ProjectDAL @Inject() (override val db:Database,
         """.as(this.pointParser.*)
     }
   }
+
+  /**
+    * Clears the project cache
+    *
+    * @param id If id is supplied will only remove the project with that id
+    */
+  def clearCache(id:Long = -1) : Unit = {
+    if (id > -1) {
+      this.cacheManager.cache.remove(id)
+    }
+    else {
+      this.cacheManager.clearCaches
+    }
+  }
 }
