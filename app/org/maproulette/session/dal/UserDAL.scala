@@ -11,6 +11,7 @@ import anorm._
 import anorm.SqlParser._
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory, Point}
 import com.vividsolutions.jts.io.{WKTReader, WKTWriter}
+import javax.crypto.{BadPaddingException, IllegalBlockSizeException}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -23,6 +24,7 @@ import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Challenge, Project, Task}
 import org.maproulette.permissions.Permission
 import org.maproulette.utils.{Crypto, Utils}
+import play.api.Logger
 import play.api.libs.json.{JsString, JsValue, Json}
 import play.api.libs.oauth.RequestToken
 
@@ -85,11 +87,18 @@ class UserDAL @Inject() (override val db:Database,
         }
         // decrypt the API key if there is one.
         val decryptedKey = apiKey match {
-          case Some(key) if key.nonEmpty => Some(s"$id|${crypto.decrypt(key)}")
+          case Some(key) if key.nonEmpty =>
+            try {
+              Some(s"$id|${crypto.decrypt(key)}")
+            } catch {
+              case _:BadPaddingException | _:IllegalBlockSizeException =>
+                Logger.debug("Invalid key found, could be that the application secret on server changed.")
+                None
+              case e:Throwable => throw e
+            }
           case _ => None
         }
 
-        // If the modified date is too old, then lets update this user information from OSM
         new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
@@ -123,7 +132,7 @@ class UserDAL @Inject() (override val db:Database,
     }
   }
 
-  private def generateAPIKey : String = crypto.encrypt(UUID.randomUUID().toString)
+  private def generateAPIKey : String = UUID.randomUUID().toString
 
   /**
     * Find the user based on the user's osm ID. If found on cache, will return cached object
@@ -272,7 +281,7 @@ class UserDAL @Inject() (override val db:Database,
           new Coordinate(item.osmProfile.homeLocation.latitude, item.osmProfile.homeLocation.longitude)
         )
       )
-      val newAPIKey = this.generateAPIKey
+      val newAPIKey = crypto.encrypt(this.generateAPIKey)
 
       val query = s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
                               name = {name}, description = {description}, avatar_url = {avatarURL},
@@ -354,7 +363,7 @@ class UserDAL @Inject() (override val db:Database,
       this.withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
           case "" => this.generateAPIKey
-          case v => v
+          case v => crypto.encrypt(v) //cached value will be unencrypted so need to make sure we re-encrypt for the db
         }
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
@@ -385,7 +394,7 @@ class UserDAL @Inject() (override val db:Database,
                                           theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns}"""
         SQL(query).on(
-          'apiKey -> apiKey,
+          'apiKey -> crypto.encrypt(apiKey),
           'name -> displayName,
           'description -> description,
           'avatarURL -> avatarURL,

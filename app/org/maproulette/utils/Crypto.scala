@@ -1,6 +1,6 @@
 package org.maproulette.utils
 
-import java.security.SecureRandom
+import java.security.{MessageDigest, SecureRandom}
 import java.util.Arrays
 
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
@@ -14,27 +14,27 @@ import org.maproulette.Config
   */
 @Singleton
 class Crypto @Inject()(config:Config) {
-  val secretKey = Arrays.copyOf(config.config.get[String]("play.http.secret.key").getBytes("UTF-8"), 16)
-  val iv = {
-    val secureRandom = new SecureRandom()
-    val ivBytes = new Array[Byte](16)
-    secureRandom.nextBytes(ivBytes)
-    new IvParameterSpec(ivBytes)
-  }
-
-  def decrypt(value: String): String = {
-    val skeySpec = new SecretKeySpec(secretKey, "AES")
-    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    cipher.init(Cipher.DECRYPT_MODE, skeySpec, iv)
-    val original = cipher.doFinal(Base64.decodeBase64(value))
-    new String(original)
-  }
+  val key = config.config.get[String]("play.http.secret.key")
 
   def encrypt(value: String): String = {
-    val skeySpec = new SecretKeySpec(secretKey, "AES")
-    val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
-    cipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv)
-    val encrypted = cipher.doFinal(value.getBytes)
-    Base64.encodeBase64String(encrypted)
+    val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
+    cipher.init(Cipher.ENCRYPT_MODE, keyToSpec)
+    Base64.encodeBase64String(cipher.doFinal(value.getBytes("UTF-8")))
   }
+
+  def decrypt(encryptedValue: String): String = {
+    val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING")
+    cipher.init(Cipher.DECRYPT_MODE, keyToSpec)
+    new String(cipher.doFinal(Base64.decodeBase64(encryptedValue)))
+  }
+
+  def keyToSpec: SecretKeySpec = {
+    var keyBytes: Array[Byte] = (SALT + key).getBytes("UTF-8")
+    val sha: MessageDigest = MessageDigest.getInstance("SHA-1")
+    keyBytes = sha.digest(keyBytes)
+    keyBytes = Arrays.copyOf(keyBytes, 16)
+    new SecretKeySpec(keyBytes, "AES")
+  }
+
+  private val SALT: String = "jMhKlOuJnM34G6NHkqo9V010GhLAqOpF0BePojHgh1HgNg8^72k"
 }
