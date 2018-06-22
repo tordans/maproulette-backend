@@ -354,7 +354,7 @@ class UserDAL @Inject() (override val db:Database,
       this.withMRTransaction { implicit c =>
         val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
           case "" => this.generateAPIKey
-          case v => v
+          case v => crypto.encrypt(v) //cached value will be unencrypted so need to make sure we re-encrypt for the db
         }
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
