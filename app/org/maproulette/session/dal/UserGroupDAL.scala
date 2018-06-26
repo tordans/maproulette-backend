@@ -3,12 +3,12 @@
 package org.maproulette.session.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Singleton}
 
+import javax.inject.{Inject, Singleton}
 import anorm._
 import anorm.SqlParser._
 import org.maproulette.cache.{BasicCache, CacheManager}
-import org.maproulette.exception.UniqueViolationException
+import org.maproulette.exception.InvalidException
 import org.maproulette.models.utils.TransactionManager
 import org.maproulette.session.{Group, User}
 import play.api.db.Database
@@ -45,15 +45,21 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * Creates a new group given a name and groupType id
     *
     * @param projectId The id of the project that this group is created under
-    * @param name The name of the group to add
     * @param groupType current only 1 (Admin) however currently no restriction on what you can supply here
     * @return The new group
     */
-  def createGroup(projectId:Long, name:String, groupType:Int, user:User)(implicit c:Connection=null) : Group = {
+  def createGroup(projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : Group = {
     this.hasAccess(user)
+    val groupPostfix:String = groupType match {
+      case Group.TYPE_ADMIN => "Admin"
+      case Group.TYPE_WRITE_ACCESS => "Write"
+      case Group.TYPE_READ_ONLY => "Read"
+      case _ => throw new InvalidException("Invalid group type supplied to create group")
+    }
+    val groupName:String = s"${projectId}_$groupPostfix"
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $name, $groupType) RETURNING *""".as(this.parser.*).headOption
+        SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $groupName, $groupType) RETURNING *""".as(this.parser.*).headOption
       }
     } match {
       case Some(v) =>
@@ -64,7 +70,7 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
           case None =>
         }
         v
-      case None => throw new UniqueViolationException(s"Group with name $name already exists in the database")
+      case None => throw new Exception(s"For some reason a group was inserted but no group object returned. Possible data inconsistent possible, so operation cancelled.")
     }
   }
 

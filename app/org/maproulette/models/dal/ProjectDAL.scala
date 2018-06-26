@@ -102,20 +102,14 @@ class ProjectDAL @Inject() (override val db:Database,
       val newProject = this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled)
               VALUES (${setProject.name}, ${user.osmProfile.id}, ${setProject.displayName}, ${setProject.description}, ${setProject.enabled})
-              ON CONFLICT(LOWER(name)) DO NOTHING RETURNING *""".as(parser.*).headOption
+              RETURNING *""".as(parser.*).head
       }
-      newProject match {
-        case Some(proj) =>
-          // todo: this should be in the above transaction, but for some reason the fkey won't allow it
-          db.withTransaction { implicit c =>
-            // Every new project needs to have a admin group created for them
-            this.userGroupDAL.createGroup(proj.id, proj.name + "_Admin", Group.TYPE_ADMIN, User.superUser)
-            this.userGroupDAL.createGroup(proj.id, proj.name + "_Write", Group.TYPE_WRITE_ACCESS, User.superUser)
-            this.userGroupDAL.createGroup(proj.id, proj.name + "_Read", Group.TYPE_READ_ONLY, User.superUser)
-            Some(proj)
-          }
-        case None =>
-          throw new UniqueViolationException(s"Project with name ${project.name} already exists in the database.")
+      db.withTransaction { implicit c =>
+        // Every new project needs to have a admin group created for them
+        this.userGroupDAL.createGroup(newProject.id, Group.TYPE_ADMIN, User.superUser)
+        this.userGroupDAL.createGroup(newProject.id, Group.TYPE_WRITE_ACCESS, User.superUser)
+        this.userGroupDAL.createGroup(newProject.id, Group.TYPE_READ_ONLY, User.superUser)
+        Some(newProject)
       }
     }.get
   }
