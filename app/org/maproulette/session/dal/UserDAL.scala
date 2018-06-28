@@ -830,13 +830,13 @@ class UserDAL @Inject() (override val db:Database,
         val groups = p.groups
         // must contain at least 1 admin group, 1 write group and 1 read group
         if (groups.count(_.groupType == Group.TYPE_ADMIN) < 1) {
-          userGroupDAL.createGroup(projectId, s"${p.name}_Admin", Group.TYPE_ADMIN, User.superUser)
+          userGroupDAL.createGroup(projectId, Group.TYPE_ADMIN, User.superUser)
         }
         if (groups.count(_.groupType == Group.TYPE_WRITE_ACCESS) < 1) {
-          userGroupDAL.createGroup(projectId, s"${p.name}_Write", Group.TYPE_WRITE_ACCESS, User.superUser)
+          userGroupDAL.createGroup(projectId, Group.TYPE_WRITE_ACCESS, User.superUser)
         }
         if (groups.count(_.groupType == Group.TYPE_READ_ONLY) < 1) {
-          userGroupDAL.createGroup(projectId, s"${p.name}_Read", Group.TYPE_READ_ONLY, User.superUser)
+          userGroupDAL.createGroup(projectId, Group.TYPE_READ_ONLY, User.superUser)
         }
       case None => throw new NotFoundException(s"No project found with id $projectId")
     }
