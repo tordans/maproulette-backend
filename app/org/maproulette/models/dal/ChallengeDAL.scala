@@ -179,7 +179,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
-                      ${challenge.general.checkinComment}, ${challenge.general.checkinSource} ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
+                      ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
