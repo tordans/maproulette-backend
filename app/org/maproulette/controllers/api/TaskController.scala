@@ -57,6 +57,50 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   implicit val commentWrites: Writes[Comment] = Comment.commentWrites
   override def dalWithTags:TagDALMixin[Task] = dal
 
+  /**
+    * This injection method will make a call to Mapillary to pull in any matching images that
+    * might be useful
+    *
+    * @param obj the object being sent in the response
+    * @return A Json representation of the object
+    */
+  override def inject(obj: Task)(implicit request:Request[Any]): JsValue = {
+    val serverInfo = config.getMapillaryServerInfo
+    if (serverInfo.clientId.nonEmpty) {
+      if (request.getQueryString("mapillary").getOrElse("false").toBoolean) {
+        // build the envelope for the task geometries
+        val taskFeatureCollection = GeoJSONFactory.create(obj.geometries).asInstanceOf[FeatureCollection]
+        val reader = new GeoJSONReader()
+        val envelope = new Envelope()
+        taskFeatureCollection.getFeatures.foreach(f => {
+          val current = reader.read(f.getGeometry)
+          envelope.expandToInclude(current.getEnvelopeInternal)
+        })
+        // user can provide border information in the query string, so check there first before using the default
+        val borderExpansionSize = request.getQueryString("border").getOrElse(serverInfo.border.toString).toDouble
+        envelope.expandBy(borderExpansionSize)
+        val apiReq = s"https://${serverInfo.host}/v3/images/?&bbox=${envelope.getMinX},${envelope.getMinY},${envelope.getMaxX},${envelope.getMaxY}&client_id=${serverInfo.clientId}"
+        Logger.debug(s"Requesting Mapillary image information for: $apiReq")
+        val mapFuture = wsClient.url(apiReq).get()
+        val response = Await.result(mapFuture, 5.seconds)
+        val featureCollection = response.json
+        val images = (featureCollection \ "features").as[List[JsValue]].map(feature => {
+          val key = (feature \ "properties" \ "key").get.as[String]
+          val latlon = (feature \ "geometry" \ "coordinates").as[List[JsNumber]]
+          MapillaryImage(key,
+            latlon.head.as[Double],
+            latlon.tail.head.as[Double],
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-320.jpg",
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-640.jpg",
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-1024.jpg",
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-2048.jpg")
+        })
+        return super.inject(obj.copy(mapillaryImages = Some(images)))
+      }
+    }
+    return super.inject(obj)
+  }
+
   private def updateGeometryData(body: JsValue) : JsValue = {
     val updatedBody = (body \ "geometries").asOpt[String] match {
       case Some(value) =>

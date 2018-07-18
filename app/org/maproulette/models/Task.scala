@@ -10,7 +10,7 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
 import play.api.data.JodaForms._
-
+import play.api.data.format.Formats
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
@@ -43,7 +43,8 @@ case class Task(override val id:Long,
                 geometries:String,
                 status:Option[Int]=None,
                 priority:Int=Challenge.PRIORITY_HIGH,
-                changesetId:Option[Long]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
+                changesetId:Option[Long]=None,
+                mapillaryImages:Option[List[MapillaryImage]]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
   def getGeometryProperties() : List[Map[String, String]] = {
@@ -88,6 +89,7 @@ case class Task(override val id:Long,
 object Task {
   implicit object TaskFormat extends Format[Task] {
     override def writes(o: Task): JsValue = {
+      implicit val mapillaryWrites:Writes[MapillaryImage] = Json.writes[MapillaryImage]
       implicit val taskWrites: Writes[Task] = Json.writes[Task]
       val original = Json.toJson(o)(Json.writes[Task])
       val updated = o.location match {
@@ -98,9 +100,12 @@ object Task {
     }
 
     override def reads(json: JsValue): JsResult[Task] = {
+      implicit val mapillaryReads:Reads[MapillaryImage] = Json.reads[MapillaryImage]
       Json.fromJson[Task](json)(Json.reads[Task])
     }
   }
+
+  implicit val doubleFormatter = Formats.doubleFormat
 
   val STATUS_CREATED = 0
   val STATUS_CREATED_NAME = "Created"
@@ -201,7 +206,17 @@ object Task {
       "geometries" -> nonEmptyText,
       "status" -> optional(number),
       "priority" -> default(number, Challenge.PRIORITY_HIGH),
-      "changesetId" -> optional(longNumber)
+      "changesetId" -> optional(longNumber),
+      "mapillaryImages" -> optional(list(mapping(
+          "key" -> text,
+          "lat" -> of[Double],
+          "lon" -> of[Double],
+          "url_320" -> text,
+          "url_640" -> text,
+          "url_1024" -> text,
+          "url_2048" -> text
+        )(MapillaryImage.apply)(MapillaryImage.unapply)
+      ))
     )(Task.apply)(Task.unapply)
   )
 
