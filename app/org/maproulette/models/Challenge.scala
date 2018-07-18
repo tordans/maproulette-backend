@@ -88,6 +88,10 @@ case class ChallengeExtra(defaultZoom:Int=Challenge.DEFAULT_ZOOM,
                           defaultBasemap:Option[Int]=None,
                           customBasemap:Option[String]=None,
                           updateTasks:Boolean=false) extends DefaultWrites
+case class ChallengeListing(id:Long,
+                            parent:Long,
+                            name:String,
+                            enabled:Boolean)
 
 /**
   * The ChallengeFormFix case class is built so that we can nest the form objects as there is a limit

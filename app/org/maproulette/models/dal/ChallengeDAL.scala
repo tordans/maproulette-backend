@@ -130,6 +130,16 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     }
   }
 
+  val listingParser: RowParser[ChallengeListing] = {
+    get[Long]("challenges.id") ~
+    get[Long]("challenges.parent_id") ~
+    get[String]("challenges.name") ~
+    get[Boolean]("challenges.enabled") map {
+      case id ~ parent ~ name ~ enabled =>
+        ChallengeListing(id, parent, name, enabled)
+    }
+  }
+
   /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
     * object is itself.
@@ -285,6 +295,19 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       ${this.order(Some(orderColumn), orderDirection, "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
+    }
+  }
+
+  def listing(projectList:Option[List[Long]]=None, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0,
+              onlyEnabled:Boolean=false, challengeType:Int=Actions.ITEM_TYPE_CHALLENGE): List[ChallengeListing] = {
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT c.id, c.parent_id, c.name, c.enabled FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
+                      ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
+                      ${this.getLongListFilter(projectList, "p.id")}
+                      LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('offset -> offset).as(this.listingParser.*)
     }
   }
 
