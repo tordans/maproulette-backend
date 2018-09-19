@@ -82,6 +82,7 @@ case class ProjectManager(projectId: Long,
   *
   * @param defaultEditor     The default editor that the user wants to use
   * @param defaultBasemap    The default basemap that the user wants to see, will be overridden by default basemap for the challenge if set
+  * @param defaultBasemapId  The string id of the default basemap that the user wants to see
   * @param customBasemap     It default basemap is custom, then this is the url to the tile server
   * @param locale            The locale for the user, if not set will default to en
   * @param emailOptIn        If the user has opted in to receive emails
@@ -92,6 +93,7 @@ case class ProjectManager(projectId: Long,
   */
 case class UserSettings(defaultEditor: Option[Int] = None,
                         defaultBasemap: Option[Int] = None,
+                        defaultBasemapId: Option[String] = None,
                         customBasemap: Option[String] = None,
                         locale: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
@@ -301,6 +303,7 @@ object User {
     mapping(
       "defaultEditor" -> optional(number),
       "defaultBasemap" -> optional(number),
+      "defaultBasemapId" -> optional(text),
       "customBasemap" -> optional(text),
       "locale" -> optional(text),
       "emailOptIn" -> optional(boolean),
