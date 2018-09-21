@@ -83,13 +83,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Option[Int]]("challenges.default_basemap") ~
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
+      get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
         status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
-        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
+        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ lastTaskRefresh ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -107,7 +108,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
-          status, statusMessage, location, bounding
+          status, statusMessage, lastTaskRefresh, location, bounding,
         )
     }
   }
@@ -532,6 +533,28 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
       this.withMRTransaction { implicit c =>
         SQL"UPDATE challenges SET parent_id = $newParent WHERE id = $challengeId RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
+      }
+    }
+  }
+
+  /**
+    * Updates the last_task_refresh column of a challenge to indicate its task
+    * data was just refreshed. If overwrite is false, last_task_refresh will
+    * only be updated if it hasn't yet been set.
+    *
+    * @param overwrite Set to true to always overwrite last_task_refresh
+    * @param id The id of the challenge
+    * @param c an implicit connection
+    */
+  def markTasksRefreshed(overwrite:Boolean=false)(implicit id:Long, c:Connection=null) : Option[Challenge] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+      if (overwrite || item.lastTaskRefresh == None) {
+        this.withMRTransaction { implicit c =>
+          SQL"UPDATE challenges SET last_task_refresh = NOW() WHERE id = $id RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
+        }
+      }
+      else {
+        Option(item)
       }
     }
   }
