@@ -4,14 +4,16 @@ package org.maproulette.session
 
 import java.util.{Locale, UUID}
 
+import play.api.Logger
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import javax.crypto.{BadPaddingException, IllegalBlockSizeException}
 import org.maproulette.Config
 import org.maproulette.actions.{ItemType, UserType}
 import org.maproulette.models.BaseObject
-import org.maproulette.utils.Utils
+import org.maproulette.utils.{Crypto, Utils}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -284,6 +286,23 @@ object User {
   )
 
   val superGroup: Group = Group(DEFAULT_GROUP_ID, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
+
+  def withDecryptedAPIKey(user: User)(implicit crypto: Crypto): User = {
+    user.apiKey match {
+      case Some(key) if key.nonEmpty =>
+        try {
+          val decryptedAPIKey = Some(s"${user.id}|${crypto.decrypt(key)}")
+          new User(user.id, user.created, user.modified, user.osmProfile, user.groups,
+                   decryptedAPIKey, user.guest, user.settings, user.properties)
+        } catch {
+          case _:BadPaddingException | _:IllegalBlockSizeException =>
+            Logger.debug("Invalid key found, could be that the application secret on server changed.")
+            user
+          case e:Throwable => throw e
+        }
+      case _ => user
+    }
+  }
 
   /**
     * Simple helper function that if the provided Option[User] is None, will return a guest

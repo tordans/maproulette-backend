@@ -86,26 +86,13 @@ class UserDAL @Inject() (override val db:Database,
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
         }
-        // decrypt the API key if there is one.
-        val decryptedKey = apiKey match {
-          case Some(key) if key.nonEmpty =>
-            try {
-              Some(s"$id|${crypto.decrypt(key)}")
-            } catch {
-              case _:BadPaddingException | _:IllegalBlockSizeException =>
-                Logger.debug("Invalid key found, could be that the application secret on server changed.")
-                None
-              case e:Throwable => throw e
-            }
-          case _ => None
-        }
 
         new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
             userGroupDAL.getUserGroups(osmId, User.superUser
           ),
-          decryptedKey, false,
+          apiKey, false,
           UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
           properties
         )
@@ -362,10 +349,6 @@ class UserDAL @Inject() (override val db:Database,
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasObjectAdminAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
-        val apiKey = (value \ "apiKey").asOpt[String].getOrElse(cachedItem.apiKey.getOrElse("")) match {
-          case "" => this.generateAPIKey
-          case v => crypto.encrypt(v) //cached value will be unencrypted so need to make sure we re-encrypt for the db
-        }
         val displayName = (value \ "osmProfile" \ "displayName").asOpt[String].getOrElse(cachedItem.osmProfile.displayName)
         val description = (value \ "osmProfile" \ "description").asOpt[String].getOrElse(cachedItem.osmProfile.description)
         val avatarURL = (value \ "osmProfile" \ "avatarURL").asOpt[String].getOrElse(cachedItem.osmProfile.avatarURL)
@@ -388,7 +371,7 @@ class UserDAL @Inject() (override val db:Database,
         this.updateGroups(value, user)
         this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
 
-        val query = s"""UPDATE users SET api_key = {apiKey}, name = {name}, description = {description},
+        val query = s"""UPDATE users SET name = {name}, description = {description},
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
@@ -396,7 +379,6 @@ class UserDAL @Inject() (override val db:Database,
                                           theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns}"""
         SQL(query).on(
-          'apiKey -> crypto.encrypt(apiKey),
           'name -> displayName,
           'description -> description,
           'avatarURL -> avatarURL,
@@ -642,9 +624,17 @@ class UserDAL @Inject() (override val db:Database,
     * @param apiKeyUser The user that is requesting that their key be updated.
     * @return An optional variable that will contain the updated user if successful
     */
-  def generateAPIKey(apiKeyUser:User, user:User) : Option[User] = {
+  def generateAPIKey(apiKeyUser:User, user:User)(implicit c:Connection=null) : Option[User] = {
     this.permission.hasAdminAccess(UserType(), user)(apiKeyUser.id)
-    this.update(Json.parse(s"""{"apiKey":"${this.generateAPIKey}"}"""), User.superUser)(apiKeyUser.id)
+
+    implicit val id = apiKeyUser.id
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      this.withMRTransaction { implicit c =>
+        val newAPIKey = crypto.encrypt(this.generateAPIKey)
+        val query = s"""UPDATE users SET api_key = {apiKey} WHERE id = {id} RETURNING ${this.retrieveColumns}"""
+        SQL(query).on('apiKey -> newAPIKey, 'id -> apiKeyUser.id).as(this.parser.*).headOption
+      }
+    }
   }
 
   /**
