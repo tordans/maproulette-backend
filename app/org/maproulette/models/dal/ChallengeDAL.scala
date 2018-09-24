@@ -67,6 +67,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.enabled") ~
       get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
+      get[Option[Int]]("challenges.popularity") ~
       get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.checkin_source") ~
       get[Option[String]]("challenges.overpass_ql") ~
@@ -87,7 +88,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-        difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
+        difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ popularity ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
         status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
         defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
@@ -103,7 +104,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case r => r
         }
         new Challenge(id, name, created, modified, description, deleted, infoLink,
-          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse(""), checkin_source.getOrElse("")),
+          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, popularity, checkin_comment.getOrElse(""), checkin_source.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
@@ -339,7 +340,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   }
 
   /**
-    * Get the Hot challenges, these are challenges that have the most activity
+    * Get the Hot challenges, these are challenges that have proved popular, weighted
+    * towards recent activity.
     *
     * @param limit the number of challenges to retrieve
     * @param offset For paging, ie. the page number starting at 0
@@ -347,7 +349,15 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return List of challenges
     */
   def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
-    List.empty
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE c.deleted = false and p.deleted = false
+                      ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
+                      AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
+                      ORDER BY popularity DESC LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).as(this.parser.*)
+    }
   }
 
   /**
@@ -532,6 +542,22 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
       this.withMRTransaction { implicit c =>
         SQL"UPDATE challenges SET parent_id = $newParent WHERE id = $challengeId RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
+      }
+    }
+  }
+
+  /**
+    * Update the popularity score of the given challenge following completion of a task.
+    * Challenge popularity p is calculated with the simple formula p = (p + t) / 2 where
+    * t is the timestamp of the task completion. This favors recent activity.
+    *
+    * @param id The id of the challenge
+    * @param completionTimestamp the unix timestamp of the task completion
+    */
+  def updatePopularity(completionTimestamp:Long)(implicit id:Long, c:Connection = null) : Option[Challenge] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+      this.withMRTransaction { implicit c =>
+        SQL"UPDATE challenges SET popularity=((popularity + $completionTimestamp) / 2) WHERE id = $id RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
       }
     }
   }

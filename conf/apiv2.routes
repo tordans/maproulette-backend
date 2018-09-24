@@ -994,6 +994,28 @@ DELETE  /challenge/:id/tags                         @org.maproulette.controllers
 GET     /challenges/featured                        @org.maproulette.controllers.api.ChallengeController.getFeaturedChallenges(limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Challenge ]
+# summary: Hottest Challenges.
+# produces: [ application/json ]
+# description: Get the hottest (recently popular) challenges
+# responses:
+#   '200':
+#     description: A list of all the hottest Challenges in order of recent popularity
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /challenges/hot                             @org.maproulette.controllers.api.ChallengeController.getHotChallenges(limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
 # summary: List all the Challenges.
 # produces: [ application/json ]
 # description: Lists all the Challenges in the system
