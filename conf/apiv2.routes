@@ -875,8 +875,11 @@ GET     /challenges/find                            @org.maproulette.controllers
 #   - name: page
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
 ###
-GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0)
+GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0, sort:String ?= "")
 ###
 # tags: [ Challenge ]
 # summary: Move Challenge to another Project
