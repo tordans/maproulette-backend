@@ -648,16 +648,18 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param searchParameters The object that contains all the search parameters that were retrieved from the query string
     * @param limit limit for the number of returned results
     * @param offset The paging offset
+    * @param sort An optional column to sort by.
     * @param c An optional connection, if included will use that connection otherwise will grab one from the pool
     * @return A list of challenges, empty list if not challenges found matching the given criteria
     */
-  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
+  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, sort:String="")
                   (implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // never include deleted items in the search
       val whereClause = new StringBuilder("c.deleted = false AND p.deleted = false")
       val joinClause = new StringBuilder()
+      var orderByClause = ""
 
       parameters ++= addSearchToQuery(searchParameters, whereClause)
 
@@ -698,12 +700,19 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case _ =>
       }
 
+      sort match {
+        case s if s.nonEmpty =>
+          orderByClause = s"ORDER BY c.${s}"
+        case _ => // ignore
+      }
+
       val query =
         s"""
            |SELECT ${this.retrieveColumns} FROM challenges c
            |INNER JOIN projects p ON p.id = c.parent_id
            |$joinClause
            |${s"WHERE $whereClause"}
+           |${orderByClause}
            |LIMIT ${this.sqlLimit(limit)} OFFSET $offset
          """.stripMargin
 
