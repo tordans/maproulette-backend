@@ -75,7 +75,9 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
   }
 
   def retrieveUser(username:String, apiKey:String) : Option[User] = {
-    dalManager.user.retrieveByUsernameAndAPIKey(username, apiKey)
+    val apiSplit = apiKey.split("\\|")
+    val encryptedApiKey = crypto.encrypt(apiSplit(1))
+    dalManager.user.retrieveByUsernameAndAPIKey(username, encryptedApiKey)
   }
 
   /**
