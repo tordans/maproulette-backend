@@ -4,14 +4,16 @@ package org.maproulette.session
 
 import java.util.{Locale, UUID}
 
+import play.api.Logger
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import javax.crypto.{BadPaddingException, IllegalBlockSizeException}
 import org.maproulette.Config
 import org.maproulette.actions.{ItemType, UserType}
 import org.maproulette.models.BaseObject
-import org.maproulette.utils.Utils
+import org.maproulette.utils.{Crypto, Utils}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -82,6 +84,7 @@ case class ProjectManager(projectId: Long,
   *
   * @param defaultEditor     The default editor that the user wants to use
   * @param defaultBasemap    The default basemap that the user wants to see, will be overridden by default basemap for the challenge if set
+  * @param defaultBasemapId  The string id of the default basemap that the user wants to see
   * @param customBasemap     It default basemap is custom, then this is the url to the tile server
   * @param locale            The locale for the user, if not set will default to en
   * @param emailOptIn        If the user has opted in to receive emails
@@ -92,6 +95,7 @@ case class ProjectManager(projectId: Long,
   */
 case class UserSettings(defaultEditor: Option[Int] = None,
                         defaultBasemap: Option[Int] = None,
+                        defaultBasemapId: Option[String] = None,
                         customBasemap: Option[String] = None,
                         locale: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
@@ -283,6 +287,23 @@ object User {
 
   val superGroup: Group = Group(DEFAULT_GROUP_ID, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
 
+  def withDecryptedAPIKey(user: User)(implicit crypto: Crypto): User = {
+    user.apiKey match {
+      case Some(key) if key.nonEmpty =>
+        try {
+          val decryptedAPIKey = Some(s"${user.id}|${crypto.decrypt(key)}")
+          new User(user.id, user.created, user.modified, user.osmProfile, user.groups,
+                   decryptedAPIKey, user.guest, user.settings, user.properties)
+        } catch {
+          case _:BadPaddingException | _:IllegalBlockSizeException =>
+            Logger.debug("Invalid key found, could be that the application secret on server changed.")
+            user
+          case e:Throwable => throw e
+        }
+      case _ => user
+    }
+  }
+
   /**
     * Simple helper function that if the provided Option[User] is None, will return a guest
     * user, otherwise will simply return back the provided user
@@ -301,6 +322,7 @@ object User {
     mapping(
       "defaultEditor" -> optional(number),
       "defaultBasemap" -> optional(number),
+      "defaultBasemapId" -> optional(text),
       "customBasemap" -> optional(text),
       "locale" -> optional(text),
       "emailOptIn" -> optional(boolean),

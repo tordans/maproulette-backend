@@ -403,10 +403,10 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param page paging mechanism for limited results
     * @return A list of challenges matching the query string parameters
     */
-  def extendedFind(limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def extendedFind(limit:Int, page:Int, sort:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val challenges = this.dal.extendedFind(params, limit, page)
+        val challenges = this.dal.extendedFind(params, limit, page, sort)
         if (challenges.isEmpty) {
           Ok(Json.toJson(List[JsValue]()))
         } else {

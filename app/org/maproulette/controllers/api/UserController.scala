@@ -7,7 +7,7 @@ import org.maproulette.models.dal.ProjectDAL
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 import org.maproulette.session.{SessionManager, User, UserSettings}
-import org.maproulette.utils.Utils
+import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json._
 import play.api.mvc._
 
@@ -22,7 +22,8 @@ class UserController @Inject()(userDAL: UserDAL,
                                sessionManager: SessionManager,
                                projectDAL: ProjectDAL,
                                components: ControllerComponents,
-                               bodyParsers: PlayBodyParsers) extends AbstractController(components) with DefaultWrites {
+                               bodyParsers: PlayBodyParsers,
+                               crypto: Crypto) extends AbstractController(components) with DefaultWrites {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   implicit val userReadWrite = User.UserFormat
@@ -52,12 +53,12 @@ class UserController @Inject()(userDAL: UserDAL,
   def getUser(userId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (userId == user.id || userId == user.osmProfile.id) {
-        Ok(Json.toJson(user))
+        Ok(Json.toJson(User.withDecryptedAPIKey(user)(crypto)))
       } else if (user.isSuperUser) {
         this.userDAL.retrieveByOSMID(userId, user) match {
-          case Some(u) => Ok(Json.toJson(u))
+          case Some(u) => Ok(Json.toJson(User.withDecryptedAPIKey(u)(crypto)))
           case None => this.userDAL.retrieveById(userId) match {
-            case Some(u) => Ok(Json.toJson(u))
+            case Some(u) => Ok(Json.toJson(User.withDecryptedAPIKey(u)(crypto)))
             case None => throw new NotFoundException(s"No user found with id '$userId'")
           }
         }
@@ -94,11 +95,6 @@ class UserController @Inject()(userDAL: UserDAL,
 
   def updateUser(id: Long): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      // if the request body contains the API Key for update, let's update that separately
-      (request.body \ "apiKey").asOpt[String] match {
-        case Some(key) => userDAL.update(Json.parse(s"""{"apiKey":"$key"}"""), user)(id)
-        case None => //just ignore, we don't have to do anything if it isn't there
-      }
       implicit val settingsRead = User.settingsReads
       userDAL.managedUpdate(request.body.as[UserSettings], (request.body \ "properties").toOption, user)(id) match {
         case Some(u) => Ok(Json.toJson(u))

@@ -81,6 +81,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.min_zoom") ~
       get[Int]("challenges.max_zoom") ~
       get[Option[Int]]("challenges.default_basemap") ~
+      get[Option[String]]("challenges.default_basemap_id") ~
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("locationJSON") ~
@@ -89,7 +90,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
         status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
-        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
+        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -106,7 +107,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse(""), checkin_source.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
-          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks),
           status, statusMessage, location, bounding
         )
     }
@@ -185,14 +186,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                                       instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
-                                      max_zoom, default_basemap, custom_basemap, updatetasks)
+                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
                       ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
-                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
+                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
       }
     } match {
@@ -255,6 +256,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val minZoom = (updates \ "minZoom").asOpt[Int].getOrElse(cachedItem.extra.minZoom)
         val maxZoom = (updates \ "maxZoom").asOpt[Int].getOrElse(cachedItem.extra.maxZoom)
         val defaultBasemap = (updates \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.extra.defaultBasemap.getOrElse(-1))
+        val defaultBasemapId = (updates \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.extra.defaultBasemapId.getOrElse(""))
         val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.extra.customBasemap.getOrElse(""))
         val updateTasks = (updates \ "updateTasks").asOpt[Boolean].getOrElse(cachedItem.extra.updateTasks)
 
@@ -265,7 +267,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                 high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) { Option.empty[String] } else { Some(highPriorityRule) }},
                 medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) { Option.empty[String] } else { Some(mediumPriorityRule) }},
                 low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }},
-                default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap,
+                default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, challenge_type = $challengeType
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
       }
@@ -671,16 +673,18 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param searchParameters The object that contains all the search parameters that were retrieved from the query string
     * @param limit limit for the number of returned results
     * @param offset The paging offset
+    * @param sort An optional column to sort by.
     * @param c An optional connection, if included will use that connection otherwise will grab one from the pool
     * @return A list of challenges, empty list if not challenges found matching the given criteria
     */
-  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
+  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, sort:String="")
                   (implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // never include deleted items in the search
       val whereClause = new StringBuilder("c.deleted = false AND p.deleted = false")
       val joinClause = new StringBuilder()
+      var orderByClause = ""
 
       parameters ++= addSearchToQuery(searchParameters, whereClause)
 
@@ -721,12 +725,19 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case _ =>
       }
 
+      sort match {
+        case s if s.nonEmpty =>
+          orderByClause = s"ORDER BY c.${s}"
+        case _ => // ignore
+      }
+
       val query =
         s"""
            |SELECT ${this.retrieveColumns} FROM challenges c
            |INNER JOIN projects p ON p.id = c.parent_id
            |$joinClause
            |${s"WHERE $whereClause"}
+           |${orderByClause}
            |LIMIT ${this.sqlLimit(limit)} OFFSET $offset
          """.stripMargin
 
