@@ -72,6 +72,7 @@ class UserDAL @Inject() (override val db:Database,
       get[String]("users.oauth_secret") ~
       get[Option[Int]]("users.default_editor") ~
       get[Option[Int]]("users.default_basemap") ~
+      get[Option[String]]("users.default_basemap_id") ~
       get[Option[String]]("users.custom_basemap_url") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
@@ -79,7 +80,7 @@ class UserDAL @Inject() (override val db:Database,
       get[Option[Int]]("users.theme") ~
       get[Option[String]]("properties") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
-        homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
+        homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
         customBasemap ~ emailOptIn ~ leaderboardOptOut ~ locale ~ theme ~ properties =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
@@ -92,7 +93,7 @@ class UserDAL @Inject() (override val db:Database,
             userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
+          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
           properties
         )
     }
@@ -359,6 +360,7 @@ class UserDAL @Inject() (override val db:Database,
         val ewkt = new WKTWriter().write(new GeometryFactory().createPoint(new Coordinate(latitude, longitude)))
         val defaultEditor = (value \ "settings" \ "defaultEditor").asOpt[Int].getOrElse(cachedItem.settings.defaultEditor.getOrElse(-1))
         val defaultBasemap = (value \ "settings" \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.settings.defaultBasemap.getOrElse(-1))
+        val defaultBasemapId = (value \ "settings" \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.settings.defaultBasemapId.getOrElse(""))
         val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
@@ -372,7 +374,7 @@ class UserDAL @Inject() (override val db:Database,
         val query = s"""UPDATE users SET name = {name}, description = {description},
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
-                                          default_basemap = {defaultBasemap}, custom_basemap_url = {customBasemap},
+                                          default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
                                           locale = {locale}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
                                           theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns}"""
@@ -386,6 +388,7 @@ class UserDAL @Inject() (override val db:Database,
           'id -> id,
           'defaultEditor -> defaultEditor,
           'defaultBasemap -> defaultBasemap,
+          'defaultBasemapId -> defaultBasemapId,
           'customBasemap -> customBasemap,
           'locale -> locale,
           'emailOptIn -> emailOptIn,

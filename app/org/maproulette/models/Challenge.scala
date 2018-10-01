@@ -86,6 +86,7 @@ case class ChallengeExtra(defaultZoom:Int=Challenge.DEFAULT_ZOOM,
                           minZoom:Int=Challenge.MIN_ZOOM,
                           maxZoom:Int=Challenge.MAX_ZOOM,
                           defaultBasemap:Option[Int]=None,
+                          defaultBasemapId:Option[String]=None,
                           customBasemap:Option[String]=None,
                           updateTasks:Boolean=false) extends DefaultWrites
 
@@ -232,6 +233,7 @@ object Challenge {
         "minZoom" -> default(number, MIN_ZOOM),
         "maxZoom" -> default(number, MAX_ZOOM),
         "defaultBasemap" -> optional(number),
+        "defaultBasemapId" -> optional(text),
         "customBasemap" -> optional(text),
         "updateTasks" -> default(boolean, false)
       )(ChallengeExtra.apply)(ChallengeExtra.unapply),
