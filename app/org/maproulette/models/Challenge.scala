@@ -107,6 +107,7 @@ case class Challenge(override val id:Long,
                      extra:ChallengeExtra,
                      status:Option[Int]=Some(0),
                      statusMessage:Option[String]=None,
+                     lastTaskRefresh:Option[DateTime]=None,
                      location:Option[String]=None,
                      bounding:Option[String]=None) extends BaseObject[Long] with DefaultWrites {
 
@@ -239,6 +240,7 @@ object Challenge {
       )(ChallengeExtra.apply)(ChallengeExtra.unapply),
       "status" -> default(optional(number), None),
       "statusMessage" -> optional(text),
+      "lastTaskRefresh" -> optional(jodaDate),
       "location" -> default(optional(text), None),
       "bounding" -> default(optional(text), None)
     )(Challenge.apply)(Challenge.unapply)
