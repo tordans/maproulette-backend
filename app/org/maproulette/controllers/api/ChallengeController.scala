@@ -72,6 +72,7 @@ class ChallengeController @Inject()(override val childController: TaskController
   implicit val taskClusterWrites = TaskCluster.taskClusterWrites
   implicit val searchParameterWrites = SearchParameters.paramsWrites
   implicit val searchLocationWrites = SearchParameters.locationWrites
+  implicit val challengeListingWrites: Writes[ChallengeListing] = Json.writes[ChallengeListing]
 
   override def dalWithTags: TagDALMixin[Challenge] = dal
 
@@ -415,10 +416,10 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param page paging mechanism for limited results
     * @return A list of challenges matching the query string parameters
     */
-  def extendedFind(limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def extendedFind(limit:Int, page:Int, sort:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val challenges = this.dal.extendedFind(params, limit, page)
+        val challenges = this.dal.extendedFind(params, limit, page, sort)
         if (challenges.isEmpty) {
           Ok(Json.toJson(List[JsValue]()))
         } else {
@@ -432,6 +433,21 @@ class ChallengeController @Inject()(override val childController: TaskController
           Ok(Json.toJson(jsonList))
         }
       }
+    }
+  }
+
+  /**
+    * Retrieves a lightweight listing of the challenges in the given project(s).
+    *
+    * @param projectIds comma-separated list of projects
+    * @param limit limits the amount of results returned
+    * @param page paging mechanism for limited results
+    * @param onlyEnabled determines if results are restricted to enabled challenges projects
+    * @return A list of challenges
+    */
+  def listing(projectIds:String, limit:Int, page:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dal.listing(Utils.toLongList(projectIds), limit, page, onlyEnabled)))
     }
   }
 

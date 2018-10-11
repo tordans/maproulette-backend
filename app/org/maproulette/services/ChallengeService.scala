@@ -60,6 +60,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                 this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED, "statusMessage" -> s"GeoJSON lines [${failedLines.mkString(",")}] failed to parse"), user)(challenge.id)
               } else {
                 this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+                this.challengeDAL.markTasksRefreshed()(challenge.id)
               }
             } else {
               this.createTasksFromJson(user, challenge, value)
@@ -140,6 +141,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           if (this.isLineByLineGeoJson(splitJson)) {
             splitJson.foreach(line => this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line)))
             this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+            this.challengeDAL.markTasksRefreshed()(challenge.id)
           } else {
             this.createTasksFromFeatures(user, challenge, Json.parse(resp.body))
           }
@@ -151,6 +153,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           this.buildTasksFromRemoteJson(filePrefix, fileNumber + 1, challenge, user)
         } else {
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+          this.challengeDAL.markTasksRefreshed()(challenge.id)
         }
       case Failure(f) =>
         if (fileNumber > 1) {
@@ -192,14 +195,15 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           None
         }
       }
+
+      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
+      this.challengeDAL.markTasksRefreshed()(parent.id)
       if (single) {
-        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
         this.createNewTask(user, UUID.randomUUID().toString, parent, jsonData) match {
           case Some(t) => List(t)
           case None => List.empty
         }
       } else {
-        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
         Logger.debug(s"${featureList.size} tasks created from json file.")
         createdTasks
       }
@@ -271,6 +275,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                     this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED), user)(challenge.id)
                   case false =>
                     this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+                    this.challengeDAL.markTasksRefreshed(true)(challenge.id)
                 }
               }
             } else {
