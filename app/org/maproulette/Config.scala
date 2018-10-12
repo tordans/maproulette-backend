@@ -88,6 +88,8 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val osmMatcherManualOnly : Boolean = this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_MANUAL).getOrElse(Config.DEFAULT_OSM_MATCHER_MANUAL)
 
+  lazy val proxyPort : Option[Int] = this.config.getOptional[Int](Config.KEY_PROXY_PORT)
+
   lazy val allowMatchOSM = changeSetEnabled || osmMatcherEnabled || osmMatcherManualOnly
 
   lazy val getOSMServer : String = this.config.getOptional[String](Config.KEY_OSM_SERVER).get
@@ -162,6 +164,7 @@ class Config @Inject() (implicit val application:Application) {
 
 object Config {
   val GROUP_MAPROULETTE = "maproulette"
+  val KEY_PROXY_PORT = s"$GROUP_MAPROULETTE.proxy.port"
   val KEY_LOGO = s"$GROUP_MAPROULETTE.logo"
   val KEY_SUPER_KEY = s"$GROUP_MAPROULETTE.super.key"
   val KEY_SUPER_ACCOUNTS = s"$GROUP_MAPROULETTE.super.accounts"

@@ -48,16 +48,15 @@ class AuthController @Inject() (messagesApi: MessagesApi,
           sessionManager.retrieveUser(verifier) onComplete {
             case Success(user) =>
               // We received the authorized tokens in the OAuth object - store it before we proceed
-              p success this.withOSMSession(user, Redirect(redirect, SEE_OTHER).withHeaders(("Cache-Control", "no-chache")))
+              p success this.withOSMSession(user, Redirect(redirect, SEE_OTHER).withHeaders(("Cache-Control", "no-cache")))
             case Failure(e) => p failure e
           }
         case None =>
-          sessionManager.retrieveRequestToken(routes.AuthController.authenticate().absoluteURL() +
-              s"?redirect=${getRedirectURL(request, redirect)}") match {
+          sessionManager.retrieveRequestToken(proxyRedirect + s"?redirect=${getRedirectURL(request, redirect)}") match {
             case Right(t) =>
               // We received the unauthorized tokens in the OAuth object - store it before we proceed
               p success Redirect(sessionManager.redirectUrl(t.token))
-                .withHeaders(("Cache-Control", "no-chache"))
+                .withHeaders(("Cache-Control", "no-cache"))
                 .withSession(SessionManager.KEY_TOKEN -> t.token,
                   SessionManager.KEY_SECRET -> t.secret,
                   SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
@@ -175,15 +174,24 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     )
   }
 
-  def getRedirectURL(implicit request:Request[AnyContent], redirect:String) : String = {
+  def getRedirectURL(implicit request: Request[AnyContent], redirect: String): String = {
+    val redirectURL = proxyRedirect
     val referer = request.headers.get(REFERER)
     if (StringUtils.isEmpty(redirect) && referer.isDefined) {
       referer.get
     } else if (StringUtils.isNotEmpty(redirect)) {
-      val applicationIndex = routes.Application.index().absoluteURL()
-      s"${applicationIndex.substring(0, applicationIndex.length - 1)}$redirect"
+      s"${redirectURL.substring(0, redirectURL.length - 1)}$redirect"
     } else {
-      routes.Application.index().absoluteURL()
+      redirectURL
+    }
+  }
+
+  private def proxyRedirect(implicit request: Request[AnyContent]): String = {
+    config.proxyPort match {
+      case Some(port) =>
+        val applicationPort = System.getProperty("http.port")
+        routes.Application.index().absoluteURL(true).replaceFirst(s":$applicationPort", s":$port")
+      case None => routes.Application.index().absoluteURL(true)
     }
   }
 }
