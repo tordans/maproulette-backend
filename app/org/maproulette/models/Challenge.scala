@@ -75,6 +75,7 @@ case class ChallengeGeneral(owner:Long,
                             enabled:Boolean=false,
                             challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                             featured:Boolean=false,
+                            popularity:Option[Int]=None,
                             checkinComment:String="",
                             checkinSource:String="") extends DefaultWrites
 case class ChallengeCreation(overpassQL:Option[String]=None, remoteGeoJson:Option[String]=None) extends DefaultWrites
@@ -220,6 +221,7 @@ object Challenge {
         "enabled" -> boolean,
         "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
         "featured" -> default(boolean, false),
+        "popularity" -> optional(number),
         "checkinComment" -> default(text, ""),
         "checkinSource" -> default(text, "")
       )(ChallengeGeneral.apply)(ChallengeGeneral.unapply),

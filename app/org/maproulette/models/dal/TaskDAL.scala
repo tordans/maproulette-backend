@@ -4,6 +4,7 @@ package org.maproulette.models.dal
 
 import java.sql.Connection
 import javax.inject.{Inject, Provider, Singleton}
+import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -424,6 +425,12 @@ class TaskDAL @Inject()(override val db: Database,
           this.matchToOSMChangeSet(task.copy(status = Some(status)), user)
         }
       }
+
+      // Update the popularity score on the parent challenge
+      Future {
+        this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
+      }
+
       updatedRows
     }
 
