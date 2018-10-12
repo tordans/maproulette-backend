@@ -67,6 +67,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.enabled") ~
       get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
+      get[Option[Int]]("challenges.popularity") ~
       get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.checkin_source") ~
       get[Option[String]]("challenges.overpass_ql") ~
@@ -81,15 +82,17 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       get[Int]("challenges.min_zoom") ~
       get[Int]("challenges.max_zoom") ~
       get[Option[Int]]("challenges.default_basemap") ~
+      get[Option[String]]("challenges.default_basemap_id") ~
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
+      get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-        difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
+        difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ popularity ~ checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~
         status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~
-        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ customBasemap ~ updateTasks ~ location ~ bounding ~ deleted =>
+        defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~ lastTaskRefresh ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -103,11 +106,11 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           case r => r
         }
         new Challenge(id, name, created, modified, description, deleted, infoLink,
-          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, checkin_comment.getOrElse(""), checkin_source.getOrElse("")),
+          ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, popularity, checkin_comment.getOrElse(""), checkin_source.getOrElse("")),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
-          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, customBasemap, updateTasks),
-          status, statusMessage, location, bounding
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks),
+          status, statusMessage, lastTaskRefresh, location, bounding,
         )
     }
   }
@@ -127,6 +130,16 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val point = Point(coordinates(1), coordinates.head)
       ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
         instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
+    }
+  }
+
+  val listingParser: RowParser[ChallengeListing] = {
+    get[Long]("challenges.id") ~
+    get[Long]("challenges.parent_id") ~
+    get[String]("challenges.name") ~
+    get[Boolean]("challenges.enabled") map {
+      case id ~ parent ~ name ~ enabled =>
+        ChallengeListing(id, parent, name, enabled)
     }
   }
 
@@ -175,14 +188,14 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                                       instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
-                                      max_zoom, default_basemap, custom_basemap, updatetasks)
+                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
                       ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
-                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
+                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
                       ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
       }
     } match {
@@ -245,6 +258,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         val minZoom = (updates \ "minZoom").asOpt[Int].getOrElse(cachedItem.extra.minZoom)
         val maxZoom = (updates \ "maxZoom").asOpt[Int].getOrElse(cachedItem.extra.maxZoom)
         val defaultBasemap = (updates \ "defaultBasemap").asOpt[Int].getOrElse(cachedItem.extra.defaultBasemap.getOrElse(-1))
+        val defaultBasemapId = (updates \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.extra.defaultBasemapId.getOrElse(""))
         val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.extra.customBasemap.getOrElse(""))
         val updateTasks = (updates \ "updateTasks").asOpt[Boolean].getOrElse(cachedItem.extra.updateTasks)
 
@@ -255,7 +269,7 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                 high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) { Option.empty[String] } else { Some(highPriorityRule) }},
                 medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) { Option.empty[String] } else { Some(mediumPriorityRule) }},
                 low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) { Option.empty[String] } else { Some(lowPriorityRule) }},
-                default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap,
+                default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, challenge_type = $challengeType
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
       }
@@ -285,6 +299,19 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       ${this.order(Some(orderColumn), orderDirection, "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
+    }
+  }
+
+  def listing(projectList:Option[List[Long]]=None, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0,
+              onlyEnabled:Boolean=false, challengeType:Int=Actions.ITEM_TYPE_CHALLENGE): List[ChallengeListing] = {
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT c.id, c.parent_id, c.name, c.enabled FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
+                      ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
+                      ${this.getLongListFilter(projectList, "p.id")}
+                      LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('offset -> offset).as(this.listingParser.*)
     }
   }
 
@@ -339,7 +366,8 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   }
 
   /**
-    * Get the Hot challenges, these are challenges that have the most activity
+    * Get the Hot challenges, these are challenges that have proved popular, weighted
+    * towards recent activity.
     *
     * @param limit the number of challenges to retrieve
     * @param offset For paging, ie. the page number starting at 0
@@ -347,7 +375,15 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @return List of challenges
     */
   def getHotChallenges(limit:Int, offset:Int, enabledOnly:Boolean=true)(implicit c:Connection=null) : List[Challenge] = {
-    List.empty
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM challenges c
+                      INNER JOIN projects p ON p.id = c.parent_id
+                      WHERE c.deleted = false and p.deleted = false
+                      ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
+                      AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
+                      ORDER BY popularity DESC LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
+      SQL(query).as(this.parser.*)
+    }
   }
 
   /**
@@ -537,6 +573,44 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   }
 
   /**
+    * Update the popularity score of the given challenge following completion of a task.
+    * Challenge popularity p is calculated with the simple formula p = (p + t) / 2 where
+    * t is the timestamp of the task completion. This favors recent activity.
+    *
+    * @param id The id of the challenge
+    * @param completionTimestamp the unix timestamp of the task completion
+    */
+  def updatePopularity(completionTimestamp:Long)(implicit id:Long, c:Connection = null) : Option[Challenge] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+      this.withMRTransaction { implicit c =>
+        SQL"UPDATE challenges SET popularity=((popularity + $completionTimestamp) / 2) WHERE id = $id RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
+      }
+    }
+  }
+
+  /**
+    * Updates the last_task_refresh column of a challenge to indicate its task
+    * data was just refreshed. If overwrite is false, last_task_refresh will
+    * only be updated if it hasn't yet been set.
+    *
+    * @param overwrite Set to true to always overwrite last_task_refresh
+    * @param id The id of the challenge
+    * @param c an implicit connection
+    */
+  def markTasksRefreshed(overwrite:Boolean=false)(implicit id:Long, c:Connection=null) : Option[Challenge] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+      if (overwrite || item.lastTaskRefresh == None) {
+        this.withMRTransaction { implicit c =>
+          SQL"UPDATE challenges SET last_task_refresh = NOW() WHERE id = $id RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
+        }
+      }
+      else {
+        Option(item)
+      }
+    }
+  }
+
+  /**
     * Lists the children of the parent, override the base functionality and includes the geojson
     * as part of the query so that it doesn't have to fetch it each and every time.
     *
@@ -648,16 +722,18 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param searchParameters The object that contains all the search parameters that were retrieved from the query string
     * @param limit limit for the number of returned results
     * @param offset The paging offset
+    * @param sort An optional column to sort by.
     * @param c An optional connection, if included will use that connection otherwise will grab one from the pool
     * @return A list of challenges, empty list if not challenges found matching the given criteria
     */
-  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0)
+  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, sort:String="")
                   (implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // never include deleted items in the search
       val whereClause = new StringBuilder("c.deleted = false AND p.deleted = false")
       val joinClause = new StringBuilder()
+      var orderByClause = ""
 
       parameters ++= addSearchToQuery(searchParameters, whereClause)
 
@@ -698,12 +774,19 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case _ =>
       }
 
+      sort match {
+        case s if s.nonEmpty =>
+          orderByClause = s"ORDER BY c.${s}"
+        case _ => // ignore
+      }
+
       val query =
         s"""
            |SELECT ${this.retrieveColumns} FROM challenges c
            |INNER JOIN projects p ON p.id = c.parent_id
            |$joinClause
            |${s"WHERE $whereClause"}
+           |${orderByClause}
            |LIMIT ${this.sqlLimit(limit)} OFFSET $offset
          """.stripMargin
 

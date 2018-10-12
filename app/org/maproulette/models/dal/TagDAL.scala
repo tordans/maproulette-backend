@@ -201,7 +201,7 @@ class TagDAL @Inject() (override val db:Database,
             Seq[NamedParameter]("name" -> tag.name.toLowerCase, "description" -> descriptionString, "id" -> tag.id)
           })
           BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
-          this.retrieveListByName(names)
+          this.retrieveListByName(names, -1, c)
         }
       }
     } else {

@@ -75,6 +75,7 @@ case class ChallengeGeneral(owner:Long,
                             enabled:Boolean=false,
                             challengeType:Int=Actions.ITEM_TYPE_CHALLENGE,
                             featured:Boolean=false,
+                            popularity:Option[Int]=None,
                             checkinComment:String="",
                             checkinSource:String="") extends DefaultWrites
 case class ChallengeCreation(overpassQL:Option[String]=None, remoteGeoJson:Option[String]=None) extends DefaultWrites
@@ -86,8 +87,13 @@ case class ChallengeExtra(defaultZoom:Int=Challenge.DEFAULT_ZOOM,
                           minZoom:Int=Challenge.MIN_ZOOM,
                           maxZoom:Int=Challenge.MAX_ZOOM,
                           defaultBasemap:Option[Int]=None,
+                          defaultBasemapId:Option[String]=None,
                           customBasemap:Option[String]=None,
                           updateTasks:Boolean=false) extends DefaultWrites
+case class ChallengeListing(id:Long,
+                            parent:Long,
+                            name:String,
+                            enabled:Boolean)
 
 /**
   * The ChallengeFormFix case class is built so that we can nest the form objects as there is a limit
@@ -106,6 +112,7 @@ case class Challenge(override val id:Long,
                      extra:ChallengeExtra,
                      status:Option[Int]=Some(0),
                      statusMessage:Option[String]=None,
+                     lastTaskRefresh:Option[DateTime]=None,
                      location:Option[String]=None,
                      bounding:Option[String]=None) extends BaseObject[Long] with DefaultWrites {
 
@@ -214,6 +221,7 @@ object Challenge {
         "enabled" -> boolean,
         "challengeType" -> default(number, Actions.ITEM_TYPE_CHALLENGE),
         "featured" -> default(boolean, false),
+        "popularity" -> optional(number),
         "checkinComment" -> default(text, ""),
         "checkinSource" -> default(text, "")
       )(ChallengeGeneral.apply)(ChallengeGeneral.unapply),
@@ -232,11 +240,13 @@ object Challenge {
         "minZoom" -> default(number, MIN_ZOOM),
         "maxZoom" -> default(number, MAX_ZOOM),
         "defaultBasemap" -> optional(number),
+        "defaultBasemapId" -> optional(text),
         "customBasemap" -> optional(text),
         "updateTasks" -> default(boolean, false)
       )(ChallengeExtra.apply)(ChallengeExtra.unapply),
       "status" -> default(optional(number), None),
       "statusMessage" -> optional(text),
+      "lastTaskRefresh" -> optional(jodaDate),
       "location" -> default(optional(text), None),
       "bounding" -> default(optional(text), None)
     )(Challenge.apply)(Challenge.unapply)

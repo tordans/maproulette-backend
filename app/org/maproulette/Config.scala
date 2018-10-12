@@ -3,9 +3,9 @@
 package org.maproulette
 
 import javax.inject.{Inject, Singleton}
-
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.actions.Actions
+import org.maproulette.models.MapillaryServerInfo
 import play.api.Application
 import play.api.libs.oauth.ConsumerKey
 
@@ -88,6 +88,8 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val osmMatcherManualOnly : Boolean = this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_MANUAL).getOrElse(Config.DEFAULT_OSM_MATCHER_MANUAL)
 
+  lazy val proxyPort : Option[Int] = this.config.getOptional[Int](Config.KEY_PROXY_PORT)
+
   lazy val allowMatchOSM = changeSetEnabled || osmMatcherEnabled || osmMatcherManualOnly
 
   lazy val getOSMServer : String = this.config.getOptional[String](Config.KEY_OSM_SERVER).get
@@ -108,6 +110,14 @@ class Config @Inject() (implicit val application:Application) {
     this.config.getOptional[String](Config.KEY_OSM_QL_PROVIDER).get,
     Duration(this.config.getOptional[Int](Config.KEY_OSM_QL_TIMEOUT).getOrElse(Config.DEFAULT_OSM_QL_TIMEOUT), "s")
   )
+
+  lazy val getMapillaryServerInfo : MapillaryServerInfo = {
+    MapillaryServerInfo(
+      this.config.getOptional[String](Config.KEY_MAPILLARY_HOST).getOrElse(""),
+      this.config.getOptional[String](Config.KEY_MAPILLARY_CLIENT_ID).getOrElse(""),
+      this.config.getOptional[Double](Config.KEY_MAPILLARY_BORDER).getOrElse(Config.DEFAULT_MAPILLARY_BORDER)
+    )
+  }
 
   lazy val getSemanticVersion : String =
     this.config.getOptional[String](Config.KEY_SEMANTIC_VERSION).getOrElse("N/A")
@@ -154,6 +164,7 @@ class Config @Inject() (implicit val application:Application) {
 
 object Config {
   val GROUP_MAPROULETTE = "maproulette"
+  val KEY_PROXY_PORT = s"$GROUP_MAPROULETTE.proxy.port"
   val KEY_LOGO = s"$GROUP_MAPROULETTE.logo"
   val KEY_SUPER_KEY = s"$GROUP_MAPROULETTE.super.key"
   val KEY_SUPER_ACCOUNTS = s"$GROUP_MAPROULETTE.super.accounts"
@@ -189,6 +200,11 @@ object Config {
   val KEY_SCHEDULER_OSM_MATCHER_MANUAL = s"$SUB_GROUP_SCHEDULER.osmMatcher.manual"
   val KEY_SCHEDULER_CLEAN_DELETED = s"$SUB_GROUP_SCHEDULER.cleanDeleted.interval"
   val KEY_SCHEDULER_KEEPRIGHT = s"$SUB_GROUP_SCHEDULER.keepright.interval"
+
+  val SUB_GROUP_MAPILLARY = s"$GROUP_MAPROULETTE.mapillary"
+  val KEY_MAPILLARY_HOST = s"$SUB_GROUP_MAPILLARY.host"
+  val KEY_MAPILLARY_CLIENT_ID = s"$SUB_GROUP_MAPILLARY.clientId"
+  val KEY_MAPILLARY_BORDER = s"$SUB_GROUP_MAPILLARY.border"
 
   val GROUP_OSM = "osm"
   val KEY_OSM_SERVER = s"$GROUP_OSM.server"
@@ -235,4 +251,5 @@ object Config {
   val DEFAULT_OSM_MATCHER_ENABLED = false
   val DEFAULT_OSM_MATCHER_MANUAL = false
   val DEFAULT_MATCHER_BATCH_SIZE = 5000
+  val DEFAULT_MAPILLARY_BORDER = 10
 }

@@ -875,8 +875,42 @@ GET     /challenges/find                            @org.maproulette.controllers
 #   - name: page
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
 ###
-GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0)
+GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0, sort:String ?= "")
+###
+# tags: [ Challenge ]
+# summary: List challenges in specified projects
+# produces: [ application/json ]
+# description: Retrieves a lightweight listing of challenges, with just a few basic fields for each, that belong to the specified project(s).
+# responses:
+#   '200':
+#     description: A listing of challenges containing a few basic fields for each.
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.ChallengeListing'
+# parameters:
+#   - name: projectIds
+#     in: query
+#     description: Comma-separated list of project ids for which child challenges are desired. Default value is empty string, ie. all projects.
+#   - name: parentId
+#     in: query
+#     description: This field will be ignored for this request
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: onlyEnabled
+#     in: query
+#     description: Flag to set if only wanting enabled Challenges returned. Default value is true.
+###
+GET     /challenges/listing                         @org.maproulette.controllers.api.ChallengeController.listing(projectIds:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 ###
 # tags: [ Challenge ]
 # summary: Move Challenge to another Project
@@ -992,6 +1026,28 @@ DELETE  /challenge/:id/tags                         @org.maproulette.controllers
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenges/featured                        @org.maproulette.controllers.api.ChallengeController.getFeaturedChallenges(limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
+# summary: Hottest Challenges.
+# produces: [ application/json ]
+# description: Get the hottest (recently popular) challenges
+# responses:
+#   '200':
+#     description: A list of all the hottest Challenges in order of recent popularity
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Challenge'
+# parameters:
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /challenges/hot                             @org.maproulette.controllers.api.ChallengeController.getHotChallenges(limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Challenge ]
 # summary: List all the Challenges.
