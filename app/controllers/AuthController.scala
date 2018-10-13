@@ -190,7 +190,8 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     config.proxyPort match {
       case Some(port) =>
         val applicationPort = System.getProperty("http.port")
-        routes.Application.index().absoluteURL(true).replaceFirst(s":$applicationPort", s":$port")
+        routes.Application.index().absoluteURL(true)
+          .replaceFirst(s":$applicationPort", s":${if (port == 80) { "" } else { port }}")
       case None => routes.Application.index().absoluteURL(true)
     }
   }
