@@ -52,7 +52,7 @@ class AuthController @Inject() (messagesApi: MessagesApi,
             case Failure(e) => p failure e
           }
         case None =>
-          sessionManager.retrieveRequestToken(proxyRedirect + s"?redirect=${getRedirectURL(request, redirect)}") match {
+          sessionManager.retrieveRequestToken(proxyRedirect(routes.AuthController.authenticate()) + s"?redirect=${getRedirectURL(request, redirect)}") match {
             case Right(t) =>
               // We received the unauthorized tokens in the OAuth object - store it before we proceed
               p success Redirect(sessionManager.redirectUrl(t.token))
@@ -175,7 +175,7 @@ class AuthController @Inject() (messagesApi: MessagesApi,
   }
 
   def getRedirectURL(implicit request: Request[AnyContent], redirect: String): String = {
-    val redirectURL = proxyRedirect
+    val redirectURL = proxyRedirect(routes.Application.index())
     val referer = request.headers.get(REFERER)
     if (StringUtils.isEmpty(redirect) && referer.isDefined) {
       referer.get
@@ -186,13 +186,13 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     }
   }
 
-  private def proxyRedirect(implicit request: Request[AnyContent]): String = {
+  private def proxyRedirect(call:Call)(implicit request: Request[AnyContent]): String = {
     config.proxyPort match {
       case Some(port) =>
         val applicationPort = System.getProperty("http.port")
-        routes.Application.index().absoluteURL(config.isProxySSL)
+        call.absoluteURL(config.isProxySSL)
           .replaceFirst(s":$applicationPort", s"${if (port == 80) { "" } else { s":$port" }}")
-      case None => routes.Application.index().absoluteURL(config.isProxySSL)
+      case None => call.absoluteURL(config.isProxySSL)
     }
   }
 }
