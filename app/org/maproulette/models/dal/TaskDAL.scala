@@ -435,6 +435,8 @@ class TaskDAL @Inject()(override val db: Database,
     }
 
     this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status))) }
+    this.challengeDAL.get().updateFinishedStatus()(task.parent)
+
     updatedRows
   }
 

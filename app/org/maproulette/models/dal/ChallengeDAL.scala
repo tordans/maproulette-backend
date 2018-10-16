@@ -589,6 +589,28 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
   }
 
   /**
+    * Updates the challenge to a STATUS_FINISHED if there are no incomplete tasks left.
+    *
+    * @param id The id of the challenge
+    * @param completionTimestamp the unix timestamp of the task completion
+    */
+  def updateFinishedStatus()(implicit id:Long, c:Connection = null) : Option[Challenge] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+      this.withMRTransaction { implicit c =>
+        val updateStatusQuery =
+          s"""UPDATE challenges SET status = ${Challenge.STATUS_FINISHED}
+                      WHERE id = ${id} AND
+                      0 = (SELECT COUNT(*) AS total FROM tasks
+                                WHERE tasks.parent_id = ${id}
+                                AND status = ${Task.STATUS_CREATED})
+                      RETURNING ${this.retrieveColumns}"""
+
+        SQL(updateStatusQuery).as(this.parser.*).headOption
+      }
+    }
+  }
+
+  /**
     * Updates the last_task_refresh column of a challenge to indicate its task
     * data was just refreshed. If overwrite is false, last_task_refresh will
     * only be updated if it hasn't yet been set.
