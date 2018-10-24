@@ -592,20 +592,60 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * Updates the challenge to a STATUS_FINISHED if there are no incomplete tasks left.
     *
     * @param id The id of the challenge
+    */
+  def updateFinishedStatus()(implicit id:Long, c:Connection = null) : Unit = {
+    this.withMRConnection { implicit c =>
+      this.retrieveById(id) match {
+        case Some(challenge) =>
+          if (challenge.status.get != Challenge.STATUS_FINISHED) {
+            this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+              // If the challenge has no tasks in the created status it need to be marked finished.
+              val updateStatusQuery =
+                s"""UPDATE challenges SET status = ${Challenge.STATUS_FINISHED}
+                            WHERE id = ${id} AND status = ${Challenge.STATUS_READY} AND
+                            0 = (SELECT COUNT(*) AS total FROM tasks
+                                      WHERE tasks.parent_id = ${id}
+                                      AND status = ${Task.STATUS_CREATED})
+                            RETURNING ${this.retrieveColumns}"""
+
+              SQL(updateStatusQuery).as(this.parser.*).headOption
+            }
+            Option(challenge)
+          }
+        case None =>
+          throw new NotFoundException(s"No challenge found with id $id")
+      }
+    }
+  }
+
+  /**
+    * Updates the challenge to a STATUS_READY if there are incomplete tasks left.
+    *
+    * @param id The id of the challenge
     * @param completionTimestamp the unix timestamp of the task completion
     */
-  def updateFinishedStatus()(implicit id:Long, c:Connection = null) : Option[Challenge] = {
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
-      this.withMRTransaction { implicit c =>
-        val updateStatusQuery =
-          s"""UPDATE challenges SET status = ${Challenge.STATUS_FINISHED}
-                      WHERE id = ${id} AND
-                      0 = (SELECT COUNT(*) AS total FROM tasks
-                                WHERE tasks.parent_id = ${id}
-                                AND status = ${Task.STATUS_CREATED})
-                      RETURNING ${this.retrieveColumns}"""
+  def updateReadyStatus()(implicit id:Long, c:Connection = null) : Option[Challenge] = {
+    this.withMRConnection { implicit c =>
+      this.retrieveById(id) match {
+        case Some(challenge) =>
+          if (challenge.status.get != Challenge.STATUS_READY) {
+            this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+              // If the challenge was finished and any tasks were reset back to created
+              // we need to set the challenge status back to ready
+              val updateStatusQuery2 =
+                s"""UPDATE challenges SET status = ${Challenge.STATUS_READY}
+                            WHERE id = ${id} AND status = ${Challenge.STATUS_FINISHED} AND
+                            0 != (SELECT COUNT(*) AS total FROM tasks
+                                      WHERE tasks.parent_id = ${id}
+                                      AND status = ${Task.STATUS_CREATED})
+                            RETURNING ${this.retrieveColumns}"""
 
-        SQL(updateStatusQuery).as(this.parser.*).headOption
+              SQL(updateStatusQuery2).as(this.parser.*).headOption
+            }
+          }
+          Option(challenge)
+        case None =>
+          throw new NotFoundException(s"No challenge found with id $id")
       }
     }
   }
