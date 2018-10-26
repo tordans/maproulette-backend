@@ -10,6 +10,7 @@ import anorm.SqlParser._
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
+
 import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
@@ -144,6 +145,29 @@ class ProjectDAL @Inject() (override val db:Database,
               enabled = $enabled
               WHERE id = $id RETURNING *""".as(this.parser.*).headOption
       }
+    }
+  }
+
+  /**
+    * This find function will search the "name" and "display_name" fields for
+    * any references of the search string. So will be wrapped by %%, eg. LIKE %test%
+    *
+    * @param searchString The string to search for within the name field
+    * @param limit Limit the number of results to be returned
+    * @param offset For paging, ie. the page number starting at 0
+    * @return A list of tags that contain the supplied prefix
+    */
+  override def find(searchString:String, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
+            orderColumn:String="id", orderDirection:String="ASC")
+           (implicit parentId:Long = -1, c:Connection=null) : List[Project] = {
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+                      WHERE ${this.searchField("name")(None)} OR
+                      ${this.searchField("display_name")(None)} ${this.enabled(onlyEnabled)}
+                      ${this.parentFilter(parentId)}
+                      ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
+                      LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+      SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
     }
   }
 
