@@ -1216,6 +1216,17 @@ PUT     /challenge/:id/addTasks                     @org.maproulette.controllers
 #   - name: lineByLine
 #     in: query
 #     description: If the JSON provided includes seperate GeoJSON on each line, then this must be true
+#   - name: removeUnmatched
+#     in: query
+#     description: Used to remove incomplete tasks that have been addressed
+#                  externally since the last rebuild, assuming the source data
+#                  represents all tasks outstanding. If set to true, all
+#                  existing tasks in CREATED or SKIPPED status (only) will be
+#                  removed prior to rebuilding with the assumption that they
+#                  will be recreated if they still appear in the updated source
+#                  data. If set to false, unmatched existing tasks are simply
+#                  left as-is.
+#     default: false
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
@@ -1226,7 +1237,7 @@ PUT     /challenge/:id/addTasks                     @org.maproulette.controllers
 #     description: The geojson to build the tasks from.
 #     required: true
 ###
-PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true)
+PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true, removeUnmatched:Boolean ?= false)
 ###
 # tags: [ Challenge ]
 # summary: Retrieves children for Challenge
@@ -1303,8 +1314,19 @@ PUT     /challenge/:id/clone/:name                  @org.maproulette.controllers
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
+#   - name: removeUnmatched
+#     in: query
+#     description: Used to remove incomplete tasks that have been addressed
+#                  externally since the last rebuild, assuming the source data
+#                  represents all tasks outstanding. If set to true, all
+#                  existing tasks in CREATED or SKIPPED status (only) will be
+#                  removed prior to rebuilding with the assumption that they
+#                  will be recreated if they still appear in the updated source
+#                  data. If set to false, unmatched existing tasks are simply
+#                  left as-is.
+#     default: false
 ###
-PUT     /challenge/:id/rebuild                      @org.maproulette.controllers.api.ChallengeController.rebuildChallenge(id:Long)
+PUT     /challenge/:id/rebuild                      @org.maproulette.controllers.api.ChallengeController.rebuildChallenge(id:Long, removeUnmatched:Boolean ?= false)
 ###
 # tags: [ Challenge ]
 # summary: Retrieves random Task

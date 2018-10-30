@@ -606,14 +606,16 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Rebuilds a challenge if it uses a remote geojson or overpass query to generate it's tasks
     *
     * @param challengeId The id of the challenge
+    * @param removeUnmatched Whether to first remove incomplete tasks prior to processing
+    *                        updated source data
     * @return A 200 status OK
     */
-  def rebuildChallenge(challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def rebuildChallenge(challengeId:Long, removeUnmatched:Boolean) : Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(challengeId) match {
         case Some(c) =>
           permission.hasWriteAccess(ProjectType(), user)(c.general.parent)
-          challengeService.rebuildTasks(user, c)
+          challengeService.rebuildTasks(user, c, removeUnmatched)
           Ok
         case None => throw new NotFoundException(s"No challenge found with id $challengeId")
       }
@@ -638,7 +640,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
-  def addTasksToChallengeFromFile(challengeId:Long, lineByLine:Boolean) : Action[MultipartFormData[Files.TemporaryFile]] =
+  def addTasksToChallengeFromFile(challengeId:Long, lineByLine:Boolean, removeUnmatched:Boolean) : Action[MultipartFormData[Files.TemporaryFile]] =
     Action.async(parse.multipartFormData) { implicit request => {
       sessionManager.authenticatedRequest { implicit user =>
         dalManager.challenge.retrieveById(challengeId) match {
@@ -646,6 +648,10 @@ class ChallengeController @Inject()(override val childController: TaskController
             permission.hasObjectWriteAccess(c, user)
             request.body.file("json") match {
               case Some(f) if StringUtils.isNotEmpty(f.filename) =>
+                if (removeUnmatched) {
+                  dalManager.challenge.removeIncompleteTasks(user)(challengeId)
+                }
+
                 // todo this should probably be streamed instead of all pulled into memory
                 val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
                 if (lineByLine) {
