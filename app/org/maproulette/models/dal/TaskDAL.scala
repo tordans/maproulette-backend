@@ -194,13 +194,22 @@ class TaskDAL @Inject()(override val db: Database,
       val geometries = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
       val changesetId = (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
 
-      this.mergeUpdate(cachedItem.copy(name = name,
+      val task = this.mergeUpdate(cachedItem.copy(name = name,
         parent = parentId,
         instruction = Some(instruction),
         status = Some(status),
         geometries = geometries,
         priority = priority,
         changesetId = Some(changesetId)), user)
+
+      if (status == Task.STATUS_CREATED) {
+        this.challengeDAL.get().updateReadyStatus()(parentId)
+      }
+      else {
+        this.challengeDAL.get().updateFinishedStatus()(parentId)
+      }
+
+      task
     }
   }
 
@@ -435,6 +444,8 @@ class TaskDAL @Inject()(override val db: Database,
     }
 
     this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status))) }
+    this.challengeDAL.get().updateFinishedStatus()(task.parent)
+
     updatedRows
   }
 

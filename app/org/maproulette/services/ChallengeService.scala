@@ -59,7 +59,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
               if (failedLines.nonEmpty) {
                 this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED, "statusMessage" -> s"GeoJSON lines [${failedLines.mkString(",")}] failed to parse"), user)(challenge.id)
               } else {
-                this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+                this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
                 this.challengeDAL.markTasksRefreshed()(challenge.id)
               }
             } else {
@@ -140,7 +140,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           val splitJson = resp.body.split("\n")
           if (this.isLineByLineGeoJson(splitJson)) {
             splitJson.foreach(line => this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line)))
-            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
             this.challengeDAL.markTasksRefreshed()(challenge.id)
           } else {
             this.createTasksFromFeatures(user, challenge, Json.parse(resp.body))
@@ -152,13 +152,13 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         if (seqJSON) {
           this.buildTasksFromRemoteJson(filePrefix, fileNumber + 1, challenge, user)
         } else {
-          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
           this.challengeDAL.markTasksRefreshed()(challenge.id)
         }
       case Failure(f) =>
         if (fileNumber > 1) {
           // todo need to figure out if actual failure or if not finding the next file
-          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+          this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
         } else {
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "StatusMessage" -> f.getMessage), user)(challenge.id)
         }
@@ -196,7 +196,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         }
       }
 
-      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(parent.id)
+      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(parent.id)
       this.challengeDAL.markTasksRefreshed()(parent.id)
       if (single) {
         this.createNewTask(user, UUID.randomUUID().toString, parent, jsonData) match {
@@ -274,7 +274,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                   case true =>
                     this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED), user)(challenge.id)
                   case false =>
-                    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_COMPLETE), user)(challenge.id)
+                    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
                     this.challengeDAL.markTasksRefreshed(true)(challenge.id)
                 }
               }
