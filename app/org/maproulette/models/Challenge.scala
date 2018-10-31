@@ -260,6 +260,7 @@ object Challenge {
   val STATUS_NA = 0
   val STATUS_BUILDING = 1
   val STATUS_FAILED = 2
-  val STATUS_COMPLETE = 3
+  val STATUS_READY = 3
   val STATUS_PARTIALLY_LOADED = 4
+  val STATUS_FINISHED = 5
 }

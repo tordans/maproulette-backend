@@ -135,8 +135,8 @@
         getChallenge(itemId, function(data) {
             if (data.status == "@{Challenge.STATUS_BUILDING}") {
                 $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_BUILDING}")");
-            } else if (data.status == "@{Challenge.STATUS_COMPLETE}") {
-                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_COMPLETE}")");
+            } else if (data.status == "@{Challenge.STATUS_READY}") {
+                $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_READY}")");
             } else if (data.status == "@{Challenge.STATUS_FAILED}") {
                 $("#statusName_" + itemId).html("@messages(s"challenge.column.status.${Challenge.STATUS_FAILED}")");
             } else if (data.status == "@{Challenge.STATUS_PARTIALLY_LOADED}") {
