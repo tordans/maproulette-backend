@@ -549,6 +549,22 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       }
     }
   }
+  /**
+    * Removes challenge tasks in CREATED or SKIPPED statuses, intended to be used
+    * in preparation for rebuilding with fresh task data
+    *
+    * @param user The user executing the request
+    * @param id The id of the challenge
+    * @param c The connection for the request
+    */
+  def removeIncompleteTasks(user:User)(implicit id:Long, c:Connection=null) : Unit = {
+    this.permission.hasWriteAccess(ChallengeType(), user)
+    this.withMRConnection { implicit c =>
+      SQL"""DELETE from tasks WHERE parent_id = ${id} and status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED})""".execute()
+
+      this.taskDAL.clearCaches
+    }
+  }
 
   /**
     * Moves a challenge from one project to another. You are required to have admin access on both
