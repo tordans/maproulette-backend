@@ -88,8 +88,8 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
           val key = (feature \ "properties" \ "key").get.as[String]
           val latlon = (feature \ "geometry" \ "coordinates").as[List[JsNumber]]
           MapillaryImage(key,
-            latlon.head.as[Double],
             latlon.tail.head.as[Double],
+            latlon.head.as[Double],
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-320.jpg",
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-640.jpg",
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-1024.jpg",

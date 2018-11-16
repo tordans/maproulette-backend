@@ -30,13 +30,17 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                                   config:Config, ws:WSClient, db:Database) extends DefaultReads {
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def rebuildTasks(user:User, challenge:Challenge) : Boolean = this.buildTasks(user, challenge)
+  def rebuildTasks(user:User, challenge:Challenge, removeUnmatched:Boolean=false) : Boolean = this.buildTasks(user, challenge, None, removeUnmatched)
 
-  def buildTasks(user:User, challenge:Challenge, json:Option[String]=None) : Boolean = {
+  def buildTasks(user:User, challenge:Challenge, json:Option[String]=None, removeUnmatched:Boolean=false) : Boolean = {
     if (!challenge.creation.overpassQL.getOrElse("").isEmpty) {
       this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
       Future {
         Logger.debug("Creating tasks for overpass query: " + challenge.creation.overpassQL.get)
+        if (removeUnmatched) {
+          this.challengeDAL.removeIncompleteTasks(user)(challenge.id)
+        }
+
         this.buildOverpassQLTasks(challenge, user)
       }
       true
@@ -46,10 +50,15 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
           val splitJson = value.split("\n")
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
           Future {
+            if (removeUnmatched) {
+              this.challengeDAL.removeIncompleteTasks(user)(challenge.id)
+            }
+
             if (isLineByLineGeoJson(splitJson)) {
               val failedLines = splitJson.zipWithIndex.flatMap(line => {
                 try {
-                  this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line._1))
+                  val jsonData = Json.parse(line._1)
+                  this.createNewTask(user, taskNameFromJsValue(jsonData), challenge, jsonData)
                   None
                 } catch {
                   case e:Exception =>
@@ -73,7 +82,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         // lastly try remote
         challenge.creation.remoteGeoJson match {
           case Some(url) if StringUtils.isNotEmpty(url) =>
-            this.buildTasksFromRemoteJson(url, 1, challenge, user)
+            this.buildTasksFromRemoteJson(url, 1, challenge, user, removeUnmatched)
             true
           case _ => false
         }
@@ -129,8 +138,12 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     * @param challenge The challenge to build the tasks in
     * @param user The user creating the tasks
     */
-  def buildTasksFromRemoteJson(filePrefix:String, fileNumber:Int, challenge:Challenge, user:User) : Unit = {
+  def buildTasksFromRemoteJson(filePrefix:String, fileNumber:Int, challenge:Challenge, user:User, removeUnmatched:Boolean) : Unit = {
     this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(challenge.id)
+    if (removeUnmatched) {
+      this.challengeDAL.removeIncompleteTasks(user)(challenge.id)
+    }
+
     val url = filePrefix.replace("{x}", fileNumber.toString)
     val seqJSON = filePrefix.contains("{x}")
     this.ws.url(url).withRequestTimeout(this.config.getOSMQLProvider.requestTimeout).get() onComplete {
@@ -139,7 +152,11 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
         try {
           val splitJson = resp.body.split("\n")
           if (this.isLineByLineGeoJson(splitJson)) {
-            splitJson.foreach(line => this.createNewTask(user, UUID.randomUUID().toString, challenge, Json.parse(line)))
+            splitJson.foreach {
+              line =>
+                val jsonData = Json.parse(line)
+                this.createNewTask(user, taskNameFromJsValue(jsonData), challenge, jsonData)
+            }
             this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
             this.challengeDAL.markTasksRefreshed()(challenge.id)
           } else {
@@ -150,7 +167,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
             this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> e.getMessage), user)(challenge.id)
         }
         if (seqJSON) {
-          this.buildTasksFromRemoteJson(filePrefix, fileNumber + 1, challenge, user)
+          this.buildTasksFromRemoteJson(filePrefix, fileNumber + 1, challenge, user, false)
         } else {
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
           this.challengeDAL.markTasksRefreshed()(challenge.id)
@@ -166,6 +183,41 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   }
 
   /**
+   * Extracts an appropriate task name from the given JsValue, looking for any
+   * of multiple suitable id fields, or finally defaulting to a random UUID if
+   * no acceptable field is found
+   */
+  private def taskNameFromJsValue(value:JsValue): String = {
+    val featureList = (value \ "features").asOpt[List[JsValue]]
+    if (featureList != None) {
+      return taskNameFromJsValue(featureList.get.head) // Base name on first feature
+    }
+
+    val name = (value \ "id").asOpt[String] match {
+      case Some(n) => n
+      case None => (value \ "@id").asOpt[String] match {
+        case Some(na) => na
+        case None => (value \ "osmid").asOpt[String] match {
+          case Some(nb) => nb
+          case None => (value \ "name").asOpt[String] match {
+            case Some(nc) => nc
+            case None => (value \ "properties").asOpt[JsObject] match {
+              // See if we can find an id field on the feature properties
+              case Some(properties) => taskNameFromJsValue(properties)
+              case None =>
+                // if we still don't find anything, create a UUID for it. The
+                // caveat to this is that if you upload the same file again, it
+                // will create duplicate tasks
+                UUID.randomUUID().toString
+            }
+          }
+        }
+      }
+    }
+    name
+  }
+
+  /**
     * Creates task(s) from a geojson file
     *
     * @param user The user executing the request
@@ -178,19 +230,8 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     val featureList = (jsonData \ "features").as[List[JsValue]]
     try {
       val createdTasks = featureList.flatMap { value =>
-        val name = (value \ "id").asOpt[String] match {
-          case Some(n) => n
-          case None => (value \ "name").asOpt[String] match {
-            case Some(na) => na
-            case None =>
-              // if we still don't find anything, create a UUID for it.
-              // The caveat to this is that if you upload the same file again, it will create
-              // duplicate tasks
-              UUID.randomUUID().toString
-          }
-        }
         if (!single) {
-          this.createNewTask(user, name, parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
+          this.createNewTask(user, taskNameFromJsValue(value), parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
         } else {
           None
         }
@@ -199,7 +240,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(parent.id)
       this.challengeDAL.markTasksRefreshed()(parent.id)
       if (single) {
-        this.createNewTask(user, UUID.randomUUID().toString, parent, jsonData) match {
+        this.createNewTask(user, taskNameFromJsValue(jsonData), parent, jsonData) match {
           case Some(t) => List(t)
           case None => List.empty
         }
@@ -240,7 +281,7 @@ class ChallengeService @Inject() (challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
               this.db.withTransaction { implicit c =>
                 var partial = false
                 val payload = result.json
-                // parse the results
+                // parse the results. Overpass has its own format and is not geojson
                 val elements = (payload \ "elements").as[List[JsValue]]
                 elements.foreach {
                   element =>
