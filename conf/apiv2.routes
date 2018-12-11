@@ -333,8 +333,11 @@ GET     /projects                                   @org.maproulette.controllers
 #   - name: searchString
 #     in: query
 #     description: A simple search string that will filter out for a specific set of projects matching the search string.
+#   - name: sort
+#     in: query
+#     description: The column to sort by. Default column is "display_name"
 ###
-GET     /projects/managed                           @org.maproulette.controllers.api.ProjectController.listManagedProjects(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false, searchString:String ?= "")
+GET     /projects/managed                           @org.maproulette.controllers.api.ProjectController.listManagedProjects(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false, searchString:String ?= "", sort:String ?= "display_name")
 ###
 # tags: [ Project ]
 # summary: List all the projects challenges.
