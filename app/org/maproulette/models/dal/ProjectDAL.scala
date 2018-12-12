@@ -178,9 +178,9 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return A list of projects managed by the user
     */
   def listManagedProjects(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-                          searchString:String="")(implicit c:Connection=null) : List[Project] = {
+                          searchString:String="", sort:String="display_name")(implicit c:Connection=null) : List[Project] = {
     if (user.isSuperUser) {
-      this.list(limit, offset, onlyEnabled, searchString)
+      this.list(limit, offset, onlyEnabled, searchString, sort)
     } else {
       this.withMRConnection { implicit c =>
         if (user.groups.isEmpty) {
@@ -191,6 +191,7 @@ class ProjectDAL @Inject() (override val db:Database,
                 WHERE p.owner_id = {osmId} OR
                 (g.project_id = p.id AND g.id IN ({ids}))
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
+                ORDER BY ${sort}
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
           SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
             'osmId -> user.osmProfile.id,
