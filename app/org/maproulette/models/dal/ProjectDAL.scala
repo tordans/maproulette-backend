@@ -163,6 +163,7 @@ class ProjectDAL @Inject() (override val db:Database,
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE ${this.searchField("name")(None)} OR
+                      ${this.searchField("display_name")(None)} OR
                       ${this.fuzzySearch("display_name")(None)} ${this.enabled(onlyEnabled)}
                       ${this.parentFilter(parentId)}
                       ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
