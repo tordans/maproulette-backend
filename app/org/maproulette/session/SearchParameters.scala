@@ -28,6 +28,7 @@ case class SearchParameters(projectIds:Option[List[Long]]=None,
                             challengeSearch:Option[String]=None,
                             challengeEnabled:Option[Boolean]=None,
                             challengeDifficulty:Option[Int]=None,
+                            challengeStatus:Option[List[Int]]=None,
                             taskTags:Option[List[String]]=None,
                             taskTagConjunction:Option[Boolean]=None,
                             taskSearch:Option[String]=None,
@@ -136,6 +137,11 @@ object SearchParameters {
       this.getBooleanParameter(request.getQueryString("ce"), params.challengeEnabled),
       //challengeDifficulty
       this.getIntParameter(request.getQueryString("cd"), params.challengeDifficulty),
+      //challengeStatus
+      request.getQueryString("cStatus") match {
+        case Some(v) => Utils.toIntList(v)
+        case None => params.challengeStatus
+      },
       //taskTags
       request.getQueryString("tt") match {
         case Some(v) => Some(v.split(",").toList)

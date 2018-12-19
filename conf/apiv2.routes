@@ -881,8 +881,11 @@ GET     /challenges/find                            @org.maproulette.controllers
 #   - name: sort
 #     in: query
 #     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
+#   - name: order
+#     in: query
+#     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
 ###
-GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0, sort:String ?= "")
+GET     /challenges/extendedFind                    @org.maproulette.controllers.api.ChallengeController.extendedFind(limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
 ###
 # tags: [ Challenge ]
 # summary: List challenges in specified projects
