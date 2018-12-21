@@ -163,6 +163,28 @@ PUT     /projects                                   @org.maproulette.controllers
 GET     /project/:id                                @org.maproulette.controllers.api.ProjectController.read(id:Long)
 ###
 # tags: [ Project ]
+# summary: Retrieves already existing Projects based on a given list of ids
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Retrieves already existing projects based on the supplied IDs
+# responses:
+#   '200':
+#     description: A list of projects
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
+#   '404':
+#     description: No projects found matching the ids given
+# parameters:
+#   - name: projectIds
+#     in: query
+#     description: Comma-separated list of project ids for which projects are desired. 
+###
+GET     /projects                                @org.maproulette.controllers.api.ProjectController.fetch(projectIds:String)
+###
+# tags: [ Project ]
 # summary: Retrieves an already existing Project
 # consumes: [ application/json ]
 # produces: [ application/json ]
