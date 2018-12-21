@@ -67,6 +67,18 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   /**
     * Retrieves the list of projects managed
     *
+    * @param projectIds Comma separated list of project ids to fetch
+    * @return json list of managed projects
+    */
+  def fetch(projectIds:String) : Action[AnyContent] = Action.async { implicit response =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dal.fetch(Utils.toLongList(projectIds))))
+    }
+  }
+
+  /**
+    * Retrieves the list of projects managed
+    *
     * @param limit Limit of how many tasks should be returned
     * @param offset offset for pagination
     * @param onlyEnabled Only list the enabled projects
