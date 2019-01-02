@@ -324,7 +324,8 @@ trait BaseDAL[Key, T<:BaseObject[Key]] extends DALHelper with TransactionManager
         val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                         WHERE ${this.searchField("name")(None)}
                         ${this.enabled(onlyEnabled)} ${this.parentFilter(parentId)}
-                        ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
+                        ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true,
+                          ignoreCase=(orderColumn == "name" || orderColumn == "display_name"))}
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
         SQL(query).on('ss -> this.search(searchString),
           'offset -> ToParameterValue.apply[Int].apply(offset)

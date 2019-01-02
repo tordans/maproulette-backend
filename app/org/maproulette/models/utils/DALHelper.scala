@@ -139,7 +139,7 @@ trait DALHelper {
     * @return
     */
   def order(orderColumn:Option[String]=None, orderDirection:String="ASC", tablePrefix:String="",
-            nameFix:Boolean=false) : String = orderColumn match {
+            nameFix:Boolean=false, ignoreCase:Boolean=false) : String = orderColumn match {
     case Some(column) =>
       this.testColumnName(column)
       val direction = orderDirection match {
@@ -148,7 +148,16 @@ trait DALHelper {
       }
       // sanitize the column name to prevent sql injection. Only allow underscores and A-Za-z
       if (column.forall(this.ordinary.contains)) {
-        s"ORDER BY ${this.getPrefix(tablePrefix)}$column ${if (nameFix) {"," + this.getPrefix(tablePrefix) + "name";} else {"";}} $direction"
+        val casedColumn = new StringBuilder()
+        if (ignoreCase) {
+          casedColumn ++= "LOWER("
+        }
+        casedColumn ++= this.getPrefix(tablePrefix) + column
+
+        if (ignoreCase) {
+          casedColumn ++= ")"
+        }
+        s"ORDER BY $casedColumn ${if (nameFix) {"," + this.getPrefix(tablePrefix) + "name";} else {"";}} $direction"
       } else {
         ""
       }

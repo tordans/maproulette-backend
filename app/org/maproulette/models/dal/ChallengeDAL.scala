@@ -801,10 +801,12 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param limit limit for the number of returned results
     * @param offset The paging offset
     * @param sort An optional column to sort by.
+    * @param order Direction of ordering ASC or DESC.
     * @param c An optional connection, if included will use that connection otherwise will grab one from the pool
     * @return A list of challenges, empty list if not challenges found matching the given criteria
     */
-  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0, sort:String="")
+  def extendedFind(searchParameters: SearchParameters, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0,
+                   sort:String="", order:String="")
                   (implicit c:Connection=null) : List[Challenge] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
@@ -852,9 +854,21 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
         case _ =>
       }
 
+      searchParameters.challengeStatus match {
+        case Some(sl) if sl.nonEmpty =>
+          val statusClause = new StringBuilder(s"(c.status IN (${sl.mkString(",")})")
+          if (sl.contains(-1)) {
+            statusClause ++= " OR c.status IS NULL"
+          }
+          statusClause ++=")"
+          this.appendInWhereClause(whereClause, statusClause.toString())
+        case Some(sl) if sl.isEmpty => //ignore this scenario
+        case _ =>
+      }
+
       sort match {
         case s if s.nonEmpty =>
-          orderByClause = s"ORDER BY c.${s}"
+          orderByClause = this.order(Some(s), order, "c", false, s == "name")
         case _ => // ignore
       }
 
