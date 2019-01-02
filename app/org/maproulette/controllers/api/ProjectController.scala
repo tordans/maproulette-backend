@@ -65,6 +65,21 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   override def readByName(id: Long, name: String): Action[AnyContent] = super.readByName(-1, name)
 
   /**
+    * Does a basic search on the name of an object
+    *
+    * @param search The search string that we are looking for
+    * @param limit limit the number of returned items
+    * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
+    * @param onlyEnabled only enabled objects if true
+    * @return A list of the requested items in JSON format
+    */
+  override def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "display_name", "DESC")(parentId).map(this.inject)))
+    }
+  }
+
+  /**
     * Retrieves the list of projects managed
     *
     * @param limit Limit of how many tasks should be returned
