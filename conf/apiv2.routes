@@ -1579,7 +1579,7 @@ GET     /challenge/:id/comments                     @org.maproulette.controllers
 # description: This will retrieve all the comments for all the children tasks of a given challenge and respond with a csv
 # response:
 #   '200':
-#     description: A CSV file containing the following data "ChallengeID,TaskID,OSM_UserID,OSM_Username,Comments"
+#     description: A CSV file containing the following data "ProjectID,ChallengeID,TaskID,OSM_UserID,OSM_Username,Comments,TaskLink"
 #   '404':
 #     description: No Challenge with provided ID found
 # parameters:

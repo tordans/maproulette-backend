@@ -11,6 +11,7 @@ import org.maproulette.permissions.Permission
 import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
+import org.maproulette.Config
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -32,9 +33,10 @@ class SurveyController @Inject() (override val childController:TaskController,
                                   challengeService: ChallengeService,
                                   wsClient: WSClient,
                                   permission:Permission,
+                                  config:Config,
                                   components: ControllerComponents,
                                   override val bodyParsers:PlayBodyParsers)
-  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService, wsClient, permission, components, bodyParsers) {
+  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeService, wsClient, permission, config, components, bodyParsers) {
 
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()
