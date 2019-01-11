@@ -149,6 +149,20 @@ class ProjectDAL @Inject() (override val db:Database,
   }
 
   /**
+    * This fetch function will retreive a list of projects with the given projectIds
+    *
+    * @param projectIds The projectIds to fetch
+    * @return A list of tags that contain the supplied prefix
+    */
+  def fetch(projectList:Option[List[Long]]=None): List[Project] = {
+    this.withMRConnection { implicit c =>
+      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+                      WHERE TRUE ${this.getLongListFilter(projectList, "id")}"""
+      SQL(query).as(this.parser.*)
+    }
+  }
+
+  /**
     * This find function will search the "name" and "display_name" fields for
     * any references of the search string. So will be wrapped by %%, eg. LIKE %test%
     *
@@ -163,6 +177,7 @@ class ProjectDAL @Inject() (override val db:Database,
     this.withMRConnection { implicit c =>
       val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE ${this.searchField("name")(None)} OR
+                      ${this.searchField("display_name")(None)} OR
                       ${this.fuzzySearch("display_name")(None)} ${this.enabled(onlyEnabled)}
                       ${this.parentFilter(parentId)}
                       ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
@@ -178,19 +193,22 @@ class ProjectDAL @Inject() (override val db:Database,
     * @return A list of projects managed by the user
     */
   def listManagedProjects(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-                          searchString:String="")(implicit c:Connection=null) : List[Project] = {
+                          searchString:String="", sort:String="display_name")(implicit c:Connection=null) : List[Project] = {
     if (user.isSuperUser) {
-      this.list(limit, offset, onlyEnabled, searchString)
+      this.list(limit, offset, onlyEnabled, searchString, sort)
     } else {
       this.withMRConnection { implicit c =>
         if (user.groups.isEmpty) {
           List.empty
         } else {
           val query =
-            s"""SELECT distinct p.* FROM projects p, groups g
+            s"""SELECT distinct p.*, LOWER(p.name), LOWER(p.display_name)
+                FROM projects p, groups g
                 WHERE p.owner_id = {osmId} OR
                 (g.project_id = p.id AND g.id IN ({ids}))
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
+                ${this.order(orderColumn=Some(sort), orderDirection="ASC",
+                             nameFix=true, ignoreCase=(sort == "name" || sort == "display_name"))}
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
           SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
             'osmId -> user.osmProfile.id,

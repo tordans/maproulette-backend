@@ -126,6 +126,9 @@ class Config @Inject() (implicit val application:Application) {
 
   lazy val sessionTimeout : Long = this.config.getOptional[Long](Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
 
+  lazy val getPublicOrigin : Option[String] =
+    this.config.getOptional[String](Config.KEY_PUBLIC_ORIGIN)
+
   lazy val taskReset : Int = this.config.getOptional[Int](Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
 
   lazy val signIn : Boolean = this.config.getOptional[Boolean](Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
@@ -181,6 +184,7 @@ object Config {
   val KEY_MAX_SAVED_CHALLENGES = s"$GROUP_MAPROULETTE.limits.saved"
   val KEY_SEMANTIC_VERSION = s"$GROUP_MAPROULETTE.version"
   val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
+  val KEY_PUBLIC_ORIGIN = s"$GROUP_MAPROULETTE.publicOrigin"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
   val KEY_SIGNIN = s"$GROUP_MAPROULETTE.signin"
   val KEY_TASK_SCORE_FIXED = s"$GROUP_MAPROULETTE.task.score.fixed"

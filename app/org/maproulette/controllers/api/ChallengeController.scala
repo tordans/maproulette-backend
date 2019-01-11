@@ -19,6 +19,7 @@ import org.maproulette.permissions.Permission
 import org.maproulette.services.ChallengeService
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
+import org.maproulette.Config
 import play.api.http.HttpEntity
 import play.api.libs.Files
 import play.api.libs.json._
@@ -47,6 +48,7 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     challengeService: ChallengeService,
                                     wsClient:WSClient,
                                     permission:Permission,
+                                    config:Config,
                                     components: ControllerComponents,
                                     override val bodyParsers:PlayBodyParsers)
   extends AbstractController(components) with ParentController[Challenge, Task] with TagsMixin[Challenge] {
@@ -371,15 +373,22 @@ class ChallengeController @Inject()(override val childController: TaskController
   def extractComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Result(
-        header = ResponseHeader(OK, Map.empty),
-        body = HttpEntity.Strict(ByteString(_extractComments(challengeId, limit, page, request.host).mkString("\n")), Some("text/csv"))
+        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_comments.csv")),
+        body = HttpEntity.Strict(
+          ByteString(
+            "ProjectID,ChallengeID,TaskID,OSM_UserID,OSM_Username,Comment,TaskLink\n"
+          ).concat(ByteString(_extractComments(challengeId, limit, page, request.host).mkString("\n"))),
+          Some("text/csv; header=present"))
       )
     }
   }
 
   private def _extractComments(challengeId:Long, limit:Int, page:Int, host:String) : Seq[String] = {
     val comments = this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)
-    val urlPrefix = s"http://$host/"
+    val urlPrefix = config.getPublicOrigin match {
+      case Some(origin) => s"${origin}/"
+      case None => s"http://$host/"
+    }
     comments.map(comment =>
       s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}"""
     )
@@ -396,8 +405,12 @@ class ChallengeController @Inject()(override val childController: TaskController
   def extractTaskSummaries(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Result(
-        header = ResponseHeader(OK, Map.empty),
-        body = HttpEntity.Strict(ByteString(_extractTaskSummaries(challengeId, limit, page).mkString("\n")), Some("text/csv"))
+        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
+        body = HttpEntity.Strict(
+          ByteString(
+            "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,OSM_Username\n"
+          ).concat(ByteString(_extractTaskSummaries(challengeId, limit, page).mkString("\n"))),
+          Some("text/csv; header=present"))
       )
     }
   }
@@ -416,10 +429,10 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param page paging mechanism for limited results
     * @return A list of challenges matching the query string parameters
     */
-  def extendedFind(limit:Int, page:Int, sort:String) : Action[AnyContent] = Action.async { implicit request =>
+  def extendedFind(limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val challenges = this.dal.extendedFind(params, limit, page, sort)
+        val challenges = this.dal.extendedFind(params, limit, page, sort, order)
         if (challenges.isEmpty) {
           Ok(Json.toJson(List[JsValue]()))
         } else {

@@ -65,17 +65,45 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   override def readByName(id: Long, name: String): Action[AnyContent] = super.readByName(-1, name)
 
   /**
+    * Does a basic search on the name of an object
+    *
+    * @param search The search string that we are looking for
+    * @param limit limit the number of returned items
+    * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
+    * @param onlyEnabled only enabled objects if true
+    * @return A list of the requested items in JSON format
+    */
+  override def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "display_name", "DESC")(parentId).map(this.inject)))
+    }
+  }
+
+  /**
+    * Retrieves the list of projects managed
+    *
+    * @param projectIds Comma separated list of project ids to fetch
+    * @return json list of managed projects
+    */
+  def fetch(projectIds:String) : Action[AnyContent] = Action.async { implicit response =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dal.fetch(Utils.toLongList(projectIds))))
+    }
+  }
+
+  /**
     * Retrieves the list of projects managed
     *
     * @param limit Limit of how many tasks should be returned
     * @param offset offset for pagination
     * @param onlyEnabled Only list the enabled projects
     * @param searchString basic search string to find specific projects
+    * @param sort An optional column to sort by.
     * @return json list of managed projects
     */
-  def listManagedProjects(limit:Int, offset:Int, onlyEnabled:Boolean, searchString:String) : Action[AnyContent] = Action.async { implicit response =>
+  def listManagedProjects(limit:Int, offset:Int, onlyEnabled:Boolean, searchString:String, sort:String="display_name") : Action[AnyContent] = Action.async { implicit response =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, searchString)))
+      Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, searchString, sort)))
     }
   }
 
