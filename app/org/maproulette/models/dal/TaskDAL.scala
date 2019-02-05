@@ -19,6 +19,7 @@ import org.maproulette.models._
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
 import org.maproulette.session.dal.UserDAL
+import org.maproulette.session.Group
 import org.maproulette.session.{SearchParameters, User}
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
@@ -70,9 +71,14 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") ~
+      get[Option[Int]]("tasks.review_status") ~
+      get[Option[Int]]("tasks.review_requested_by") ~
+      get[Option[Int]]("tasks.reviewed_by") ~
+      get[Option[Int]]("tasks.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") map {
-      case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ priority ~ changesetId =>
+      case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
+           reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewClaimedBy ~ priority ~ changesetId =>
         val suggestedFixGeometry = this.getSuggestedFix(id)
         val optionsFix = if (StringUtils.isEmpty(suggestedFixGeometry)) {
           None
@@ -80,7 +86,8 @@ class TaskDAL @Inject()(override val db: Database,
           Some(suggestedFixGeometry)
         }
         Task(id, name, created, modified, parent_id, instruction, location,
-          this.getTaskGeometries(id), optionsFix, status, priority, changesetId)
+          this.getTaskGeometries(id), optionsFix, status, reviewStatus,
+          reviewRequestedBy, reviewedBy, reviewClaimedBy, priority, changesetId)
     }
   }
 
@@ -417,19 +424,31 @@ class TaskDAL @Inject()(override val db: Database,
     * @param task   The task to set the status for
     * @param status The status to set
     * @param user   The user setting the status
+    * @param requestReview Optional boolean to request a review on this task.
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(task: Task, status: Int, user: User)(implicit c: Option[Connection] = None): Int = {
+  def setTaskStatus(task: Task, status: Int, user: User, requestReview: Option[Boolean]=None)(implicit c:Connection=null): Int = {
     if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
       throw new IllegalAccessException("Guest users cannot make edits to tasks.")
     }
 
+    val reviewNeeded = requestReview match {
+        case Some(r) => r
+        case None => user.settings.needsReview.getOrElse(false)
+      }
+
     val oldStatus = task.status
     val updatedRows = this.withMRTransaction { implicit c =>
+      var reviewStatusUpdate = ""
+      if (reviewNeeded) {
+        reviewStatusUpdate = ", review_status = " + Task.REVIEW_STATUS_REQUESTED +
+                             ", review_requested_by = " + user.id
+      }
+
       val updatedRows =
-        SQL"""UPDATE tasks t SET status = $status WHERE t.id = (
+        SQL"""UPDATE tasks t SET status = $status #$reviewStatusUpdate WHERE t.id = (
                                 SELECT t2.id FROM tasks t2
                                 LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
                                 WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
@@ -459,19 +478,107 @@ class TaskDAL @Inject()(override val db: Database,
         this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
       }
 
+      // Let's note in the task_review_history table that this task needs review
+      if (reviewNeeded) {
+        SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
+              VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
+      }
+
       updatedRows
     }
-
-    this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status))) }
+    if (user.settings.needsReview.get) {
+      this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status),
+                                                 reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED))) }
+    }
+    else {
+      this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status))) }
+    }
     this.challengeDAL.get().updateFinishedStatus()(task.parent)
 
     // let's give the user credit for doing this task.
-    if (oldStatus.get != status) {
+    if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
       this.userDAL.get().updateUserScore(status, user)
     }
 
     updatedRows
   }
+
+  /**
+    * Sets the review status for a task. The user cannot set the status of a task unless the object has
+    * been locked by the same user before hand.
+    * Will throw an InvalidException if the task review status cannot be set due to the current review status
+    * Will throw an IllegalAccessException if the user is a not a reviewer, or if the task is locked by
+    * a different user.
+    *
+    * @param task   The task to set the status for
+    * @param reviewStatus The review status to set
+    * @param user   The user setting the status
+    * @return The number of rows updated, should only ever be 1
+    */
+  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User)(implicit c:Connection=null): Int = {
+    if (!user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
+      throw new IllegalAccessException("User must be a reviewer to edit task review status.")
+    }
+
+    val now = Instant.now()
+    val updatedRows = this.withMRTransaction { implicit c =>
+      var reviewStatusUpdate = ""
+      var fetchBy = "reviewed_by"
+
+      // If we are changing the status back to "needsReview" then this task
+      // has been fixed by the mapper and the mapper is requesting review again
+      if (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
+          reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
+        fetchBy = "review_requested_by"
+      }
+
+      val updatedRows =
+        SQL"""UPDATE tasks t SET review_status = $reviewStatus,
+                                 #${fetchBy} = ${user.id},
+                                 reviewed_at = ${now},
+                                 review_claimed_at = NULL,
+                                 review_claimed_by = NULL
+                             WHERE t.id = (
+                                SELECT t2.id FROM tasks t2
+                                LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
+                                WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
+                              )""".executeUpdate()
+      // if returning 0, then this is because the item is locked by a different user
+      if (updatedRows == 0) {
+        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update review status at this time.")
+      }
+
+      // if you set the status successfully on a task you will lose the lock of that task
+      try {
+        this.unlockItem(user, task)
+      } catch {
+        case e: Exception => logger.warn(e.getMessage)
+      }
+
+      if (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
+          reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
+        // Let's note in the task_review_history table that this task needs review again
+        SQL"""INSERT INTO task_review_history
+                          (task_id, requested_by, reviewed_by, review_status, reviewed_at)
+              VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
+                      ${reviewStatus}, ${now})""".executeUpdate()
+      }
+      else {
+        // Let's note in the task_review_history table that this task was reviewed
+        SQL"""INSERT INTO task_review_history
+                          (task_id, requested_by, reviewed_by, review_status, reviewed_at)
+              VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
+                      ${reviewStatus}, ${now})""".executeUpdate()
+      }
+
+      this.cacheManager.withOptionCaching { () => Some(task.copy(reviewStatus = Some(reviewStatus))) }
+
+      updatedRows
+    }
+
+    updatedRows
+  }
+
 
   /**
     * Tries to match a specific changeset in OSM to the task in MapRoulette
@@ -930,6 +1037,210 @@ class TaskDAL @Inject()(override val db: Database,
     parameters ++= this.addSearchToQuery(params, whereClause)(projectSearch)
     parameters ++= this.addChallengeTagMatchingToQuery(params, whereClause, joinClause)
     parameters
+  }
+
+  /**
+    * Gets and claims a task for review.
+    *
+    * @param user The user executing the request
+    * @param id id of task that you wish to start/claim
+    * @return task
+    */
+  def startTaskReview(user:User, task:Task) (implicit c:Connection=null) : Option[Task] = {
+    if (task.reviewClaimedBy.getOrElse(null) != null &&
+        task.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+      throw new InvalidException("This task is already being reviewed by someone else.")
+    }
+
+    this.withMRTransaction { implicit c =>
+      // Unclaim everything before starting a new task.
+      SQL"""UPDATE tasks t SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE review_claimed_by = #${user.id}""".executeUpdate()
+
+      val updatedRows =
+        SQL"""UPDATE tasks t SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
+                WHERE t.id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
+
+      // if returning 0, then this is because the item is locked by a different user
+      if (updatedRows == 0) {
+        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot start review at this time.")
+      }
+
+      try {
+        this.unlockItem(user, task)
+      } catch {
+        case e: Exception => logger.warn(e.getMessage)
+      }
+    }
+
+    val updatedTask = task.copy(reviewClaimedBy = Option(user.id.toInt))
+    this.cacheManager.withOptionCaching { () => Some(updatedTask) }
+    Option(updatedTask)
+  }
+
+  /**
+    * Releases a claim on a task for review.
+    *
+    * @param user The user executing the request
+    * @param id id of task that you wish to release
+    * @return task
+    */
+  def cancelTaskReview(user:User, task:Task) (implicit c:Connection=null) : Option[Task] = {
+    if (task.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+      throw new InvalidException("This task is not currently being reviewed by you.")
+    }
+
+    this.withMRTransaction { implicit c =>
+      val updatedRows = SQL"""UPDATE tasks t SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE t.id = #${task.id}""".executeUpdate()
+
+      // if returning 0, then this is because the item is locked by a different user
+      if (updatedRows == 0) {
+        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot cancel review at this time.")
+      }
+
+      try {
+        this.unlockItem(user, task)
+      } catch {
+        case e: Exception => logger.warn(e.getMessage)
+      }
+    }
+
+    val updatedTask = task.copy(reviewClaimedBy = None)
+    this.cacheManager.withOptionCaching { () => Some(updatedTask) }
+    Option(updatedTask)
+  }
+
+  /**
+    * Gets a list of tasks that have requested review (and are in this user's project group)
+    *
+    * @param user The user executing the request
+    * @param limit The number of tasks to return
+    * @return A list of tasks
+    */
+  def getReviewRequestedTasks(user:User, searchParameters: SearchParameters,
+                              limit:Int = -1, offset:Int=0, sort:String, order:String)
+                    (implicit c:Connection=null) : List[Task] = {
+    this.cacheManager.withIDListCaching { implicit cachedItems =>
+      this.withListLocking(user, Some(TaskType())) { () =>
+        this.withMRTransaction { implicit c =>
+          var orderByClause = ""
+          val whereClause = new StringBuilder(s"review_status=${Task.REVIEW_STATUS_REQUESTED} ")
+          val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+
+          val parameters = new ListBuffer[NamedParameter]()
+          parameters ++= addSearchToQuery(searchParameters, whereClause)
+
+          sort match {
+            case s if s.nonEmpty =>
+              orderByClause = this.order(Some(s), order, "tasks", false)
+            case _ => // ignore
+          }
+
+          searchParameters.owner match {
+            case Some(o) if o.nonEmpty =>
+              joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
+              this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%' ")
+            case _ => // ignore
+          }
+
+          val query = user.isSuperUser match {
+            case true =>
+              s"""
+                SELECT tasks.${this.retrieveColumns} FROM tasks
+                ${joinClause}
+                WHERE
+                (review_claimed_at IS NULL OR review_claimed_by = ${user.id}) AND
+                ${whereClause}
+                ${orderByClause}
+                LIMIT ${sqlLimit(limit)} OFFSET ${offset}
+               """
+            case default =>
+              if (user.settings.isReviewer.getOrElse(false)) {
+                s"""
+                  SELECT tasks.${this.retrieveColumns} FROM tasks
+                  ${joinClause}
+                  INNER JOIN groups g ON g.project_id = c.parent_id
+                  INNER JOIN user_groups ug ON g.id = ug.group_id
+                  WHERE g.group_type != ${Group.TYPE_WRITE_ACCESS} AND
+                        ug.osm_user_id = ${user.osmProfile.id} AND
+                        (review_claimed_at IS NULL OR review_claimed_by = ${user.id}) AND
+                  ${whereClause}
+                  ${orderByClause}
+                  LIMIT ${sqlLimit(limit)} OFFSET ${offset}
+                 """
+               }
+               else {
+                 return List[Task]()
+               }
+          }
+
+          return sqlWithParameters(query, parameters).as(this.parser.*)
+        }
+      }
+    }
+  }
+
+  /**
+    * Gets a list of tasks that have been reviewed (either by this user or requested by this user)
+    *
+    * @param user The user executing the request
+    * @param asReviewer Whether we should return tasks reviewed by this user or reqested by this user
+    * @param limit The amount of tasks to be returned
+    * @return A list of tasks
+    */
+  def getReviewedTasks(user:User, searchParameters: SearchParameters,
+                       asReviewer:Boolean=false, limit:Int = -1, offset:Int=0,
+                       sort:String, order:String) (implicit c:Connection=null) : List[Task] = {
+    this.cacheManager.withIDListCaching { implicit cachedItems =>
+      this.withListLocking(user, Some(TaskType())) { () =>
+        this.withMRTransaction { implicit c =>
+          val fetchBy = if (asReviewer) "reviewed_by" else "review_requested_by"
+          var orderByClause = ""
+          val whereClause = new StringBuilder(s"review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+          val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+
+          val parameters = new ListBuffer[NamedParameter]()
+          parameters ++= addSearchToQuery(searchParameters, whereClause)
+
+          sort match {
+            case s if s.nonEmpty =>
+              orderByClause = this.order(Some(s), order, "tasks", false)
+            case _ => // ignore
+          }
+
+          searchParameters.owner match {
+            case Some(o) if o.nonEmpty =>
+              joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
+              this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%'")
+            case _ => // ignore
+          }
+
+          searchParameters.reviewer match {
+            case Some(r) if r.nonEmpty =>
+              joinClause ++= "INNER JOIN users u2 ON u2.id = tasks.reviewed_by "
+              this.appendInWhereClause(whereClause, s"u2.name LIKE '%${r}%'")
+            case _ => // ignore
+          }
+
+          sort match {
+            case s if s.nonEmpty =>
+              orderByClause = this.order(Some(s), order, "tasks", false)
+            case _ => // ignore
+          }
+
+          val query = s"""
+            SELECT tasks.${this.retrieveColumns} FROM tasks
+            ${joinClause}
+            WHERE ${fetchBy}=${user.id} AND
+            ${whereClause}
+            ${orderByClause}
+            LIMIT ${sqlLimit(limit)} OFFSET $offset
+           """
+          return sqlWithParameters(query, parameters).as(this.parser.*)
+        }
+      }
+    }
   }
 
   /**

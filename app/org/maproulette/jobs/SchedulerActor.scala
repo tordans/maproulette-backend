@@ -50,6 +50,7 @@ class SchedulerActor @Inject()(config: Config,
     case RunJob("rebuildChallengesLeaderboard", action) => this.rebuildChallengesLeaderboard(action)
     case RunJob("rebuildCountryLeaderboard", action) => this.rebuildCountryLeaderboard(action)
     case RunJob("cleanLocks", action) => this.cleanLocks(action)
+    case RunJob("cleanClaimLocks", action) => this.cleanClaimLocks(action)
     case RunJob("runChallengeSchedules", action) => this.runChallengeSchedules(action)
     case RunJob("updateLocations", action) => this.updateLocations(action)
     case RunJob("cleanOldTasks", action) => this.cleanOldTasks(action)
@@ -72,6 +73,19 @@ class SchedulerActor @Inject()(config: Config,
     this.db.withTransaction { implicit c =>
       val locksDeleted = SQL"""DELETE FROM locked WHERE AGE(NOW(), locked_time) > '1 hour'""".executeUpdate()
       logger.info(s"$locksDeleted were found and deleted.")
+    }
+  }
+
+  /**
+    * This job will remove all stale (older than 1 day) review claim locks from the system
+    */
+  def cleanClaimLocks(action:String) : Unit = {
+    logger.info(action)
+    this.db.withTransaction { implicit c =>
+      val claimsRemoved = SQL"""UPDATE tasks
+                                SET review_claimed_by = NULL, review_claimed_at = NULL
+                                WHERE AGE(NOW(), review_claimed_at) > '12 hours'""".executeUpdate()
+      logger.info(s"$claimsRemoved stale review claims were found and deleted.")
     }
   }
 

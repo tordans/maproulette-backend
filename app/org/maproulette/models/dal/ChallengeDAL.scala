@@ -372,9 +372,17 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           get[String]("geometry") ~
           get[Option[String]]("suggestedFix") ~
           get[Option[Int]]("tasks.status") ~
+          get[Option[Int]]("tasks.review_status") ~
+          get[Option[Int]]("tasks.review_requested_by") ~
+          get[Option[Int]]("tasks.reviewed_by") ~
+          get[Option[Int]]("tasks.review_claimed_by") ~
           get[Int]("tasks.priority") map {
-          case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ geometry ~ suggestedFix ~ status ~ priority =>
-            Task(id, name, created, modified, parent_id, instruction, location, geometry, suggestedFix, status, priority)
+          case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
+               geometry ~ suggestedFix ~ status ~ reviewStatus ~ reviewRequestedBy ~
+               reviewedBy ~ reviewClaimedBy ~ priority =>
+            Task(id, name, created, modified, parent_id, instruction, location,
+                 geometry, suggestedFix, status, reviewStatus, reviewRequestedBy,
+                 reviewedBy, reviewClaimedBy, priority)
         }
       }
 
