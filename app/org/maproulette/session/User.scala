@@ -91,6 +91,8 @@ case class ProjectManager(projectId: Long,
   * @param locale            The locale for the user, if not set will default to en
   * @param emailOptIn        If the user has opted in to receive emails
   * @param leaderboardOptOut If the user has opted out of the public leaderboard
+  * @param needsReview       If the user's work should be reviewed
+  * @param isReviewer        If this user can review others work
   * @param theme             The theme to display in MapRoulette. Optionally - 0=skin-black, 1=skin-black-light,
   *                          2=skin-blue, 3=skin-blue-light, 4=skin-green, 5=skin-green-light,
   *                          6=skin-purple, 7=skin-purple-light, 8=skin-red, 9=skin-red-light, 10=skin-yellow, 11=skin-yellow-light
@@ -102,6 +104,8 @@ case class UserSettings(defaultEditor: Option[Int] = None,
                         locale: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
                         leaderboardOptOut: Option[Boolean] = None,
+                        needsReview: Option[Boolean] = None,
+                        isReviewer: Option[Boolean] = None,
                         theme: Option[Int] = None) {
   def getTheme: String = theme match {
     case Some(t) => t match {
@@ -229,6 +233,8 @@ object User {
       "locale" -> optional(text),
       "emailOptIn" -> optional(boolean),
       "leaderboardOptOut" -> optional(boolean),
+      "needsReview" -> optional(boolean),
+      "isReviewer" -> optional(boolean),
       "theme" -> optional(number)
     )(UserSettings.apply)(UserSettings.unapply)
   )

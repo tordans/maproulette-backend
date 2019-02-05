@@ -40,9 +40,13 @@ case class Task(override val id: Long,
                 geometries: String,
                 suggestedFix: Option[String] = None,
                 status: Option[Int] = None,
-                priority: Int = Challenge.PRIORITY_HIGH,
+                reviewStatus: Option[Int] = None,
+                reviewRequestedBy: Option[Int] = None,
+                reviewedBy: Option[Int] = None,
+                reviewClaimedBy: Option[Int] = None,
+                priority: Int=Challenge.PRIORITY_HIGH,
                 changesetId: Option[Long] = None,
-                mapillaryImages: Option[List[MapillaryImage]] = None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
+                mapillaryImages: Option[List[MapillaryImage]]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
   /**
@@ -142,6 +146,21 @@ object Task {
     STATUS_VALIDATED -> STATUS_VALIDATED_NAME
   )
 
+  val REVIEW_STATUS_REQUESTED = 0
+  val REVIEW_STATUS_REQUESTED_NAME = "Requested"
+  val REVIEW_STATUS_APPROVED = 1
+  val REVIEW_STATUS_APPROVED_NAME = "Approved"
+  val REVIEW_STATUS_REJECTED = 2
+  val REVIEW_STATUS_REJECTED_NAME = "Rejected"
+  val REVIEW_STATUS_ASSISTED = 3
+  val REVIEW_STATUS_ASSISTED_NAME = "Assisted"
+  val reviewStatusMap = Map(
+    REVIEW_STATUS_REQUESTED -> REVIEW_STATUS_REQUESTED_NAME,
+    REVIEW_STATUS_APPROVED -> REVIEW_STATUS_APPROVED_NAME,
+    REVIEW_STATUS_REJECTED -> REVIEW_STATUS_REJECTED_NAME,
+    REVIEW_STATUS_ASSISTED -> REVIEW_STATUS_ASSISTED_NAME
+  )
+
   /**
     * Based on the status id, will return a boolean stating whether it is a valid id or not
     *
@@ -199,6 +218,34 @@ object Task {
     case Some(a) => Some(a._1)
     case None => None
   }
+
+  /**
+    * Based on the review status id, will return a boolean stating whether it is a valid id or not
+    *
+    * @param reviewStatus The id to check for validity
+    * @return true if review status id is valid
+    */
+  def isValidReviewStatus(reviewStatus:Int) : Boolean = reviewStatusMap.contains(reviewStatus)
+
+  /**
+    * Gets the string name of the review status based on a status id
+    *
+    * @param reivewStatus The review status id
+    * @return None if review status id is invalid, otherwise the name of the status
+    */
+  def getReviewStatusName(reviewStatus:Int) : Option[String] = reviewStatusMap.get(reviewStatus)
+
+  /**
+    * Gets the review status id based on the review status name
+    *
+    * @param reviewStatus The review status name
+    * @return None if review status name is invalid, otherwise the id of the review status
+    */
+  def getReviewStatusID(reviewStatus:String) : Option[Int] =
+    reviewStatusMap.find(_._2.equalsIgnoreCase(reviewStatus)) match {
+      case Some(a) => Some(a._1)
+      case None => None
+    }
 
   def emptyTask(parentId: Long): Task = Task(-1, "", DateTime.now(), DateTime.now(), parentId, Some(""), None, "")
 }
