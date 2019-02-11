@@ -817,40 +817,50 @@ class UserDAL @Inject() (override val db:Database,
     * @param user The user who should get the credit
     */
   def updateUserScore(taskStatus:Int, user:User)(implicit c:Connection = null) = {
-    withMRTransaction { implicit c =>
+    // We need to invalidate the user in the cache.
+    implicit val id = user.id
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      this.permission.hasObjectAdminAccess(cachedItem, user)
+      this.withMRTransaction { implicit c =>
+        //this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
+        var statusBump = ""
 
-      var statusBump = ""
+        val pointsToAward = taskStatus match {
+          case Task.STATUS_FIXED => {
+            statusBump = ", total_fixed=(total_fixed + 1)"
+            config.taskScoreFixed
+          }
+          case Task.STATUS_FALSE_POSITIVE => {
+            statusBump = ", total_false_positive=(total_false_positive + 1)"
+            config.taskScoreFalsePositive
+          }
+          case Task.STATUS_ALREADY_FIXED => {
+            statusBump = ", total_already_fixed=(total_already_fixed + 1)"
+            config.taskScoreAlreadyFixed
+          }
+          case Task.STATUS_TOO_HARD => {
+            statusBump = ", total_too_hard=(total_too_hard + 1)"
+            config.taskScoreTooHard
+          }
+          case Task.STATUS_SKIPPED => {
+            statusBump = ", total_skipped=(total_skipped + 1)"
+            config.taskScoreSkipped
+          }
+          case default => 0
+        }
 
-      val pointsToAward = taskStatus match {
-        case Task.STATUS_FIXED => {
-          statusBump = ", total_fixed=(total_fixed + 1)"
-          config.taskScoreFixed
-        }
-        case Task.STATUS_FALSE_POSITIVE => {
-          statusBump = ", total_false_positive=(total_false_positive + 1)"
-          config.taskScoreFalsePositive
-        }
-        case Task.STATUS_ALREADY_FIXED => {
-          statusBump = ", total_already_fixed=(total_already_fixed + 1)"
-          config.taskScoreAlreadyFixed
-        }
-        case Task.STATUS_TOO_HARD => {
-          statusBump = ", total_too_hard=(total_too_hard + 1)"
-          config.taskScoreTooHard
-        }
-        case Task.STATUS_SKIPPED => {
-          statusBump = ", total_skipped=(total_skipped + 1)"
-          config.taskScoreSkipped
-        }
-        case default => 0
+        val scoreBump = "score=(score + " + pointsToAward + ")"
+
+        val updateScoreQuery =
+          s"""UPDATE user_metrics SET ${scoreBump} ${statusBump} WHERE user_id = ${user.id} """
+
+        SQL(updateScoreQuery).executeUpdate()
+
+        val query = s"""SELECT ${this.retrieveColumns}, score FROM users
+                        LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                        WHERE id = ${user.id}"""
+        SQL(query).as(this.parser.*).headOption
       }
-
-      val scoreBump = "score=(score + " + pointsToAward + ")"
-
-      val updateScoreQuery =
-        s"""UPDATE user_metrics SET ${scoreBump} ${statusBump} WHERE user_id = ${user.id} """
-
-      SQL(updateScoreQuery).executeUpdate()
     }
   }
 
