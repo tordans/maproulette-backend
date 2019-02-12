@@ -180,7 +180,7 @@ GET     /project/:id                                @org.maproulette.controllers
 # parameters:
 #   - name: projectIds
 #     in: query
-#     description: Comma-separated list of project ids for which projects are desired. 
+#     description: Comma-separated list of project ids for which projects are desired.
 ###
 GET     /projects                                @org.maproulette.controllers.api.ProjectController.fetch(projectIds:String)
 ###
@@ -1076,6 +1076,22 @@ GET     /challenges/featured                        @org.maproulette.controllers
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
 GET     /challenges/hot                             @org.maproulette.controllers.api.ChallengeController.getHotChallenges(limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Challenge ]
+# summary: Preferred Challenges.
+# produces: [ application/json ]
+# description: Get the preferred challenges which include popular, featured, and newest
+# responses:
+#   '200':
+#     description: A map of each list challenge types ("popular":[], "featured":[], "newest":[])
+#     schema:
+#       type: object
+# parameters:
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in each category. Default value is 10.
+###
+GET     /challenges/preferred                             @org.maproulette.controllers.api.ChallengeController.getPreferredChallenges(limit:Int ?= 10)
 ###
 # tags: [ Challenge ]
 # summary: List all the Challenges.

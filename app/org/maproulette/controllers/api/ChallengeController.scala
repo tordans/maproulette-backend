@@ -305,6 +305,21 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
+  /**
+    * Gets the preferred challenges (hottest, newest, featured)
+    *
+    * @param limit  The number of challenges to get
+    * @param offset The offset
+    * @return A Json array with the hot challenges
+    */
+  def getPreferredChallenges(limit: Int): Action[AnyContent] = Action.async { implicit request =>
+    val all = Map("popular" -> this.dal.getHotChallenges(limit, 0),
+                  "newest" -> this.dal.getNewChallenges(limit, 0),
+                  "featured" -> this.dal.getFeaturedChallenges(limit, 0))
+
+    Future(Ok(Json.toJson(all)))
+  }
+
   def updateTaskPriorities(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     this.sessionManager.authenticatedRequest { implicit user =>
