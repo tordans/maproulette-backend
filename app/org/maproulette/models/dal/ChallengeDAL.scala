@@ -359,6 +359,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       INNER JOIN projects p ON p.id = c.parent_id
                       WHERE featured = TRUE ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
                       AND c.deleted = false and p.deleted = false
+                      AND (c.status <> ${Challenge.STATUS_BUILDING} AND
+                           c.status <> ${Challenge.STATUS_FAILED} AND
+                           c.status <> ${Challenge.STATUS_FINISHED})
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -380,6 +383,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       INNER JOIN projects p ON p.id = c.parent_id
                       WHERE c.deleted = false and p.deleted = false
                       ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
+                      AND (c.status <> ${Challenge.STATUS_BUILDING} AND
+                           c.status <> ${Challenge.STATUS_FAILED} AND
+                           c.status <> ${Challenge.STATUS_FINISHED})
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       ORDER BY popularity DESC LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -400,6 +406,9 @@ class ChallengeDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
                       INNER JOIN projects p ON c.parent_id = p.id
                       WHERE ${this.enabled(enabledOnly, "c")(None)} ${this.enabled(enabledOnly, "p")}
                       AND c.deleted = false and p.deleted = false
+                      AND (c.status <> ${Challenge.STATUS_BUILDING} AND
+                           c.status <> ${Challenge.STATUS_FAILED} AND
+                           c.status <> ${Challenge.STATUS_FINISHED})
                       ${this.order(Some("created"), "DESC", "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)

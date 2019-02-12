@@ -157,7 +157,7 @@ trait DALHelper {
         if (ignoreCase) {
           casedColumn ++= ")"
         }
-        s"ORDER BY $casedColumn ${if (nameFix) {"," + this.getPrefix(tablePrefix) + "name";} else {"";}} $direction"
+        s"ORDER BY $casedColumn $direction ${if (nameFix) {"," + this.getPrefix(tablePrefix) + "name";} else {"";}}"
       } else {
         ""
       }
