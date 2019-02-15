@@ -305,6 +305,22 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
+  /**
+    * Gets the preferred challenges (hottest, newest, featured)
+    *
+    * @param limit  The number of challenges to get
+    * @param offset The offset
+    * @return A Json array with the hot challenges
+    */
+  def getPreferredChallenges(limit: Int): Action[AnyContent] = Action.async { implicit request =>
+    val all = Map("popular" -> _insertProjectJSON(this.dal.getHotChallenges(limit, 0)),
+                  "newest" -> _insertProjectJSON(this.dal.getNewChallenges(limit, 0)),
+                  "featured" -> _insertProjectJSON(this.dal.getFeaturedChallenges(limit, 0)))
+
+    Future(Ok(Json.toJson(all)))
+  }
+
+
   def updateTaskPriorities(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     this.sessionManager.authenticatedRequest { implicit user =>
@@ -433,19 +449,27 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val challenges = this.dal.extendedFind(params, limit, page, sort, order)
-        if (challenges.isEmpty) {
-          Ok(Json.toJson(List[JsValue]()))
-        } else {
-          val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
-          val projects = Some(this.dalManager.project.retrieveListById(-1, 0)(challenges.map(c => c.general.parent)).map(p => p.id -> p).toMap)
-          val jsonList = challenges.map { c =>
-            val updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
-            val projectJson = Json.toJson(projects.get(c.general.parent)).as[JsObject] - Project.KEY_GROUPS
-            Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
-          }
-          Ok(Json.toJson(jsonList))
-        }
+        Ok(_insertProjectJSON(challenges))
       }
+    }
+  }
+
+  /**
+   * Fetches the matching parent object and inserts it into the JSON data returned.
+   *
+   */
+  private def _insertProjectJSON(challenges: List[Challenge]): JsValue = {
+    if (challenges.isEmpty) {
+      Json.toJson(List[JsValue]())
+    } else {
+      val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
+      val projects = Some(this.dalManager.project.retrieveListById(-1, 0)(challenges.map(c => c.general.parent)).map(p => p.id -> p).toMap)
+      val jsonList = challenges.map { c =>
+        val updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
+        val projectJson = Json.toJson(projects.get(c.general.parent)).as[JsObject] - Project.KEY_GROUPS
+        Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
+      }
+      Json.toJson(jsonList)
     }
   }
 
