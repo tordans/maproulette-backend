@@ -1,7 +1,7 @@
 package org.maproulette.cache
 
 import org.joda.time.DateTime
-import org.maproulette.actions.{ItemType, ProjectType}
+import org.maproulette.data.{ItemType, ProjectType}
 import org.maproulette.models.BaseObject
 import org.scalatestplus.play.PlaySpec
 

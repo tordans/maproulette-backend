@@ -1,42 +1,6 @@
 # Routes
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
-# Home page
-GET     /                                                               @controllers.Application.index(oldui:Boolean ?= false)
-# Routing to new MR3
-GET     /mr3                                                            @controllers.Application.mr3(path="")
-GET     /mr3/*path                                                      @controllers.Application.mr3(path)
-# Routes to support old task mappings
-GET     /map/:parentId/:taskId                                          @controllers.Application.mapRedirect(parentId:Long, taskId:Long, oldui:Boolean ?= false)
-GET     /view/:parentId                                                 @controllers.Application.viewRedirect(parentId:Long, oldui:Boolean ?= false)
-# UI ROUTES (Soon to be Deprecated)
-GET     /ui/admin/list/project                                          @controllers.Application.adminUIProjectList
-GET     /ui/admin/list/:itemType/:parentId                              @controllers.Application.adminUIChildList(itemType, parentId:Long)
-GET     /ui/admin/list/:projectId/:parentType/tasks/:parentId           @controllers.Application.adminUITaskList(projectId:Long, parentType:String, parentId:Long)
-POST    /ui/admin/datatable/:parentType/tasks/:parentId                 @controllers.Application.taskDataTableList(parentType:String, parentId:Long)
-GET     /ui/admin/form/project/:parentId/:itemId                        @controllers.FormEditController.projectFormUI(parentId:Long, itemId:Long)
-POST    /ui/admin/form/project/:parentId/:itemId                        @controllers.FormEditController.projectFormPost(parentId:Long, itemId:Long)
-GET     /ui/admin/form/challenge/:parentId/:itemId                      @controllers.FormEditController.challengeFormUI(parentId:Long, itemId:Long)
-POST    /ui/admin/form/challenge/:parentId/:itemId                      @controllers.FormEditController.challengeFormPost(parentId:Long, itemId:Long)
-GET     /ui/admin/form/cloneChallenge/:parentId/:itemId                 @controllers.FormEditController.cloneChallengeFormUI(parentId:Long, itemId:Long)
-GET     /ui/admin/form/rebuildChallenge/:parentId/:itemId               @controllers.FormEditController.rebuildChallenge(parentId:Long, itemId:Long)
-GET     /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormUI(projectId:Long, parentId:Long, parentType:String, itemId:Long)
-POST    /ui/admin/form/:projectId/:parentType/:parentId/task/:itemId    @controllers.FormEditController.taskFormPost(projectId:Long, parentId:Long, parentType:String, itemId:Long)
-GET     /ui/admin/users                                                 @controllers.Application.users(limit:Int ?= -1, page:Int ?= 0, q:String ?= "")
-GET     /ui/admin/user/:userId/activity                                 @controllers.Application.userActivity(userId:Long)
-GET     /ui/metrics                                                     @controllers.Application.metrics
-GET     /ui/metrics/:challengeId                                        @controllers.Application.challengeMetrics(challengeId:Long, projects:String ?= "")
-GET     /ui/error/:errorString                                          @controllers.Application.error(errorString)
-GET     /ui/user/profile                                                @controllers.Application.profile(tab:Int ?= 0)
-POST    /ui/user/:id/settings                                           @controllers.FormEditController.userSettingsPost(id:Long)
-# MAPPING ROUTES (Soon to be Deprecated)
-GET     /map/:parentId                                                  @controllers.Application.mapChallenge(parentId:Long)
-GET     /show                                                           @controllers.Application.showSearchResults
-GET     /mapping/task/:id                                               @controllers.MappingController.getTaskDisplayGeoJSON(id:Long)
-GET     /mapping/nextTask/:parentId/:id                                 @controllers.MappingController.getSequentialNextTask(parentId:Long, id:Long)
-GET     /mapping/previousTask/:parentId/:id                             @controllers.MappingController.getSequentialPreviousTask(parentId:Long, id:Long)
-GET     /mapping/randomTaskWithoutPriority                              @controllers.MappingController.getRandomNextTask(proximityId:Long ?= -1)
-GET     /mapping/randomTask                                             @controllers.MappingController.getRandomNextTaskWithPriority(proximityId:Long ?= -1)
 # Authentication Routes
 GET     /auth/authenticate                                              @controllers.AuthController.authenticate
 GET     /auth/signout                                                   @controllers.AuthController.signOut
@@ -46,21 +10,13 @@ POST    /auth/resetAllAPIKeys                                           @control
 DELETE  /auth/deleteUser/userId                                         @controllers.AuthController.deleteUser(userId:Long)
 GET     /auth/addUser/:userId/toProject/:projectId                      @controllers.AuthController.addUserToProject(userId:Long, projectId:Long)
 # Random functionality routes
-GET     /refreshProfile                                                 @controllers.Application.refreshProfile
 GET     /clearCaches                                                    @controllers.Application.clearCaches
-GET     /javascriptRoutes                                               @controllers.Application.javascriptRoutes
 PUT     /runJob/:name                                                   @controllers.Application.runJob(name:String, action:String ?= "")
-# JsMessages Route
-GET     /jsMessages                                                     @controllers.Application.i18nMessages
 # Swagger route
 GET     /docs/swagger-ui/*file                                          @controllers.Assets.at(path:String="/public/lib/swagger-ui", file:String)
-# Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file)
-# Map external resources
-GET     /external/*file                                                 @controllers.Application.externalResources(file)
+### NoDocs ###
+GET   /assets/*file                                                     @controllers.Assets.versioned(path="/public", file: Asset)
 
-# WebJars
-->  /webjars    webjars.Routes
 ->  /api/v2     apiv2.Routes
 
 GET     /*path/                                                         @controllers.Application.untrail(path:String)

@@ -1,29 +1,28 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import java.net.URLDecoder
 import java.sql.Connection
 
-import javax.inject.Inject
 import com.vividsolutions.jts.geom.Envelope
+import javax.inject.Inject
 import org.maproulette.Config
-import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
-import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
-import org.maproulette.models._
+import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.models._
+import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
-import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
-import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Promise}
 import scala.util.{Failure, Success}
 
 /**
@@ -33,14 +32,14 @@ import scala.util.{Failure, Success}
   *
   * @author cuthbertm
   */
-class TaskController @Inject() (override val sessionManager: SessionManager,
-                                override val actionManager: ActionManager,
-                                override val dal:TaskDAL,
-                                override val tagDAL: TagDAL,
-                                wsClient:WSClient,
-                                config:Config,
-                                components: ControllerComponents,
-                                override val bodyParsers:PlayBodyParsers)
+class TaskController @Inject()(override val sessionManager: SessionManager,
+                               override val actionManager: ActionManager,
+                               override val dal: TaskDAL,
+                               override val tagDAL: TagDAL,
+                               wsClient: WSClient,
+                               config: Config,
+                               components: ControllerComponents,
+                               override val bodyParsers: PlayBodyParsers)
   extends AbstractController(components) with CRUDController[Task] with TagsMixin[Task] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -55,53 +54,36 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   implicit val tagReads: Reads[Tag] = Tag.tagReads
   implicit val commentReads: Reads[Comment] = Comment.commentReads
   implicit val commentWrites: Writes[Comment] = Comment.commentWrites
-  override def dalWithTags:TagDALMixin[Task] = dal
+
+  override def dalWithTags: TagDALMixin[Task] = dal
 
   /**
-    * This injection method will make a call to Mapillary to pull in any matching images that
-    * might be useful
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
     *
-    * @param obj the object being sent in the response
-    * @return A Json representation of the object
+    * @param body The incoming body from the request
+    * @return
     */
-  override def inject(obj: Task)(implicit request:Request[Any]): JsValue = {
-    val serverInfo = config.getMapillaryServerInfo
-    if (serverInfo.clientId.nonEmpty) {
-      if (request.getQueryString("mapillary").getOrElse("false").toBoolean) {
-        // build the envelope for the task geometries
-        val taskFeatureCollection = GeoJSONFactory.create(obj.geometries).asInstanceOf[FeatureCollection]
-        val reader = new GeoJSONReader()
-        val envelope = new Envelope()
-        taskFeatureCollection.getFeatures.foreach(f => {
-          val current = reader.read(f.getGeometry)
-          envelope.expandToInclude(current.getEnvelopeInternal)
-        })
-        // user can provide border information in the query string, so check there first before using the default
-        val borderExpansionSize = request.getQueryString("border").getOrElse(serverInfo.border.toString).toDouble
-        envelope.expandBy(borderExpansionSize)
-        val apiReq = s"https://${serverInfo.host}/v3/images/?&bbox=${envelope.getMinX},${envelope.getMinY},${envelope.getMaxX},${envelope.getMaxY}&client_id=${serverInfo.clientId}"
-        Logger.debug(s"Requesting Mapillary image information for: $apiReq")
-        val mapFuture = wsClient.url(apiReq).get()
-        val response = Await.result(mapFuture, 5.seconds)
-        val featureCollection = response.json
-        val images = (featureCollection \ "features").as[List[JsValue]].map(feature => {
-          val key = (feature \ "properties" \ "key").get.as[String]
-          val latlon = (feature \ "geometry" \ "coordinates").as[List[JsNumber]]
-          MapillaryImage(key,
-            latlon.tail.head.as[Double],
-            latlon.head.as[Double],
-            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-320.jpg",
-            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-640.jpg",
-            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-1024.jpg",
-            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-2048.jpg")
-        })
-        return super.inject(obj.copy(mapillaryImages = Some(images)))
-      }
-    }
-    return super.inject(obj)
+  override def updateCreateBody(body: JsValue, user: User): JsValue = {
+    // add a default priority, this will be updated later when the task is created if there are
+    // priority rules defined in the challenge parent
+    val updatedBody = Utils.insertIntoJson(body, "priority", Challenge.PRIORITY_HIGH)(IntWrites)
+    // We need to update the geometries to make sure that we handle all the different types of
+    // geometries that you can deal with like WKB or GeoJSON
+    this.updateGeometryData(super.updateCreateBody(updatedBody, user))
   }
 
-  private def updateGeometryData(body: JsValue) : JsValue = {
+  /**
+    * In the case where you need to update the update body, usually you would not update it, but
+    * just in case.
+    *
+    * @param body The request body
+    * @return The updated request body
+    */
+  override def updateUpdateBody(body: JsValue, user: User): JsValue =
+    this.updateGeometryData(super.updateUpdateBody(body, user))
+
+  private def updateGeometryData(body: JsValue): JsValue = {
     val updatedBody = (body \ "geometries").asOpt[String] match {
       case Some(value) =>
         // if it is a string, then it is either GeoJSON or a WKB
@@ -135,33 +117,6 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   }
 
   /**
-    * This function allows sub classes to modify the body, primarily this would be used for inserting
-    * default elements into the body that shouldn't have to be required to create an object.
-    *
-    * @param body The incoming body from the request
-    * @return
-    */
-  override def updateCreateBody(body: JsValue, user:User): JsValue = {
-    // add a default priority, this will be updated later when the task is created if there are
-    // priority rules defined in the challenge parent
-    val updatedBody = Utils.insertIntoJson(body, "priority", Challenge.PRIORITY_HIGH)(IntWrites)
-    // We need to update the geometries to make sure that we handle all the different types of
-    // geometries that you can deal with like WKB or GeoJSON
-    this.updateGeometryData(super.updateCreateBody(updatedBody, user))
-  }
-
-
-  /**
-    * In the case where you need to update the update body, usually you would not update it, but
-    * just in case.
-    *
-    * @param body The request body
-    * @return The updated request body
-    */
-  override def updateUpdateBody(body: JsValue, user:User): JsValue =
-    this.updateGeometryData(super.updateUpdateBody(body, user))
-
-  /**
     * Function can be implemented to extract more information than just the default create data,
     * to build other objects with the current object at the core. No data will be returned from this
     * function, it purely does work in the background AFTER creating the current object
@@ -171,7 +126,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param user          The user that is executing the function
     */
   override def extractAndCreate(body: JsValue, createdObject: Task, user: User)
-                               (implicit c:Connection=null): Unit =
+                               (implicit c: Option[Connection] = None): Unit =
     this.extractTags(body, createdObject, User.superUser)
 
   /**
@@ -180,7 +135,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param id The id of the task containing the tags
     * @return The html Result containing json array of tags
     */
-  def getTagsForTask(implicit id: Long) : Action[AnyContent] = Action.async { implicit request =>
+  def getTagsForTask(implicit id: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.getTags(id)))
     }
@@ -189,22 +144,22 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   /**
     * Gets a random task(s) given the provided tags.
     *
-    * @param projectSearch Filter on the name of the project
+    * @param projectSearch   Filter on the name of the project
     * @param challengeSearch Filter on the name of the challenge (Survey included)
-    * @param challengeTags Filter on the tags of the challenge
-    * @param tags A comma separated list of tags to match against
-    * @param taskSearch Filter based on the name of the task
-    * @param limit The number of tasks to return
-    * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
+    * @param challengeTags   Filter on the tags of the challenge
+    * @param tags            A comma separated list of tags to match against
+    * @param taskSearch      Filter based on the name of the task
+    * @param limit           The number of tasks to return
+    * @param proximityId     Id of task that you wish to find the next task based on the proximity of that task
     * @return
     */
-  def getRandomTasks(projectSearch:String,
-                     challengeSearch:String,
-                     challengeTags:String,
+  def getRandomTasks(projectSearch: String,
+                     challengeSearch: String,
+                     challengeTags: String,
                      tags: String,
                      taskSearch: String,
                      limit: Int,
-                     proximityId: Long) : Action[AnyContent] = Action.async { implicit request =>
+                     proximityId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         projectSearch = Some(projectSearch),
@@ -223,17 +178,61 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   }
 
   /**
+    * This injection method will make a call to Mapillary to pull in any matching images that
+    * might be useful
+    *
+    * @param obj the object being sent in the response
+    * @return A Json representation of the object
+    */
+  override def inject(obj: Task)(implicit request: Request[Any]): JsValue = {
+    val serverInfo = config.getMapillaryServerInfo
+    if (serverInfo.clientId.nonEmpty) {
+      if (request.getQueryString("mapillary").getOrElse("false").toBoolean) {
+        // build the envelope for the task geometries
+        val taskFeatureCollection = GeoJSONFactory.create(obj.geometries).asInstanceOf[FeatureCollection]
+        val reader = new GeoJSONReader()
+        val envelope = new Envelope()
+        taskFeatureCollection.getFeatures.foreach(f => {
+          val current = reader.read(f.getGeometry)
+          envelope.expandToInclude(current.getEnvelopeInternal)
+        })
+        // user can provide border information in the query string, so check there first before using the default
+        val borderExpansionSize = request.getQueryString("border").getOrElse(serverInfo.border.toString).toDouble
+        envelope.expandBy(borderExpansionSize)
+        val apiReq = s"https://${serverInfo.host}/v3/images/?&bbox=${envelope.getMinX},${envelope.getMinY},${envelope.getMaxX},${envelope.getMaxY}&client_id=${serverInfo.clientId}"
+        logger.debug(s"Requesting Mapillary image information for: $apiReq")
+        val mapFuture = wsClient.url(apiReq).get()
+        val response = Await.result(mapFuture, 5.seconds)
+        val featureCollection = response.json
+        val images = (featureCollection \ "features").as[List[JsValue]].map(feature => {
+          val key = (feature \ "properties" \ "key").get.as[String]
+          val latlon = (feature \ "geometry" \ "coordinates").as[List[JsNumber]]
+          MapillaryImage(key,
+            latlon.tail.head.as[Double],
+            latlon.head.as[Double],
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-320.jpg",
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-640.jpg",
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-1024.jpg",
+            s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-2048.jpg")
+        })
+        return super.inject(obj.copy(mapillaryImages = Some(images)))
+      }
+    }
+    super.inject(obj)
+  }
+
+  /**
     * Gets all the tasks within a bounding box
     *
-    * @param left The minimum latitude for the bounding box
+    * @param left   The minimum latitude for the bounding box
     * @param bottom The minimum longitude for the bounding box
-    * @param right The maximum latitude for the bounding box
-    * @param top The maximum longitude for the bounding box
-    * @param limit Limit for the number of returned tasks
+    * @param right  The maximum latitude for the bounding box
+    * @param top    The maximum longitude for the bounding box
+    * @param limit  Limit for the number of returned tasks
     * @param offset The offset used for paging
     * @return
     */
-  def getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getTasksInBoundingBox(left: Double, bottom: Double, right: Double, top: Double, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
@@ -247,22 +246,22 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * sets the task status to the specific status ID's provided by those functions.
     * Must be authenticated to perform operation
     *
-    * @param id The id of the task
+    * @param id     The id of the task
     * @param status The status id to set the task's status to
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  def setTaskStatus(id: Long, status: Int, comment:String="") : Action[AnyContent] = Action.async { implicit request =>
+  def setTaskStatus(id: Long, status: Int, comment: String = ""): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       this.customTaskStatus(id, TaskStatusSet(status), user, comment)
       NoContent
     }
   }
 
-  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="") = {
+  def customTaskStatus(taskId: Long, actionType: ActionType, user: User, comment: String = ""): Unit = {
     val status = actionType match {
-      case t:TaskStatusSet => t.status
-      case q:QuestionAnswered => Task.STATUS_ANSWERED
+      case t: TaskStatusSet => t.status
+      case q: QuestionAnswered => Task.STATUS_ANSWERED
       case _ => Task.STATUS_CREATED
     }
 
@@ -291,7 +290,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param taskId the id for the task
     * @return The new Task object
     */
-  def matchToOSMChangeSet(taskId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def matchToOSMChangeSet(taskId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedFutureRequest { implicit user =>
       this.dal.retrieveById(taskId) match {
         case Some(t) =>
@@ -312,7 +311,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param commentId The id of the comment to retrieve
     * @return The comment
     */
-  def retrieveComment(commentId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def retrieveComment(commentId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveComment(commentId) match {
         case Some(comment) => Ok(Json.toJson(comment))
@@ -327,7 +326,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param taskId The task to retrieve the comments for
     * @return A list of comments
     */
-  def retrieveComments(taskId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def retrieveComments(taskId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.dal.retrieveComments(List.empty, List.empty, List(taskId))))
     }
@@ -336,12 +335,12 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   /**
     * Adds a comment for a specific task
     *
-    * @param taskId The id for a task
-    * @param comment The comment the user is leaving
+    * @param taskId   The id for a task
+    * @param comment  The comment the user is leaving
     * @param actionId The action if any associated with the comment
     * @return Ok if successful.
     */
-  def addComment(taskId:Long, comment:String, actionId:Option[Long]) : Action[AnyContent] = Action.async { implicit request =>
+  def addComment(taskId: Long, comment: String, actionId: Option[Long]): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Created(Json.toJson(this.dal.addComment(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)))
     }
@@ -351,10 +350,10 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * Updates the original comment
     *
     * @param commentId The ID of the comment to update
-    * @param comment The comment to update
+    * @param comment   The comment to update
     * @return
     */
-  def updateComment(commentId:Long, comment:String) : Action[AnyContent] = Action.async { implicit request =>
+  def updateComment(commentId: Long, comment: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dal.updateComment(user, commentId, URLDecoder.decode(comment, "UTF-8"))))
     }
@@ -363,11 +362,11 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   /**
     * Deletes a comment from a task
     *
-    * @param taskId The id of the task that the comment is associated with
+    * @param taskId    The id of the task that the comment is associated with
     * @param commentId The id of the comment that is being deleted
     * @return Ok if successful,
     */
-  def deleteComment(taskId:Long, commentId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def deleteComment(taskId: Long, commentId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.deleteComment(user, taskId, commentId)
       Ok
@@ -380,7 +379,7 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
     * @param numberOfPoints Number of clustered points you wish to have returned
     * @return A list of ClusteredPoint's that represent clusters of tasks
     */
-  def getTaskClusters(numberOfPoints:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getTaskClusters(numberOfPoints: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         Ok(Json.toJson(this.dal.getTaskClusters(params, numberOfPoints)))
@@ -391,13 +390,13 @@ class TaskController @Inject() (override val sessionManager: SessionManager,
   /**
     * Gets the list of tasks that are contained within the single cluster
     *
-    * @param clusterId The cluster id, when "getTaskClusters" is executed it will return single point clusters
-    *                  representing all the tasks in the cluster. Each cluster will contain an id, supplying
-    *                  that id to this method will allow you to retrieve all the tasks in the cluster
+    * @param clusterId      The cluster id, when "getTaskClusters" is executed it will return single point clusters
+    *                       representing all the tasks in the cluster. Each cluster will contain an id, supplying
+    *                       that id to this method will allow you to retrieve all the tasks in the cluster
     * @param numberOfPoints Number of clustered points that was originally used to get all the clusters
     * @return A list of ClusteredPoint's that represent each of the tasks within a single cluster
     */
-  def getTasksInCluster(clusterId:Int, numberOfPoints:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getTasksInCluster(clusterId: Int, numberOfPoints: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         Ok(Json.toJson(this.dal.getTasksInCluster(clusterId, params, numberOfPoints)))

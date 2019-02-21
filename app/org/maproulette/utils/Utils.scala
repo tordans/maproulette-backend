@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.utils
 
@@ -7,12 +7,13 @@ import org.joda.time.DateTime
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.{Lock, Task}
 import org.maproulette.session.User
-import play.api.mvc.Results._
 import play.api.libs.json._
 import play.api.mvc.Result
+import play.api.mvc.Results._
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -22,19 +23,18 @@ import scala.reflect.runtime.universe._
   */
 object Utils extends DefaultWrites {
 
-  class jsonWrites(key:String) extends Writes[String] {
-    override def writes(value:String) : JsValue = Json.parse(value)
-  }
-
-  class jsonReads(key:String) extends Reads[String] {
-    override def reads(value:JsValue) : JsResult[String] = JsSuccess(value.toString())
+  def tryOptional[T](func: () => T) : Option[T] = {
+    Try(func.apply()) match {
+      case Success(value) => Some(value)
+      case Failure(exception) => None
+    }
   }
 
   /**
     * https://stackoverflow.com/questions/15488639/how-to-write-readst-and-writest-in-scala-enumeration-play-framework-2-1
     */
-  def enumReads[E <: Enumeration](enum:E): Reads[E#Value] = new Reads[E#Value] {
-    def reads(json:JsValue): JsResult[E#Value] = json match {
+  def enumReads[E <: Enumeration](enum: E): Reads[E#Value] = new Reads[E#Value] {
+    def reads(json: JsValue): JsResult[E#Value] = json match {
       case JsString(s) => {
         try {
           JsSuccess(enum.withName(s))
@@ -50,7 +50,7 @@ object Utils extends DefaultWrites {
     * https://stackoverflow.com/questions/15488639/how-to-write-readst-and-writest-in-scala-enumeration-play-framework-2-1
     */
   def enumWrites[E <: Enumeration]: Writes[E#Value] = new Writes[E#Value] {
-    def writes(v:E#Value): JsValue = JsString(v.toString)
+    def writes(v: E#Value): JsValue = JsString(v.toString)
   }
 
   /**
@@ -59,7 +59,7 @@ object Utils extends DefaultWrites {
     * @param x The string to check
     * @return true is string is a number
     */
-  def isDigit(x:String) : Boolean = x forall Character.isDigit
+  def isDigit(x: String): Boolean = x forall Character.isDigit
 
   /**
     * Wraps a JSON message inside of a BadRequest response
@@ -67,7 +67,7 @@ object Utils extends DefaultWrites {
     * @param message The message to place inside the json
     * @return 400 BadRequest
     */
-  def badRequest(message:String) : Result = {
+  def badRequest(message: String): Result = {
     BadRequest(Json.obj("status" -> "KO", "message" -> message))
   }
 
@@ -78,11 +78,11 @@ object Utils extends DefaultWrites {
     * @param json The json that you want to add the id into
     * @return
     */
-  def insertJsonID(json:JsValue, overwrite:Boolean=false) : JsValue =
+  def insertJsonID(json: JsValue, overwrite: Boolean = false): JsValue =
     insertIntoJson(json, "id", -1L)(LongWrites)
 
-  def insertIntoJson[Value](json:JsValue, key:String, value:Value, overwrite:Boolean=false)
-                           (implicit writes:Writes[Value]) : JsValue = {
+  def insertIntoJson[Value](json: JsValue, key: String, value: Value, overwrite: Boolean = false)
+                           (implicit writes: Writes[Value]): JsValue = {
     if (overwrite) {
       json.as[JsObject] + (key -> Json.toJson(value))
     } else {
@@ -93,21 +93,21 @@ object Utils extends DefaultWrites {
     }
   }
 
-  def getCaseClassVariableNames[T:TypeTag] : List[MethodSymbol] = {
+  def getCaseClassVariableNames[T: TypeTag]: List[MethodSymbol] = {
     typeOf[T].members.collect {
-      case m:MethodSymbol if m.isCaseAccessor => m
+      case m: MethodSymbol if m.isCaseAccessor => m
     }.toList
   }
 
-  def getCaseClassValueMappings[T:ClassTag](obj:T)(implicit tag:TypeTag[T]) : Map[MethodSymbol, Any] = {
+  def getCaseClassValueMappings[T: ClassTag](obj: T)(implicit tag: TypeTag[T]): Map[MethodSymbol, Any] = {
     implicit val mirror = scala.reflect.runtime.currentMirror
     val im = mirror.reflect(obj)
     typeOf[T].members.collect {
-      case m:MethodSymbol if m.isCaseAccessor => m -> im.reflectMethod(m).apply()
+      case m: MethodSymbol if m.isCaseAccessor => m -> im.reflectMethod(m).apply()
     }.toMap
   }
 
-  def omitEmpty(original:JsObject, strings:Boolean=true, arrays:Boolean=true, objects:Boolean=true) : JsObject = {
+  def omitEmpty(original: JsObject, strings: Boolean = true, arrays: Boolean = true, objects: Boolean = true): JsObject = {
     original.value.foldLeft(original) {
       case (obj, (key, JsString(st))) if strings & st.isEmpty => obj - key
       case (obj, (key, JsArray(arr))) if arrays & arr.isEmpty => obj - key
@@ -116,61 +116,61 @@ object Utils extends DefaultWrites {
     }
   }
 
-  def split(value:String, splitCharacter:String=",") : List[String] = value match {
+  def split(value: String, splitCharacter: String = ","): List[String] = value match {
     case "" => List[String]()
     case _ => value.split(splitCharacter).toList
   }
 
-  def optionStringToOptionInt(value:Option[String]) : Option[Int] = value match {
+  def optionStringToOptionInt(value: Option[String]): Option[Int] = value match {
     case Some(v) => Some(v.toInt)
     case None => None
   }
 
-  def optionStringToOptionLong(value:Option[String]): Option[Long] = value match {
+  def optionStringToOptionLong(value: Option[String]): Option[Long] = value match {
     case Some(v) => Some(v.toLong)
     case None => None
   }
 
-  def optionStringToOptionBoolean(value:Option[String]) : Option[Boolean] = value match {
+  def optionStringToOptionBoolean(value: Option[String]): Option[Boolean] = value match {
     case Some(v) => Some(v.toBoolean)
     case None => None
   }
 
-  def optionStringToOptionStringList(value:Option[String]) : Option[List[String]] = value match {
+  def optionStringToOptionStringList(value: Option[String]): Option[List[String]] = value match {
     case Some(v) if v.nonEmpty => Some(v.split(",").toList)
     case None => None
   }
 
-  def toStringList(stringList:String) : Option[List[String]] = if (stringList.isEmpty) {
+  def toStringList(stringList: String): Option[List[String]] = if (stringList.isEmpty) {
     None
   } else {
     Some(stringList.split(",").toList)
   }
 
-  def toLongList(stringList:String) : Option[List[Long]] = if (stringList.isEmpty) {
+  def toLongList(stringList: String): Option[List[Long]] = if (stringList.isEmpty) {
     None
   } else {
     Some(stringList.split(",").toList.map(_.toLong))
   }
 
-  def toIntList(stringList:String) : Option[List[Int]] = if (stringList.isEmpty) {
+  def toIntList(stringList: String): Option[List[Int]] = if (stringList.isEmpty) {
     None
   } else {
     Some(stringList.split(",").toList.map(_.toInt))
   }
 
-  def getDate(date:String) : Option[DateTime] = if (StringUtils.isEmpty(date)) {
+  def getDate(date: String): Option[DateTime] = if (StringUtils.isEmpty(date)) {
     None
   } else {
     Some(DateTime.parse(date))
   }
 
-  def negativeToOption(value:Long) : Option[Long] = value match {
+  def negativeToOption(value: Long): Option[Long] = value match {
     case v if v < 0 => None
     case v => Some(v)
   }
 
-  def getResponseJSONNoLock(task:Option[Task], userFunc: (User, Long, Int) => List[User]) : JsValue = task match {
+  def getResponseJSONNoLock(task: Option[Task], userFunc: (User, Long, Int) => List[User]): JsValue = task match {
     case Some(t) => getResponseJSON(Some(t, Lock.emptyLock), userFunc)
     case None => getResponseJSON(None, userFunc)
   }
@@ -181,7 +181,7 @@ object Utils extends DefaultWrites {
     * @param task The optional task to check
     * @return If None supplied as Task parameter then will throw NotFoundException
     */
-  def getResponseJSON(task:Option[(Task, Lock)], userFunc: (User, Long, Int) => List[User]) : JsValue = task match {
+  def getResponseJSON(task: Option[(Task, Lock)], userFunc: (User, Long, Int) => List[User]): JsValue = task match {
     case Some(t) =>
       val currentStatus = t._1.status.getOrElse(Task.STATUS_CREATED)
       val locked = t._2.lockedTime match {
@@ -213,5 +213,13 @@ object Utils extends DefaultWrites {
            |}
             """.stripMargin)
     case None => throw new NotFoundException(s"Could not find task")
+  }
+
+  class jsonWrites(key: String) extends Writes[String] {
+    override def writes(value: String): JsValue = Json.parse(value)
+  }
+
+  class jsonReads(key: String) extends Reads[String] {
+    override def reads(value: JsValue): JsResult[String] = JsSuccess(value.toString())
   }
 }

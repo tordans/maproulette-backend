@@ -1,25 +1,25 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.jobs
 
-import javax.inject.{Inject, Singleton}
 import akka.actor.{Actor, Props}
-import play.api.{Application, Logger}
-import play.api.db.Database
-import anorm._
 import anorm.JodaParameterMetaData._
+import anorm._
+import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
+import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
 import org.maproulette.models.Task
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.services.{KeepRight, KeepRightBox, KeepRightError, KeepRightService}
+import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.session.User
-
-import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.utils.BoundingBoxFinder
+import org.slf4j.LoggerFactory
+import play.api.Application
+import play.api.db.Database
 
 import scala.util.{Failure, Success}
 
@@ -30,19 +30,21 @@ import scala.util.{Failure, Success}
   * @author davis_20
   */
 @Singleton
-class SchedulerActor @Inject() (config:Config,
-                                application:Application,
-                                db:Database,
-                                dALManager: DALManager,
-                                keepRightService: KeepRightService,
-                                boundingBoxFinder: BoundingBoxFinder) extends Actor {
-  val appConfig = application.configuration
-  import scala.concurrent.ExecutionContext.Implicits.global
-
+class SchedulerActor @Inject()(config: Config,
+                               application: Application,
+                               db: Database,
+                               dALManager: DALManager,
+                               keepRightProvider: KeepRightProvider,
+                               boundingBoxFinder: BoundingBoxFinder) extends Actor {
   // cleanOldTasks configuration
   lazy val oldTasksStatusFilter = appConfig.getOptional[Seq[Int]](Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
     Seq[Int](new Integer(STATUS_CREATED))
   )
+
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  val appConfig = application.configuration
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   override def receive: Receive = {
     case RunJob("rebuildChallengesLeaderboard", action) => this.rebuildChallengesLeaderboard(action)
@@ -65,11 +67,11 @@ class SchedulerActor @Inject() (config:Config,
     * the lock for over an hour. To enable, set:
     *    osm.scheduler.cleanLocks.interval=FiniteDuration
     */
-  def cleanLocks(action:String) : Unit = {
-    Logger.info(action)
+  def cleanLocks(action: String): Unit = {
+    logger.info(action)
     this.db.withTransaction { implicit c =>
       val locksDeleted = SQL"""DELETE FROM locked WHERE AGE(NOW(), locked_time) > '1 hour'""".executeUpdate()
-      Logger.info(s"$locksDeleted were found and deleted.")
+      logger.info(s"$locksDeleted were found and deleted.")
     }
   }
 
@@ -78,8 +80,8 @@ class SchedulerActor @Inject() (config:Config,
     * schedules in the challenge. To enable, set:
     *    osm.scheduler.runChallengeSchedules.interval=FiniteDuration
     */
-  def runChallengeSchedules(action:String) : Unit = {
-    Logger.info(action)
+  def runChallengeSchedules(action: String): Unit = {
+    logger.info(action)
   }
 
 
@@ -87,18 +89,19 @@ class SchedulerActor @Inject() (config:Config,
     * This job will update the locations of all the challenges periodically. To enable, set:
     *    osm.scheduler.updateLocations.interval=FiniteDuration
     */
-  def updateLocations(action:String) : Unit = {
-    Logger.info(action)
+  def updateLocations(action: String): Unit = {
+    logger.info(action)
     val currentTime = DateTime.now()
     val staleChallengeIds = db.withTransaction { implicit c =>
       SQL("SELECT id FROM challenges WHERE modified > last_updated OR last_updated IS NULL")
         .as(SqlParser.long("id").*)
-      }
+    }
 
     staleChallengeIds.foreach(id => {
       db.withTransaction { implicit c =>
         try {
-          val query = s"""UPDATE challenges SET
+          val query =
+            s"""UPDATE challenges SET
                           location = (SELECT ST_Centroid(ST_Collect(ST_Makevalid(location)))
                                       FROM tasks
                                       WHERE parent_id = ${id}),
@@ -111,7 +114,7 @@ class SchedulerActor @Inject() (config:Config,
           c.commit()
         } catch {
           case e: Exception => {
-            Logger.error("Unable to update location on challenge " + id, e)
+            logger.error("Unable to update location on challenge " + id, e)
           }
         }
       }
@@ -122,11 +125,11 @@ class SchedulerActor @Inject() (config:Config,
         .on('currentTime -> ToParameterValue.apply[DateTime].apply(currentTime))
         .as(SqlParser.long("id").*)
         .foreach(id => {
-          Logger.debug(s"Flushing challenge cache of challenge with id $id")
+          logger.debug(s"Flushing challenge cache of challenge with id $id")
           this.dALManager.challenge.cacheManager.cache.remove(id)
         })
     }
-    Logger.info("Completed updating challenge locations.")
+    logger.info("Completed updating challenge locations.")
   }
 
   /**
@@ -134,8 +137,8 @@ class SchedulerActor @Inject() (config:Config,
     *
     * @param challengeId The id of the challenge you want updated
     */
-  def updateTaskLocations(challengeId:Long) : Unit = {
-    Logger.info(s"Updating tasks for challenge $challengeId")
+  def updateTaskLocations(challengeId: Long): Unit = {
+    logger.info(s"Updating tasks for challenge $challengeId")
     this.dALManager.task.updateTaskLocations(challengeId)
   }
 
@@ -144,20 +147,21 @@ class SchedulerActor @Inject() (config:Config,
     *    osm.scheduler.cleanOldTasks.interval=FiniteDuration
     *    osm.scheduler.cleanOldTasks.olderThan=FiniteDuration
     */
-  def cleanOldTasks(action:String) : Unit = {
+  def cleanOldTasks(action: String): Unit = {
     config.withFiniteDuration(Config.KEY_SCHEDULER_CLEAN_TASKS_OLDER_THAN) { duration =>
       Metrics.timer("Cleaning old challenge tasks") { () =>
         db.withTransaction { implicit c =>
-          Logger.info(s"Cleaning old challenge tasks older than $duration with status [$oldTasksStatusFilter]...")
+          logger.info(s"Cleaning old challenge tasks older than $duration with status [$oldTasksStatusFilter]...")
           val tasksDeleted =
-            SQL("""DELETE FROM tasks t USING challenges c
+            SQL(
+              """DELETE FROM tasks t USING challenges c
                     WHERE t.parent_id = c.id AND c.updateTasks = true AND t.status IN ({statuses})
                      AND AGE(NOW(), c.modified) > {duration}::INTERVAL
                      AND AGE(NOW(), t.modified) > {duration}::INTERVAL""").on(
               'duration -> ToParameterValue.apply[String].apply(String.valueOf(duration)),
               'statuses -> ToParameterValue.apply[Seq[Int]].apply(oldTasksStatusFilter)
             ).executeUpdate()
-          Logger.info(s"$tasksDeleted old challenge tasks were found and deleted.")
+          logger.info(s"$tasksDeleted old challenge tasks were found and deleted.")
           // Clear the task cache if any were deleted
           if (tasksDeleted > 0) {
             this.dALManager.task.cacheManager.clearCaches
@@ -171,10 +175,10 @@ class SchedulerActor @Inject() (config:Config,
     * This job will delete expired Virtual Challenges. To enable, set:
     *    osm.scheduler.cleanExpiredVCs.interval=FiniteDuration
     */
-  def cleanExpiredVirtualChallenges(str: String) : Unit = {
+  def cleanExpiredVirtualChallenges(str: String): Unit = {
     db.withConnection { implicit c =>
       val numberOfDeleted = SQL"""DELETE FROM virtual_challenges WHERE expired < NOW()""".executeUpdate()
-      Logger.info(s"$numberOfDeleted Virtual Challenges expired and removed from database")
+      logger.info(s"$numberOfDeleted Virtual Challenges expired and removed from database")
       // Clear the task cache if any were deleted
       if (numberOfDeleted > 0) {
         this.dALManager.virtualChallenge.cacheManager.clearCaches
@@ -190,7 +194,7 @@ class SchedulerActor @Inject() (config:Config,
     *
     * @param str
     */
-  def matchChangeSets(str:String) : Unit = {
+  def matchChangeSets(str: String): Unit = {
     if (config.osmMatcherEnabled) {
       db.withConnection { implicit c =>
         val query =
@@ -211,7 +215,7 @@ class SchedulerActor @Inject() (config:Config,
     *
     * @param str
     */
-  def findChangeSets(str: String) : Unit = {
+  def findChangeSets(str: String): Unit = {
     if (config.osmMatcherManualOnly) {
       val values = str.split("=")
       if (values.size == 2) {
@@ -238,30 +242,30 @@ class SchedulerActor @Inject() (config:Config,
     }
   }
 
-  def cleanDeleted(action:String) : Unit = {
-    Logger.info(action)
+  def cleanDeleted(action: String): Unit = {
+    logger.info(action)
     db.withConnection { implicit c =>
       val deletedProjects = SQL"DELETE FROM projects WHERE deleted = true RETURNING id".as(SqlParser.int("id").*)
       if (deletedProjects.nonEmpty) {
-        Logger.debug(s"Finalized deletion of projects with id [${deletedProjects.mkString(",")}]")
+        logger.debug(s"Finalized deletion of projects with id [${deletedProjects.mkString(",")}]")
       }
       val deletedChallenges = SQL"DELETE FROM challenges WHERE deleted = true RETURNING id".as(SqlParser.int("id").*)
       if (deletedChallenges.nonEmpty) {
-        Logger.debug(s"Finalized deletion of challenges with id [${deletedChallenges.mkString(",")}]")
+        logger.debug(s"Finalized deletion of challenges with id [${deletedChallenges.mkString(",")}]")
       }
     }
   }
 
-  def keepRightUpdate(action:String) : Unit = {
-    Logger.info(action)
-    val slidingValue = this.config.config.getOptional[Int](KeepRight.KEY_SLIDING).getOrElse(KeepRight.DEFAULT_SLIDING)
-    val slidingErrors = keepRightService.errorList.sliding(slidingValue, slidingValue).toList
+  def keepRightUpdate(action: String): Unit = {
+    logger.info(action)
+    val slidingValue = this.config.config.getOptional[Int](KeepRightProvider.KEY_SLIDING).getOrElse(KeepRightProvider.DEFAULT_SLIDING)
+    val slidingErrors = keepRightProvider.errorList.sliding(slidingValue, slidingValue).toList
 
-    val integrationList:List[(List[KeepRightError], KeepRightBox)] =
-      if (config.config.getOptional[Boolean](KeepRight.KEY_ENABLED).getOrElse(false)) {
-        if (keepRightService.boundingBoxes.nonEmpty && keepRightService.errorList.nonEmpty) {
+    val integrationList: List[(List[KeepRightError], KeepRightBox)] =
+      if (config.config.getOptional[Boolean](KeepRightProvider.KEY_ENABLED).getOrElse(false)) {
+        if (keepRightProvider.boundingBoxes.nonEmpty && keepRightProvider.errorList.nonEmpty) {
           slidingErrors.flatMap(error =>
-            keepRightService.boundingBoxes map { bounding =>
+            keepRightProvider.boundingBoxes map { bounding =>
               (error, bounding)
             }
           )
@@ -272,8 +276,73 @@ class SchedulerActor @Inject() (config:Config,
         List.empty
       }
     integrationList.headOption match {
-      case Some(h) => this._integrateKeepRight(h, integrationList.tail)
+      case Some(h) => this.integrateKeepRight(h, integrationList.tail)
       case None => //just do nothing
+    }
+  }
+
+  /**
+    * Rebuilds the user_leaderboard table.
+    *
+    * @param action - action string
+    */
+  def rebuildChallengesLeaderboard(action: String): Unit = {
+    val start = System.currentTimeMillis
+    logger.info(action)
+
+    db.withConnection { implicit c =>
+      // Clear TABLEs
+      SQL("DELETE FROM user_leaderboard WHERE country_code IS NULL").executeUpdate()
+      SQL("DELETE FROM user_top_challenges WHERE country_code IS NULL").executeUpdate()
+
+      // Past Month
+      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(SchedulerActor.ONE_MONTH, config)).executeUpdate()
+      SQL(LeaderboardHelper.rebuildTopChallengesSQL(SchedulerActor.ONE_MONTH, config)).executeUpdate()
+
+      // Past 3 Months
+      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(SchedulerActor.THREE_MONTHS, config)).executeUpdate()
+      SQL(LeaderboardHelper.rebuildTopChallengesSQL(SchedulerActor.THREE_MONTHS, config)).executeUpdate()
+
+      // Past 6 Months
+      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(SchedulerActor.SIX_MONTHS, config)).executeUpdate()
+      SQL(LeaderboardHelper.rebuildTopChallengesSQL(SchedulerActor.SIX_MONTHS, config)).executeUpdate()
+
+      // Past Year
+      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(SchedulerActor.TWELVE_MONTHS, config)).executeUpdate()
+      SQL(LeaderboardHelper.rebuildTopChallengesSQL(SchedulerActor.TWELVE_MONTHS, config)).executeUpdate()
+
+      logger.info(s"Rebuilt Challenges Leaderboard succesfully.")
+      val totalTime = System.currentTimeMillis - start
+      logger.debug("Time to rebuild leaderboard: %1d ms".format(totalTime))
+    }
+  }
+
+  /**
+    * Rebuilds the user_leaderboard table.
+    *
+    * @param action - action string
+    */
+  def rebuildCountryLeaderboard(action: String): Unit = {
+    val start = System.currentTimeMillis
+    logger.info(action)
+
+    db.withConnection { implicit c =>
+      // Clear TABLEs
+      SQL("DELETE FROM user_leaderboard WHERE country_code IS NOT NULL").executeUpdate()
+      SQL("DELETE FROM user_top_challenges WHERE country_code IS NOT NULL").executeUpdate()
+
+      val countryCodeMap = boundingBoxFinder.boundingBoxforAll()
+      for ((countryCode, boundingBox) <- countryCodeMap) {
+        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.ONE_MONTH, countryCode, boundingBox, config)).executeUpdate()
+        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.THREE_MONTHS, countryCode, boundingBox, config)).executeUpdate()
+        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.SIX_MONTHS, countryCode, boundingBox, config)).executeUpdate()
+        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.TWELVE_MONTHS, countryCode, boundingBox, config)).executeUpdate()
+        SQL(LeaderboardHelper.rebuildTopChallengesSQLCountry(SchedulerActor.TWELVE_MONTHS, countryCode, boundingBox, config)).executeUpdate()
+      }
+
+      logger.info(s"Rebuilt Country Leaderboard succesfully.")
+      val totalTime = System.currentTimeMillis - start
+      logger.debug("Time to rebuild country leaderboard: %1d ms".format(totalTime))
     }
   }
 
@@ -284,85 +353,20 @@ class SchedulerActor @Inject() (config:Config,
     * @param head The head of the list, which is a tuple containing a KeepRightError and a KeepRightBox
     * @param tail The tail list of box objects
     */
-  private def _integrateKeepRight(head:(List[KeepRightError], KeepRightBox),
-                                  tail:List[(List[KeepRightError], KeepRightBox)]) : Unit = {
-    keepRightService.integrate(head._1.map(_.id), head._2) onComplete {
+  private def integrateKeepRight(head: (List[KeepRightError], KeepRightBox),
+                                 tail: List[(List[KeepRightError], KeepRightBox)]): Unit = {
+    keepRightProvider.integrate(head._1.map(_.id), head._2) onComplete {
       case Success(x) =>
         if (!x) {
-          Logger.warn(s"KeepRight challenge failed, but continuing to next one")
+          logger.warn(s"KeepRight challenge failed, but continuing to next one")
         }
         tail.headOption match {
-          case Some(head) => this._integrateKeepRight(head, tail.tail)
+          case Some(head) => this.integrateKeepRight(head, tail.tail)
           case None => // just do nothing because we are finished
         }
       case Failure(f) =>
         // something went wrong, we should bail out immediately
-        Logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
-    }
-  }
-
-  /**
-   * Rebuilds the user_leaderboard table.
-   *
-   * @param action - action string
-   */
-  def rebuildChallengesLeaderboard(action:String) : Unit = {
-    val start = System.currentTimeMillis
-    Logger.info(action)
-
-    db.withConnection { implicit c =>
-      // Clear TABLEs
-      SQL("DELETE FROM user_leaderboard WHERE country_code IS NULL").executeUpdate()
-      SQL("DELETE FROM user_top_challenges WHERE country_code IS NULL").executeUpdate()
-
-      // Past Month
-      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(1, config)).executeUpdate()
-      SQL(LeaderboardHelper.rebuildTopChallengesSQL(1, config)).executeUpdate()
-
-      // Past 3 Months
-      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(3, config)).executeUpdate()
-      SQL(LeaderboardHelper.rebuildTopChallengesSQL(3, config)).executeUpdate()
-
-      // Past 6 Months
-      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(6, config)).executeUpdate()
-      SQL(LeaderboardHelper.rebuildTopChallengesSQL(6, config)).executeUpdate()
-
-      // Past Year
-      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(12, config)).executeUpdate()
-      SQL(LeaderboardHelper.rebuildTopChallengesSQL(12, config)).executeUpdate()
-
-      Logger.info(s"Rebuilt Challenges Leaderboard succesfully.")
-      val totalTime = System.currentTimeMillis - start
-      Logger.debug("Time to rebuild leaderboard: %1d ms".format(totalTime))
-    }
-  }
-
-  /**
-   * Rebuilds the user_leaderboard table.
-   *
-   * @param action - action string
-   */
-  def rebuildCountryLeaderboard(action:String) : Unit = {
-    val start = System.currentTimeMillis
-    Logger.info(action)
-
-    db.withConnection { implicit c =>
-      // Clear TABLEs
-      SQL("DELETE FROM user_leaderboard WHERE country_code IS NOT NULL").executeUpdate()
-      SQL("DELETE FROM user_top_challenges WHERE country_code IS NOT NULL").executeUpdate()
-
-      val countryCodeMap = boundingBoxFinder.boundingBoxforAll()
-      for ((countryCode, boundingBox) <- countryCodeMap) {
-        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(1, countryCode, boundingBox, config)).executeUpdate()
-        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(3, countryCode, boundingBox, config)).executeUpdate()
-        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(6, countryCode, boundingBox, config)).executeUpdate()
-        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(12, countryCode, boundingBox, config)).executeUpdate()
-        SQL(LeaderboardHelper.rebuildTopChallengesSQLCountry(12, countryCode, boundingBox, config)).executeUpdate()
-      }
-
-      Logger.info(s"Rebuilt Country Leaderboard succesfully.")
-      val totalTime = System.currentTimeMillis - start
-      Logger.debug("Time to rebuild country leaderboard: %1d ms".format(totalTime))
+        logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
     }
   }
 
@@ -372,19 +376,25 @@ class SchedulerActor @Inject() (config:Config,
    * @param action - action string
    */
   def snapshotUserMetrics(action:String) : Unit = {
-    Logger.info(action)
+    logger.info(action)
 
     db.withConnection { implicit c =>
       SQL("INSERT INTO user_metrics_history SELECT *, CURRENT_TIMESTAMP FROM user_metrics").executeUpdate()
 
-      Logger.info(s"Succesfully created snapshot of user metrics.")
+      logger.info(s"Succesfully created snapshot of user metrics.")
     }
   }
 
 }
 
 object SchedulerActor {
+  private val ONE_MONTH = 1
+  private val THREE_MONTHS = 3
+  private val SIX_MONTHS = 6
+  private val TWELVE_MONTHS = 12
+
   def props = Props[SchedulerActor]
 
-  case class RunJob(name:String, action:String="")
+  case class RunJob(name: String, action: String = "")
+
 }

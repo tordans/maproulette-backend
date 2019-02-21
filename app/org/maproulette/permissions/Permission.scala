@@ -1,32 +1,32 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.permissions
 
 import java.sql.Connection
-import javax.inject.{Inject, Provider}
 
 import com.google.inject.Singleton
-import org.maproulette.actions._
+import javax.inject.{Inject, Provider}
+import org.maproulette.data._
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.dal.DALManager
 import org.maproulette.models._
+import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{Group, User}
 
 /**
   * @author cuthbertm
   */
 @Singleton
-class Permission @Inject() (dalManager: Provider[DALManager]) {
+class Permission @Inject()(dalManager: Provider[DALManager]) {
   /**
     * Checks to see if the object has read access to the object in request. Will throw an
     * IllegalAccessException if it does not have access. Read access is available on all objects
     * except User objects, users can only read their own user objects or all user objects if they are
     * a super user.
     *
-    * @param obj The object you are checking to see if the user has read access on the object
+    * @param obj  The object you are checking to see if the user has read access on the object
     * @param user The user requesting the access.
     */
-  def hasObjectReadAccess(obj:BaseObject[Long], user:User)(implicit c:Connection=null) : Unit =  if (!user.isSuperUser) {
+  def hasObjectReadAccess(obj: BaseObject[Long], user: User)(implicit c: Option[Connection] = None): Unit = if (!user.isSuperUser) {
     obj.itemType match {
       case UserType() if obj.id != user.id & obj.asInstanceOf[User].osmProfile.id != user.osmProfile.id =>
         throw new IllegalAccessException(s"User does not have read access to requested user object [${obj.id}]")
@@ -42,10 +42,10 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     * object based hasReadAccess function
     *
     * @param itemType The type of item that user is checked read access against
-    * @param user The user checking whether they have access or not
-    * @param id The id of the object
+    * @param user     The user checking whether they have access or not
+    * @param id       The id of the object
     */
-  def hasReadAccess(itemType:ItemType, user:User)(implicit id:Long, c:Connection=null) : Unit = {
+  def hasReadAccess(itemType: ItemType, user: User)(implicit id: Long, c: Option[Connection] = None): Unit = {
     val retrieveFunction = itemType match {
       case UserType() => dalManager.get().user.retrieveById
       case GroupType() => dalManager.get().userGroup.getGroup
@@ -63,10 +63,10 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
   /**
     * Checks whether a user has write permission to the given object
     *
-    * @param obj The object in question
+    * @param obj  The object in question
     * @param user The user requesting write access
     */
-  def hasObjectWriteAccess(obj:BaseObject[Long], user:User, groupType:Int = Group.TYPE_WRITE_ACCESS)(implicit c:Connection=null) : Unit =
+  def hasObjectWriteAccess(obj: BaseObject[Long], user: User, groupType: Int = Group.TYPE_WRITE_ACCESS)(implicit c: Option[Connection] = None): Unit =
     if (!user.isSuperUser) {
       obj.itemType match {
         case UserType() => this.hasObjectReadAccess(obj, user)
@@ -89,7 +89,7 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
       }
     }
 
-  def hasWriteAccess(itemType:ItemType, user:User, groupType:Int = Group.TYPE_WRITE_ACCESS)(implicit id:Long, c:Connection=null) : Unit =
+  def hasWriteAccess(itemType: ItemType, user: User, groupType: Int = Group.TYPE_WRITE_ACCESS)(implicit id: Long, c: Option[Connection] = None): Unit =
     if (!user.isSuperUser) {
       itemType match {
         case UserType() =>
@@ -119,22 +119,22 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
   /**
     * Uses the hasWriteAccess function, but switches to check for users membership to the admin group instead of the write group
     *
-    * @param obj The object that we are checking to see if they have access to it
+    * @param obj  The object that we are checking to see if they have access to it
     * @param user The user making the request
-    * @param c An implicit database connection
+    * @param c    An implicit database connection
     */
-  def hasObjectAdminAccess(obj:BaseObject[Long], user:User)(implicit c:Connection=null) : Unit =
+  def hasObjectAdminAccess(obj: BaseObject[Long], user: User)(implicit c: Option[Connection] = None): Unit =
     this.hasObjectWriteAccess(obj, user, Group.TYPE_ADMIN)
 
   /**
     * Uses the hasWriteAccess function, but switches to check for users membership to the admin group instead of the write group
     *
     * @param itemType The type of object that the user want's access too
-    * @param user The user making the request
-    * @param id The id of the object
-    * @param c An implicit database connection
+    * @param user     The user making the request
+    * @param id       The id of the object
+    * @param c        An implicit database connection
     */
-  def hasAdminAccess(itemType:ItemType, user:User)(implicit id:Long, c:Connection=null) : Unit =
+  def hasAdminAccess(itemType: ItemType, user: User)(implicit id: Long, c: Option[Connection] = None): Unit =
     this.hasWriteAccess(itemType, user, Group.TYPE_ADMIN)
 
   /**
@@ -142,14 +142,15 @@ class Permission @Inject() (dalManager: Provider[DALManager]) {
     *
     * @param user
     */
-  def hasSuperAccess(user:User) : Unit = if (!user.isSuperUser) {
+  def hasSuperAccess(user: User): Unit = if (!user.isSuperUser) {
     throw new IllegalAccessException(s"Only super users can perform this action.")
   }
 
-  def hasProjectTypeAccess(user:User, groupType:Int = Group.TYPE_ADMIN)(implicit id:Long, c:Connection=null) : Unit =
+  def hasProjectTypeAccess(user: User, groupType: Int = Group.TYPE_ADMIN)(implicit id: Long, c: Option[Connection] = None): Unit =
     this.hasProjectAccess(dalManager.get().project.retrieveById, user, groupType)
 
-  def hasProjectAccess(project:Option[Project], user:User, groupType:Int = Group.TYPE_ADMIN)(implicit c:Connection=null) : Unit = if (!user.isSuperUser) {
+  def hasProjectAccess(project: Option[Project], user: User, groupType: Int = Group.TYPE_ADMIN)
+                      (implicit c: Option[Connection] = None): Unit = if (!user.isSuperUser) {
     project match {
       case Some(p) =>
         if (project.get.owner != user.osmProfile.id && !user.groups.exists(g => p.id == g.projectId && g.groupType <= groupType)) {

@@ -1,6 +1,6 @@
 package org.maproulette
 
-import org.maproulette.actions._
+import org.maproulette.data._
 import org.maproulette.session.User
 import org.maproulette.utils.TestSpec
 import org.scalatestplus.play.PlaySpec

@@ -1,35 +1,33 @@
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.Inject
 
 import anorm.SqlParser._
 import anorm._
+import javax.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.actions.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.cache.CacheManager
+import org.maproulette.data.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models._
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchLocation, SearchParameters, User}
 import play.api.db.Database
-import play.api.libs.json.{JsString, JsValue, Json}
-
-import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
+import play.api.libs.json.{JsString, JsValue, Json}
 
 /**
   * @author mcuthbert
   */
-class VirtualChallengeDAL @Inject() (override val db:Database,
-                                     override val permission:Permission,
-                                     val taskDAL:TaskDAL,
-                                     val config:Config)
+class VirtualChallengeDAL @Inject()(override val db: Database,
+                                    override val permission: Permission,
+                                    val taskDAL: TaskDAL,
+                                    val config: Config)
   extends BaseDAL[Long, VirtualChallenge] with DALHelper with Locking[Task] {
-
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   override val cacheManager = new CacheManager[Long, VirtualChallenge]
   override val tableName: String = "virtual_challenges"
@@ -61,7 +59,7 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     * @param user    The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(element: VirtualChallenge, user: User)(implicit c:Connection=null): VirtualChallenge = {
+  override def insert(element: VirtualChallenge, user: User)(implicit c: Option[Connection] = None): VirtualChallenge = {
     this.cacheManager.withOptionCaching { () =>
       withMRTransaction { implicit c =>
         // check if any virtual challenges with the same name need to expire
@@ -76,7 +74,8 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
         }
 
         if (validParameters) {
-          val query = """INSERT INTO virtual_challenges (owner_id, name, description, search_parameters, expiry)
+          val query =
+            """INSERT INTO virtual_challenges (owner_id, name, description, search_parameters, expiry)
                              VALUES ({owner}, {name}, {description}, {parameters}, {expiry}::timestamp)
                              RETURNING *"""
           val newChallenge = SQL(query).on(
@@ -100,52 +99,14 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
   }
 
   /**
-    * The update function is limited in that you can only update the superficial elements, name
-    * and description. The only value of consequence that you can update is expiry, which by default
-    * is set to a day but can be extended by the user.
-    *
-    * @param updates The updates in json form
-    * @param user The user executing the task
-    * @param id The id of the object that you are updating
-    * @param c
-    * @return An optional object, it will return None if no object found with a matching id that was supplied
-    */
-  override def update(updates: JsValue, user: User)(implicit id: Long, c:Connection=null): Option[VirtualChallenge] = {
-    permission.hasWriteAccess(VirtualChallengeType(), user)
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      withMRTransaction { implicit c =>
-        // first if the virtual challenge has expired then just delete it
-        val expiry = (updates \ "expiry").asOpt[DateTime].getOrElse(cachedItem.expiry)
-        if (DateTime.now().isAfter(expiry)) {
-          this.delete(cachedItem.id, user)
-          throw new InvalidException("Could not update virtual challenge as it has already expired")
-        } else {
-          val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
-          val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
-          val query = """UPDATE virtual_challenges
-               SET name = {name}, description = {description}, expiry = {expiry}::timestamp
-               WHERE id = {id} RETURNING *"""
-          SQL(query)
-              .on(
-                'name -> name,
-                'description -> description,
-                'expiry -> ToParameterValue.apply[String].apply(String.valueOf(expiry)),
-                'id -> id
-              ).as(this.parser.*).headOption
-        }
-      }
-    }
-  }
-
-  /**
     * This function will rebuild the virtual challenge based on the search parameters that have been stored with the object
     *
-    * @param id The id of the virtual challenge
+    * @param id   The id of the virtual challenge
     * @param user The user making the request
-    * @param c implicit connection
+    * @param c    implicit connection
     * @return
     */
-  def rebuildVirtualChallenge(id:Long, params:SearchParameters, user:User)(implicit c:Connection=null) : Unit = {
+  def rebuildVirtualChallenge(id: Long, params: SearchParameters, user: User)(implicit c: Option[Connection] = None): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
       this.taskDAL.getTasksInBoundingBox(params, -1, 0).grouped(config.virtualChallengeBatchSize).foreach(batch => {
@@ -158,7 +119,7 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     }
   }
 
-  private def createVirtualChallengeFromIds(id:Long, idList:List[Long])(implicit c:Connection=null) : Unit = {
+  private def createVirtualChallengeFromIds(id: Long, idList: List[Long])(implicit c: Option[Connection] = None): Unit = {
     withMRTransaction { implicit c =>
       val insertRows = idList.map(taskId => s"($taskId, $id)").mkString(",")
       SQL"""
@@ -168,7 +129,60 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     }
   }
 
-  def listTasks(id:Long, user:User, limit:Int, offset:Int)(implicit c:Connection=null) : List[Task] = {
+  override def retrieveListByName(implicit names: List[String], parentId: Long, c: Option[Connection] = None): List[VirtualChallenge] =
+    this.removeExpiredFromList(super.retrieveListByName)
+
+  /**
+    * The update function is limited in that you can only update the superficial elements, name
+    * and description. The only value of consequence that you can update is expiry, which by default
+    * is set to a day but can be extended by the user.
+    *
+    * @param updates The updates in json form
+    * @param user    The user executing the task
+    * @param id      The id of the object that you are updating
+    * @param c
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  override def update(updates: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[VirtualChallenge] = {
+    permission.hasWriteAccess(VirtualChallengeType(), user)
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      withMRTransaction { implicit c =>
+        // first if the virtual challenge has expired then just delete it
+        val expiry = (updates \ "expiry").asOpt[DateTime].getOrElse(cachedItem.expiry)
+        if (DateTime.now().isAfter(expiry)) {
+          this.delete(cachedItem.id, user)
+          throw new InvalidException("Could not update virtual challenge as it has already expired")
+        } else {
+          val name = (updates \ "name").asOpt[String].getOrElse(cachedItem.name)
+          val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
+          val query =
+            """UPDATE virtual_challenges
+               SET name = {name}, description = {description}, expiry = {expiry}::timestamp
+               WHERE id = {id} RETURNING *"""
+          SQL(query)
+            .on(
+              'name -> name,
+              'description -> description,
+              'expiry -> ToParameterValue.apply[String].apply(String.valueOf(expiry)),
+              'id -> id
+            ).as(this.parser.*).headOption
+        }
+      }
+    }
+  }
+
+  // --- FOLLOWING FUNCTION OVERRIDE BASE FUNCTION TO SIMPLY REMOVE ANY RETRIEVED VIRTUAL CHALLENGES
+  // --- THAT ARE EXPIRED
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[VirtualChallenge] = {
+    super.retrieveById match {
+      case Some(vc) if vc.isExpired =>
+        this.delete(id, User.superUser)
+        None
+      case x => x
+    }
+  }
+
+  def listTasks(id: Long, user: User, limit: Int, offset: Int)(implicit c: Option[Connection] = None): List[Task] = {
     permission.hasReadAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
       SQL"""SELECT tasks.#${taskDAL.retrieveColumns} FROM tasks
@@ -181,15 +195,15 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
   /**
     * Gets a random task from the list of tasks associated with the virtual challenge
     *
-    * @param id The id of the virtual challenge
-    * @param params The search parameters, most of the parameters will not be used
-    * @param user The user making the request
+    * @param id          The id of the virtual challenge
+    * @param params      The search parameters, most of the parameters will not be used
+    * @param user        The user making the request
     * @param proximityId Id of the task to find the closest next task
     * @param c
     * @return An optional Task, None if no tasks available
     */
-  def getRandomTask(id:Long, params:SearchParameters, user:User, proximityId:Option[Long] = None)
-                   (implicit c:Connection=null) : Option[Task] = {
+  def getRandomTask(id: Long, params: SearchParameters, user: User, proximityId: Option[Long] = None)
+                   (implicit c: Option[Connection] = None): Option[Task] = {
     permission.hasReadAccess(VirtualChallengeType(), user)(id)
     // The default where clause will check to see if the parents are enabled, that the task is
     // not locked (or if it is, it is locked by the current user) and that the status of the task
@@ -199,7 +213,8 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
       case _ => List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
     }
 
-    val whereClause = new StringBuilder(s"""
+    val whereClause = new StringBuilder(
+      s"""
       WHERE vct.virtual_challenge_id = $id AND
       (l.id IS NULL OR l.user_id = ${user.id}) AND
       tasks.status IN ({statusList})
@@ -212,7 +227,8 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
       case None => ""
     }
 
-    val query = s"""SELECT tasks.${taskDAL.retrieveColumns} FROM tasks
+    val query =
+      s"""SELECT tasks.${taskDAL.retrieveColumns} FROM tasks
             LEFT JOIN locked l ON l.item_id = tasks.id
             INNER JOIN virtual_challenge_tasks vct ON vct.task_id = tasks.id
             ${whereClause.toString}
@@ -231,11 +247,11 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
   /**
     * Simple query to retrieve the next task in the sequence
     *
-    * @param id      The parent of the task
+    * @param id            The parent of the task
     * @param currentTaskId The current task that we are basing our query from
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
-  def getSequentialNextTask(id:Long, currentTaskId:Long)(implicit c:Connection=null): Option[(Task, Lock)] = {
+  def getSequentialNextTask(id: Long, currentTaskId: Long)(implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- taskDAL.parser
@@ -268,11 +284,11 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
   /**
     * Simple query to retrieve the previous task in the sequence
     *
-    * @param id      The parent of the task
+    * @param id            The parent of the task
     * @param currentTaskId The current task that we are basing our query from
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
-  def getSequentialPreviousTask(id:Long, currentTaskId:Long)(implicit c:Connection=null): Option[(Task, Lock)] = {
+  def getSequentialPreviousTask(id: Long, currentTaskId: Long)(implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- taskDAL.parser
@@ -306,12 +322,12 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     * Gets the combined geometry of all the tasks that are associated with the virtual challenge
     * NOTE* Due to the way this function finds the geometries, it could be quite slow.
     *
-    * @param challengeId The id for the virtual challenge
+    * @param challengeId  The id for the virtual challenge
     * @param statusFilter To view the geojson for only tasks with a specific status
-    * @param c The implicit connection for the function
+    * @param c            The implicit connection for the function
     * @return A JSON string representing the geometry
     */
-  def getChallengeGeometry(challengeId:Long, statusFilter:Option[List[Int]]=None)(implicit c:Connection=null) : String = {
+  def getChallengeGeometry(challengeId: Long, statusFilter: Option[List[Int]] = None)(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
       val filter = statusFilter match {
         case Some(s) => s"AND status IN (${s.mkString(",")}"
@@ -338,12 +354,12 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     * in the virtual challenge, then those tasks will remain part of the virtual challenge until the
     * tasks are cleared from the database.
     *
-    * @param challengeId The id of the virtual challenge
+    * @param challengeId  The id of the virtual challenge
     * @param statusFilter Filter the displayed task cluster points by their status
     * @return A list of clustered point objects
     */
-  def getClusteredPoints(challengeId:Long, statusFilter:Option[List[Int]]=None)
-                        (implicit c:Connection=null) : List[ClusteredPoint] = {
+  def getClusteredPoints(challengeId: Long, statusFilter: Option[List[Int]] = None)
+                        (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val filter = statusFilter match {
         case Some(s) => s"AND status IN (${s.mkString(",")}"
@@ -366,17 +382,6 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     }
   }
 
-  // --- FOLLOWING FUNCTION OVERRIDE BASE FUNCTION TO SIMPLY REMOVE ANY RETRIEVED VIRTUAL CHALLENGES
-  // --- THAT ARE EXPIRED
-  override def retrieveById(implicit id: Long, c:Connection=null): Option[VirtualChallenge] = {
-    super.retrieveById match {
-      case Some(vc) if vc.isExpired =>
-        this.delete(id, User.superUser)
-        None
-      case x => x
-    }
-  }
-
   /**
     * For Virtual Challenges the retrieveByName function won't quite work as expected, there is a possibility
     * that there are multiple Virtual Challenges with the same name. This function will simply return the
@@ -387,7 +392,7 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     * @param c
     * @return The object that you are looking up, None if not found
     */
-  override def retrieveByName(implicit name: String, parentId: Long, c:Connection=null): Option[VirtualChallenge] = {
+  override def retrieveByName(implicit name: String, parentId: Long, c: Option[Connection] = None): Option[VirtualChallenge] = {
     super.retrieveByName match {
       case Some(vc) if vc.isExpired =>
         this.delete(vc.id, User.superUser)
@@ -396,25 +401,10 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
     }
   }
 
-  override def retrieveListById(limit: Int, offset: Int)(implicit ids: List[Long], c:Connection=null): List[VirtualChallenge] =
+  override def retrieveListById(limit: Int, offset: Int)(implicit ids: List[Long], c: Option[Connection] = None): List[VirtualChallenge] =
     this.removeExpiredFromList(super.retrieveListById(limit, offset))
 
-  override def retrieveListByName(implicit names: List[String], parentId: Long, c:Connection=null): List[VirtualChallenge] =
-    this.removeExpiredFromList(super.retrieveListByName)
-
-  override def retrieveListByPrefix(prefix: String, limit: Int, offset: Int, onlyEnabled: Boolean, orderColumn: String, orderDirection: String)
-                                   (implicit parentId: Long, c:Connection=null): List[VirtualChallenge] =
-    this.removeExpiredFromList(super.retrieveListByPrefix(prefix, limit, offset, onlyEnabled, orderColumn, orderDirection))
-
-  override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean, orderColumn: String, orderDirection: String)
-                   (implicit parentId: Long, c:Connection=null): List[VirtualChallenge] =
-    this.removeExpiredFromList(super.find(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection))
-
-  override def list(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String, orderColumn: String, orderDirection: String)
-                   (implicit parentId: Long, c:Connection=null): List[VirtualChallenge] =
-    this.removeExpiredFromList(super.list(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection))
-
-  private def removeExpiredFromList(superList:List[VirtualChallenge]) : List[VirtualChallenge] = {
+  private def removeExpiredFromList(superList: List[VirtualChallenge]): List[VirtualChallenge] = {
     superList.flatMap(vc => {
       if (vc.isExpired) {
         this.delete(vc.id, User.superUser)
@@ -424,5 +414,18 @@ class VirtualChallengeDAL @Inject() (override val db:Database,
       }
     })
   }
+
+  override def retrieveListByPrefix(prefix: String, limit: Int, offset: Int, onlyEnabled: Boolean, orderColumn: String, orderDirection: String)
+                                   (implicit parentId: Long, c: Option[Connection] = None): List[VirtualChallenge] =
+    this.removeExpiredFromList(super.retrieveListByPrefix(prefix, limit, offset, onlyEnabled, orderColumn, orderDirection))
+
+  override def find(searchString: String, limit: Int, offset: Int, onlyEnabled: Boolean, orderColumn: String, orderDirection: String)
+                   (implicit parentId: Long, c: Option[Connection] = None): List[VirtualChallenge] =
+    this.removeExpiredFromList(super.find(searchString, limit, offset, onlyEnabled, orderColumn, orderDirection))
+
+  override def list(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String, orderColumn: String, orderDirection: String)
+                   (implicit parentId: Long, c: Option[Connection] = None): List[VirtualChallenge] =
+    this.removeExpiredFromList(super.list(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection))
+
   // --- END OF OVERRIDDEN FUNCTIONS TO FILTER OUT ANY EXPIRED VIRTUAL CHALLENGES
 }

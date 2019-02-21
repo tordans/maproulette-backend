@@ -1,3 +1,5 @@
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.maproulette.session.SearchParameters
@@ -8,7 +10,7 @@ import play.api.libs.json._
   *
   * @author mcuthbert
   */
-case class TaskCluster(clusterId:Int, numberOfPoints:Int, params:SearchParameters, point:Point, bounding:JsValue = Json.toJson("{}")) extends DefaultWrites
+case class TaskCluster(clusterId: Int, numberOfPoints: Int, params: SearchParameters, point: Point, bounding: JsValue = Json.toJson("{}")) extends DefaultWrites
 
 object TaskCluster {
   implicit val pointWrites: Writes[Point] = Json.writes[Point]

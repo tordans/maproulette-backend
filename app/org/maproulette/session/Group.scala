@@ -1,24 +1,23 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
 import org.joda.time.DateTime
-import org.maproulette.actions.{GroupType, ItemType}
+import org.maproulette.data.{GroupType, ItemType}
 import org.maproulette.models.BaseObject
 import play.api.libs.json.{Json, Reads, Writes}
-
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
 /**
   * @author cuthbertm
   */
-case class Group(override val id:Long,
-                 override val name:String,
-                 projectId:Long,
-                 groupType:Int,
-                 override val created:DateTime=DateTime.now(),
-                 override val modified:DateTime=DateTime.now()) extends BaseObject[Long] {
+case class Group(override val id: Long,
+                 override val name: String,
+                 projectId: Long,
+                 groupType: Int,
+                 override val created: DateTime = DateTime.now(),
+                 override val modified: DateTime = DateTime.now()) extends BaseObject[Long] {
   override val itemType: ItemType = GroupType()
 }
 

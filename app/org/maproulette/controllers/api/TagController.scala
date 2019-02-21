@@ -1,10 +1,10 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-import org.maproulette.actions.{ActionManager, TagType}
 import org.maproulette.controllers.CRUDController
+import org.maproulette.data.{ActionManager, TagType}
 import org.maproulette.models.Tag
 import org.maproulette.models.dal.TagDAL
 import org.maproulette.session.{SessionManager, User}
@@ -19,11 +19,11 @@ import play.api.mvc._
   *
   * @author cuthbertm
   */
-class TagController @Inject() (override val sessionManager: SessionManager,
-                               override val actionManager: ActionManager,
-                               override val dal:TagDAL,
-                               components: ControllerComponents,
-                               override val bodyParsers:PlayBodyParsers)
+class TagController @Inject()(override val sessionManager: SessionManager,
+                              override val actionManager: ActionManager,
+                              override val dal: TagDAL,
+                              components: ControllerComponents,
+                              override val bodyParsers: PlayBodyParsers)
   extends AbstractController(components) with CRUDController[Tag] {
 
   // json reads for automatically reading Tags from a posted json body
@@ -38,12 +38,12 @@ class TagController @Inject() (override val sessionManager: SessionManager,
     * "road_", then set the prefix to "road_"
     *
     * @param prefix The prefix for the tags
-    * @param limit The limit on how many tags to be returned
+    * @param limit  The limit on how many tags to be returned
     * @param offset This is used for page offsets, so if you limit 10 tags and have offset 0, then
     *               changing to offset 1 will return the next set of 10 tags.
     * @return
     */
-  def getTags(prefix:String, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getTags(prefix: String, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.dal.retrieveListByPrefix(prefix, limit, offset)))
     }
@@ -56,11 +56,11 @@ class TagController @Inject() (override val sessionManager: SessionManager,
     * matched on ids and names, instead of just ids.
     *
     * @param requestBody This is the posted request body in json format.
-    * @param arr The list of Tag objects supplied in the json array from the request body
-    * @param user The id of the user that is executing the request
-    * @param update If an item is found then update it, if parameter set to true, otherwise we skip.
+    * @param arr         The list of Tag objects supplied in the json array from the request body
+    * @param user        The id of the user that is executing the request
+    * @param update      If an item is found then update it, if parameter set to true, otherwise we skip.
     */
-  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user:User, update: Boolean): Unit = {
+  override def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user: User, update: Boolean): Unit = {
     val tagList = arr.flatMap(element => (element \ "id").asOpt[Long] match {
       case Some(itemID) if update => element.validate[Tag].fold(
         errors => None,

@@ -1,12 +1,12 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session.dal
 
 import java.sql.Connection
 
-import javax.inject.{Inject, Singleton}
-import anorm._
 import anorm.SqlParser._
+import anorm._
+import javax.inject.{Inject, Singleton}
 import org.maproulette.cache.{BasicCache, CacheManager}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.utils.TransactionManager
@@ -20,7 +20,7 @@ import play.api.db.Database
   * @author cuthbertm
   */
 @Singleton
-class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
+class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
 
   // The cache manager for the users
   val cacheManager = new CacheManager[Long, Group]
@@ -48,18 +48,19 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param groupType current only 1 (Admin) however currently no restriction on what you can supply here
     * @return The new group
     */
-  def createGroup(projectId:Long, groupType:Int, user:User)(implicit c:Connection=null) : Group = {
+  def createGroup(projectId: Long, groupType: Int, user: User)(implicit c: Option[Connection] = None): Group = {
     this.hasAccess(user)
-    val groupPostfix:String = groupType match {
+    val groupPostfix: String = groupType match {
       case Group.TYPE_ADMIN => "Admin"
       case Group.TYPE_WRITE_ACCESS => "Write"
       case Group.TYPE_READ_ONLY => "Read"
       case _ => throw new InvalidException("Invalid group type supplied to create group")
     }
-    val groupName:String = s"${projectId}_$groupPostfix"
+    val groupName: String = s"${projectId}_$groupPostfix"
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO groups (project_id, name, group_type) VALUES ($projectId, $groupName, $groupType) RETURNING *""".as(this.parser.*).headOption
+        SQL"""INSERT INTO groups (project_id, name, group_type)
+             VALUES ($projectId, $groupName, $groupType) RETURNING *""".as(this.parser.*).headOption
       }
     } match {
       case Some(v) =>
@@ -70,7 +71,9 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
           case None =>
         }
         v
-      case None => throw new Exception(s"For some reason a group was inserted but no group object returned. Possible data inconsistent possible, so operation cancelled.")
+      case None => throw new Exception(
+        s"""For some reason a group was inserted but no group object returned.
+                                            Possible data inconsistent possible, so operation cancelled.""")
     }
   }
 
@@ -82,7 +85,7 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param newName The new name of the group
     * @return The updated group
     */
-  def updateGroup(groupId:Long, newName:String, user:User)(implicit c:Connection=null) : Option[Group] = {
+  def updateGroup(groupId: Long, newName: String, user: User)(implicit c: Option[Connection] = None): Option[Group] = {
     this.hasAccess(user)
     implicit val gid = groupId
     this.cacheManager.withUpdatingCache(Long => getGroup) { implicit cachedItem =>
@@ -92,7 +95,7 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     }
   }
 
-  def getGroup(implicit groupId:Long, c:Connection=null) : Option[Group] = {
+  def getGroup(implicit groupId: Long, c: Option[Connection] = None): Option[Group] = {
     this.cacheManager.withCaching { () =>
       this.withMRConnection { implicit c =>
         SQL"""SELECT * FROM groups WHERE id = $groupId""".as(this.parser.*).headOption
@@ -106,9 +109,9 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     * @param groupId The id of the group to delete
     * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with id found to delete
     */
-  def deleteGroup(groupId:Long, user:User)(implicit c:Connection=null) : Int = {
+  def deleteGroup(groupId: Long, user: User)(implicit c: Option[Connection] = None): Int = {
     this.hasAccess(user)
-    implicit val ids:List[Long] = List(groupId)
+    implicit val ids: List[Long] = List(groupId)
     this.cacheManager.withCacheIDDeletion { () =>
       clearCache(-1, groupId)
       this.withMRTransaction { implicit c =>
@@ -118,58 +121,12 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
   }
 
   /**
-    * Deletes the group
-    *
-    * @param name The name of the group to delete
-    * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with name found to delete
-    */
-  def deleteGroupByName(name:String, user:User)(implicit c:Connection=null) : Int = {
-    this.hasAccess(user)
-    implicit val names:List[String] = List(name)
-    // get the cache item first so we can remove from user and project caches
-    this.cacheManager.getByName(name) match {
-      case Some(v) => clearCache(-1, v.id)
-      case None =>
-    }
-    this.cacheManager.withCacheNameDeletion { () =>
-      this.withMRTransaction { implicit c =>
-        SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
-      }
-    }
-  }
-
-  /**
-    * Gets all the groups that a specific user belongs too
-    *
-    * @param osmUserId The osm id of the user
-    * @return A list of groups the user belongs too
-    */
-  def getUserGroups(osmUserId:Long, user:User)(implicit c:Connection=null) : List[Group] = {
-    _getGroups(osmUserId, this.userCache,
-      s"""SELECT * FROM groups g
-        INNER JOIN user_groups ug ON ug.group_id = g.id
-        WHERE ug.osm_user_id = $osmUserId""",
-      user
-    )
-  }
-
-  /**
-    * Gets all the groups that a specific project has
-    *
-    * @param projectId The project id
-    * @return
-    */
-  def getProjectGroups(projectId:Long, user:User)(implicit c:Connection=null) : List[Group] = {
-    _getGroups(projectId, this.projectCache, s"SELECT * FROM groups g WHERE project_id = $projectId", user)
-  }
-
-  /**
     * Clears both the project and user cache
     *
     * @param id
     * @param groupId
     */
-  def clearCache(id:Long = -1, groupId:Long = -1) : Unit = {
+  def clearCache(id: Long = -1, groupId: Long = -1): Unit = {
     clearProjectCache(id, groupId)
     clearUserCache(id, groupId)
   }
@@ -179,20 +136,11 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     *
     * @param id If id is supplied will only remove the project with that id
     */
-  def clearProjectCache(id:Long = -1, groupId:Long = -1) : Unit = {
-    _clearCache(id, groupId, this.projectCache)
+  def clearProjectCache(id: Long = -1, groupId: Long = -1): Unit = {
+    clearCacheType(id, groupId, this.projectCache)
   }
 
-  /**
-    * Clears the user cache
-    *
-    * @param osmId If osmId is supplied will only remove the user with that osmId
-    */
-  def clearUserCache(osmId:Long = -1, groupId:Long = -1) : Unit = {
-    _clearCache(osmId, groupId, this.userCache)
-  }
-
-  private def _clearCache(id:Long = -1, groupId:Long = -1, cache:BasicCache[Long, List[Long]]) : Unit = {
+  private def clearCacheType(id: Long = -1, groupId: Long = -1, cache: BasicCache[Long, List[Long]]): Unit = {
     if (id > -1) {
       if (groupId > -1) {
         cache.get(id) match {
@@ -214,8 +162,53 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     }
   }
 
-  private def _getGroups(id:Long, cache:BasicCache[Long, List[Long]], sql:String, user:User)
-                        (implicit c:Connection=null) : List[Group] = {
+  /**
+    * Clears the user cache
+    *
+    * @param osmId If osmId is supplied will only remove the user with that osmId
+    */
+  def clearUserCache(osmId: Long = -1, groupId: Long = -1): Unit = {
+    clearCacheType(osmId, groupId, this.userCache)
+  }
+
+  /**
+    * Deletes the group
+    *
+    * @param name The name of the group to delete
+    * @return 1 or 0, the number of rows deleted. Can never be more than one, 0 if no group with name found to delete
+    */
+  def deleteGroupByName(name: String, user: User)(implicit c: Option[Connection] = None): Int = {
+    this.hasAccess(user)
+    implicit val names: List[String] = List(name)
+    // get the cache item first so we can remove from user and project caches
+    this.cacheManager.getByName(name) match {
+      case Some(v) => clearCache(-1, v.id)
+      case None =>
+    }
+    this.cacheManager.withCacheNameDeletion { () =>
+      this.withMRTransaction { implicit c =>
+        SQL"""DELETE FROM groups WHERE name = $name""".executeUpdate()
+      }
+    }
+  }
+
+  /**
+    * Gets all the groups that a specific user belongs too
+    *
+    * @param osmUserId The osm id of the user
+    * @return A list of groups the user belongs too
+    */
+  def getUserGroups(osmUserId: Long, user: User)(implicit c: Option[Connection] = None): List[Group] = {
+    getGroups(osmUserId, this.userCache,
+      s"""SELECT * FROM groups g
+        INNER JOIN user_groups ug ON ug.group_id = g.id
+        WHERE ug.osm_user_id = $osmUserId""",
+      user
+    )
+  }
+
+  private def getGroups(id: Long, cache: BasicCache[Long, List[Long]], sql: String, user: User)
+                        (implicit c: Option[Connection] = None): List[Group] = {
     this.hasAccess(user)
     val retGroups = cache.get(id) match {
       case Some(ids) =>
@@ -246,9 +239,19 @@ class UserGroupDAL @Inject() (val db:Database) extends TransactionManager {
     *
     * @param user A super user
     */
-  private def hasAccess(user:User) : Unit = {
+  private def hasAccess(user: User): Unit = {
     if (!user.isSuperUser) {
       throw new IllegalAccessException("Only super users have access to group objects.")
     }
+  }
+
+  /**
+    * Gets all the groups that a specific project has
+    *
+    * @param projectId The project id
+    * @return
+    */
+  def getProjectGroups(projectId: Long, user: User)(implicit c: Option[Connection] = None): List[Group] = {
+    getGroups(projectId, this.projectCache, s"SELECT * FROM groups g WHERE project_id = $projectId", user)
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
@@ -14,9 +14,9 @@ import play.api.mvc._
   *
   * @author cuthbertm
   */
-class APIController @Inject() (dalManager: DALManager,
-                               sessionManager: SessionManager,
-                               components: ControllerComponents) extends AbstractController(components) with StatusMessages {
+class APIController @Inject()(dalManager: DALManager,
+                              sessionManager: SessionManager,
+                              components: ControllerComponents) extends AbstractController(components) with StatusMessages {
   /**
     * In the routes file this will be mapped to any /api/v2/ paths. It is the last mapping to take
     * place so if it doesn't match any of the other routes it will fall into this invalid path.
@@ -24,7 +24,7 @@ class APIController @Inject() (dalManager: DALManager,
     * @param path The path found after /api/v2
     * @return A json object returned with a 400 BadRequest
     */
-  def invalidAPIPath(path:String) : Action[AnyContent] = Action {
+  def invalidAPIPath(path: String): Action[AnyContent] = Action {
     BadRequest(Json.toJson(StatusMessage("KO", JsString(s"Invalid Path [$path] for API"))))
   }
 }

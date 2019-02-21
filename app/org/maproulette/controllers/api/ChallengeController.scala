@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
@@ -6,20 +6,19 @@ import java.io._
 import java.sql.Connection
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
-import javax.inject.Inject
 import akka.util.ByteString
+import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions._
+import org.maproulette.Config
 import org.maproulette.controllers.ParentController
-import org.maproulette.data.{ActionSummary, ChallengeSummary}
+import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, MPExceptionUtil, NotFoundException, StatusMessage}
-import org.maproulette.models.dal._
 import org.maproulette.models._
+import org.maproulette.models.dal._
 import org.maproulette.permissions.Permission
-import org.maproulette.services.ChallengeService
+import org.maproulette.provider.ChallengeProvider
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
-import org.maproulette.Config
 import play.api.http.HttpEntity
 import play.api.libs.Files
 import play.api.libs.json._
@@ -45,12 +44,12 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     override val dal: ChallengeDAL,
                                     dalManager: DALManager,
                                     override val tagDAL: TagDAL,
-                                    challengeService: ChallengeService,
-                                    wsClient:WSClient,
-                                    permission:Permission,
-                                    config:Config,
+                                    challengeProvider: ChallengeProvider,
+                                    wsClient: WSClient,
+                                    permission: Permission,
+                                    config: Config,
                                     components: ControllerComponents,
-                                    override val bodyParsers:PlayBodyParsers)
+                                    override val bodyParsers: PlayBodyParsers)
   extends AbstractController(components) with ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -79,53 +78,6 @@ class ChallengeController @Inject()(override val childController: TaskController
   override def dalWithTags: TagDALMixin[Challenge] = dal
 
   /**
-    * Classes can override this function to inject values into the object before it is sent along
-    * with the response
-    *
-    * @param obj the object being sent in the response
-    * @return A Json representation of the object
-    */
-  override def inject(obj: Challenge)(implicit request:Request[Any]) = {
-    val tags = tagDAL.listByChallenge(obj.id)
-    val withTagsJson = Utils.insertIntoJson(Json.toJson(obj), Tag.KEY, Json.toJson(tags.map(_.name)))
-    obj.general.challengeType match {
-      case Actions.ITEM_TYPE_SURVEY =>
-        // if no answers provided with Challenge, then provide the default answers
-        Utils.insertIntoJson(withTagsJson, Challenge.KEY_ANSWER, Json.toJson(this.dalManager.survey.getAnswers(obj.id)))
-      case _ => withTagsJson
-    }
-  }
-
-  /**
-    * This function allows sub classes to modify the body, primarily this would be used for inserting
-    * default elements into the body that shouldn't have to be required to create an object.
-    *
-    * @param body The incoming body from the request
-    * @return
-    */
-  override def updateCreateBody(body: JsValue, user: User): JsValue = {
-    var jsonBody = super.updateCreateBody(body, user)
-    jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "deleted", false)(BooleanWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", Challenge.PRIORITY_HIGH)(IntWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "defaultZoom", Challenge.DEFAULT_ZOOM)(IntWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "minZoom", Challenge.MIN_ZOOM)(IntWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "maxZoom", Challenge.MAX_ZOOM)(IntWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "updateTasks", false)(BooleanWrites)
-    // if we can't find the parent ID, just use the user's default project instead
-    (jsonBody \ "parent").asOpt[Long] match {
-      case Some(v) => jsonBody
-      case None => Utils.insertIntoJson(jsonBody, "parent", this.dalManager.user.getHomeProject(user).id)
-    }
-  }
-
-  /**
     * Function can be implemented to extract more information than just the default create data,
     * to build other objects with the current object at the core. No data will be returned from this
     * function, it purely does work in the background AFTER creating the current object
@@ -134,12 +86,12 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param createdObject The object that was created by the create function
     * @param user          The user that is executing the function
     */
-  override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User)(implicit c:Connection=null): Unit = {
+  override def extractAndCreate(body: JsValue, createdObject: Challenge, user: User)(implicit c: Option[Connection] = None): Unit = {
     val localJson = (body \ "localGeoJSON").asOpt[JsValue] match {
       case Some(local) => Some(Json.stringify(local))
       case None => None
     }
-    if (!this.challengeService.buildTasks(user, createdObject, localJson)) {
+    if (!this.challengeProvider.buildTasks(user, createdObject, localJson)) {
       super.extractAndCreate(body, createdObject, user)
     }
     // we need to elevate the user permissions to super users to extract and create the tags
@@ -184,12 +136,12 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Gets the tasks in the form of ClusteredPoints, which is just a task with limited information,
     * and the geometry associated with it is just the centroid of the task geometry
     *
-    * @param challengeId The challenge id, ie. the parent of the tasks
+    * @param challengeId  The challenge id, ie. the parent of the tasks
     * @param statusFilter Filter by status of the task
-    * @param limit limit the number of tasks returned
+    * @param limit        limit the number of tasks returned
     * @return A list of ClusteredPoint's
     */
-  def getClusteredPoints(challengeId: Long, statusFilter: String, limit:Int): Action[AnyContent] = Action.async { implicit request =>
+  def getClusteredPoints(challengeId: Long, statusFilter: String, limit: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val filter = if (StringUtils.isEmpty(statusFilter)) {
         None
@@ -234,7 +186,8 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of Tasks that match the supplied filters
     */
-  def getRandomTasks(challengeId: Long, taskSearch: String, tags: String, limit: Int, proximityId:Long): Action[AnyContent] = Action.async { implicit request =>
+  def getRandomTasks(challengeId: Long, taskSearch: String, tags: String, limit: Int,
+                     proximityId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
@@ -252,12 +205,12 @@ class ChallengeController @Inject()(override val childController: TaskController
   /**
     * Gets the next task in sequential order for the specified challenge
     *
-    * @param challengeId The current challenge id
+    * @param challengeId   The current challenge id
     * @param currentTaskId The current task id that is being viewed
-    * @param statusList Filter by task status
+    * @param statusList    Filter by task status
     * @return The next task in the list
     */
-  def getSequentialNextTask(challengeId:Long, currentTaskId:Long, statusList:String): Action[AnyContent] = Action.async { implicit request =>
+  def getSequentialNextTask(challengeId: Long, currentTaskId: Long, statusList: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Utils.getResponseJSON(this.dalManager.task.getNextTaskInSequence(challengeId, currentTaskId,
         Utils.toIntList(statusList)), this.dalManager.task.getLastModifiedUser));
@@ -267,12 +220,12 @@ class ChallengeController @Inject()(override val childController: TaskController
   /**
     * Gets the previous task in sequential order for the specified challenge
     *
-    * @param challengeId The current challenge id
+    * @param challengeId   The current challenge id
     * @param currentTaskId The current task id that is being viewed
-    * @param statusList Filter by task status
+    * @param statusList    Filter by task status
     * @return The previous task in the list
     */
-  def getSequentialPreviousTask(challengeId:Long, currentTaskId:Long, statusList:String): Action[AnyContent] = Action.async { implicit request =>
+  def getSequentialPreviousTask(challengeId: Long, currentTaskId: Long, statusList: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Utils.getResponseJSON(this.dalManager.task.getPreviousTaskInSequence(challengeId, currentTaskId,
         Utils.toIntList(statusList)), this.dalManager.task.getLastModifiedUser));
@@ -344,7 +297,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param challengeId id of the parent challenge
     * @return 200 empty Ok
     */
-  def resetTaskInstructions(challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def resetTaskInstructions(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.resetTaskInstructions(user, challengeId)
       Ok
@@ -355,11 +308,11 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Deletes all the tasks under a challenge based on the status of the task. If no filter for the
     * status is supplied, then will delete all the tasks
     *
-    * @param challengeId The id of the challenge
+    * @param challengeId   The id of the challenge
     * @param statusFilters A comma separated list of status' to filter the deletion by.
     * @return
     */
-  def deleteTasks(challengeId:Long, statusFilters:String="") : Action[AnyContent] = Action.async { implicit request =>
+  def deleteTasks(challengeId: Long, statusFilters: String = ""): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.deleteTasks(user, challengeId, Utils.split(statusFilters).map(_.toInt))
       Ok
@@ -372,7 +325,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param challengeId The id of the challenge
     * @return A list of comments that exist for a specific challenge
     */
-  def retrieveComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def retrieveComments(challengeId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)))
     }
@@ -382,31 +335,33 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Extracts all the comments and returns them in a nice format like csv.
     *
     * @param challengeId The id of the challenge
-    * @param limit limit the number of results
-    * @param page Used for paging
+    * @param limit       limit the number of results
+    * @param page        Used for paging
     * @return A csv list of comments for the challenge
     */
-  def extractComments(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def extractComments(challengeId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_comments.csv")),
         body = HttpEntity.Strict(
           ByteString(
             "ProjectID,ChallengeID,TaskID,OSM_UserID,OSM_Username,Comment,TaskLink\n"
-          ).concat(ByteString(_extractComments(challengeId, limit, page, request.host).mkString("\n"))),
+          ).concat(ByteString(extractComments(challengeId, limit, page, request.host).mkString("\n"))),
           Some("text/csv; header=present"))
       )
     }
   }
 
-  private def _extractComments(challengeId:Long, limit:Int, page:Int, host:String) : Seq[String] = {
+  private def extractComments(challengeId: Long, limit: Int, page: Int, host: String): Seq[String] = {
     val comments = this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)
     val urlPrefix = config.getPublicOrigin match {
       case Some(origin) => s"${origin}/"
       case None => s"http://$host/"
     }
     comments.map(comment =>
-      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}"""
+      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},
+         |${comment.osm_username},"${comment.comment}",
+         |${urlPrefix}map/$challengeId/${comment.taskId}""".stripMargin
     )
   }
 
@@ -414,38 +369,37 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Extracts all the tasks and returns them in a nice format like csv.
     *
     * @param challengeId The id of the challenge
-    * @param limit limit the number of results
-    * @param page Used for paging
+    * @param limit       limit the number of results
+    * @param page        Used for paging
     * @return A csv list of tasks for the challenge
     */
-  def extractTaskSummaries(challengeId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def extractTaskSummaries(challengeId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
+      val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page)
+      val seqString = tasks.map(task =>
+        s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",
+           |"${Challenge.priorityMap.get(task.priority).get}","${task.username.getOrElse("")}"""".stripMargin
+      )
+
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
         body = HttpEntity.Strict(
           ByteString(
             "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,OSM_Username\n"
-          ).concat(ByteString(_extractTaskSummaries(challengeId, limit, page).mkString("\n"))),
+          ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )
     }
-  }
-
-  private def _extractTaskSummaries(challengeId:Long, limit:Int, page:Int) : Seq[String] = {
-    val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page)
-    tasks.map(task =>
-      s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}","${Challenge.priorityMap.get(task.priority).get}","${task.username.getOrElse("")}""""
-    )
   }
 
   /**
     * Uses the search parameters from the query string to find challenges
     *
     * @param limit limits the amount of results returned
-    * @param page paging mechanism for limited results
+    * @param page  paging mechanism for limited results
     * @return A list of challenges matching the query string parameters
     */
-  def extendedFind(limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+  def extendedFind(limit: Int, page: Int, sort: String, order: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val challenges = this.dal.extendedFind(params, limit, page, sort, order)
@@ -476,13 +430,13 @@ class ChallengeController @Inject()(override val childController: TaskController
   /**
     * Retrieves a lightweight listing of the challenges in the given project(s).
     *
-    * @param projectIds comma-separated list of projects
-    * @param limit limits the amount of results returned
-    * @param page paging mechanism for limited results
+    * @param projectIds  comma-separated list of projects
+    * @param limit       limits the amount of results returned
+    * @param page        paging mechanism for limited results
     * @param onlyEnabled determines if results are restricted to enabled challenges projects
     * @return A list of challenges
     */
-  def listing(projectIds:String, limit:Int, page:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+  def listing(projectIds: String, limit: Int, page: Int, onlyEnabled: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dal.listing(Utils.toLongList(projectIds), limit, page, onlyEnabled)))
     }
@@ -492,10 +446,10 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Matches all the tasks to their specific changesets
     *
     * @param challengeId The challenge id
-    * @param skipSet Whether to skip tasks that have already been set
+    * @param skipSet     Whether to skip tasks that have already been set
     * @return Just a 200 OK
     */
-  def matchChangeSets(challengeId:Long, skipSet:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+  def matchChangeSets(challengeId: Long, skipSet: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val challenge = this.dal.retrieveById(challengeId)
       challenge match {
@@ -521,12 +475,12 @@ class ChallengeController @Inject()(override val childController: TaskController
     * ${name}_info.md - An information file that will be used to display information about the challenge
     *
     * @param projectId The project that you are building the challenge under
-    * @param username The github username of where the challenge information exists
-    * @param repo The repo that the challenge information exists in
-    * @param name The name of the challenge files.
+    * @param username  The github username of where the challenge information exists
+    * @param repo      The repo that the challenge information exists in
+    * @param name      The name of the challenge files.
     * @return A response with the newly created challenge
     */
-  def createFromGithub(projectId:Long, username:String, repo:String, name:String, rebuild:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+  def createFromGithub(projectId: Long, username: String, repo: String, name: String, rebuild: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedFutureRequest { implicit user =>
       val result = Promise[Result]
       val baseURL = s"https://raw.githubusercontent.com/$username/$repo/master/${name}_";
@@ -562,11 +516,58 @@ class ChallengeController @Inject()(override val childController: TaskController
               }
             }
           } catch {
-            case e:Throwable => result success MPExceptionUtil.manageException(e)
+            case e: Throwable => result success MPExceptionUtil.manageException(e)
           }
         case Failure(error) => throw error
       }
       result.future
+    }
+  }
+
+  /**
+    * Classes can override this function to inject values into the object before it is sent along
+    * with the response
+    *
+    * @param obj the object being sent in the response
+    * @return A Json representation of the object
+    */
+  override def inject(obj: Challenge)(implicit request: Request[Any]) : JsValue = {
+    val tags = tagDAL.listByChallenge(obj.id)
+    val withTagsJson = Utils.insertIntoJson(Json.toJson(obj), Tag.KEY, Json.toJson(tags.map(_.name)))
+    obj.general.challengeType match {
+      case Actions.ITEM_TYPE_SURVEY =>
+        // if no answers provided with Challenge, then provide the default answers
+        Utils.insertIntoJson(withTagsJson, Challenge.KEY_ANSWER, Json.toJson(this.dalManager.survey.getAnswers(obj.id)))
+      case _ => withTagsJson
+    }
+  }
+
+  /**
+    * This function allows sub classes to modify the body, primarily this would be used for inserting
+    * default elements into the body that shouldn't have to be required to create an object.
+    *
+    * @param body The incoming body from the request
+    * @return
+    */
+  override def updateCreateBody(body: JsValue, user: User): JsValue = {
+    var jsonBody = super.updateCreateBody(body, user)
+    jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "deleted", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", Challenge.PRIORITY_HIGH)(IntWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "defaultZoom", Challenge.DEFAULT_ZOOM)(IntWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "minZoom", Challenge.MIN_ZOOM)(IntWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "maxZoom", Challenge.MAX_ZOOM)(IntWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "updateTasks", false)(BooleanWrites)
+    // if we can't find the parent ID, just use the user's default project instead
+    (jsonBody \ "parent").asOpt[Long] match {
+      case Some(v) => jsonBody
+      case None => Utils.insertIntoJson(jsonBody, "parent", this.dalManager.user.getHomeProject(user).id)
     }
   }
 
@@ -578,17 +579,17 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param challengeId The id of the challenge to extract
     * @return The
     */
-  def extractPackage(challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def extractPackage(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedFutureRequest { implicit user =>
       this.dal.retrieveById(challengeId) match {
         case Some(c) =>
           implicit val actionSummaryWrites = Json.writes[ActionSummary]
           implicit val challengeSummaryWrites = Json.writes[ChallengeSummary]
-          val files:Map[String, String] = Map(
+          val files: Map[String, String] = Map(
             "challenge.json" -> Json.prettyPrint(Json.toJson(c)),
             "lineByLine.geojson" -> this.dal.getLineByLineChallengeGeometry(challengeId).values.mkString("\n"),
             "geometry.geojson" -> this.dal.getChallengeGeometry(challengeId),
-            "comments.csv" -> this._extractComments(challengeId, -1, 0, request.host).mkString("\n"),
+            "comments.csv" -> this.extractComments(challengeId, -1, 0, request.host).mkString("\n"),
             "metrics.csv" -> Json.prettyPrint(Json.toJson(this.dalManager.data.getChallengeSummary(challengeId = Some(challengeId))))
           )
           val out = new ByteArrayOutputStream()
@@ -614,7 +615,9 @@ class ChallengeController @Inject()(override val childController: TaskController
               body = HttpEntity.Strict(response, Some("application/gzip"))
             )
           }
-        case None => Future { NotFound }
+        case None => Future {
+          NotFound
+        }
       }
     }
   }
@@ -622,11 +625,11 @@ class ChallengeController @Inject()(override val childController: TaskController
   /**
     * Clones a challenge with a new name
     *
-    * @param itemId The item id of the challenge you want to clone
+    * @param itemId  The item id of the challenge you want to clone
     * @param newName The new name of the cloned challenge
     * @return The newly created cloned challenge
     */
-  def cloneChallenge(itemId:Long, newName:String) : Action[AnyContent] = Action.async { implicit request =>
+  def cloneChallenge(itemId: Long, newName: String): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(itemId) match {
         case Some(c) =>
@@ -642,31 +645,31 @@ class ChallengeController @Inject()(override val childController: TaskController
   /**
     * Rebuilds a challenge if it uses a remote geojson or overpass query to generate it's tasks
     *
-    * @param challengeId The id of the challenge
+    * @param challengeId     The id of the challenge
     * @param removeUnmatched Whether to first remove incomplete tasks prior to processing
     *                        updated source data
     * @return A 200 status OK
     */
-  def rebuildChallenge(challengeId:Long, removeUnmatched:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+  def rebuildChallenge(challengeId: Long, removeUnmatched: Boolean): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(challengeId) match {
         case Some(c) =>
           permission.hasWriteAccess(ProjectType(), user)(c.general.parent)
-          challengeService.rebuildTasks(user, c, removeUnmatched)
+          challengeProvider.rebuildTasks(user, c, removeUnmatched)
           Ok
         case None => throw new NotFoundException(s"No challenge found with id $challengeId")
       }
     }
   }
 
-  def addTasksToChallenge(challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def addTasksToChallenge(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(challengeId) match {
         case Some(c) =>
           permission.hasObjectWriteAccess(c, user)
           request.body.asText match {
             case Some(j) =>
-              challengeService.createTasksFromJson(user, c, j)
+              challengeProvider.createTasksFromJson(user, c, j)
               NoContent
             case None =>
               throw new InvalidException("No json data provided to create new tasks from")
@@ -677,7 +680,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
-  def addTasksToChallengeFromFile(challengeId:Long, lineByLine:Boolean, removeUnmatched:Boolean) : Action[MultipartFormData[Files.TemporaryFile]] =
+  def addTasksToChallengeFromFile(challengeId: Long, lineByLine: Boolean, removeUnmatched: Boolean): Action[MultipartFormData[Files.TemporaryFile]] =
     Action.async(parse.multipartFormData) { implicit request => {
       sessionManager.authenticatedRequest { implicit user =>
         dalManager.challenge.retrieveById(challengeId) match {
@@ -692,9 +695,9 @@ class ChallengeController @Inject()(override val childController: TaskController
                 // todo this should probably be streamed instead of all pulled into memory
                 val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
                 if (lineByLine) {
-                  sourceData.foreach(challengeService.createTaskFromJson(user, c, _))
+                  sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
                 } else {
-                  challengeService.createTasksFromJson(user, c, sourceData.mkString)
+                  challengeProvider.createTasksFromJson(user, c, sourceData.mkString)
                 }
                 NoContent
               case _ =>
@@ -704,16 +707,17 @@ class ChallengeController @Inject()(override val childController: TaskController
             throw new NotFoundException(s"No challenge found with id $challengeId")
         }
       }
-    }}
+    }
+    }
 
   /**
     * Moves a challenge from one project to another. This requires admin access on both projects
     *
     * @param newProjectId The new project to move the challenge too
-    * @param challengeId The challenge that you are moving
+    * @param challengeId  The challenge that you are moving
     * @return Ok with no message
     */
-  def moveChallenge(newProjectId:Long, challengeId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def moveChallenge(newProjectId: Long, challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(dalManager.challenge.moveChallenge(newProjectId, challengeId, user)))
     }
