@@ -126,8 +126,22 @@ trait DALHelper {
     }
   }
 
-  def getIntListFilter(list: Option[List[Int]], columnName: String)
-                      (implicit conjunction: Option[SQLKey] = Some(AND())): String = {
+  def getOptionalFilter(filterValue:Option[Any], columnName:String, key:String) = {
+    filterValue match {
+      case Some(value) => s"$columnName = {$key}"
+      case None => ""
+    }
+  }
+
+  def getOptionalMatchFilter(filterValue:Option[Any], columnName:String, key:String) = {
+    filterValue match {
+      case Some(value) => s"LOWER($columnName) LIKE LOWER({$key})"
+      case None => ""
+    }
+  }
+
+  def getIntListFilter(list:Option[List[Int]], columnName:String)
+                      (implicit conjunction:Option[SQLKey]=Some(AND())) : String = {
     this.testColumnName(columnName)
     list match {
       case Some(idList) if idList.nonEmpty =>

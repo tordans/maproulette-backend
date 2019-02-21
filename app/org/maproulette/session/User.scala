@@ -89,6 +89,7 @@ case class ProjectManager(projectId: Long,
   * @param defaultBasemapId  The string id of the default basemap that the user wants to see
   * @param customBasemap     It default basemap is custom, then this is the url to the tile server
   * @param locale            The locale for the user, if not set will default to en
+  * @param email             The user's email address
   * @param emailOptIn        If the user has opted in to receive emails
   * @param leaderboardOptOut If the user has opted out of the public leaderboard
   * @param needsReview       If the user's work should be reviewed
@@ -102,6 +103,7 @@ case class UserSettings(defaultEditor: Option[Int] = None,
                         defaultBasemapId: Option[String] = None,
                         customBasemap: Option[String] = None,
                         locale: Option[String] = None,
+                        email: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
                         leaderboardOptOut: Option[Boolean] = None,
                         needsReview: Option[Boolean] = None,
@@ -126,6 +128,17 @@ case class UserSettings(defaultEditor: Option[Int] = None,
     case None => "skin-blue"
   }
 }
+
+/**
+  * Notification subscriptions for a single user
+  */
+case class NotificationSubscriptions(id: Long,
+                                     userId: Long,
+                                     system: Int,
+                                     mention: Int,
+                                     reviewApproved: Int,
+                                     reviewRejected: Int,
+                                     reviewAgain: Int)
 
 /**
   * Information specific to the MapRoulette user.
@@ -192,6 +205,8 @@ object User {
   implicit val osmReads: Reads[OSMProfile] = Json.reads[OSMProfile]
   implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
   implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
+  implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] = Json.reads[NotificationSubscriptions]
+  implicit val notificationSubscriptionWrites: Writes[NotificationSubscriptions] = Json.writes[NotificationSubscriptions]
 
   implicit object UserFormat extends Format[User] {
     override def writes(o: User): JsValue = {
@@ -231,6 +246,7 @@ object User {
       "defaultBasemapId" -> optional(text),
       "customBasemap" -> optional(text),
       "locale" -> optional(text),
+      "email" -> optional(text),
       "emailOptIn" -> optional(boolean),
       "leaderboardOptOut" -> optional(boolean),
       "needsReview" -> optional(boolean),

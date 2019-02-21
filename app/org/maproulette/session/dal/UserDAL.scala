@@ -15,9 +15,9 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.UserType
-import org.maproulette.exception.NotFoundException
+import org.maproulette.exception.{NotFoundException, InvalidException}
 import org.maproulette.models.dal.{BaseDAL, ChallengeDAL, ProjectDAL, TaskDAL}
-import org.maproulette.models.{Challenge, Project, Task}
+import org.maproulette.models.{Challenge, Project, Task, UserNotification, UserNotificationEmail}
 import org.maproulette.permissions.Permission
 import org.maproulette.session._
 import org.maproulette.utils.{Crypto, Utils}
@@ -71,6 +71,7 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.default_basemap_id") ~
       get[Option[String]]("users.custom_basemap_url") ~
+      get[Option[String]]("users.email") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
       get[Option[Boolean]]("users.needs_review") ~
@@ -81,7 +82,7 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[Int]]("score") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
         homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
+        customBasemap ~ email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
         properties ~ score =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
@@ -94,7 +95,7 @@ class UserDAL @Inject()(override val db: Database,
           userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, needsReview, isReviewer, theme),
+          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, email, emailOptIn, leaderboardOptOut, needsReview, isReviewer, theme),
           properties,
           score
         )
@@ -119,6 +120,76 @@ class UserDAL @Inject()(override val db: Database,
       get[List[Int]]("group_types") map {
       case projectId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
         ProjectManager(projectId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
+    }
+  }
+
+  // The anorm row parser for user notifications
+  val userNotificationParser: RowParser[UserNotification] = {
+    get[Long]("user_notifications.id") ~
+    get[Long]("user_notifications.user_id") ~
+    get[Int]("user_notifications.notification_type") ~
+    get[DateTime]("user_notifications.created") ~
+    get[DateTime]("user_notifications.modified") ~
+    get[Option[String]]("user_notifications.description") ~
+    get[Option[String]]("user_notifications.from_username") ~
+    get[Option[String]]("challenges.name") ~
+    get[Boolean]("user_notifications.is_read") ~
+    get[Int]("user_notifications.email_status") ~
+    get[Option[Long]]("user_notifications.task_id") ~
+    get[Option[Long]]("user_notifications.challenge_id") ~
+    get[Option[Long]]("user_notifications.project_id") ~
+    get[Option[Long]]("user_notifications.target_id") ~
+    get[Option[String]]("user_notifications.extra") map {
+      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra =>
+        new UserNotification(id, userId, notificationType, created, modified, description, fromUsername, challengeName, isRead, emailStatus, taskId, challengeId, projectId, targetId, extra)
+    }
+  }
+
+  val userNotificationEmailParser: RowParser[UserNotificationEmail] = {
+    get[Long]("user_notifications.id") ~
+    get[Long]("user_notifications.user_id") ~
+    get[Int]("user_notifications.notification_type") ~
+    get[DateTime]("user_notifications.created") ~
+    get[Int]("user_notifications.email_status") map {
+      case id ~ userId ~ notificationType ~ created ~ emailStatus =>
+        new UserNotificationEmail(id, userId, notificationType, created, emailStatus)
+    }
+  }
+
+  // The anorm row parser for user's subscriptions to notifications
+  val notificationSubscriptionParser: RowParser[NotificationSubscriptions] = {
+    get[Long]("id") ~
+    get[Long]("user_id") ~
+    get[Int]("system") ~
+    get[Int]("mention") ~
+    get[Int]("review_approved") ~
+    get[Int]("review_rejected") ~
+    get[Int]("review_again") map {
+      case id ~ userId ~ system ~ mention ~ reviewApproved ~ reviewRejected ~ reviewAgain =>
+        NotificationSubscriptions(id, userId, system, mention, reviewApproved, reviewRejected, reviewAgain),
+    }
+  }
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @param user The user making the request
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMID(implicit id: Long, user: User): Option[User] = this.cacheManager.withOptionCaching { () =>
+    this.db.withConnection { implicit c =>
+      val query =
+        s"""SELECT ${this.retrieveColumns}, score FROM users
+                      LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                      WHERE osm_id = {id}"""
+      SQL(query).on('id -> id).as(this.parser.*).headOption match {
+        case Some(u) =>
+          this.permission.hasObjectReadAccess(u, user)
+          Some(u)
+        case None => None
+      }
     }
   }
 
@@ -169,7 +240,7 @@ class UserDAL @Inject()(override val db: Database,
         val query =
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                        WHERE name = {name}"""
+                        WHERE LOWER(name) = LOWER({name})"""
         SQL(query).on('name -> username).as(this.parser.*).headOption
       }
     } else {
@@ -402,6 +473,7 @@ class UserDAL @Inject()(override val db: Database,
         val defaultBasemapId = (value \ "settings" \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.settings.defaultBasemapId.getOrElse(""))
         val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
+        val email = (value \ "settings" \ "email").asOpt[String].getOrElse(cachedItem.settings.email.getOrElse(""))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
         val needsReview = (value \ "settings" \ "needsReview").asOpt[Boolean].getOrElse(cachedItem.settings.needsReview.getOrElse(false))
@@ -417,7 +489,7 @@ class UserDAL @Inject()(override val db: Database,
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
-                                          locale = {locale}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
+                                          locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
                                           needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
@@ -434,6 +506,7 @@ class UserDAL @Inject()(override val db: Database,
           'defaultBasemapId -> defaultBasemapId,
           'customBasemap -> customBasemap,
           'locale -> locale,
+          'email -> email,
           'emailOptIn -> emailOptIn,
           'leaderboardOptOut -> leaderboardOptOut,
           'needsReview -> needsReview,
@@ -583,29 +656,6 @@ class UserDAL @Inject()(override val db: Database,
       }
       Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
     }.get
-  }
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @param user The user making the request
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMID(implicit id: Long, user: User): Option[User] = this.cacheManager.withOptionCaching { () =>
-    this.db.withConnection { implicit c =>
-      val query =
-        s"""SELECT ${this.retrieveColumns}, score FROM users
-                      LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                      WHERE osm_id = {id}"""
-      SQL(query).on('id -> id).as(this.parser.*).headOption match {
-        case Some(u) =>
-          this.permission.hasObjectReadAccess(u, user)
-          Some(u)
-        case None => None
-      }
-    }
   }
 
   /**
@@ -954,6 +1004,192 @@ class UserDAL @Inject()(override val db: Database,
     this.projectDAL.retrieveByName(homeName) match {
       case Some(project) => project
       case None => throw new NotFoundException("You should never get this exception, Home project should always exist for user.")
+    }
+  }
+
+  /**
+   * Retrieves the user's notification subscriptions
+   *
+   * @param userId The id of the subscribing user
+   * @param user The user making the request
+   * @return
+   */
+  def getNotificationSubscriptions(userId:Long, user:User)(implicit c:Connection=null): NotificationSubscriptions = {
+    this.permission.hasReadAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      SQL(
+        s"""SELECT * FROM user_notification_subscriptions
+            WHERE user_id=${userId} LIMIT 1"""
+      ).as(notificationSubscriptionParser.*).headOption match {
+        case Some(subscription) => subscription
+        case None =>
+          // Default to subscribing to all notifications, but with no emails
+          NotificationSubscriptions(-1, userId, UserNotification.NOTIFICATION_EMAIL_NONE,
+                                                UserNotification.NOTIFICATION_EMAIL_NONE,
+                                                UserNotification.NOTIFICATION_EMAIL_NONE,
+                                                UserNotification.NOTIFICATION_EMAIL_NONE,
+                                                UserNotification.NOTIFICATION_EMAIL_NONE)
+      }
+    }
+  }
+
+  /**
+   * Updates the user's notification subscriptions
+   *
+   * @param userId The id of the subscribing user
+   * @param user The user making the request
+   * @param subscriptions The updated subscriptions
+   * @return
+   */
+  def updateNotificationSubscriptions(userId: Long, user: User, subscriptions: NotificationSubscriptions)(implicit c:Connection=null) = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    withMRTransaction { implicit c =>
+      // Upsert new subscription settings
+      SQL(
+        s"""INSERT INTO user_notification_subscriptions (user_id, system, mention, review_approved, review_rejected, review_again)
+            VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain})
+            ON CONFLICT (user_id) DO
+            UPDATE SET system=EXCLUDED.system, mention=EXCLUDED.mention, review_approved=EXCLUDED.review_approved, review_rejected=EXCLUDED.review_rejected, review_again=EXCLUDED.review_again"""
+      ).on(
+        'userId -> userId,
+        'system -> subscriptions.system,
+        'mention -> subscriptions.mention,
+        'reviewApproved -> subscriptions.reviewApproved,
+        'reviewRejected -> subscriptions.reviewRejected,
+        'reviewAgain -> subscriptions.reviewAgain,
+      ).executeUpdate()
+    }
+  }
+
+  /**
+   * Adds a notification for the given user, updating its email settings based
+   * on the user's current email preferences. If the user is not subscribed to
+   * the type of notification given then it is simply ignored.
+   *
+   * @param userId The id of the user to notify
+   * @param user The user making the request
+   * @param notification The notification to add
+   * @return
+   */
+  def addNotification(userId:Long, user:User, notification:UserNotification)(implicit c:Connection=null) = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+    val subscriptions = this.getNotificationSubscriptions(userId, user)
+    val subscriptionType = notification.notificationType match {
+      case UserNotification.NOTIFICATION_TYPE_SYSTEM => subscriptions.system
+      case UserNotification.NOTIFICATION_TYPE_MENTION => subscriptions.mention
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED => subscriptions.reviewApproved
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED => subscriptions.reviewRejected
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN => subscriptions.reviewAgain
+      case _ => throw new InvalidException("Invalid notification type")
+    }
+
+    // Guard against ignored notification type
+    subscriptionType match {
+      case UserNotification.NOTIFICATION_IGNORE => None // nothing to do
+      case _ =>
+        notification.userId = userId
+        notification.emailStatus = subscriptionType
+        notification.isRead = false
+        this.withMRTransaction { implicit c =>
+          val query =
+            """INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
+                                               email_status, task_id, challenge_id, project_id, target_id, extra)
+               VALUES ({user_id}, {notification_type}, {description}, {from_username}, {is_read},
+                       {email_status}, {task_id}, {challenge_id}, {project_id}, {target_id}, {extra})
+               RETURNING *"""
+
+          val newNotification = SQL(query).on(
+            'user_id -> notification.userId,
+            'notification_type -> notification.notificationType,
+            'description -> notification.description,
+            'from_username -> notification.fromUsername,
+            'is_read -> false,
+            'email_status -> notification.emailStatus,
+            'task_id -> notification.taskId,
+            'challenge_id -> notification.challengeId,
+            'project_id -> notification.projectId,
+            'target_id -> notification.targetId,
+            'extra -> notification.extra
+          ).execute()
+        }
+    }
+  }
+
+  /**
+   * Marks as read the given notifications owned by the given userId
+   *
+   * @param userId The id of the user that owns the notifications
+   * @param user The user making the request
+   * @param notificationIds The ids of the notifications to be marked read
+   */
+  def markNotificationsRead(userId: Long, user: User, notificationIds: List[Long])(implicit c:Connection=null) = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+      this.withMRTransaction { implicit c =>
+        val query =
+          s"""UPDATE user_notifications SET is_read=true
+              WHERE user_notifications.user_id={user_id}
+              ${this.getLongListFilter(Some(notificationIds), "user_notifications.id")}"""
+        SQL(query).on('user_id -> userId).execute()
+      }
+  }
+
+  /**
+   * Deletes the given notifications owned by the given userId
+   *
+   * @param userId The id of the user that owns the notifications
+   * @param user The user making the request
+   * @param notificationIds The ids of the notifications to delete
+   * @return
+   */
+  def deleteNotifications(userId: Long, user: User, notificationIds: List[Long])(implicit c:Connection=null) = {
+    this.permission.hasWriteAccess(UserType(), user)(userId)
+      this.withMRTransaction { implicit c =>
+        val query =
+          s"""DELETE from user_notifications
+              WHERE user_notifications.user_id={user_id}
+              ${this.getLongListFilter(Some(notificationIds), "user_notifications.id")}"""
+        SQL(query).on('user_id -> userId).execute()
+      }
+  }
+
+  /**
+   * Retrieves the user notifications sent to the given userId
+   */
+  def getUserNotifications(userId:Long, user:User, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0,
+                           orderColumn:String="is_read", orderDirection:String="ASC",
+                           notificationType:Option[Int]=None, isRead:Option[Boolean]=None,
+                           fromUsername:Option[String]=None, challengeId:Option[Long]=None)
+                          (implicit c:Connection=null) : List[UserNotification] = {
+    this.permission.hasReadAccess(UserType(), user)(userId)
+    withMRConnection { implicit c =>
+      val whereClause = new StringBuilder("WHERE user_id = {userId}")
+      appendInWhereClause(whereClause, getOptionalFilter(notificationType, "notification_type", "notificationType"))
+      appendInWhereClause(whereClause, getOptionalFilter(isRead, "is_read", "isRead"))
+      appendInWhereClause(whereClause, getOptionalFilter(challengeId, "challenge_id", "challengeId"))
+      appendInWhereClause(whereClause, getOptionalMatchFilter(fromUsername, "from_username", "fromUsername"))
+
+      // In addition to the requested sort, we always add a sort by created desc
+      // (unless created was the requested sort column)
+      var orderClause = this.order(Some(orderColumn), orderDirection)
+      if (orderColumn != "created") {
+        orderClause ++= ", created desc"
+      }
+
+      val query = s"""
+         |SELECT user_notifications.*, challenges.name
+         |FROM user_notifications
+         |LEFT OUTER JOIN challenges on user_notifications.challenge_id = challenges.id
+         |${whereClause}
+         |${orderClause}
+         |LIMIT ${sqlLimit(limit)} OFFSET $offset
+       """.stripMargin
+       SQL(query).on(
+         'userId -> userId,
+         'notificationType -> notificationType,
+         'isRead -> isRead,
+         'challengeId -> challengeId,
+         'fromUsername -> fromUsername,
+       ).as(userNotificationParser.*)
     }
   }
 }

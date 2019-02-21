@@ -598,7 +598,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user   The user setting the status
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], comment: String="")(implicit c:Connection=null): Int = {
+  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], commentContent: String="")(implicit c:Connection=null): Int = {
     if (!user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
       throw new IllegalAccessException("User must be a reviewer to edit task review status.")
     }
@@ -637,6 +637,11 @@ class TaskDAL @Inject()(override val db: Database,
         case e: Exception => logger.warn(e.getMessage)
       }
 
+      val comment = commentContent.nonEmpty match {
+        case true => Some(addComment(user, task.id, commentContent, actionId))
+        case false => None
+      }
+
       if (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
           reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
         // Let's note in the task_review_history table that this task needs review again
@@ -644,6 +649,7 @@ class TaskDAL @Inject()(override val db: Database,
                           (task_id, requested_by, reviewed_by, review_status, reviewed_at)
               VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
                       ${reviewStatus}, ${now})""".executeUpdate()
+        this.generateReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
       }
       else {
         // Let's note in the task_review_history table that this task was reviewed
@@ -651,13 +657,10 @@ class TaskDAL @Inject()(override val db: Database,
                           (task_id, requested_by, reviewed_by, review_status, reviewed_at)
               VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
                       ${reviewStatus}, ${now})""".executeUpdate()
+        this.generateReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
       }
 
       this.cacheManager.withOptionCaching { () => Some(task.copy(reviewStatus = Some(reviewStatus))) }
-
-      if (comment.nonEmpty) {
-        addComment(user, task.id, comment, actionId)
-      }
 
       updatedRows
     }
@@ -705,13 +708,11 @@ class TaskDAL @Inject()(override val db: Database,
                   }) match {
                     case Some(change) =>
                       this.withMRConnection { implicit c =>
-                        logger.debug(s"Updating task [${task.id}] with changeset [${change.id}]")
                         SQL(s"""UPDATE tasks SET changeset_id = ${change.id} WHERE id = ${task.id}""").executeUpdate()
                       }
                       result success true
                     case None =>
                       this.withMRConnection { implicit c =>
-                        logger.debug(s"No changeset found for user ${sa.osmUserId} on Task [${task.id}] from changesets [${responseList.mkString(",")}]")
                         // if we can't find any viable option set the id to -2 so that we don't try again
                         // but only set it to -2 if the current time is 1 hour after the set time for the task
                         if (Math.abs(currentDateTimeUTC.getMillis - sa.created.getMillis) > (config.changeSetTimeLimit.toHours * 3600 * 1000)) {
@@ -1584,7 +1585,10 @@ class TaskDAL @Inject()(override val db: Database,
         'comment -> comment,
         'action_id -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
         case Some(ids) =>
-          Comment(ids._1._1, user.osmProfile.id, user.name, taskId, ids._1._2, ids._2, DateTime.now(), comment, actionId)
+          val newComment =
+            Comment(ids._1._1, user.osmProfile.id, user.name, taskId, ids._1._2, ids._2, DateTime.now(), comment, actionId)
+          this.generateMentionNotifications(user, newComment, taskId)
+          newComment
         case None => throw new Exception("Failed to add comment")
       }
     }
@@ -1653,6 +1657,59 @@ class TaskDAL @Inject()(override val db: Database,
           throw new NotFoundException("Task was not found.")
       }
     }
+  }
+
+  def generateMentionNotifications(fromUser:User, comment:Comment, taskId:Long)(implicit c:Connection=null) = {
+    this.retrieveById(taskId) match {
+      case Some(task) =>
+        // match [@username] (username may contain spaces) or @username (no spaces allowed)
+        val mentionRegex = """\[@([^\]]+)\]|@([\w\d_-]+)""".r.unanchored
+
+        for (m <- mentionRegex.findAllMatchIn(comment.comment)) {
+          // use first non-null group
+          val username = m.subgroups.filter(_ != null).head
+
+          // Retrieve and notify mentioned user
+          userDAL.get().retrieveByOSMUsername(username, User.superUser) match {
+            case Some(mentionedUser) =>
+              userDAL.get().addNotification(mentionedUser.id, User.superUser, UserNotification(
+                -1,
+                userId=mentionedUser.id,
+                notificationType=UserNotification.NOTIFICATION_TYPE_MENTION,
+                fromUsername=Some(fromUser.osmProfile.displayName),
+                taskId=Some(taskId),
+                challengeId=Some(task.parent),
+                targetId=Some(comment.id),
+                extra=Some(comment.comment),
+              ))
+            case None => None
+          }
+        }
+      case None => throw new NotFoundException(s"No task [$taskId] found")
+    }
+  }
+
+  def generateReviewNotification(user: User, forUserId: Int, reviewStatus: Int, task: Task, comment: Option[Comment])(implicit c:Connection=null) = {
+    val notificationType = reviewStatus match {
+      case Task.REVIEW_STATUS_REQUESTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
+      case Task.REVIEW_STATUS_APPROVED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+      case Task.REVIEW_STATUS_ASSISTED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+      case Task.REVIEW_STATUS_REJECTED => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
+    }
+
+    userDAL.get().addNotification(forUserId, User.superUser, UserNotification(
+      -1,
+      userId=forUserId,
+      notificationType=notificationType,
+      fromUsername=Some(user.osmProfile.displayName),
+      description=Some(reviewStatus.toString()),
+      taskId=Some(task.id),
+      challengeId=Some(task.parent),
+      extra=comment match {
+        case Some(c) => Some(c.comment)
+        case None => None
+      }
+    ))
   }
 
   private def getTaskGeometries(id: Long)(implicit c: Option[Connection] = None): String = this.taskGeometries(id, "task_geometries")
