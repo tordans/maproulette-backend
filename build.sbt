@@ -14,7 +14,7 @@ compileScalastyle := scalastyle.in(Compile).toTask("").value
 
 //(compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
-lazy val `MapRouletteV2` = (project in file(".")).enablePlugins(PlayScala, SbtWeb)
+lazy val `MapRouletteV2` = (project in file(".")).enablePlugins(PlayScala, SbtWeb, SwaggerPlugin)
 
 swaggerDomainNameSpaces := Seq("org.maproulette.models", "org.maproulette.exception", "org.maproulette.session", "org.maproulette.actions", "org.maproulette.data")
 
@@ -35,7 +35,7 @@ libraryDependencies ++= Seq(
   filters,
   guice,
   "com.typesafe.play" %% "play-json-joda" % "2.7.0",
-  "com.typesafe.play" %% "play-json" % "2.7.0",
+  "com.typesafe.play" %% "play-json" % "2.7.1",
   "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
   "org.webjars" % "swagger-ui" % "3.20.5",
   "org.playframework.anorm" %% "anorm" % "2.6.2",
