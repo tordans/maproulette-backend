@@ -1,26 +1,29 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.jobs
 
-import javax.inject.{Inject, Named}
+import java.util.Calendar
 
 import akka.actor.{ActorRef, ActorSystem}
+import javax.inject.{Inject, Named}
 import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
+import org.slf4j.LoggerFactory
 import play.api.{Application, Logger}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
-import java.util.Calendar
 
 /**
   * @author cuthbertm
   * @author davis_20
   */
-class Scheduler @Inject() (val system: ActorSystem,
-                           @Named("scheduler-actor") val schedulerActor:ActorRef,
-                           val config:Config)
-                          (implicit application:Application, ec:ExecutionContext) {
+class Scheduler @Inject()(val system: ActorSystem,
+                          @Named("scheduler-actor") val schedulerActor: ActorRef,
+                          val config: Config)
+                         (implicit application: Application, ec: ExecutionContext) {
+
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   schedule("cleanLocks", "Cleaning locks", 1.minute, Config.KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL)
   schedule("runChallengeSchedules", "Running challenge Schedules", 1.minute, Config.KEY_SCHEDULER_RUN_CHALLENGE_SCHEDULES_INTERVAL)
@@ -41,30 +44,14 @@ class Scheduler @Inject() (val system: ActorSystem,
     config.getValue(Config.KEY_SCHEDULER_SNAPSHOT_USER_METRICS_START), Config.KEY_SCHEDULER_SNAPSHOT_USER_METRICS)
 
   /**
-    * Conditionally schedules message event when configured with a valid duration
-    *
-    * @param name The message name sent to the SchedulerActor
-    * @param action The action this job is performing for logging
-    * @param initialDelay FiniteDuration until the initial message is sent
-    * @param intervalKey Configuration key that, when set, will enable periodic scheduled messages
-    */
-  def schedule(name:String, action:String, initialDelay:FiniteDuration, intervalKey:String):Unit = {
-    config.withFiniteDuration(intervalKey) {
-      interval =>
-        this.system.scheduler.schedule(initialDelay, interval, this.schedulerActor, RunJob(name, action))
-        Logger.info(s"$action every $interval")
-    }
-  }
-
-  /**
     * Conditionally schedules message event to start at an initial time and run every duration
     *
-    * @param name The message name sent to the SchedulerActor
-    * @param action The action this job is performing for logging
+    * @param name           The message name sent to the SchedulerActor
+    * @param action         The action this job is performing for logging
     * @param initialRunTime String time in format "00:00:00"
-    * @param intervalKey Configuration key that, when set, will enable periodic scheduled messages
+    * @param intervalKey    Configuration key that, when set, will enable periodic scheduled messages
     */
-  def scheduleAtTime(name:String, action:String, initialRunTime:Option[String], intervalKey:String):Unit = {
+  def scheduleAtTime(name: String, action: String, initialRunTime: Option[String], intervalKey: String): Unit = {
     initialRunTime match {
       case Some(initialRunTime) =>
         val timeValues = initialRunTime.split(":")
@@ -79,11 +66,27 @@ class Scheduler @Inject() (val system: ActorSystem,
         }
         val msBeforeStart = c.getTimeInMillis() - System.currentTimeMillis()
 
-        Logger.debug("Scheduling " + action + " to run in " + msBeforeStart + "ms.")
+        logger.debug("Scheduling " + action + " to run in " + msBeforeStart + "ms.")
         schedule(name, action, msBeforeStart.milliseconds, intervalKey)
 
-      case _ => Logger.error("Invalid start time given for " + action + "!")
+      case _ => logger.error("Invalid start time given for " + action + "!")
     }
 
+  }
+
+  /**
+    * Conditionally schedules message event when configured with a valid duration
+    *
+    * @param name         The message name sent to the SchedulerActor
+    * @param action       The action this job is performing for logging
+    * @param initialDelay FiniteDuration until the initial message is sent
+    * @param intervalKey  Configuration key that, when set, will enable periodic scheduled messages
+    */
+  def schedule(name: String, action: String, initialDelay: FiniteDuration, intervalKey: String): Unit = {
+    config.withFiniteDuration(intervalKey) {
+      interval =>
+        this.system.scheduler.schedule(initialDelay, interval, this.schedulerActor, RunJob(name, action))
+        logger.info(s"$action every $interval")
+    }
   }
 }

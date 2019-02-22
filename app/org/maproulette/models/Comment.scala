@@ -1,3 +1,5 @@
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.joda.time.DateTime
@@ -12,15 +14,15 @@ import play.api.libs.json.JodaReads._
   *
   * @author cuthbertm
   */
-case class Comment(id:Long,
-                   osm_id:Long,
-                   osm_username:String,
-                   taskId:Long,
-                   challengeId:Long,
-                   projectId:Long,
-                   created:DateTime,
-                   comment:String,
-                   actionId:Option[Long]=None)
+case class Comment(id: Long,
+                   osm_id: Long,
+                   osm_username: String,
+                   taskId: Long,
+                   challengeId: Long,
+                   projectId: Long,
+                   created: DateTime,
+                   comment: String,
+                   actionId: Option[Long] = None)
 
 object Comment {
   implicit val commentWrites: Writes[Comment] = Json.writes[Comment]

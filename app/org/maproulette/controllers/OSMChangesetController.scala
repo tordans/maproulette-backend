@@ -1,10 +1,12 @@
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers
 
 import javax.inject.{Inject, Singleton}
 import org.maproulette.exception.{StatusMessage, StatusMessages}
 import org.maproulette.services.osm._
 import org.maproulette.session.SessionManager
-import play.api.libs.json.{JsError, Json}
+import play.api.libs.json.{JsError, JsValue, Json}
 import play.api.mvc._
 
 import scala.concurrent.{Future, Promise}
@@ -15,10 +17,10 @@ import scala.xml.Elem
   * @author mcuthbert
   */
 @Singleton
-class OSMChangesetController @Inject() (components: ControllerComponents,
-                                        sessionManager: SessionManager,
-                                        changeService:ChangesetService,
-                                        bodyParsers:PlayBodyParsers) extends AbstractController(components) with StatusMessages {
+class OSMChangesetController @Inject()(components: ControllerComponents,
+                                       sessionManager: SessionManager,
+                                       changeService: ChangesetProvider,
+                                       bodyParsers: PlayBodyParsers) extends AbstractController(components) with StatusMessages {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -32,12 +34,14 @@ class OSMChangesetController @Inject() (components: ControllerComponents,
     *
     * @return
     */
-  def testTagChange(changeType:String) = Action.async(bodyParsers.json) { implicit request =>
+  def testTagChange(changeType: String) : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedFutureRequest { implicit user =>
       val result = request.body.validate[List[TagChange]]
       result.fold(
         errors => {
-          Future { BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors)))) }
+          Future {
+            BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+          }
         },
         element => {
           val p = Promise[Result]
@@ -64,12 +68,14 @@ class OSMChangesetController @Inject() (components: ControllerComponents,
     *
     * @return
     */
-  def submitTagChange() = Action.async(bodyParsers.json) { implicit request =>
+  def submitTagChange() : Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedFutureRequest { implicit user =>
       val result = request.body.validate[TagChangeSubmission]
       result.fold(
         errors => {
-          Future { BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors)))) }
+          Future {
+            BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+          }
         },
         element => {
           val p = Promise[Result]

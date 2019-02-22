@@ -1,23 +1,23 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
-import java.util.{Locale, UUID}
+import java.util.Locale
 
-import play.api.Logger
-import play.api.libs.json.JodaWrites._
-import play.api.libs.json.JodaReads._
+import javax.crypto.{BadPaddingException, IllegalBlockSizeException}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import javax.crypto.{BadPaddingException, IllegalBlockSizeException}
 import org.maproulette.Config
-import org.maproulette.actions.{ItemType, UserType}
+import org.maproulette.data.{ItemType, UserType}
 import org.maproulette.models.BaseObject
 import org.maproulette.utils.{Crypto, Utils}
+import org.slf4j.LoggerFactory
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json._
 import play.api.libs.oauth.RequestToken
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 
 import scala.xml.{Elem, XML}
 
@@ -53,25 +53,27 @@ case class OSMProfile(id: Long,
                       homeLocation: Location,
                       created: DateTime,
                       requestToken: RequestToken)
+
 /**
   * A user search result containing a few public fields from user's OSM Profile.
   *
-  * @param osmId        The osm id
-  * @param displayName  The display name for the osm user
-  * @param avatarURL    The avatar URL to enabling displaying of their avatar
+  * @param osmId       The osm id
+  * @param displayName The display name for the osm user
+  * @param avatarURL   The avatar URL to enabling displaying of their avatar
   */
 case class UserSearchResult(osmId: Long,
                             displayName: String,
                             avatarURL: String)
+
 /**
   * Information specific to a user managing a project. Includes the project id,
   * a few basic fields about the user, and their group types for the project.
   *
-  * @param projectId    The project id
-  * @param osmId        The user's osm id
-  * @param displayName  The display name for the osm user
-  * @param avatarURL    The avatar URL to enabling displaying of their avatar
-  * @param groupTypes   List of the user's group types for the project
+  * @param projectId   The project id
+  * @param osmId       The user's osm id
+  * @param displayName The display name for the osm user
+  * @param avatarURL   The avatar URL to enabling displaying of their avatar
+  * @param groupTypes  List of the user's group types for the project
   */
 case class ProjectManager(projectId: Long,
                           osmId: Long,
@@ -186,6 +188,7 @@ object User {
   implicit val osmReads: Reads[OSMProfile] = Json.reads[OSMProfile]
   implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
   implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
+
   implicit object UserFormat extends Format[User] {
     override def writes(o: User): JsValue = {
       implicit val taskWrites: Writes[User] = Json.writes[User]
@@ -216,6 +219,29 @@ object User {
   val THEME_RED_LIGHT = 9
   val THEME_YELLOW = 10
   val THEME_YELLOW_LIGHT = 11
+  val superGroup: Group = Group(DEFAULT_GROUP_ID, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
+  val settingsForm = Form(
+    mapping(
+      "defaultEditor" -> optional(number),
+      "defaultBasemap" -> optional(number),
+      "defaultBasemapId" -> optional(text),
+      "customBasemap" -> optional(text),
+      "locale" -> optional(text),
+      "emailOptIn" -> optional(boolean),
+      "leaderboardOptOut" -> optional(boolean),
+      "theme" -> optional(number)
+    )(UserSettings.apply)(UserSettings.unapply)
+  )
+
+  /**
+    * Generates a User object based on the json details and request token
+    *
+    * @param userXML      A XML string originally queried form the OSM details API
+    * @param requestToken The access token used to retrieve the OSM details
+    * @return A user object based on the XML details provided
+    */
+  def generate(userXML: String, requestToken: RequestToken, config: Config): User =
+    generate(XML.loadString(userXML), requestToken, config)
 
   /**
     * Generate a User object based on the XML details and request token
@@ -255,29 +281,6 @@ object User {
     ), groups, settings = UserSettings(theme = Some(THEME_BLUE)))
   }
 
-  /**
-    * Generates a User object based on the json details and request token
-    *
-    * @param userXML      A XML string originally queried form the OSM details API
-    * @param requestToken The access token used to retrieve the OSM details
-    * @return A user object based on the XML details provided
-    */
-  def generate(userXML: String, requestToken: RequestToken, config: Config): User =
-    generate(XML.loadString(userXML), requestToken, config)
-
-  /**
-    * Creates a guest user object with default information.
-    */
-  def guestUser: User = User(DEFAULT_GUEST_USER_ID, DateTime.now(), DateTime.now(),
-    OSMProfile(DEFAULT_GUEST_USER_ID, "Guest",
-      "Sign in using your OSM account for more access to MapRoulette features.",
-      "/assets/images/user_no_image.png",
-      Location(-33.918861, 18.423300),
-      DateTime.now(),
-      RequestToken("", "")
-    ), List(), None, true, UserSettings(theme = Some(THEME_GREEN))
-  )
-
   def superUser: User = User(DEFAULT_SUPER_USER_ID, DateTime.now(), DateTime.now(),
     OSMProfile(DEFAULT_SUPER_USER_ID, "SuperUser", "FULL ACCESS", "/assets/images/user_no_image.png",
       Location(47.608013, -122.335167),
@@ -285,8 +288,6 @@ object User {
       RequestToken("", "")
     ), List(superGroup.copy()), settings = UserSettings(theme = Some(THEME_BLACK))
   )
-
-  val superGroup: Group = Group(DEFAULT_GROUP_ID, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
 
   def withDecryptedAPIKey(user: User)(implicit crypto: Crypto): User = {
     user.apiKey match {
@@ -296,10 +297,10 @@ object User {
           new User(user.id, user.created, user.modified, user.osmProfile, user.groups,
                    decryptedAPIKey, user.guest, user.settings, user.properties, user.score)
         } catch {
-          case _:BadPaddingException | _:IllegalBlockSizeException =>
-            Logger.debug("Invalid key found, could be that the application secret on server changed.")
+          case _: BadPaddingException | _: IllegalBlockSizeException =>
+            LoggerFactory.getLogger(this.getClass).debug("Invalid key found, could be that the application secret on server changed.")
             user
-          case e:Throwable => throw e
+          case e: Throwable => throw e
         }
       case _ => user
     }
@@ -319,16 +320,16 @@ object User {
     }
   }
 
-  val settingsForm = Form(
-    mapping(
-      "defaultEditor" -> optional(number),
-      "defaultBasemap" -> optional(number),
-      "defaultBasemapId" -> optional(text),
-      "customBasemap" -> optional(text),
-      "locale" -> optional(text),
-      "emailOptIn" -> optional(boolean),
-      "leaderboardOptOut" -> optional(boolean),
-      "theme" -> optional(number)
-    )(UserSettings.apply)(UserSettings.unapply)
+  /**
+    * Creates a guest user object with default information.
+    */
+  def guestUser: User = User(DEFAULT_GUEST_USER_ID, DateTime.now(), DateTime.now(),
+    OSMProfile(DEFAULT_GUEST_USER_ID, "Guest",
+      "Sign in using your OSM account for more access to MapRoulette features.",
+      "/assets/images/user_no_image.png",
+      Location(-33.918861, 18.423300),
+      DateTime.now(),
+      RequestToken("", "")
+    ), List(), None, true, UserSettings(theme = Some(THEME_GREEN))
   )
 }

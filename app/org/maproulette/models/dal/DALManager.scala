@@ -1,11 +1,9 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import javax.inject.{Inject, Singleton}
-
-import org.maproulette.actions._
-import org.maproulette.data.DataManager
+import org.maproulette.data._
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 
 /**
@@ -14,30 +12,40 @@ import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
   * @author cuthbertm
   */
 @Singleton
-class DALManager @Inject() (tagDAL: TagDAL,
-                            taskDAL: TaskDAL,
-                            challengeDAL: ChallengeDAL,
-                            virtualChallengeDAL: VirtualChallengeDAL,
-                            surveyDAL: SurveyDAL,
-                            projectDAL: ProjectDAL,
-                            userDAL: UserDAL,
-                            userGroupDAL: UserGroupDAL,
-                            actionManager: ActionManager,
-                            dataManager: DataManager,
-                            statusActionManager: StatusActionManager) {
-  def tag:TagDAL = tagDAL
-  def task:TaskDAL = taskDAL
-  def challenge:ChallengeDAL = challengeDAL
-  def virtualChallenge:VirtualChallengeDAL = virtualChallengeDAL
-  def survey:SurveyDAL = surveyDAL
-  def project:ProjectDAL = projectDAL
-  def user:UserDAL = userDAL
-  def userGroup:UserGroupDAL = userGroupDAL
-  def action:ActionManager = actionManager
-  def data:DataManager = dataManager
-  def statusAction:StatusActionManager = statusActionManager
+class DALManager @Inject()(tagDAL: TagDAL,
+                           taskDAL: TaskDAL,
+                           challengeDAL: ChallengeDAL,
+                           virtualChallengeDAL: VirtualChallengeDAL,
+                           surveyDAL: SurveyDAL,
+                           projectDAL: ProjectDAL,
+                           userDAL: UserDAL,
+                           userGroupDAL: UserGroupDAL,
+                           actionManager: ActionManager,
+                           dataManager: DataManager,
+                           statusActionManager: StatusActionManager) {
+  def tag: TagDAL = tagDAL
 
-  def getManager(itemType:ItemType) : BaseDAL[Long, _] = {
+  def task: TaskDAL = taskDAL
+
+  def challenge: ChallengeDAL = challengeDAL
+
+  def virtualChallenge: VirtualChallengeDAL = virtualChallengeDAL
+
+  def survey: SurveyDAL = surveyDAL
+
+  def project: ProjectDAL = projectDAL
+
+  def user: UserDAL = userDAL
+
+  def userGroup: UserGroupDAL = userGroupDAL
+
+  def action: ActionManager = actionManager
+
+  def data: DataManager = dataManager
+
+  def statusAction: StatusActionManager = statusActionManager
+
+  def getManager(itemType: ItemType): BaseDAL[Long, _] = {
     itemType match {
       case ProjectType() => projectDAL
       case ChallengeType() => challengeDAL

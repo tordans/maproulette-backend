@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package controllers
 
@@ -6,12 +6,9 @@ import com.google.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.controllers.ControllerHelper
 import org.maproulette.exception._
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.{Group, SessionManager, User}
-import org.webjars.play.WebJarsUtil
-import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc._
 import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
@@ -25,12 +22,10 @@ import scala.util.{Failure, Success}
   *
   * @author cuthbertm
   */
-class AuthController @Inject() (messagesApi: MessagesApi,
-                                components: ControllerComponents,
-                                override val webJarsUtil: WebJarsUtil,
-                                sessionManager:SessionManager,
-                                override val dalManager:DALManager,
-                                val config:Config) extends AbstractController(components) with I18nSupport with ControllerHelper with StatusMessages {
+class AuthController @Inject()(components: ControllerComponents,
+                               sessionManager: SessionManager,
+                               dalManager: DALManager,
+                               val config: Config) extends AbstractController(components) with StatusMessages {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -39,8 +34,8 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     *
     * @return Redirects back to the index page containing a valid session
     */
-  def authenticate() : Action[AnyContent] = Action.async { implicit request =>
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
+  def authenticate(): Action[AnyContent] = Action.async { implicit request =>
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val p = Promise[Result]
       val redirect = request.getQueryString("redirect").getOrElse("")
       request.getQueryString("oauth_verifier") match {
@@ -68,8 +63,8 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     }
   }
 
-  def signIn(redirect:String) : Action[AnyContent] = Action.async { implicit request =>
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
+  def signIn(redirect: String): Action[AnyContent] = Action.async { implicit request =>
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val p = Promise[Result]
       request.body.asFormUrlEncoded match {
         case Some(data) =>
@@ -85,16 +80,53 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     }
   }
 
-  /**
-    * Signs out the user, creating essentially a blank new session and redirects user to the index page
-    *
-    * @return The index html page
-    */
-  def signOut() : Action[AnyContent] = Action { implicit request =>
-    Redirect(routes.Application.index()).withNewSession
+  def withOSMSession(user: User, result: Result): Result = {
+    result.withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
+      SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
+      SessionManager.KEY_USER_ID -> user.id.toString,
+      SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
+      SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
+    )
   }
 
-  def deleteUser(userId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def getRedirectURL(implicit request: Request[AnyContent], redirect: String): String = {
+    val referer = request.headers.get(REFERER)
+    val defaultURL = "/"
+    if (StringUtils.isEmpty(redirect) && referer.isDefined) {
+      referer.get
+    } else if (StringUtils.isNotEmpty(redirect)) {
+      redirect
+    } else {
+      defaultURL
+    }
+  }
+
+  private def proxyRedirect(call: Call)(implicit request: Request[AnyContent]): String = {
+    config.proxyPort match {
+      case Some(port) =>
+        val applicationPort = System.getProperty("http.port")
+        call.absoluteURL(config.isProxySSL)
+          .replaceFirst(s":$applicationPort", s"${
+            if (port == 80) {
+              ""
+            } else {
+              s":$port"
+            }
+          }")
+      case None => call.absoluteURL(config.isProxySSL)
+    }
+  }
+
+  /**
+    * Signs out the user, creating essentially a blank new session and responds with a 200 OK
+    *
+    * @return 200 OK Status
+    */
+  def signOut(): Action[AnyContent] = Action { implicit request =>
+    Ok.withNewSession
+  }
+
+  def deleteUser(userId: Long): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(StatusMessage("OK", JsString(s"${dalManager.user.delete(userId, user)} User deleted by super user ${user.name} [${user.id}]."))))
@@ -109,7 +141,7 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     * @return Will return NoContent if cannot create the key (which most likely means that no user was
     *         found, or will return the api key as plain text.
     */
-  def generateAPIKey(userId:Long = -1) : Action[AnyContent] = Action.async { implicit request =>
+  def generateAPIKey(userId: Long = -1): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val newAPIUser = if (user.isSuperUser && userId != -1) {
         dalManager.user.retrieveById(userId) match {
@@ -134,7 +166,7 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     *
     * @return Simple Ok if succeeded.
     */
-  def resetAllAPIKeys() : Action[AnyContent] = Action.async { implicit request =>
+  def resetAllAPIKeys(): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.user.list(-1).foreach { apiUser =>
@@ -150,7 +182,7 @@ class AuthController @Inject() (messagesApi: MessagesApi,
     * @param projectId The id of the project to add the user too
     * @return NoContent
     */
-  def addUserToProject(userId:Long, projectId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def addUserToProject(userId: Long, projectId: Long): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.user.retrieveById(userId) match {
@@ -162,43 +194,6 @@ class AuthController @Inject() (messagesApi: MessagesApi,
           Ok(Json.toJson(StatusMessage("OK", JsString(s"User ${addUser.name} added to project $projectId"))))
         case None => throw new NotFoundException(s"Could not find user with ID $userId")
       }
-    }
-  }
-
-  def withOSMSession(user:User, result:Result) : Result = {
-    result.withSession(SessionManager.KEY_TOKEN -> user.osmProfile.requestToken.token,
-      SessionManager.KEY_SECRET -> user.osmProfile.requestToken.secret,
-      SessionManager.KEY_USER_ID -> user.id.toString,
-      SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
-      SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
-    )
-  }
-
-  def getRedirectURL(implicit request: Request[AnyContent], redirect: String): String = {
-    val redirectURL = proxyRedirect(routes.Application.index())
-    val referer = request.headers.get(REFERER)
-    if (StringUtils.isEmpty(redirect) && referer.isDefined) {
-      referer.get
-    } else if (StringUtils.isNotEmpty(redirect)) {
-      if (config.mr3DevMode) {
-        // In dev mode, allow redirects to anywhere so frontend can be run separately
-        redirect
-      }
-      else {
-        s"${redirectURL.substring(0, redirectURL.length - 1)}$redirect"
-      }
-    } else {
-      redirectURL
-    }
-  }
-
-  private def proxyRedirect(call:Call)(implicit request: Request[AnyContent]): String = {
-    config.proxyPort match {
-      case Some(port) =>
-        val applicationPort = System.getProperty("http.port")
-        call.absoluteURL(config.isProxySSL)
-          .replaceFirst(s":$applicationPort", s"${if (port == 80) { "" } else { s":$port" }}")
-      case None => call.absoluteURL(config.isProxySSL)
     }
   }
 }

@@ -1,11 +1,9 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
-import scala.util.Try
 import org.maproulette.Config
-import org.maproulette.actions._
 import org.maproulette.data._
 import org.maproulette.models.Challenge
 import org.maproulette.models.dal.ChallengeDAL
@@ -15,20 +13,21 @@ import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
 import play.api.mvc._
 import play.api.libs.json.JodaWrites._
-import play.api.libs.json.JodaReads._
+
+import scala.util.Try
 
 /**
   * @author cuthbertm
   */
-class DataController @Inject() (sessionManager: SessionManager, challengeDAL: ChallengeDAL,
-                                dataManager: DataManager, config:Config,
-                                actionManager: ActionManager,
-                                components: ControllerComponents,
-                                statusActionManager: StatusActionManager) extends AbstractController(components) {
+class DataController @Inject()(sessionManager: SessionManager, challengeDAL: ChallengeDAL,
+                               dataManager: DataManager, config: Config,
+                               actionManager: ActionManager,
+                               components: ControllerComponents,
+                               statusActionManager: StatusActionManager) extends AbstractController(components) {
 
   implicit val actionWrites = actionManager.actionItemWrites
   implicit val dateWrites = Writes.dateWrites("yyyy-MM-dd")
-  implicit val dateTimeWrites = Writes.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss")
+  implicit val dateTimeWrites = JodaWrites.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss")
   implicit val userSurveySummaryWrites = Json.writes[UserSurveySummary]
   implicit val actionSummaryWrites = Json.writes[ActionSummary]
   implicit val userSummaryWrites = Json.writes[UserSummary]
@@ -41,22 +40,22 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   implicit val statusActionSummaryWrites = Json.writes[DailyStatusActionSummary]
   implicit val surveySummaryWrites = Json.writes[SurveySummary]
 
-  implicit val stringIntMap:Writes[Map[String, Int]] = new Writes[Map[String, Int]] {
-    def writes(map:Map[String, Int]) : JsValue =
-      Json.obj(map.map{ case (s, i) =>
-          val ret: (String, JsValueWrapper) = s.toString -> JsNumber(i)
-          ret
-      }.toSeq:_*)
+  implicit val stringIntMap: Writes[Map[String, Int]] = new Writes[Map[String, Int]] {
+    def writes(map: Map[String, Int]): JsValue =
+      Json.obj(map.map { case (s, i) =>
+        val ret: (String, JsValueWrapper) = s.toString -> JsNumber(i)
+        ret
+      }.toSeq: _*)
   }
 
   /**
     * Gets the recent activity for a user
     *
-    * @param limit the limit on the number of activities return
+    * @param limit  the limit on the number of activities return
     * @param offset paging, starting at 0
     * @return List of action summaries associated with the user
     */
-  def getRecentUserActivity(limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getRecentUserActivity(limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     val actualLimit = if (limit == -1) {
       this.config.numberOfActivities
     } else {
@@ -67,7 +66,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getUserChallengeSummary(challengeId:Long, start:String, end:String, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getUserChallengeSummary(challengeId: Long, start: String, end: String, survey: Int, priority: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (survey == 1) {
         Ok(Json.toJson(this.dataManager.getUserSurveySummary(None, Some(challengeId), Utils.getDate(start), Utils.getDate(end), this.getPriority(priority))))
@@ -77,7 +76,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getUserSummary(projects:String, start:String, end:String, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getUserSummary(projects: String, start: String, end: String, survey: Int, priority: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (survey == 1) {
         Ok(Json.toJson(this.dataManager.getUserSurveySummary(
@@ -96,21 +95,21 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * number of montns (or using start and end dates). Included with each user is their top challenges
     * (by amount of activity).
     *
-    * @param userIds restrict to specified users
-    * @param projectIds restrict to specified projects
-    * @param challengeIds restrict to specified challenges
-    * @param countryCodes restrict tasks to specified countries
+    * @param userIds       restrict to specified users
+    * @param projectIds    restrict to specified projects
+    * @param challengeIds  restrict to specified challenges
+    * @param countryCodes  restrict tasks to specified countries
     * @param monthDuration number of months to fetch (do not include if using start/end dates)
-    * @param start the start date (if not using monthDuration)
-    * @param end the end date (if not using monthDuration)
-    * @param limit the limit on the number of users returned
-    * @param onlyEnabled only include enabled in user top challenges (doesn't affect scoring)
-    * @param offset paging, starting at 0
+    * @param start         the start date (if not using monthDuration)
+    * @param end           the end date (if not using monthDuration)
+    * @param limit         the limit on the number of users returned
+    * @param onlyEnabled   only include enabled in user top challenges (doesn't affect scoring)
+    * @param offset        paging, starting at 0
     * @return Top-ranked users with scores based on task completion activity
     */
-  def getUserLeaderboard(userIds:String, projectIds:String, challengeIds:String, countryCodes:String,
-                         monthDuration:String, start:String, end:String,
-                         onlyEnabled:Boolean, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getUserLeaderboard(userIds: String, projectIds: String, challengeIds: String, countryCodes: String,
+                         monthDuration: String, start: String, end: String,
+                         onlyEnabled: Boolean, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.dataManager.getUserLeaderboard(
         Utils.toLongList(userIds), Utils.toLongList(projectIds),
@@ -126,19 +125,19 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * (by amount of activity). Also a bracketing number of users above and below
     * the user in the rankings.
     *
-    * @param userId user Id for user
-    * @param projectIds restrict to specified projects
-    * @param challengeIds restrict to specified challenges
-    * @param countryCodes restrict tasks to specified countries
+    * @param userId        user Id for user
+    * @param projectIds    restrict to specified projects
+    * @param challengeIds  restrict to specified challenges
+    * @param countryCodes  restrict tasks to specified countries
     * @param monthDuration number of months to fetch (do not include if using start and end dates)
-    * @param start the start date (if not using monthDuration)
-    * @param end the end date (if not using monthDuration)
-    * @param onlyEnabled only include enabled in user top challenges (doesn't affect scoring)
-    * @param bracket the number of users to return above and below the given user (0 returns just the user)
+    * @param start         the start date (if not using monthDuration)
+    * @param end           the end date (if not using monthDuration)
+    * @param onlyEnabled   only include enabled in user top challenges (doesn't affect scoring)
+    * @param bracket       the number of users to return above and below the given user (0 returns just the user)
     * @return User with score and ranking based on task completion activity
     */
-  def getLeaderboardForUser(userId:Long, projectIds:String, challengeIds:String, countryCodes:String,
-                            monthDuration:String, start:String, end:String, onlyEnabled:Boolean, bracket:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getLeaderboardForUser(userId: Long, projectIds: String, challengeIds: String, countryCodes: String,
+                            monthDuration: String, start: String, end: String, onlyEnabled: Boolean, bracket: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dataManager.getLeaderboardForUser(
         userId, Utils.toLongList(projectIds), Utils.toLongList(challengeIds), Utils.toStringList(countryCodes),
@@ -151,21 +150,21 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * Gets the user's top challenges, based on activity, over the given number of months
     * (or start and end dates).
     *
-    * @param userId the id of the user
-    * @param projectIds restrict to specified projects
-    * @param challengeIds restrict to specified challenges
-    * @param countryCodes restrict tasks to specified countries
+    * @param userId        the id of the user
+    * @param projectIds    restrict to specified projects
+    * @param challengeIds  restrict to specified challenges
+    * @param countryCodes  restrict tasks to specified countries
     * @param monthDuration number of months (do not include if using start/end dates)
-    * @param start the start date (if not using monthDuration)
-    * @param end the end date (if not using monthDuration)
-    * @param onlyEnabled only get enabled challenges
-    * @param limit the limit on the number of challenges returned
-    * @param offset paging, starting at 0
+    * @param start         the start date (if not using monthDuration)
+    * @param end           the end date (if not using monthDuration)
+    * @param onlyEnabled   only get enabled challenges
+    * @param limit         the limit on the number of challenges returned
+    * @param offset        paging, starting at 0
     * @return Top challenges based on user's activity
     */
-  def getUserTopChallenges(userId:Long, projectIds:String, challengeIds:String, countryCodes:String,
-                           monthDuration:String, start:String, end:String,
-                           onlyEnabled:Boolean, limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getUserTopChallenges(userId: Long, projectIds: String, challengeIds: String, countryCodes: String,
+                           monthDuration: String, start: String, end: String,
+                           onlyEnabled: Boolean, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.dataManager.getUserTopChallenges(
         userId, Utils.toLongList(projectIds), Utils.toLongList(projectIds), Utils.toStringList(countryCodes),
@@ -174,7 +173,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getChallengeSummary(id:Long, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeSummary(id: Long, survey: Int, priority: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       if (survey == 1) {
         Ok(Json.toJson(
@@ -188,7 +187,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getProjectSummary(projects:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getProjectSummary(projects: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(
         this.dataManager.getChallengeSummary(Utils.toLongList(projects))
@@ -196,7 +195,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getChallengeActivity(challengeId:Long, start:String, end:String, survey:Int, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeActivity(challengeId: Long, start: String, end: String, survey: Int, priority: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (survey == 1) {
         Ok(Json.toJson(
@@ -210,7 +209,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getProjectActivity(projects:String, start:String, end:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getProjectActivity(projects: String, start: String, end: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
         this.dataManager.getChallengeActivity(Utils.toLongList(projects), None, Utils.getDate(start), Utils.getDate(end))
@@ -224,7 +223,7 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     * @param projectIds A comma separated list of projects to filter by
     * @return
     */
-  def getChallengeSummaries(projectIds:String, priority:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeSummaries(projectIds: String, priority: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val postData = request.body.asInstanceOf[AnyContentAsFormUrlEncoded].data
       val draw = postData.get("draw").head.head.toInt
@@ -264,8 +263,15 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getRawActivity(userIds:String, projectIds:String, challengeIds:String,
-                     start:String, end:String) : Action[AnyContent] = Action.async { implicit request =>
+  private def getPriority(priority: Int): Option[Int] = {
+    priority match {
+      case x if x >= Challenge.PRIORITY_HIGH & x <= Challenge.PRIORITY_LOW => Some(x)
+      case _ => None
+    }
+  }
+
+  def getRawActivity(userIds: String, projectIds: String, challengeIds: String,
+                     start: String, end: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(
         dataManager.getRawActivity(Utils.toLongList(userIds), Utils.toLongList(projectIds),
@@ -274,9 +280,9 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getStatusActivity(userIds:String, projectIds:String, challengeIds:String,
-                        start:String, end:String, newStatus:String, oldStatus:String,
-                        limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getStatusActivity(userIds: String, projectIds: String, challengeIds: String,
+                        start: String, end: String, newStatus: String, oldStatus: String,
+                        limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val users = if (user.isSuperUser) {
         Utils.toLongList(userIds).getOrElse(List.empty)
@@ -302,13 +308,13 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
   /**
     * Gets the most recent activity entries for each challenge, regardless of date.
     *
-    * @param projectIds restrict to specified projects
+    * @param projectIds   restrict to specified projects
     * @param challengeIds restrict to specified challenges
-    * @param entries the number of most recent activity entries per challenge. Defaults to 1.
+    * @param entries      the number of most recent activity entries per challenge. Defaults to 1.
     * @return most recent activity entries for each challenge
     */
-  def getLatestChallengeActivity(projectIds:String, challengeIds:String,
-                                 entries:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getLatestChallengeActivity(projectIds: String, challengeIds: String,
+                                 entries: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dataManager.getLatestChallengeActivity(
         Utils.toLongList(projectIds), Utils.toLongList(challengeIds), entries
@@ -316,8 +322,8 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
     }
   }
 
-  def getStatusSummary(userIds:String, projectIds:String, challengeIds:String, start:String, end:String,
-                       limit:Int, offset:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getStatusSummary(userIds: String, projectIds: String, challengeIds: String, start: String, end: String,
+                       limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val users = if (user.isSuperUser) {
         Utils.toLongList(userIds).getOrElse(List.empty)
@@ -337,13 +343,6 @@ class DataController @Inject() (sessionManager: SessionManager, challengeDAL: Ch
       Ok(Json.toJson(
         statusActionManager.getStatusSummary(user, statusActionLimits, limit, offset)
       ))
-    }
-  }
-
-  private def getPriority(priority:Int) : Option[Int] = {
-    priority match {
-      case x if x >= Challenge.PRIORITY_HIGH & x <= Challenge.PRIORITY_LOW => Some(x)
-      case _ => None
     }
   }
 }

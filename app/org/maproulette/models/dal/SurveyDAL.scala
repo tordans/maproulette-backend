@@ -1,28 +1,27 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Provider, Singleton}
 
-import anorm._
 import anorm.SqlParser._
-import org.maproulette.actions.Actions
+import anorm._
+import javax.inject.{Inject, Provider, Singleton}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.JsValue
 
 /**
   * @author cuthbertm
   */
 @Singleton
-class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
-                           override val tagDAL: TagDAL,
-                           projectDAL: Provider[ProjectDAL],
-                           override val permission:Permission)
+class SurveyDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
+                          override val tagDAL: TagDAL,
+                          projectDAL: Provider[ProjectDAL],
+                          override val permission: Permission)
   extends ChallengeDAL(db, taskDAL, tagDAL, projectDAL, permission) {
 
   private val answerParser: RowParser[Answer] = {
@@ -38,7 +37,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * @param surveyId The id for the survey
     * @return List of answers for the survey
     */
-  def getAnswers(surveyId:Long)(implicit c:Connection=null) : List[Answer] = {
+  def getAnswers(surveyId: Long)(implicit c: Option[Connection] = None): List[Answer] = {
     val answers = this.withMRConnection { implicit c =>
       SQL"""SELECT * FROM answers WHERE survey_id = $surveyId""".as(this.answerParser.*)
     }
@@ -54,13 +53,13 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * to answer the question for the same task multiple times. This way you will get an idea of the
     * answers based on multiple users feedback
     *
-    * @param survey The survey that is being evaluated
-    * @param taskId The id of the task that is viewed when answering the question
+    * @param survey   The survey that is being evaluated
+    * @param taskId   The id of the task that is viewed when answering the question
     * @param answerId The id for the selected answer
-    * @param user The user answering the question, if none will default to a guest user on the database
+    * @param user     The user answering the question, if none will default to a guest user on the database
     * @return
     */
-  def answerQuestion(survey:Challenge, taskId:Long, answerId:Long, user:User)(implicit c:Connection=null) : Option[Long] = {
+  def answerQuestion(survey: Challenge, taskId: Long, answerId: Long, user: User)(implicit c: Option[Connection] = None): Option[Long] = {
     this.withMRTransaction { implicit c =>
       SQL"""INSERT INTO survey_answers (osm_user_id, project_id, survey_id, task_id, answer_id)
             VALUES (${user.osmProfile.id}, ${survey.general.parent}, ${survey.id}, $taskId, $answerId)""".executeInsert()
@@ -72,11 +71,11 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * super class and then insert all the answers into the answer table
     *
     * @param challenge The challenge associated with the answer
-    * @param answers The list of answers for the survey
-    * @param user The user executing the request
+    * @param answers   The list of answers for the survey
+    * @param user      The user executing the request
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  def insertAnswers(challenge:Challenge, answers:List[String], user:User)(implicit c:Connection=null): Unit = {
+  def insertAnswers(challenge: Challenge, answers: List[String], user: User)(implicit c: Option[Connection] = None): Unit = {
     if (answers.size < 2) {
       throw new InvalidException("At least 2 answers required for creating a survey")
     }
@@ -87,7 +86,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
       val parameters = answers.map(answer => {
         Seq[NamedParameter]("answer" -> answer)
       })
-      BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+      BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
     }
   }
 
@@ -96,10 +95,10 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
     * delete/update/add new answers to the answers table
     *
     * @param updates The updates in json format
-    * @param id The id of the object that you are updating
+    * @param id      The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Challenge] = {
+  override def update(updates: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
     this.withMRTransaction { implicit c =>
       val updatedChallenge = super.update(updates, user)
       implicit val answerReads = Challenge.answerReads
@@ -114,7 +113,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           val parameters = values.map(answer => {
             Seq[NamedParameter]("answer" -> answer.answer, "id" -> answer.id)
           })
-          BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+          BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
         case None => //ignore
       }
       (updates \ "answers" \ "add").asOpt[List[Answer]] match {
@@ -123,7 +122,7 @@ class SurveyDAL @Inject() (override val db:Database, taskDAL: TaskDAL,
           val parameters = values.map(answer => {
             Seq[NamedParameter]("answer" -> answer.answer)
           })
-          BatchSql(sqlQuery, parameters.head, parameters.tail:_*).execute()
+          BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
         case None => //ignore
       }
       updatedChallenge

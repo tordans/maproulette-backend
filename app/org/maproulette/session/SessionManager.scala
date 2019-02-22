@@ -1,17 +1,15 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
-import javax.inject.Inject
-import javax.inject.Singleton
+import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.models.dal.DALManager
 import org.maproulette.utils.Crypto
-import org.webjars.play.WebJarsUtil
-import play.api.i18n.Messages
+import org.slf4j.LoggerFactory
 import play.api.Logger
 import play.api.db.Database
 import play.api.libs.oauth._
@@ -30,8 +28,11 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 @Singleton
-class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Config, db:Database, crypto: Crypto) {
+class SessionManager @Inject()(ws: WSClient, dalManager: DALManager, config: Config, db: Database, crypto: Crypto) {
+
   import scala.concurrent.ExecutionContext.Implicits.global
+
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   // URLs used for OAuth 1.0a
   private val osmOAuth = config.getOSMOauth
@@ -45,10 +46,10 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * the OpenStreetMap servers
     *
     * @param verifier The verifier query string values
-    * @param request The request made from the OpenStreetMap servers based on OAuth
+    * @param request  The request made from the OpenStreetMap servers based on OAuth
     * @return A Future which will contain the user
     */
-  def retrieveUser(verifier:String)(implicit request:Request[AnyContent]) : Future[User] = {
+  def retrieveUser(verifier: String)(implicit request: Request[AnyContent]): Future[User] = {
     val p = Promise[User]
     this.sessionTokenPair match {
       case Some(pair) =>
@@ -62,11 +63,11 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                 }
 
               case Failure(e) =>
-                Logger.error(e.getMessage, e)
+                logger.error(e.getMessage, e)
                 p failure e
             }
           case Left(e) =>
-            Logger.error(e.getMessage, e)
+            logger.error(e.getMessage, e)
             p failure e
         }
       case None => p failure new OAuthNotAuthorizedException()
@@ -74,7 +75,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     p.future
   }
 
-  def retrieveUser(username:String, apiKey:String) : Option[User] = {
+  def retrieveUser(username: String, apiKey: String): Option[User] = {
     val apiSplit = apiKey.split("\\|")
     val encryptedApiKey = crypto.encrypt(apiSplit(1))
     dalManager.user.retrieveByUsernameAndAPIKey(username, encryptedApiKey)
@@ -86,14 +87,96 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @param callback The callback after the request is made to retrieve the request token
     * @return Either OAuthException (ie. NotAuthorized) or the request token
     */
-  def retrieveRequestToken(callback:String) : Either[OAuthException, RequestToken] = this.oauth.retrieveRequestToken(callback)
+  def retrieveRequestToken(callback: String): Either[OAuthException, RequestToken] = this.oauth.retrieveRequestToken(callback)
 
   /**
     * The URL where the user needs to be redirected to grant authorization to your application.
     *
     * @param token request token
     */
-  def redirectUrl(token:String) : String = this.oauth.redirectUrl(token)
+  def redirectUrl(token: String): String = this.oauth.redirectUrl(token)
+
+  /**
+    * For a user aware request we are simply checking to see if we can find a user that can be
+    * associated with the current session. So if a session token is available we will try to authenticate
+    * the user and optionally return a User object.
+    *
+    * @param block   The block of code that is executed after user has been checked
+    * @param request The incoming http request
+    * @return The result from the block of code
+    */
+  def userAwareRequest(block: Option[User] => Result)
+                      (implicit request: Request[Any]): Future[Result] = {
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      this.userAware(block)
+    }
+  }
+
+  protected def userAware(block: Option[User] => Result)
+                         (implicit request: Request[Any]): Future[Result] = {
+    val p = Promise[Result]
+    this.sessionUser(sessionTokenPair) onComplete {
+      case Success(result) => Try(block(result)) match {
+        case Success(res) => p success res
+        case Failure(f) => p failure f
+      }
+      case Failure(error) => p failure error
+    }
+    p.future
+  }
+
+  /**
+    * For an authenticated request we expect there to currently be a valid session. If no session
+    * is available an OAuthNotAuthorizedException will be thrown.
+    *
+    * @param block            The block of code to execute after a valid session has been found
+    * @param request          The incoming http request
+    * @param requireSuperUser Whether a super user is required for this request
+    * @return The result from the block of code
+    */
+  def authenticatedRequest(block: User => Result)
+                          (implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      this.authenticated(Left(block))
+    }
+  }
+
+  protected def authenticated(execute: Either[User => Result, User => Future[Result]])
+                             (implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
+    val p = Promise[Result]
+    try {
+      this.sessionUser(sessionTokenPair) onComplete {
+        case Success(result) => result match {
+          case Some(user) => try {
+            if (requireSuperUser && !user.isSuperUser) {
+              p failure new IllegalAccessException("Only a super user can make this request")
+            } else {
+              execute match {
+                case Left(block) => Try(block(user)) match {
+                  case Success(s) => p success s
+                  case Failure(f) => p failure f
+                }
+                case Right(block) => Try(block(user)) match {
+                  case Success(s) => s onComplete {
+                    case Success(s) => p success s
+                    case Failure(f) => p failure f
+                  }
+                  case Failure(f) => p failure f
+                }
+              }
+            }
+          } catch {
+            case e: Exception => p failure e
+          }
+          case None => p failure new OAuthNotAuthorizedException()
+        }
+        case Failure(e) => p failure e
+      }
+    } catch {
+      case e: Exception => p failure e
+    }
+    p.future
+  }
 
   /**
     * Retrieves the session token pair that is stored in the users session cookie. This is the token
@@ -122,13 +205,13 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * be generated by the user to execute API requests.
     *
     * @param tokenPair The token pair, None if no token pair is found.
-    * @param create default false, if true will create a new user in the database from the OSM User details.
-    * @param request The http request that initiated the requirement for retrieving the user
+    * @param create    default false, if true will create a new user in the database from the OSM User details.
+    * @param request   The http request that initiated the requirement for retrieving the user
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  def sessionUser(tokenPair:Option[RequestToken], create:Boolean=false)
-                 (implicit request:RequestHeader) : Future[Option[User]] = {
+  def sessionUser(tokenPair: Option[RequestToken], create: Boolean = false)
+                 (implicit request: RequestHeader): Future[Option[User]] = {
     val p = Promise[Option[User]]
     val userId = request.session.get(SessionManager.KEY_USER_ID)
     val osmId = request.session.get(SessionManager.KEY_OSM_ID)
@@ -155,10 +238,10 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
                 }
               } catch {
                 case ne: NumberFormatException =>
-                  Logger.warn("Could not decrypt user key, generally this is not an issue")
+                  logger.warn("Could not decrypt user key, generally this is not an issue")
                   None
                 case e: Exception =>
-                  Logger.error(e.getMessage, e)
+                  logger.error(e.getMessage, e)
                   None
               }
             }
@@ -194,13 +277,13 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * from cache/database.
     *
     * @param accessToken The access token (key and secret) current stored in the session
-    * @param userId The userId stored in the session
-    * @param create If the user does not exist, create a new user in the database. Default false
+    * @param userId      The userId stored in the session
+    * @param create      If the user does not exist, create a new user in the database. Default false
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  private def getUser(accessToken:RequestToken, userId:Option[String],
-                      create:Boolean=false) : Future[Option[User]] = {
+  private def getUser(accessToken: RequestToken, userId: Option[String],
+                      create: Boolean = false): Future[Option[User]] = {
     // we use the userId for caching, so only if this is the first time the user is authorizing
     // in a particular session will it have to hit the database.
     val storedUser = userId match {
@@ -214,13 +297,17 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
         if (u.modified.plusDays(1).isBefore(DateTime.now())) {
           this.refreshProfile(u.osmProfile.requestToken, User.superUser)
         } else {
-          Future { Some(u) }
+          Future {
+            Some(u)
+          }
         }
       case None =>
         if (create) {
           this.refreshProfile(accessToken, User.superUser)
         } else {
-          Future { None }
+          Future {
+            None
+          }
         }
     }
   }
@@ -232,7 +319,7 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
     */
-  def refreshProfile(accessToken:RequestToken, user:User) : Future[Option[User]] = {
+  def refreshProfile(accessToken: RequestToken, user: User): Future[Option[User]] = {
     val p = Promise[Option[User]]
     // if no user is matched, then lets create a new user
     val details = this.ws.url(this.osmOAuth.userDetailsURL).sign(OAuthCalculator(this.osmOAuth.consumerKey, accessToken))
@@ -243,156 +330,32 @@ class SessionManager @Inject() (ws:WSClient, dalManager: DALManager, config:Conf
           val osmUser = this.dalManager.user.insert(newUser, user)
           p success Some(this.dalManager.user.initializeHomeProject(osmUser))
         } catch {
-          case e:Exception => p failure e
+          case e: Exception => p failure e
         }
       case Success(response) =>
         p failure new OAuthNotAuthorizedException(response.body)
       case Failure(error) =>
-        Logger.error(error.getMessage, error)
+        logger.error(error.getMessage, error)
         p failure error
     }
     p.future
   }
 
   /**
-    * For a user aware request we are simply checking to see if we can find a user that can be
-    * associated with the current session. So if a session token is available we will try to authenticate
-    * the user and optionally return a User object. This differs from userAwareRequest
-    * due to if any exceptions are thrown it will show a UI page, instead of a JSON payload
+    * For an authenticated request we expect there to currently be a valid session. If no session is
+    * available an OAuthNotAuthorizedException will be thrown. This function differs from the
+    * authenticatedRequest as it allows the lambda function to return a future
     *
-    * @param block The block of code that is executed after user has been checked
-    * @param request The incoming http request
-    * @return The result from the block of code
-    */
-  def userAwareUIRequest(block:Option[User] => Result)
-                        (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
-      this.userAware(block)
-    }
-  }
-
-  /**
-    * For a user aware request we are simply checking to see if we can find a user that can be
-    * associated with the current session. So if a session token is available we will try to authenticate
-    * the user and optionally return a User object.
-    *
-    * @param block The block of code that is executed after user has been checked
-    * @param request The incoming http request
-    * @return The result from the block of code
-    */
-  def userAwareRequest(block:Option[User] => Result)
-                      (implicit request:Request[Any]) : Future[Result] = {
-    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      this.userAware(block)
-    }
-  }
-
-  protected def userAware(block:Option[User] => Result)
-                         (implicit request:Request[Any]) : Future[Result] = {
-    val p = Promise[Result]
-    this.sessionUser(sessionTokenPair) onComplete {
-      case Success(result) => Try(block(result)) match {
-        case Success(res) => p success res
-        case Failure(f) => p failure f
-      }
-      case Failure(error) => p failure error
-    }
-    p.future
-  }
-
-  /**
-    * For an authenticated request we expect there to current be a valid session. If no session is
-    * available an OAuthNotAuthorizedException will be thrown. This differs from authenticatedRequest
-    * due to if any exceptions are thrown it will show a UI page, instead of a JSON payload
-    *
-    * @param block The block of code to execute after a valid session has been found
-    * @param request The incoming http request
-    * @return
-    */
-  def authenticatedUIRequest(block:User => Result)
-                            (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil,
-                             requireSuperUser:Boolean=false) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
-      this.authenticated(Left(block))
-    }
-  }
-
-  def authenticatedFutureUIRequest(block:User => Future[Result])
-                                  (implicit request:Request[Any], messages:Messages, webJarsUtil: WebJarsUtil,
-                                   requireSuperUser:Boolean=false) : Future[Result] = {
-    MPExceptionUtil.internalAsyncUIExceptionCatcher(User.guestUser, config, dalManager) { () =>
-      this.authenticated(Right(block))
-    }
-  }
-
-  /**
-    * For an authenticated request we expect there to currently be a valid session. If no session
-    * is available an OAuthNotAuthorizedException will be thrown.
-    *
-    * @param block The block of code to execute after a valid session has been found
-    * @param request The incoming http request
+    * @param block            The block of code to execute after a valid session has been found
+    * @param request          The incoming http request
     * @param requireSuperUser Whether a super user is required for this request
     * @return The result from the block of code
     */
-  def authenticatedRequest(block:User => Result)
-                          (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
+  def authenticatedFutureRequest(block: User => Future[Result])
+                                (implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      this.authenticated(Left(block))
-    }
-  }
-
-  /**
-   * For an authenticated request we expect there to currently be a valid session. If no session is
-   * available an OAuthNotAuthorizedException will be thrown. This function differs from the
-   * authenticatedRequest as it allows the lambda function to return a future
-   *
-   * @param block The block of code to execute after a valid session has been found
-   * @param request The incoming http request
-   * @param requireSuperUser Whether a super user is required for this request
-   * @return The result from the block of code
-   */
-  def authenticatedFutureRequest(block:User => Future[Result])
-                                (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
-    MPExceptionUtil.internalAsyncExceptionCatcher{ () =>
       this.authenticated(Right(block))
     }
-  }
-
-  protected def authenticated(execute:Either[User => Result, User => Future[Result]])
-                             (implicit request:Request[Any], requireSuperUser:Boolean=false) : Future[Result] = {
-    val p = Promise[Result]
-    try {
-      this.sessionUser(sessionTokenPair) onComplete {
-        case Success(result) => result match {
-          case Some(user) => try {
-            if (requireSuperUser && !user.isSuperUser) {
-              p failure new IllegalAccessException("Only a super user can make this request")
-            } else {
-              execute match {
-                case Left(block) => Try(block(user)) match {
-                  case Success(s) => p success s
-                  case Failure(f) => p failure f
-                }
-                case Right(block) => Try(block(user)) match {
-                  case Success(s) => s onComplete {
-                    case Success(s) => p success s
-                    case Failure(f) => p failure f
-                  }
-                  case Failure(f) => p failure f
-                }
-              }
-            }
-          } catch {
-            case e:Exception => p failure e
-          }
-          case None => p failure new OAuthNotAuthorizedException()
-        }
-        case Failure(e) => p failure e
-      }
-    } catch {
-      case e:Exception => p failure e
-    }
-    p.future
   }
 }
 

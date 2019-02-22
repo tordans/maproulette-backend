@@ -1,11 +1,11 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.cache
 
-import java.util.concurrent.locks.{ReentrantReadWriteLock, ReadWriteLock}
-import javax.inject.{Provider, Inject, Singleton}
+import java.util.concurrent.locks.{ReadWriteLock, ReentrantReadWriteLock}
 
 import anorm._
+import javax.inject.{Inject, Provider, Singleton}
 import org.maproulette.models.Tag
 import org.maproulette.models.dal.TagDAL
 import play.api.db.Database
@@ -19,11 +19,11 @@ import play.api.db.Database
   * @author cuthbertm
   */
 @Singleton
-class TagCacheManager @Inject() (tagDAL: Provider[TagDAL], db:Database) extends CacheManager[Long, Tag] {
+class TagCacheManager @Inject()(tagDAL: Provider[TagDAL], db: Database) extends CacheManager[Long, Tag] {
 
-  private val loadingLock:ReadWriteLock = new ReentrantReadWriteLock()
+  private val loadingLock: ReadWriteLock = new ReentrantReadWriteLock()
 
-  def reloadTags : Unit = {
+  def reloadTags: Unit = {
     this.loadingLock.writeLock().lock()
     try {
       db.withConnection { implicit c =>
