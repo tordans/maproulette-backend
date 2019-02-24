@@ -436,7 +436,7 @@ class TaskDAL @Inject()(override val db: Database,
 
     val reviewNeeded = requestReview match {
         case Some(r) => r
-        case None => user.settings.needsReview.getOrElse(false)
+        case None => user.settings.needsReview.getOrElse(false) && status != Task.STATUS_SKIPPED
       }
 
     val oldStatus = task.status
@@ -1194,11 +1194,9 @@ class TaskDAL @Inject()(override val db: Database,
 
     var count = 0
     val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
-      this.withListLocking(user, Some(TaskType())) { () =>
-        this.withMRTransaction { implicit c =>
-          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-          sqlWithParameters(query, parameters).as(this.parser.*)
-        }
+      this.withMRTransaction { implicit c =>
+        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+        sqlWithParameters(query, parameters).as(this.parser.*)
       }
     }
 
@@ -1268,11 +1266,9 @@ class TaskDAL @Inject()(override val db: Database,
 
    var count = 0
    val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
-      this.withListLocking(user, Some(TaskType())) { () =>
-        this.withMRTransaction { implicit c =>
-          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-          sqlWithParameters(query, parameters).as(this.parser.*)
-        }
+      this.withMRTransaction { implicit c =>
+        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+        sqlWithParameters(query, parameters).as(this.parser.*)
       }
     }
 
