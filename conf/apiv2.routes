@@ -544,7 +544,7 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 ###
 # summary: Retrieves tasks that need review
 # produces: [ application/json ]
-# description: Retrieves list of Tasks
+# description: Retrieves list of Tasks and total count
 # responses:
 #   '200':
 #     description: The list of tasks that need review (and that the user has group permission to access)
@@ -578,7 +578,7 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 # description: Retrieves list of Tasks
 # responses:
 #   '200':
-#     description: The list of tasks
+#     description: The list of tasks and total count
 #     schema:
 #       type: array
 #       items:

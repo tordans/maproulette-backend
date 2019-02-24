@@ -1120,65 +1120,89 @@ class TaskDAL @Inject()(override val db: Database,
     */
   def getReviewRequestedTasks(user:User, searchParameters: SearchParameters,
                               limit:Int = -1, offset:Int=0, sort:String, order:String)
-                    (implicit c:Connection=null) : List[Task] = {
-    this.cacheManager.withIDListCaching { implicit cachedItems =>
+                    (implicit c:Connection=null) : (Int, List[Task]) = {
+    var orderByClause = ""
+    val whereClause = new StringBuilder(s"review_status=${Task.REVIEW_STATUS_REQUESTED} ")
+    val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+
+    this.appendInWhereClause(whereClause,
+      s"(review_claimed_at IS NULL OR review_claimed_by = ${user.id})")
+
+    val parameters = new ListBuffer[NamedParameter]()
+    parameters ++= addSearchToQuery(searchParameters, whereClause)
+
+    sort match {
+      case s if s.nonEmpty =>
+        orderByClause = this.order(Some(s), order, "tasks", false)
+      case _ => // ignore
+    }
+
+    searchParameters.owner match {
+      case Some(o) if o.nonEmpty =>
+        joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
+        this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%' ")
+      case _ => // ignore
+    }
+
+    val query = user.isSuperUser match {
+      case true =>
+        s"""
+          SELECT tasks.${this.retrieveColumns} FROM tasks
+          ${joinClause}
+          WHERE
+          ${whereClause}
+          ${orderByClause}
+          LIMIT ${sqlLimit(limit)} OFFSET ${offset}
+         """
+      case default =>
+        if (user.settings.isReviewer.getOrElse(false)) {
+          s"""
+            SELECT tasks.${this.retrieveColumns} FROM tasks
+            ${joinClause}
+            INNER JOIN groups g ON g.project_id = c.parent_id
+            INNER JOIN user_groups ug ON g.id = ug.group_id
+            WHERE g.group_type != ${Group.TYPE_WRITE_ACCESS} AND
+                  ug.osm_user_id = ${user.osmProfile.id} AND
+            ${whereClause}
+            ${orderByClause}
+            LIMIT ${sqlLimit(limit)} OFFSET ${offset}
+           """
+         }
+         else {
+           return (0, List[Task]())
+         }
+    }
+
+    val countQuery = user.isSuperUser match {
+      case true =>
+        s"""
+          SELECT count(*) FROM tasks
+          ${joinClause}
+          WHERE ${whereClause}
+        """
+      case default =>
+        s"""
+          SELECT count(*) FROM tasks
+          ${joinClause}
+          INNER JOIN groups g ON g.project_id = c.parent_id
+          INNER JOIN user_groups ug ON g.id = ug.group_id
+          WHERE g.group_type != ${Group.TYPE_WRITE_ACCESS} AND
+                ug.osm_user_id = ${user.osmProfile.id} AND
+          ${whereClause}
+        """
+    }
+
+    var count = 0
+    val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withListLocking(user, Some(TaskType())) { () =>
         this.withMRTransaction { implicit c =>
-          var orderByClause = ""
-          val whereClause = new StringBuilder(s"review_status=${Task.REVIEW_STATUS_REQUESTED} ")
-          val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-
-          val parameters = new ListBuffer[NamedParameter]()
-          parameters ++= addSearchToQuery(searchParameters, whereClause)
-
-          sort match {
-            case s if s.nonEmpty =>
-              orderByClause = this.order(Some(s), order, "tasks", false)
-            case _ => // ignore
-          }
-
-          searchParameters.owner match {
-            case Some(o) if o.nonEmpty =>
-              joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
-              this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%' ")
-            case _ => // ignore
-          }
-
-          val query = user.isSuperUser match {
-            case true =>
-              s"""
-                SELECT tasks.${this.retrieveColumns} FROM tasks
-                ${joinClause}
-                WHERE
-                (review_claimed_at IS NULL OR review_claimed_by = ${user.id}) AND
-                ${whereClause}
-                ${orderByClause}
-                LIMIT ${sqlLimit(limit)} OFFSET ${offset}
-               """
-            case default =>
-              if (user.settings.isReviewer.getOrElse(false)) {
-                s"""
-                  SELECT tasks.${this.retrieveColumns} FROM tasks
-                  ${joinClause}
-                  INNER JOIN groups g ON g.project_id = c.parent_id
-                  INNER JOIN user_groups ug ON g.id = ug.group_id
-                  WHERE g.group_type != ${Group.TYPE_WRITE_ACCESS} AND
-                        ug.osm_user_id = ${user.osmProfile.id} AND
-                        (review_claimed_at IS NULL OR review_claimed_by = ${user.id}) AND
-                  ${whereClause}
-                  ${orderByClause}
-                  LIMIT ${sqlLimit(limit)} OFFSET ${offset}
-                 """
-               }
-               else {
-                 return List[Task]()
-               }
-          }
-
-          return sqlWithParameters(query, parameters).as(this.parser.*)
+          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+          sqlWithParameters(query, parameters).as(this.parser.*)
         }
       }
     }
+
+    return (count, tasks)
   }
 
   /**
@@ -1191,56 +1215,68 @@ class TaskDAL @Inject()(override val db: Database,
     */
   def getReviewedTasks(user:User, searchParameters: SearchParameters,
                        asReviewer:Boolean=false, limit:Int = -1, offset:Int=0,
-                       sort:String, order:String) (implicit c:Connection=null) : List[Task] = {
-    this.cacheManager.withIDListCaching { implicit cachedItems =>
+                       sort:String, order:String) (implicit c:Connection=null) : (Int, List[Task]) = {
+    val fetchBy = if (asReviewer) "reviewed_by" else "review_requested_by"
+    var orderByClause = ""
+    val whereClause = new StringBuilder(s"review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+    val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+
+    val parameters = new ListBuffer[NamedParameter]()
+    parameters ++= addSearchToQuery(searchParameters, whereClause)
+
+    sort match {
+     case s if s.nonEmpty =>
+       orderByClause = this.order(Some(s), order, "tasks", false)
+     case _ => // ignore
+    }
+
+    searchParameters.owner match {
+     case Some(o) if o.nonEmpty =>
+       joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
+       this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%'")
+     case _ => // ignore
+    }
+
+    searchParameters.reviewer match {
+     case Some(r) if r.nonEmpty =>
+       joinClause ++= "INNER JOIN users u2 ON u2.id = tasks.reviewed_by "
+       this.appendInWhereClause(whereClause, s"u2.name LIKE '%${r}%'")
+     case _ => // ignore
+    }
+
+    sort match {
+     case s if s.nonEmpty =>
+       orderByClause = this.order(Some(s), order, "tasks", false)
+     case _ => // ignore
+    }
+
+    val countQuery = s"""
+     SELECT count(*) FROM tasks
+     ${joinClause}
+     WHERE ${fetchBy}=${user.id} AND
+     ${whereClause}
+    """
+
+    val query = s"""
+     SELECT tasks.${this.retrieveColumns} FROM tasks
+     ${joinClause}
+     WHERE ${fetchBy}=${user.id} AND
+     ${whereClause}
+     ${orderByClause}
+     LIMIT ${sqlLimit(limit)} OFFSET $offset
+    """
+
+   var count = 0
+   val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withListLocking(user, Some(TaskType())) { () =>
         this.withMRTransaction { implicit c =>
-          val fetchBy = if (asReviewer) "reviewed_by" else "review_requested_by"
-          var orderByClause = ""
-          val whereClause = new StringBuilder(s"review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
-          val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-
-          val parameters = new ListBuffer[NamedParameter]()
-          parameters ++= addSearchToQuery(searchParameters, whereClause)
-
-          sort match {
-            case s if s.nonEmpty =>
-              orderByClause = this.order(Some(s), order, "tasks", false)
-            case _ => // ignore
-          }
-
-          searchParameters.owner match {
-            case Some(o) if o.nonEmpty =>
-              joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
-              this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%'")
-            case _ => // ignore
-          }
-
-          searchParameters.reviewer match {
-            case Some(r) if r.nonEmpty =>
-              joinClause ++= "INNER JOIN users u2 ON u2.id = tasks.reviewed_by "
-              this.appendInWhereClause(whereClause, s"u2.name LIKE '%${r}%'")
-            case _ => // ignore
-          }
-
-          sort match {
-            case s if s.nonEmpty =>
-              orderByClause = this.order(Some(s), order, "tasks", false)
-            case _ => // ignore
-          }
-
-          val query = s"""
-            SELECT tasks.${this.retrieveColumns} FROM tasks
-            ${joinClause}
-            WHERE ${fetchBy}=${user.id} AND
-            ${whereClause}
-            ${orderByClause}
-            LIMIT ${sqlLimit(limit)} OFFSET $offset
-           """
-          return sqlWithParameters(query, parameters).as(this.parser.*)
+          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+          sqlWithParameters(query, parameters).as(this.parser.*)
         }
       }
     }
+
+    return (count, tasks)
   }
 
   /**

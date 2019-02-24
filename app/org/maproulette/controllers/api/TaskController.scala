@@ -276,8 +276,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         //cs => "my challenge name"
         //o => "mapper's name"
         //r => "reviewer's name"
-        val result = this.dal.getReviewRequestedTasks(User.userOrMocked(user), params, limit, page, sort, order)
-        Ok(_insertExtraJSON(result))
+        val (count, result) = this.dal.getReviewRequestedTasks(User.userOrMocked(user), params, limit, page, sort, order)
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
       }
     }
   }
@@ -295,8 +295,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   def getReviewedTasks(asReviewer: Boolean=false, limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val result = this.dal.getReviewedTasks(User.userOrMocked(user), params, asReviewer, limit, page, sort, order)
-        Ok(_insertExtraJSON(result))
+        val (count, result) = this.dal.getReviewedTasks(User.userOrMocked(user), params, asReviewer, limit, page, sort, order)
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
       }
     }
   }
