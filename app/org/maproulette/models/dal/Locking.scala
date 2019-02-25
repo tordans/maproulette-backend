@@ -93,7 +93,7 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
       SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
-            val query = s"UPDATE locked SET date = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
+            val query = s"UPDATE locked SET locked_time = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
             SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
           } else {
             0
