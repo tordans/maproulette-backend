@@ -1,10 +1,10 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions._
 import org.maproulette.controllers.CRUDController
+import org.maproulette.data._
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.models.dal.{TagDAL, TagDALMixin}
 import org.maproulette.models.{BaseObject, Tag}
@@ -16,22 +16,23 @@ import play.api.mvc.{Action, AnyContent}
 /**
   * @author cuthbertm
   */
-trait TagsMixin[T<:BaseObject[Long]] {
+trait TagsMixin[T <: BaseObject[Long]] {
 
-  this:CRUDController[T] =>
+  this: CRUDController[T] =>
 
-  def tagDAL:TagDAL
-  def dalWithTags:TagDALMixin[T]
+  def tagDAL: TagDAL
+
+  def dalWithTags: TagDALMixin[T]
 
   /**
     * Gets tasks based on tags, this is regardless of the project or challenge parents.
     *
-    * @param tags A comma separated list of tags to match against
-    * @param limit The number of tasks to return
+    * @param tags   A comma separated list of tags to match against
+    * @param limit  The number of tasks to return
     * @param offset The paging offset, incrementing will take you to the next set in the list
     * @return The html Result containing a json array of the found tasks
     */
-  def getItemsBasedOnTags(tags: String, limit: Int, offset: Int) : Action[AnyContent] = Action.async { implicit request =>
+  def getItemsBasedOnTags(tags: String, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
@@ -45,11 +46,11 @@ trait TagsMixin[T<:BaseObject[Long]] {
     * Deletes tags from a given task.
     * Must be authenticated to perform operation
     *
-    * @param id The id of the task
+    * @param id   The id of the task
     * @param tags A comma separated list of tags to delete
     * @return
     */
-  def deleteTagsFromItem(id: Long, tags: String) : Action[AnyContent] = Action.async { implicit request =>
+  def deleteTagsFromItem(id: Long, tags: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       if (StringUtils.isEmpty(tags)) {
         Utils.badRequest("A comma separated list of tags need to be provided via the query string. Example: ?tags=tag1,tag2")
@@ -76,9 +77,9 @@ trait TagsMixin[T<:BaseObject[Long]] {
     *
     * @param body          The Json body of data
     * @param createdObject The Task that was created by the create function
-    * @param user the user executing the request
+    * @param user          the user executing the request
     */
-  def extractTags(body: JsValue, createdObject: T, user:User): Unit = {
+  def extractTags(body: JsValue, createdObject: T, user: User): Unit = {
     val tags: List[Tag] = body \ "tags" match {
       case tags: JsDefined =>
         // this case is for a comma separated list, either of ints or strings
@@ -123,7 +124,7 @@ trait TagsMixin[T<:BaseObject[Long]] {
     * @param id The id of the object you are looking for
     * @return A list of tags associated with the item
     */
-  def getTags(id:Long) : List[Tag] = {
+  def getTags(id: Long): List[Tag] = {
     this.itemType match {
       case ChallengeType() => this.tagDAL.listByChallenge(id)
       case SurveyType() => this.tagDAL.listByChallenge(id)

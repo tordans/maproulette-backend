@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.utils
 
@@ -10,17 +10,15 @@ import play.api.db.Database
   * @author cuthbertm
   */
 trait TransactionManager {
-  implicit val db:Database
+  implicit val db: Database
 
-  def withMRConnection[T](block:Connection => T)(implicit conn:Connection=null): T = if (conn == null) {
-    this.db.withConnection { implicit c => block(c) }
-  } else {
-    block(conn)
+  def withMRConnection[T](block: Connection => T)(implicit conn: Option[Connection] = None): T = conn match {
+    case Some(c) => block(c)
+    case None => this.db.withConnection { implicit c => block(c) }
   }
 
-  def withMRTransaction[T](block:Connection => T)(implicit conn:Connection=null): T = if (conn == null) {
-    this.db.withTransaction { implicit c => block(c) }
-  } else {
-    block(conn)
+  def withMRTransaction[T](block: Connection => T)(implicit conn: Option[Connection] = None): T = conn match {
+    case Some(c) => block(c)
+    case None => this.db.withTransaction { implicit c => block(c) }
   }
 }

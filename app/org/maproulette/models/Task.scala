@@ -1,16 +1,13 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
-import org.maproulette.actions.{ItemType, TaskType}
+import org.maproulette.data.{ItemType, TaskType}
 import org.maproulette.utils.Utils
-import play.api.data.Form
-import play.api.data.Forms._
-import play.api.libs.json._
-import play.api.data.JodaForms._
 import play.api.data.format.Formats
+import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
@@ -33,22 +30,52 @@ import play.api.libs.json.JodaReads._
   *
   * @author cuthbertm
   */
-case class Task(override val id:Long,
+case class Task(override val id: Long,
                 override val name: String,
-                override val created:DateTime,
-                override val modified:DateTime,
+                override val created: DateTime,
+                override val modified: DateTime,
                 parent: Long,
-                instruction: Option[String]=None,
-                location: Option[String]=None,
-                geometries:String,
-                suggestedFix:Option[String]=None,
-                status:Option[Int]=None,
-                priority:Int=Challenge.PRIORITY_HIGH,
-                changesetId:Option[Long]=None,
-                mapillaryImages:Option[List[MapillaryImage]]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
+                instruction: Option[String] = None,
+                location: Option[String] = None,
+                geometries: String,
+                suggestedFix: Option[String] = None,
+                status: Option[Int] = None,
+                priority: Int = Challenge.PRIORITY_HIGH,
+                changesetId: Option[Long] = None,
+                mapillaryImages: Option[List[MapillaryImage]] = None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
-  def getGeometryProperties(fixGeometry:Boolean=false) : List[Map[String, String]] = {
+  /**
+    * Gets the task priority
+    *
+    * @param parent The parent Challenge
+    * @return Priority HIGH = 0, MEDIUM = 1, LOW = 2
+    */
+  def getTaskPriority(parent: Challenge): Int = {
+    val matchingList = getGeometryProperties().flatMap {
+      props =>
+        if (parent.isHighPriority(props)) {
+          Some(Challenge.PRIORITY_HIGH)
+        } else if (parent.isMediumPriority(props)) {
+          Some(Challenge.PRIORITY_MEDIUM)
+        } else if (parent.isLowRulePriority(props)) {
+          Some(Challenge.PRIORITY_LOW)
+        } else {
+          None
+        }
+    }
+    if (matchingList.isEmpty) {
+      parent.priority.defaultPriority
+    } else if (matchingList.contains(Challenge.PRIORITY_HIGH)) {
+      Challenge.PRIORITY_HIGH
+    } else if (matchingList.contains(Challenge.PRIORITY_MEDIUM)) {
+      Challenge.PRIORITY_MEDIUM
+    } else {
+      Challenge.PRIORITY_LOW
+    }
+  }
+
+  def getGeometryProperties(fixGeometry: Boolean = false): List[Map[String, String]] = {
     val g = if (fixGeometry) {
       suggestedFix.getOrElse("")
     } else {
@@ -61,41 +88,13 @@ case class Task(override val id:Long,
       List.empty
     }
   }
-
-  /**
-    * Gets the task priority
-    *
-    * @param parent The parent Challenge
-    * @return Priority HIGH = 0, MEDIUM = 1, LOW = 2
-    */
-  def getTaskPriority(parent:Challenge) : Int = {
-    val matchingList = getGeometryProperties().flatMap {
-      props => if (parent.isHighPriority(props)) {
-        Some(Challenge.PRIORITY_HIGH)
-      } else if (parent.isMediumPriority(props)) {
-        Some(Challenge.PRIORITY_MEDIUM)
-      } else if (parent.isLowRulePriority(props)) {
-        Some(Challenge.PRIORITY_LOW)
-      } else {
-        None
-      }
-    }
-    if (matchingList.isEmpty) {
-      parent.priority.defaultPriority
-    } else if (matchingList.contains(Challenge.PRIORITY_HIGH)) {
-      Challenge.PRIORITY_HIGH
-    } else if (matchingList.contains(Challenge.PRIORITY_MEDIUM)) {
-      Challenge.PRIORITY_MEDIUM
-    } else {
-      Challenge.PRIORITY_LOW
-    }
-  }
 }
 
 object Task {
+
   implicit object TaskFormat extends Format[Task] {
     override def writes(o: Task): JsValue = {
-      implicit val mapillaryWrites:Writes[MapillaryImage] = Json.writes[MapillaryImage]
+      implicit val mapillaryWrites: Writes[MapillaryImage] = Json.writes[MapillaryImage]
       implicit val taskWrites: Writes[Task] = Json.writes[Task]
       val original = Json.toJson(o)(Json.writes[Task])
       val updated = o.location match {
@@ -106,7 +105,7 @@ object Task {
     }
 
     override def reads(json: JsValue): JsResult[Task] = {
-      implicit val mapillaryReads:Reads[MapillaryImage] = Json.reads[MapillaryImage]
+      implicit val mapillaryReads: Reads[MapillaryImage] = Json.reads[MapillaryImage]
       Json.fromJson[Task](json)(Json.reads[Task])
     }
   }
@@ -149,7 +148,7 @@ object Task {
     * @param status The id to check for validity
     * @return true if status id is valid
     */
-  def isValidStatus(status:Int) : Boolean = statusMap.contains(status)
+  def isValidStatus(status: Int): Boolean = statusMap.contains(status)
 
   /**
     * A Task must have a valid progression between status. The following rules apply:
@@ -160,10 +159,10 @@ object Task {
     * If current statis is deleted, then it can set the status to created. Essentially resetting the task
     *
     * @param current The current status of the task
-    * @param toSet The status that the task will be set too
+    * @param toSet   The status that the task will be set too
     * @return True if the status can be set without violating any of the above rules
     */
-  def isValidStatusProgression(current:Int, toSet:Int) : Boolean = {
+  def isValidStatusProgression(current: Int, toSet: Int): Boolean = {
     if (current == toSet || toSet == STATUS_DELETED) {
       true
     } else {
@@ -172,7 +171,8 @@ object Task {
         case STATUS_FIXED => false
         case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
         case STATUS_SKIPPED | STATUS_TOO_HARD =>
-          toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED || toSet == STATUS_SKIPPED || toSet == STATUS_TOO_HARD || toSet == STATUS_ANSWERED
+          toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED ||
+            toSet == STATUS_SKIPPED || toSet == STATUS_TOO_HARD || toSet == STATUS_ANSWERED
         case STATUS_DELETED => toSet == STATUS_CREATED
         case STATUS_ALREADY_FIXED => false
         case STATUS_ANSWERED => false
@@ -187,7 +187,7 @@ object Task {
     * @param status The status id
     * @return None if status id is invalid, otherwise the name of the status
     */
-  def getStatusName(status:Int) : Option[String] = statusMap.get(status)
+  def getStatusName(status: Int): Option[String] = statusMap.get(status)
 
   /**
     * Gets the status id based on the status name
@@ -195,38 +195,10 @@ object Task {
     * @param status The status name
     * @return None if status name is invalid, otherwise the id of the status
     */
-  def getStatusID(status:String) : Option[Int] = statusMap.find(_._2.equalsIgnoreCase(status)) match {
+  def getStatusID(status: String): Option[Int] = statusMap.find(_._2.equalsIgnoreCase(status)) match {
     case Some(a) => Some(a._1)
     case None => None
   }
 
-
-  val taskForm = Form(
-    mapping(
-      "id" -> default(longNumber,-1L),
-      "name" -> nonEmptyText,
-      "created" -> default(jodaDate, DateTime.now()),
-      "modified" -> default(jodaDate, DateTime.now()),
-      "parent" -> longNumber,
-      "instruction" -> optional(text),
-      "location" -> optional(text),
-      "geometries" -> nonEmptyText,
-      "suggestedFix" -> optional(text),
-      "status" -> optional(number),
-      "priority" -> default(number, Challenge.PRIORITY_HIGH),
-      "changesetId" -> optional(longNumber),
-      "mapillaryImages" -> optional(list(mapping(
-          "key" -> text,
-          "lat" -> of[Double],
-          "lon" -> of[Double],
-          "url_320" -> text,
-          "url_640" -> text,
-          "url_1024" -> text,
-          "url_2048" -> text
-        )(MapillaryImage.apply)(MapillaryImage.unapply)
-      ))
-    )(Task.apply)(Task.unapply)
-  )
-
-  def emptyTask(parentId:Long) : Task = Task(-1, "", DateTime.now(), DateTime.now(), parentId, Some(""), None, "")
+  def emptyTask(parentId: Long): Task = Task(-1, "", DateTime.now(), DateTime.now(), parentId, Some(""), None, "")
 }

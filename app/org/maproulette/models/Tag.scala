@@ -1,11 +1,10 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.joda.time.DateTime
-import org.maproulette.actions.{ItemType, TagType}
-import play.api.libs.json._
-
+import org.maproulette.data.{ItemType, TagType}
+import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
@@ -19,8 +18,8 @@ import play.api.libs.json.JodaReads._
 case class Tag(override val id: Long,
                override val name: String,
                override val description: Option[String] = None,
-               override val created:DateTime=DateTime.now(),
-               override val modified:DateTime=DateTime.now()) extends BaseObject[Long] {
+               override val created: DateTime = DateTime.now(),
+               override val modified: DateTime = DateTime.now()) extends BaseObject[Long] {
   override val itemType: ItemType = TagType()
 }
 

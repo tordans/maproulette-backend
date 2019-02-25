@@ -1,3 +1,5 @@
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.filters
 
 import javax.inject.Inject
@@ -8,5 +10,5 @@ import play.filters.gzip.GzipFilter
 /**
   * @author cuthbertm
   */
-class Filters @Inject() (corsFilter: CORSFilter, gzipFilter: GzipFilter)
+class Filters @Inject()(corsFilter: CORSFilter, gzipFilter: GzipFilter)
   extends DefaultHttpFilters(corsFilter, gzipFilter)

@@ -182,7 +182,7 @@ GET     /project/:id                                @org.maproulette.controllers
 #     in: query
 #     description: Comma-separated list of project ids for which projects are desired.
 ###
-GET     /projects                                @org.maproulette.controllers.api.ProjectController.fetch(projectIds:String)
+GET     /projectsById                               @org.maproulette.controllers.api.ProjectController.fetch(projectIds:String)
 ###
 # tags: [ Project ]
 # summary: Retrieves an already existing Project

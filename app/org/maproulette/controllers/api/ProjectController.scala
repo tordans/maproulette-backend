@@ -1,13 +1,13 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.actions.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.controllers.ParentController
+import org.maproulette.data.{ActionManager, ProjectType, TaskViewed}
 import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
-import org.maproulette.models.{Challenge, ClusteredPoint, Project, Task}
+import org.maproulette.models.{Challenge, ClusteredPoint, Project}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -21,13 +21,13 @@ import play.api.mvc._
   *
   * @author cuthbertm
   */
-class ProjectController @Inject() (override val childController:ChallengeController,
-                                   override val sessionManager:SessionManager,
-                                   override val actionManager: ActionManager,
-                                   override val dal:ProjectDAL,
-                                   components: ControllerComponents,
-                                   taskDAL: TaskDAL,
-                                   override val bodyParsers:PlayBodyParsers)
+class ProjectController @Inject()(override val childController: ChallengeController,
+                                  override val sessionManager: SessionManager,
+                                  override val actionManager: ActionManager,
+                                  override val dal: ProjectDAL,
+                                  components: ControllerComponents,
+                                  taskDAL: TaskDAL,
+                                  override val bodyParsers: PlayBodyParsers)
   extends AbstractController(components) with ParentController[Project, Challenge] {
 
   // json reads for automatically reading Projects from a posted json body
@@ -50,7 +50,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     * @param body The incoming body from the request
     * @return
     */
-  override def updateCreateBody(body: JsValue, user:User): JsValue = {
+  override def updateCreateBody(body: JsValue, user: User): JsValue = {
     var jsonBody = super.updateCreateBody(body, user)
     jsonBody = Utils.insertIntoJson(jsonBody, "groups", Array.emptyShortArray)(arrayWrites[Short])
     jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
@@ -67,13 +67,13 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   /**
     * Does a basic search on the name of an object
     *
-    * @param search The search string that we are looking for
-    * @param limit limit the number of returned items
-    * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
+    * @param search      The search string that we are looking for
+    * @param limit       limit the number of returned items
+    * @param offset      For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
     * @param onlyEnabled only enabled objects if true
     * @return A list of the requested items in JSON format
     */
-  override def find(search:String, parentId:Long, limit:Int, offset:Int, onlyEnabled:Boolean) : Action[AnyContent] = Action.async { implicit request =>
+  override def find(search: String, parentId: Long, limit: Int, offset: Int, onlyEnabled: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "display_name", "DESC")(parentId).map(this.inject)))
     }
@@ -85,7 +85,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     * @param projectIds Comma separated list of project ids to fetch
     * @return json list of managed projects
     */
-  def fetch(projectIds:String) : Action[AnyContent] = Action.async { implicit response =>
+  def fetch(projectIds: String): Action[AnyContent] = Action.async { implicit response =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dal.fetch(Utils.toLongList(projectIds))))
     }
@@ -94,14 +94,14 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   /**
     * Retrieves the list of projects managed
     *
-    * @param limit Limit of how many tasks should be returned
-    * @param offset offset for pagination
-    * @param onlyEnabled Only list the enabled projects
+    * @param limit        Limit of how many tasks should be returned
+    * @param offset       offset for pagination
+    * @param onlyEnabled  Only list the enabled projects
     * @param searchString basic search string to find specific projects
-    * @param sort An optional column to sort by.
+    * @param sort         An optional column to sort by.
     * @return json list of managed projects
     */
-  def listManagedProjects(limit:Int, offset:Int, onlyEnabled:Boolean, searchString:String, sort:String="display_name") : Action[AnyContent] = Action.async { implicit response =>
+  def listManagedProjects(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String, sort: String = "display_name"): Action[AnyContent] = Action.async { implicit response =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, searchString, sort)))
     }
@@ -110,11 +110,11 @@ class ProjectController @Inject() (override val childController:ChallengeControl
   /**
     * Gets a random task that is an descendant of the project.
     *
-    * @param limit Limit of how many tasks should be returned
+    * @param limit       Limit of how many tasks should be returned
     * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of Tasks that match the supplied filters
     */
-  def getRandomTasks(projectId:Long, limit:Int, proximityId:Long) : Action[AnyContent] = Action.async { implicit request =>
+  def getRandomTasks(projectId: Long, limit: Int, proximityId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
         params.copy(projectIds = Some(List(projectId)))
@@ -125,7 +125,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     }
   }
 
-  def getSearchedClusteredPoints(searchCookie:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getSearchedClusteredPoints(searchCookie: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
         Ok(Json.toJson(this.dal.getSearchedClusteredPoints(params)))
@@ -133,7 +133,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     }
   }
 
-  def getClusteredPoints(projectId:Long, challengeIds:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getClusteredPoints(projectId: Long, challengeIds: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val pid = if (projectId < 0) {
         None
@@ -155,7 +155,7 @@ class ProjectController @Inject() (override val childController:ChallengeControl
     * @param projectId The id of the challenge
     * @return A list of comments that exist for a specific challenge
     */
-  def retrieveComments(projectId:Long, limit:Int, page:Int) : Action[AnyContent] = Action.async { implicit request =>
+  def retrieveComments(projectId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Ok(Json.toJson(this.taskDAL.retrieveComments(List(projectId), List.empty, List.empty, limit, page)))
     }

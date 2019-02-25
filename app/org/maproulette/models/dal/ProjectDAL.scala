@@ -1,22 +1,19 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Singleton}
 
-import anorm._
 import anorm.SqlParser._
+import anorm._
+import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
-
-import org.maproulette.exception.UniqueViolationException
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{Group, SearchParameters, User}
 import org.maproulette.session.dal.UserGroupDAL
-import play.api.Logger
+import org.maproulette.session.{Group, SearchParameters, User}
 import play.api.db.Database
 import play.api.libs.json.{JsValue, Json}
 
@@ -28,11 +25,11 @@ import scala.collection.mutable.ListBuffer
   * @author cuthbertm
   */
 @Singleton
-class ProjectDAL @Inject() (override val db:Database,
-                            childDAL:ChallengeDAL,
-                            surveyDAL:SurveyDAL,
-                            userGroupDAL: UserGroupDAL,
-                            override val permission:Permission)
+class ProjectDAL @Inject()(override val db: Database,
+                           childDAL: ChallengeDAL,
+                           surveyDAL: SurveyDAL,
+                           userGroupDAL: UserGroupDAL,
+                           override val permission: Permission)
   extends ParentDAL[Long, Project, Challenge] with OwnerMixin[Project] {
 
   // manager for the cache of the projects
@@ -89,13 +86,13 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param project The project to insert into the database
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(project: Project, user:User)(implicit c:Connection=null): Project = {
+  override def insert(project: Project, user: User)(implicit c: Option[Connection] = None): Project = {
     //permissions don't need to be checked, anyone can create a project
     //this.permission.hasObjectWriteAccess(project, user)
     this.cacheManager.withOptionCaching { () =>
       // only super users can enable or disable projects
       val setProject = if (!user.isSuperUser || user.adminForProject(project.id)) {
-        Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
+        logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
         project.copy(enabled = false)
       } else {
         project
@@ -119,10 +116,10 @@ class ProjectDAL @Inject() (override val db:Database,
     * Updates a project in the database
     *
     * @param updates A json object containing all the fields that are too be updated.
-    * @param id The id of the object that you are updating.
+    * @param id      The id of the object that you are updating.
     * @return An optional object, it will return None if no object found with a matching id that was supplied.
     */
-  override def update(updates:JsValue, user:User)(implicit id:Long, c:Connection=null): Option[Project] = {
+  override def update(updates: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Project] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       this.permission.hasObjectWriteAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
@@ -132,7 +129,7 @@ class ProjectDAL @Inject() (override val db:Database,
         val description = (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean] match {
           case Some(e) if !user.isSuperUser && !user.adminForProject(id) =>
-            Logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
+            logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
             cachedItem.enabled
           case Some(e) => e
           case None => cachedItem.enabled
@@ -154,9 +151,10 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param projectIds The projectIds to fetch
     * @return A list of tags that contain the supplied prefix
     */
-  def fetch(projectList:Option[List[Long]]=None): List[Project] = {
+  def fetch(projectList: Option[List[Long]] = None): List[Project] = {
     this.withMRConnection { implicit c =>
-      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+      val query =
+        s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE TRUE ${this.getLongListFilter(projectList, "id")}"""
       SQL(query).as(this.parser.*)
     }
@@ -167,20 +165,21 @@ class ProjectDAL @Inject() (override val db:Database,
     * any references of the search string. So will be wrapped by %%, eg. LIKE %test%
     *
     * @param searchString The string to search for within the name field
-    * @param limit Limit the number of results to be returned
-    * @param offset For paging, ie. the page number starting at 0
+    * @param limit        Limit the number of results to be returned
+    * @param offset       For paging, ie. the page number starting at 0
     * @return A list of tags that contain the supplied prefix
     */
-  override def find(searchString:String, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-            orderColumn:String="id", orderDirection:String="ASC")
-           (implicit parentId:Long = -1, c:Connection=null) : List[Project] = {
+  override def find(searchString: String, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0, onlyEnabled: Boolean = false,
+                    orderColumn: String = "id", orderDirection: String = "ASC")
+                   (implicit parentId: Long = -1, c: Option[Connection] = None): List[Project] = {
     this.withMRConnection { implicit c =>
-      val query = s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+      val query =
+        s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE ${this.searchField("name")(None)} OR
                       ${this.searchField("display_name")(None)} OR
                       ${this.fuzzySearch("display_name")(None)} ${this.enabled(onlyEnabled)}
                       ${this.parentFilter(parentId)}
-                      ${this.order(orderColumn=Some(orderColumn), orderDirection=orderDirection, nameFix=true)}
+                      ${this.order(orderColumn = Some(orderColumn), orderDirection = orderDirection, nameFix = true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
     }
@@ -192,8 +191,8 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param user The user executing the request
     * @return A list of projects managed by the user
     */
-  def listManagedProjects(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-                          searchString:String="", sort:String="display_name")(implicit c:Connection=null) : List[Project] = {
+  def listManagedProjects(user: User, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0, onlyEnabled: Boolean = false,
+                          searchString: String = "", sort: String = "display_name")(implicit c: Option[Connection] = None): List[Project] = {
     if (user.isSuperUser) {
       this.list(limit, offset, onlyEnabled, searchString, sort)
     } else {
@@ -207,8 +206,10 @@ class ProjectDAL @Inject() (override val db:Database,
                 WHERE p.owner_id = {osmId} OR
                 (g.project_id = p.id AND g.id IN ({ids}))
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
-                ${this.order(orderColumn=Some(sort), orderDirection="ASC",
-                             nameFix=true, ignoreCase=(sort == "name" || sort == "display_name"))}
+                ${
+              this.order(orderColumn = Some(sort), orderDirection = "ASC",
+                nameFix = true, ignoreCase = (sort == "name" || sort == "display_name"))
+            }
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
           SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
             'osmId -> user.osmProfile.id,
@@ -222,29 +223,36 @@ class ProjectDAL @Inject() (override val db:Database,
   /**
     * Gets all the counts of challenges and surveys for each available project
     *
-    * @param user The user executing the request, will limit the response to only accesible projects
-    * @param limit To limit the number of project counts to return
-    * @param offset Paging starting at 0
-    * @param onlyEnabled Whether to list only enabled projects
+    * @param user         The user executing the request, will limit the response to only accesible projects
+    * @param limit        To limit the number of project counts to return
+    * @param offset       Paging starting at 0
+    * @param onlyEnabled  Whether to list only enabled projects
     * @param searchString To search by project name
-    * @param c implicit connection, if not supplied will open new connection
+    * @param c            implicit connection, if not supplied will open new connection
     * @return A map of project ids to tuple with number of challenge and survey children for the project
     */
-  def getChildrenCounts(user:User, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0, onlyEnabled:Boolean=false,
-                        searchString:String="")(implicit c:Connection=null) : Map[Long, (Int, Int)] = {
+  def getChildrenCounts(user: User, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0, onlyEnabled: Boolean = false,
+                        searchString: String = "")(implicit c: Option[Connection] = None): Map[Long, (Int, Int)] = {
     this.withMRConnection { implicit c =>
       val parser = for {
         id <- long("id")
         challenges <- int("challenges")
         surveys <- int("surveys")
       } yield (id, challenges, surveys)
-      val query = s"""SELECT p.id,
+      val query =
+        s"""SELECT p.id,
                       SUM(CASE c.challenge_type WHEN 1 THEN 1 ELSE 0 END) AS challenges,
                       SUM(CASE c.challenge_type WHEN 4 THEN 1 ELSE 0 END) AS surveys
                     FROM projects p
                     INNER JOIN groups g ON g.project_id = p.id
                     INNER JOIN challenges c ON c.parent_id = p.id
-                    WHERE (1=${if (user.isSuperUser) { 1 } else { 0 }} OR g.id IN ({ids}))
+                    WHERE (1=${
+          if (user.isSuperUser) {
+            1
+          } else {
+            0
+          }
+        } OR g.id IN ({ids}))
                      AND c.deleted = false and p.deleted = false
                     ${this.searchField("p.name")} ${this.enabled(onlyEnabled, "p")}
                     GROUP BY p.id
@@ -260,8 +268,8 @@ class ProjectDAL @Inject() (override val db:Database,
     * @param params search parameters
     * @return
     */
-  def getSearchedClusteredPoints(params: SearchParameters, limit:Int=0, offset:Int=0, featured:Boolean=false)
-                                (implicit c:Connection=null) : List[ClusteredPoint] = {
+  def getSearchedClusteredPoints(params: SearchParameters, limit: Int = 0, offset: Int = 0, featured: Boolean = false)
+                                (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
@@ -269,7 +277,7 @@ class ProjectDAL @Inject() (override val db:Database,
       parameters += ('ps -> this.search(params.projectSearch.getOrElse("")))
       // search by tags if any
       val challengeTags = if (params.challengeTags.isDefined && params.challengeTags.get.nonEmpty) {
-        val tags = params.challengeTags.get.zipWithIndex.map{
+        val tags = params.challengeTags.get.zipWithIndex.map {
           case (v, i) =>
             parameters += (s"tag_$i" -> this.search(v))
             s"t.name LIKE {tag_$i}"
@@ -280,7 +288,7 @@ class ProjectDAL @Inject() (override val db:Database,
             |INNER JOIN tags t ON t.id = tc.tag_id
           """.stripMargin,
           s"AND ${tags.mkString(" OR ")}"
-          )
+        )
       } else {
         ("", "")
       }
@@ -289,7 +297,8 @@ class ProjectDAL @Inject() (override val db:Database,
         case Some(l) => s"AND c.location @ ST_MakeEnvelope(${l.left}, ${l.bottom}, ${l.right}, ${l.top}, 4326)"
         case None => ""
       }
-      val query = s"""
+      val query =
+        s"""
           SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
                   ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
                   c.difficulty, c.challenge_type, c.last_updated
@@ -300,33 +309,41 @@ class ProjectDAL @Inject() (override val db:Database,
           WHERE c.location IS NOT NULL AND EXISTS (
             SELECT id FROM tasks
             WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD}) LIMIT 1)
-          ${if (featured) { " AND c.featured = true"} else {""}}
+          ${
+          if (featured) {
+            " AND c.featured = true"
+          } else {
+            ""
+          }
+        }
           ${this.searchField("c.name", "cs")}
           ${this.searchField("p.name", "ps")}
           ${this.enabled(params.enabledChallenge, "c")} ${this.enabled(params.enabledProject, "p")}
           AND c.deleted = false and p.deleted = false
-          ${params.getProjectIds match {
-              case Some(v) if v.nonEmpty => s" AND c.parent_id IN (${v.mkString(",")})"
-              case None => ""
-           }}
+          ${
+          params.getProjectIds match {
+            case Some(v) if v.nonEmpty => s" AND c.parent_id IN (${v.mkString(",")})"
+            case None => ""
+          }
+        }
           $locationClause
           ${challengeTags._2}
           LIMIT ${sqlLimit(limit)} OFFSET $offset
          """
-        this.sqlWithParameters(query, parameters).as(this.pointParser.*)
+      this.sqlWithParameters(query, parameters).as(this.pointParser.*)
     }
   }
 
   /**
     * Retrieves the clustered json for challenges
     *
-    * @param projectId The project id for the requested challenges, if None, then retrieve all challenges
+    * @param projectId    The project id for the requested challenges, if None, then retrieve all challenges
     * @param challengeIds A list of challengeId's that you can filter the result by
-    * @param enabledOnly Show only the enabled challenges
+    * @param enabledOnly  Show only the enabled challenges
     * @return A list of ClusteredPoint objects
     */
-  def getClusteredPoints(projectId:Option[Long]=None, challengeIds:List[Long]=List.empty,
-                              enabledOnly:Boolean=true)(implicit c:Connection=null) : List[ClusteredPoint] = {
+  def getClusteredPoints(projectId: Option[Long] = None, challengeIds: List[Long] = List.empty,
+                         enabledOnly: Boolean = true)(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
                     ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
@@ -339,8 +356,20 @@ class ProjectDAL @Inject() (override val db:Database,
                 WHERE parent_id = c.id AND status IN (${Task.STATUS_CREATED},${Task.STATUS_SKIPPED},${Task.STATUS_TOO_HARD}) LIMIT 1)
               #${this.enabled(enabledOnly, "c")} #${this.enabled(enabledOnly, "p")}
               AND c.deleted = false AND p.deleted = false
-              #${if(projectId.isDefined) { s" AND c.parent_id = ${projectId.get}"} else { "" }}
-              #${if(challengeIds.nonEmpty) { s" AND c.id IN (${challengeIds.mkString(",")})"} else { "" }}
+              #${
+        if (projectId.isDefined) {
+          s" AND c.parent_id = ${projectId.get}"
+        } else {
+          ""
+        }
+      }
+              #${
+        if (challengeIds.nonEmpty) {
+          s" AND c.id IN (${challengeIds.mkString(",")})"
+        } else {
+          ""
+        }
+      }
         """.as(this.pointParser.*)
     }
   }
@@ -350,7 +379,7 @@ class ProjectDAL @Inject() (override val db:Database,
     *
     * @param id If id is supplied will only remove the project with that id
     */
-  def clearCache(id:Long = -1) : Unit = {
+  def clearCache(id: Long = -1): Unit = {
     if (id > -1) {
       this.cacheManager.cache.remove(id)
     }

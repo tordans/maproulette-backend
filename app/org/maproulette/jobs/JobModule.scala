@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.jobs
 
@@ -9,7 +9,7 @@ import play.api.libs.concurrent.AkkaGuiceSupport
   * @author cuthbertm
   */
 class JobModule extends AbstractModule with AkkaGuiceSupport {
-  def configure() : Unit = {
+  override def configure(): Unit = {
     bindActor[SchedulerActor]("scheduler-actor")
     bind(classOf[Scheduler]).asEagerSingleton()
     bind(classOf[Bootstrap]).asEagerSingleton()

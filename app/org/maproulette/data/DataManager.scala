@@ -1,171 +1,99 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.data
 
 import java.sql.Connection
-import javax.inject.{Inject, Singleton}
 
-import anorm._
 import anorm.SqlParser._
+import anorm._
+import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.actions.Actions
 import org.maproulette.models.Task
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import org.maproulette.utils.BoundingBoxFinder
 import play.api.Application
 import play.api.db.Database
 
-case class ActionSummary(total:Double,
-                         available:Double,
-                         fixed:Double,
-                         falsePositive:Double,
-                         skipped:Double,
-                         deleted:Double,
-                         alreadyFixed:Double,
-                         tooHard:Double,
-                         answered:Double) {
+case class ActionSummary(total: Double,
+                         available: Double,
+                         fixed: Double,
+                         falsePositive: Double,
+                         skipped: Double,
+                         deleted: Double,
+                         alreadyFixed: Double,
+                         tooHard: Double,
+                         answered: Double) {
+  def percentComplete: Double = (((trueAvailable / total) * 100) - 100) * -1
+
   // available in the database means it is created state, available in the UI, means that it is in state
   // AVAILABLE, SKIPPED or TOO HARD
-  def trueAvailable : Double = available + skipped + deleted
-  def percentComplete : Double = (((trueAvailable / total) * 100) - 100) * -1
-  def percentage(value:Double) : Double = (value / total) * 100
+  def trueAvailable: Double = available + skipped + deleted
+
+  def percentage(value: Double): Double = (value / total) * 100
 }
 
 /**
   * Handles the summary data for the users
   *
-  * @param distinctAllUsers This is all the distinct users regardless of the date range
-  * @param distinctTotalUsers All the distinct users within the supplied date range
-  * @param avgUsersPerChallenge Average number of users per challenge within the date range
-  * @param activeUsers Active users (2 or more edits in last 2 days)
-  * @param avgActionsPerUser Average number of actions taken by a user
+  * @param distinctAllUsers              This is all the distinct users regardless of the date range
+  * @param distinctTotalUsers            All the distinct users within the supplied date range
+  * @param avgUsersPerChallenge          Average number of users per challenge within the date range
+  * @param activeUsers                   Active users (2 or more edits in last 2 days)
+  * @param avgActionsPerUser             Average number of actions taken by a user
   * @param avgActionsPerChallengePerUser Average number of actions taken by user per challenge
   */
-case class UserSummary(distinctAllUsers:Int,
-                       distinctTotalUsers:Int,
-                       avgUsersPerChallenge:Double,
-                       activeUsers:Double,
-                       avgActionsPerUser:ActionSummary,
-                       avgActionsPerChallengePerUser:ActionSummary)
-case class UserSurveySummary(distinctTotalUsers:Int,
-                             avgUsersPerChallenge:Double,
-                             activeUsers:Double,
-                             answerPerUser:Double,
-                             answersPerChallenge:Double)
-case class ChallengeSummary(id:Long, name:String, actions:ActionSummary)
-case class SurveySummary(id:Long, name:String, count:Int)
-case class ChallengeActivity(date:DateTime, status:Int, statusName:String, count:Int)
-case class RawActivity(date:DateTime, osmUserId:Long, osmUsername:String, projectId:Long,
-                       projectName:String, challengeId:Long, challengeName:String,
-                       taskId:Long, oldStatus:Int, status:Int)
-case class LeaderboardChallenge(id:Long, name:String, activity:Int)
-case class LeaderboardUser(userId:Long, name:String, avatarURL:String,
-                           score:Int, rank:Int, topChallenges:List[LeaderboardChallenge])
+case class UserSummary(distinctAllUsers: Int,
+                       distinctTotalUsers: Int,
+                       avgUsersPerChallenge: Double,
+                       activeUsers: Double,
+                       avgActionsPerUser: ActionSummary,
+                       avgActionsPerChallengePerUser: ActionSummary)
+
+case class UserSurveySummary(distinctTotalUsers: Int,
+                             avgUsersPerChallenge: Double,
+                             activeUsers: Double,
+                             answerPerUser: Double,
+                             answersPerChallenge: Double)
+
+case class ChallengeSummary(id: Long, name: String, actions: ActionSummary)
+
+case class SurveySummary(id: Long, name: String, count: Int)
+
+case class ChallengeActivity(date: DateTime, status: Int, statusName: String, count: Int)
+
+case class RawActivity(date: DateTime, osmUserId: Long, osmUsername: String, projectId: Long,
+                       projectName: String, challengeId: Long, challengeName: String,
+                       taskId: Long, oldStatus: Int, status: Int)
+
+case class LeaderboardChallenge(id: Long, name: String, activity: Int)
+
+case class LeaderboardUser(userId: Long, name: String, avatarURL: String,
+                           score: Int, rank: Int, topChallenges: List[LeaderboardChallenge])
 
 /**
   * @author cuthbertm
   */
 @Singleton
-class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:BoundingBoxFinder)(implicit application:Application) extends DALHelper {
-  private def getDistinctUsers(projectFilter:String, survey:Boolean=false, onlyEnabled:Boolean=true,
-                               start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int])(implicit c:Connection) : Int = {
-    SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
-             FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
-             #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}
-             #$projectFilter""".as(get[Option[Int]]("count").single).getOrElse(0)
-  }
-
-  private def getDistinctUsersPerChallenge(projectFilter:String, survey:Boolean=false, onlyEnabled:Boolean=true,
-                                           start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int])(implicit c:Connection) : Double = {
-    SQL"""SELECT AVG(count) AS count FROM (
-            SELECT #${if (survey) {"survey_id"} else {"challenge_id"}}, COUNT(DISTINCT osm_user_id) AS count
-            FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
-            #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)} #$projectFilter
-            GROUP BY #${if (survey) {"survey_id"} else {"challenge_id"}}
-          ) as t""".as(get[Option[Double]]("count").single).getOrElse(0D)
-  }
-
-  private def getActiveUsers(projectFilter:String, survey:Boolean=false, onlyEnabled:Boolean=true,
-                             start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int])(implicit c:Connection) : Int = {
-    SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
-          FROM #${if (survey) {"survey_answers sa"} else {"status_actions sa"}}
-          #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}  #$projectFilter
-          AND sa.created::date BETWEEN current_date - INTERVAL '2 days' AND current_date"""
-      .as(get[Option[Int]]("count").single).getOrElse(0)
-  }
-
-  /**
-   * Returns the SQL to sum a user's status actions for ranking purposes
-   **/
-  private def scoreSumSQL(statusActionsTableName:String="sa") : String = {
-    s"""SUM(CASE ${statusActionsTableName}.status
-             WHEN ${Task.STATUS_FIXED} THEN ${config.taskScoreFixed}
-             WHEN ${Task.STATUS_FALSE_POSITIVE} THEN ${config.taskScoreFalsePositive}
-             WHEN ${Task.STATUS_ALREADY_FIXED} THEN ${config.taskScoreAlreadyFixed}
-             WHEN ${Task.STATUS_TOO_HARD} THEN ${config.taskScoreTooHard}
-             WHEN ${Task.STATUS_SKIPPED} THEN ${config.taskScoreSkipped}
-             ELSE 0
-           END)"""
-  }
-
-
-  /**
-   * Returns the SQL to fetch the ordered leaderboard data with rankings. Can be filtered
-   * by a list of projects, challenges, users and start/end date.
-   **/
-  private def leaderboardWithRankSQL(userFilter:Option[List[Long]]=None, projectFilter:Option[List[Long]]=None,
-                         challengeFilter:Option[List[Long]]=None, countryCodeFilter:Option[List[String]]=None,
-                         start:Option[DateTime]=None, end:Option[DateTime]=None) : String = {
-    var taskTableIfNeeded = ""
-    var boundingSearch = ""
-
-    countryCodeFilter match {
-      case Some(ccList) if ccList.nonEmpty =>
-        taskTableIfNeeded = ", tasks t"
-        val boundingBoxes = ccList.map { cc =>
-              s"""
-                ST_Intersects(t.location, ST_MakeEnvelope(${boundingBoxFinder.boundingBoxforCountry(cc)}, 4326))
-              """
-          }
-        boundingSearch = "t.id = sa.task_id AND (" + boundingBoxes.mkString(" OR ") + ") AND "
-      case _ => ""
-    }
-
-    s"""
-        SELECT users.id, users.name, users.avatar_url, ${this.scoreSumSQL()} AS score,
-               ROW_NUMBER() OVER( ORDER BY ${this.scoreSumSQL()} DESC, sa.osm_user_id ASC)
-        FROM status_actions sa, users
-        $taskTableIfNeeded
-        WHERE ${getDateClause("sa.created", start, end)} AND
-              sa.old_status <> sa.status AND
-              users.osm_id = sa.osm_user_id AND
-              $boundingSearch
-              users.leaderboard_opt_out = FALSE
-              ${getLongListFilter(userFilter, "users.id")}
-              ${getLongListFilter(projectFilter, "sa.project_id")}
-              ${getLongListFilter(challengeFilter, "sa.challenge_id")}
-        GROUP BY sa.osm_user_id, users.id
-        ORDER BY score DESC, sa.osm_user_id ASC
-      """
-  }
-
-  def getUserSurveySummary(projectList:Option[List[Long]]=None, surveyId:Option[Long]=None,
-                           start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]) : UserSurveySummary = {
+class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: BoundingBoxFinder)(implicit application: Application) extends DALHelper {
+  def getUserSurveySummary(projectList: Option[List[Long]] = None, surveyId: Option[Long] = None,
+                           start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int]): UserSurveySummary = {
     this.db.withConnection { implicit c =>
       val surveyProjectFilter = surveyId match {
         case Some(id) => s"AND survey_id = $id"
         case None => getLongListFilter(projectList, "project_id")
       }
 
-      val perUser:Double = SQL"""SELECT AVG(answered) AS answered FROM (
+      val perUser: Double =
+        SQL"""SELECT AVG(answered) AS answered FROM (
                             SELECT osm_user_id, COUNT(DISTINCT answer_id) AS answered
                             FROM survey_answers sa
                             #${this.getEnabledPriorityClause(surveyId.isEmpty, true, start, end, priority)}
                             #$surveyProjectFilter
                             GROUP BY osm_user_id
                           ) AS t""".as(get[Option[Double]]("answered").single).getOrElse(0)
-      val perSurvey:Double = SQL"""SELECT AVG(answered) AS answered FROM (
+      val perSurvey: Double =
+        SQL"""SELECT AVG(answered) AS answered FROM (
                               SELECT osm_user_id, survey_id, COUNT(DISTINCT answer_id) AS answered
                               FROM survey_answers sa
                               #${this.getEnabledPriorityClause(surveyId.isEmpty, true, start, end, priority)}
@@ -182,8 +110,106 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     }
   }
 
-  def getUserChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
-                              start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]) : UserSummary = {
+  private def getDistinctUsers(projectFilter: String, survey: Boolean = false, onlyEnabled: Boolean = true,
+                               start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int])(implicit c: Connection): Int = {
+    SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
+             FROM #${
+      if (survey) {
+        "survey_answers sa"
+      } else {
+        "status_actions sa"
+      }
+    }
+             #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}
+             #$projectFilter""".as(get[Option[Int]]("count").single).getOrElse(0)
+  }
+
+  private def getEnabledPriorityClause(onlyEnabled: Boolean = true, isSurvey: Boolean = true,
+                                       start: Option[DateTime] = None, end: Option[DateTime] = None,
+                                       priority: Option[Int] = None, ignoreDates: Boolean = false): String = {
+    val priorityClauses = priority match {
+      case Some(p) => ("INNER JOIN tasks t ON t.id = sa.task_id", s"AND t.priority = $p")
+      case None => ("", "")
+    }
+    if (onlyEnabled) {
+      s"""|INNER JOIN challenges c ON c.id = sa.${
+        if (isSurvey) {
+          "survey_id"
+        } else {
+          "challenge_id"
+        }
+      }
+          |${priorityClauses._1}
+          |INNER JOIN projects p ON p.id = c.parent_id
+          |WHERE c.enabled = true and p.enabled = true
+          |${priorityClauses._2}
+          |${
+        if (!ignoreDates) {
+          getDateClause("sa.created", start, end)(Some(AND()))
+        } else {
+          ""
+        }
+      }
+       """.stripMargin
+    } else if (!ignoreDates) {
+      s"""
+         |${priorityClauses._1}
+         |${getDateClause("sa.created", start, end)(Some(WHERE()))}
+         |${priorityClauses._2}
+       """.stripMargin
+    } else {
+      s"""
+         |${priorityClauses._1}
+         |WHERE 1=1 ${priorityClauses._2}
+       """.stripMargin
+    }
+  }
+
+  private def getDistinctUsersPerChallenge(projectFilter: String, survey: Boolean = false, onlyEnabled: Boolean = true,
+                                           start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int])(implicit c: Connection): Double = {
+    SQL"""SELECT AVG(count) AS count FROM (
+            SELECT #${
+      if (survey) {
+        "survey_id"
+      } else {
+        "challenge_id"
+      }
+    }, COUNT(DISTINCT osm_user_id) AS count
+            FROM #${
+      if (survey) {
+        "survey_answers sa"
+      } else {
+        "status_actions sa"
+      }
+    }
+            #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)} #$projectFilter
+            GROUP BY #${
+      if (survey) {
+        "survey_id"
+      } else {
+        "challenge_id"
+      }
+    }
+          ) as t""".as(get[Option[Double]]("count").single).getOrElse(0D)
+  }
+
+  private def getActiveUsers(projectFilter: String, survey: Boolean = false, onlyEnabled: Boolean = true,
+                             start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int])(implicit c: Connection): Int = {
+    SQL"""SELECT COUNT(DISTINCT osm_user_id) AS count
+          FROM #${
+      if (survey) {
+        "survey_answers sa"
+      } else {
+        "status_actions sa"
+      }
+    }
+          #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}  #$projectFilter
+          AND sa.created::date BETWEEN current_date - INTERVAL '2 days' AND current_date"""
+      .as(get[Option[Int]]("count").single).getOrElse(0)
+  }
+
+  def getUserChallengeSummary(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None,
+                              start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int]): UserSummary = {
     this.db.withConnection { implicit c =>
       val challengeProjectFilter = challengeId match {
         case Some(id) => s"AND sa.challenge_id = $id"
@@ -199,10 +225,11 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         tooHard <- get[Option[Double]]("too_hard")
         answered <- get[Option[Double]]("answered")
       } yield ActionSummary(0, available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
-                            skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0),
-                            tooHard.getOrElse(0), answered.getOrElse(0))
+        skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0),
+        tooHard.getOrElse(0), answered.getOrElse(0))
 
-      val perUser = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
+      val perUser =
+        SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                   AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
                                   AVG(too_hard) AS too_hard, AVG(answered) AS answered
                               FROM (
@@ -220,7 +247,8 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
                                 #$challengeProjectFilter
                                 GROUP BY sa.osm_user_id
                               ) AS t""".as(actionParser.*).head
-      val perChallenge = SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
+      val perChallenge =
+        SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                         AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
                                         AVG(too_hard) AS too_hard, AVG(answered) AS answered
                                   FROM (
@@ -259,7 +287,7 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * @param priority The optional priority value
     * @return a list of SurveySummary object
     */
-  def getSurveySummary(surveyId:Long, priority:Option[Int]=None) : List[SurveySummary] = {
+  def getSurveySummary(surveyId: Long, priority: Option[Int] = None): List[SurveySummary] = {
     this.db.withConnection { implicit c =>
       val parser = for {
         answer_id <- int("answer_id")
@@ -292,9 +320,9 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * @param challengeId The challenge to filter by default None, if set will ignore the projects parameter
     * @return
     */
-  def getChallengeSummary(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
-                          limit:Int=(-1), offset:Int=0, orderColumn:Option[String]=None, orderDirection:String="ASC",
-                          searchString:String="", priority:Option[Int]=None) : List[ChallengeSummary] = {
+  def getChallengeSummary(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None,
+                          limit: Int = (-1), offset: Int = 0, orderColumn: Option[String] = None, orderDirection: String = "ASC",
+                          searchString: String = "", priority: Option[Int] = None): List[ChallengeSummary] = {
     this.db.withConnection { implicit c =>
       val parser = for {
         id <- int("tasks.parent_id")
@@ -309,7 +337,7 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         tooHard <- int("too_hard")
         answered <- int("answered")
       } yield ChallengeSummary(id, name, ActionSummary(total, available, fixed, falsePositive,
-                                skipped, deleted, alreadyFixed, tooHard, answered))
+        skipped, deleted, alreadyFixed, tooHard, answered))
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND t.parent_id = $id"
         case _ => getLongListFilter(projectList, "c.parent_id")
@@ -321,7 +349,8 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
       // The percentage columns are a bit of a hack simply so that we can order by the percentages.
       // It won't decrease performance as this is simple basic math calculations, but it certainly
       // isn't pretty
-      val query = s"""SELECT *,
+      val query =
+      s"""SELECT *,
                         (((CAST(available AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100)-100)*1 AS complete_percentage,
                         (CAST(available AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS available_perc,
                         (CAST(fixed AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS fixed_perc,
@@ -344,7 +373,13 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
                               FROM tasks t
                               INNER JOIN challenges c ON c.id = t.parent_id
                               INNER JOIN projects p ON p.id = c.parent_id
-                              WHERE ${if(challengeId.isEmpty) {"c.enabled = true AND p.enabled = true AND"} else {""}}
+                              WHERE ${
+        if (challengeId.isEmpty) {
+          "c.enabled = true AND p.enabled = true AND"
+        } else {
+          ""
+        }
+      }
                               challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter $priorityFilter
                               ${searchField("c.name")}
                               GROUP BY t.parent_id, c.name
@@ -352,7 +387,7 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
                     ${this.order(orderColumn, orderDirection)}
                     LIMIT ${this.sqlLimit(limit)} OFFSET {offset}
         """
-        SQL(query).on('ss -> this.search(searchString), 'offset -> offset).as(parser.*)
+      SQL(query).on('ss -> this.search(searchString), 'offset -> offset).as(parser.*)
     }
   }
 
@@ -360,12 +395,12 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * Should be used in conjunction with challenge summary to retrieve the total number of challenges that
     * are set for the particular summary query
     *
-    * @param projectList The projects that are being used to filter the results, optional
-    * @param challengeId The challenge used to filter the results, optional
+    * @param projectList  The projects that are being used to filter the results, optional
+    * @param challengeId  The challenge used to filter the results, optional
     * @param searchString The search string that was applied to the query
     * @return A integer value which is the total challenges included in the results
     */
-  def getTotalSummaryCount(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None, searchString:String="") : Int = {
+  def getTotalSummaryCount(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None, searchString: String = ""): Int = {
     this.db.withConnection { implicit c =>
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND id = $id"
@@ -374,9 +409,16 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
           case None => ""
         }
       }
-      val query = s"""SELECT COUNT(*) AS total FROM challenges c
+      val query =
+        s"""SELECT COUNT(*) AS total FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
-                      WHERE ${if(challengeId.isEmpty) {"c.enabled = true AND p.enabled = true AND"} else {""}}
+                      WHERE ${
+          if (challengeId.isEmpty) {
+            "c.enabled = true AND p.enabled = true AND"
+          } else {
+            ""
+          }
+        }
                       challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
                       $challengeFilter ${this.searchField("c.name")}"""
       SQL(query).on('ss -> this.search(searchString)).as(int("total").single)
@@ -387,12 +429,12 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * Gets the survey activity which includes the answers for the survey
     *
     * @param surveyId The id for the survey
-    * @param start the start date
-    * @param end the end date
+    * @param start    the start date
+    * @param end      the end date
     * @param priority any priority being applied
     * @return A list of challenge activities
     */
-  def getSurveyActivity(surveyId:Long, start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]=None) : List[ChallengeActivity] = {
+  def getSurveyActivity(surveyId: Long, start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int] = None): List[ChallengeActivity] = {
     this.db.withConnection { implicit c =>
       val parser = for {
         seriesDate <- get[DateTime]("series_date")
@@ -423,13 +465,13 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     *
     * @param projectList The projects to filter by default None, will assume all projects
     * @param challengeId The challenge to filter by default None, if set will ignore the projects parameter
-    * @param start The start date to filter by, default None will take all values. If start set and
-    *              end not set, then will go from start till current day.
-    * @param end The end date to filter by, default None will take all values. If start not set and
-    *            end is set, then will ignore the end date
+    * @param start       The start date to filter by, default None will take all values. If start set and
+    *                    end not set, then will go from start till current day.
+    * @param end         The end date to filter by, default None will take all values. If start not set and
+    *                    end is set, then will ignore the end date
     */
-  def getChallengeActivity(projectList:Option[List[Long]]=None, challengeId:Option[Long]=None,
-                         start:Option[DateTime]=None, end:Option[DateTime]=None, priority:Option[Int]=None) : List[ChallengeActivity] = {
+  def getChallengeActivity(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None,
+                           start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int] = None): List[ChallengeActivity] = {
     this.db.withConnection { implicit c =>
       val parser = for {
         seriesDate <- get[DateTime]("series_date")
@@ -463,15 +505,15 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * Gets the raw activity from the status action logs, it joins the user, projects and challenges
     * table to get the names for the various objects
     *
-    * @param userFilter A filter for users
-    * @param projectFilter A filter for projects
+    * @param userFilter      A filter for users
+    * @param projectFilter   A filter for projects
     * @param challengeFilter A filter for challenges
-    * @param start A filter for the start date
-    * @param end A filter for the end date
+    * @param start           A filter for the start date
+    * @param end             A filter for the end date
     * @return Returns a list of activity
     */
-  def getRawActivity(userFilter:Option[List[Long]]=None, projectFilter:Option[List[Long]]=None, challengeFilter:Option[List[Long]]=None,
-                     start:Option[DateTime]=None, end:Option[DateTime]=None) : List[RawActivity] = {
+  def getRawActivity(userFilter: Option[List[Long]] = None, projectFilter: Option[List[Long]] = None, challengeFilter: Option[List[Long]] = None,
+                     start: Option[DateTime] = None, end: Option[DateTime] = None): List[RawActivity] = {
     this.db.withConnection { implicit c =>
       val parser = for {
         date <- get[DateTime]("status_actions.created")
@@ -485,7 +527,7 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         oldStatus <- int("status_actions.old_status")
         status <- int("status_actions.status")
       } yield RawActivity(date, osmUserId, osmUsername, projectId, projectName, challengeId,
-                          challengeName, taskId, oldStatus, status)
+        challengeName, taskId, oldStatus, status)
       SQL"""
          SELECT sa.created, sa.osm_user_id, u.name, sa.project_id, p.name, sa.challenge_id,
                  c.name, sa.task_id, sa.old_status, sa.status
@@ -513,26 +555,26 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * If the optional userFilter, projectFilter or challengeFilter are given,
     * activity will be limited to those users, projects and/or challenges.
     *
-    * @param userFilter a filter for users
-    * @param projectFilter a filter for projects
-    * @param challengeFilter a filter for challenges
+    * @param userFilter        a filter for users
+    * @param projectFilter     a filter for projects
+    * @param challengeFilter   a filter for challenges
     * @param countryCodeFilter a filter for limiting tasks to certain countries
-    * @param monthDuration number of months to fetch
-    * @param start the start date (if not using monthDuration)
-    * @param end the end date (if not using monthDuration)
-    * @param onlyEnabled only enabled in user top challenges (doesn't affect scoring)
-    * @param limit limit the number of returned users
-    * @param offset paging, starting at 0
+    * @param monthDuration     number of months to fetch
+    * @param start             the start date (if not using monthDuration)
+    * @param end               the end date (if not using monthDuration)
+    * @param onlyEnabled       only enabled in user top challenges (doesn't affect scoring)
+    * @param limit             limit the number of returned users
+    * @param offset            paging, starting at 0
     * @return Returns list of leaderboard users with scores
     */
-  def getUserLeaderboard(userFilter:Option[List[Long]]=None, projectFilter:Option[List[Long]]=None,
-                         challengeFilter:Option[List[Long]]=None, countryCodeFilter:Option[List[String]]=None,
-                         monthDuration:Option[Int]=None, start:Option[DateTime]=None, end:Option[DateTime]=None,
-                         onlyEnabled:Boolean=true, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0) : List[LeaderboardUser] =
+  def getUserLeaderboard(userFilter: Option[List[Long]] = None, projectFilter: Option[List[Long]] = None,
+                         challengeFilter: Option[List[Long]] = None, countryCodeFilter: Option[List[String]] = None,
+                         monthDuration: Option[Int] = None, start: Option[DateTime] = None, end: Option[DateTime] = None,
+                         onlyEnabled: Boolean = true, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0): List[LeaderboardUser] =
     db.withConnection { implicit c =>
       // We can attempt to use the pre-built user_leaderboard table if we have no user, project and challenge filters.
       if (userFilter == None && projectFilter == None && challengeFilter == None &&
-          onlyEnabled && monthDuration != None) {
+        onlyEnabled && monthDuration != None) {
 
         val parser = for {
           userId <- long("user_id")
@@ -541,23 +583,25 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
           score <- int("user_score")
           rank <- int("user_ranking")
         } yield LeaderboardUser(userId, name, avatarURL, score, rank,
-                                this.getUserTopChallenges(userId, projectFilter, challengeFilter,
-                                  countryCodeFilter, monthDuration, start, end, onlyEnabled))
+          this.getUserTopChallenges(userId, projectFilter, challengeFilter,
+            countryCodeFilter, monthDuration, start, end, onlyEnabled))
 
         if (countryCodeFilter == None) {
-          val result = SQL"""SELECT *
+          val result =
+            SQL"""SELECT *
                 FROM user_leaderboard
                 WHERE month_duration = ${monthDuration} AND country_code IS NULL
                 ORDER BY user_ranking ASC
                 LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
            """.as(parser.*)
 
-           if(result.length > 0) {
-             return result
-           }
-         }
-         else if (countryCodeFilter.toList.head.length == 1) {
-           val result = SQL"""SELECT *
+          if (result.length > 0) {
+            return result
+          }
+        }
+        else if (countryCodeFilter.toList.head.length == 1) {
+          val result =
+            SQL"""SELECT *
                  FROM user_leaderboard
                  WHERE month_duration = ${monthDuration} AND
                  country_code = ${countryCodeFilter.toList.head.head}
@@ -565,10 +609,10 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
                  LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
             """.as(parser.*)
 
-            if(result.length > 0) {
-              return result
-            }
-         }
+          if (result.length > 0) {
+            return result
+          }
+        }
       }
 
       val parser = for {
@@ -578,9 +622,9 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         score <- int("score")
         rank <- int("row_number")
       } yield LeaderboardUser(userId, name, avatarURL, score, rank,
-                              this.getUserTopChallenges(userId, projectFilter,
-                                challengeFilter, countryCodeFilter,
-                                monthDuration, start, end, onlyEnabled))
+        this.getUserTopChallenges(userId, projectFilter,
+          challengeFilter, countryCodeFilter,
+          monthDuration, start, end, onlyEnabled))
 
       var startDate = start
       var endDate = end
@@ -589,116 +633,67 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         startDate = Option(new DateTime().minusMonths(monthDuration.get))
       }
 
-      SQL"""#${this.leaderboardWithRankSQL(userFilter, projectFilter, challengeFilter,
-                     countryCodeFilter, startDate, endDate)}
+      SQL"""#${
+        this.leaderboardWithRankSQL(userFilter, projectFilter, challengeFilter,
+          countryCodeFilter, startDate, endDate)
+      }
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
        """.as(parser.*)
     }
 
-    /**
-      * Gets leaderboard rank for a user based on task completion activity
-      * over the given period. Scoring for each completed task is based on status
-      * assigned to the task (status point values are configurable). Also included
-      * is the user's top challenges (by amount of activity).
-      *
-      * If the optional projectFilter or challengeFilter are given,
-      * activity will be limited to those projects and/or challenges.
-      *
-      * @param userId user id
-      * @param projectFilter a filter for projects
-      * @param challengeFilter a filter for challenges
-      * @param countryCodeFilter a filter for limiting tasks to certain countries
-      * @param monthDuration number of months to fetch
-      * @param start the start date (if not using monthDuration)
-      * @param end the end date (if not using monthDuration)
-      * @param onlyEnabled only enabled in user top challenges (doesn't affect scoring)
-      * @param bracket the number of users to also return who rank above and below userId
-      * @return Returns leaderboard for user with score
-      */
-    def getLeaderboardForUser(userId:Long, projectFilter:Option[List[Long]]=None,
-                           challengeFilter:Option[List[Long]]=None, countryCodeFilter:Option[List[String]],
-                           monthDuration:Option[Int]=None, start:Option[DateTime]=None, end:Option[DateTime]=None,
-                           onlyEnabled:Boolean=true, bracket:Int=0) : List[LeaderboardUser] = {
-      db.withConnection { implicit c =>
-        // We can attempt to use the pre-built user_leaderboard table if we have no project and challenge filters.
-        if (projectFilter == None && challengeFilter == None && onlyEnabled && monthDuration != None) {
-          val parser = for {
-            userId <- long("user_id")
-            name <- str("user_name")
-            avatarURL <- str("user_avatar_url")
-            score <- int("user_score")
-            rank <- int("user_ranking")
-          } yield LeaderboardUser(userId, name, avatarURL, score, rank,
-                                  this.getUserTopChallenges(userId, projectFilter, challengeFilter,
-                                    countryCodeFilter, monthDuration, start, end, onlyEnabled))
+  /**
+    * Returns the SQL to fetch the ordered leaderboard data with rankings. Can be filtered
+    * by a list of projects, challenges, users and start/end date.
+    **/
+  private def leaderboardWithRankSQL(userFilter: Option[List[Long]] = None, projectFilter: Option[List[Long]] = None,
+                                     challengeFilter: Option[List[Long]] = None, countryCodeFilter: Option[List[String]] = None,
+                                     start: Option[DateTime] = None, end: Option[DateTime] = None): String = {
+    var taskTableIfNeeded = ""
+    var boundingSearch = ""
 
-          if (countryCodeFilter == None) {
-            val result = SQL"""
-              WITH rankVariable (rankNum) as (
-                SELECT user_ranking FROM user_leaderboard
-                WHERE user_id = #${userId} AND month_duration = ${monthDuration}
-                AND country_code IS NULL
-              )
-
-              SELECT * FROM user_leaderboard, rankVariable
-                  WHERE month_duration = ${monthDuration} AND country_code IS NULL AND
-                  user_ranking BETWEEN (rankNum - #${bracket}) AND (rankNum + #${bracket})
-             """.as(parser.*)
-
-             if(result.length > 0) {
-               return result
-             }
-          }
-          else if (countryCodeFilter.toList.head.length == 1) {
-            val result = SQL"""
-              WITH rankVariable (rankNum) as (
-                SELECT user_ranking FROM user_leaderboard
-                WHERE user_id = #${userId} AND month_duration = ${monthDuration}
-                      AND country_code = ${countryCodeFilter.toList.head.head}
-              )
-
-              SELECT * FROM user_leaderboard, rankVariable
-                WHERE month_duration = ${monthDuration} AND
-                      country_code = ${countryCodeFilter.toList.head.head} AND
-                      user_ranking BETWEEN (rankNum - #${bracket}) AND (rankNum + #${bracket})
-             """.as(parser.*)
-
-             if(result.length > 0) {
-               return result
-             }
-          }
+    countryCodeFilter match {
+      case Some(ccList) if ccList.nonEmpty =>
+        taskTableIfNeeded = ", tasks t"
+        val boundingBoxes = ccList.map { cc =>
+          s"""
+                ST_Intersects(t.location, ST_MakeEnvelope(${boundingBoxFinder.boundingBoxforCountry(cc)}, 4326))
+              """
         }
-
-        val parser = for {
-          userId <- long("users.id")
-          name <- str("users.name")
-          avatarURL <- str("users.avatar_url")
-          score <- int("score")
-          rank <- int("row_number")
-        } yield LeaderboardUser(userId, name, avatarURL, score, rank,
-                                this.getUserTopChallenges(userId, projectFilter, challengeFilter,
-                                  countryCodeFilter, monthDuration, start, end, onlyEnabled))
-
-        var startDate = start
-        var endDate = end
-        if (monthDuration != None) {
-          endDate = Option(new DateTime())
-          startDate = Option(new DateTime().minusMonths(monthDuration.get))
-        }
-
-        val sqlSelectWithRank = this.leaderboardWithRankSQL(None, projectFilter,
-                                        challengeFilter, countryCodeFilter, startDate, endDate)
-
-        SQL"""WITH rankVariable (rankNum) as (
-          SELECT row_number FROM (#${sqlSelectWithRank}) user_rank
-          WHERE id = #${userId}
-        )
-
-        SELECT * FROM (#${sqlSelectWithRank}) ranks, rankVariable
-            WHERE row_number BETWEEN (rankNum - #${bracket}) AND (rankNum + #${bracket})
-         """.as(parser.*)
-      }
+        boundingSearch = "t.id = sa.task_id AND (" + boundingBoxes.mkString(" OR ") + ") AND "
+      case _ => ""
     }
+
+    s"""
+        SELECT users.id, users.name, users.avatar_url, ${this.scoreSumSQL()} AS score,
+               ROW_NUMBER() OVER( ORDER BY ${this.scoreSumSQL()} DESC, sa.osm_user_id ASC)
+        FROM status_actions sa, users
+        $taskTableIfNeeded
+        WHERE ${getDateClause("sa.created", start, end)} AND
+              sa.old_status <> sa.status AND
+              users.osm_id = sa.osm_user_id AND
+              $boundingSearch
+              users.leaderboard_opt_out = FALSE
+              ${getLongListFilter(userFilter, "users.id")}
+              ${getLongListFilter(projectFilter, "sa.project_id")}
+              ${getLongListFilter(challengeFilter, "sa.challenge_id")}
+        GROUP BY sa.osm_user_id, users.id
+        ORDER BY score DESC, sa.osm_user_id ASC
+      """
+  }
+
+  /**
+    * Returns the SQL to sum a user's status actions for ranking purposes
+    **/
+  private def scoreSumSQL(statusActionsTableName: String = "sa"): String = {
+    s"""SUM(CASE ${statusActionsTableName}.status
+             WHEN ${Task.STATUS_FIXED} THEN ${config.taskScoreFixed}
+             WHEN ${Task.STATUS_FALSE_POSITIVE} THEN ${config.taskScoreFalsePositive}
+             WHEN ${Task.STATUS_ALREADY_FIXED} THEN ${config.taskScoreAlreadyFixed}
+             WHEN ${Task.STATUS_TOO_HARD} THEN ${config.taskScoreTooHard}
+             WHEN ${Task.STATUS_SKIPPED} THEN ${config.taskScoreSkipped}
+             ELSE 0
+           END)"""
+  }
 
   /**
     * Gets the top challenges by activity for the given user over the given period.
@@ -706,22 +701,22 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     * by the challenge id with the lowest/earliest ids being ranked ahead of
     * higher/later ids.
     *
-    * @param userId the id of the user
-    * @param projectFilter a filter for projects
-    * @param challengeFilter a filter for challenges
+    * @param userId            the id of the user
+    * @param projectFilter     a filter for projects
+    * @param challengeFilter   a filter for challenges
     * @param countryCodeFilter a filter for limiting tasks to certain countries
-    * @param monthDuration number of months to fetch
-    * @param start the start date (if not using monthDuration)
-    * @param end the end date (if not using monthDuration)
-    * @param onlyEnabled only get enabled challenges
-    * @param limit limit the number of returned challenges
-    * @param offset paging, starting at 0
+    * @param monthDuration     number of months to fetch
+    * @param start             the start date (if not using monthDuration)
+    * @param end               the end date (if not using monthDuration)
+    * @param onlyEnabled       only get enabled challenges
+    * @param limit             limit the number of returned challenges
+    * @param offset            paging, starting at 0
     * @return Returns list of leaderboard challenges
     */
-  def getUserTopChallenges(userId:Long, projectFilter:Option[List[Long]]=None,
-                           challengeFilter:Option[List[Long]]=None, countryCodeFilter:Option[List[String]],
-                           monthDuration:Option[Int]=None, start:Option[DateTime]=None, end:Option[DateTime]=None,
-                           onlyEnabled:Boolean=true, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0) : List[LeaderboardChallenge] =
+  def getUserTopChallenges(userId: Long, projectFilter: Option[List[Long]] = None,
+                           challengeFilter: Option[List[Long]] = None, countryCodeFilter: Option[List[String]],
+                           monthDuration: Option[Int] = None, start: Option[DateTime] = None, end: Option[DateTime] = None,
+                           onlyEnabled: Boolean = true, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0): List[LeaderboardChallenge] =
     db.withConnection { implicit c =>
       // We can attempt to use the pre-built user_top_challenges table if we have no project and challenge filters.
       if (projectFilter == None && challengeFilter == None && onlyEnabled && monthDuration != None) {
@@ -734,7 +729,8 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         val dates = getDates(start, end)
 
         if (countryCodeFilter == None) {
-          val result = SQL"""SELECT challenge_id, challenge_name, activity
+          val result =
+            SQL"""SELECT challenge_id, challenge_name, activity
                 FROM user_top_challenges
                 WHERE user_id = #${userId} AND month_duration = ${monthDuration}
                       AND country_code IS NULL
@@ -742,12 +738,13 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
                 LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
            """.as(parser.*)
 
-           if(result.length > 0) {
-             return result
-           }
+          if (result.length > 0) {
+            return result
+          }
         }
         else if (countryCodeFilter.toList.head.length == 1) {
-          val result = SQL"""SELECT challenge_id, challenge_name, activity
+          val result =
+            SQL"""SELECT challenge_id, challenge_name, activity
                 FROM user_top_challenges
                 WHERE user_id = #${userId} AND month_duration = ${monthDuration}
                       AND country_code = ${countryCodeFilter.toList.head.head}
@@ -755,9 +752,9 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
                 LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
            """.as(parser.*)
 
-           if(result.length > 0) {
-             return result
-           }
+          if (result.length > 0) {
+            return result
+          }
         }
       }
 
@@ -782,10 +779,10 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         case Some(ccList) if ccList.nonEmpty =>
           taskTableIfNeeded = ", tasks t"
           val boundingBoxes = ccList.map { cc =>
-                s"""
+            s"""
                   ST_Intersects(t.location, ST_MakeEnvelope(${boundingBoxFinder.boundingBoxforCountry(cc)}, 4326))
                 """
-            }
+          }
           boundingSearch = "t.id = sa.task_id AND (" + boundingBoxes.mkString(" OR ") + ") AND "
         case _ => ""
       }
@@ -808,14 +805,121 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
     }
 
   /**
+    * Gets leaderboard rank for a user based on task completion activity
+    * over the given period. Scoring for each completed task is based on status
+    * assigned to the task (status point values are configurable). Also included
+    * is the user's top challenges (by amount of activity).
+    *
+    * If the optional projectFilter or challengeFilter are given,
+    * activity will be limited to those projects and/or challenges.
+    *
+    * @param userId            user id
+    * @param projectFilter     a filter for projects
+    * @param challengeFilter   a filter for challenges
+    * @param countryCodeFilter a filter for limiting tasks to certain countries
+    * @param monthDuration     number of months to fetch
+    * @param start             the start date (if not using monthDuration)
+    * @param end               the end date (if not using monthDuration)
+    * @param onlyEnabled       only enabled in user top challenges (doesn't affect scoring)
+    * @param bracket           the number of users to also return who rank above and below userId
+    * @return Returns leaderboard for user with score
+    */
+  def getLeaderboardForUser(userId: Long, projectFilter: Option[List[Long]] = None,
+                            challengeFilter: Option[List[Long]] = None, countryCodeFilter: Option[List[String]],
+                            monthDuration: Option[Int] = None, start: Option[DateTime] = None, end: Option[DateTime] = None,
+                            onlyEnabled: Boolean = true, bracket: Int = 0): List[LeaderboardUser] = {
+    db.withConnection { implicit c =>
+      // We can attempt to use the pre-built user_leaderboard table if we have no project and challenge filters.
+      if (projectFilter == None && challengeFilter == None && onlyEnabled && monthDuration != None) {
+        val parser = for {
+          userId <- long("user_id")
+          name <- str("user_name")
+          avatarURL <- str("user_avatar_url")
+          score <- int("user_score")
+          rank <- int("user_ranking")
+        } yield LeaderboardUser(userId, name, avatarURL, score, rank,
+          this.getUserTopChallenges(userId, projectFilter, challengeFilter,
+            countryCodeFilter, monthDuration, start, end, onlyEnabled))
+
+        if (countryCodeFilter == None) {
+          val result =
+            SQL"""
+              WITH rankVariable (rankNum) as (
+                SELECT user_ranking FROM user_leaderboard
+                WHERE user_id = #${userId} AND month_duration = ${monthDuration}
+                AND country_code IS NULL
+              )
+
+              SELECT * FROM user_leaderboard, rankVariable
+                  WHERE month_duration = ${monthDuration} AND country_code IS NULL AND
+                  user_ranking BETWEEN (rankNum - #${bracket}) AND (rankNum + #${bracket})
+             """.as(parser.*)
+
+          if (result.length > 0) {
+            return result
+          }
+        }
+        else if (countryCodeFilter.toList.head.length == 1) {
+          val result =
+            SQL"""
+              WITH rankVariable (rankNum) as (
+                SELECT user_ranking FROM user_leaderboard
+                WHERE user_id = #${userId} AND month_duration = ${monthDuration}
+                      AND country_code = ${countryCodeFilter.toList.head.head}
+              )
+
+              SELECT * FROM user_leaderboard, rankVariable
+                WHERE month_duration = ${monthDuration} AND
+                      country_code = ${countryCodeFilter.toList.head.head} AND
+                      user_ranking BETWEEN (rankNum - #${bracket}) AND (rankNum + #${bracket})
+             """.as(parser.*)
+
+          if (result.length > 0) {
+            return result
+          }
+        }
+      }
+
+      val parser = for {
+        userId <- long("users.id")
+        name <- str("users.name")
+        avatarURL <- str("users.avatar_url")
+        score <- int("score")
+        rank <- int("row_number")
+      } yield LeaderboardUser(userId, name, avatarURL, score, rank,
+        this.getUserTopChallenges(userId, projectFilter, challengeFilter,
+          countryCodeFilter, monthDuration, start, end, onlyEnabled))
+
+      var startDate = start
+      var endDate = end
+      if (monthDuration != None) {
+        endDate = Option(new DateTime())
+        startDate = Option(new DateTime().minusMonths(monthDuration.get))
+      }
+
+      val sqlSelectWithRank = this.leaderboardWithRankSQL(None, projectFilter,
+        challengeFilter, countryCodeFilter, startDate, endDate)
+
+      SQL"""WITH rankVariable (rankNum) as (
+          SELECT row_number FROM (#${sqlSelectWithRank}) user_rank
+          WHERE id = #${userId}
+        )
+
+        SELECT * FROM (#${sqlSelectWithRank}) ranks, rankVariable
+            WHERE row_number BETWEEN (rankNum - #${bracket}) AND (rankNum + #${bracket})
+         """.as(parser.*)
+    }
+  }
+
+  /**
     * Gets the most recent activity entries for each challenge, regardless of date.
     *
-    * @param projectIds restrict to specified projects
+    * @param projectIds   restrict to specified projects
     * @param challengeIds restrict to specified challenges
-    * @param entries the number of most recent activity entries per challenge. Defaults to 1.
+    * @param entries      the number of most recent activity entries per challenge. Defaults to 1.
     * @return most recent activity entries for each challenge
     */
-  def getLatestChallengeActivity(projectFilter:Option[List[Long]]=None, challengeFilter:Option[List[Long]]=None, entries:Int=1) : List[RawActivity] = {
+  def getLatestChallengeActivity(projectFilter: Option[List[Long]] = None, challengeFilter: Option[List[Long]] = None, entries: Int = 1): List[RawActivity] = {
     db.withConnection { implicit c =>
       val parser = for {
         date <- get[DateTime]("status_actions.created")
@@ -829,7 +933,7 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
         oldStatus <- int("status_actions.old_status")
         status <- int("status_actions.status")
       } yield RawActivity(date, osmUserId, osmUsername, projectId, projectName, challengeId,
-                          challengeName, taskId, oldStatus, status)
+        challengeName, taskId, oldStatus, status)
 
       SQL"""SELECT sa.*, challenges.name, projects.name, users.name FROM challenges, projects, users
             JOIN LATERAL (
@@ -844,35 +948,6 @@ class DataManager @Inject()(config: Config, db:Database, boundingBoxFinder:Bound
             #${getLongListFilter(projectFilter, "projects.id")}
             #${getLongListFilter(challengeFilter, "challenges.id")}
       """.as(parser.*)
-    }
-  }
-
-  private def getEnabledPriorityClause(onlyEnabled:Boolean=true, isSurvey:Boolean=true,
-                                       start:Option[DateTime]=None, end:Option[DateTime]=None,
-                                       priority:Option[Int]=None, ignoreDates:Boolean=false) : String = {
-    val priorityClauses = priority match {
-      case Some(p) => ("INNER JOIN tasks t ON t.id = sa.task_id", s"AND t.priority = $p")
-      case None => ("", "")
-    }
-    if (onlyEnabled) {
-      s"""|INNER JOIN challenges c ON c.id = sa.${if (isSurvey) {"survey_id"} else {"challenge_id"}}
-          |${priorityClauses._1}
-          |INNER JOIN projects p ON p.id = c.parent_id
-          |WHERE c.enabled = true and p.enabled = true
-          |${priorityClauses._2}
-          |${if(!ignoreDates) {getDateClause("sa.created", start, end)(Some(AND()))} else {""}}
-       """.stripMargin
-    } else if (!ignoreDates) {
-      s"""
-         |${priorityClauses._1}
-         |${getDateClause("sa.created", start, end)(Some(WHERE()))}
-         |${priorityClauses._2}
-       """.stripMargin
-    } else {
-      s"""
-         |${priorityClauses._1}
-         |WHERE 1=1 ${priorityClauses._2}
-       """.stripMargin
     }
   }
 }

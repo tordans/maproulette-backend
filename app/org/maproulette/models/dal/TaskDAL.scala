@@ -1,36 +1,35 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import javax.inject.{Inject, Provider, Singleton}
 import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
 import com.vividsolutions.jts.geom.Envelope
+import javax.inject.{Inject, Provider, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import org.maproulette.Config
-import org.maproulette.actions._
 import org.maproulette.cache.CacheManager
+import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.models.utils.DALHelper
 import org.maproulette.models._
+import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, User}
-import play.api.Logger
+import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
+import org.wololo.jts2geojson.GeoJSONReader
 import play.api.db.Database
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
-import org.wololo.jts2geojson.GeoJSONReader
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
 import scala.util.control.Exception.allCatch
+import scala.util.{Failure, Success, Try}
 import scala.xml.XML
 
 /**
@@ -46,9 +45,10 @@ class TaskDAL @Inject()(override val db: Database,
                         projectDAL: Provider[ProjectDAL],
                         challengeDAL: Provider[ChallengeDAL],
                         actions: ActionManager,
-                        statusActions:StatusActionManager,
-                        ws:WSClient)
+                        statusActions: StatusActionManager,
+                        ws: WSClient)
   extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] with Locking[Task] {
+
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // The cache manager for that tasks
@@ -86,20 +86,18 @@ class TaskDAL @Inject()(override val db: Database,
 
   val commentParser: RowParser[Comment] = {
     get[Long]("task_comments.id") ~
-    get[Long]("task_comments.osm_id") ~
-    get[String]("users.name") ~
-    get[Long]("task_comments.task_id") ~
-    get[Long]("task_comments.challenge_id") ~
-    get[Long]("task_comments.project_id") ~
-    get[DateTime]("task_comments.created") ~
-    get[String]("task_comments.comment") ~
-    get[Option[Long]]("task_comments.action_id") map {
+      get[Long]("task_comments.osm_id") ~
+      get[String]("users.name") ~
+      get[Long]("task_comments.task_id") ~
+      get[Long]("task_comments.challenge_id") ~
+      get[Long]("task_comments.project_id") ~
+      get[DateTime]("task_comments.created") ~
+      get[String]("task_comments.comment") ~
+      get[Option[Long]]("task_comments.action_id") map {
       case id ~ osm_id ~ osm_name ~ taskId ~ challengeId ~ projectId ~ created ~ comment ~ action_id =>
         Comment(id, osm_id, osm_name, taskId, challengeId, projectId, created, comment, action_id)
     }
   }
-
-  case class TaskSummary(taskId:Long, name:String, status:Int, priority:Int, username:Option[String])
 
   /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
@@ -109,7 +107,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj: Either[Long, Task], user: User)(implicit c:Connection=null): Option[Project] = {
+  override def retrieveRootObject(obj: Either[Long, Task], user: User)(implicit c: Option[Connection] = None): Option[Project] = {
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(TaskType(), user)(id)
@@ -135,9 +133,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  private def getTaskGeometries(id: Long)(implicit c:Connection=null): String = this.taskGeometries(id, "task_geometries")
-
-  def getSuggestedFix(id: Long)(implicit c:Connection=null): String = this.taskGeometries(id, "task_suggested_fix")
+  def getSuggestedFix(id: Long)(implicit c: Option[Connection] = None): String = this.taskGeometries(id, "task_suggested_fix")
 
   /**
     * Retrieve all the geometries for the task
@@ -145,7 +141,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param id Id for the task
     * @return A feature collection geojson of all the task geometries
     */
-  private def taskGeometries(id: Long, tableName: String)(implicit c:Connection=null): String = {
+  private def taskGeometries(id: Long, tableName: String)(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
       SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
@@ -166,60 +162,16 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user The user executing the task
     * @return The object that was inserted into the database. This will include the newly created id
     */
-  override def insert(task: Task, user: User)(implicit c:Connection=null): Task = {
+  override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
     val newTask = this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
       case None => throw new Exception("Unknown failure occurred while creating new task.")
     }
     // update the task priority inside a future, so fire and forget and don't impact the performance of the insert
-    Future { this.updateTaskPriority(newTask.id, user) }
-    newTask
-  }
-
-  /**
-    * Updates a task object in the database.
-    *
-    * @param value A json object containing fields to be updated for the task
-    * @param user  The user executing the task
-    * @param id    The id of the object that you are updating
-    * @return An optional object, it will return None if no object found with a matching id that was supplied
-    */
-  override def update(value: JsValue, user: User)(implicit id: Long, c:Connection=null): Option[Task] = {
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
-      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-      val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-      // status should probably not be allowed to be set through the update function, and rather
-      // it should be forced to use the setTaskStatus function
-      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
-          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
-        throw new InvalidException(s"Could not set status for task [$id], " +
-          s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
-      }
-      val priority = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
-      val geometries = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
-      val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
-      val changesetId = (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
-
-      val task = this.mergeUpdate(cachedItem.copy(name = name,
-        parent = parentId,
-        instruction = Some(instruction),
-        status = Some(status),
-        geometries = geometries,
-        suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) { None } else { Some(suggestedFixGeometries) },
-        priority = priority,
-        changesetId = Some(changesetId)), user)
-
-      if (status == Task.STATUS_CREATED) {
-        this.challengeDAL.get().updateReadyStatus()(parentId)
-      }
-      else {
-        this.challengeDAL.get().updateFinishedStatus()(parentId)
-      }
-
-      task
+    Future {
+      this.updateTaskPriority(newTask.id, user)
     }
+    newTask
   }
 
   /**
@@ -233,7 +185,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c       A connection to execute against
     * @return
     */
-  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c:Connection=null): Option[Task] = {
+  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.permission.hasObjectWriteAccess(element, user)
     // before clearing the cache grab the cachedItem
     // by setting the delete implicit to true we clear out the cache for the element
@@ -241,7 +193,7 @@ class TaskDAL @Inject()(override val db: Database,
     val cachedItem = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       Some(cachedItem)
     }(id, true, true)
-    val updatedTask:Option[Task] = this.withMRTransaction { implicit c =>
+    val updatedTask: Option[Task] = this.withMRTransaction { implicit c =>
       val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {priority}, {changesetId}, {reset})"
 
       val updatedTaskId = SQL(query).on(
@@ -269,7 +221,9 @@ class TaskDAL @Inject()(override val db: Database,
       Some(element.copy(id = updatedTaskId))
     }
     updatedTask match {
-      case Some(t) => Future { this.updateTaskPriority(t.id, user) }
+      case Some(t) => Future {
+        this.updateTaskPriority(t.id, user)
+      }
       case None => //just ignore and do nothing
     }
     updatedTask
@@ -283,7 +237,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param value  The JSON value for the suggested fix
     * @param c
     */
-  def addSuggestedFix(taskId: Long, value: JsValue)(implicit c:Connection=null): Unit =
+  def addSuggestedFix(taskId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit =
     updateGeometries(taskId, value, false, true, "task_suggested_fix")
 
   /**
@@ -294,7 +248,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param setLocation Whether to set the location based on the geometries or not
     */
   private def updateGeometries(taskId: Long, value: JsValue, setLocation: Boolean = false, isNew: Boolean = false,
-                               tableName: String = "task_geometries")(implicit c:Connection=null): Unit = {
+                               tableName: String = "task_geometries")(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
       if (!isNew) {
         SQL"""DELETE FROM #$tableName WHERE task_id = $taskId""".executeUpdate()
@@ -313,7 +267,7 @@ class TaskDAL @Inject()(override val db: Database,
           case Some(JsObject(p)) =>
             p.toMap.map(v => {
               val toStr = v._2 match {
-                case obj:JsString => obj.value
+                case obj: JsString => obj.value
                 case obj => obj.toString
               }
               s""""${v._1}"=>"${toStr.replaceAll("\\\"", "\\\\\"")}""""
@@ -332,7 +286,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocation(taskId: Long)(implicit c:Connection=null): Option[Task] = {
+  def updateTaskLocation(taskId: Long)(implicit c: Option[Connection] = None): Option[Task] = {
     implicit val id = taskId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
       this.withMRTransaction { implicit c =>
@@ -346,28 +300,6 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateTaskLocations(challengeId: Long)(implicit c:Connection=null): Int = {
-    // clear the cache, because we don't know how many tasks have actually been updated
-    this.cacheManager.clearCaches
-    this.withMRTransaction { implicit c =>
-      // update all the tasks of a particular challenge
-      val query = s"""DO $$$$
-            DECLARE
-              rec RECORD;
-            BEGIN
-              FOR rec IN SELECT task_id, ST_Centroid(ST_Collect(ST_Makevalid(geom))) AS location
-                          FROM task_geometries tg
-                          INNER JOIN tasks t on t.id = tg.task_id
-                          WHERE t.parent_id = $challengeId
-                          GROUP BY task_id LOOP
-                UPDATE tasks SET location = rec.location WHERE tasks.id = rec.task_id and parent_id = $challengeId;
-              END LOOP;
-            END$$$$;
-        """
-      SQL(query).executeUpdate()
-    }
-  }
-
   /**
     * This function will update the tasks priority based on the parent challenge information. It will
     * check first to see if it falls inside the HIGH priority bucket, then MEDIUM then LOW. If it doesn't
@@ -377,7 +309,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param taskId The id for the task to update the priority for
     * @param c      The database connection
     */
-  def updateTaskPriority(taskId: Long, user: User)(implicit c:Connection=null): Unit = {
+  def updateTaskPriority(taskId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
     implicit val id = taskId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
       this.withMRTransaction { implicit c =>
@@ -403,6 +335,79 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Updates a task object in the database.
+    *
+    * @param value A json object containing fields to be updated for the task
+    * @param user  The user executing the task
+    * @param id    The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  override def update(value: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+      val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+      // status should probably not be allowed to be set through the update function, and rather
+      // it should be forced to use the setTaskStatus function
+      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+        allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
+        throw new InvalidException(s"Could not set status for task [$id], " +
+          s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
+      }
+      val priority = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
+      val geometries = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
+      val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
+      val changesetId = (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
+
+      val task = this.mergeUpdate(cachedItem.copy(name = name,
+        parent = parentId,
+        instruction = Some(instruction),
+        status = Some(status),
+        geometries = geometries,
+        suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
+          None
+        } else {
+          Some(suggestedFixGeometries)
+        },
+        priority = priority,
+        changesetId = Some(changesetId)), user)
+
+      if (status == Task.STATUS_CREATED) {
+        this.challengeDAL.get().updateReadyStatus()(parentId)
+      }
+      else {
+        this.challengeDAL.get().updateFinishedStatus()(parentId)
+      }
+
+      task
+    }
+  }
+
+  def updateTaskLocations(challengeId: Long)(implicit c: Option[Connection] = None): Int = {
+    // clear the cache, because we don't know how many tasks have actually been updated
+    this.cacheManager.clearCaches
+    this.withMRTransaction { implicit c =>
+      // update all the tasks of a particular challenge
+      val query =
+        s"""DO $$$$
+            DECLARE
+              rec RECORD;
+            BEGIN
+              FOR rec IN SELECT task_id, ST_Centroid(ST_Collect(ST_Makevalid(geom))) AS location
+                          FROM task_geometries tg
+                          INNER JOIN tasks t on t.id = tg.task_id
+                          WHERE t.parent_id = $challengeId
+                          GROUP BY task_id LOOP
+                UPDATE tasks SET location = rec.location WHERE tasks.id = rec.task_id and parent_id = $challengeId;
+              END LOOP;
+            END$$$$;
+        """
+      SQL(query).executeUpdate()
+    }
+  }
+
+  /**
     * Sets the task for a given user. The user cannot set the status of a task unless the object has
     * been locked by the same user before hand.
     * Will throw an InvalidException if the task status cannot be set due to the current task status
@@ -414,7 +419,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user   The user setting the status
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(task: Task, status: Int, user: User)(implicit c:Connection=null): Int = {
+  def setTaskStatus(task: Task, status: Int, user: User)(implicit c: Option[Connection] = None): Int = {
     if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
@@ -439,7 +444,7 @@ class TaskDAL @Inject()(override val db: Database,
       try {
         this.unlockItem(user, task)
       } catch {
-        case e: Exception => Logger.warn(e.getMessage)
+        case e: Exception => logger.warn(e.getMessage)
       }
       if (config.changeSetEnabled) {
         // try and match the current task with a changeset from the user
@@ -473,9 +478,9 @@ class TaskDAL @Inject()(override val db: Database,
     *
     * @param task The task that was fixed
     * @param user The user making the request
-    * @param c An implicit connection
+    * @param c    An implicit connection
     */
-  def matchToOSMChangeSet(task:Task, user:User, immediate:Boolean=true)(implicit c:Connection=null) : Future[Boolean] = {
+  def matchToOSMChangeSet(task: Task, user: User, immediate: Boolean = true)(implicit c: Option[Connection] = None): Future[Boolean] = {
     val result = Promise[Boolean]
     if (config.allowMatchOSM) {
       task.status match {
@@ -507,13 +512,13 @@ class TaskDAL @Inject()(override val db: Database,
                   }) match {
                     case Some(change) =>
                       this.withMRConnection { implicit c =>
-                        Logger.debug(s"Updating task [${task.id}] with changeset [${change.id}]")
+                        logger.debug(s"Updating task [${task.id}] with changeset [${change.id}]")
                         SQL(s"""UPDATE tasks SET changeset_id = ${change.id} WHERE id = ${task.id}""").executeUpdate()
                       }
                       result success true
                     case None =>
                       this.withMRConnection { implicit c =>
-                        Logger.debug(s"No changeset found for user ${sa.osmUserId} on Task [${task.id}] from changesets [${responseList.mkString(",")}]")
+                        logger.debug(s"No changeset found for user ${sa.osmUserId} on Task [${task.id}] from changesets [${responseList.mkString(",")}]")
                         // if we can't find any viable option set the id to -2 so that we don't try again
                         // but only set it to -2 if the current time is 1 hour after the set time for the task
                         if (Math.abs(currentDateTimeUTC.getMillis - sa.created.getMillis) > (config.changeSetTimeLimit.toHours * 3600 * 1000)) {
@@ -543,7 +548,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param statusAction The StatusActionItem that is for the action that set the task to fixed
     * @return A list of sorted changesets
     */
-  private def getSortedChangeList(statusAction:StatusActionItem) : Future[Seq[Changeset]] = {
+  private def getSortedChangeList(statusAction: StatusActionItem): Future[Seq[Changeset]] = {
     val result = Promise[Seq[Changeset]]
     val format = "YYYY-MM-dd'T'HH:mm:ss'Z'"
     val fixedTimeDiff = statusAction.created.getMillis
@@ -575,7 +580,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
   def getNextTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
-                           (implicit c:Connection=null): Option[(Task, Lock)] = {
+                           (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -614,7 +619,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
   def getPreviousTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
-                               (implicit c:Connection=null): Option[(Task, Lock)] = {
+                               (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -644,8 +649,8 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1, proximityId:Option[Long] = None)
-                                (implicit c:Connection=null): List[Task] = {
+  def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1, proximityId: Option[Long] = None)
+                                (implicit c: Option[Connection] = None): List[Task] = {
     val highPriorityTasks = Try(this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_HIGH), proximityId)) match {
       case Success(res) => res
       case Failure(f) => List.empty
@@ -666,170 +671,22 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
-    * Retrieves a random challenge from the list of possible challenges in the search list
-    *
-    * @param params The params to search for the random challenge
-    * @param c The connection to the database, will create one if not already created
-    * @return The id of the random challenge
-    */
-  private def getRandomChallenge(params: SearchParameters)(implicit c:Connection=null) : Option[Long] = {
-    params.getChallengeIds match {
-      case Some(v) if v.lengthCompare(1) == 0 => Some(v.head)
-      case v =>
-        withMRConnection { implicit c =>
-          val parameters = new ListBuffer[NamedParameter]()
-          val whereClause = new StringBuilder
-          val joinClause = new StringBuilder
-
-          v match {
-            case Some(l) if l.nonEmpty => appendInWhereClause(whereClause, s"c.id IN (${l.mkString(",")})")
-            case None => // ignore
-          }
-
-          if (params.enabledChallenge) {
-            appendInWhereClause(whereClause, "c.enabled = true")
-          }
-          if (params.enabledProject) {
-            appendInWhereClause(whereClause, "p.enabled = true")
-          }
-
-          parameters ++= addChallengeTagMatchingToQuery(params, whereClause, joinClause)
-          parameters ++= addSearchToQuery(params, whereClause)
-
-          //add a where clause that just makes sure that any random challenge retrieved actually has some tasks in it
-          appendInWhereClause(whereClause, "1 = (SELECT 1 FROM tasks WHERE parent_id = c.id LIMIT 1)")
-
-          val query = s"""
-                        SELECT c.id FROM challenges c
-                        INNER JOIN projects p ON p.id = c.parent_id
-                        ${joinClause.toString}
-                        WHERE ${whereClause.toString}
-                        ORDER BY RANDOM() LIMIT 1
-                      """
-          sqlWithParameters(query, parameters).as(long("id").*).headOption
-        }
-    }
-  }
-
-  /**
-    * Retrieves task clusters
-    *
-    * @param params SearchParameters used to filter the tasks in the cluster
-    * @param numberOfPoints Number of cluster points to group all the tasks by
-    * @param c an implicit connection
-    * @return A list of task clusters
-    */
-  def getTaskClusters(params:SearchParameters, numberOfPoints:Int=100)
-                     (implicit c:Connection=null) : List[TaskCluster] = {
-    this.withMRConnection { implicit c =>
-      val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~
-                              str("geom") ~ str("bounding") map {
-        case kmeans ~ totalPoints ~ geom ~ bounding =>
-          val locationJSON = Json.parse(geom)
-          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, params, point, Json.parse(bounding))
-      }
-
-      val whereClause = new StringBuilder
-      val joinClause = new StringBuilder(
-        """
-          INNER JOIN challenges c ON c.id = t.parent_id
-          INNER JOIN projects p ON p.id = c.parent_id
-        """
-      )
-      val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
-      val where = if (whereClause.isEmpty) {
-        whereClause.toString
-      } else {
-        "WHERE " + whereClause.toString
-      }
-
-      val query = s"""SELECT kmeans, count(*) as numberOfPoints,
-                ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
-                ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding
-             FROM (
-               SELECT ST_ClusterKMeans(t.location,
-                          (SELECT
-                              CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
-                            FROM tasks t
-                            ${joinClause.toString}
-                            $where
-                          )::Integer
-                        ) OVER () AS kmeans, t.location
-               FROM tasks t
-               ${joinClause.toString}
-               $where
-             ) AS ksub
-             WHERE location IS NOT NULL
-             GROUP BY kmeans
-             ORDER BY kmeans
-           """
-      SQL(query).as(taskClusterParser.*)
-    }
-  }
-
-  /**
-    * Gets the specific tasks within a cluster
-    *
-    * @param clusterId The id of the cluster
-    * @param params SearchParameters used to filter the tasks in the cluster
-    * @param numberOfPoints Number of cluster points to group all the tasks by
-    * @param c an implicit connection
-    * @return A list of clustered task points
-    */
-  def getTasksInCluster(clusterId:Int, params:SearchParameters, numberOfPoints:Int=100)
-                       (implicit c:Connection=null) : List[ClusteredPoint] = {
-    this.withMRConnection { implicit c =>
-      val whereClause = new StringBuilder
-      val joinClause = new StringBuilder(
-        """
-              INNER JOIN challenges c ON c.id = t.parent_id
-              INNER JOIN projects p ON p.id = c.parent_id
-            """
-      )
-      val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
-      val where = if (whereClause.isEmpty) {
-        whereClause.toString
-      } else {
-        "WHERE " + whereClause.toString
-      }
-
-      val query =
-        s"""SELECT *, ST_AsGeoJSON(location) AS location FROM (
-                      SELECT ST_ClusterKMeans(t.location,
-           							                      (SELECT
-           								                      CASE WHEN COUNT(*) < 10 THEN COUNT(*) ELSE 10 END
-                                              FROM tasks t
-                                              ${joinClause.toString}
-                                              $where)::Integer
-           						  ) OVER () as kmeans, t.*, c.name
-             	        FROM tasks t
-                      ${joinClause.toString}
-             	        $where
-            ) AS t WHERE t.kmeans = $clusterId
-         """
-      SQL(query).as(challengeDAL.get().pointParser.*)
-    }
-  }
-
-  /**
     * Gets a random task. This will first retrieve a random challenge from the list of criteria for the
     * challenges. If a challenge id is provided all other search criteria will be ignored. Generally
     * this would be called to get a single random task, if multiple random tasks are requested all
     * the random tasks will be retrieved from the random challenge that was selected. So for multiple
     * tasks it will be all grouped from the same challenge.
     *
-    * @param user The user executing the request
-    * @param params The search parameters that will define the filters for the random selection
-    * @param limit The amount of tags that should be returned
-    * @param priority An optional priority, so that we only look for tasks in a specific priority range
+    * @param user        The user executing the request
+    * @param params      The search parameters that will define the filters for the random selection
+    * @param limit       The amount of tags that should be returned
+    * @param priority    An optional priority, so that we only look for tasks in a specific priority range
     * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasks(user:User, params: SearchParameters, limit:Int = -1,
-                     priority:Option[Int]=None, proximityId:Option[Long] = None)
-                    (implicit c:Connection=null) : List[Task] = {
+  def getRandomTasks(user: User, params: SearchParameters, limit: Int = -1,
+                     priority: Option[Int] = None, proximityId: Option[Long] = None)
+                    (implicit c: Option[Connection] = None): List[Task] = {
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
@@ -904,17 +761,189 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Retrieves a random challenge from the list of possible challenges in the search list
+    *
+    * @param params The params to search for the random challenge
+    * @param c      The connection to the database, will create one if not already created
+    * @return The id of the random challenge
+    */
+  private def getRandomChallenge(params: SearchParameters)(implicit c: Option[Connection] = None): Option[Long] = {
+    params.getChallengeIds match {
+      case Some(v) if v.lengthCompare(1) == 0 => Some(v.head)
+      case v =>
+        withMRConnection { implicit c =>
+          val parameters = new ListBuffer[NamedParameter]()
+          val whereClause = new StringBuilder
+          val joinClause = new StringBuilder
+
+          v match {
+            case Some(l) if l.nonEmpty => appendInWhereClause(whereClause, s"c.id IN (${l.mkString(",")})")
+            case None => // ignore
+          }
+
+          if (params.enabledChallenge) {
+            appendInWhereClause(whereClause, "c.enabled = true")
+          }
+          if (params.enabledProject) {
+            appendInWhereClause(whereClause, "p.enabled = true")
+          }
+
+          parameters ++= addChallengeTagMatchingToQuery(params, whereClause, joinClause)
+          parameters ++= addSearchToQuery(params, whereClause)
+
+          //add a where clause that just makes sure that any random challenge retrieved actually has some tasks in it
+          appendInWhereClause(whereClause, "1 = (SELECT 1 FROM tasks WHERE parent_id = c.id LIMIT 1)")
+
+          val query =
+            s"""
+                        SELECT c.id FROM challenges c
+                        INNER JOIN projects p ON p.id = c.parent_id
+                        ${joinClause.toString}
+                        WHERE ${whereClause.toString}
+                        ORDER BY RANDOM() LIMIT 1
+                      """
+          sqlWithParameters(query, parameters).as(long("id").*).headOption
+        }
+    }
+  }
+
+  /**
+    * Retrieves task clusters
+    *
+    * @param params         SearchParameters used to filter the tasks in the cluster
+    * @param numberOfPoints Number of cluster points to group all the tasks by
+    * @param c              an implicit connection
+    * @return A list of task clusters
+    */
+  def getTaskClusters(params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
+                     (implicit c: Option[Connection] = None): List[TaskCluster] = {
+    this.withMRConnection { implicit c =>
+      val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~
+        str("geom") ~ str("bounding") map {
+        case kmeans ~ totalPoints ~ geom ~ bounding =>
+          val locationJSON = Json.parse(geom)
+          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+          val point = Point(coordinates(1), coordinates.head)
+          TaskCluster(kmeans, totalPoints, params, point, Json.parse(bounding))
+      }
+
+      val whereClause = new StringBuilder
+      val joinClause = new StringBuilder(
+        """
+          INNER JOIN challenges c ON c.id = t.parent_id
+          INNER JOIN projects p ON p.id = c.parent_id
+        """
+      )
+      val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
+      val where = if (whereClause.isEmpty) {
+        whereClause.toString
+      } else {
+        "WHERE " + whereClause.toString
+      }
+
+      val query =
+        s"""SELECT kmeans, count(*) as numberOfPoints,
+                ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
+                ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding
+             FROM (
+               SELECT ST_ClusterKMeans(t.location,
+                          (SELECT
+                              CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
+                            FROM tasks t
+                            ${joinClause.toString}
+                            $where
+                          )::Integer
+                        ) OVER () AS kmeans, t.location
+               FROM tasks t
+               ${joinClause.toString}
+               $where
+             ) AS ksub
+             WHERE location IS NOT NULL
+             GROUP BY kmeans
+             ORDER BY kmeans
+           """
+      SQL(query).as(taskClusterParser.*)
+    }
+  }
+
+  /**
+    * Gets the specific tasks within a cluster
+    *
+    * @param clusterId      The id of the cluster
+    * @param params         SearchParameters used to filter the tasks in the cluster
+    * @param numberOfPoints Number of cluster points to group all the tasks by
+    * @param c              an implicit connection
+    * @return A list of clustered task points
+    */
+  def getTasksInCluster(clusterId: Int, params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
+                       (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
+    this.withMRConnection { implicit c =>
+      val whereClause = new StringBuilder
+      val joinClause = new StringBuilder(
+        """
+              INNER JOIN challenges c ON c.id = t.parent_id
+              INNER JOIN projects p ON p.id = c.parent_id
+            """
+      )
+      val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
+      val where = if (whereClause.isEmpty) {
+        whereClause.toString
+      } else {
+        "WHERE " + whereClause.toString
+      }
+
+      val query =
+        s"""SELECT *, ST_AsGeoJSON(location) AS location FROM (
+                      SELECT ST_ClusterKMeans(t.location,
+                            (SELECT CASE WHEN COUNT(*) < 10 THEN COUNT(*) ELSE 10 END FROM tasks t
+                            ${joinClause.toString}
+                            $where)::Integer
+                      ) OVER () as kmeans, t.*, c.name
+            FROM tasks t
+            ${joinClause.toString}
+            $where
+            ) AS t WHERE t.kmeans = $clusterId
+         """
+      SQL(query).as(challengeDAL.get().pointParser.*)
+    }
+  }
+
+  def updateWhereClause(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder)
+                       (implicit projectSearch: Boolean = true): ListBuffer[NamedParameter] = {
+    val parameters = new ListBuffer[NamedParameter]()
+    params.location match {
+      case Some(sl) => this.appendInWhereClause(whereClause, s"t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
+      case None => // do nothing
+    }
+
+    params.taskStatus match {
+      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"t.status IN (${sl.mkString(",")})")
+      case Some(sl) if sl.isEmpty => //ignore this scenario
+      case _ => this.appendInWhereClause(whereClause, "t.status IN (0,3,6)")
+    }
+
+    params.priority match {
+      case Some(p) if p == 0 || p == 1 || p == 2 => this.appendInWhereClause(whereClause, s"t.priority = $p")
+      case _ => // ignore
+    }
+
+    parameters ++= this.addSearchToQuery(params, whereClause)(projectSearch)
+    parameters ++= this.addChallengeTagMatchingToQuery(params, whereClause, joinClause)
+    parameters
+  }
+
+  /**
     * This function will retrieve all the tasks in a given bounded area. You can use various search
     * parameters to limit the tasks retrieved in the bounding box area.
     *
     * @param params The search parameters from the cookie or the query string parameters.
-    * @param limit A limit for the number of returned tasks
+    * @param limit  A limit for the number of returned tasks
     * @param offset This allows paging for the tasks within in the bounding box
-    * @param c An available connection
+    * @param c      An available connection
     * @return The list of Tasks found within the bounding box
     */
-  def getTasksInBoundingBox(params:SearchParameters, limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)
-                           (implicit c:Connection=null) : List[ClusteredPoint] = {
+  def getTasksInBoundingBox(params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)
+                           (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     params.location match {
       case Some(sl) =>
         withMRConnection { implicit c =>
@@ -936,7 +965,7 @@ class TaskDAL @Inject()(override val db: Database,
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-                            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.priority") map {
+            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.priority") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
@@ -959,7 +988,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c     An implicit connection to use, if not found will create a new connection
     * @return A list of users that modified the task
     */
-  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(implicit c:Connection=null): List[User] = {
+  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(implicit c: Option[Connection] = None): List[User] = {
     withMRConnection { implicit c =>
       val query =
         s"""
@@ -976,34 +1005,18 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
-    * Retrieves a specific comment
-    *
-    * @param commentId The id for the comment
-    * @param c
-    * @return An optional comment
-    */
-  def retrieveComment(commentId:Long)(implicit c:Connection=null) : Option[Comment] = {
-    withMRConnection { implicit c =>
-      SQL("""SELECT * FROM task_comments tc
-              INNER JOIN users u ON u.osm_id = tc.osm_id
-              WHERE tc.id = {commentId}"""
-      ).on('commentId -> commentId).as(this.commentParser.*).headOption
-    }
-  }
-
-  /**
     * Retrieves all the comments for a task, challenge or project
     *
-    * @param projectIdList A list of all project ids to match on
+    * @param projectIdList   A list of all project ids to match on
     * @param challengeIdList A list of all challenge ids to match on
-    * @param taskIdList A list of all task ids to match on
-    * @param limit limit the number of tasks in the response
-    * @param offset for paging
+    * @param taskIdList      A list of all task ids to match on
+    * @param limit           limit the number of tasks in the response
+    * @param offset          for paging
     * @param c
     * @return The list of comments for the task
     */
-  def retrieveComments(projectIdList:List[Long], challengeIdList:List[Long], taskIdList:List[Long],
-                       limit:Int = Config.DEFAULT_LIST_SIZE, offset:Int = 0)(implicit c:Connection=null) : List[Comment] = {
+  def retrieveComments(projectIdList: List[Long], challengeIdList: List[Long], taskIdList: List[Long],
+                       limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)(implicit c: Option[Connection] = None): List[Comment] = {
     withMRConnection { implicit c =>
       val whereClause = new StringBuilder("")
       if (projectIdList.nonEmpty) {
@@ -1016,7 +1029,8 @@ class TaskDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, s"task_id IN (${taskIdList.mkString(",")})")
       }
 
-      SQL(s"""
+      SQL(
+        s"""
               SELECT * FROM task_comments tc
               INNER JOIN users u ON u.osm_id = tc.osm_id
               WHERE $whereClause
@@ -1027,7 +1041,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def retrieveTaskSummaries(challengeId:Long, limit:Int=Config.DEFAULT_LIST_SIZE, offset:Int=0) : List[TaskSummary] =
+  def retrieveTaskSummaries(challengeId: Long, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0): List[TaskSummary] =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
@@ -1057,13 +1071,13 @@ class TaskDAL @Inject()(override val db: Database,
   /**
     * Add comment to a task
     *
-    * @param user The user adding the comment
-    * @param taskId The task that you are adding the comment too
-    * @param comment The actual comment
+    * @param user     The user adding the comment
+    * @param taskId   The task that you are adding the comment too
+    * @param comment  The actual comment
     * @param actionId the id for the action if any action associated
     * @param c
     */
-  def addComment(user:User, taskId:Long, comment:String, actionId:Option[Long])(implicit c:Connection=null) : Comment = {
+  def addComment(user: User, taskId: Long, comment: String, actionId: Option[Long])(implicit c: Option[Connection] = None): Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(comment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -1074,9 +1088,9 @@ class TaskDAL @Inject()(override val db: Database,
            |VALUES ({osm_id}, {task_id}, {comment}, {action_id}) RETURNING id, project_id, challenge_id
          """.stripMargin
       SQL(query).on('osm_id -> user.osmProfile.id,
-                    'task_id -> taskId,
-                    'comment -> comment,
-                    'action_id -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
+        'task_id -> taskId,
+        'comment -> comment,
+        'action_id -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
         case Some(ids) =>
           Comment(ids._1._1, user.osmProfile.id, user.name, taskId, ids._1._2, ids._2, DateTime.now(), comment, actionId)
         case None => throw new Exception("Failed to add comment")
@@ -1087,13 +1101,13 @@ class TaskDAL @Inject()(override val db: Database,
   /**
     * Updates a comment that a user previously set
     *
-    * @param user The user updating the comment, it has to be the original user who made the comment
-    * @param commentId The id for the original comment
+    * @param user           The user updating the comment, it has to be the original user who made the comment
+    * @param commentId      The id for the original comment
     * @param updatedComment The new comment
     * @param c
     * @return The updated comment
     */
-  def updateComment(user:User, commentId:Long, updatedComment:String)(implicit c:Connection=null) : Comment = {
+  def updateComment(user: User, commentId: Long, updatedComment: String)(implicit c: Option[Connection] = None): Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(updatedComment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -1113,14 +1127,31 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Retrieves a specific comment
+    *
+    * @param commentId The id for the comment
+    * @param c
+    * @return An optional comment
+    */
+  def retrieveComment(commentId: Long)(implicit c: Option[Connection] = None): Option[Comment] = {
+    withMRConnection { implicit c =>
+      SQL(
+        """SELECT * FROM task_comments tc
+              INNER JOIN users u ON u.osm_id = tc.osm_id
+              WHERE tc.id = {commentId}"""
+      ).on('commentId -> commentId).as(this.commentParser.*).headOption
+    }
+  }
+
+  /**
     * Deletes a comment from a task
     *
-    * @param user The user deleting the comment, only super user or challenge admin can delete
-    * @param taskId The task that the comment is associated with
+    * @param user      The user deleting the comment, only super user or challenge admin can delete
+    * @param taskId    The task that the comment is associated with
     * @param commentId The id for the comment being deleted
     * @param c
     */
-  def deleteComment(user:User, taskId:Long, commentId:Long)(implicit c:Connection=null) : Unit = {
+  def deleteComment(user: User, taskId: Long, commentId: Long)(implicit c: Option[Connection] = None): Unit = {
     withMRConnection { implicit c =>
       this.retrieveById(taskId) match {
         case Some(task) =>
@@ -1132,26 +1163,12 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def updateWhereClause(params:SearchParameters, whereClause:StringBuilder, joinClause:StringBuilder)(implicit projectSearch:Boolean=true) : ListBuffer[NamedParameter] = {
-    val parameters = new ListBuffer[NamedParameter]()
-    params.location match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
-      case None => // do nothing
-    }
+  private def getTaskGeometries(id: Long)(implicit c: Option[Connection] = None): String = this.taskGeometries(id, "task_geometries")
 
-    params.taskStatus match {
-      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"t.status IN (${sl.mkString(",")})")
-      case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ => this.appendInWhereClause(whereClause, "t.status IN (0,3,6)")
-    }
+  case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String])
 
-    params.priority match {
-      case Some(p) if p == 0 || p == 1 || p == 2 => this.appendInWhereClause(whereClause, s"t.priority = $p")
-      case _ => // ignore
-    }
+}
 
-    parameters ++= this.addSearchToQuery(params, whereClause)(projectSearch)
-    parameters ++= this.addChallengeTagMatchingToQuery(params, whereClause, joinClause)
-    parameters
-  }
+object TaskDAL {
+  private val DEFAULT_NUMBER_OF_POINTS = 100
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.utils
 
@@ -7,9 +7,10 @@ package org.maproulette.utils
   *
   * @author cuthbertm
   */
+
+import anorm._
 import org.joda.time._
 import org.joda.time.format._
-import anorm._
 
 object AnormExtension {
   val dateFormatGeneration: DateTimeFormatter = DateTimeFormat.forPattern("yyyyMMddHHmmssSS")
@@ -20,7 +21,7 @@ object AnormExtension {
       case ts: java.sql.Timestamp => Right(new DateTime(ts.getTime))
       case d: java.sql.Date => Right(new DateTime(d.getTime))
       case str: java.lang.String => Right(this.dateFormatGeneration.parseDateTime(str))
-      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass) )
+      case _ => Left(TypeDoesNotMatch("Cannot convert " + value + ":" + value.asInstanceOf[AnyRef].getClass))
     }
   }
 

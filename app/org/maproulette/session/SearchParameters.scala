@@ -1,11 +1,10 @@
-// Copyright (C) 2016 MapRoulette contributors (see CONTRIBUTORS.md).
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.session
 
 import java.net.URLDecoder
 
 import org.maproulette.utils.Utils
-import play.api.Logger
 import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{AnyContent, Request}
 
@@ -17,53 +16,55 @@ import play.api.mvc.{AnyContent, Request}
   *
   * @author cuthbertm
   */
-case class SearchLocation(left:Double, bottom:Double, right:Double, top:Double)
+case class SearchLocation(left: Double, bottom: Double, right: Double, top: Double)
 
-case class SearchParameters(projectIds:Option[List[Long]]=None,
-                            projectSearch:Option[String]=None,
-                            projectEnabled:Option[Boolean]=None,
-                            challengeIds:Option[List[Long]]=None,
-                            challengeTags:Option[List[String]]=None,
-                            challengeTagConjunction:Option[Boolean]=None,
-                            challengeSearch:Option[String]=None,
-                            challengeEnabled:Option[Boolean]=None,
-                            challengeDifficulty:Option[Int]=None,
-                            challengeStatus:Option[List[Int]]=None,
-                            taskTags:Option[List[String]]=None,
-                            taskTagConjunction:Option[Boolean]=None,
-                            taskSearch:Option[String]=None,
-                            taskStatus:Option[List[Int]]=None,
-                            props:Option[Map[String, String]]=None,
-                            priority:Option[Int]=None,
-                            location:Option[SearchLocation]=None,
-                            bounding:Option[SearchLocation]=None,
-                            fuzzySearch:Option[Int]=None,
-                            owner:Option[String]=None) {
-  def getProjectIds : Option[List[Long]] = projectIds match {
+case class SearchParameters(projectIds: Option[List[Long]] = None,
+                            projectSearch: Option[String] = None,
+                            projectEnabled: Option[Boolean] = None,
+                            challengeIds: Option[List[Long]] = None,
+                            challengeTags: Option[List[String]] = None,
+                            challengeTagConjunction: Option[Boolean] = None,
+                            challengeSearch: Option[String] = None,
+                            challengeEnabled: Option[Boolean] = None,
+                            challengeDifficulty: Option[Int] = None,
+                            challengeStatus: Option[List[Int]] = None,
+                            taskTags: Option[List[String]] = None,
+                            taskTagConjunction: Option[Boolean] = None,
+                            taskSearch: Option[String] = None,
+                            taskStatus: Option[List[Int]] = None,
+                            props: Option[Map[String, String]] = None,
+                            priority: Option[Int] = None,
+                            location: Option[SearchLocation] = None,
+                            bounding: Option[SearchLocation] = None,
+                            fuzzySearch: Option[Int] = None,
+                            owner: Option[String] = None) {
+  def getProjectIds: Option[List[Long]] = projectIds match {
     case Some(v) => Some(v.filter(_ != -1))
     case None => None
   }
 
-  def getChallengeIds : Option[List[Long]] = challengeIds match {
+  def getChallengeIds: Option[List[Long]] = challengeIds match {
     case Some(v) => Some(v.filter(_ != -1))
     case None => None
   }
 
-  def getPriority : Option[Int] = priority match {
+  def getPriority: Option[Int] = priority match {
     case Some(v) if v == -1 => None
     case _ => priority
   }
 
-  def getChallengeDifficulty : Option[Int] = challengeDifficulty match {
+  def getChallengeDifficulty: Option[Int] = challengeDifficulty match {
     case Some(v) if v == -1 => None
     case _ => challengeDifficulty
   }
 
-  def hasTaskTags : Boolean = taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
-  def hasChallengeTags : Boolean = challengeTags.getOrElse(List.empty).exists(ct => ct.nonEmpty)
+  def hasTaskTags: Boolean = taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
 
-  def enabledProject : Boolean = projectEnabled.getOrElse(true)
-  def enabledChallenge : Boolean = challengeEnabled.getOrElse(true)
+  def hasChallengeTags: Boolean = challengeTags.getOrElse(List.empty).exists(ct => ct.nonEmpty)
+
+  def enabledProject: Boolean = projectEnabled.getOrElse(true)
+
+  def enabledChallenge: Boolean = challengeEnabled.getOrElse(true)
 }
 
 object SearchParameters {
@@ -74,32 +75,16 @@ object SearchParameters {
   implicit val paramsReads = Json.reads[SearchParameters]
 
   /**
-    * Will attempt to convert the cookie to SearchParameters, if it fails it simply initializes an
-    * empty SearchParameters
-    *
-    * @param value
-    * @return
-    */
-  def convert(value:String) : SearchParameters = {
-    try {
-      Utils.omitEmpty(Json.parse(URLDecoder.decode(value, "UTF-8")).as[JsObject], false, false).as[SearchParameters]
-    } catch {
-      case e:Exception =>
-        SearchParameters()
-    }
-  }
-
-  /**
     * Retrieves the search cookie from the cookie list and creates a search parameter object
     * to send along with the request. It will also check the query string and if any parameters
     * are found it will override the values in the cookie.
     *
-    * @param block The block of code to be executed after the cookie has been retrieved
+    * @param block   The block of code to be executed after the cookie has been retrieved
     * @param request The request that the cookie came in on
     * @tparam T The response type from the block of code
     * @return The response from the block of code
     */
-  def withSearch[T](block:SearchParameters => T)(implicit request:Request[AnyContent]) : T = {
+  def withSearch[T](block: SearchParameters => T)(implicit request: Request[AnyContent]): T = {
     val params = request.cookies.get("search") match {
       case Some(c) => convert(c.value)
       case None => SearchParameters()
@@ -184,23 +169,39 @@ object SearchParameters {
     ))
   }
 
-  private def getBooleanParameter(value:Option[String], default:Option[Boolean]) : Option[Boolean] = value match {
+  /**
+    * Will attempt to convert the cookie to SearchParameters, if it fails it simply initializes an
+    * empty SearchParameters
+    *
+    * @param value
+    * @return
+    */
+  def convert(value: String): SearchParameters = {
+    try {
+      Utils.omitEmpty(Json.parse(URLDecoder.decode(value, "UTF-8")).as[JsObject], false, false).as[SearchParameters]
+    } catch {
+      case e: Exception =>
+        SearchParameters()
+    }
+  }
+
+  private def getBooleanParameter(value: Option[String], default: Option[Boolean]): Option[Boolean] = value match {
     case Some(v) => Some(v.toBoolean)
     case None => default
   }
 
-  private def getLongParameter(value:Option[String], default:Option[Long]) : Option[Long] = value match {
-    case Some(v) => Some(v.toLong)
-    case None => default
-  }
-
-  private def getIntParameter(value:Option[String], default:Option[Int]) : Option[Int] = value match {
+  private def getIntParameter(value: Option[String], default: Option[Int]): Option[Int] = value match {
     case Some(v) => Some(v.toInt)
     case None => default
   }
 
-  private def getStringParameter(value:Option[String], default:Option[String]) : Option[String] = value match {
+  private def getStringParameter(value: Option[String], default: Option[String]): Option[String] = value match {
     case Some(v) => Some(v)
+    case None => default
+  }
+
+  private def getLongParameter(value: Option[String], default: Option[Long]): Option[Long] = value match {
+    case Some(v) => Some(v.toLong)
     case None => default
   }
 }

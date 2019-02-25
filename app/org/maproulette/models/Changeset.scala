@@ -1,7 +1,10 @@
+// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
+// Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
+import org.slf4j.LoggerFactory
 import play.api.Logger
 
 import scala.xml._
@@ -10,34 +13,36 @@ import scala.xml._
 /**
   * @author mcuthbert
   */
-case class Changeset(id:Long,
-                     user:String,
-                     userId:Long,
-                     createdAt:DateTime,
-                     closedAt:DateTime,
-                     open:Boolean,
-                     minLat:Double,
-                     minLon:Double,
-                     maxLat:Double,
-                     maxLon:Double,
-                     commentsCount:Int,
-                     tags:Map[String, String],
-                     hasMapRouletteComment:Boolean)
+case class Changeset(id: Long,
+                     user: String,
+                     userId: Long,
+                     createdAt: DateTime,
+                     closedAt: DateTime,
+                     open: Boolean,
+                     minLat: Double,
+                     minLon: Double,
+                     maxLat: Double,
+                     maxLon: Double,
+                     commentsCount: Int,
+                     tags: Map[String, String],
+                     hasMapRouletteComment: Boolean)
 
 object ChangesetParser {
-  def parse(el: Elem) : List[Changeset] = {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
+  def parse(el: Elem): List[Changeset] = {
     (el \\ "changeset").map { c => this.parse(c) }.toList
   }
 
-  def parse(changeSetElement: Node) : Changeset = {
+  def parse(changeSetElement: Node): Changeset = {
     // for some reason the open value is sometimes an empty string, so need to handle that correctly
     val open = (changeSetElement \ "@open").text
     if (StringUtils.isEmpty(open)) {
-      Logger.debug(s"Invalid changeset provided: ${changeSetElement.toString()}")
+      logger.debug(s"Invalid changeset provided: ${changeSetElement.toString()}")
     }
     val minLat = (changeSetElement \ "@min_lat").text
     if (StringUtils.isEmpty(minLat)) {
-      Logger.debug(s"Invalid changeset provided: ${changeSetElement.toString()}")
+      logger.debug(s"Invalid changeset provided: ${changeSetElement.toString()}")
     }
     val minLon = (changeSetElement \ "@min_lon").text
     val maxLat = (changeSetElement \ "@max_lat").text
@@ -59,11 +64,31 @@ object ChangesetParser {
       (changeSetElement \ "@uid").text.toLong,
       DateTime.parse((changeSetElement \ "@created_at").text),
       DateTime.parse((changeSetElement \ "@closed_at").text),
-      if (StringUtils.isEmpty(open)) { false } else { open.toBoolean },
-      if (StringUtils.isEmpty(minLat)) { 0D } else { minLat.toDouble },
-      if (StringUtils.isEmpty(minLon)) { 0D } else { minLon.toDouble },
-      if (StringUtils.isEmpty(maxLat)) { 0D } else { maxLat.toDouble },
-      if (StringUtils.isEmpty(maxLon)) { 0D } else { maxLon.toDouble },
+      if (StringUtils.isEmpty(open)) {
+        false
+      } else {
+        open.toBoolean
+      },
+      if (StringUtils.isEmpty(minLat)) {
+        0D
+      } else {
+        minLat.toDouble
+      },
+      if (StringUtils.isEmpty(minLon)) {
+        0D
+      } else {
+        minLon.toDouble
+      },
+      if (StringUtils.isEmpty(maxLat)) {
+        0D
+      } else {
+        maxLat.toDouble
+      },
+      if (StringUtils.isEmpty(maxLon)) {
+        0D
+      } else {
+        maxLon.toDouble
+      },
       (changeSetElement \ "@comments_count").text.toInt,
       tags,
       mapRouletteTag

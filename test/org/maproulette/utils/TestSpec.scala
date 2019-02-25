@@ -2,7 +2,7 @@ package org.maproulette.utils
 
 import com.google.inject.util.Providers
 import org.joda.time.DateTime
-import org.maproulette.actions.{ActionManager, StatusActionManager}
+import org.maproulette.data.{ActionManager, StatusActionManager}
 import org.maproulette.data.DataManager
 import org.maproulette.models._
 import org.maproulette.models.dal._
@@ -12,7 +12,7 @@ import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 import org.scalatest.mockito.MockitoSugar
 import play.api.db.Databases
 import org.mockito.Mockito._
-import org.mockito.Matchers.{eq => eqM, _}
+import org.mockito.ArgumentMatchers.{eq => eqM, _}
 import play.api.libs.oauth.RequestToken
 
 /**
