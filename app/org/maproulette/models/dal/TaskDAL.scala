@@ -436,7 +436,8 @@ class TaskDAL @Inject()(override val db: Database,
 
     val reviewNeeded = requestReview match {
         case Some(r) => r
-        case None => user.settings.needsReview.getOrElse(false) && status != Task.STATUS_SKIPPED
+        case None => user.settings.needsReview.getOrElse(false) &&
+                     status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED
       }
 
     val oldStatus = task.status
@@ -1144,6 +1145,18 @@ class TaskDAL @Inject()(override val db: Database,
       case _ => // ignore
     }
 
+    searchParameters.taskStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
+        if (statuses.contains(-1)) {
+          statusClause ++= " OR c.status IS NULL"
+        }
+        statusClause ++= ")"
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _ =>
+    }
+
     val query = user.isSuperUser match {
       case true =>
         s"""
@@ -1240,6 +1253,18 @@ class TaskDAL @Inject()(override val db: Database,
        joinClause ++= "INNER JOIN users u2 ON u2.id = tasks.reviewed_by "
        this.appendInWhereClause(whereClause, s"u2.name LIKE '%${r}%'")
      case _ => // ignore
+    }
+
+    searchParameters.taskStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
+        if (statuses.contains(-1)) {
+          statusClause ++= " OR c.status IS NULL"
+        }
+        statusClause ++= ")"
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _ =>
     }
 
     sort match {
