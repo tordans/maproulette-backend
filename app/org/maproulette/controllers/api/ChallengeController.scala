@@ -148,9 +148,43 @@ class ChallengeController @Inject()(override val childController: TaskController
       } else {
         Some(Utils.split(statusFilter).map(_.toInt))
       }
-      Ok(Json.toJson(this.dal.getClusteredPoints(challengeId, filter, limit)))
+      val result = this.dal.getClusteredPoints(challengeId, filter, limit)
+      Ok(_insertReviewJSON(result))
     }
   }
+
+  /**
+   * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy'
+   */
+  private def _insertReviewJSON(tasks: List[ClusteredPoint]): JsValue = {
+    if (tasks.isEmpty) {
+      Json.toJson(List[JsValue]())
+    } else {
+      val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
+        t => t.reviewRequestedBy.getOrElse(0).toLong)).map(u =>
+          u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
+        t => t.reviewedBy.getOrElse(0).toLong)).map(u =>
+          u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val jsonList = tasks.map { task =>
+        var updated = Json.toJson(task)
+        if (task.reviewRequestedBy.getOrElse(0) != 0) {
+          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get.toLong)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "reviewRequestedBy", mapperJson, true)
+        }
+        if (task.reviewedBy.getOrElse(0) != 0) {
+          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get.toLong)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
+        }
+
+        updated
+      }
+      Json.toJson(jsonList)
+    }
+  }
+
 
   /**
     * Gets a random task that is a child of the challenge, includes the notion of priority

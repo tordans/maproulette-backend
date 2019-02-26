@@ -125,13 +125,19 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[String]("tasks.instruction") ~
       get[String]("location") ~
       get[Int]("tasks.status") ~
+      get[Option[Int]]("tasks.review_status") ~
+      get[Option[Int]]("tasks.review_requested_by") ~
+      get[Option[Int]]("tasks.reviewed_by") ~
+      get[Option[DateTime]]("tasks.reviewed_at") ~
       get[Int]("tasks.priority") map {
-      case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
+      case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
+           reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
         ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-          instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
+          instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status,
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
     }
   }
 
@@ -627,8 +633,9 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      SQL"""SELECT t.id, t.name, t.instruction, t.status, t.parent_id, c.name,
-                    ST_AsGeoJSON(t.location) AS location, t.priority
+      SQL"""SELECT t.id, t.name, t.instruction, t.status, t.review_status,
+                   t.review_requested_by, t.reviewed_by, t.reviewed_at,
+                   t.parent_id, c.name, ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
             INNER JOIN challenges c ON c.id = t.parent_id
             INNER JOIN projects p ON p.id = c.parent_id

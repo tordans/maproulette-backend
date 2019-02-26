@@ -365,16 +365,20 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~ int("status") ~ int("priority") map {
-        case id ~ name ~ instruction ~ location ~ status ~ priority =>
+      val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~
+                        int("status") ~ int("review_status") ~ int("review_requested_by") ~
+                        int("reviewed_by") ~ date("reviewed_at") ~ int("priority") map {
+        case id ~ name ~ instruction ~ location ~ status ~ reviewStatus ~ reviewRequestedBy ~
+             reviewedBy ~ reviewedAt ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
           ClusteredPoint(id, -1, "", name, -1, "", point, JsString(""),
-            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, Some(reviewStatus),
+            Some(reviewRequestedBy), Some(reviewedBy), Some(new DateTime(reviewedAt)), priority)
       }
-      SQL"""SELECT id, name, instruction, status,
-                      ST_AsGeoJSON(location) AS location, priority
+      SQL"""SELECT id, name, instruction, status, review_status, review_requested_by,
+                   reviewed_by, reviewed_at, ST_AsGeoJSON(location) AS location, priority
               FROM tasks WHERE id IN
               (SELECT task_id FROM virtual_challenge_tasks
                 WHERE virtual_challenge_id = $challengeId) #$filter"""

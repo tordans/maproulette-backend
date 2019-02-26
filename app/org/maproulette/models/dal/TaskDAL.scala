@@ -1326,6 +1326,7 @@ class TaskDAL @Inject()(override val db: Database,
           val query =
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status,
+                     t.review_status, t.review_requested_by, t.reviewed_by, t.reviewed_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
               ${joinClause.toString()}
               ${whereClause.toString()}
@@ -1333,13 +1334,17 @@ class TaskDAL @Inject()(override val db: Database,
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.priority") map {
-            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
+            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.review_status") ~
+            int("tasks.review_requested_by") ~ int("tasks.reviewed_by") ~ date("tasks.reviewed_at") ~
+            int("tasks.priority") map {
+            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ reviewStatus ~
+                 reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
+                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, Some(reviewStatus),
+                Some(reviewRequestedBy), Some(reviewedBy), Some(new DateTime(reviewedAt)), priority)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }

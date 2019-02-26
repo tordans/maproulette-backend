@@ -29,10 +29,15 @@ case class Point(lat: Double, lng: Double)
   * @param difficulty The difficulty level of this ClusteredPoint (if a challenge)
   * @param type       The type of this ClusteredPoint
   * @param status     The status of the task, only used for task points, ie. not challenge points
+  * @param reviewStatus  The reviewStatus of the task, only used for task points, ie. not challenge points
+  # @param reviewRequestedBy only used for task points, ie. not challenge points
+  # @param reviewedBy only used for task points, ie. not challenge points
+  # @param reviewdAt  only used for task points, ie. not challenge points
   */
 case class ClusteredPoint(id: Long, owner: Long, ownerName: String, title: String, parentId: Long, parentName: String,
                           point: Point, bounding: JsValue, blurb: String, modified: DateTime, difficulty: Int,
-                          `type`: Int, status: Int, priority: Int)
+                          `type`: Int, status: Int, reviewStatus: Option[Int], reviewRequestedBy: Option[Int],
+                          reviewedBy: Option[Int], reviewedAt: Option[DateTime], priority: Int)
 
 object ClusteredPoint {
   implicit val pointWrites: Writes[Point] = Json.writes[Point]

@@ -321,7 +321,6 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         t => t.reviewedBy.getOrElse(0).toLong)).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
-      //val projects = Some(this.dalManager.project.retrieveListById(-1, 0)(challenges.map(c => c.general.parent)).map(p => p.id -> p).toMap)
       val jsonList = tasks.map { task =>
         val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
         var updated = Utils.insertIntoJson(Json.toJson(task), Challenge.KEY_PARENT, challengeJson, true)
