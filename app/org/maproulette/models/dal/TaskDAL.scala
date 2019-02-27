@@ -1334,8 +1334,8 @@ class TaskDAL @Inject()(override val db: Database,
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ int("tasks.review_status") ~
-            int("tasks.review_requested_by") ~ int("tasks.reviewed_by") ~ date("tasks.reviewed_at") ~
+            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[Int]]("tasks.review_status") ~
+            get[Option[Int]]("tasks.review_requested_by") ~ get[Option[Int]]("tasks.reviewed_by") ~ get[Option[DateTime]]("tasks.reviewed_at") ~
             int("tasks.priority") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ reviewStatus ~
                  reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>
@@ -1343,8 +1343,8 @@ class TaskDAL @Inject()(override val db: Database,
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, Some(reviewStatus),
-                Some(reviewRequestedBy), Some(reviewedBy), Some(new DateTime(reviewedAt)), priority)
+                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, reviewStatus,
+                reviewRequestedBy, reviewedBy, reviewedAt, priority)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }
