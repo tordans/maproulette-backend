@@ -510,6 +510,23 @@ GET     /project/:id/children                       @org.maproulette.controllers
 ###
 GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, limit:Int ?= 1, proximity:Long ?= -1)
 ###
+# summary: Retrieves a history for the task
+# produces: [ application/json ]
+# description: Retrieves list of task history log entries. This includes comments,
+#              status actions, and review actions.
+# responses:
+#   '200':
+#     description: List of log entries
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the task
+###
+GET     /task/:id/history                       @org.maproulette.controllers.api.TaskHistoryController.getTaskHistoryLog(id:Long)
+###
 # summary: Retrieves and claims a review needed Task
 # produces: [ application/json ]
 # description: Retrieves a Task and claims that task for review
