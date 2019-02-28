@@ -1,10 +1,10 @@
-name := "MapRouletteV2"
+name := "MapRouletteAPI"
 
-version := "2.1.0"
+version := "3.4.0"
 
 scalaVersion := "2.12.8"
 
-packageName in Universal := "MapRouletteV2"
+packageName in Universal := "MapRouletteAPI"
 
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 

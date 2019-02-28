@@ -1,6 +1,4 @@
-# New MapRoulette
-Version 2 of MapRoulette
-
+# MapRoulette API
 Welcome to New MapRoulette, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
 
 This README deals with development related topics only. If you are interested in contributing to OpenStreetMap by fixing some bugs through MapRoulette, just head over to [the MapRoulette web site](http://maproulette.org) and get started - it should be pretty self explanatory.
@@ -17,7 +15,7 @@ New MapRoulette is built upon the Play Framework using Scala. You can find more 
 It uses the following core technologies:
 
 * Postgres 9.5 with PostGIS 2.2.1
-* Play Framework 2.5.0 with Scala 2.11.7
+* Play Framework 2.7.1 with Scala 2.12.8
 
 ## Deploying MapRoulette
 
