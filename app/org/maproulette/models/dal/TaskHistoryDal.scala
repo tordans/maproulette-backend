@@ -95,7 +95,7 @@ class TaskHistoryDAL @Inject()(override val db: Database,
               INNER JOIN users on users.osm_id=sa.osm_user_id
               WHERE task_id = $taskId""".as(this.statusActionEntryParser.*)
 
-      (comments ++ reviews ++ statusActions).sortWith(sortByDate)
+      ((comments ++ reviews ++ statusActions).sortWith(sortByDate)).reverse
     }
   }
 }

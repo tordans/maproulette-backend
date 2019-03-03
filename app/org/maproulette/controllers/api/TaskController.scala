@@ -423,17 +423,14 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         case None => throw new NotFoundException(s"Task with $id not found, cannot set review status.")
       }
 
-      this.dal.setTaskReviewStatus(task, reviewStatus, user)
       val action = this.actionManager.setAction(Some(user), new TaskItem(task.id),
                      TaskReviewStatusSet(reviewStatus), task.name)
-      // add comment if any provided
-      if (comment.nonEmpty) {
-        val actionId = action match {
-          case Some(a) => Some(a.id)
-          case None => None
-        }
-        this.dal.addComment(user, task.id, comment, actionId)
+      val actionId = action match {
+        case Some(a) => Some(a.id)
+        case None => None
       }
+
+      this.dal.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
 
       NoContent
     }
