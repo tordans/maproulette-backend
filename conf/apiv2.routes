@@ -1552,6 +1552,35 @@ GET     /challenge/:cid/tasks/random                @org.maproulette.controllers
 GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers.api.ChallengeController.getRandomTasks(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1, proximity:Long ?= -1)
 ###
 # tags: [ Challenge ]
+# summary: Retrieves prioritized random Task
+# produces: [ application/json ]
+# description: Retrieves a prioritized random Task contained within the current Challenge,
+#              with higher priority tasks being returned ahead of lower priority tasks
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: cid
+#     in: path
+#     description: The id of the parent Challenge limiting the tasks to only a descendent of that Challenge.
+#   - name: s
+#     in: query
+#     description: The task search string. Retrieve only tasks that contain the search string in the task name. Match is case insensitive.
+#   - name: tags
+#     in: query
+#     description: A comma separated list of task tags. The search will only retrieve random tasks that contain those tags
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 1.
+###
+GET     /challenge/:cid/tasks/prioritizedTasks      @org.maproulette.controllers.api.ChallengeController.getRandomTasksWithPriority(cid:Long, s:String ?= "", tags:String ?= "", limit:Int ?= 1)
+###
+# tags: [ Challenge ]
 # summary: Retrieves next Task
 # produces: [ application/json ]
 # description: Retrieves the next sequential Task based on the task ordering within the Challenge. If it is currently on the last task it will response with the first task in the challenge.
