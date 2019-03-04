@@ -458,7 +458,11 @@ class TaskDAL @Inject()(override val db: Database,
       if (updatedRows == 0) {
         throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
       }
-      this.statusActions.setStatusAction(user, task, status)
+
+      val startedLock = (SQL"""SELECT locked_time FROM locked l WHERE l.item_id = ${task.id} AND
+                                     l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
+                           """).as(SqlParser.scalar[DateTime].singleOpt)
+      this.statusActions.setStatusAction(user, task, status, startedLock)
 
       // if you set the status successfully on a task you will lose the lock of that task
       try {

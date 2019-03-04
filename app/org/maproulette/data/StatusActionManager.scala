@@ -4,6 +4,7 @@ package org.maproulette.data
 
 import anorm.SqlParser.get
 import anorm._
+import java.sql.Timestamp
 import javax.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -121,11 +122,18 @@ class StatusActionManager @Inject()(config: Config, db: Database)(implicit appli
     * @param status The new updated status that was replaced
     * @return
     */
-  def setStatusAction(user: User, task: Task, status: Int): Future[Boolean] = {
+  def setStatusAction(user: User, task: Task, status: Int, startedAt: Option[DateTime] = None): Future[Boolean] = {
     Future {
+      val startDate = startedAt match {
+        case Some(d) => new Timestamp(d.getMillis())
+        case None => null
+      }
+
       db.withTransaction { implicit c =>
-        SQL"""INSERT INTO status_actions (osm_user_id, project_id, challenge_id, task_id, old_status, status)
-                SELECT ${user.osmProfile.id}, parent_id, ${task.parent}, ${task.id}, ${task.status}, $status
+        SQL"""INSERT INTO status_actions (osm_user_id, project_id, challenge_id,
+                                          task_id, old_status, status, started_at)
+                SELECT ${user.osmProfile.id}, parent_id, ${task.parent},
+                       ${task.id}, ${task.status}, $status, ${startDate}
                 FROM challenges WHERE id = ${task.parent}
           """.execute()
       }

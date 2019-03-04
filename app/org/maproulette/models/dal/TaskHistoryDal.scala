@@ -40,7 +40,7 @@ class TaskHistoryDAL @Inject()(override val db: Database,
       get[Int]("users.id") ~
       get[String]("task_comments.comment") map {
       case taskId ~ created ~ userId ~ comment => new TaskLogEntry(taskId, created,
-        TaskLogEntry.ACTION_COMMENT, Some(userId), None, None, None, None, None, Some(comment))
+        TaskLogEntry.ACTION_COMMENT, Some(userId), None, None, None, None, None, None, Some(comment))
     }
   }
 
@@ -52,7 +52,7 @@ class TaskHistoryDAL @Inject()(override val db: Database,
       get[Option[Int]]("reviewed_by") map {
       case taskId ~ reviewedAt ~ reviewStatus ~ requestedBy ~
            reviewedBy => new TaskLogEntry(taskId, reviewedAt,
-        TaskLogEntry.ACTION_REVIEW, None, None, None, Some(reviewStatus), Some(requestedBy),
+        TaskLogEntry.ACTION_REVIEW, None, None, None, None, Some(reviewStatus), Some(requestedBy),
         reviewedBy, None)
     }
   }
@@ -62,11 +62,12 @@ class TaskHistoryDAL @Inject()(override val db: Database,
       get[DateTime]("status_actions.created") ~
       get[Int]("users.id") ~
       get[Int]("status_actions.old_status") ~
-      get[Int]("status_actions.status") map {
-      case taskId ~ created ~ userId ~ oldStatus ~
-           status => new TaskLogEntry(taskId, created,
+      get[Int]("status_actions.status") ~
+      get[Option[DateTime]]("status_actions.started_at") map {
+      case taskId ~ created ~ userId ~ oldStatus ~ status ~
+           startedAt => new TaskLogEntry(taskId, created,
         TaskLogEntry.ACTION_STATUS_CHANGE, Some(userId), Some(oldStatus), Some(status),
-        None, None, None, None)
+        startedAt, None, None, None, None)
     }
   }
 
@@ -91,7 +92,8 @@ class TaskHistoryDAL @Inject()(override val db: Database,
         SQL"""SELECT * FROM task_review_history WHERE task_id = $taskId""".as(this.reviewEntryParser.*)
 
       val statusActions =
-        SQL"""SELECT sa.task_id, sa.created, users.id, sa.old_status, sa.status FROM status_actions sa
+        SQL"""SELECT sa.task_id, sa.created, users.id, sa.old_status, sa.status, sa.started_at
+              FROM status_actions sa
               INNER JOIN users on users.osm_id=sa.osm_user_id
               WHERE task_id = $taskId""".as(this.statusActionEntryParser.*)
 
