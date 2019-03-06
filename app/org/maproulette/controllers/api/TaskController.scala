@@ -262,6 +262,34 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   }
 
   /**
+    * Gets and claims the next task that needs to be reviewed.
+    *
+    * @return
+    */
+  def nextTaskReview(sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        //cs => "my challenge name"
+        //o => "mapper's name"
+        //r => "reviewer's name"
+        println("NEXT TASK REVIEW. Params?")
+        println(params)
+        println(sort)
+        println(order)
+        val result = this.dal.nextTaskReview(user, params, sort, order)
+        val nextTask = result match {
+          case Some(task) =>
+            Ok(Json.toJson(this.dal.startTaskReview(user, task)))
+          case None =>
+            throw new NotFoundException("No tasks found to review.")
+        }
+
+        nextTask
+      }
+    }
+  }
+
+  /**
     * Gets tasks where a review is requested
     *
     * @param limit The number of tasks to return
