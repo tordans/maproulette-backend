@@ -627,6 +627,34 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 ###
 GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskController.getReviewedTasks(asReviewer:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
 ###
+# summary: Retrieves and claims a the next review needed Task
+# produces: [ application/json ]
+# description: Retrieves the next Task (given the search parameters) and claims that task for review
+# responses:
+#   '200':
+#     description: The task
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
+#   - name: order
+#     in: query
+#     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
+#   - name: cs
+#     in: query
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
+#   - name: o
+#     in: query
+#     description: The search string used to match the name of the person requesting the review. (review_requested_by)
+#   - name: r
+#     in: query
+#     description: The search string used to match the Reviewer names. (reviewed_by)
+###
+GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskController.nextTaskReview(sort:String ?= "", order:String ?= "ASC")
+###
 # tags: [ Project ]
 # summary: Retrieves clustered challenge points
 # produces: [ application/json ]

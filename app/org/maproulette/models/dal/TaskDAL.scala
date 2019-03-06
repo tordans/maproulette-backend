@@ -7,10 +7,13 @@ import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
+import anorm.JodaParameterMetaData._
 import com.vividsolutions.jts.geom.Envelope
 import javax.inject.{Inject, Provider, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
+import play.api.libs.json.JodaWrites._
+import play.api.libs.json.JodaReads._
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
@@ -71,14 +74,17 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") ~
+      get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Int]]("tasks.review_status") ~
       get[Option[Int]]("tasks.review_requested_by") ~
       get[Option[Int]]("tasks.reviewed_by") ~
+      get[Option[DateTime]]("tasks.reviewed_at") ~
       get[Option[Int]]("tasks.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
-           reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewClaimedBy ~ priority ~ changesetId =>
+           mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewClaimedBy ~
+           priority ~ changesetId =>
         val suggestedFixGeometry = this.getSuggestedFix(id)
         val optionsFix = if (StringUtils.isEmpty(suggestedFixGeometry)) {
           None
@@ -86,8 +92,9 @@ class TaskDAL @Inject()(override val db: Database,
           Some(suggestedFixGeometry)
         }
         Task(id, name, created, modified, parent_id, instruction, location,
-          this.getTaskGeometries(id), optionsFix, status, reviewStatus,
-          reviewRequestedBy, reviewedBy, reviewClaimedBy, priority, changesetId)
+          this.getTaskGeometries(id), optionsFix, status, mappedOn,
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewClaimedBy,
+          priority, changesetId)
     }
   }
 
@@ -201,7 +208,9 @@ class TaskDAL @Inject()(override val db: Database,
       Some(cachedItem)
     }(id, true, true)
     val updatedTask: Option[Task] = this.withMRTransaction { implicit c =>
-      val query = "SELECT create_update_task({name}, {parentId}, {instruction}, {status}, {id}, {priority}, {changesetId}, {reset})"
+      val query = "SELECT create_update_task({name}, {parentId}, {instruction}, " +
+                  "{status}, {id}, {priority}, {changesetId}, {reset}, {mappedOn}," +
+                  "{reviewStatus}, {reviewRequestedBy}, {reviewedBy}, {reviewedAt})"
 
       val updatedTaskId = SQL(query).on(
         NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
@@ -211,7 +220,12 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
         NamedParameter("priority", ToParameterValue.apply[Int].apply(element.priority)),
         NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
-        NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days"))
+        NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
+        NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
+        NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.reviewStatus)),
+        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Int]].apply(element.reviewRequestedBy)),
+        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Int]].apply(element.reviewedBy)),
+        NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.reviewedAt))
       ).as(long("create_update_task").*).head
       c.commit()
       // These updates were originally only done on insert or when the geometry actual was updated. However
@@ -367,10 +381,40 @@ class TaskDAL @Inject()(override val db: Database,
       val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
       val changesetId = (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
 
+      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
+          case m: JsUndefined => cachedItem.mappedOn
+          case m => m.asOpt[DateTime]
+      }
+
+      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
+        case r: JsUndefined => cachedItem.reviewStatus
+        case r => r.asOpt[Int]
+      }
+
+      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
+        case r: JsUndefined => cachedItem.reviewRequestedBy
+        case r => r.asOpt[Int]
+      }
+
+      val reviewedBy = (value \ "reviewedBy") match {
+        case r: JsUndefined => cachedItem.reviewedBy
+        case r => r.asOpt[Int]
+      }
+
+      val reviewedAt = (value \ "reviewedAt") match {
+          case r: JsUndefined => cachedItem.reviewedAt
+          case r => r.asOpt[DateTime]
+      }
+
       val task = this.mergeUpdate(cachedItem.copy(name = name,
         parent = parentId,
         instruction = Some(instruction),
         status = Some(status),
+        mappedOn = mappedOn,
+        reviewStatus = reviewStatus,
+        reviewRequestedBy = reviewRequestedBy,
+        reviewedBy = reviewedBy,
+        reviewedAt = reviewedAt,
         geometries = geometries,
         suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
           None
@@ -449,7 +493,8 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val updatedRows =
-        SQL"""UPDATE tasks t SET status = $status #$reviewStatusUpdate WHERE t.id = (
+        SQL"""UPDATE tasks t SET status = $status #$reviewStatusUpdate,
+                                mapped_on = NOW() WHERE t.id = (
                                 SELECT t2.id FROM tasks t2
                                 LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
                                 WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
@@ -1121,6 +1166,23 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Gets and claims the next task for review.
+    *
+    * @param user The user executing the request
+    * @return task
+    */
+  def nextTaskReview(user:User, searchParameters: SearchParameters,
+                    sort:String, order:String) (implicit c:Connection=null) : Option[Task] = {
+    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, 1, 0, sort, order)
+    if (count == 0) {
+      return None
+    }
+    else {
+      return Some(result.head)
+    }
+  }
+
+  /**
     * Gets a list of tasks that have requested review (and are in this user's project group)
     *
     * @param user The user executing the request
@@ -1149,7 +1211,7 @@ class TaskDAL @Inject()(override val db: Database,
     searchParameters.owner match {
       case Some(o) if o.nonEmpty =>
         joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
-        this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%' ")
+        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%') ")
       case _ => // ignore
     }
 
@@ -1177,13 +1239,19 @@ class TaskDAL @Inject()(override val db: Database,
          """
       case default =>
         if (user.settings.isReviewer.getOrElse(false)) {
+          // You see review task when:
+          // 1. Project and Challenge enabled (so visible to everyone)
+          // 2. You own the Project
+          // 3. You manage the project (your user group matches groups of project)
           s"""
             SELECT tasks.${this.retrieveColumns} FROM tasks
             ${joinClause}
-            INNER JOIN groups g ON g.project_id = c.parent_id
+            INNER JOIN projects p ON p.id = c.parent_id
+            INNER JOIN groups g ON g.project_id = p.id
             INNER JOIN user_groups ug ON g.id = ug.group_id
-            WHERE g.group_type != ${Group.TYPE_WRITE_ACCESS} AND
-                  ug.osm_user_id = ${user.osmProfile.id} AND
+            WHERE ((p.enabled AND c.enabled) OR
+                    p.owner_id = ${user.osmProfile.id} OR
+                    ug.osm_user_id = ${user.osmProfile.id}) AND
             ${whereClause}
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
@@ -1205,10 +1273,12 @@ class TaskDAL @Inject()(override val db: Database,
         s"""
           SELECT count(*) FROM tasks
           ${joinClause}
-          INNER JOIN groups g ON g.project_id = c.parent_id
+          INNER JOIN projects p ON p.id = c.parent_id
+          INNER JOIN groups g ON g.project_id = p.id
           INNER JOIN user_groups ug ON g.id = ug.group_id
-          WHERE g.group_type != ${Group.TYPE_WRITE_ACCESS} AND
-                ug.osm_user_id = ${user.osmProfile.id} AND
+          WHERE ((p.enabled AND c.enabled) OR
+                  p.owner_id = ${user.osmProfile.id} OR
+                  ug.osm_user_id = ${user.osmProfile.id}) AND
           ${whereClause}
         """
     }
@@ -1333,7 +1403,7 @@ class TaskDAL @Inject()(override val db: Database,
           val parameters = this.updateWhereClause(params, whereClause, joinClause)
           val query =
             s"""
-              SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status,
+              SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
                      t.review_status, t.review_requested_by, t.reviewed_by, t.reviewed_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
               ${joinClause.toString()}
@@ -1342,17 +1412,18 @@ class TaskDAL @Inject()(override val db: Database,
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[Int]]("tasks.review_status") ~
-            get[Option[Int]]("tasks.review_requested_by") ~ get[Option[Int]]("tasks.reviewed_by") ~ get[Option[DateTime]]("tasks.reviewed_at") ~
+            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[DateTime]]("tasks.mapped_on") ~
+            get[Option[Int]]("tasks.review_status") ~ get[Option[Int]]("tasks.review_requested_by") ~
+            get[Option[Int]]("tasks.reviewed_by") ~ get[Option[DateTime]]("tasks.reviewed_at") ~
             int("tasks.priority") map {
-            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ reviewStatus ~
-                 reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>
+            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ mappedOn ~
+                 reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, reviewStatus,
-                reviewRequestedBy, reviewedBy, reviewedAt, priority)
+                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn,
+                reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }

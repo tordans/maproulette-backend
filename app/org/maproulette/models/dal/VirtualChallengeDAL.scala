@@ -366,18 +366,19 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case None => ""
       }
       val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~
-                        int("status") ~ get[Option[Int]]("review_status") ~ get[Option[Int]]("review_requested_by") ~
+                        int("status") ~ get[Option[DateTime]]("mapped_on") ~
+                        get[Option[Int]]("review_status") ~ get[Option[Int]]("review_requested_by") ~
                         get[Option[Int]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~ int("priority") map {
-        case id ~ name ~ instruction ~ location ~ status ~ reviewStatus ~ reviewRequestedBy ~
+        case id ~ name ~ instruction ~ location ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
              reviewedBy ~ reviewedAt ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
           ClusteredPoint(id, -1, "", name, -1, "", point, JsString(""),
-            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, reviewStatus,
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn, reviewStatus,
             reviewRequestedBy, reviewedBy, reviewedAt, priority)
       }
-      SQL"""SELECT id, name, instruction, status, review_status, review_requested_by,
+      SQL"""SELECT id, name, instruction, status, mapped_on, review_status, review_requested_by,
                    reviewed_by, reviewed_at, ST_AsGeoJSON(location) AS location, priority
               FROM tasks WHERE id IN
               (SELECT task_id FROM virtual_challenge_tasks
