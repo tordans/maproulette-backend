@@ -359,9 +359,8 @@ class ChallengeController @Inject()(override val childController: TaskController
       case None => s"http://$host/"
     }
     comments.map(comment =>
-      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},
-         |${comment.osm_username},"${comment.comment}",
-         |${urlPrefix}map/$challengeId/${comment.taskId}""".stripMargin
+      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
+      s"""${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}""".stripMargin
     )
   }
 
@@ -377,8 +376,8 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.authenticatedRequest { implicit user =>
       val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page)
       val seqString = tasks.map(task =>
-        s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",
-           |"${Challenge.priorityMap.get(task.priority).get}","${task.username.getOrElse("")}"""".stripMargin
+        s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
+        s""""${Challenge.priorityMap.get(task.priority).get}","${task.username.getOrElse("")}"""".stripMargin
       )
 
       Result(
