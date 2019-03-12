@@ -1299,24 +1299,24 @@ class TaskDAL @Inject()(override val db: Database,
     *
     * @param user The user executing the request
     * @param asReviewer Whether we should return tasks reviewed by this user or reqested by this user
+    * @param allowReviewNeeded Whether we should include review requested tasks as well
     * @param limit The amount of tasks to be returned
     * @return A list of tasks
     */
   def getReviewedTasks(user:User, searchParameters: SearchParameters,
-                       asReviewer:Boolean=false, limit:Int = -1, offset:Int=0,
-                       sort:String, order:String) (implicit c:Connection=null) : (Int, List[Task]) = {
+                       asReviewer:Boolean=false, allowReviewNeeded:Boolean=false,
+                       limit:Int = -1, offset:Int=0, sort:String, order:String)
+                       (implicit c:Connection=null) : (Int, List[Task]) = {
     val fetchBy = if (asReviewer) "reviewed_by" else "review_requested_by"
     var orderByClause = ""
-    val whereClause = new StringBuilder(s"review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+    val whereClause = new StringBuilder(s"${fetchBy}=${user.id}")
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
 
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
-    sort match {
-     case s if s.nonEmpty =>
-       orderByClause = this.order(Some(s), order, "tasks", false)
-     case _ => // ignore
+    if (!allowReviewNeeded) {
+      this.appendInWhereClause(whereClause, s"review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
     }
 
     searchParameters.owner match {
@@ -1354,14 +1354,14 @@ class TaskDAL @Inject()(override val db: Database,
     val countQuery = s"""
      SELECT count(*) FROM tasks
      ${joinClause}
-     WHERE ${fetchBy}=${user.id} AND
+     WHERE
      ${whereClause}
     """
 
     val query = s"""
      SELECT tasks.${this.retrieveColumns} FROM tasks
      ${joinClause}
-     WHERE ${fetchBy}=${user.id} AND
+     WHERE
      ${whereClause}
      ${orderByClause}
      LIMIT ${sqlLimit(limit)} OFFSET $offset

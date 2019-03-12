@@ -314,16 +314,19 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * Gets reviewed tasks where the user has reviewed or requested review
     *
     * @param asReviewer Whether we should return tasks reviewed by this user or reqested by this user
+    * @param allowReviewNeeded Whether we should return tasks where status is review requested also
     * @param limit The number of tasks to return
     * @param page The page number for the results
     * @param sort The column to sort
     * @param order The order direction to sort
     * @return
     */
-  def getReviewedTasks(asReviewer: Boolean=false, limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getReviewedTasks(asReviewer: Boolean=false, allowReviewNeeded: Boolean=false, limit:Int, page:Int,
+                       sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val (count, result) = this.dal.getReviewedTasks(User.userOrMocked(user), params, asReviewer, limit, page, sort, order)
+        val (count, result) = this.dal.getReviewedTasks(User.userOrMocked(user), params,
+             asReviewer, allowReviewNeeded, limit, page, sort, order)
         Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
       }
     }

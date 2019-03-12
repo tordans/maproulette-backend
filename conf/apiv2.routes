@@ -606,6 +606,9 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 #   - name: asReviewer
 #     in: query
 #     description: Whether results should be tasks reviewed by this user or review requested by this user
+#   - name: allowReviewNeeded
+#     in: query
+#     description: Whether results should be included tasks in tasks 'review requested'
 #   - name: limit
 #     in: query
 #     description: Limit the number of results returned in the response. Default value is -1 (all).
@@ -625,7 +628,7 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 #     in: query
 #     description: The search string used to match the Reviewer names. (reviewed_by)
 ###
-GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskController.getReviewedTasks(asReviewer:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
+GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskController.getReviewedTasks(asReviewer:Boolean ?= false, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
 ###
 # summary: Retrieves and claims a the next review needed Task
 # produces: [ application/json ]
