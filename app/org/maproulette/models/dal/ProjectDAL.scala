@@ -192,25 +192,30 @@ class ProjectDAL @Inject()(override val db: Database,
     * @return A list of projects managed by the user
     */
   def listManagedProjects(user: User, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0, onlyEnabled: Boolean = false,
-                          searchString: String = "", sort: String = "display_name")(implicit c: Option[Connection] = None): List[Project] = {
-    if (user.isSuperUser) {
+                          onlyOwned: Boolean = false, searchString: String = "", sort: String = "display_name")(implicit c: Option[Connection] = None): List[Project] = {
+    if (user.isSuperUser && !onlyOwned) {
       this.list(limit, offset, onlyEnabled, searchString, sort)
     } else {
       this.withMRConnection { implicit c =>
-        if (user.groups.isEmpty) {
+        if (user.groups.isEmpty && !user.isSuperUser) {
           List.empty
         } else {
+          var permissionMatch = "p.owner_id = {osmId}"
+          if (!onlyOwned) {
+            permissionMatch = permissionMatch + " OR (g.project_id = p.id AND g.id IN ({ids}))"
+          }
+
           val query =
             s"""SELECT distinct p.*, LOWER(p.name), LOWER(p.display_name)
                 FROM projects p, groups g
-                WHERE p.owner_id = {osmId} OR
-                (g.project_id = p.id AND g.id IN ({ids}))
+                WHERE ${permissionMatch}
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
                 ${
               this.order(orderColumn = Some(sort), orderDirection = "ASC",
                 nameFix = true, ignoreCase = (sort == "name" || sort == "display_name"))
             }
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+
           SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
             'osmId -> user.osmProfile.id,
             'ids -> user.groups.map(_.id))

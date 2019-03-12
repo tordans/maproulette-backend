@@ -135,7 +135,7 @@ case class Challenge(override val id: Long,
         }
         implicit val reads = Writes
         val rules = (ruleJSON \ "rules").as[List[JsValue]].map(jsValue => {
-          val keyValue = (jsValue \ "value").as[String].split("\\.")
+          val keyValue = (jsValue \ "value").as[String].split("\\.", 2)
           val valueType = (jsValue \ "type").as[String]
           PriorityRule((jsValue \ "operator").as[String], keyValue(0), keyValue(1), valueType)
         })
@@ -194,7 +194,7 @@ object Challenge {
 
   /**
     * This will check to make sure that the json rule is fully valid. The simple check just makes sure
-    * that every rule value is split by "." and contains only two values.
+    * that every rule value can be split by "." into two values.
     *
     * @param rule
     * @return
@@ -204,7 +204,7 @@ object Challenge {
       case Some(r) if StringUtils.isNotEmpty(r) && !StringUtils.equalsIgnoreCase(r, "{}") =>
         val ruleJSON = Json.parse(r)
         val rules = (ruleJSON \ "rules").as[List[JsValue]].map(jsValue => {
-          val keyValue = (jsValue \ "value").as[String].split("\\.")
+          val keyValue = (jsValue \ "value").as[String].split("\\.", 2)
           keyValue.size == 2
         })
         !rules.contains(false)
