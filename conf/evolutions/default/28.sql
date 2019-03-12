@@ -80,6 +80,9 @@ CREATE OR REPLACE FUNCTION update_task(task_name text,
 # --- !Downs
 ALTER TABLE "tasks" DROP COLUMN mapped_on;;
 
+DROP FUNCTION create_update_task(text,bigint,text,integer,bigint,integer,bigint,text,integer,integer,integer);;
+DROP FUNCTION update_task(text,bigint,text,integer,bigint,integer,bigint,text,integer,integer,integer);;
+
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change simply rolls back this function
 CREATE OR REPLACE FUNCTION create_update_task(task_name text,
