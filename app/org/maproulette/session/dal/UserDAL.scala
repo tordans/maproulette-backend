@@ -829,8 +829,9 @@ class UserDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       val query =
         s"""
-           |SELECT ${taskDAL.retrieveColumns} FROM tasks
-           |WHERE id IN (
+           |SELECT ${taskDAL.retrieveColumnsWithReview} FROM tasks
+           |LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+           |WHERE tasks.id IN (
            |  SELECT task_id FROM saved_tasks
            |  WHERE user_id = $userId
            |  ${

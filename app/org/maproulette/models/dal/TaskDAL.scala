@@ -62,7 +62,11 @@ class TaskDAL @Inject()(override val db: Database,
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
-  override val retrieveColumns: String = "*, ST_AsGeoJSON(tasks.location) AS location"
+  override val retrieveColumns: String = "*, ST_AsGeoJSON(tasks.location) AS location "
+
+  val retrieveColumnsWithReview: String = this.retrieveColumns +
+        ", task_review.review_status, task_review.review_requested_by, " +
+        "task_review.reviewed_by, task_review.reviewed_at, task_review.review_claimed_by "
 
   // The anorm row parser to convert records from the task table to task objects
   implicit val parser: RowParser[Task] = {
@@ -75,11 +79,11 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[String]]("location") ~
       get[Option[Int]]("tasks.status") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
-      get[Option[Int]]("tasks.review_status") ~
-      get[Option[Int]]("tasks.review_requested_by") ~
-      get[Option[Int]]("tasks.reviewed_by") ~
-      get[Option[DateTime]]("tasks.reviewed_at") ~
-      get[Option[Int]]("tasks.review_claimed_by") ~
+      get[Option[Int]]("task_review.review_status") ~
+      get[Option[Int]]("task_review.review_requested_by") ~
+      get[Option[Int]]("task_review.reviewed_by") ~
+      get[Option[DateTime]]("task_review.reviewed_at") ~
+      get[Option[Int]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
@@ -110,6 +114,25 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("task_comments.action_id") map {
       case id ~ osm_id ~ osm_name ~ taskId ~ challengeId ~ projectId ~ created ~ comment ~ action_id =>
         Comment(id, osm_id, osm_name, taskId, challengeId, projectId, created, comment, action_id)
+    }
+  }
+
+  /**
+    * A basic retrieval of the object based on the id. With caching, so if it finds
+    * the object in the cache it will return that object without checking the database, otherwise
+    * will hit the database directly.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
+                     "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
+                     "WHERE tasks.id = {id}"
+        SQL(query).on('id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id)).as(this.parser.singleOpt)
+      }
     }
   }
 
@@ -315,8 +338,10 @@ class TaskDAL @Inject()(override val db: Database,
         SQL"""UPDATE tasks
             SET location = (SELECT ST_Centroid(ST_Collect(ST_Makevalid(geom)))
                             FROM task_geometries WHERE task_id = $taskId)
-            WHERE id = $taskId RETURNING #${this.retrieveColumns}
-        """.as(this.parser.singleOpt)
+            WHERE id = $taskId
+           """.executeUpdate()
+
+        this.retrieveById(taskId)
       }
     }
   }
@@ -347,8 +372,9 @@ class TaskDAL @Inject()(override val db: Database,
             // Update the location of the particular task
             SQL"""UPDATE tasks
               SET priority = $newPriority
-              WHERE id = $taskId RETURNING #${this.retrieveColumns}
-            """.as(this.parser.singleOpt)
+              WHERE id = $taskId
+            """.executeUpdate()
+            this.retrieveById(taskId)
           }
         }
       }
@@ -486,15 +512,9 @@ class TaskDAL @Inject()(override val db: Database,
 
     val oldStatus = task.status
     val updatedRows = this.withMRTransaction { implicit c =>
-      var reviewStatusUpdate = ""
-      if (reviewNeeded) {
-        reviewStatusUpdate = ", review_status = " + Task.REVIEW_STATUS_REQUESTED +
-                             ", review_requested_by = " + user.id
-      }
-
       val updatedRows =
-        SQL"""UPDATE tasks t SET status = $status #$reviewStatusUpdate,
-                                mapped_on = NOW() WHERE t.id = (
+        SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW()
+                             WHERE t.id = (
                                 SELECT t2.id FROM tasks t2
                                 LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
                                 WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
@@ -508,6 +528,19 @@ class TaskDAL @Inject()(override val db: Database,
                                      l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
                            """).as(SqlParser.scalar[DateTime].singleOpt)
       this.statusActions.setStatusAction(user, task, status, startedLock)
+
+      if (reviewNeeded) {
+        task.reviewStatus match {
+          case Some(rs) =>
+            SQL"""UPDATE task_review tr
+                    SET review_status = ${Task.REVIEW_STATUS_REQUESTED}, review_requested_by = ${user.id}
+                    WHERE tr.task_id = ${task.id}
+                 )""".executeUpdate()
+          case None =>
+            SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
+                    VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
+        }
+      }
 
       // if you set the status successfully on a task you will lose the lock of that task
       try {
@@ -572,7 +605,6 @@ class TaskDAL @Inject()(override val db: Database,
 
     val now = Instant.now()
     val updatedRows = this.withMRTransaction { implicit c =>
-      var reviewStatusUpdate = ""
       var fetchBy = "reviewed_by"
 
       // If we are changing the status back to "needsReview" then this task
@@ -583,12 +615,12 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val updatedRows =
-        SQL"""UPDATE tasks t SET review_status = $reviewStatus,
+        SQL"""UPDATE task_review t SET review_status = $reviewStatus,
                                  #${fetchBy} = ${user.id},
                                  reviewed_at = ${now},
                                  review_claimed_at = NULL,
                                  review_claimed_by = NULL
-                             WHERE t.id = (
+                             WHERE t.task_id = (
                                 SELECT t2.id FROM tasks t2
                                 LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
                                 WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
@@ -748,8 +780,9 @@ class TaskDAL @Inject()(override val db: Database,
         lock <- lockedParser
       } yield task -> lock
       val query =
-        s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+        s"""SELECT locked.*, tasks.$retrieveColumnsWithReview FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
+                      LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                       WHERE tasks.id > $currentTaskId AND tasks.parent_id = $parentId
                       AND status IN ({statusList})
                       ORDER BY tasks.id ASC LIMIT 1"""
@@ -761,8 +794,9 @@ class TaskDAL @Inject()(override val db: Database,
         case Some(t) => Some(t)
         case None =>
           val loopQuery =
-            s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+            s"""SELECT locked.*, tasks.$retrieveColumnsWithReview FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
+                              LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                               WHERE tasks.parent_id = $parentId
                               AND status IN ({statusList})
                               ORDER BY tasks.id ASC LIMIT 1"""
@@ -787,8 +821,9 @@ class TaskDAL @Inject()(override val db: Database,
         lock <- lockedParser
       } yield task -> lock
       val query =
-        s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+        s"""SELECT locked.*, tasks.$retrieveColumnsWithReview FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
+                      LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                       WHERE tasks.id < $currentTaskId AND tasks.parent_id = $parentId
                       AND status IN ({statusList})
                       ORDER BY tasks.id DESC LIMIT 1"""
@@ -800,8 +835,9 @@ class TaskDAL @Inject()(override val db: Database,
         case Some(t) => Some(t)
         case None =>
           val loopQuery =
-            s"""SELECT locked.*, tasks.$retrieveColumns FROM tasks
+            s"""SELECT locked.*, tasks.$retrieveColumnsWithReview FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
+                              LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                               WHERE tasks.parent_id = $parentId
                               AND status IN ({statusList})
                               ORDER BY tasks.id DESC LIMIT 1"""
@@ -857,8 +893,9 @@ class TaskDAL @Inject()(override val db: Database,
         }
 
         val select =
-          s"""SELECT tasks.$retrieveColumns FROM tasks
+          s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
           LEFT JOIN locked l ON l.item_id = tasks.id
+          LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
        """.stripMargin
 
         val parameters = new ListBuffer[NamedParameter]()
@@ -1108,12 +1145,12 @@ class TaskDAL @Inject()(override val db: Database,
 
     this.withMRTransaction { implicit c =>
       // Unclaim everything before starting a new task.
-      SQL"""UPDATE tasks t SET review_claimed_by = NULL, review_claimed_at = NULL
+      SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
               WHERE review_claimed_by = #${user.id}""".executeUpdate()
 
       val updatedRows =
-        SQL"""UPDATE tasks t SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
-                WHERE t.id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
+        SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
+                WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
 
       // if returning 0, then this is because the item is locked by a different user
       if (updatedRows == 0) {
@@ -1193,11 +1230,12 @@ class TaskDAL @Inject()(override val db: Database,
                               limit:Int = -1, offset:Int=0, sort:String, order:String)
                     (implicit c:Connection=null) : (Int, List[Task]) = {
     var orderByClause = ""
-    val whereClause = new StringBuilder(s"review_status=${Task.REVIEW_STATUS_REQUESTED} ")
+    val whereClause = new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} ")
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
 
     this.appendInWhereClause(whereClause,
-      s"(review_claimed_at IS NULL OR review_claimed_by = ${user.id})")
+      s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})")
 
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
@@ -1230,7 +1268,7 @@ class TaskDAL @Inject()(override val db: Database,
     val query = user.isSuperUser match {
       case true =>
         s"""
-          SELECT tasks.${this.retrieveColumns} FROM tasks
+          SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
           ${joinClause}
           WHERE
           ${whereClause}
@@ -1244,7 +1282,7 @@ class TaskDAL @Inject()(override val db: Database,
           // 2. You own the Project
           // 3. You manage the project (your user group matches groups of project)
           s"""
-            SELECT tasks.${this.retrieveColumns} FROM tasks
+            SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
             INNER JOIN projects p ON p.id = c.parent_id
             INNER JOIN groups g ON g.project_id = p.id
@@ -1307,28 +1345,29 @@ class TaskDAL @Inject()(override val db: Database,
                        asReviewer:Boolean=false, allowReviewNeeded:Boolean=false,
                        limit:Int = -1, offset:Int=0, sort:String, order:String)
                        (implicit c:Connection=null) : (Int, List[Task]) = {
-    val fetchBy = if (asReviewer) "reviewed_by" else "review_requested_by"
+    val fetchBy = if (asReviewer) "task_review.reviewed_by" else "task_review.review_requested_by"
     var orderByClause = ""
     val whereClause = new StringBuilder(s"${fetchBy}=${user.id}")
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
 
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
     if (!allowReviewNeeded) {
-      this.appendInWhereClause(whereClause, s"review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+      this.appendInWhereClause(whereClause, s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
     }
 
     searchParameters.owner match {
      case Some(o) if o.nonEmpty =>
-       joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
+       joinClause ++= "INNER JOIN users u ON u.id = task_review.review_requested_by "
        this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%'")
      case _ => // ignore
     }
 
     searchParameters.reviewer match {
      case Some(r) if r.nonEmpty =>
-       joinClause ++= "INNER JOIN users u2 ON u2.id = tasks.reviewed_by "
+       joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "
        this.appendInWhereClause(whereClause, s"u2.name LIKE '%${r}%'")
      case _ => // ignore
     }
@@ -1359,7 +1398,7 @@ class TaskDAL @Inject()(override val db: Database,
     """
 
     val query = s"""
-     SELECT tasks.${this.retrieveColumns} FROM tasks
+     SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
      ${joinClause}
      WHERE
      ${whereClause}
@@ -1398,13 +1437,14 @@ class TaskDAL @Inject()(override val db: Database,
             """
               INNER JOIN challenges c ON c.id = t.parent_id
               INNER JOIN projects p ON p.id = c.parent_id
+              LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
             """
           )
           val parameters = this.updateWhereClause(params, whereClause, joinClause)
           val query =
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
-                     t.review_status, t.review_requested_by, t.reviewed_by, t.reviewed_at,
+                     tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
               ${joinClause.toString()}
               ${whereClause.toString()}
@@ -1413,8 +1453,8 @@ class TaskDAL @Inject()(override val db: Database,
             """
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
             str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[DateTime]]("tasks.mapped_on") ~
-            get[Option[Int]]("tasks.review_status") ~ get[Option[Int]]("tasks.review_requested_by") ~
-            get[Option[Int]]("tasks.reviewed_by") ~ get[Option[DateTime]]("tasks.reviewed_at") ~
+            get[Option[Int]]("task_review.review_status") ~ get[Option[Int]]("task_review.review_requested_by") ~
+            get[Option[Int]]("task_review.reviewed_by") ~ get[Option[DateTime]]("task_review.reviewed_at") ~
             int("tasks.priority") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ mappedOn ~
                  reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>

@@ -185,7 +185,8 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
   def listTasks(id: Long, user: User, limit: Int, offset: Int)(implicit c: Option[Connection] = None): List[Task] = {
     permission.hasReadAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      SQL"""SELECT tasks.#${taskDAL.retrieveColumns} FROM tasks
+      SQL"""SELECT tasks.#${taskDAL.retrieveColumnsWithReview} FROM tasks
+            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
             INNER JOIN virtual_challenge_tasks vct ON vct.task_id = tasks.id
             WHERE virtual_challenge_id = $id
             LIMIT #${sqlLimit(limit)} OFFSET $offset""".as(taskDAL.parser.*)
@@ -228,8 +229,9 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
     }
 
     val query =
-      s"""SELECT tasks.${taskDAL.retrieveColumns} FROM tasks
+      s"""SELECT tasks.${taskDAL.retrieveColumnsWithReview} FROM tasks
             LEFT JOIN locked l ON l.item_id = tasks.id
+            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
             INNER JOIN virtual_challenge_tasks vct ON vct.task_id = tasks.id
             ${whereClause.toString}
             ORDER BY $proximityOrdering tasks.status, RANDOM() LIMIT 1"""
@@ -258,8 +260,9 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         lock <- lockedParser
       } yield task -> lock
       val query =
-        s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+        s"""SELECT locked.*, tasks.${taskDAL.retrieveColumnsWithReview} FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
+                      LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                       WHERE tasks.id = (SELECT task_id
                                         FROM virtual_challenge_tasks
                                         WHERE task_id > $currentTaskId AND virtual_challenge_id = $id
@@ -269,8 +272,9 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case Some(t) => Some(t)
         case None =>
           val loopQuery =
-            s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+            s"""SELECT locked.*, tasks.${taskDAL.retrieveColumnsWithReview} FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
+                              LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                               WHERE tasks.id = (SELECT task_id
                                                 FROM virtual_challenge_tasks
                                                 WHERE virtual_challenge_id = $id
@@ -295,8 +299,9 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         lock <- lockedParser
       } yield task -> lock
       val query =
-        s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+        s"""SELECT locked.*, tasks.${taskDAL.retrieveColumnsWithReview} FROM tasks
                       LEFT JOIN locked ON locked.item_id = tasks.id
+                      LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                       WHERE tasks.id = (SELECT task_id
                                         FROM virtual_challenge_tasks
                                         WHERE task_id < $currentTaskId AND virtual_challenge_id = $id
@@ -306,8 +311,9 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case Some(t) => Some(t)
         case None =>
           val loopQuery =
-            s"""SELECT locked.*, tasks.${taskDAL.retrieveColumns} FROM tasks
+            s"""SELECT locked.*, tasks.${taskDAL.retrieveColumnsWithReview} FROM tasks
                               LEFT JOIN locked ON locked.item_id = tasks.id
+                              LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                               WHERE tasks.id = (SELECT task_id
                                                 FROM virtual_challenge_tasks
                                                 WHERE virtual_challenge_id = $id
@@ -378,9 +384,10 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
             instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn, reviewStatus,
             reviewRequestedBy, reviewedBy, reviewedAt, priority)
       }
-      SQL"""SELECT id, name, instruction, status, mapped_on, review_status, review_requested_by,
+      SQL"""SELECT tasks.id, name, instruction, status, mapped_on, review_status, review_requested_by,
                    reviewed_by, reviewed_at, ST_AsGeoJSON(location) AS location, priority
-              FROM tasks WHERE id IN
+              FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+              WHERE tasks.id IN
               (SELECT task_id FROM virtual_challenge_tasks
                 WHERE virtual_challenge_id = $challengeId) #$filter"""
         .as(pointParser.*)

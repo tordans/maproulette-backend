@@ -5,6 +5,9 @@
 -- Add Mapped on timestamp
 ALTER TABLE "tasks" ADD COLUMN mapped_on timestamp without time zone DEFAULT NULL;;
 
+-- DROP FUNCTION create_update_task(text,bigint,text,integer,bigint,integer,bigint,text);;
+-- DROP FUNCTION update_task(text,bigint,text,integer,bigint,integer,bigint,text);;
+
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change adds the mapped_on, review_status, review_requested_by, reviewed_by
 CREATE OR REPLACE FUNCTION create_update_task(task_name text,
@@ -68,20 +71,19 @@ CREATE OR REPLACE FUNCTION update_task(task_name text,
       new_status := 0;;
     END IF;;
     UPDATE tasks SET name = task_name, instruction = task_instruction, status = new_status, priority = task_priority,
-                     changeset_id = task_changeset_id, mapped_on = task_mapped_on, review_status = task_review_status,
-                     review_requested_by = task_review_requested_by, reviewed_by = task_reviewed_by,
-                     reviewed_at = task_reviewed_at WHERE id = update_id;;
+                     changeset_id = task_changeset_id, mapped_on = task_mapped_on WHERE id = update_id;;
+    UPDATE task_review SET review_status = task_review_status, review_requested_by = task_review_requested_by,
+                           reviewed_by = task_reviewed_by, reviewed_at = task_reviewed_at WHERE task_review.task_id = update_id;;
     RETURN update_id;;
   END
   $$
   LANGUAGE plpgsql VOLATILE;;
 
-
 # --- !Downs
 ALTER TABLE "tasks" DROP COLUMN mapped_on;;
 
-DROP FUNCTION create_update_task(text,bigint,text,integer,bigint,integer,bigint,text,integer,integer,integer);;
-DROP FUNCTION update_task(text,bigint,text,integer,bigint,integer,bigint,text,integer,integer,integer);;
+DROP FUNCTION create_update_task(text,bigint,text,integer,bigint,integer,bigint,text,timestamp,integer,integer, integer, timestamp);;
+DROP FUNCTION update_task(text,bigint,text,integer,bigint,integer,bigint,text,timestamp,integer,integer, integer, timestamp);;
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change simply rolls back this function

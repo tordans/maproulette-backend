@@ -82,7 +82,7 @@ class SchedulerActor @Inject()(config: Config,
   def cleanClaimLocks(action:String) : Unit = {
     logger.info(action)
     this.db.withTransaction { implicit c =>
-      val claimsRemoved = SQL"""UPDATE tasks
+      val claimsRemoved = SQL"""UPDATE task_review
                                 SET review_claimed_by = NULL, review_claimed_at = NULL
                                 WHERE AGE(NOW(), review_claimed_at) > '12 hours'""".executeUpdate()
       logger.info(s"$claimsRemoved stale review claims were found and deleted.")
