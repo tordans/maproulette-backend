@@ -26,6 +26,7 @@ class Scheduler @Inject()(val system: ActorSystem,
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   schedule("cleanLocks", "Cleaning locks", 1.minute, Config.KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL)
+  schedule("cleanClaimLocks", "Cleaning review claim locks", 1.minute, Config.KEY_SCHEDULER_CLEAN_CLAIM_LOCKS_INTERVAL)
   schedule("runChallengeSchedules", "Running challenge Schedules", 1.minute, Config.KEY_SCHEDULER_RUN_CHALLENGE_SCHEDULES_INTERVAL)
   schedule("updateLocations", "Updating locations", 1.minute, Config.KEY_SCHEDULER_UPDATE_LOCATIONS_INTERVAL)
   schedule("cleanOldTasks", "Cleaning old tasks", 1.minute, Config.KEY_SCHEDULER_CLEAN_TASKS_INTERVAL)

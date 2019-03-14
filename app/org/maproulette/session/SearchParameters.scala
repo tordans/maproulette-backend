@@ -37,7 +37,8 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             location: Option[SearchLocation] = None,
                             bounding: Option[SearchLocation] = None,
                             fuzzySearch: Option[Int] = None,
-                            owner: Option[String] = None) {
+                            owner: Option[String] = None,
+                            reviewer: Option[String] = None) {
   def getProjectIds: Option[List[Long]] = projectIds match {
     case Some(v) => Some(v.filter(_ != -1))
     case None => None
@@ -165,7 +166,9 @@ object SearchParameters {
       //FuzzySearch
       this.getIntParameter(request.getQueryString("fuzzy"), params.fuzzySearch),
       //Owner
-      this.getStringParameter(request.getQueryString("o"), params.owner)
+      this.getStringParameter(request.getQueryString("o"), params.owner),
+      //Reviewer
+      this.getStringParameter(request.getQueryString("r"), params.reviewer)
     ))
   }
 

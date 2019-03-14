@@ -73,13 +73,16 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[String]]("users.custom_basemap_url") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
+      get[Option[Boolean]]("users.needs_review") ~
+      get[Option[Boolean]]("users.is_reviewer") ~
       get[Option[String]]("users.locale") ~
       get[Option[Int]]("users.theme") ~
       get[Option[String]]("properties") ~
       get[Option[Int]]("score") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
         homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ emailOptIn ~ leaderboardOptOut ~ locale ~ theme ~ properties ~ score =>
+        customBasemap ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
+        properties ~ score =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
@@ -91,7 +94,7 @@ class UserDAL @Inject()(override val db: Database,
           userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
+          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, needsReview, isReviewer, theme),
           properties,
           score
         )
@@ -321,6 +324,35 @@ class UserDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
+    * in the cache and those that aren't will be retrieved from the database
+    *
+    * @param limit The limit on the number of objects returned. This is not entirely useful as a limit
+    *              could be set simply by how many ids you supplied in the list, but possibly useful
+    *              for paging
+    * @param offset For paging, ie. the page number starting at 0
+    * @param ids The list of ids to be retrieved
+    * @return A list of objects, empty list if none found
+    */
+  override def retrieveListById(limit: Int = -1, offset: Int = 0)(implicit ids:List[Long], c: Option[Connection] = None): List[User] = {
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
+        this.withMRConnection { implicit c =>
+          val query =
+            s"""SELECT ${this.retrieveColumns}, score FROM ${this.tableName}
+                          LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                          WHERE id IN ({inString})
+                          LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            'offset -> offset).as(this.parser.*)
+        }
+      }
+    }
+  }
+
+  /**
     * This is a specialized update that is accessed via the API that allows users to update only the
     * fields that are available for update. This is so that there is no accidental update of OSM username
     * or anything retrieved from the OSM API.
@@ -372,6 +404,8 @@ class UserDAL @Inject()(override val db: Database,
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
+        val needsReview = (value \ "settings" \ "needsReview").asOpt[Boolean].getOrElse(cachedItem.settings.needsReview.getOrElse(false))
+        val isReviewer = (value \ "settings" \ "isReviewer").asOpt[Boolean].getOrElse(cachedItem.settings.isReviewer.getOrElse(false))
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
         val properties = (value \ "properties").asOpt[String].getOrElse(cachedItem.properties.getOrElse("{}"))
 
@@ -384,7 +418,7 @@ class UserDAL @Inject()(override val db: Database,
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
                                           locale = {locale}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
-                                          theme = {theme}, properties = {properties}
+                                          needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
         SQL(query).on(
@@ -402,6 +436,8 @@ class UserDAL @Inject()(override val db: Database,
           'locale -> locale,
           'emailOptIn -> emailOptIn,
           'leaderboardOptOut -> leaderboardOptOut,
+          'needsReview -> needsReview,
+          'isReviewer -> isReviewer,
           'theme -> theme,
           'properties -> properties
         ).as(this.parser.*).headOption
@@ -793,8 +829,9 @@ class UserDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       val query =
         s"""
-           |SELECT ${taskDAL.retrieveColumns} FROM tasks
-           |WHERE id IN (
+           |SELECT ${taskDAL.retrieveColumnsWithReview} FROM tasks
+           |LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+           |WHERE tasks.id IN (
            |  SELECT task_id FROM saved_tasks
            |  WHERE user_id = $userId
            |  ${
