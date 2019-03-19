@@ -580,7 +580,7 @@ class TaskDAL @Inject()(override val db: Database,
 
     // let's give the user credit for doing this task.
     if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-      this.userDAL.get().updateUserScore(status, user)
+      this.userDAL.get().updateUserScore(Option(status), None, false, user.id)
     }
 
     updatedRows
@@ -607,10 +607,12 @@ class TaskDAL @Inject()(override val db: Database,
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
+      var needsReReview = task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
+                          reviewStatus == Task.REVIEW_STATUS_REQUESTED
+
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
-      if (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
-          reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
+      if (needsReReview) {
         fetchBy = "review_requested_by"
       }
 
@@ -636,9 +638,8 @@ class TaskDAL @Inject()(override val db: Database,
       } catch {
         case e: Exception => logger.warn(e.getMessage)
       }
-
-      if (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
-          reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
+      
+      if (needsReReview) {
         // Let's note in the task_review_history table that this task needs review again
         SQL"""INSERT INTO task_review_history
                           (task_id, requested_by, reviewed_by, review_status, reviewed_at)
@@ -657,6 +658,11 @@ class TaskDAL @Inject()(override val db: Database,
 
       if (comment.nonEmpty) {
         addComment(user, task.id, comment, actionId)
+      }
+
+      if (!needsReReview) {
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus),
+          task.reviewedBy != None, task.reviewRequestedBy.get)
       }
 
       updatedRows
