@@ -28,10 +28,11 @@ class TaskHistoryDAL @Inject()(override val db: Database,
                                 userDAL: Provider[UserDAL],
                                 projectDAL: Provider[ProjectDAL],
                                 challengeDAL: Provider[ChallengeDAL],
+                                notificationDAL: Provider[NotificationDAL],
                                 actions: ActionManager,
                                 statusActions: StatusActionManager,
                                 ws: WSClient)
-  extends TaskDAL(db, tagDAL, config, permission, userDAL, projectDAL, challengeDAL,
+  extends TaskDAL(db, tagDAL, config, permission, userDAL, projectDAL, challengeDAL, notificationDAL,
                   actions, statusActions, ws) {
 
   private val commentEntryParser: RowParser[TaskLogEntry] = {

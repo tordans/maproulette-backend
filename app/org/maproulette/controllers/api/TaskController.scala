@@ -432,7 +432,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         case Some(a) => Some(a.id)
         case None => None
       }
-      this.dal.addComment(user, task.id, comment, actionId)
+      this.dal.addComment(user, task, comment, actionId)
     }
   }
 
@@ -523,7 +523,11 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     */
   def addComment(taskId: Long, comment: String, actionId: Option[Long]): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Created(Json.toJson(this.dal.addComment(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)))
+      val task = this.dal.retrieveById(taskId) match {
+        case Some(t) => t
+        case None => throw new NotFoundException(s"Task with $taskId not found, can not add comment.")
+      }
+      Created(Json.toJson(this.dal.addComment(user, task, URLDecoder.decode(comment, "UTF-8"), actionId)))
     }
   }
 

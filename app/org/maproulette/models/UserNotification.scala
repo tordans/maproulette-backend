@@ -59,6 +59,18 @@ object UserNotification {
   val NOTIFICATION_EMAIL_SENT = 4      // requested email sent
 }
 
+case class NotificationSubscriptions(val id: Long,
+                                     val userId: Long,
+                                     val system: Int,
+                                     val mention: Int,
+                                     val reviewApproved: Int,
+                                     val reviewRejected: Int,
+                                     val reviewAgain: Int)
+object NotificationSubscriptions {
+  implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] = Json.reads[NotificationSubscriptions]
+  implicit val notificationSubscriptionWrites: Writes[NotificationSubscriptions] = Json.writes[NotificationSubscriptions]
+}
+
 case class UserNotificationEmail(val id: Long,
                                  val userId: Long,
                                  val notificationType: Int,

@@ -8,7 +8,7 @@ import org.maproulette.exception.{InvalidException, NotFoundException, StatusMes
 import org.maproulette.models.dal.ProjectDAL
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
-import org.maproulette.session.{SessionManager, User, UserSettings, NotificationSubscriptions}
+import org.maproulette.session.{SessionManager, User, UserSettings}
 import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json._
 import play.api.mvc._
@@ -34,7 +34,6 @@ class UserController @Inject()(userDAL: UserDAL,
   implicit val taskWrites = Task.TaskFormat
   implicit val userSearchResultWrites = User.searchResultWrites
   implicit val projectManagerWrites = User.projectManagerWrites
-  implicit val notificationSubscriptionWrites = User.notificationSubscriptionWrites
 
   def deleteUser(osmId: Long, anonymize: Boolean): Action[AnyContent] = Action.async { implicit request =>
     implicit val requireSuperUser = true
@@ -75,55 +74,6 @@ class UserController @Inject()(userDAL: UserDAL,
       } else {
         throw new IllegalAccessException("Only super users have access to other user account information")
       }
-    }
-  }
-
-  def getUserNotifications(userId: Long, limit: Int, page: Int, sort: String, order: String,
-                           notificationType: Option[Int]=None, isRead: Option[Int]=None,
-                           fromUsername: Option[String]=None, challengeId: Option[Long]=None): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      // Routes don't allow Boolean options, so convert isRead from Int option (zero false, non-zero true)
-      val readFilter:Option[Boolean] = isRead match {
-        case Some(value) => Some(value != 0)
-        case None => None
-      }
-
-      Ok(Json.toJson(this.userDAL.getUserNotifications(userId, user, limit, page * limit, sort, order,
-                                                       notificationType, readFilter, fromUsername, challengeId)))
-    }
-  }
-
-  def markNotificationsRead(userId: Long, notificationIds: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      if (!StringUtils.isEmpty(notificationIds)) {
-        val parsedNotificationIds = Utils.split(notificationIds).map(_.toLong)
-        this.userDAL.markNotificationsRead(userId, user, parsedNotificationIds)
-      }
-      Ok(Json.toJson(StatusMessage("OK", JsString(s"Notifications marked as read"))))
-    }
-  }
-
-  def deleteNotifications(userId: Long, notificationIds: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      if (!StringUtils.isEmpty(notificationIds)) {
-        val parsedNotificationIds = Utils.split(notificationIds).map(_.toLong)
-        this.userDAL.deleteNotifications(userId, user, parsedNotificationIds)
-      }
-      Ok(Json.toJson(StatusMessage("OK", JsString(s"Notifications deleted"))))
-    }
-  }
-
-  def getNotificationSubscriptions(userId: Long): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.userDAL.getNotificationSubscriptions(userId, user)))
-    }
-  }
-
-  def updateNotificationSubscriptions(userId: Long): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      implicit val subscriptionsRead = User.notificationSubscriptionReads
-      userDAL.updateNotificationSubscriptions(userId, user, request.body.as[NotificationSubscriptions])
-      Ok(Json.toJson(StatusMessage("OK", JsString(s"Subscriptions updated"))))
     }
   }
 

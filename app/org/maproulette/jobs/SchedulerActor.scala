@@ -377,7 +377,7 @@ class SchedulerActor @Inject()(config: Config,
         |  ORDER BY created ASC
         |  LIMIT ${config.notificationImmediateEmailBatchSize}
         |) RETURNING *
-      """.stripMargin).as(dALManager.user.userNotificationEmailParser.*).foreach(notification => {
+      """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*).foreach(notification => {
         // Send email if user has an email address on file
         try {
           dALManager.user.retrieveById(notification.userId) match {
@@ -414,7 +414,7 @@ class SchedulerActor @Inject()(config: Config,
             |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST} AND
             |       user_id=${recipientId}
             |) RETURNING *
-        """.stripMargin).as(dALManager.user.userNotificationEmailParser.*)
+        """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*)
 
         UserNotificationEmailDigest(recipientId, digestNotifications)
       })

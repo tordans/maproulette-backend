@@ -130,17 +130,6 @@ case class UserSettings(defaultEditor: Option[Int] = None,
 }
 
 /**
-  * Notification subscriptions for a single user
-  */
-case class NotificationSubscriptions(id: Long,
-                                     userId: Long,
-                                     system: Int,
-                                     mention: Int,
-                                     reviewApproved: Int,
-                                     reviewRejected: Int,
-                                     reviewAgain: Int)
-
-/**
   * Information specific to the MapRoulette user.
   *
   * @param id         The id defined by the database
@@ -205,8 +194,6 @@ object User {
   implicit val osmReads: Reads[OSMProfile] = Json.reads[OSMProfile]
   implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
   implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
-  implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] = Json.reads[NotificationSubscriptions]
-  implicit val notificationSubscriptionWrites: Writes[NotificationSubscriptions] = Json.writes[NotificationSubscriptions]
 
   implicit object UserFormat extends Format[User] {
     override def writes(o: User): JsValue = {

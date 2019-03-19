@@ -3628,7 +3628,7 @@ PUT    /user/:userId                                @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-GET     /user/:userId/notifications                 @org.maproulette.controllers.api.UserController.getUserNotifications(userId:Long, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "is_read", order:String ?= "ASC", notificationType:Option[Int], isRead:Option[Int], fromUsername:Option[String])
+GET     /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.getUserNotifications(userId:Long, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "is_read", order:String ?= "ASC", notificationType:Option[Int], isRead:Option[Int], fromUsername:Option[String])
 ###
 # tags: [ User ]
 # summary: Mark user notifications as read
@@ -3649,7 +3649,7 @@ GET     /user/:userId/notifications                 @org.maproulette.controllers
 #     type: string,
 #     required: true
 ###
-PUT     /user/:userId/notifications                 @org.maproulette.controllers.api.UserController.markNotificationsRead(userId:Long, notificationIds:String)
+PUT     /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.markNotificationsRead(userId:Long, notificationIds:String)
 ###
 # tags: [ User ]
 # summary: Delete user notifications
@@ -3670,7 +3670,7 @@ PUT     /user/:userId/notifications                 @org.maproulette.controllers
 #     type: string,
 #     required: true
 ###
-DELETE  /user/:userId/notifications                 @org.maproulette.controllers.api.UserController.deleteNotifications(userId:Long, notificationIds:String)
+DELETE  /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.deleteNotifications(userId:Long, notificationIds:String)
 ###
 # tags: [ User ]
 # summary: Retrieves Users notification subscriptions
@@ -3689,7 +3689,7 @@ DELETE  /user/:userId/notifications                 @org.maproulette.controllers
 #     in: path
 #     description: The id of the user to retrieve the subscriptions for
 ###
-GET     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.UserController.getNotificationSubscriptions(userId:Long)
+GET     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.NotificationController.getNotificationSubscriptions(userId:Long)
 ###
 # tags: [ User ]
 # summary: Updates user's notification subscriptions
@@ -3712,7 +3712,7 @@ GET     /user/:userId/notificationSubscriptions     @org.maproulette.controllers
 #       type: object
 #       $ref: '#/definitions/org.maproulette.session.User'
 ###
-PUT     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.UserController.updateNotificationSubscriptions(userId:Long)
+PUT     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.NotificationController.updateNotificationSubscriptions(userId:Long)
 ###
 # tags: [ User ]
 # summary: Refresh User Profile
