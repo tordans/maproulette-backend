@@ -895,52 +895,82 @@ class UserDAL @Inject()(override val db: Database,
     * Updates the user's score in the user_metrics table.
     *
     * @param taskStatus The new status of the task to credit the user for.
+    * @param taskReviewStatus The review status of the task to credit the user for.
+    * @param isReviewRevision Whether this is the first review or is occurring after
+    *                         a revision (due to a rejected status)
     * @param user       The user who should get the credit
     */
-  def updateUserScore(taskStatus: Int, user: User)(implicit c: Connection = null) = {
+  def updateUserScore(taskStatus: Option[Int], taskReviewStatus: Option[Int], isReviewRevision: Boolean = false,
+                      userId: Long)(implicit c: Connection = null) = {
     // We need to invalidate the user in the cache.
-    implicit val id = user.id
+    implicit val id = userId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasObjectAdminAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
-        //this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
         var statusBump = ""
 
         val pointsToAward = taskStatus match {
-          case Task.STATUS_FIXED => {
+          case Some(Task.STATUS_FIXED) => {
             statusBump = ", total_fixed=(total_fixed + 1)"
             config.taskScoreFixed
           }
-          case Task.STATUS_FALSE_POSITIVE => {
+          case Some(Task.STATUS_FALSE_POSITIVE) => {
             statusBump = ", total_false_positive=(total_false_positive + 1)"
             config.taskScoreFalsePositive
           }
-          case Task.STATUS_ALREADY_FIXED => {
+          case Some(Task.STATUS_ALREADY_FIXED) => {
             statusBump = ", total_already_fixed=(total_already_fixed + 1)"
             config.taskScoreAlreadyFixed
           }
-          case Task.STATUS_TOO_HARD => {
+          case Some(Task.STATUS_TOO_HARD) => {
             statusBump = ", total_too_hard=(total_too_hard + 1)"
             config.taskScoreTooHard
           }
-          case Task.STATUS_SKIPPED => {
+          case Some(Task.STATUS_SKIPPED) => {
             statusBump = ", total_skipped=(total_skipped + 1)"
             config.taskScoreSkipped
           }
+          case None => 0
           case default => 0
         }
 
         val scoreBump = "score=(score + " + pointsToAward + ")"
 
-        val updateScoreQuery =
-          s"""UPDATE user_metrics SET ${scoreBump} ${statusBump} WHERE user_id = ${user.id} """
+        taskReviewStatus match {
+          case Some(Task.REVIEW_STATUS_REJECTED) => {
+            statusBump = ", total_rejected=(total_rejected + 1)"
+            if (!isReviewRevision) {
+              statusBump += ", initial_rejected=(initial_rejected + 1)"
+            }
+          }
+          case Some(Task.REVIEW_STATUS_APPROVED) => {
+            statusBump = ", total_approved=(total_approved + 1)"
+            if (!isReviewRevision) {
+              statusBump += ", initial_approved=(initial_approved + 1)"
+            }
+          }
+          case Some(Task.REVIEW_STATUS_ASSISTED) => {
+            statusBump = ", total_assisted=(total_assisted + 1)"
+            if (!isReviewRevision) {
+              statusBump += ", initial_assisted=(initial_assisted + 1)"
+            }
+          }
+          case default => None
+        }
 
+        // We need to make sure the user is in the database first.
+        SQL(s"""INSERT INTO user_metrics (user_id, score, total_fixed, total_false_positive,
+                total_already_fixed, total_too_hard, total_skipped)
+                VALUES (${userId}, 0, 0, 0, 0, 0, 0)
+                ON CONFLICT (user_id) DO NOTHING""").executeUpdate()
+
+        val updateScoreQuery =
+          s"""UPDATE user_metrics SET ${scoreBump} ${statusBump} WHERE user_id = ${userId} """
         SQL(updateScoreQuery).executeUpdate()
 
         val query =
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                        WHERE id = ${user.id}"""
+                        WHERE id = ${userId}"""
         SQL(query).as(this.parser.*).headOption
       }
     }
