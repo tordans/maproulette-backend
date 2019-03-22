@@ -409,10 +409,17 @@ class UserDAL @Inject()(override val db: Database,
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
-        val needsReview = (value \ "settings" \ "needsReview").asOpt[Int].getOrElse(cachedItem.settings.needsReview.getOrElse(config.defaultNeedsReview))
+        var needsReview = (value \ "settings" \ "needsReview").asOpt[Int].getOrElse(cachedItem.settings.needsReview.getOrElse(config.defaultNeedsReview))
         val isReviewer = (value \ "settings" \ "isReviewer").asOpt[Boolean].getOrElse(cachedItem.settings.isReviewer.getOrElse(false))
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
         val properties = (value \ "properties").asOpt[String].getOrElse(cachedItem.properties.getOrElse("{}"))
+
+        // If this user always requires a review, then they are not allowed to change it (except super users)
+        if (user.settings.needsReview.getOrElse(0) == User.REVIEW_MANDATORY) {
+          if (!user.isSuperUser) {
+            needsReview = User.REVIEW_MANDATORY
+          }
+        }
 
         this.updateGroups(value, user)
         this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
