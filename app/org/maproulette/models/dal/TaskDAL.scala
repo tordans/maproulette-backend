@@ -506,7 +506,7 @@ class TaskDAL @Inject()(override val db: Database,
 
     val reviewNeeded = requestReview match {
         case Some(r) => r
-        case None => user.settings.needsReview.getOrElse(false) &&
+        case None => user.settings.needsReview.getOrElse(config.defaultNeedsReview) != User.REVIEW_NOT_NEEDED &&
                      status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED
       }
 
@@ -569,7 +569,7 @@ class TaskDAL @Inject()(override val db: Database,
 
       updatedRows
     }
-    if (user.settings.needsReview.get) {
+    if (user.settings.needsReview.get != User.REVIEW_NOT_NEEDED) {
       this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status),
                                                  reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED))) }
     }
@@ -638,7 +638,7 @@ class TaskDAL @Inject()(override val db: Database,
       } catch {
         case e: Exception => logger.warn(e.getMessage)
       }
-      
+
       if (needsReReview) {
         // Let's note in the task_review_history table that this task needs review again
         SQL"""INSERT INTO task_review_history
