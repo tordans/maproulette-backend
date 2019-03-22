@@ -536,7 +536,7 @@ class TaskDAL @Inject()(override val db: Database,
             SQL"""UPDATE task_review tr
                     SET review_status = ${Task.REVIEW_STATUS_REQUESTED}, review_requested_by = ${user.id}
                     WHERE tr.task_id = ${task.id}
-                 )""".executeUpdate()
+               """.executeUpdate()
           case None =>
             SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
                     VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
