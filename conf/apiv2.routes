@@ -352,6 +352,9 @@ GET     /projects                                   @org.maproulette.controllers
 #   - name: onlyEnabled
 #     in: query
 #     description: Whether to only returned projects that are enabled or all of them. By default set to false and returns all of them
+#   - name: onlyOwned
+#     in: query
+#     description: Whether to only returned projects that are owned by this user. By default set to false and returns all of them
 #   - name: searchString
 #     in: query
 #     description: A simple search string that will filter out for a specific set of projects matching the search string.
@@ -359,7 +362,7 @@ GET     /projects                                   @org.maproulette.controllers
 #     in: query
 #     description: The column to sort by. Default column is "display_name"
 ###
-GET     /projects/managed                           @org.maproulette.controllers.api.ProjectController.listManagedProjects(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false, searchString:String ?= "", sort:String ?= "display_name")
+GET     /projects/managed                           @org.maproulette.controllers.api.ProjectController.listManagedProjects(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false, onlyOwned:Boolean ?= false, searchString:String ?= "", sort:String ?= "display_name")
 ###
 # tags: [ Project ]
 # summary: List all the projects challenges.

@@ -97,13 +97,14 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     * @param limit        Limit of how many tasks should be returned
     * @param offset       offset for pagination
     * @param onlyEnabled  Only list the enabled projects
+    * @param onlyOwned    Only list the projects owned by this user
     * @param searchString basic search string to find specific projects
     * @param sort         An optional column to sort by.
     * @return json list of managed projects
     */
-  def listManagedProjects(limit: Int, offset: Int, onlyEnabled: Boolean, searchString: String, sort: String = "display_name"): Action[AnyContent] = Action.async { implicit response =>
+  def listManagedProjects(limit: Int, offset: Int, onlyEnabled: Boolean, onlyOwned: Boolean, searchString: String, sort: String = "display_name"): Action[AnyContent] = Action.async { implicit response =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, searchString, sort)))
+      Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, onlyOwned, searchString, sort)))
     }
   }
 
