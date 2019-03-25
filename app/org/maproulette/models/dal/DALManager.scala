@@ -20,6 +20,7 @@ class DALManager @Inject()(tagDAL: TagDAL,
                            projectDAL: ProjectDAL,
                            userDAL: UserDAL,
                            userGroupDAL: UserGroupDAL,
+                           notificationDAL: NotificationDAL,
                            actionManager: ActionManager,
                            dataManager: DataManager,
                            statusActionManager: StatusActionManager) {
@@ -38,6 +39,8 @@ class DALManager @Inject()(tagDAL: TagDAL,
   def user: UserDAL = userDAL
 
   def userGroup: UserGroupDAL = userGroupDAL
+
+  def notification: NotificationDAL = notificationDAL
 
   def action: ActionManager = actionManager
 

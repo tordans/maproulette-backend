@@ -11,10 +11,10 @@ import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
-import org.maproulette.models.Task
+import org.maproulette.models.{Task, UserNotification, UserNotificationEmail, UserNotificationEmailDigest}
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider}
+import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider, EmailProvider}
 import org.maproulette.session.User
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
@@ -35,7 +35,8 @@ class SchedulerActor @Inject()(config: Config,
                                db: Database,
                                dALManager: DALManager,
                                keepRightProvider: KeepRightProvider,
-                               boundingBoxFinder: BoundingBoxFinder) extends Actor {
+                               boundingBoxFinder: BoundingBoxFinder,
+                               emailProvider: EmailProvider) extends Actor {
   // cleanOldTasks configuration
   lazy val oldTasksStatusFilter = appConfig.getOptional[Seq[Int]](Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
     Seq[Int](new Integer(STATUS_CREATED))
@@ -50,6 +51,7 @@ class SchedulerActor @Inject()(config: Config,
     case RunJob("rebuildChallengesLeaderboard", action) => this.rebuildChallengesLeaderboard(action)
     case RunJob("rebuildCountryLeaderboard", action) => this.rebuildCountryLeaderboard(action)
     case RunJob("cleanLocks", action) => this.cleanLocks(action)
+    case RunJob("cleanClaimLocks", action) => this.cleanClaimLocks(action)
     case RunJob("runChallengeSchedules", action) => this.runChallengeSchedules(action)
     case RunJob("updateLocations", action) => this.updateLocations(action)
     case RunJob("cleanOldTasks", action) => this.cleanOldTasks(action)
@@ -60,6 +62,8 @@ class SchedulerActor @Inject()(config: Config,
     case RunJob("cleanDeleted", action) => this.cleanDeleted(action)
     case RunJob("KeepRightUpdate", action) => this.keepRightUpdate(action)
     case RunJob("snapshotUserMetrics", action) => this.snapshotUserMetrics(action)
+    case RunJob("sendImmediateNotificationEmails", action) => this.sendImmediateNotificationEmails(action)
+    case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
   }
 
   /**
@@ -72,6 +76,19 @@ class SchedulerActor @Inject()(config: Config,
     this.db.withTransaction { implicit c =>
       val locksDeleted = SQL"""DELETE FROM locked WHERE AGE(NOW(), locked_time) > '1 hour'""".executeUpdate()
       logger.info(s"$locksDeleted were found and deleted.")
+    }
+  }
+
+  /**
+    * This job will remove all stale (older than 1 day) review claim locks from the system
+    */
+  def cleanClaimLocks(action:String) : Unit = {
+    logger.info(action)
+    this.db.withTransaction { implicit c =>
+      val claimsRemoved = SQL"""UPDATE task_review
+                                SET review_claimed_by = NULL, review_claimed_at = NULL
+                                WHERE AGE(NOW(), review_claimed_at) > '12 hours'""".executeUpdate()
+      logger.info(s"$claimsRemoved stale review claims were found and deleted.")
     }
   }
 
@@ -346,6 +363,81 @@ class SchedulerActor @Inject()(config: Config,
     }
   }
 
+  def sendImmediateNotificationEmails(action: String) = {
+    logger.info(action)
+
+    // Gather notifications needing an immediate email and send email for each
+    db.withConnection { implicit c =>
+      SQL(s"""
+        |UPDATE user_notifications
+        |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
+        |WHERE id in (
+        |  SELECT id from user_notifications
+        |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_IMMEDIATE}
+        |  ORDER BY created ASC
+        |  LIMIT ${config.notificationImmediateEmailBatchSize}
+        |) RETURNING *
+      """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*).foreach(notification => {
+        // Send email if user has an email address on file
+        try {
+          dALManager.user.retrieveById(notification.userId) match {
+            case Some(user) =>
+              user.settings.email match {
+                case Some(address) if (!address.isEmpty) =>
+                  this.emailProvider.emailNotification(address, notification)
+                case _ => None
+              }
+            case None => None
+          }
+        } catch {
+          case e: Exception => logger.error("Failed to send immediate email: " + e)
+        }
+      })
+    }
+  }
+
+  def sendDigestNotificationEmails(action: String) = {
+    logger.info(action)
+    var digests: List[UserNotificationEmailDigest] = List.empty
+
+    db.withConnection { implicit c =>
+      // Gather up users with unsent digest notifications and build digests for each
+      digests = SQL(s"""
+        |SELECT distinct(user_id) from user_notifications
+        |WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST}
+      """.stripMargin).as(SqlParser.int("user_id").*).map(recipientId => {
+        val digestNotifications = SQL(s"""
+            |UPDATE user_notifications
+            |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
+            |WHERE id in (
+            |  SELECT id from user_notifications
+            |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST} AND
+            |       user_id=${recipientId}
+            |) RETURNING *
+        """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*)
+
+        UserNotificationEmailDigest(recipientId, digestNotifications)
+      })
+    }
+
+    // Email each digest if recipient has an email address on file
+    digests.foreach(digest => {
+      try {
+        dALManager.user.retrieveById(digest.userId) match {
+          case Some(user) =>
+            user.settings.email match {
+              case Some(address) if (!address.isEmpty) =>
+                this.emailProvider.emailNotificationDigest(address, digest.notifications)
+              case _ => None
+            }
+          case None => None
+        }
+      } catch {
+        case e: Exception => logger.error("Failed to send digest email: " + e)
+      }
+    })
+  }
+
   /**
     * We essentially create this recursive function, so that we don't take down the KeepRight servers
     * by bombarding it with tons of API requests.
@@ -379,7 +471,13 @@ class SchedulerActor @Inject()(config: Config,
     logger.info(action)
 
     db.withConnection { implicit c =>
-      SQL("INSERT INTO user_metrics_history SELECT *, CURRENT_TIMESTAMP FROM user_metrics").executeUpdate()
+      SQL(s"""INSERT INTO user_metrics_history
+              SELECT user_id, score, total_fixed, total_false_positive, total_already_fixed,
+                     total_too_hard, total_skipped, now(), initial_rejected, initial_approved,
+                     initial_assisted, total_rejected, total_approved, total_assisted
+              FROM user_metrics
+           """).executeUpdate()
+
 
       logger.info(s"Succesfully created snapshot of user metrics.")
     }

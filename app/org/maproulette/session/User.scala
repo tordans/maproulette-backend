@@ -89,8 +89,11 @@ case class ProjectManager(projectId: Long,
   * @param defaultBasemapId  The string id of the default basemap that the user wants to see
   * @param customBasemap     It default basemap is custom, then this is the url to the tile server
   * @param locale            The locale for the user, if not set will default to en
+  * @param email             The user's email address
   * @param emailOptIn        If the user has opted in to receive emails
   * @param leaderboardOptOut If the user has opted out of the public leaderboard
+  * @param needsReview       If the user's work should be reviewed
+  * @param isReviewer        If this user can review others work
   * @param theme             The theme to display in MapRoulette. Optionally - 0=skin-black, 1=skin-black-light,
   *                          2=skin-blue, 3=skin-blue-light, 4=skin-green, 5=skin-green-light,
   *                          6=skin-purple, 7=skin-purple-light, 8=skin-red, 9=skin-red-light, 10=skin-yellow, 11=skin-yellow-light
@@ -100,8 +103,11 @@ case class UserSettings(defaultEditor: Option[Int] = None,
                         defaultBasemapId: Option[String] = None,
                         customBasemap: Option[String] = None,
                         locale: Option[String] = None,
+                        email: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
                         leaderboardOptOut: Option[Boolean] = None,
+                        needsReview: Option[Int] = None,
+                        isReviewer: Option[Boolean] = None,
                         theme: Option[Int] = None) {
   def getTheme: String = theme match {
     case Some(t) => t match {
@@ -227,11 +233,18 @@ object User {
       "defaultBasemapId" -> optional(text),
       "customBasemap" -> optional(text),
       "locale" -> optional(text),
+      "email" -> optional(text),
       "emailOptIn" -> optional(boolean),
       "leaderboardOptOut" -> optional(boolean),
+      "needsReview" -> optional(number),
+      "isReviewer" -> optional(boolean),
       "theme" -> optional(number)
     )(UserSettings.apply)(UserSettings.unapply)
   )
+
+  val REVIEW_NOT_NEEDED = 0
+  val REVIEW_NEEDED = 1
+  val REVIEW_MANDATORY = 2
 
   /**
     * Generates a User object based on the json details and request token
@@ -278,7 +291,7 @@ object User {
       location,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").parseDateTime(osmAccountCreated),
       requestToken
-    ), groups, settings = UserSettings(theme = Some(THEME_BLUE)))
+    ), groups, settings = UserSettings(theme = Some(THEME_BLUE), needsReview = Option(config.defaultNeedsReview)))
   }
 
   def superUser: User = User(DEFAULT_SUPER_USER_ID, DateTime.now(), DateTime.now(),

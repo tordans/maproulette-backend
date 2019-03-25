@@ -125,13 +125,21 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[String]("tasks.instruction") ~
       get[String]("location") ~
       get[Int]("tasks.status") ~
-      get[Int]("tasks.priority") map {
-      case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ priority =>
+      get[Option[DateTime]]("tasks.mapped_on") ~
+      get[Int]("tasks.priority") ~
+      get[Option[Int]]("task_review.review_status") ~
+      get[Option[Int]]("task_review.review_requested_by") ~
+      get[Option[Int]]("task_review.reviewed_by") ~
+      get[Option[DateTime]]("task_review.reviewed_at") map {
+      case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
+           mappedOn ~ priority ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
+           reviewedAt =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
         ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-          instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, priority)
+          instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn,
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
     }
   }
 
@@ -372,9 +380,19 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           get[String]("geometry") ~
           get[Option[String]]("suggestedFix") ~
           get[Option[Int]]("tasks.status") ~
+          get[Option[DateTime]]("tasks.mapped_on") ~
+          get[Option[Int]]("task_review.review_status") ~
+          get[Option[Int]]("task_review.review_requested_by") ~
+          get[Option[Int]]("task_review.reviewed_by") ~
+          get[Option[DateTime]]("task_review.reviewed_at") ~
+          get[Option[Int]]("task_review.review_claimed_by") ~
           get[Int]("tasks.priority") map {
-          case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ geometry ~ suggestedFix ~ status ~ priority =>
-            Task(id, name, created, modified, parent_id, instruction, location, geometry, suggestedFix, status, priority)
+          case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
+               geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
+               reviewedBy ~ reviewedAt ~ reviewClaimedBy ~ priority =>
+            Task(id, name, created, modified, parent_id, instruction, location,
+                 geometry, suggestedFix, status, mappedOn, reviewStatus, reviewRequestedBy,
+                 reviewedBy, reviewedAt, reviewClaimedBy, priority)
         }
       }
 
@@ -399,9 +417,10 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                        ) As f
                                  ) As fc)::text AS suggestedFix
                       FROM tasks
+                      LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                       WHERE parent_id = {id} ${this.enabled(onlyEnabled)}
                       ${this.searchField("name")}
-                      ${this.order(orderColumn = Some(orderColumn), orderDirection = orderDirection, nameFix = true)}
+                      ${this.order(orderColumn = Some("tasks." + orderColumn), orderDirection = orderDirection, nameFix = true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
       SQL(query).on('ss -> this.search(searchString),
         'id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
@@ -619,11 +638,14 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      SQL"""SELECT t.id, t.name, t.instruction, t.status, t.parent_id, c.name,
-                    ST_AsGeoJSON(t.location) AS location, t.priority
+      SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
+                   t.parent_id, tr.review_status, tr.review_requested_by,
+                   tr.reviewed_by, tr.reviewed_at, c.name,
+                   ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
             INNER JOIN challenges c ON c.id = t.parent_id
             INNER JOIN projects p ON p.id = c.parent_id
+            LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
             WHERE t.parent_id = $challengeId
               AND p.deleted = false AND c.deleted = false
               AND ST_AsGeoJSON(t.location) IS NOT NULL

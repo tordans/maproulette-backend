@@ -513,6 +513,182 @@ GET     /project/:id/children                       @org.maproulette.controllers
 ###
 GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, limit:Int ?= 1, proximity:Long ?= -1)
 ###
+# summary: Retrieves a history for the task
+# produces: [ application/json ]
+# description: Retrieves list of task history log entries. This includes comments,
+#              status actions, and review actions.
+# responses:
+#   '200':
+#     description: List of log entries
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the task
+###
+GET     /task/:id/history                       @org.maproulette.controllers.api.TaskHistoryController.getTaskHistoryLog(id:Long)
+###
+# summary: Retrieves and claims a review needed Task
+# produces: [ application/json ]
+# description: Retrieves a Task and claims that task for review
+# responses:
+#   '200':
+#     description: The task
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the task to fetch and claim
+###
+GET     /task/:id/review/start                       @org.maproulette.controllers.api.TaskController.startTaskReview(id:Long)
+###
+# summary: Cancels a claim on a task for review
+# produces: [ application/json ]
+# description: Cancels a claim on a task for review
+# responses:
+#   '200':
+#     description: The task
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the task to cancel claim on
+###
+GET     /task/:id/review/cancel                       @org.maproulette.controllers.api.TaskController.cancelTaskReview(id:Long)
+###
+# summary: Retrieves tasks that need review
+# produces: [ application/json ]
+# description: Retrieves list of Tasks and total count
+# responses:
+#   '200':
+#     description: The list of tasks that need review (and that the user has group permission to access)
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is -1 (all).
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
+#   - name: order
+#     in: query
+#     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
+#   - name: cs
+#     in: query
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
+#   - name: o
+#     in: query
+#     description: The search string used to match the name of the person requesting the review. (review_requested_by)
+###
+GET     /tasks/review                          @org.maproulette.controllers.api.TaskController.getReviewRequestedTasks(limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
+###
+# summary: Retrieves reviewed tasks that have been reviewed either by this user or where the user requested
+#          the review.
+# produces: [ application/json ]
+# description: Retrieves list of Tasks
+# responses:
+#   '200':
+#     description: The list of tasks and total count
+#     description: The list of tasks
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: asReviewer
+#     in: query
+#     description: Whether results should be tasks reviewed by this user or review requested by this user
+#   - name: allowReviewNeeded
+#     in: query
+#     description: Whether results should be included tasks in tasks 'review requested'
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is -1 (all).
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
+#   - name: order
+#     in: query
+#     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
+#   - name: cs
+#     in: query
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
+#   - name: o
+#     in: query
+#     description: The search string used to match the name of the person requesting the review. (review_requested_by)
+#   - name: r
+#     in: query
+#     description: The search string used to match the Reviewer names. (reviewed_by)
+###
+GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskController.getReviewedTasks(asReviewer:Boolean ?= false, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
+###
+# summary: Retrieves and claims a the next review needed Task
+# produces: [ application/json ]
+# description: Retrieves the next Task (given the search parameters) and claims that task for review
+# responses:
+#   '200':
+#     description: The task
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
+#   - name: order
+#     in: query
+#     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
+#   - name: cs
+#     in: query
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
+#   - name: o
+#     in: query
+#     description: The search string used to match the name of the person requesting the review. (review_requested_by)
+#   - name: r
+#     in: query
+#     description: The search string used to match the Reviewer names. (reviewed_by)
+###
+GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskController.nextTaskReview(sort:String ?= "", order:String ?= "ASC")
+###
+# summary: Retrieves and claims a the next review needed Task
+# produces: [ application/json ]
+# description: Retrieves the next Task (given the search parameters) and claims that task for review
+# responses:
+#   '200':
+#     description: The task
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: sort
+#     in: query
+#     description: Sorts the results retuned in the response. Parameter is optional, if not provided then results will not be sorted.
+#   - name: order
+#     in: query
+#     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
+#   - name: cs
+#     in: query
+#     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
+#   - name: o
+#     in: query
+#     description: The search string used to match the name of the person requesting the review. (review_requested_by)
+#   - name: r
+#     in: query
+#     description: The search string used to match the Reviewer names. (reviewed_by)
+###
+GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskController.nextTaskReview(sort:String ?= "", order:String ?= "ASC")
+###
 # tags: [ Project ]
 # summary: Retrieves clustered challenge points
 # produces: [ application/json ]
@@ -2654,8 +2830,40 @@ PUT     /task/:id/changeset                         @org.maproulette.controllers
 #   - name: comment
 #     in: query
 #     description: Any comment that is provided by the user when setting the status
+#   - name: requestReview
+#     in: query
+#     description: Boolean indicating if a review is requested on this task. (Will override user settings if provided)
 ###
 PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int, comment:String ?= "")
+###
+# tags: [ Task ]
+# summary: Update Task Review Status
+# produces: [ application/json ]
+# description: Will update a Tasks review status to one of the following. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+# responses:
+#   '304':
+#     description: No Content, update successful
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the task
+#   - name: status
+#     in: path
+#     description: The status to update the Task to. Following status Integers can be used. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+#   - name: comment
+#     in: query
+#     description: Any comment that is provided by the user when setting the review status
+###
+PUT     /task/:id/review/:status                           @org.maproulette.controllers.api.TaskController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "")
 ###
 # tags: [ Challenge ]
 # summary: Retrieves task clusters
@@ -3388,6 +3596,126 @@ DELETE   /user/:userId/unsaveTask/:taskId           @org.maproulette.controllers
 #         $ref: '#/definitions/org.maproulette.session.UserSettings'
 ###
 PUT    /user/:userId                                @org.maproulette.controllers.api.UserController.updateUser(userId:Long)
+###
+# tags: [ User ]
+# summary: Retrieves Users notifications
+# produces: [ application/json ]
+# description: Retrieves notifications generated for the user
+# responses:
+#   '200':
+#     description: The retrieved UserNotifications
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.UserNotification'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to retrieve the notifications for
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+#   - name: sort
+#     in: query
+#     description: Name of column to sort by
+#   - name: order
+#     in: query
+#     description: sort order (ASC or DESC)
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+###
+GET     /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.getUserNotifications(userId:Long, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "is_read", order:String ?= "ASC", notificationType:Option[Int], isRead:Option[Int], fromUsername:Option[String])
+###
+# tags: [ User ]
+# summary: Mark user notifications as read
+# produces: [ application/json ]
+# description: Marks user notifications as read
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user that owns the notifications
+#   - name: notificationIds
+#     in: query
+#     description: One or more comma-separated ids of notifications to mark as read
+#     type: string,
+#     required: true
+###
+PUT     /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.markNotificationsRead(userId:Long, notificationIds:String)
+###
+# tags: [ User ]
+# summary: Delete user notifications
+# produces: [ application/json ]
+# description: Deletes the specified user notifications
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user that owns the notifications
+#   - name: notificationIds
+#     in: query
+#     description: One or more comma-separated ids of notifications to delete
+#     type: string,
+#     required: true
+###
+DELETE  /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.deleteNotifications(userId:Long, notificationIds:String)
+###
+# tags: [ User ]
+# summary: Retrieves Users notification subscriptions
+# produces: [ application/json ]
+# description: Retrieves the user's subscriptions to the various notification types
+# responses:
+#   '200':
+#     description: The retrieved NotificationSubscriptions
+#     schema:
+#       type: object
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.session.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to retrieve the subscriptions for
+###
+GET     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.NotificationController.getNotificationSubscriptions(userId:Long)
+###
+# tags: [ User ]
+# summary: Updates user's notification subscriptions
+# produces: [ application/json ]
+# description: Updates the user's subscriptions to various notification types
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to update the subscriptions for
+#   - name: body
+#     in: body
+#     description: The JSON structure for the updated subscription settings
+#     required: true
+#     schema:
+#       type: object
+#       $ref: '#/definitions/org.maproulette.session.User'
+###
+PUT     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.NotificationController.updateNotificationSubscriptions(userId:Long)
 ###
 # tags: [ User ]
 # summary: Refresh User Profile

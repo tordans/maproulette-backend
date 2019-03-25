@@ -99,6 +99,56 @@ osm.consumerKey=<APPLICATION_CONSUMER_KEY>
 osm.consumerSecret=<APPLICATION_CONSUMER_SECRET>
 ```
 
+#### SMTP (email) configuration
+
+MapRoulette now supports transmission of emails, for example to inform users
+when they receive new in-app notifications. You will need access to an SMTP
+server to send emails, and will also need to add SMTP configuration settings to
+your configuration file (or whatever configuration mechanism you're using).
+`play.mailer.host` is the only required SMTP setting, but most SMTP servers
+will also want a username and password.
+
+```
+play.mailer.host = "smtp.server.com"
+play.mailer.user = "smtpusername"
+play.mailer.password = "secret"
+```
+
+Many additional SMTP configuration options are available -- see
+[play-mailer](https://github.com/playframework/play-mailer/blob/master/README.md)
+for a full list.
+
+> Note: If you're doing development, you can set `play.mailer.mock = yes` to
+> simply log emails instead of transmitting them
+
+It's also important that you set the `emailFrom` setting to the email address
+you wish emails to come from, and that you ensure `publicOrigin` is set so that
+links in emails will properly point to your server.
+
+```
+emailFrom = "maproulette@yourserver.com"
+publicOrigin = "https://www.yourserver.com"
+```
+
+By default, notification emails that are to be sent immediately are processed
+by a background job every 1 minute. Both the frequency and max number of emails
+to process in a single run can be controlled.
+
+```
+notifications.immediateEmail.interval = "1 minute"
+notifications.immediateEmail.batchSize = 10         # max emails per run
+```
+
+Notification emails that are to be sent as a digest are initially processed at
+8pm local server time by default, and then every 24 hours thereafter (i.e.
+daily digests). Both of these settings can be customized. There is not
+currently a maximum limit to the number of emails for digest emails.
+
+```
+notifications.digestEmail.startTime = "20:00:00"    # 8pm local server time
+notifications.digestEmail.interval = "24 hours"     # once daily
+```
+
 #### SSL
 
 Openstreetmap.org recently moved to SSL only. This means that to authenticate against any SSL server you are now required to make sure that Java trusts the OSM SSL certificates. This is not very difficult to do, however they need to be completed for it to work. The steps below are for linux/Mac systems.

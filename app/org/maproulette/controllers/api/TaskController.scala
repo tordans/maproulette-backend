@@ -10,9 +10,9 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
-import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL, DALManager}
 import org.maproulette.models._
-import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL}
+import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
@@ -36,6 +36,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
                                override val actionManager: ActionManager,
                                override val dal: TaskDAL,
                                override val tagDAL: TagDAL,
+                               dalManager: DALManager,
                                wsClient: WSClient,
                                config: Config,
                                components: ControllerComponents,
@@ -48,6 +49,9 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   override implicit val tReads: Reads[Task] = Task.TaskFormat
   // json writes for automatically writing Tasks to a json body response
   override implicit val tWrites: Writes[Task] = Task.TaskFormat
+  // json writes for automatically writing Challenges to a json body response
+  implicit val cWrites: Writes[Challenge] = Challenge.writes.challengeWrites
+
   // The type of object that this controller deals with.
   override implicit val itemType = TaskType()
   // json reads for automatically reading Tags from a posted json body
@@ -222,6 +226,149 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   }
 
   /**
+    * Gets and claims a task that needs to be reviewed.
+    *
+    * @param id Task id to work on
+    * @return
+    */
+  def startTaskReview(id:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val task = this.dal.retrieveById(id) match {
+        case Some(t) => t
+        case None => throw new NotFoundException(s"Task with $id not found, cannot start review.")
+      }
+
+      val result = this.dal.startTaskReview(user, task)
+      Ok(Json.toJson(result))
+    }
+  }
+
+  /**
+    * Releases a claim on a task that needs to be reviewed.
+    *
+    * @param id Task id to work on
+    * @return
+    */
+  def cancelTaskReview(id:Long) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val task = this.dal.retrieveById(id) match {
+        case Some(t) => t
+        case None => throw new NotFoundException(s"Task with $id not found, cannot cancel review.")
+      }
+
+      val result = this.dal.cancelTaskReview(user, task)
+      Ok(Json.toJson(result))
+    }
+  }
+
+  /**
+    * Gets and claims the next task that needs to be reviewed.
+    *
+    * Valid search parameters include:
+    * cs => "my challenge name"
+    * o => "mapper's name"
+    * r => "reviewer's name"
+    *
+    * @return Task
+    */
+  def nextTaskReview(sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val result = this.dal.nextTaskReview(user, params, sort, order)
+        val nextTask = result match {
+          case Some(task) =>
+            Ok(Json.toJson(this.dal.startTaskReview(user, task)))
+          case None =>
+            throw new NotFoundException("No tasks found to review.")
+        }
+
+        nextTask
+      }
+    }
+  }
+
+  /**
+    * Gets tasks where a review is requested
+    *
+    * @param limit The number of tasks to return
+    * @param page The page number for the results
+    * @param sort The column to sort
+    * @param order The order direction to sort
+    * @return
+    */
+  def getReviewRequestedTasks(limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        //cs => "my challenge name"
+        //o => "mapper's name"
+        //r => "reviewer's name"
+        val (count, result) = this.dal.getReviewRequestedTasks(User.userOrMocked(user), params, limit, page, sort, order)
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
+      }
+    }
+  }
+
+  /**
+    * Gets reviewed tasks where the user has reviewed or requested review
+    *
+    * @param asReviewer Whether we should return tasks reviewed by this user or reqested by this user
+    * @param allowReviewNeeded Whether we should return tasks where status is review requested also
+    * @param limit The number of tasks to return
+    * @param page The page number for the results
+    * @param sort The column to sort
+    * @param order The order direction to sort
+    * @return
+    */
+  def getReviewedTasks(asReviewer: Boolean=false, allowReviewNeeded: Boolean=false, limit:Int, page:Int,
+                       sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val (count, result) = this.dal.getReviewedTasks(User.userOrMocked(user), params,
+             asReviewer, allowReviewNeeded, limit, page, sort, order)
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
+      }
+    }
+  }
+
+  /**
+   * Fetches the matching parent object and inserts it (id, name, status)
+   * into the JSON data returned. Also fetches and inserts usernames for
+   * 'reviewRequestedBy' and 'reviewBy'
+   */
+  private def _insertExtraJSON(tasks: List[Task]): JsValue = {
+    if (tasks.isEmpty) {
+      Json.toJson(List[JsValue]())
+    } else {
+      val challenges = Some(this.dalManager.challenge.retrieveListById(-1, 0)(tasks.map(c =>
+        c.parent)).map(c => c.id -> Json.obj("id" -> c.id, "name" -> c.name, "status" -> c.status)).toMap)
+
+      val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
+        t => t.reviewRequestedBy.getOrElse(0).toLong)).map(u =>
+          u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
+        t => t.reviewedBy.getOrElse(0).toLong)).map(u =>
+          u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val jsonList = tasks.map { task =>
+        val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
+        var updated = Utils.insertIntoJson(Json.toJson(task), Challenge.KEY_PARENT, challengeJson, true)
+        if (task.reviewRequestedBy.getOrElse(0) != 0) {
+          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get.toLong)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "reviewRequestedBy", mapperJson, true)
+        }
+        if (task.reviewedBy.getOrElse(0) != 0) {
+          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get.toLong)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
+        }
+
+        updated
+      }
+      Json.toJson(jsonList)
+    }
+  }
+
+  /**
     * Gets all the tasks within a bounding box
     *
     * @param left   The minimum latitude for the bounding box
@@ -253,12 +400,17 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     */
   def setTaskStatus(id: Long, status: Int, comment: String = ""): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      this.customTaskStatus(id, TaskStatusSet(status), user, comment)
+      val requestReview = request.getQueryString("requestReview") match {
+        case Some(v) => Some(v.toBoolean)
+        case None => None
+      }
+
+      this.customTaskStatus(id, TaskStatusSet(status), user, comment, requestReview)
       NoContent
     }
   }
 
-  def customTaskStatus(taskId: Long, actionType: ActionType, user: User, comment: String = ""): Unit = {
+  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="", requestReview:Option[Boolean] = None) = {
     val status = actionType match {
       case t: TaskStatusSet => t.status
       case q: QuestionAnswered => Task.STATUS_ANSWERED
@@ -272,7 +424,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       case Some(t) => t
       case None => throw new NotFoundException(s"Task with $taskId not found, can not set status.")
     }
-    this.dal.setTaskStatus(task, status, user)
+    this.dal.setTaskStatus(task, status, user, requestReview)
     val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
     // add comment if any provided
     if (comment.nonEmpty) {
@@ -280,7 +432,36 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         case Some(a) => Some(a.id)
         case None => None
       }
-      this.dal.addComment(user, task.id, comment, actionId)
+      this.dal.addComment(user, task, comment, actionId)
+    }
+  }
+
+  /**
+    * This function sets the task review status.
+    * Must be authenticated to perform operation and marked as a reviewer.
+    *
+    * @param id The id of the task
+    * @param reviewStatus The review status id to set the task's review status to
+    * @return 400 BadRequest if task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setTaskReviewStatus(id: Long, reviewStatus: Int, comment:String="") : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val task = this.dal.retrieveById(id) match {
+        case Some(t) => t
+        case None => throw new NotFoundException(s"Task with $id not found, cannot set review status.")
+      }
+
+      val action = this.actionManager.setAction(Some(user), new TaskItem(task.id),
+                     TaskReviewStatusSet(reviewStatus), task.name)
+      val actionId = action match {
+        case Some(a) => Some(a.id)
+        case None => None
+      }
+
+      this.dal.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+
+      NoContent
     }
   }
 
@@ -342,7 +523,11 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     */
   def addComment(taskId: Long, comment: String, actionId: Option[Long]): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Created(Json.toJson(this.dal.addComment(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)))
+      val task = this.dal.retrieveById(taskId) match {
+        case Some(t) => t
+        case None => throw new NotFoundException(s"Task with $taskId not found, can not add comment.")
+      }
+      Created(Json.toJson(this.dal.addComment(user, task, URLDecoder.decode(comment, "UTF-8"), actionId)))
     }
   }
 

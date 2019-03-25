@@ -63,6 +63,8 @@ class Config @Inject()(implicit val application: Application) {
     this.config.getOptional[Int](Config.KEY_TASK_SCORE_TOO_HARD).getOrElse(Config.DEFAULT_TASK_SCORE_TOO_HARD)
   lazy val taskScoreSkipped: Int =
     this.config.getOptional[Int](Config.KEY_TASK_SCORE_SKIPPED).getOrElse(Config.DEFAULT_TASK_SCORE_SKIPPED)
+  lazy val defaultNeedsReview: Int =
+    this.config.getOptional[Int](Config.KEY_REVIEW_NEEDED_DEFAULT).getOrElse(Config.DEFAULT_REVIEW_NEEDED)  
   lazy val osmMatcherEnabled: Boolean =
     this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED).getOrElse(Config.DEFAULT_OSM_MATCHER_ENABLED)
   lazy val osmMatcherManualOnly: Boolean =
@@ -98,6 +100,10 @@ class Config @Inject()(implicit val application: Application) {
   lazy val sessionTimeout: Long = this.config.getOptional[Long](Config.KEY_SESSION_TIMEOUT).getOrElse(Config.DEFAULT_SESSION_TIMEOUT)
   lazy val getPublicOrigin: Option[String] =
     this.config.getOptional[String](Config.KEY_PUBLIC_ORIGIN)
+  lazy val getEmailFrom: Option[String] =
+    this.config.getOptional[String](Config.KEY_EMAIL_FROM)
+  lazy val notificationImmediateEmailBatchSize: Int =
+    this.config.getOptional[Int](Config.KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE).getOrElse(Config.DEFAULT_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE)
   lazy val taskReset: Int = this.config.getOptional[Int](Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
   lazy val signIn: Boolean = this.config.getOptional[Boolean](Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
   val config = application.configuration
@@ -144,6 +150,7 @@ object Config {
   val KEY_SEMANTIC_VERSION = s"$GROUP_MAPROULETTE.version"
   val KEY_SESSION_TIMEOUT = s"$GROUP_MAPROULETTE.session.timeout"
   val KEY_PUBLIC_ORIGIN = s"$GROUP_MAPROULETTE.publicOrigin"
+  val KEY_EMAIL_FROM = s"$GROUP_MAPROULETTE.emailFrom"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
   val KEY_SIGNIN = s"$GROUP_MAPROULETTE.signin"
   val KEY_TASK_SCORE_FIXED = s"$GROUP_MAPROULETTE.task.score.fixed"
@@ -151,9 +158,11 @@ object Config {
   val KEY_TASK_SCORE_ALREADY_FIXED = s"$GROUP_MAPROULETTE.task.score.alreadyFixed"
   val KEY_TASK_SCORE_TOO_HARD = s"$GROUP_MAPROULETTE.task.score.tooHard"
   val KEY_TASK_SCORE_SKIPPED = s"$GROUP_MAPROULETTE.task.score.skipped"
+  val KEY_REVIEW_NEEDED_DEFAULT = s"$GROUP_MAPROULETTE.review.default"
 
   val SUB_GROUP_SCHEDULER = s"$GROUP_MAPROULETTE.scheduler"
   val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
+  val KEY_SCHEDULER_CLEAN_CLAIM_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanClaimLocks.interval"
   val KEY_SCHEDULER_RUN_CHALLENGE_SCHEDULES_INTERVAL = s"$SUB_GROUP_SCHEDULER.runChallengeSchedules.interval"
   val KEY_SCHEDULER_UPDATE_LOCATIONS_INTERVAL = s"$SUB_GROUP_SCHEDULER.updateLocations.interval"
   val KEY_SCHEDULER_CLEAN_TASKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanOldTasks.interval"
@@ -169,6 +178,10 @@ object Config {
   val KEY_SCHEDULER_CHALLENGES_LEADERBOARD = s"$SUB_GROUP_SCHEDULER.challengesLeaderboard.interval"
   val KEY_SCHEDULER_COUNTRY_LEADERBOARD = s"$SUB_GROUP_SCHEDULER.countryLeaderboard.interval"
   val KEY_SCHEDULER_COUNTRY_LEADERBOARD_START = s"$SUB_GROUP_SCHEDULER.countryLeaderboard.startTime"
+  val KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_INTERVAL = s"$SUB_GROUP_SCHEDULER.notifications.immediateEmail.interval"
+  val KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE = s"$SUB_GROUP_SCHEDULER.notifications.immediateEmail.batchSize"
+  val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_INTERVAL = s"$SUB_GROUP_SCHEDULER.notifications.digestEmail.interval"
+  val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_START = s"$SUB_GROUP_SCHEDULER.notifications.digestEmail.startTime"
   val KEY_SCHEDULER_SNAPSHOT_USER_METRICS = s"$SUB_GROUP_SCHEDULER.userMetricsSnapshot.interval"
   val KEY_SCHEDULER_SNAPSHOT_USER_METRICS_START = s"$SUB_GROUP_SCHEDULER.userMetricsSnapshot.startTime"
 
@@ -215,6 +228,8 @@ object Config {
   val DEFAULT_CHANGESET_ENABLED = false
   val DEFAULT_OSM_MATCHER_ENABLED = false
   val DEFAULT_OSM_MATCHER_MANUAL = false
+  val DEFAULT_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE = 10
   val DEFAULT_MATCHER_BATCH_SIZE = 5000
   val DEFAULT_MAPILLARY_BORDER = 10
+  val DEFAULT_REVIEW_NEEDED = 0
 }

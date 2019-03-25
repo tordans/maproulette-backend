@@ -71,18 +71,27 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.default_basemap_id") ~
       get[Option[String]]("users.custom_basemap_url") ~
+      get[Option[String]]("users.email") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
+      get[Option[Int]]("users.needs_review") ~
+      get[Option[Boolean]]("users.is_reviewer") ~
       get[Option[String]]("users.locale") ~
       get[Option[Int]]("users.theme") ~
       get[Option[String]]("properties") ~
       get[Option[Int]]("score") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
         homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ emailOptIn ~ leaderboardOptOut ~ locale ~ theme ~ properties ~ score =>
+        customBasemap ~ email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
+        properties ~ score =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
+        }
+
+        val setNeedsReview = needsReview match {
+          case Some(nr) => needsReview
+          case None => Option(config.defaultNeedsReview)
         }
 
         new User(id, created, modified,
@@ -91,7 +100,7 @@ class UserDAL @Inject()(override val db: Database,
           userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, theme),
+          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, email, emailOptIn, leaderboardOptOut, setNeedsReview, isReviewer, theme),
           properties,
           score
         )
@@ -116,6 +125,29 @@ class UserDAL @Inject()(override val db: Database,
       get[List[Int]]("group_types") map {
       case projectId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
         ProjectManager(projectId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
+    }
+  }
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @param user The user making the request
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMID(implicit id: Long, user: User): Option[User] = this.cacheManager.withOptionCaching { () =>
+    this.db.withConnection { implicit c =>
+      val query =
+        s"""SELECT ${this.retrieveColumns}, score FROM users
+                      LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                      WHERE osm_id = {id}"""
+      SQL(query).on('id -> id).as(this.parser.*).headOption match {
+        case Some(u) =>
+          this.permission.hasObjectReadAccess(u, user)
+          Some(u)
+        case None => None
+      }
     }
   }
 
@@ -166,7 +198,7 @@ class UserDAL @Inject()(override val db: Database,
         val query =
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                        WHERE name = {name}"""
+                        WHERE LOWER(name) = LOWER({name})"""
         SQL(query).on('name -> username).as(this.parser.*).headOption
       }
     } else {
@@ -321,6 +353,35 @@ class UserDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
+    * in the cache and those that aren't will be retrieved from the database
+    *
+    * @param limit The limit on the number of objects returned. This is not entirely useful as a limit
+    *              could be set simply by how many ids you supplied in the list, but possibly useful
+    *              for paging
+    * @param offset For paging, ie. the page number starting at 0
+    * @param ids The list of ids to be retrieved
+    * @return A list of objects, empty list if none found
+    */
+  override def retrieveListById(limit: Int = -1, offset: Int = 0)(implicit ids:List[Long], c: Option[Connection] = None): List[User] = {
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
+        this.withMRConnection { implicit c =>
+          val query =
+            s"""SELECT ${this.retrieveColumns}, score FROM ${this.tableName}
+                          LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                          WHERE id IN ({inString})
+                          LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            'offset -> offset).as(this.parser.*)
+        }
+      }
+    }
+  }
+
+  /**
     * This is a specialized update that is accessed via the API that allows users to update only the
     * fields that are available for update. This is so that there is no accidental update of OSM username
     * or anything retrieved from the OSM API.
@@ -370,10 +431,20 @@ class UserDAL @Inject()(override val db: Database,
         val defaultBasemapId = (value \ "settings" \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.settings.defaultBasemapId.getOrElse(""))
         val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
+        val email = (value \ "settings" \ "email").asOpt[String].getOrElse(cachedItem.settings.email.getOrElse(""))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
+        var needsReview = (value \ "settings" \ "needsReview").asOpt[Int].getOrElse(cachedItem.settings.needsReview.getOrElse(config.defaultNeedsReview))
+        val isReviewer = (value \ "settings" \ "isReviewer").asOpt[Boolean].getOrElse(cachedItem.settings.isReviewer.getOrElse(false))
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
         val properties = (value \ "properties").asOpt[String].getOrElse(cachedItem.properties.getOrElse("{}"))
+
+        // If this user always requires a review, then they are not allowed to change it (except super users)
+        if (user.settings.needsReview.getOrElse(0) == User.REVIEW_MANDATORY) {
+          if (!user.isSuperUser) {
+            needsReview = User.REVIEW_MANDATORY
+          }
+        }
 
         this.updateGroups(value, user)
         this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
@@ -383,8 +454,8 @@ class UserDAL @Inject()(override val db: Database,
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
-                                          locale = {locale}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
-                                          theme = {theme}, properties = {properties}
+                                          locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
+                                          needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
         SQL(query).on(
@@ -400,8 +471,11 @@ class UserDAL @Inject()(override val db: Database,
           'defaultBasemapId -> defaultBasemapId,
           'customBasemap -> customBasemap,
           'locale -> locale,
+          'email -> email,
           'emailOptIn -> emailOptIn,
           'leaderboardOptOut -> leaderboardOptOut,
+          'needsReview -> needsReview,
+          'isReviewer -> isReviewer,
           'theme -> theme,
           'properties -> properties
         ).as(this.parser.*).headOption
@@ -547,29 +621,6 @@ class UserDAL @Inject()(override val db: Database,
       }
       Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
     }.get
-  }
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @param user The user making the request
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMID(implicit id: Long, user: User): Option[User] = this.cacheManager.withOptionCaching { () =>
-    this.db.withConnection { implicit c =>
-      val query =
-        s"""SELECT ${this.retrieveColumns}, score FROM users
-                      LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                      WHERE osm_id = {id}"""
-      SQL(query).on('id -> id).as(this.parser.*).headOption match {
-        case Some(u) =>
-          this.permission.hasObjectReadAccess(u, user)
-          Some(u)
-        case None => None
-      }
-    }
   }
 
   /**
@@ -793,8 +844,9 @@ class UserDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       val query =
         s"""
-           |SELECT ${taskDAL.retrieveColumns} FROM tasks
-           |WHERE id IN (
+           |SELECT ${taskDAL.retrieveColumnsWithReview} FROM tasks
+           |LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+           |WHERE tasks.id IN (
            |  SELECT task_id FROM saved_tasks
            |  WHERE user_id = $userId
            |  ${
@@ -855,52 +907,82 @@ class UserDAL @Inject()(override val db: Database,
     * Updates the user's score in the user_metrics table.
     *
     * @param taskStatus The new status of the task to credit the user for.
+    * @param taskReviewStatus The review status of the task to credit the user for.
+    * @param isReviewRevision Whether this is the first review or is occurring after
+    *                         a revision (due to a rejected status)
     * @param user       The user who should get the credit
     */
-  def updateUserScore(taskStatus: Int, user: User)(implicit c: Connection = null) = {
+  def updateUserScore(taskStatus: Option[Int], taskReviewStatus: Option[Int], isReviewRevision: Boolean = false,
+                      userId: Long)(implicit c: Connection = null) = {
     // We need to invalidate the user in the cache.
-    implicit val id = user.id
+    implicit val id = userId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      this.permission.hasObjectAdminAccess(cachedItem, user)
       this.withMRTransaction { implicit c =>
-        //this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)
         var statusBump = ""
 
         val pointsToAward = taskStatus match {
-          case Task.STATUS_FIXED => {
+          case Some(Task.STATUS_FIXED) => {
             statusBump = ", total_fixed=(total_fixed + 1)"
             config.taskScoreFixed
           }
-          case Task.STATUS_FALSE_POSITIVE => {
+          case Some(Task.STATUS_FALSE_POSITIVE) => {
             statusBump = ", total_false_positive=(total_false_positive + 1)"
             config.taskScoreFalsePositive
           }
-          case Task.STATUS_ALREADY_FIXED => {
+          case Some(Task.STATUS_ALREADY_FIXED) => {
             statusBump = ", total_already_fixed=(total_already_fixed + 1)"
             config.taskScoreAlreadyFixed
           }
-          case Task.STATUS_TOO_HARD => {
+          case Some(Task.STATUS_TOO_HARD) => {
             statusBump = ", total_too_hard=(total_too_hard + 1)"
             config.taskScoreTooHard
           }
-          case Task.STATUS_SKIPPED => {
+          case Some(Task.STATUS_SKIPPED) => {
             statusBump = ", total_skipped=(total_skipped + 1)"
             config.taskScoreSkipped
           }
+          case None => 0
           case default => 0
         }
 
         val scoreBump = "score=(score + " + pointsToAward + ")"
 
-        val updateScoreQuery =
-          s"""UPDATE user_metrics SET ${scoreBump} ${statusBump} WHERE user_id = ${user.id} """
+        taskReviewStatus match {
+          case Some(Task.REVIEW_STATUS_REJECTED) => {
+            statusBump = ", total_rejected=(total_rejected + 1)"
+            if (!isReviewRevision) {
+              statusBump += ", initial_rejected=(initial_rejected + 1)"
+            }
+          }
+          case Some(Task.REVIEW_STATUS_APPROVED) => {
+            statusBump = ", total_approved=(total_approved + 1)"
+            if (!isReviewRevision) {
+              statusBump += ", initial_approved=(initial_approved + 1)"
+            }
+          }
+          case Some(Task.REVIEW_STATUS_ASSISTED) => {
+            statusBump = ", total_assisted=(total_assisted + 1)"
+            if (!isReviewRevision) {
+              statusBump += ", initial_assisted=(initial_assisted + 1)"
+            }
+          }
+          case default => None
+        }
 
+        // We need to make sure the user is in the database first.
+        SQL(s"""INSERT INTO user_metrics (user_id, score, total_fixed, total_false_positive,
+                total_already_fixed, total_too_hard, total_skipped)
+                VALUES (${userId}, 0, 0, 0, 0, 0, 0)
+                ON CONFLICT (user_id) DO NOTHING""").executeUpdate()
+
+        val updateScoreQuery =
+          s"""UPDATE user_metrics SET ${scoreBump} ${statusBump} WHERE user_id = ${userId} """
         SQL(updateScoreQuery).executeUpdate()
 
         val query =
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                        WHERE id = ${user.id}"""
+                        WHERE id = ${userId}"""
         SQL(query).as(this.parser.*).headOption
       }
     }
