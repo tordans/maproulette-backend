@@ -48,6 +48,7 @@ class TaskDAL @Inject()(override val db: Database,
                         userDAL: Provider[UserDAL],
                         projectDAL: Provider[ProjectDAL],
                         challengeDAL: Provider[ChallengeDAL],
+                        notificationDAL: Provider[NotificationDAL],
                         actions: ActionManager,
                         statusActions: StatusActionManager,
                         ws: WSClient)
@@ -598,7 +599,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user   The user setting the status
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], comment: String="")(implicit c:Connection=null): Int = {
+  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], commentContent: String="")(implicit c:Connection=null): Int = {
     if (!user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
       throw new IllegalAccessException("User must be a reviewer to edit task review status.")
     }
@@ -639,12 +640,18 @@ class TaskDAL @Inject()(override val db: Database,
         case e: Exception => logger.warn(e.getMessage)
       }
 
+      val comment = commentContent.nonEmpty match {
+        case true => Some(addComment(user, task, commentContent, actionId))
+        case false => None
+      }
+
       if (needsReReview) {
         // Let's note in the task_review_history table that this task needs review again
         SQL"""INSERT INTO task_review_history
                           (task_id, requested_by, reviewed_by, review_status, reviewed_at)
               VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
                       ${reviewStatus}, ${now})""".executeUpdate()
+        this.notificationDAL.get().createReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
       }
       else {
         // Let's note in the task_review_history table that this task was reviewed
@@ -652,13 +659,10 @@ class TaskDAL @Inject()(override val db: Database,
                           (task_id, requested_by, reviewed_by, review_status, reviewed_at)
               VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
                       ${reviewStatus}, ${now})""".executeUpdate()
+        this.notificationDAL.get().createReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
       }
 
       this.cacheManager.withOptionCaching { () => Some(task.copy(reviewStatus = Some(reviewStatus))) }
-
-      if (comment.nonEmpty) {
-        addComment(user, task.id, comment, actionId)
-      }
 
       if (!needsReReview) {
         this.userDAL.get().updateUserScore(None, Option(reviewStatus),
@@ -711,13 +715,11 @@ class TaskDAL @Inject()(override val db: Database,
                   }) match {
                     case Some(change) =>
                       this.withMRConnection { implicit c =>
-                        logger.debug(s"Updating task [${task.id}] with changeset [${change.id}]")
                         SQL(s"""UPDATE tasks SET changeset_id = ${change.id} WHERE id = ${task.id}""").executeUpdate()
                       }
                       result success true
                     case None =>
                       this.withMRConnection { implicit c =>
-                        logger.debug(s"No changeset found for user ${sa.osmUserId} on Task [${task.id}] from changesets [${responseList.mkString(",")}]")
                         // if we can't find any viable option set the id to -2 so that we don't try again
                         // but only set it to -2 if the current time is 1 hour after the set time for the task
                         if (Math.abs(currentDateTimeUTC.getMillis - sa.created.getMillis) > (config.changeSetTimeLimit.toHours * 3600 * 1000)) {
@@ -1570,12 +1572,12 @@ class TaskDAL @Inject()(override val db: Database,
     * Add comment to a task
     *
     * @param user     The user adding the comment
-    * @param taskId   The task that you are adding the comment too
+    * @param task     The task that you are adding the comment too
     * @param comment  The actual comment
     * @param actionId the id for the action if any action associated
     * @param c
     */
-  def addComment(user: User, taskId: Long, comment: String, actionId: Option[Long])(implicit c: Option[Connection] = None): Comment = {
+  def addComment(user: User, task: Task, comment: String, actionId: Option[Long])(implicit c: Option[Connection] = None): Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(comment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -1586,11 +1588,14 @@ class TaskDAL @Inject()(override val db: Database,
            |VALUES ({osm_id}, {task_id}, {comment}, {action_id}) RETURNING id, project_id, challenge_id
          """.stripMargin
       SQL(query).on('osm_id -> user.osmProfile.id,
-        'task_id -> taskId,
+        'task_id -> task.id,
         'comment -> comment,
         'action_id -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
         case Some(ids) =>
-          Comment(ids._1._1, user.osmProfile.id, user.name, taskId, ids._1._2, ids._2, DateTime.now(), comment, actionId)
+          val newComment =
+            Comment(ids._1._1, user.osmProfile.id, user.name, task.id, ids._1._2, ids._2, DateTime.now(), comment, actionId)
+          this.notificationDAL.get().createMentionNotifications(user, newComment, task)
+          newComment
         case None => throw new Exception("Failed to add comment")
       }
     }
@@ -1660,6 +1665,8 @@ class TaskDAL @Inject()(override val db: Database,
       }
     }
   }
+
+
 
   private def getTaskGeometries(id: Long)(implicit c: Option[Connection] = None): String = this.taskGeometries(id, "task_geometries")
 

@@ -11,10 +11,10 @@ import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
-import org.maproulette.models.Task
+import org.maproulette.models.{Task, UserNotification, UserNotificationEmail, UserNotificationEmailDigest}
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider}
+import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider, EmailProvider}
 import org.maproulette.session.User
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
@@ -35,7 +35,8 @@ class SchedulerActor @Inject()(config: Config,
                                db: Database,
                                dALManager: DALManager,
                                keepRightProvider: KeepRightProvider,
-                               boundingBoxFinder: BoundingBoxFinder) extends Actor {
+                               boundingBoxFinder: BoundingBoxFinder,
+                               emailProvider: EmailProvider) extends Actor {
   // cleanOldTasks configuration
   lazy val oldTasksStatusFilter = appConfig.getOptional[Seq[Int]](Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
     Seq[Int](new Integer(STATUS_CREATED))
@@ -61,6 +62,8 @@ class SchedulerActor @Inject()(config: Config,
     case RunJob("cleanDeleted", action) => this.cleanDeleted(action)
     case RunJob("KeepRightUpdate", action) => this.keepRightUpdate(action)
     case RunJob("snapshotUserMetrics", action) => this.snapshotUserMetrics(action)
+    case RunJob("sendImmediateNotificationEmails", action) => this.sendImmediateNotificationEmails(action)
+    case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
   }
 
   /**
@@ -358,6 +361,81 @@ class SchedulerActor @Inject()(config: Config,
       val totalTime = System.currentTimeMillis - start
       logger.debug("Time to rebuild country leaderboard: %1d ms".format(totalTime))
     }
+  }
+
+  def sendImmediateNotificationEmails(action: String) = {
+    logger.info(action)
+
+    // Gather notifications needing an immediate email and send email for each
+    db.withConnection { implicit c =>
+      SQL(s"""
+        |UPDATE user_notifications
+        |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
+        |WHERE id in (
+        |  SELECT id from user_notifications
+        |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_IMMEDIATE}
+        |  ORDER BY created ASC
+        |  LIMIT ${config.notificationImmediateEmailBatchSize}
+        |) RETURNING *
+      """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*).foreach(notification => {
+        // Send email if user has an email address on file
+        try {
+          dALManager.user.retrieveById(notification.userId) match {
+            case Some(user) =>
+              user.settings.email match {
+                case Some(address) if (!address.isEmpty) =>
+                  this.emailProvider.emailNotification(address, notification)
+                case _ => None
+              }
+            case None => None
+          }
+        } catch {
+          case e: Exception => logger.error("Failed to send immediate email: " + e)
+        }
+      })
+    }
+  }
+
+  def sendDigestNotificationEmails(action: String) = {
+    logger.info(action)
+    var digests: List[UserNotificationEmailDigest] = List.empty
+
+    db.withConnection { implicit c =>
+      // Gather up users with unsent digest notifications and build digests for each
+      digests = SQL(s"""
+        |SELECT distinct(user_id) from user_notifications
+        |WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST}
+      """.stripMargin).as(SqlParser.int("user_id").*).map(recipientId => {
+        val digestNotifications = SQL(s"""
+            |UPDATE user_notifications
+            |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
+            |WHERE id in (
+            |  SELECT id from user_notifications
+            |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST} AND
+            |       user_id=${recipientId}
+            |) RETURNING *
+        """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*)
+
+        UserNotificationEmailDigest(recipientId, digestNotifications)
+      })
+    }
+
+    // Email each digest if recipient has an email address on file
+    digests.foreach(digest => {
+      try {
+        dALManager.user.retrieveById(digest.userId) match {
+          case Some(user) =>
+            user.settings.email match {
+              case Some(address) if (!address.isEmpty) =>
+                this.emailProvider.emailNotificationDigest(address, digest.notifications)
+              case _ => None
+            }
+          case None => None
+        }
+      } catch {
+        case e: Exception => logger.error("Failed to send digest email: " + e)
+      }
+    })
   }
 
   /**

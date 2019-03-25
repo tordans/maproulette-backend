@@ -71,6 +71,7 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.default_basemap_id") ~
       get[Option[String]]("users.custom_basemap_url") ~
+      get[Option[String]]("users.email") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
       get[Option[Int]]("users.needs_review") ~
@@ -81,7 +82,7 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[Int]]("score") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
         homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
+        customBasemap ~ email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
         properties ~ score =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
@@ -99,7 +100,7 @@ class UserDAL @Inject()(override val db: Database,
           userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, setNeedsReview, isReviewer, theme),
+          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, email, emailOptIn, leaderboardOptOut, setNeedsReview, isReviewer, theme),
           properties,
           score
         )
@@ -124,6 +125,29 @@ class UserDAL @Inject()(override val db: Database,
       get[List[Int]]("group_types") map {
       case projectId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
         ProjectManager(projectId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
+    }
+  }
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @param user The user making the request
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMID(implicit id: Long, user: User): Option[User] = this.cacheManager.withOptionCaching { () =>
+    this.db.withConnection { implicit c =>
+      val query =
+        s"""SELECT ${this.retrieveColumns}, score FROM users
+                      LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                      WHERE osm_id = {id}"""
+      SQL(query).on('id -> id).as(this.parser.*).headOption match {
+        case Some(u) =>
+          this.permission.hasObjectReadAccess(u, user)
+          Some(u)
+        case None => None
+      }
     }
   }
 
@@ -174,7 +198,7 @@ class UserDAL @Inject()(override val db: Database,
         val query =
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                        WHERE name = {name}"""
+                        WHERE LOWER(name) = LOWER({name})"""
         SQL(query).on('name -> username).as(this.parser.*).headOption
       }
     } else {
@@ -407,6 +431,7 @@ class UserDAL @Inject()(override val db: Database,
         val defaultBasemapId = (value \ "settings" \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.settings.defaultBasemapId.getOrElse(""))
         val customBasemap = (value \ "settings" \ "customBasemap").asOpt[String].getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
+        val email = (value \ "settings" \ "email").asOpt[String].getOrElse(cachedItem.settings.email.getOrElse(""))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
         var needsReview = (value \ "settings" \ "needsReview").asOpt[Int].getOrElse(cachedItem.settings.needsReview.getOrElse(config.defaultNeedsReview))
@@ -429,7 +454,7 @@ class UserDAL @Inject()(override val db: Database,
                                           avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
-                                          locale = {locale}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
+                                          locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
                                           needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, properties = {properties}
                         WHERE id = {id} RETURNING ${this.retrieveColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
@@ -446,6 +471,7 @@ class UserDAL @Inject()(override val db: Database,
           'defaultBasemapId -> defaultBasemapId,
           'customBasemap -> customBasemap,
           'locale -> locale,
+          'email -> email,
           'emailOptIn -> emailOptIn,
           'leaderboardOptOut -> leaderboardOptOut,
           'needsReview -> needsReview,
@@ -595,29 +621,6 @@ class UserDAL @Inject()(override val db: Database,
       }
       Some(cachedUser.copy(groups = userGroupDAL.getUserGroups(osmID, User.superUser)))
     }.get
-  }
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @param user The user making the request
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMID(implicit id: Long, user: User): Option[User] = this.cacheManager.withOptionCaching { () =>
-    this.db.withConnection { implicit c =>
-      val query =
-        s"""SELECT ${this.retrieveColumns}, score FROM users
-                      LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-                      WHERE osm_id = {id}"""
-      SQL(query).on('id -> id).as(this.parser.*).headOption match {
-        case Some(u) =>
-          this.permission.hasObjectReadAccess(u, user)
-          Some(u)
-        case None => None
-      }
-    }
   }
 
   /**

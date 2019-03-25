@@ -35,6 +35,9 @@ class Scheduler @Inject()(val system: ActorSystem,
   schedule("cleanDeleted", "Deleting Project/Challenges", 1.minute, Config.KEY_SCHEDULER_CLEAN_DELETED)
   schedule("KeepRightUpdate", "Updating KeepRight Challenges", 1.minute, Config.KEY_SCHEDULER_KEEPRIGHT)
   schedule("rebuildChallengesLeaderboard", "Rebuilding Challenges Leaderboard", 1.minute, Config.KEY_SCHEDULER_CHALLENGES_LEADERBOARD)
+  schedule("sendImmediateNotificationEmails", "Sending Immediate Notification Emails", 1.minute, Config.KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_INTERVAL)
+  scheduleAtTime("sendDigestNotificationEmails", "Sending Notification Email Digests",
+    config.getValue(Config.KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_START), Config.KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_INTERVAL)
 
   // Run the rebuild of the country leaderboard at
   scheduleAtTime("rebuildCountryLeaderboard", "Rebuilding Country Leaderboard",
