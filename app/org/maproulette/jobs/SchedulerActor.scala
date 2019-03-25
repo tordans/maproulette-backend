@@ -471,7 +471,13 @@ class SchedulerActor @Inject()(config: Config,
     logger.info(action)
 
     db.withConnection { implicit c =>
-      SQL("INSERT INTO user_metrics_history SELECT *, CURRENT_TIMESTAMP FROM user_metrics").executeUpdate()
+      SQL(s"""INSERT INTO user_metrics_history
+              SELECT user_id, score, total_fixed, total_false_positive, total_already_fixed,
+                     total_too_hard, total_skipped, now(), initial_rejected, initial_approved,
+                     initial_assisted, total_rejected, total_approved, total_assisted
+              FROM user_metrics
+           """).executeUpdate()
+
 
       logger.info(s"Succesfully created snapshot of user metrics.")
     }

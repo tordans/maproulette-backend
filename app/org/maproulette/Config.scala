@@ -63,6 +63,8 @@ class Config @Inject()(implicit val application: Application) {
     this.config.getOptional[Int](Config.KEY_TASK_SCORE_TOO_HARD).getOrElse(Config.DEFAULT_TASK_SCORE_TOO_HARD)
   lazy val taskScoreSkipped: Int =
     this.config.getOptional[Int](Config.KEY_TASK_SCORE_SKIPPED).getOrElse(Config.DEFAULT_TASK_SCORE_SKIPPED)
+  lazy val defaultNeedsReview: Int =
+    this.config.getOptional[Int](Config.KEY_REVIEW_NEEDED_DEFAULT).getOrElse(Config.DEFAULT_REVIEW_NEEDED)  
   lazy val osmMatcherEnabled: Boolean =
     this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED).getOrElse(Config.DEFAULT_OSM_MATCHER_ENABLED)
   lazy val osmMatcherManualOnly: Boolean =
@@ -156,6 +158,7 @@ object Config {
   val KEY_TASK_SCORE_ALREADY_FIXED = s"$GROUP_MAPROULETTE.task.score.alreadyFixed"
   val KEY_TASK_SCORE_TOO_HARD = s"$GROUP_MAPROULETTE.task.score.tooHard"
   val KEY_TASK_SCORE_SKIPPED = s"$GROUP_MAPROULETTE.task.score.skipped"
+  val KEY_REVIEW_NEEDED_DEFAULT = s"$GROUP_MAPROULETTE.review.default"
 
   val SUB_GROUP_SCHEDULER = s"$GROUP_MAPROULETTE.scheduler"
   val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
@@ -228,4 +231,5 @@ object Config {
   val DEFAULT_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE = 10
   val DEFAULT_MATCHER_BATCH_SIZE = 5000
   val DEFAULT_MAPILLARY_BORDER = 10
+  val DEFAULT_REVIEW_NEEDED = 0
 }
