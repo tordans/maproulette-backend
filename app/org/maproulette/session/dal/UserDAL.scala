@@ -73,7 +73,7 @@ class UserDAL @Inject()(override val db: Database,
       get[Option[String]]("users.custom_basemap_url") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
-      get[Option[Boolean]]("users.needs_review") ~
+      get[Option[Int]]("users.needs_review") ~
       get[Option[Boolean]]("users.is_reviewer") ~
       get[Option[String]]("users.locale") ~
       get[Option[Int]]("users.theme") ~
@@ -88,13 +88,18 @@ class UserDAL @Inject()(override val db: Database,
           case None => new GeometryFactory().createPoint(new Coordinate(0, 0))
         }
 
+        val setNeedsReview = needsReview match {
+          case Some(nr) => needsReview
+          case None => Option(config.defaultNeedsReview)
+        }
+
         new User(id, created, modified,
           OSMProfile(osmId, displayName, description.getOrElse(""), avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY), osmCreated, RequestToken(oauthToken, oauthSecret)),
           userGroupDAL.getUserGroups(osmId, User.superUser
           ),
           apiKey, false,
-          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, needsReview, isReviewer, theme),
+          UserSettings(defaultEditor, defaultBasemap, defaultBasemapId, customBasemap, locale, emailOptIn, leaderboardOptOut, setNeedsReview, isReviewer, theme),
           properties,
           score
         )
@@ -404,10 +409,17 @@ class UserDAL @Inject()(override val db: Database,
         val locale = (value \ "settings" \ "locale").asOpt[String].getOrElse(cachedItem.settings.locale.getOrElse("en"))
         val emailOptIn = (value \ "settings" \ "emailOptIn").asOpt[Boolean].getOrElse(cachedItem.settings.emailOptIn.getOrElse(false))
         val leaderboardOptOut = (value \ "settings" \ "leaderboardOptOut").asOpt[Boolean].getOrElse(cachedItem.settings.leaderboardOptOut.getOrElse(false))
-        val needsReview = (value \ "settings" \ "needsReview").asOpt[Boolean].getOrElse(cachedItem.settings.needsReview.getOrElse(false))
+        var needsReview = (value \ "settings" \ "needsReview").asOpt[Int].getOrElse(cachedItem.settings.needsReview.getOrElse(config.defaultNeedsReview))
         val isReviewer = (value \ "settings" \ "isReviewer").asOpt[Boolean].getOrElse(cachedItem.settings.isReviewer.getOrElse(false))
         val theme = (value \ "settings" \ "theme").asOpt[Int].getOrElse(cachedItem.settings.theme.getOrElse(-1))
         val properties = (value \ "properties").asOpt[String].getOrElse(cachedItem.properties.getOrElse("{}"))
+
+        // If this user always requires a review, then they are not allowed to change it (except super users)
+        if (user.settings.needsReview.getOrElse(0) == User.REVIEW_MANDATORY) {
+          if (!user.isSuperUser) {
+            needsReview = User.REVIEW_MANDATORY
+          }
+        }
 
         this.updateGroups(value, user)
         this.userGroupDAL.clearUserCache(cachedItem.osmProfile.id)

@@ -104,7 +104,7 @@ case class UserSettings(defaultEditor: Option[Int] = None,
                         locale: Option[String] = None,
                         emailOptIn: Option[Boolean] = None,
                         leaderboardOptOut: Option[Boolean] = None,
-                        needsReview: Option[Boolean] = None,
+                        needsReview: Option[Int] = None,
                         isReviewer: Option[Boolean] = None,
                         theme: Option[Int] = None) {
   def getTheme: String = theme match {
@@ -233,11 +233,15 @@ object User {
       "locale" -> optional(text),
       "emailOptIn" -> optional(boolean),
       "leaderboardOptOut" -> optional(boolean),
-      "needsReview" -> optional(boolean),
+      "needsReview" -> optional(number),
       "isReviewer" -> optional(boolean),
       "theme" -> optional(number)
     )(UserSettings.apply)(UserSettings.unapply)
   )
+
+  val REVIEW_NOT_NEEDED = 0
+  val REVIEW_NEEDED = 1
+  val REVIEW_MANDATORY = 2
 
   /**
     * Generates a User object based on the json details and request token
@@ -284,7 +288,7 @@ object User {
       location,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").parseDateTime(osmAccountCreated),
       requestToken
-    ), groups, settings = UserSettings(theme = Some(THEME_BLUE)))
+    ), groups, settings = UserSettings(theme = Some(THEME_BLUE), needsReview = Option(config.defaultNeedsReview)))
   }
 
   def superUser: User = User(DEFAULT_SUPER_USER_ID, DateTime.now(), DateTime.now(),
