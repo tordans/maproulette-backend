@@ -12,6 +12,7 @@ GET     /auth/addUser/:userId/toProject/:projectId                      @control
 # Random functionality routes
 GET     /clearCaches                                                    @controllers.Application.clearCaches
 PUT     /runJob/:name                                                   @controllers.Application.runJob(name:String, action:String ?= "")
+GET     /ws                                                             @controllers.WebSocketController.socket
 # Swagger route
 GET     /docs/swagger-ui/*file                                          @controllers.Assets.at(path:String="/public/lib/swagger-ui", file:String)
 ### NoDocs ###

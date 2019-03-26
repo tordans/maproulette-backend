@@ -343,22 +343,22 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         c.parent)).map(c => c.id -> Json.obj("id" -> c.id, "name" -> c.name, "status" -> c.status)).toMap)
 
       val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewRequestedBy.getOrElse(0).toLong)).map(u =>
+        t => t.reviewRequestedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewedBy.getOrElse(0).toLong)).map(u =>
+        t => t.reviewedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val jsonList = tasks.map { task =>
         val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
         var updated = Utils.insertIntoJson(Json.toJson(task), Challenge.KEY_PARENT, challengeJson, true)
         if (task.reviewRequestedBy.getOrElse(0) != 0) {
-          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get.toLong)).as[JsObject]
+          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewRequestedBy", mapperJson, true)
         }
         if (task.reviewedBy.getOrElse(0) != 0) {
-          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get.toLong)).as[JsObject]
+          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
 
