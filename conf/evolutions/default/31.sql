@@ -8,8 +8,9 @@ ALTER TABLE users ALTER COLUMN needs_review SET DEFAULT null;
 
 ALTER TABLE users ALTER COLUMN needs_review TYPE INTEGER USING
     CASE
-      WHEN false then 0
-      ELSE 1
+      WHEN needs_review = true then 1
+      WHEN needs_review = false then 0
+      ELSE NULL
     END;
 
 
