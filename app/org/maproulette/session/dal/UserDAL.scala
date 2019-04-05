@@ -152,6 +152,23 @@ class UserDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Find the User based on the id.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[User] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query = s"""SELECT $retrieveColumns, score FROM users
+                        LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                        WHERE id = {id}"""
+        SQL(query).on('id -> id).as(this.parser.singleOpt)
+      }
+    }
+  }
+
+  /**
     * Find the User based on an API key, the API key is unique in the database.
     *
     * @param apiKey The APIKey to match against
