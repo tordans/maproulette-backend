@@ -1218,7 +1218,7 @@ class TaskDAL @Inject()(override val db: Database,
     */
   def nextTaskReview(user:User, searchParameters: SearchParameters,
                     sort:String, order:String) (implicit c:Connection=null) : Option[Task] = {
-    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, 1, 0, sort, order)
+    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, null, null, 1, 0, sort, order)
     if (count == 0) {
       return None
     }
@@ -1231,10 +1231,16 @@ class TaskDAL @Inject()(override val db: Database,
     * Gets a list of tasks that have requested review (and are in this user's project group)
     *
     * @param user The user executing the request
+    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
+    * @param endDate Limit tasks to reviewed before date (YYYY-MM-DD)
     * @param limit The number of tasks to return
+    * @param offset Offset to start paging
+    * @param sort Sort column
+    * @param order DESC or ASC
     * @return A list of tasks
     */
   def getReviewRequestedTasks(user:User, searchParameters: SearchParameters,
+                              startDate:String, endDate:String,
                               limit:Int = -1, offset:Int=0, sort:String, order:String)
                     (implicit c:Connection=null) : (Int, List[Task]) = {
     var orderByClause = ""
@@ -1248,29 +1254,12 @@ class TaskDAL @Inject()(override val db: Database,
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
+    setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
+
     sort match {
       case s if s.nonEmpty =>
-        orderByClause = this.order(Some(s), order, "tasks", false)
+        orderByClause = this.order(Some(s), order, "", false)
       case _ => // ignore
-    }
-
-    searchParameters.owner match {
-      case Some(o) if o.nonEmpty =>
-        joinClause ++= "INNER JOIN users u ON u.id = tasks.review_requested_by "
-        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%') ")
-      case _ => // ignore
-    }
-
-    searchParameters.taskStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
-        if (statuses.contains(-1)) {
-          statusClause ++= " OR c.status IS NULL"
-        }
-        statusClause ++= ")"
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _ =>
     }
 
     val query = user.isSuperUser match {
@@ -1344,12 +1333,18 @@ class TaskDAL @Inject()(override val db: Database,
     * Gets a list of tasks that have been reviewed (either by this user or requested by this user)
     *
     * @param user The user executing the request
+    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
+    * @param endDate Limit tasks to reviewed before date (YYYY-MM-DD)
     * @param asReviewer Whether we should return tasks reviewed by this user or reqested by this user
     * @param allowReviewNeeded Whether we should include review requested tasks as well
     * @param limit The amount of tasks to be returned
+    * @param offset Offset to start paging
+    * @param sort Column to sort
+    * @param order DESC or ASC
     * @return A list of tasks
     */
   def getReviewedTasks(user:User, searchParameters: SearchParameters,
+                       startDate:String, endDate:String,
                        asReviewer:Boolean=false, allowReviewNeeded:Boolean=false,
                        limit:Int = -1, offset:Int=0, sort:String, order:String)
                        (implicit c:Connection=null) : (Int, List[Task]) = {
@@ -1366,36 +1361,12 @@ class TaskDAL @Inject()(override val db: Database,
       this.appendInWhereClause(whereClause, s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
     }
 
-    searchParameters.owner match {
-     case Some(o) if o.nonEmpty =>
-       joinClause ++= "INNER JOIN users u ON u.id = task_review.review_requested_by "
-       this.appendInWhereClause(whereClause, s"u.name LIKE '%${o}%'")
-     case _ => // ignore
-    }
-
-    searchParameters.reviewer match {
-     case Some(r) if r.nonEmpty =>
-       joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "
-       this.appendInWhereClause(whereClause, s"u2.name LIKE '%${r}%'")
-     case _ => // ignore
-    }
-
-    searchParameters.taskStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
-        if (statuses.contains(-1)) {
-          statusClause ++= " OR c.status IS NULL"
-        }
-        statusClause ++= ")"
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _ =>
-    }
+    setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
 
     sort match {
-     case s if s.nonEmpty =>
-       orderByClause = this.order(Some(s), order, "tasks", false)
-     case _ => // ignore
+      case s if s.nonEmpty =>
+        orderByClause = this.order(Some(s), order, "", false)
+      case _ => // ignore
     }
 
     val countQuery = s"""
@@ -1423,6 +1394,47 @@ class TaskDAL @Inject()(override val db: Database,
     }
 
     return (count, tasks)
+  }
+
+  /**
+   * private setup the search clauses for searching the review tables
+   */
+  private def setupReviewSearchClause(whereClause: StringBuilder, joinClause: StringBuilder,
+                                      searchParameters: SearchParameters,
+                                      startDate: String, endDate: String) {
+    searchParameters.owner match {
+     case Some(o) if o.nonEmpty =>
+       joinClause ++= "INNER JOIN users u ON u.id = task_review.review_requested_by "
+       this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
+     case _ => // ignore
+    }
+
+    searchParameters.reviewer match {
+     case Some(r) if r.nonEmpty =>
+       joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "
+       this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
+     case _ => // ignore
+    }
+
+    searchParameters.taskStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
+        if (statuses.contains(-1)) {
+          statusClause ++= " OR c.status IS NULL"
+        }
+        statusClause ++= ")"
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _ =>
+    }
+
+    if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+      this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")
+    }
+
+    if (endDate != null && endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+      this.appendInWhereClause(whereClause, "reviewed_at <= '" + endDate + " 23:59:59'")
+    }
   }
 
   /**
