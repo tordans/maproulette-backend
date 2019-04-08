@@ -15,6 +15,7 @@ import org.maproulette.Config
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import org.maproulette.session.dal.UserDAL
+import org.maproulette.provider.websockets.WebSocketProvider
 import play.api.db.Database
 import play.api.libs.ws.WSClient
 
@@ -31,9 +32,10 @@ class TaskHistoryDAL @Inject()(override val db: Database,
                                 notificationDAL: Provider[NotificationDAL],
                                 actions: ActionManager,
                                 statusActions: StatusActionManager,
+                                webSocketProvider: WebSocketProvider,
                                 ws: WSClient)
   extends TaskDAL(db, tagDAL, config, permission, userDAL, projectDAL, challengeDAL, notificationDAL,
-                  actions, statusActions, ws) {
+                  actions, statusActions, webSocketProvider, ws) {
 
   private val commentEntryParser: RowParser[TaskLogEntry] = {
       get[Long]("task_comments.task_id") ~

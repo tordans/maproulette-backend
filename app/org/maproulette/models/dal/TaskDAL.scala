@@ -24,6 +24,8 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.Group
 import org.maproulette.session.{SearchParameters, User}
+import org.maproulette.provider.websockets.WebSocketProvider
+import org.maproulette.provider.websockets.WebSocketMessages
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
 import play.api.db.Database
@@ -51,6 +53,7 @@ class TaskDAL @Inject()(override val db: Database,
                         notificationDAL: Provider[NotificationDAL],
                         actions: ActionManager,
                         statusActions: StatusActionManager,
+                        webSocketProvider: WebSocketProvider,
                         ws: WSClient)
   extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] with Locking[Task] {
 
@@ -81,10 +84,10 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Int]]("tasks.status") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Int]]("task_review.review_status") ~
-      get[Option[Int]]("task_review.review_requested_by") ~
-      get[Option[Int]]("task_review.reviewed_by") ~
+      get[Option[Long]]("task_review.review_requested_by") ~
+      get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
-      get[Option[Int]]("task_review.review_claimed_by") ~
+      get[Option[Long]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
@@ -100,6 +103,46 @@ class TaskDAL @Inject()(override val db: Database,
           this.getTaskGeometries(id), optionsFix, status, mappedOn,
           reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewClaimedBy,
           priority, changesetId)
+    }
+  }
+
+  implicit val taskWithReviewParser: RowParser[TaskWithReview] = {
+    get[Long]("tasks.id") ~
+    get[String]("tasks.name") ~
+    get[DateTime]("tasks.created") ~
+    get[DateTime]("tasks.modified") ~
+    get[Long]("parent_id") ~
+    get[Option[String]]("tasks.instruction") ~
+    get[Option[String]]("location") ~
+    get[Option[Int]]("tasks.status") ~
+    get[Option[DateTime]]("tasks.mapped_on") ~
+    get[Option[Int]]("task_review.review_status") ~
+    get[Option[Long]]("task_review.review_requested_by") ~
+    get[Option[Long]]("task_review.reviewed_by") ~
+    get[Option[DateTime]]("task_review.reviewed_at") ~
+    get[Option[Long]]("task_review.review_claimed_by") ~
+    get[Int]("tasks.priority") ~
+    get[Option[Long]]("tasks.changeset_id") ~
+    get[Option[String]]("challenge_name") ~
+    get[Option[String]]("review_requested_by_username") ~
+    get[Option[String]]("reviewed_by_username") map {
+    case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
+          mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewClaimedBy ~
+          priority ~ changesetId ~ challengeName ~ reviewRequestedByUsername ~ reviewedByUsername =>
+      val suggestedFixGeometry = this.getSuggestedFix(id)
+      val optionsFix = if (StringUtils.isEmpty(suggestedFixGeometry)) {
+        None
+      } else {
+        Some(suggestedFixGeometry)
+      }
+      TaskWithReview(
+        Task(id, name, created, modified, parent_id, instruction, location,
+          this.getTaskGeometries(id), optionsFix, status, mappedOn,
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewClaimedBy,
+          priority, changesetId),
+        TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
+                   reviewedBy, reviewedByUsername, reviewedAt, reviewClaimedBy, None, None)
+      )
     }
   }
 
@@ -247,8 +290,8 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
         NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
         NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.reviewStatus)),
-        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Int]].apply(element.reviewRequestedBy)),
-        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Int]].apply(element.reviewedBy)),
+        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.reviewRequestedBy)),
+        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Long]].apply(element.reviewedBy)),
         NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.reviewedAt))
       ).as(long("create_update_task").*).head
       c.commit()
@@ -420,12 +463,12 @@ class TaskDAL @Inject()(override val db: Database,
 
       val reviewRequestedBy = (value \ "reviewRequestedBy") match {
         case r: JsUndefined => cachedItem.reviewRequestedBy
-        case r => r.asOpt[Int]
+        case r => r.asOpt[Long]
       }
 
       val reviewedBy = (value \ "reviewedBy") match {
         case r: JsUndefined => cachedItem.reviewedBy
-        case r => r.asOpt[Int]
+        case r => r.asOpt[Long]
       }
 
       val reviewedAt = (value \ "reviewedAt") match {
@@ -584,6 +627,12 @@ class TaskDAL @Inject()(override val db: Database,
       this.userDAL.get().updateUserScore(Option(status), None, false, user.id)
     }
 
+    if (reviewNeeded) {
+      webSocketProvider.sendMessage(WebSocketMessages.reviewNew(
+        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+      ))
+    }
+
     updatedRows
   }
 
@@ -639,6 +688,10 @@ class TaskDAL @Inject()(override val db: Database,
       } catch {
         case e: Exception => logger.warn(e.getMessage)
       }
+
+      webSocketProvider.sendMessage(WebSocketMessages.reviewUpdate(
+        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+      ))
 
       val comment = commentContent.nonEmpty match {
         case true => Some(addComment(user, task, commentContent, actionId))
@@ -1170,6 +1223,10 @@ class TaskDAL @Inject()(override val db: Database,
       } catch {
         case e: Exception => logger.warn(e.getMessage)
       }
+
+      webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
+        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+      ))
     }
 
     val updatedTask = task.copy(reviewClaimedBy = Option(user.id.toInt))
@@ -1224,6 +1281,24 @@ class TaskDAL @Inject()(override val db: Database,
     }
     else {
       return Some(result.head)
+    }
+  }
+
+  def getTaskWithReview(taskId: Long): TaskWithReview = {
+    this.withMRConnection { implicit c =>
+      val query = s"""
+        SELECT $retrieveColumnsWithReview,
+               challenges.name as challenge_name,
+               mappers.name as review_requested_by_username,
+               reviewers.name as reviewed_by_username
+        FROM ${this.tableName}
+        LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+        LEFT OUTER JOIN users mappers ON task_review.review_requested_by = mappers.id
+        LEFT OUTER JOIN users reviewers ON task_review.reviewed_by = reviewers.id
+        INNER JOIN challenges ON challenges.id = tasks.parent_id
+        WHERE tasks.id = {taskId}
+      """
+      SQL(query).on('taskId -> taskId).as(this.taskWithReviewParser.single)
     }
   }
 

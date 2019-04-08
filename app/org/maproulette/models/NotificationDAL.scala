@@ -17,6 +17,8 @@ import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.User
 import org.maproulette.data.UserType
 import org.maproulette.permissions.Permission
+import org.maproulette.provider.websockets.WebSocketProvider
+import org.maproulette.provider.websockets.WebSocketMessages
 import org.slf4j.LoggerFactory
 import play.api.db.Database
 
@@ -27,6 +29,7 @@ import play.api.db.Database
 @Singleton
 class NotificationDAL @Inject()(db: Database,
                                 userDAL: Provider[UserDAL],
+                                webSocketProvider: WebSocketProvider,
                                 config: Config,
                                 permission: Permission)
   extends DALHelper {
@@ -106,7 +109,7 @@ class NotificationDAL @Inject()(db: Database,
     }
   }
 
-  def createReviewNotification(user: User, forUserId: Int, reviewStatus: Int, task: Task, comment: Option[Comment]) = {
+  def createReviewNotification(user: User, forUserId: Long, reviewStatus: Int, task: Task, comment: Option[Comment]) = {
     val notificationType = reviewStatus match {
       case Task.REVIEW_STATUS_REQUESTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
       case Task.REVIEW_STATUS_APPROVED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
@@ -178,6 +181,9 @@ class NotificationDAL @Inject()(db: Database,
             'extra -> notification.extra
           ).execute()
         }
+        webSocketProvider.sendMessage(WebSocketMessages.notificationNew(
+          WebSocketMessages.NotificationData(notification.userId, notification.notificationType)
+        ))
     }
   }
 
