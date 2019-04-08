@@ -574,6 +574,12 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 #         type: object
 #         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
+#   - name: startDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed after this date (format 'YYYY-MM-DD')
+#   - name: endDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed before this date (format 'YYYY-MM-DD')
 #   - name: limit
 #     in: query
 #     description: Limit the number of results returned in the response. Default value is -1 (all).
@@ -590,7 +596,7 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 #     in: query
 #     description: The search string used to match the name of the person requesting the review. (review_requested_by)
 ###
-GET     /tasks/review                          @org.maproulette.controllers.api.TaskController.getReviewRequestedTasks(limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
+GET     /tasks/review                          @org.maproulette.controllers.api.TaskController.getReviewRequestedTasks(startDate: String ?= null, endDate: String ?= null, limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
 ###
 # summary: Retrieves reviewed tasks that have been reviewed either by this user or where the user requested
 #          the review.
@@ -606,6 +612,12 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 #         type: object
 #         $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
+#   - name: startDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed after this date (format 'YYYY-MM-DD')
+#   - name: endDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed before this date (format 'YYYY-MM-DD')
 #   - name: asReviewer
 #     in: query
 #     description: Whether results should be tasks reviewed by this user or review requested by this user
@@ -631,7 +643,7 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 #     in: query
 #     description: The search string used to match the Reviewer names. (reviewed_by)
 ###
-GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskController.getReviewedTasks(asReviewer:Boolean ?= false, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
+GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskController.getReviewedTasks(startDate: String ?= null, endDate: String ?= null, asReviewer:Boolean ?= false, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
 ###
 # summary: Retrieves and claims a the next review needed Task
 # produces: [ application/json ]
