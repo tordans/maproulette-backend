@@ -1255,11 +1255,15 @@ class TaskDAL @Inject()(override val db: Database,
         throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot cancel review at this time.")
       }
 
-      try {
-        this.unlockItem(user, task)
-      } catch {
-        case e: Exception => logger.warn(e.getMessage)
-      }
+      webSocketProvider.sendMessage(WebSocketMessages.reviewUpdate(
+        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+      ))
+    }
+
+    try {
+      this.unlockItem(user, task)
+    } catch {
+      case e: Exception => logger.warn(e.getMessage)
     }
 
     val updatedTask = task.copy(reviewClaimedBy = None)
