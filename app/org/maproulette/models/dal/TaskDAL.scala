@@ -1247,8 +1247,8 @@ class TaskDAL @Inject()(override val db: Database,
     }
 
     this.withMRTransaction { implicit c =>
-      val updatedRows = SQL"""UPDATE tasks t SET review_claimed_by = NULL, review_claimed_at = NULL
-              WHERE t.id = #${task.id}""".executeUpdate()
+      val updatedRows = SQL"""UPDATE task_review t SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE t.task_id = #${task.id}""".executeUpdate()
 
       // if returning 0, then this is because the item is locked by a different user
       if (updatedRows == 0) {
