@@ -32,6 +32,7 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             taskTagConjunction: Option[Boolean] = None,
                             taskSearch: Option[String] = None,
                             taskStatus: Option[List[Int]] = None,
+                            taskReviewStatus: Option[List[Int]] = None,
                             props: Option[Map[String, String]] = None,
                             priority: Option[Int] = None,
                             location: Option[SearchLocation] = None,
@@ -141,6 +142,11 @@ object SearchParameters {
       request.getQueryString("tStatus") match {
         case Some(v) => Utils.toIntList(v)
         case None => params.taskStatus
+      },
+      //taskReviewStatus
+      request.getQueryString("trStatus") match {
+        case Some(v) => Utils.toIntList(v)
+        case None => params.taskReviewStatus
       },
       None,
       //taskPriority
