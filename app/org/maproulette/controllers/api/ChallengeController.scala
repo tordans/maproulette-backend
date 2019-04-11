@@ -409,16 +409,24 @@ class ChallengeController @Inject()(override val childController: TaskController
   def extractTaskSummaries(challengeId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page)
-      val seqString = tasks.map(task =>
-        s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
-        s""""${Challenge.priorityMap.get(task.priority).get}","${task.username.getOrElse("")}"""".stripMargin
-      )
 
+      val seqString = tasks.map(task => {
+          var mapper = task.reviewRequestedBy.getOrElse("")
+          if (mapper == "") {
+            mapper = task.username.getOrElse("")
+          }
+
+          s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
+          s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
+          s"""${task.reviewStatus.getOrElse("")},"${mapper}","${task.reviewRequestedBy.getOrElse("")}",""" +
+          s"""${task.reviewedAt.getOrElse("")},"${task.comments.getOrElse("")}"""".stripMargin
+        }
+      )
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
         body = HttpEntity.Strict(
           ByteString(
-            "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,OSM_Username\n"
+            "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,Comments\n"
           ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )
