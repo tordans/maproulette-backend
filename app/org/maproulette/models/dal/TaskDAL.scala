@@ -1640,9 +1640,24 @@ class TaskDAL @Inject()(override val db: Database,
         status <- int("tasks.status")
         priority <- int("tasks.priority")
         username <- get[Option[String]]("users.username")
-      } yield TaskSummary(taskId, name, status, priority, username)
+        mappedOn <- get[Option[DateTime]]("mapped_on")
+        reviewStatus <- get[Option[Int]]("task_review.review_status")
+        reviewRequestedBy <- get[Option[String]]("reviewRequestedBy")
+        reviewedBy <- get[Option[String]]("reviewedBy")
+        reviewedAt <- get[Option[DateTime]]("task_review.reviewed_at")
+        comments <- get[Option[String]]("comments")
+      } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
+                          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
+                          comments)
 
-      SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username
+      SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
+                   task_review.review_status,
+                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
+                   (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
+                   task_review.reviewed_at,
+                   (SELECT string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment), 
+                                      CONCAT(chr(10),'---',chr(10))) AS comments
+                    FROM task_comments tc WHERE tc.task_id = t.id)
             FROM tasks t LEFT OUTER JOIN (
               SELECT sa.task_id, sa.status, sa.osm_user_id, u.name AS username
               FROM users u, status_actions sa INNER JOIN (
@@ -1654,6 +1669,7 @@ class TaskDAL @Inject()(override val db: Database,
               ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
               WHERE sa.osm_user_id = u.osm_id
             ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
+            LEFT OUTER JOIN task_review ON task_review.task_id = t.id
             WHERE t.parent_id = #${challengeId}
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """.as(parser.*)
@@ -1761,7 +1777,9 @@ class TaskDAL @Inject()(override val db: Database,
 
   private def getTaskGeometries(id: Long)(implicit c: Option[Connection] = None): String = this.taskGeometries(id, "task_geometries")
 
-  case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String])
+  case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
+                         mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
+                         reviewedBy: Option[String], reviewedAt: Option[DateTime], comments: Option[String])
 
 }
 
