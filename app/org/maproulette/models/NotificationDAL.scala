@@ -115,6 +115,7 @@ class NotificationDAL @Inject()(db: Database,
       case Task.REVIEW_STATUS_APPROVED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
       case Task.REVIEW_STATUS_ASSISTED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
       case Task.REVIEW_STATUS_REJECTED => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
+      case Task.REVIEW_STATUS_DISPUTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
     }
 
     this.addNotification(UserNotification(

@@ -624,7 +624,7 @@ class TaskDAL @Inject()(override val db: Database,
 
     // let's give the user credit for doing this task.
     if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-      this.userDAL.get().updateUserScore(Option(status), None, false, user.id)
+      this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
     }
 
     if (reviewNeeded) {
@@ -657,8 +657,10 @@ class TaskDAL @Inject()(override val db: Database,
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
-      var needsReReview = task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
-                          reviewStatus == Task.REVIEW_STATUS_REQUESTED
+      val isDisputed = task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_DISPUTED &&
+                       reviewStatus == Task.REVIEW_STATUS_DISPUTED
+      var needsReReview = (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
+                           reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
@@ -698,28 +700,34 @@ class TaskDAL @Inject()(override val db: Database,
         case false => None
       }
 
-      if (needsReReview) {
-        // Let's note in the task_review_history table that this task needs review again
-        SQL"""INSERT INTO task_review_history
-                          (task_id, requested_by, reviewed_by, review_status, reviewed_at)
-              VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
-                      ${reviewStatus}, ${now})""".executeUpdate()
-        this.notificationDAL.get().createReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
-      }
-      else {
-        // Let's note in the task_review_history table that this task was reviewed
-        SQL"""INSERT INTO task_review_history
-                          (task_id, requested_by, reviewed_by, review_status, reviewed_at)
-              VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
-                      ${reviewStatus}, ${now})""".executeUpdate()
-        this.notificationDAL.get().createReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
+      if (!isDisputed) {
+        if (needsReReview) {
+          // Let's note in the task_review_history table that this task needs review again
+          SQL"""INSERT INTO task_review_history
+                            (task_id, requested_by, reviewed_by, review_status, reviewed_at)
+                VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
+                        ${reviewStatus}, ${now})""".executeUpdate()
+          this.notificationDAL.get().createReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
+        }
+        else {
+          // Let's note in the task_review_history table that this task was reviewed
+          SQL"""INSERT INTO task_review_history
+                            (task_id, requested_by, reviewed_by, review_status, reviewed_at)
+                VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
+                        ${reviewStatus}, ${now})""".executeUpdate()
+          this.notificationDAL.get().createReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
+        }
       }
 
       this.cacheManager.withOptionCaching { () => Some(task.copy(reviewStatus = Some(reviewStatus))) }
 
       if (!needsReReview) {
         this.userDAL.get().updateUserScore(None, Option(reviewStatus),
-          task.reviewedBy != None, task.reviewRequestedBy.get)
+          task.reviewedBy != None, false, task.reviewRequestedBy.get)
+      }
+      else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, true, task.reviewedBy.get)
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, false, task.reviewRequestedBy.get)
       }
 
       updatedRows
@@ -1279,7 +1287,7 @@ class TaskDAL @Inject()(override val db: Database,
     */
   def nextTaskReview(user:User, searchParameters: SearchParameters,
                     sort:String, order:String) (implicit c:Connection=null) : Option[Task] = {
-    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, null, null, 1, 0, sort, order)
+    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, null, null, 1, 0, sort, order, false)
     if (count == 0) {
       return None
     }
@@ -1316,14 +1324,21 @@ class TaskDAL @Inject()(override val db: Database,
     * @param offset Offset to start paging
     * @param sort Sort column
     * @param order DESC or ASC
+    * @param includeDisputed Whether disputed tasks whould be returned in results (default is true)
     * @return A list of tasks
     */
   def getReviewRequestedTasks(user:User, searchParameters: SearchParameters,
                               startDate:String, endDate:String,
-                              limit:Int = -1, offset:Int=0, sort:String, order:String)
+                              limit:Int = -1, offset:Int=0, sort:String, order:String, includeDisputed: Boolean = true)
                     (implicit c:Connection=null) : (Int, List[Task]) = {
     var orderByClause = ""
-    val whereClause = new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} ")
+    val whereClause = includeDisputed match {
+      case true =>
+        new StringBuilder(s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})")
+      case false =>
+        new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}")
+    }
+
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
 
@@ -1366,6 +1381,7 @@ class TaskDAL @Inject()(override val db: Database,
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
                     ug.osm_user_id = ${user.osmProfile.id}) AND
+                    task_review.review_requested_by != ${user.id} AND
             ${whereClause}
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
@@ -1393,6 +1409,7 @@ class TaskDAL @Inject()(override val db: Database,
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
                   ug.osm_user_id = ${user.osmProfile.id}) AND
+                  task_review.review_requested_by != ${user.id} AND
           ${whereClause}
         """
     }
@@ -1502,6 +1519,14 @@ class TaskDAL @Inject()(override val db: Database,
           statusClause ++= " OR c.status IS NULL"
         }
         statusClause ++= ")"
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _ =>
+    }
+
+    searchParameters.taskReviewStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val statusClause = new StringBuilder(s"(task_review.review_status IN (${statuses.mkString(",")}))")
         this.appendInWhereClause(whereClause, statusClause.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
       case _ =>
