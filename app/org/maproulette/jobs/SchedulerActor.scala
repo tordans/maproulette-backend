@@ -481,7 +481,7 @@ class SchedulerActor @Inject()(config: Config,
               SELECT user_id, score, total_fixed, total_false_positive, total_already_fixed,
                      total_too_hard, total_skipped, now(), initial_rejected, initial_approved,
                      initial_assisted, total_rejected, total_approved, total_assisted,
-                     total_disputed_as mapper, total_disputed_as_reviewer
+                     total_disputed_as_mapper, total_disputed_as_reviewer
               FROM user_metrics
            """).executeUpdate()
 
