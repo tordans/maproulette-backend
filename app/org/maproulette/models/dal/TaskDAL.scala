@@ -654,6 +654,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
 
     val now = Instant.now()
+
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
@@ -662,10 +663,17 @@ class TaskDAL @Inject()(override val db: Database,
       var needsReReview = (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
                            reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
+      var reviewedBy = task.reviewedBy
+      var reviewRequestedBy = task.reviewRequestedBy
+
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
       if (needsReReview) {
         fetchBy = "review_requested_by"
+        reviewRequestedBy = Some(user.id)
+      }
+      else {
+        reviewedBy = Some(user.id)
       }
 
       val updatedRows =
@@ -719,7 +727,10 @@ class TaskDAL @Inject()(override val db: Database,
         }
       }
 
-      this.cacheManager.withOptionCaching { () => Some(task.copy(reviewStatus = Some(reviewStatus))) }
+      this.cacheManager.withOptionCaching { () => Some(task.copy(reviewStatus = Some(reviewStatus),
+                                                                 reviewRequestedBy = reviewRequestedBy,
+                                                                 reviewedBy = reviewedBy,
+                                                                 reviewedAt = Some(new DateTime()))) }
 
       if (!needsReReview) {
         this.userDAL.get().updateUserScore(None, Option(reviewStatus),
