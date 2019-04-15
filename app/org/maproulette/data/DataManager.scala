@@ -630,7 +630,12 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
       var endDate = end
       if (monthDuration != None) {
         endDate = Option(new DateTime())
-        startDate = Option(new DateTime().minusMonths(monthDuration.get))
+        if (monthDuration.get == -1) {
+          startDate = Option(new DateTime(2000, 1, 1, 12, 0, 0, 0))
+        }
+        else {
+          startDate = Option(new DateTime().minusMonths(monthDuration.get))
+        }
       }
 
       SQL"""#${
@@ -770,7 +775,12 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
       var endDate = end
       if (monthDuration != None) {
         endDate = Option(new DateTime())
-        startDate = Option(new DateTime().minusMonths(monthDuration.get))
+        if (monthDuration.get == -1) {
+          startDate = Option(new DateTime(2000, 1, 1, 12, 0, 0, 0))
+        }
+        else {
+          startDate = Option(new DateTime().minusMonths(monthDuration.get))
+        }
       }
 
       var taskTableIfNeeded = ""
@@ -894,7 +904,12 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
       var endDate = end
       if (monthDuration != None) {
         endDate = Option(new DateTime())
-        startDate = Option(new DateTime().minusMonths(monthDuration.get))
+        if (monthDuration.get == -1) {
+          startDate = Option(new DateTime(2000, 1, 1, 12, 0, 0, 0))
+        }
+        else {
+          startDate = Option(new DateTime().minusMonths(monthDuration.get))
+        }
       }
 
       val sqlSelectWithRank = this.leaderboardWithRankSQL(None, projectFilter,
