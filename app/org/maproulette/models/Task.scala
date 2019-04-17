@@ -42,10 +42,10 @@ case class Task(override val id: Long,
                 status: Option[Int] = None,
                 mappedOn: Option[DateTime] = None,
                 reviewStatus: Option[Int] = None,
-                reviewRequestedBy: Option[Int] = None,
-                reviewedBy: Option[Int] = None,
+                reviewRequestedBy: Option[Long] = None,
+                reviewedBy: Option[Long] = None,
                 reviewedAt: Option[DateTime] = None,
-                reviewClaimedBy: Option[Int] = None,
+                reviewClaimedBy: Option[Long] = None,
                 priority: Int=Challenge.PRIORITY_HIGH,
                 changesetId: Option[Long] = None,
                 mapillaryImages: Option[List[MapillaryImage]]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
@@ -156,11 +156,14 @@ object Task {
   val REVIEW_STATUS_REJECTED_NAME = "Rejected"
   val REVIEW_STATUS_ASSISTED = 3
   val REVIEW_STATUS_ASSISTED_NAME = "Assisted"
+  val REVIEW_STATUS_DISPUTED = 4
+  val REVIEW_STATUS_DISPUTED_NAME = "Disputed"
   val reviewStatusMap = Map(
     REVIEW_STATUS_REQUESTED -> REVIEW_STATUS_REQUESTED_NAME,
     REVIEW_STATUS_APPROVED -> REVIEW_STATUS_APPROVED_NAME,
     REVIEW_STATUS_REJECTED -> REVIEW_STATUS_REJECTED_NAME,
-    REVIEW_STATUS_ASSISTED -> REVIEW_STATUS_ASSISTED_NAME
+    REVIEW_STATUS_ASSISTED -> REVIEW_STATUS_ASSISTED_NAME,
+    REVIEW_STATUS_DISPUTED -> REVIEW_STATUS_DISPUTED_NAME
   )
 
   /**

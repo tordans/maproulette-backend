@@ -152,6 +152,23 @@ class UserDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Find the User based on the id.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[User] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query = s"""SELECT $retrieveColumns, score FROM users
+                        LEFT JOIN user_metrics ON users.id = user_metrics.user_id
+                        WHERE id = {id}"""
+        SQL(query).on('id -> id).as(this.parser.singleOpt)
+      }
+    }
+  }
+
+  /**
     * Find the User based on an API key, the API key is unique in the database.
     *
     * @param apiKey The APIKey to match against
@@ -910,10 +927,11 @@ class UserDAL @Inject()(override val db: Database,
     * @param taskReviewStatus The review status of the task to credit the user for.
     * @param isReviewRevision Whether this is the first review or is occurring after
     *                         a revision (due to a rejected status)
+    * @param asReviewer Whether the user is the reviewer (true) or the mapper (false)
     * @param user       The user who should get the credit
     */
   def updateUserScore(taskStatus: Option[Int], taskReviewStatus: Option[Int], isReviewRevision: Boolean = false,
-                      userId: Long)(implicit c: Connection = null) = {
+                      asReviewer: Boolean = false, userId: Long)(implicit c: Connection = null) = {
     // We need to invalidate the user in the cache.
     implicit val id = userId
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
@@ -964,6 +982,17 @@ class UserDAL @Inject()(override val db: Database,
             statusBump = ", total_assisted=(total_assisted + 1)"
             if (!isReviewRevision) {
               statusBump += ", initial_assisted=(initial_assisted + 1)"
+            }
+          }
+          case Some(Task.REVIEW_STATUS_DISPUTED) => {
+            if (asReviewer) {
+              statusBump = ", total_disputed_as_reviewer=(total_disputed_as_reviewer + 1)"
+            }
+            else {
+              statusBump = ", total_disputed_as_mapper=(total_disputed_as_mapper + 1)"
+
+              // Let's rollback mapper's rejected score
+              statusBump += ", total_rejected=(total_rejected - 1)"
             }
           }
           case default => None

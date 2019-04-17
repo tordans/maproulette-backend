@@ -328,6 +328,10 @@ class SchedulerActor @Inject()(config: Config,
       SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(SchedulerActor.TWELVE_MONTHS, config)).executeUpdate()
       SQL(LeaderboardHelper.rebuildTopChallengesSQL(SchedulerActor.TWELVE_MONTHS, config)).executeUpdate()
 
+      // All Time
+      SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQL(SchedulerActor.ALL_TIME, config)).executeUpdate()
+      SQL(LeaderboardHelper.rebuildTopChallengesSQL(SchedulerActor.ALL_TIME, config)).executeUpdate()
+
       logger.info(s"Rebuilt Challenges Leaderboard succesfully.")
       val totalTime = System.currentTimeMillis - start
       logger.debug("Time to rebuild leaderboard: %1d ms".format(totalTime))
@@ -354,7 +358,9 @@ class SchedulerActor @Inject()(config: Config,
         SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.THREE_MONTHS, countryCode, boundingBox, config)).executeUpdate()
         SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.SIX_MONTHS, countryCode, boundingBox, config)).executeUpdate()
         SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.TWELVE_MONTHS, countryCode, boundingBox, config)).executeUpdate()
+        SQL(LeaderboardHelper.rebuildChallengesLeaderboardSQLCountry(SchedulerActor.ALL_TIME, countryCode, boundingBox, config)).executeUpdate()
         SQL(LeaderboardHelper.rebuildTopChallengesSQLCountry(SchedulerActor.TWELVE_MONTHS, countryCode, boundingBox, config)).executeUpdate()
+        SQL(LeaderboardHelper.rebuildTopChallengesSQLCountry(SchedulerActor.ALL_TIME, countryCode, boundingBox, config)).executeUpdate()
       }
 
       logger.info(s"Rebuilt Country Leaderboard succesfully.")
@@ -474,7 +480,8 @@ class SchedulerActor @Inject()(config: Config,
       SQL(s"""INSERT INTO user_metrics_history
               SELECT user_id, score, total_fixed, total_false_positive, total_already_fixed,
                      total_too_hard, total_skipped, now(), initial_rejected, initial_approved,
-                     initial_assisted, total_rejected, total_approved, total_assisted
+                     initial_assisted, total_rejected, total_approved, total_assisted,
+                     total_disputed_as_mapper, total_disputed_as_reviewer
               FROM user_metrics
            """).executeUpdate()
 
@@ -490,6 +497,7 @@ object SchedulerActor {
   private val THREE_MONTHS = 3
   private val SIX_MONTHS = 6
   private val TWELVE_MONTHS = 12
+  private val ALL_TIME = -1
 
   def props = Props[SchedulerActor]
 

@@ -290,19 +290,23 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   /**
     * Gets tasks where a review is requested
     *
+    * @param startDate Optional start date to filter by reviewedAt date
+    * @param endDate Optional end date to filter by reviewedAt date
     * @param limit The number of tasks to return
     * @param page The page number for the results
     * @param sort The column to sort
     * @param order The order direction to sort
     * @return
     */
-  def getReviewRequestedTasks(limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+  def getReviewRequestedTasks(startDate: String=null, endDate: String=null,
+                              limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         //cs => "my challenge name"
         //o => "mapper's name"
         //r => "reviewer's name"
-        val (count, result) = this.dal.getReviewRequestedTasks(User.userOrMocked(user), params, limit, page, sort, order)
+        val (count, result) = this.dal.getReviewRequestedTasks(User.userOrMocked(user), params,
+           startDate, endDate, limit, page, sort, order)
         Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
       }
     }
@@ -311,6 +315,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   /**
     * Gets reviewed tasks where the user has reviewed or requested review
     *
+    * @param startDate Optional start date to filter by reviewedAt date
+    * @param endDate Optional end date to filter by reviewedAt date
     * @param asReviewer Whether we should return tasks reviewed by this user or reqested by this user
     * @param allowReviewNeeded Whether we should return tasks where status is review requested also
     * @param limit The number of tasks to return
@@ -319,12 +325,14 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @param order The order direction to sort
     * @return
     */
-  def getReviewedTasks(asReviewer: Boolean=false, allowReviewNeeded: Boolean=false, limit:Int, page:Int,
+  def getReviewedTasks(startDate: String=null, endDate: String=null,
+                       asReviewer: Boolean=false, allowReviewNeeded: Boolean=false,
+                       limit:Int, page:Int,
                        sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val (count, result) = this.dal.getReviewedTasks(User.userOrMocked(user), params,
-             asReviewer, allowReviewNeeded, limit, page, sort, order)
+             startDate, endDate, asReviewer, allowReviewNeeded, limit, page, sort, order)
         Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
       }
     }
@@ -343,22 +351,22 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         c.parent)).map(c => c.id -> Json.obj("id" -> c.id, "name" -> c.name, "status" -> c.status)).toMap)
 
       val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewRequestedBy.getOrElse(0).toLong)).map(u =>
+        t => t.reviewRequestedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewedBy.getOrElse(0).toLong)).map(u =>
+        t => t.reviewedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val jsonList = tasks.map { task =>
         val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
         var updated = Utils.insertIntoJson(Json.toJson(task), Challenge.KEY_PARENT, challengeJson, true)
         if (task.reviewRequestedBy.getOrElse(0) != 0) {
-          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get.toLong)).as[JsObject]
+          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewRequestedBy", mapperJson, true)
         }
         if (task.reviewedBy.getOrElse(0) != 0) {
-          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get.toLong)).as[JsObject]
+          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
 
