@@ -277,7 +277,8 @@ class TaskDAL @Inject()(override val db: Database,
     val updatedTask: Option[Task] = this.withMRTransaction { implicit c =>
       val query = "SELECT create_update_task({name}, {parentId}, {instruction}, " +
                   "{status}, {id}, {priority}, {changesetId}, {reset}, {mappedOn}," +
-                  "{reviewStatus}, {reviewRequestedBy}, {reviewedBy}, {reviewedAt})"
+                  "{reviewStatus}, CAST({reviewRequestedBy} AS INTEGER), " +
+                  "CAST({reviewedBy} AS INTEGER), {reviewedAt})"
 
       val updatedTaskId = SQL(query).on(
         NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
@@ -1691,7 +1692,7 @@ class TaskDAL @Inject()(override val db: Database,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
                    task_review.reviewed_at,
-                   (SELECT string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment), 
+                   (SELECT string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
                                       CONCAT(chr(10),'---',chr(10))) AS comments
                     FROM task_comments tc WHERE tc.task_id = t.id)
             FROM tasks t LEFT OUTER JOIN (
