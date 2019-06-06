@@ -642,7 +642,7 @@ class TaskDAL @Inject()(override val db: Database,
 
       updatedRows
     }
-    if (user.settings.needsReview.get != User.REVIEW_NOT_NEEDED) {
+    if (reviewNeeded) {
       this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status),
                                                  reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
                                                  reviewRequestedBy = Some(user.id))) }
