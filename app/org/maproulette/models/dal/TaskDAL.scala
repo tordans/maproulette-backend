@@ -1354,7 +1354,7 @@ class TaskDAL @Inject()(override val db: Database,
       if (taskIdList.nonEmpty) {
         this.appendInWhereClause(whereClause, s"task_id IN (${taskIdList.mkString(",")})")
       }
-
+            
       SQL(
         s"""
               SELECT * FROM task_comments tc

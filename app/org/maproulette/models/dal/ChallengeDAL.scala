@@ -576,6 +576,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                       ${projectFilter}
                       GROUP BY c.id
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+
       SQL(query).on('offset -> offset).as(this.listingParser.*)
     }
   }

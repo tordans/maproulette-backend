@@ -487,6 +487,17 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
     }
   }
 
+  private def buildProjectSearch(projectList: Option[List[Long]] = None, projectColumn: String, challengeColumn: String): String = {
+    val vpSearch = projectList match {
+      case Some(idList) if idList.nonEmpty =>
+        s"""OR 1 IN (SELECT 1 FROM unnest(ARRAY[${idList.mkString(",")}]) AS pIds
+                     WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
+                                    WHERE vp.challenge_id = ${challengeColumn}))"""
+      case _ => ""
+    }
+    getLongListFilter(projectList, projectColumn) + vpSearch
+  }
+
   /**
     * Gets the project activity (default will get data for all projects) grouped by timed action
     *
