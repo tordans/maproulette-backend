@@ -645,10 +645,12 @@ class TaskDAL @Inject()(override val db: Database,
     if (reviewNeeded) {
       this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status),
                                                  reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
-                                                 reviewRequestedBy = Some(user.id))) }
+                                                 reviewRequestedBy = Some(user.id),
+                                                 modified = new DateTime())) }
     }
     else {
-      this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status))) }
+      this.cacheManager.withOptionCaching { () => Some(task.copy(status = Some(status),
+                                                                 modified = new DateTime()))}
     }
     this.challengeDAL.get().updateFinishedStatus()(task.parent)
 
