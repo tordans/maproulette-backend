@@ -5,6 +5,7 @@ package org.maproulette.services.osm
 import javax.inject.{Inject, Singleton}
 import org.maproulette.Config
 import org.maproulette.exception.ChangeConflictException
+import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.services.osm.objects._
 import play.api.libs.oauth.{OAuthCalculator, RequestToken}
 import play.api.libs.ws.{WSClient, WSResponse}
@@ -181,6 +182,7 @@ class ChangesetProvider @Inject()(ws: WSClient, nodeService: NodeProvider, waySe
     req onComplete {
       case Success(res) => res.status match {
         case ChangesetProvider.STATUS_OK => p success block(res)
+        case ChangesetProvider.STATUS_UNAUTHORIZED => p failure new OAuthNotAuthorizedException(s"User not authorized to submit tag changes on this server. $res")
         case x => p failure new Exception(s"${url} failed with status code $x (${res.statusText}")
       }
       case Failure(f) => p failure f
@@ -210,4 +212,5 @@ object ChangesetProvider {
 
   private val STATUS_OK = 200
   private val STATUS_CONFLICT = 409
+  private val STATUS_UNAUTHORIZED = 401
 }

@@ -2,7 +2,6 @@
 
 # --- !Ups
 
-DROP FUNCTION create_update_task;;
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change adds the mapped_on, review_status, review_requested_by, reviewed_by
 CREATE OR REPLACE FUNCTION create_update_task(task_name text,
@@ -45,7 +44,6 @@ CREATE OR REPLACE FUNCTION create_update_task(task_name text,
   $$
   LANGUAGE plpgsql VOLATILE;;
 
-DROP FUNCTION update_task;;
 CREATE OR REPLACE FUNCTION update_task(task_name text,
                                          task_parent_id bigint,
                                          task_instruction text,

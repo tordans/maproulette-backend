@@ -81,7 +81,7 @@ class ProjectDAL @Inject()(override val db: Database,
         val point = Point(coordinates(1), coordinates.head)
         val boundingJSON = Json.parse(bounding)
         ClusteredPoint(id, osm_id, username, name, parentId, parentName, point, boundingJSON, blurb.getOrElse(""), modified, difficulty, challengeType, -1,
-        None, None, None, None, None, None, -1)
+        None, None, None, None, None, None, None, -1)
     }
   }
 

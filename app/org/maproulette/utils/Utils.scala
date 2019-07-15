@@ -30,23 +30,35 @@ object Utils extends DefaultWrites {
           case Some(idValue) => p + ("osmid" -> idValue)
           case None => p
         }
+        var suggestedFix: JsValue = null
         val updatedMap = idMap.map {
           kv =>
-            try {
-              val strValue = kv._2 match {
-                case v: JsNumber => v.toString
-                case v: JsArray => v.as[Seq[String]].mkString(",")
-                case v => v.as[String]
+            if (kv._1 == "maproulette") {
+              val fix = kv._2 match {
+                case sf: JsValue =>
+                  suggestedFix = sf
+                  ""
+                case _ => ""
               }
-              kv._1 -> strValue
-            } catch {
-              // if we can't convert it into a string, then just use the toString method and hope we get something sensible
-              // other option could be just to ignore it.
-              case e: Throwable =>
-                kv._1 -> kv._2.toString
+              kv._1 -> fix
+            }
+            else {
+              try {
+                val strValue = kv._2 match {
+                  case v: JsNumber => v.toString
+                  case v: JsArray => v.as[Seq[String]].mkString(",")
+                  case v => v.as[String]
+                }
+                kv._1 -> strValue
+              } catch {
+                // if we can't convert it into a string, then just use the toString method and hope we get something sensible
+                // other option could be just to ignore it.
+                case e: Throwable =>
+                  kv._1 -> kv._2.toString
+              }
             }
         }.toMap
-        Json.toJson(updatedMap)
+        Json.toJson(updatedMap).as[JsObject]
       case _ => Json.obj()
     }
   }

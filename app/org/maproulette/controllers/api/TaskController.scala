@@ -12,9 +12,10 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL, DALManager}
 import org.maproulette.models._
-import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
+import org.maproulette.services.osm._
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
 import play.api.libs.json._
@@ -22,7 +23,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.{Await, Promise, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -40,6 +41,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
                                wsClient: WSClient,
                                config: Config,
                                components: ControllerComponents,
+                               changeService: ChangesetProvider,
                                override val bodyParsers: PlayBodyParsers)
   extends AbstractController(components) with CRUDController[Task] with TagsMixin[Task] {
 
@@ -58,6 +60,10 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   implicit val tagReads: Reads[Tag] = Tag.tagReads
   implicit val commentReads: Reads[Comment] = Comment.commentReads
   implicit val commentWrites: Writes[Comment] = Comment.commentWrites
+
+  implicit val tagChangeReads = ChangeObjects.tagChangeReads
+  implicit val tagChangeResultWrites = ChangeObjects.tagChangeResultWrites
+  implicit val tagChangeSubmissionReads = ChangeObjects.tagChangeSubmissionReads
 
   override def dalWithTags: TagDALMixin[Task] = dal
 
@@ -115,6 +121,14 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       case None => (updatedBody \ "location").asOpt[JsValue] match {
         case Some(value) =>
           Utils.insertIntoJson(updatedBody, "location", value.toString(), true)
+        case None => updatedBody
+      }
+    }
+    (updatedBody \ "suggestedFix").asOpt[String] match {
+      case Some(value) => updatedBody
+      case None => (updatedBody \ "suggestedFix").asOpt[JsValue] match {
+        case Some(value) =>
+          Utils.insertIntoJson(updatedBody, "suggestedFix", value.toString(), true)
         case None => updatedBody
       }
     }
@@ -506,4 +520,42 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       }
     }
   }
+
+  def applyTagFix(taskId:Long, comment:String = "", tags:String = ""): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+    this.sessionManager.authenticatedFutureRequest { implicit user =>
+      val result = request.body.validate[TagChangeSubmission]
+      result.fold(
+        errors => {
+          Future {
+            BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+          }
+        },
+        element => {
+          val p = Promise[Result]
+
+          val requestReview = request.getQueryString("requestReview") match {
+            case Some(v) => Some(v.toBoolean)
+            case None => None
+          }
+
+          config.mockOSM match {
+            // If we are mocking OSM then we don't actually do the tag change on OSM
+            case true =>
+              this.customTaskStatus(taskId, TaskStatusSet(Task.STATUS_FIXED), user, comment, tags, requestReview)
+              p success Ok(Json.toJson(true))
+            case _ => None
+              changeService.submitTagChange(element.changes, element.comment, user.osmProfile.requestToken) onComplete {
+                case Success(res) => {
+                  this.customTaskStatus(taskId, TaskStatusSet(Task.STATUS_FIXED), user, comment, tags, requestReview)
+                  p success Ok(res)
+                }
+                case Failure(f) => p failure f
+              }
+          }
+          p.future
+        }
+      )
+    }
+  }
+
 }

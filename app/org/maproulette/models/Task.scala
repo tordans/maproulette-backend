@@ -82,14 +82,9 @@ case class Task(override val id: Long,
     }
   }
 
-  def getGeometryProperties(fixGeometry: Boolean = false): List[Map[String, String]] = {
-    val g = if (fixGeometry) {
-      suggestedFix.getOrElse("")
-    } else {
-      geometries
-    }
-    if (StringUtils.isNotEmpty(g)) {
-      val geojson = Json.parse(g)
+  def getGeometryProperties(): List[Map[String, String]] = {
+    if (StringUtils.isNotEmpty(this.geometries)) {
+      val geojson = Json.parse(this.geometries)
       (geojson \ "features").as[List[JsValue]].map(json =>
         Utils.getProperties(json, "properties").as[Map[String, String]]
       )
@@ -105,12 +100,18 @@ object Task {
     override def writes(o: Task): JsValue = {
       implicit val mapillaryWrites: Writes[MapillaryImage] = Json.writes[MapillaryImage]
       implicit val taskWrites: Writes[Task] = Json.writes[Task]
-      val original = Json.toJson(o)(Json.writes[Task])
-      val updated = o.location match {
+      var original = Json.toJson(o)(Json.writes[Task])
+      var updatedLocation = o.location match {
         case Some(l) => Utils.insertIntoJson(original, "location", Json.parse(l), true)
         case None => original
       }
-      Utils.insertIntoJson(updated, "geometries", Json.parse(o.geometries), true)
+
+      original = Utils.insertIntoJson(updatedLocation, "geometries", Json.parse(o.geometries), true)
+      var updatedSF = o.suggestedFix match {
+        case Some(sf) => Utils.insertIntoJson(original, "suggestedFix", Json.parse(sf), true)
+        case None => original
+      }
+      Utils.insertIntoJson(updatedSF, "geometries", Json.parse(o.geometries), true)
     }
 
     override def reads(json: JsValue): JsResult[Task] = {
