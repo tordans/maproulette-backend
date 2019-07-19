@@ -7,6 +7,7 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Provider, Singleton}
+import org.maproulette.Config
 import org.maproulette.cache.{CacheManager, TagCacheManager}
 import org.maproulette.exception.{InvalidException, UniqueViolationException}
 import org.maproulette.models.Tag

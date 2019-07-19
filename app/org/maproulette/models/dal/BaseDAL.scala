@@ -14,6 +14,7 @@ import org.maproulette.models.utils.{DALHelper, TransactionManager}
 import org.maproulette.models.{BaseObject, Lock}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
+import org.maproulette.utils.{Readers, Writers}
 import org.slf4j.LoggerFactory
 import play.api.db.Database
 import play.api.libs.json.JsValue
@@ -24,7 +25,7 @@ import play.api.libs.json.JsValue
   *
   * @author cuthbertm
   */
-trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManager {
+trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManager with Readers with Writers {
   protected val logger = LoggerFactory.getLogger(this.getClass)
 
   // Service that handles all the permissions for the objects

@@ -4,7 +4,7 @@ package org.maproulette.services.osm.objects
 
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.cache.CacheStorage
+import org.maproulette.cache.BasicCache
 import org.maproulette.exception.NotFoundException
 import org.maproulette.services.osm.OSMType.OSMType
 import play.api.libs.ws.WSClient
@@ -20,7 +20,7 @@ import scala.xml.Node
   */
 trait ObjectProvider[T <: VersionedObject] {
   implicit val ws: WSClient
-  implicit val cache: CacheStorage[Long, VersionedObjects[T]]
+  implicit val cache: BasicCache[Long, VersionedObjects[T]]
   implicit val config: Config
 
   import scala.concurrent.ExecutionContext.Implicits.global

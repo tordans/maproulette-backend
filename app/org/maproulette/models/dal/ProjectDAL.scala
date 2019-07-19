@@ -30,11 +30,12 @@ class ProjectDAL @Inject()(override val db: Database,
                            childDAL: ChallengeDAL,
                            surveyDAL: SurveyDAL,
                            userGroupDAL: UserGroupDAL,
-                           override val permission: Permission)
+                           override val permission: Permission,
+                           config:Config)
   extends ParentDAL[Long, Project, Challenge] with OwnerMixin[Project] {
 
   // manager for the cache of the projects
-  override val cacheManager = new CacheManager[Long, Project]
+  override val cacheManager = new CacheManager[Long, Project](config, Config.CACHE_ID_PROJECTS)
   // table name for projects
   override val tableName: String = "projects"
   // table name for project children, challenges

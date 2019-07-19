@@ -206,7 +206,18 @@ object User {
       Utils.insertIntoJson(updated, "properties", Json.parse(o.properties.getOrElse("{}")), true)
     }
 
-    override def reads(json: JsValue): JsResult[User] = Json.fromJson[User](json)(Json.reads[User])
+    override def reads(json: JsValue): JsResult[User] = {
+      val modifiedJson:JsValue = (json \ "properties").toOption match {
+        case Some(p) =>
+          p match {
+            case props:JsString => json
+            case _ =>
+              json.as[JsObject] ++ Json.obj("properties" -> p.toString())
+          }
+        case None => json
+      }
+      Json.fromJson[User](modifiedJson)(Json.reads[User])
+    }
   }
 
   val DEFAULT_GUEST_USER_ID = -998

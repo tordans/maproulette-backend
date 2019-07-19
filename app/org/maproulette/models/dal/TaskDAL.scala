@@ -60,7 +60,7 @@ class TaskDAL @Inject()(override val db: Database,
   import scala.concurrent.ExecutionContext.Implicits.global
 
   // The cache manager for that tasks
-  override val cacheManager = new CacheManager[Long, Task]()
+  override val cacheManager = new CacheManager[Long, Task](config, Config.CACHE_ID_TASKS)(taskReads, taskReads)
   // The database table name for the tasks
   override val tableName: String = "tasks"
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
@@ -321,7 +321,7 @@ class TaskDAL @Inject()(override val db: Database,
       cachedItem match {
         case Some(item) =>
           if (item.reviewRequestedBy != None && element.reviewRequestedBy == None) {
-            SQL("delete from task_review where task_id=" + element.id).execute()
+            SQL("DELETE FROM task_review WHERE task_id=" + element.id).execute()
           }
         case None => // ignore
       }
@@ -443,13 +443,17 @@ class TaskDAL @Inject()(override val db: Database,
             case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
           }
           val newPriority = task.getTaskPriority(parentChallenge)
-          this.withMRTransaction { implicit c =>
-            // Update the location of the particular task
-            SQL"""UPDATE tasks
+          if (newPriority != task.priority) {
+            this.withMRTransaction { implicit c =>
+              // Update the location of the particular task
+              SQL"""UPDATE tasks
               SET priority = $newPriority
               WHERE id = $taskId
             """.executeUpdate()
-            this.retrieveById(taskId)
+              this.retrieveById(taskId)
+            }
+          } else {
+            Some(task)
           }
         }
       }
