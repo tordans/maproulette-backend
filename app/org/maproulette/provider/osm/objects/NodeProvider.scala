@@ -5,7 +5,7 @@ package org.maproulette.services.osm.objects
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.cache.CacheStorage
+import org.maproulette.cache.BasicCache
 import org.maproulette.services.osm.OSMType
 import play.api.libs.ws.WSClient
 
@@ -19,7 +19,7 @@ import scala.xml.Node
   */
 @Singleton
 class NodeProvider @Inject()(override val ws: WSClient, override val config: Config) extends ObjectProvider[VersionedNode] {
-  val cache = new CacheStorage[Long, VersionedObjects[VersionedNode]](cacheExpiry = ObjectProvider.DEFAULT_CACHE_EXPIRY)
+  val cache = new BasicCache[Long, VersionedObjects[VersionedNode]](config)
 
   def get(ids: List[Long]): Future[List[VersionedNode]] = getFromType(ids, OSMType.NODE)
 

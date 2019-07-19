@@ -7,7 +7,8 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Singleton}
-import org.maproulette.cache.{BasicCache, CacheManager}
+import org.maproulette.Config
+import org.maproulette.cache.{ListCacheObject, BasicCache, CacheManager}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models.utils.TransactionManager
 import org.maproulette.session.{Group, User}
@@ -20,14 +21,14 @@ import play.api.db.Database
   * @author cuthbertm
   */
 @Singleton
-class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
+class UserGroupDAL @Inject()(val db: Database, config: Config) extends TransactionManager {
 
   // The cache manager for the users
-  val cacheManager = new CacheManager[Long, Group]
+  val cacheManager = new CacheManager[Long, Group](config, Config.CACHE_ID_USERGROUPS)
   // The cache manager containing project to list of group ID's
-  val projectCache = new BasicCache[Long, List[Long]]
+  val projectCache = new BasicCache[Long, ListCacheObject[Long]](config)
   // The cache manager containing user to list of group ID's
-  val userCache = new BasicCache[Long, List[Long]]
+  val userCache = new BasicCache[Long, ListCacheObject[Long]](config)
 
   // The anorm row parser to convert group records from the database to group objects
   val parser: RowParser[Group] = {
@@ -67,13 +68,24 @@ class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
         // add to project cache
         projectCache.get(projectId) match {
           case Some(groups) =>
-            projectCache.add(projectId, groups :+ v.id)
+            projectCache.add(projectId, new ListCacheObject(groups.list :+ v.id))
           case None =>
         }
         v
       case None => throw new Exception(
         s"""For some reason a group was inserted but no group object returned.
                                             Possible data inconsistent possible, so operation cancelled.""")
+    }
+  }
+
+  /**
+    * Access for user functions are limited to super users
+    *
+    * @param user A super user
+    */
+  private def hasAccess(user: User): Unit = {
+    if (!user.isSuperUser) {
+      throw new IllegalAccessException("Only super users have access to group objects.")
     }
   }
 
@@ -140,12 +152,21 @@ class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
     clearCacheType(id, groupId, this.projectCache)
   }
 
-  private def clearCacheType(id: Long = -1, groupId: Long = -1, cache: BasicCache[Long, List[Long]]): Unit = {
+  /**
+    * Clears the user cache
+    *
+    * @param osmId If osmId is supplied will only remove the user with that osmId
+    */
+  def clearUserCache(osmId: Long = -1, groupId: Long = -1): Unit = {
+    clearCacheType(osmId, groupId, this.userCache)
+  }
+
+  private def clearCacheType(id: Long = -1, groupId: Long = -1, cache: BasicCache[Long, ListCacheObject[Long]]): Unit = {
     if (id > -1) {
       if (groupId > -1) {
         cache.get(id) match {
           case Some(v) =>
-            cache.add(id, v.filter(_ != groupId))
+            cache.add(id, new ListCacheObject(v.list.filter(_ != groupId)))
           case None => //ignore
         }
       } else {
@@ -154,21 +175,12 @@ class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
     } else {
       if (groupId > -1) {
         cache.cache.foreach(v => {
-          cache.add(v._1, v._2.value.filter(id => id != groupId))
+          cache.add(v._1, new ListCacheObject(v._2.value.list.filter(id => id != groupId)))
         })
       } else {
         cache.clear()
       }
     }
-  }
-
-  /**
-    * Clears the user cache
-    *
-    * @param osmId If osmId is supplied will only remove the user with that osmId
-    */
-  def clearUserCache(osmId: Long = -1, groupId: Long = -1): Unit = {
-    clearCacheType(osmId, groupId, this.userCache)
   }
 
   /**
@@ -207,14 +219,14 @@ class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
     )
   }
 
-  private def getGroups(id: Long, cache: BasicCache[Long, List[Long]], sql: String, user: User)
-                        (implicit c: Option[Connection] = None): List[Group] = {
+  private def getGroups(id: Long, cache: BasicCache[Long, ListCacheObject[Long]], sql: String, user: User)
+                       (implicit c: Option[Connection] = None): List[Group] = {
     this.hasAccess(user)
     val retGroups = cache.get(id) match {
       case Some(ids) =>
         // from the id cache, get all the groups in the group cache, if any are missing re-get everything
-        val projectGroups = ids.flatMap(id => this.cacheManager.cache.get(id))
-        if (projectGroups.lengthCompare(ids.size) != 0) {
+        val projectGroups = ids.list.flatMap(id => this.cacheManager.cache.get(id))
+        if (projectGroups.lengthCompare(ids.list.size) != 0) {
           List.empty[Group]
         } else {
           projectGroups
@@ -229,19 +241,8 @@ class UserGroupDAL @Inject()(val db: Database) extends TransactionManager {
         }
         // add all the retrieved objects to the cache
         groupList.foreach(group => this.cacheManager.cache.addObject(group))
-        cache.add(id, groupList.map(_.id))
+        cache.add(id, new ListCacheObject(groupList.map(_.id)))
         groupList
-    }
-  }
-
-  /**
-    * Access for user functions are limited to super users
-    *
-    * @param user A super user
-    */
-  private def hasAccess(user: User): Unit = {
-    if (!user.isSuperUser) {
-      throw new IllegalAccessException("Only super users have access to group objects.")
     }
   }
 

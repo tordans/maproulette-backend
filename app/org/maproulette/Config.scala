@@ -3,10 +3,10 @@
 package org.maproulette
 
 import javax.inject.{Inject, Singleton}
-import org.apache.commons.lang3.StringUtils
+import org.maproulette.cache.CacheManager
 import org.maproulette.data.Actions
 import org.maproulette.models.MapillaryServerInfo
-import play.api.Application
+import play.api.Configuration
 import play.api.libs.oauth.ConsumerKey
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -20,7 +20,7 @@ case class OSMQLProvider(providerURL: String, requestTimeout: Duration)
   * @author cuthbertm
   */
 @Singleton
-class Config @Inject()(implicit val application: Application) {
+class Config @Inject()(implicit val configuration: Configuration) {
   lazy val logoURL = this.config.getOptional[String](Config.KEY_LOGO) match {
     case Some(logo) => logo
     case None => "/assets/images/logo.png" // default to the MapRoulette Icon
@@ -31,6 +31,8 @@ class Config @Inject()(implicit val application: Application) {
     case None => List.empty
   }
   lazy val ignoreSessionTimeout: Boolean = this.sessionTimeout == -1
+  lazy val isBootstrapMode: Boolean =
+    this.config.getOptional[Boolean](Config.KEY_BOOTSTRAP).getOrElse(false)
   lazy val isDebugMode: Boolean =
     this.config.getOptional[Boolean](Config.KEY_DEBUG).getOrElse(false)
   lazy val isDevMode: Boolean =
@@ -64,7 +66,7 @@ class Config @Inject()(implicit val application: Application) {
   lazy val taskScoreSkipped: Int =
     this.config.getOptional[Int](Config.KEY_TASK_SCORE_SKIPPED).getOrElse(Config.DEFAULT_TASK_SCORE_SKIPPED)
   lazy val defaultNeedsReview: Int =
-    this.config.getOptional[Int](Config.KEY_REVIEW_NEEDED_DEFAULT).getOrElse(Config.DEFAULT_REVIEW_NEEDED)  
+    this.config.getOptional[Int](Config.KEY_REVIEW_NEEDED_DEFAULT).getOrElse(Config.DEFAULT_REVIEW_NEEDED)
   lazy val osmMatcherEnabled: Boolean =
     this.config.getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED).getOrElse(Config.DEFAULT_OSM_MATCHER_ENABLED)
   lazy val osmMatcherManualOnly: Boolean =
@@ -106,7 +108,16 @@ class Config @Inject()(implicit val application: Application) {
     this.config.getOptional[Int](Config.KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE).getOrElse(Config.DEFAULT_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE)
   lazy val taskReset: Int = this.config.getOptional[Int](Config.KEY_TASK_RESET).getOrElse(Config.DEFAULT_TASK_RESET)
   lazy val signIn: Boolean = this.config.getOptional[Boolean](Config.KEY_SIGNIN).getOrElse(Config.DEFAULT_SIGNIN)
-  val config = application.configuration
+
+  //caching properties
+  lazy val cacheType: String = this.config.getOptional[String](Config.KEY_CACHING_TYPE).getOrElse(CacheManager.BASIC_CACHE)
+  lazy val cacheLimit: Int = this.config.getOptional[Int](Config.KEY_CACHING_CACHE_LIMIT).getOrElse(CacheManager.DEFAULT_CACHE_LIMIT)
+  lazy val cacheExpiry: Int = this.config.getOptional[Int](Config.KEY_CACHING_CACHE_EXPIRY).getOrElse(CacheManager.DEFAULT_CACHE_EXPIRY)
+  lazy val redisHost: Option[String] = this.config.getOptional[String](Config.KEY_CACHING_REDIS_HOST)
+  lazy val redisPort: Option[Int] = this.config.getOptional[Int](Config.KEY_CACHING_REDIS_PORT)
+  lazy val redisResetOnStart: Boolean = this.config.getOptional[Boolean](Config.KEY_CACHING_REDIS_RESET).getOrElse(false);
+
+  val config = configuration
 
   /**
     * Retrieves a value from the configuration file
@@ -125,7 +136,7 @@ class Config @Inject()(implicit val application: Application) {
     * @param block The block of code executed if a FiniteDuration is found
     */
   def withFiniteDuration(key: String)(block: (FiniteDuration) => Unit): Unit = {
-    application.configuration.getOptional[String](key)
+    configuration.getOptional[String](key)
       .map(Duration(_)).filter(_.isFinite())
       .map(duration => FiniteDuration(duration._1, duration._2))
       .foreach(block(_))
@@ -134,6 +145,14 @@ class Config @Inject()(implicit val application: Application) {
 
 object Config {
   val GROUP_MAPROULETTE = "maproulette"
+  val GROUP_MAPROULETTE_CACHING = s"$GROUP_MAPROULETTE.caching"
+  val KEY_CACHING_TYPE = s"$GROUP_MAPROULETTE_CACHING.type"
+  val KEY_CACHING_CACHE_LIMIT = s"$GROUP_MAPROULETTE_CACHING.cacheLimit"
+  val KEY_CACHING_CACHE_EXPIRY = s"$GROUP_MAPROULETTE_CACHING.cacheExpiry"
+  val KEY_CACHING_REDIS_HOST = s"$GROUP_MAPROULETTE_CACHING.redis.host"
+  val KEY_CACHING_REDIS_PORT = s"$GROUP_MAPROULETTE_CACHING.redis.port"
+  val KEY_CACHING_REDIS_RESET = s"$GROUP_MAPROULETTE_CACHING.redis.resetOnStart"
+  val KEY_BOOTSTRAP = s"$GROUP_MAPROULETTE.bootstrap"
   val KEY_PROXY_PORT = s"$GROUP_MAPROULETTE.proxy.port"
   val KEY_PROXY_SSL = s"$GROUP_MAPROULETTE.proxy.ssl"
   val KEY_LOGO = s"$GROUP_MAPROULETTE.logo"
@@ -232,4 +251,13 @@ object Config {
   val DEFAULT_MATCHER_BATCH_SIZE = 5000
   val DEFAULT_MAPILLARY_BORDER = 10
   val DEFAULT_REVIEW_NEEDED = 0
+
+  // Redis Cache id's for different caches
+  val CACHE_ID_TAGS = "1";
+  val CACHE_ID_USERS = "2";
+  val CACHE_ID_PROJECTS = "3";
+  val CACHE_ID_CHALLENGES = "4";
+  val CACHE_ID_TASKS = "5";
+  val CACHE_ID_USERGROUPS = "6"
+  val CACHE_ID_VIRTUAL_CHALLENGES = "7"
 }

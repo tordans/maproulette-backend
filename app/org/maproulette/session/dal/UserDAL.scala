@@ -51,7 +51,7 @@ class UserDAL @Inject()(override val db: Database,
   import org.maproulette.utils.AnormExtension._
 
   // The cache manager for the users
-  override val cacheManager = new CacheManager[Long, User]
+  override val cacheManager = new CacheManager[Long, User](config, Config.CACHE_ID_USERS)
   override val tableName = "users"
   override val retrieveColumns: String = "*, ST_AsText(users.home_location) AS home"
 
@@ -415,8 +415,8 @@ class UserDAL @Inject()(override val db: Database,
     * @param c          an optional connection, if not provided a new connection from the pool will be retrieved
     * @return An optional user, if user with supplied ID not found, then will return empty optional
     */
-  def managedUpdate(settings: UserSettings, properties: Option[JsValue], user: User)(implicit id: Long, c: Option[Connection] = None): Option[User] = {
-    implicit val settingsWrite = User.settingsWrites
+  def managedUpdate(settings: UserSettings, properties: Option[JsValue], user: User)
+                   (implicit id: Long, c: Option[Connection] = None): Option[User] = {
     val updateBody = Utils.insertIntoJson(Json.parse("{}"), "settings", Json.toJson(settings))
     this.update(properties match {
       case Some(p) => Utils.insertIntoJson(updateBody, "properties", JsString(p.toString()))
