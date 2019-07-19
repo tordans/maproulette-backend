@@ -7,6 +7,7 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Provider, Singleton}
+import org.maproulette.Config
 import org.maproulette.exception.InvalidException
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
@@ -21,8 +22,9 @@ import play.api.libs.json.JsValue
 class SurveyDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                           override val tagDAL: TagDAL,
                           projectDAL: Provider[ProjectDAL],
-                          override val permission: Permission)
-  extends ChallengeDAL(db, taskDAL, tagDAL, projectDAL, permission) {
+                          override val permission: Permission,
+                          config:Config)
+  extends ChallengeDAL(db, taskDAL, tagDAL, projectDAL, permission, config) {
 
   private val answerParser: RowParser[Answer] = {
     get[Long]("answers.id") ~

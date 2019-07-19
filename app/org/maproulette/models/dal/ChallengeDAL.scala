@@ -33,14 +33,14 @@ import scala.concurrent.Future
 class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                              override val tagDAL: TagDAL,
                              projectDAL: Provider[ProjectDAL],
-                             override val permission: Permission)
+                             override val permission: Permission,
+                             config: Config)
   extends ParentDAL[Long, Challenge, Task] with TagDALMixin[Challenge] with OwnerMixin[Challenge] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
-  private val DEFAULT_NUM_CHILDREN_LIST = 1000
 
   // The manager for the challenge cache
-  override val cacheManager = new CacheManager[Long, Challenge]
+  override val cacheManager = new CacheManager[Long, Challenge](config, Config.CACHE_ID_CHALLENGES)
   // The name of the challenge table
   override val tableName: String = "challenges"
   // The name of the table for it's children Tasks
@@ -49,7 +49,6 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   override val childParser = taskDAL.parser
   override val childColumns: String = taskDAL.retrieveColumns
   override val retrieveColumns: String = "*, ST_AsGeoJSON(location) AS locationJSON, ST_AsGeoJSON(bounding) AS boundingJSON"
-
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
     * to the Challenge object.
@@ -117,7 +116,6 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         )
     }
   }
-
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
     * to the Challenge object.
@@ -186,7 +184,6 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         )
     }
   }
-
   val pointParser: RowParser[ClusteredPoint] = {
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
@@ -202,8 +199,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[Int]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
-           mappedOn ~ priority ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-           reviewedAt =>
+        mappedOn ~ priority ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
+        reviewedAt =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
@@ -212,7 +209,6 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
     }
   }
-
   val listingParser: RowParser[ChallengeListing] = {
     get[Long]("challenges.id") ~
       get[Long]("challenges.parent_id") ~
@@ -223,31 +219,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         ChallengeListing(id, parent, name, enabled, virtualParents)
     }
   }
-
-  /**
-    * A basic retrieval of the object based on the id. With caching, so if it finds
-    * the object in the cache it will return that object without checking the database, otherwise
-    * will hit the database directly.
-    *
-    * @param id The id of the object to be retrieved
-    * @return The object, None if not found
-    */
-  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
-    this.cacheManager.withCaching { () =>
-      this.withMRConnection { implicit c =>
-        val query =
-          s"""
-            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
-            |FROM challenges c
-            |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-            |WHERE c.id = {id}
-            |GROUP BY c.id
-           """.stripMargin
-
-        SQL(query).on('id -> id).as(this.withVirtualParentParser.singleOpt)
-      }
-    }
-  }
+  private val DEFAULT_NUM_CHILDREN_LIST = 1000
 
   /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
@@ -416,6 +388,31 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   }
 
   /**
+    * A basic retrieval of the object based on the id. With caching, so if it finds
+    * the object in the cache it will return that object without checking the database, otherwise
+    * will hit the database directly.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query =
+          s"""
+             |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
+             |FROM challenges c
+             |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
+             |WHERE c.id = {id}
+             |GROUP BY c.id
+           """.stripMargin
+
+        SQL(query).on('id -> id).as(this.withVirtualParentParser.singleOpt)
+      }
+    }
+  }
+
+  /**
     * Will run through the tasks in batches of 50 and update the priorities based on the rules
     * of the challenge
     *
@@ -492,11 +489,11 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           get[Option[Long]]("task_review.review_claimed_by") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
-               geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
-               reviewedBy ~ reviewedAt ~ reviewClaimedBy ~ priority =>
+            geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
+            reviewedBy ~ reviewedAt ~ reviewClaimedBy ~ priority =>
             Task(id, name, created, modified, parent_id, instruction, location,
-                 geometry, suggestedFix, status, mappedOn, reviewStatus, reviewRequestedBy,
-                 reviewedBy, reviewedAt, reviewClaimedBy, priority)
+              geometry, suggestedFix, status, mappedOn, reviewStatus, reviewRequestedBy,
+              reviewedBy, reviewedAt, reviewClaimedBy, priority)
         }
       }
 
@@ -691,11 +688,11 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   /**
     * Gets the combined geometry of all the tasks that are associated with the challenge
     *
-    * @param challengeId  The id for the challenge
-    * @param statusFilter To view the geojson for only challenges with a specific status
+    * @param challengeId        The id for the challenge
+    * @param statusFilter       To view the geojson for only challenges with a specific status
     * @param reviewStatusFilter To view the geojson for only challenges with a specific review status
-    * @param priorityFilter To view the geojson for only challenges with a specific priority
-    * @param c            The implicit connection for the function
+    * @param priorityFilter     To view the geojson for only challenges with a specific priority
+    * @param c                  The implicit connection for the function
     * @return
     */
   def getChallengeGeometry(challengeId: Long, statusFilter: Option[List[Int]] = None,
@@ -724,7 +721,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       }
 
       val query =
-      SQL"""SELECT row_to_json(fc)::text as geometries
+        SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
                    FROM ( SELECT 'Feature' As type,
                                   ST_AsGeoJSON(lg.geom)::json As geometry,
@@ -766,7 +763,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                           (SELECT DISTINCT id FROM tasks subT WHERE parent_id = $challengeId #$status #$priority #$reviewStatus)
                     ) As f
             )  As fc"""
-            query.as(str("geometries").single)
+      query.as(str("geometries").single)
     }
   }
 
@@ -1029,12 +1026,13 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       }
 
       // Deleting tasks can be time consuming (~1 second per 15-20 tasks), so work in batches
-      val query = s"""DELETE FROM tasks WHERE id in (SELECT id from tasks WHERE parent_id = {challengeId} $filter LIMIT 50)"""
+      val query =
+        s"""DELETE FROM tasks WHERE id in (SELECT id from tasks WHERE parent_id = {challengeId} $filter LIMIT 50)"""
       var deleteCount = 0
       do {
         deleteCount = SQL(query).on('challengeId -> challengeId).executeUpdate()
       }
-      while(deleteCount > 0)
+      while (deleteCount > 0)
     }
   }
 

@@ -4,22 +4,16 @@ package org.maproulette.models.dal
 
 import java.sql.Connection
 
-import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Singleton}
-import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.cache.CacheManager
+import org.maproulette.data.ProjectType
+import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
+import org.maproulette.session.User
 import org.maproulette.session.dal.UserGroupDAL
-import org.maproulette.session.{Group, SearchParameters, User}
-import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.data.ProjectType
 import play.api.db.Database
-import play.api.libs.json.{JsValue, Json}
-
-import scala.collection.mutable.ListBuffer
 
 /**
   * Specific functions for virtual projects
@@ -28,11 +22,12 @@ import scala.collection.mutable.ListBuffer
   */
 @Singleton
 class VirtualProjectDAL @Inject()(override val db: Database,
-                           childDAL: ChallengeDAL,
-                           surveyDAL: SurveyDAL,
-                           userGroupDAL: UserGroupDAL,
-                           override val permission: Permission)
-  extends ProjectDAL(db, childDAL, surveyDAL, userGroupDAL, permission) {
+                                  childDAL: ChallengeDAL,
+                                  surveyDAL: SurveyDAL,
+                                  userGroupDAL: UserGroupDAL,
+                                  override val permission: Permission,
+                                  config: Config)
+  extends ProjectDAL(db, childDAL, surveyDAL, userGroupDAL, permission, config) {
 
   /**
     * Adds a challenge to a virtual project. You are required to have write access
@@ -46,12 +41,13 @@ class VirtualProjectDAL @Inject()(override val db: Database,
     this.permission.hasWriteAccess(ProjectType(), user)(projectId)
     this.retrieveById(projectId) match {
       case Some(p) => if (!p.isVirtual.getOrElse(false)) {
-          throw new InvalidException(s"Project must be a virtual project to add a challenge.")
-        }
+        throw new InvalidException(s"Project must be a virtual project to add a challenge.")
+      }
       case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
     }
     this.withMRTransaction { implicit c =>
-      val query = s"""INSERT INTO virtual_project_challenges (project_id, challenge_id)
+      val query =
+        s"""INSERT INTO virtual_project_challenges (project_id, challenge_id)
                       VALUES ($projectId, $challengeId)"""
       SQL(query).execute()
       None
@@ -70,12 +66,13 @@ class VirtualProjectDAL @Inject()(override val db: Database,
     this.permission.hasWriteAccess(ProjectType(), user)(projectId)
     this.retrieveById(projectId) match {
       case Some(p) => if (!p.isVirtual.getOrElse(false)) {
-          throw new InvalidException(s"Project must be a virtual project to remove a challenge.")
-        }
+        throw new InvalidException(s"Project must be a virtual project to remove a challenge.")
+      }
       case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
     }
     this.withMRTransaction { implicit c =>
-      val query = s"""DELETE FROM virtual_project_challenges
+      val query =
+        s"""DELETE FROM virtual_project_challenges
                       WHERE project_id=$projectId AND challenge_id=$challengeId"""
       SQL(query).execute()
       None

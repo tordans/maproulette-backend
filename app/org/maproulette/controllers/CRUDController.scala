@@ -325,6 +325,8 @@ trait CRUDController[T <: BaseObject[Long]] extends BaseController with DefaultW
   def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user: User, update: Boolean = false): Unit = {
     this.dal.getDatabase.withTransaction { implicit c =>
       Metrics.timer("BatchUpload LOOP") { () =>
+        // todo we can do this more efficiently for a batch. Instead of looping through each and
+        //  everyone, we can actually handle this in a batch like the name suggests.
         arr.foreach(element => (element \ "id").asOpt[String] match {
           case Some(itemID) => if (update) this.internalUpdate(element, user)(itemID, -1)
           case None =>

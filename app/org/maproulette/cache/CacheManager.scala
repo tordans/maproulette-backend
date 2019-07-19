@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.cache
 
+import org.maproulette.Config
+import play.api.libs.json.{Reads, Writes}
+
 import scala.collection.mutable
 
 /**
@@ -14,8 +17,9 @@ import scala.collection.mutable
   *
   * @author cuthbertm
   */
-class CacheManager[Key, A <: CacheObject[Key]](cacheLimit: Int = CacheManager.DEFAULT_CACHE_LIMIT, cacheExpiry: Int = CacheManager.DEFAULT_CACHE_EXPIRY) {
-  val cache = new CacheStorage[Key, A](cacheLimit, cacheExpiry)
+class CacheManager[Key, A <: CacheObject[Key]](config: Config, prefix: String = "")
+                                              (implicit r: Reads[A], w: Writes[A]) {
+  val cache: Cache[Key, A] = CacheManager(config, prefix)
   val nameCache = mutable.Map[String, Key]()
 
   def clearCaches: Unit = {
@@ -292,6 +296,22 @@ class CacheManager[Key, A <: CacheObject[Key]](cacheLimit: Int = CacheManager.DE
 }
 
 object CacheManager {
+
   val DEFAULT_CACHE_LIMIT = 10000
   val DEFAULT_CACHE_EXPIRY = 900
+  val BASIC_CACHE = "basic"
+  val REDIS_CACHE = "redis"
+
+  def apply[Key, Value <: CacheObject[Key]](config: Config, prefix: String = "")
+                                           (implicit r: Reads[Value], w: Writes[Value]): Cache[Key, Value] = {
+    config.cacheType.toLowerCase match {
+      case REDIS_CACHE =>
+        val cache: Cache[Key, Value] = new RedisCache(config, prefix)
+        if (config.redisResetOnStart) {
+          cache.clear()
+        }
+        cache
+      case _ | BASIC_CACHE => new BasicCache(config)
+    }
+  }
 }

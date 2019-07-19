@@ -29,11 +29,11 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
                                     val config: Config)
   extends BaseDAL[Long, VirtualChallenge] with DALHelper with Locking[Task] {
 
-  override val cacheManager = new CacheManager[Long, VirtualChallenge]
+  override val cacheManager = new CacheManager[Long, VirtualChallenge](config, Config.CACHE_ID_VIRTUAL_CHALLENGES)
   override val tableName: String = "virtual_challenges"
 
-  implicit val locationWrites = Json.writes[SearchLocation]
-  implicit val locationReads = Json.reads[SearchLocation]
+  implicit val searchLocationWrites = Json.writes[SearchLocation]
+  implicit val searchLocationReads = Json.reads[SearchLocation]
   implicit val paramsWrites = Json.writes[SearchParameters]
   implicit val paramsReads = Json.reads[SearchParameters]
 

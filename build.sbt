@@ -48,7 +48,8 @@ libraryDependencies ++= Seq(
   "commons-codec" % "commons-codec" % "1.11",
   "com.typesafe.play" %% "play-mailer" % "6.0.1",
   "com.typesafe.play" %% "play-mailer-guice" % "6.0.1",
-  "com.typesafe.akka" %% "akka-cluster-tools" % "2.5.19"
+  "com.typesafe.akka" %% "akka-cluster-tools" % "2.5.19",
+  "net.debasishg" %% "redisclient" % "3.10"
 )
 
 resolvers ++= Seq(
