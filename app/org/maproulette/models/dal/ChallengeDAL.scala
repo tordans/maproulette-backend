@@ -468,7 +468,6 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
             geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority =>
-
             val values = taskDAL.updateAndRetrieve(id, geometry, location, suggestedFix)
             Task(id, name, created, modified, parent_id, instruction, values._2,
               values._1, values._3, status, mappedOn, reviewStatus, reviewRequestedBy,

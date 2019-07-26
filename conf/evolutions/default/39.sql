@@ -192,10 +192,14 @@ CREATE OR REPLACE FUNCTION update_task(task_name text,
   $$
   LANGUAGE plpgsql VOLATILE;;
 
+
+
+-- Add tag type for tags
 ALTER TABLE "task_review" ADD COLUMN review_started_at timestamp without time zone DEFAULT NULL;;
 ALTER TABLE "task_review_history" ADD COLUMN review_started_at timestamp without time zone DEFAULT NULL;;
 
 # --- !Downs
 -- The Downs in this version will not work, essentially it is not backwards compatible at this point. Once you upgrade to version 37, you cannot drop back to a previous version
+
 ALTER TABLE "task_review" DROP COLUMN review_started_at;;
 ALTER TABLE "task_review_history" DROP COLUMN review_started_at;;
