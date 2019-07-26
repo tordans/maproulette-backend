@@ -116,20 +116,25 @@ trait TagsMixin[T <: BaseObject[Long]] {
       case tags: JsDefined =>
         // this case is for a comma separated list, either of ints or strings
         if (!tags.isEmpty) {
-          tags.as[String].split(",").toList.map(tag => {
-            try {
-              Tag(tag.toLong, "")
-            } catch {
-              case e: NumberFormatException =>
-                // this is the case where a name is supplied, so we will either search for a tag with
-                // the same name or create a new tag with the current name
-                this.tagDAL.retrieveByName(tag) match {
-                  case Some(t) => t.asInstanceOf[Tag]
-                  case None =>
-                    Tag(-1, tag, tagType = this.dal.tableName)
-                }
-            }
-          })
+          try {
+            tags.as[String].split(",").toList.map(tag => {
+              try {
+                Tag(tag.toLong, "")
+              } catch {
+                case e: NumberFormatException =>
+                  // this is the case where a name is supplied, so we will either search for a tag with
+                  // the same name or create a new tag with the current name
+                  this.tagDAL.retrieveByName(tag) match {
+                    case Some(t) => t.asInstanceOf[Tag]
+                    case None =>
+                      Tag(-1, tag, tagType = this.dal.tableName)
+                  }
+              }
+            })
+          } catch {
+            case e =>
+              List.empty
+          }
         }
         else {
           List.empty
