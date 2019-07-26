@@ -55,7 +55,6 @@ class SchedulerActor @Inject()(config: Config,
     case RunJob("runChallengeSchedules", action) => this.runChallengeSchedules(action)
     case RunJob("updateLocations", action) => this.updateLocations(action)
     case RunJob("cleanOldTasks", action) => this.cleanOldTasks(action)
-    case RunJob("updateTaskLocations", action) => this.updateTaskLocations(action.toLong)
     case RunJob("cleanExpiredVirtualChallenges", action) => this.cleanExpiredVirtualChallenges(action)
     case RunJob("FindChangeSets", action) => this.findChangeSets(action)
     case RunJob("OSMChangesetMatcher", action) => this.matchChangeSets(action)
@@ -147,16 +146,6 @@ class SchedulerActor @Inject()(config: Config,
         })
     }
     logger.info("Completed updating challenge locations.")
-  }
-
-  /**
-    * Makes sure that all the tasks for a particular challenge are updated
-    *
-    * @param challengeId The id of the challenge you want updated
-    */
-  def updateTaskLocations(challengeId: Long): Unit = {
-    logger.info(s"Updating tasks for challenge $challengeId")
-    this.dALManager.task.updateTaskLocations(challengeId)
   }
 
   /**

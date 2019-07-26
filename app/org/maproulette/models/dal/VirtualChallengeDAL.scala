@@ -365,18 +365,14 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      SQL"""SELECT row_to_json(fc)::text as geometries
-            FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
-                   FROM ( SELECT 'Feature' As type,
-                                  ST_AsGeoJSON(lg.geom)::json As geometry,
-                                  hstore_to_json(lg.properties) As properties
-                          FROM task_geometries As lg
-                          WHERE task_id IN
-                          (SELECT DISTINCT id FROM tasks WHERE id IN
-                            (SELECT task_id FROM virtual_challenge_tasks
-                              WHERE virtual_challenge_id = $challengeId)) #$filter
-                    ) As f
-            )  As fc""".as(str("geometries").single)
+      SQL"""SELECT ROW_TO_JSON(f)::TEXT AS geometries
+            FROM (
+            	SELECT 'FeatureCollection' AS type, ARRAY_TO_JSON(ARRAY_AGG(ST_ASGEOJSON(geom)::JSON)) AS features
+            	FROM tasks WHERE id IN
+                  (SELECT task_id FROM virtual_challenge_tasks
+                   WHERE virtual_challenge_id = $challengeId)
+              #$filter
+            ) as f""".as(str("geometries").single)
     }
   }
 

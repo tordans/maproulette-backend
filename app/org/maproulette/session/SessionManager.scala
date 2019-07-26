@@ -218,7 +218,15 @@ class SessionManager @Inject()(ws: WSClient, dalManager: DALManager, config: Con
     // if in dev mode we just default every request to super user request
     config.isDevMode match {
       case true =>
-        p success Some(User.superUser)
+        val impersonateUserId = config.impersonateUserId
+        if (impersonateUserId < 0) {
+          p success Some(User.superUser)
+        } else {
+          this.dalManager.user.retrieveByOSMID(impersonateUserId, User.superUser) match {
+            case Some(user) => p success Some(user)
+            case None => p success Some(User.superUser)
+          }
+        }
       case false =>
         val apiUser = request.headers.get(SessionManager.KEY_API) match {
           case Some(apiKey) =>
