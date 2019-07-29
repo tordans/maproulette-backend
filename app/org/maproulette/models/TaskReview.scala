@@ -16,6 +16,7 @@ case class TaskReview(id: Long,
                       reviewedBy: Option[Long],
                       reviewedByUsername: Option[String],
                       reviewedAt: Option[DateTime],
+                      reviewStartedAt: Option[DateTime],
                       reviewClaimedBy: Option[Long],
                       reviewClaimedByUsername: Option[String],
                       reviewClaimedAt: Option[DateTime])
