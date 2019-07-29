@@ -70,7 +70,8 @@ class TaskDAL @Inject()(override val db: Database,
 
   val retrieveColumnsWithReview: String = this.retrieveColumns +
         ", task_review.review_status, task_review.review_requested_by, " +
-        "task_review.reviewed_by, task_review.reviewed_at, task_review.review_claimed_by "
+        "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
+        "task_review.review_claimed_by "
 
   // The anorm row parser to convert records from the task table to task objects
   implicit val parser: RowParser[Task] = {
@@ -87,12 +88,13 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
+      get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
-           mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewClaimedBy ~
-           priority ~ changesetId =>
+           mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
+           reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId =>
         val suggestedFixGeometry = this.getSuggestedFix(id)
         val optionsFix = if (StringUtils.isEmpty(suggestedFixGeometry)) {
           None
@@ -101,8 +103,8 @@ class TaskDAL @Inject()(override val db: Database,
         }
         Task(id, name, created, modified, parent_id, instruction, location,
           this.getTaskGeometries(id), optionsFix, status, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewClaimedBy,
-          priority, changesetId)
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
+          reviewClaimedBy, priority, changesetId)
     }
   }
 
@@ -120,6 +122,7 @@ class TaskDAL @Inject()(override val db: Database,
     get[Option[Long]]("task_review.review_requested_by") ~
     get[Option[Long]]("task_review.reviewed_by") ~
     get[Option[DateTime]]("task_review.reviewed_at") ~
+    get[Option[DateTime]]("task_review.review_started_at") ~
     get[Option[Long]]("task_review.review_claimed_by") ~
     get[Int]("tasks.priority") ~
     get[Option[Long]]("tasks.changeset_id") ~
@@ -127,8 +130,9 @@ class TaskDAL @Inject()(override val db: Database,
     get[Option[String]]("review_requested_by_username") ~
     get[Option[String]]("reviewed_by_username") map {
     case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~
-          mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewClaimedBy ~
-          priority ~ changesetId ~ challengeName ~ reviewRequestedByUsername ~ reviewedByUsername =>
+          mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
+          reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ challengeName ~
+          reviewRequestedByUsername ~ reviewedByUsername =>
       val suggestedFixGeometry = this.getSuggestedFix(id)
       val optionsFix = if (StringUtils.isEmpty(suggestedFixGeometry)) {
         None
@@ -138,10 +142,10 @@ class TaskDAL @Inject()(override val db: Database,
       TaskWithReview(
         Task(id, name, created, modified, parent_id, instruction, location,
           this.getTaskGeometries(id), optionsFix, status, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewClaimedBy,
-          priority, changesetId),
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
+          reviewClaimedBy, priority, changesetId),
         TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
-                   reviewedBy, reviewedByUsername, reviewedAt, reviewClaimedBy, None, None)
+                   reviewedBy, reviewedByUsername, reviewedAt, reviewStartedAt, reviewClaimedBy, None, None)
       )
     }
   }
@@ -736,6 +740,7 @@ class TaskDAL @Inject()(override val db: Database,
         SQL"""UPDATE task_review t SET review_status = $reviewStatus,
                                  #${fetchBy} = ${user.id},
                                  reviewed_at = ${now},
+                                 review_started_at = t.review_claimed_at,
                                  review_claimed_at = NULL,
                                  review_claimed_by = NULL
                              WHERE t.task_id = (
@@ -768,17 +773,17 @@ class TaskDAL @Inject()(override val db: Database,
         if (needsReReview) {
           // Let's note in the task_review_history table that this task needs review again
           SQL"""INSERT INTO task_review_history
-                            (task_id, requested_by, reviewed_by, review_status, reviewed_at)
+                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                 VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
-                        ${reviewStatus}, ${now})""".executeUpdate()
+                        ${reviewStatus}, ${now}, ${task.reviewStartedAt})""".executeUpdate()
           this.notificationDAL.get().createReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
         }
         else {
           // Let's note in the task_review_history table that this task was reviewed
           SQL"""INSERT INTO task_review_history
-                            (task_id, requested_by, reviewed_by, review_status, reviewed_at)
+                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                 VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
-                        ${reviewStatus}, ${now})""".executeUpdate()
+                        ${reviewStatus}, ${now}, ${task.reviewStartedAt})""".executeUpdate()
           this.notificationDAL.get().createReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
         }
       }
@@ -1325,6 +1330,7 @@ class TaskDAL @Inject()(override val db: Database,
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
                      tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
+                     tr.review_started_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
               ${joinClause.toString()}
               ${whereClause.toString()}
@@ -1335,15 +1341,15 @@ class TaskDAL @Inject()(override val db: Database,
             str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[DateTime]]("tasks.mapped_on") ~
             get[Option[Int]]("task_review.review_status") ~ get[Option[Int]]("task_review.review_requested_by") ~
             get[Option[Int]]("task_review.reviewed_by") ~ get[Option[DateTime]]("task_review.reviewed_at") ~
-            int("tasks.priority") map {
+            get[Option[DateTime]]("task_review.review_started_at") ~ int("tasks.priority") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ mappedOn ~
-                 reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ priority =>
+                 reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
                 instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn,
-                reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
+                reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }
@@ -1433,11 +1439,12 @@ class TaskDAL @Inject()(override val db: Database,
         reviewRequestedBy <- get[Option[String]]("reviewRequestedBy")
         reviewedBy <- get[Option[String]]("reviewedBy")
         reviewedAt <- get[Option[DateTime]]("task_review.reviewed_at")
+        reviewStartedAt <- get[Option[DateTime]]("task_review.review_started_at")
         comments <- get[Option[String]]("comments")
         tags <- get[Option[String]]("tags")
       } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
                           reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
-                          comments, tags)
+                          reviewStartedAt, comments, tags)
 
       val status = statusFilter match {
         case Some(s) => s"AND t.status IN (${s.mkString(",")})"
@@ -1464,7 +1471,7 @@ class TaskDAL @Inject()(override val db: Database,
                    task_review.review_status,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
-                   task_review.reviewed_at,
+                   task_review.reviewed_at, task_review.review_started_at,
                    (SELECT string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
                                       CONCAT(chr(10),'---',chr(10))) AS comments
                     FROM task_comments tc WHERE tc.task_id = t.id),
@@ -1591,8 +1598,8 @@ class TaskDAL @Inject()(override val db: Database,
 
   case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
-                         reviewedBy: Option[String], reviewedAt: Option[DateTime], comments: Option[String],
-                         tags: Option[String])
+                         reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
+                         comments: Option[String], tags: Option[String])
 
 }
 

@@ -197,16 +197,17 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Int]]("task_review.review_requested_by") ~
       get[Option[Int]]("task_review.reviewed_by") ~
-      get[Option[DateTime]]("task_review.reviewed_at") map {
+      get[Option[DateTime]]("task_review.reviewed_at") ~
+      get[Option[DateTime]]("task_review.review_started_at") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
         mappedOn ~ priority ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-        reviewedAt =>
+        reviewedAt ~ reviewStartedAt =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
         ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
           instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
     }
   }
   val listingParser: RowParser[ChallengeListing] = {
@@ -486,14 +487,15 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           get[Option[Long]]("task_review.review_requested_by") ~
           get[Option[Long]]("task_review.reviewed_by") ~
           get[Option[DateTime]]("task_review.reviewed_at") ~
+          get[Option[DateTime]]("task_review.review_started_at") ~
           get[Option[Long]]("task_review.review_claimed_by") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
             geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewClaimedBy ~ priority =>
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority =>
             Task(id, name, created, modified, parent_id, instruction, location,
               geometry, suggestedFix, status, mappedOn, reviewStatus, reviewRequestedBy,
-              reviewedBy, reviewedAt, reviewClaimedBy, priority)
+              reviewedBy, reviewedAt, reviewStartedAt, reviewClaimedBy, priority)
         }
       }
 
@@ -765,6 +767,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                            END)) ||
                                         hstore('mr_reviewer', (select name from users where id=tr.reviewed_by)::text) ||
                                         hstore('mr_reviewedAt', tr.reviewed_at::text) ||
+                                        hstore('mr_reviewTimeSeconds', FLOOR(EXTRACT(EPOCH FROM (tr.reviewed_at - tr.review_started_at)))::text) ||
                                         hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id))
                                       )::jsonb
                                   As properties
@@ -824,7 +827,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       }
       SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
                    t.parent_id, tr.review_status, tr.review_requested_by,
-                   tr.reviewed_by, tr.reviewed_at, c.name,
+                   tr.reviewed_by, tr.reviewed_at, tr.review_started_at, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
             INNER JOIN challenges c ON c.id = t.parent_id
