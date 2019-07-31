@@ -395,7 +395,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewMetrics(user:User, reviewTasksType:Int, searchParameters: SearchParameters,
                        mappers:Option[List[String]]=None, reviewers:Option[List[String]]=None,
-                       startDate:String, endDate:String, onlySaved: Boolean=false)
+                       priorities:Option[List[Int]]=None, startDate:String, endDate:String, onlySaved: Boolean=false)
                        (implicit c:Connection=null) : List[ReviewMetrics] = {
 
    // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
@@ -426,6 +426,14 @@ class TaskReviewDAL @Inject()(override val db: Database,
           whereClause ++= s" AND task_review.reviewed_by IN (${r.mkString(",")}) "
         }
       case _ => // do nothing
+    }
+
+    priorities match {
+      case Some(priority) if priority.nonEmpty =>
+        val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
+        this.appendInWhereClause(whereClause, priorityClause.toString())
+      case Some(priority) if priority.isEmpty => //ignore this scenario
+      case _ =>
     }
 
     if (reviewTasksType == 1) {
