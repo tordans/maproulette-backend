@@ -8,6 +8,7 @@ import org.maproulette.data._
 import org.maproulette.models.Challenge
 import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.SessionManager
+import org.maproulette.session.SearchParameters
 import org.maproulette.utils.Utils
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
@@ -173,16 +174,19 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
     }
   }
 
-  def getChallengeSummary(id: Long, survey: Int, priority: Int): Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeSummary(id: Long, survey: Int, priority: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       if (survey == 1) {
+        val priorityInt = this.getPriority( if (priority == "") -1 else priority.toInt)
         Ok(Json.toJson(
-          this.dataManager.getSurveySummary(id, this.getPriority(priority))
+          this.dataManager.getSurveySummary(id, priorityInt)
         ))
       } else {
-        Ok(Json.toJson(
-          this.dataManager.getChallengeSummary(challengeId = Some(id), priority = this.getPriority(priority))
-        ))
+        SearchParameters.withSearch { implicit params =>
+          Ok(Json.toJson(
+            this.dataManager.getChallengeSummary(challengeId = Some(id), priority = Utils.toIntList(priority), params = Some(params))
+          ))
+        }
       }
     }
   }
@@ -225,7 +229,7 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
     *
     * @deprecated("This method does not support virtual projects.", "05-23-2019")
     */
-  def getChallengeSummaries(projectIds: String, priority: Int, onlyEnabled:Boolean = true): Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeSummaries(projectIds: String, priority: String, onlyEnabled:Boolean = true): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val postData = request.body.asInstanceOf[AnyContentAsFormUrlEncoded].data
       val draw = postData.get("draw").head.head.toInt
@@ -237,7 +241,7 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
       val orderColumnName = postData.get(s"columns[$orderColumnID][name]").head.headOption
       val projectList = Utils.toLongList(projectIds)
       val challengeSummaries =
-        this.dataManager.getChallengeSummary(projectList, None, length, start, orderColumnName, orderDirection, search, this.getPriority(priority), onlyEnabled)
+        this.dataManager.getChallengeSummary(projectList, None, length, start, orderColumnName, orderDirection, search, Utils.toIntList(priority), onlyEnabled)
 
       val summaryMap = challengeSummaries.map(summary => Map(
         "id" -> summary.id.toString,

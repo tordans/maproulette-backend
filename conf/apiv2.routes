@@ -740,6 +740,9 @@ GET     /tasks/review/next                       @org.maproulette.controllers.ap
 #   - name: reviewers
 #     in: query
 #     description: the reviewer ids to search by (reviewed_by)
+#   - name: priorities
+#     in: query
+#     description: the priorities to search by
 #   - name: startDate
 #     in: query
 #     description: Whether results should be tasks that have been reviewed after this date (format 'YYYY-MM-DD')
@@ -747,7 +750,7 @@ GET     /tasks/review/next                       @org.maproulette.controllers.ap
 #     in: query
 #     description: Whether results should be tasks that have been reviewed before this date (format 'YYYY-MM-DD')
 ###
-GET     /tasks/review/metrics                          @org.maproulette.controllers.api.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false)
+GET     /tasks/review/metrics                          @org.maproulette.controllers.api.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false)
 ###
 # tags: [ Project ]
 # summary: Retrieves clustered challenge points
@@ -3459,13 +3462,13 @@ GET     /keywords                                   @org.maproulette.controllers
 ###
 GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", tagType: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 ### NoDocs ###
-GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, survey:Int ?= -1, priority:Int ?= -1)
+GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, survey:Int ?= -1, priority:String ?= "")
 ### NoDocs ###
 GET     /data/challenge/:challengeId/users          @org.maproulette.controllers.api.DataController.getUserChallengeSummary(challengeId:Long, start:String ?= "", end:String ?= "", survey:Int ?= 0, priority:Int ?= -1)
 ###
 # deprecated: true
 ###
-POST    /data/challenge/summary                     @org.maproulette.controllers.api.DataController.getChallengeSummaries(projectList:String ?= "", priority:Int ?= -1, onlyEnabled:Boolean ?= true)
+POST    /data/challenge/summary                     @org.maproulette.controllers.api.DataController.getChallengeSummaries(projectList:String ?= "", priority:String ?= "", onlyEnabled:Boolean ?= true)
 ### NoDocs ###
 GET     /data/user/activity                         @org.maproulette.controllers.api.DataController.getRecentUserActivity(limit:Int ?= -1, offset:Int ?= 0)
 ### NoDocs ###
