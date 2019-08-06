@@ -37,6 +37,8 @@ class Config @Inject()(implicit val configuration: Configuration) {
     this.config.getOptional[Boolean](Config.KEY_DEBUG).getOrElse(false)
   lazy val isDevMode: Boolean =
     this.config.getOptional[Boolean](Config.KEY_DEVMODE).getOrElse(false)
+  lazy val impersonateUserId: Long =
+    this.config.getOptional[Long](Config.KEY_IMPERSONATE_USER).getOrElse(-1L)
   lazy val actionLevel: Int =
     this.config.getOptional[Int](Config.KEY_ACTION_LEVEL).getOrElse(Actions.ACTION_LEVEL_2)
   lazy val numberOfChallenges: Int =
@@ -160,6 +162,7 @@ object Config {
   val KEY_SUPER_ACCOUNTS = s"$GROUP_MAPROULETTE.super.accounts"
   val KEY_DEBUG = s"$GROUP_MAPROULETTE.debug"
   val KEY_DEVMODE = s"$GROUP_MAPROULETTE.devMode"
+  val KEY_IMPERSONATE_USER = s"$GROUP_MAPROULETTE.impersonateUser"
   val KEY_ACTION_LEVEL = s"$GROUP_MAPROULETTE.action.level"
   val KEY_NUM_OF_CHALLENGES = s"$GROUP_MAPROULETTE.limits.challenges"
   val KEY_RECENT_ACTIVITY = s"$GROUP_MAPROULETTE.limits.activities"

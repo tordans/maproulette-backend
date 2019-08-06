@@ -332,7 +332,6 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Gets the preferred challenges (hottest, newest, featured)
     *
     * @param limit  The number of challenges to get
-    * @param offset The offset
     * @return A Json array with the hot challenges
     */
   def getPreferredChallenges(limit: Int): Action[AnyContent] = Action.async { implicit request =>
