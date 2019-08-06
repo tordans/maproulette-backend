@@ -201,14 +201,14 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @param endDate Optional end date to filter by reviewedAt date
     * @return
     */
-  def getReviewMetrics(reviewTasksType: Int, mappers: String="", reviewers: String="",
+  def getReviewMetrics(reviewTasksType: Int, mappers: String="", reviewers: String="", priorities: String="",
                        startDate: String=null, endDate: String=null,
                        onlySaved: Boolean=false) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val result = this.taskReviewDAL.getReviewMetrics(User.userOrMocked(user),
                        reviewTasksType, params, Some(Utils.split(mappers)), Some(Utils.split(reviewers)),
-                       startDate, endDate, onlySaved)
+                       Utils.toIntList(priorities), startDate, endDate, onlySaved)
         Ok(Json.toJson(result))
       }
     }
