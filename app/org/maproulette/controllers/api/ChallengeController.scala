@@ -332,7 +332,6 @@ class ChallengeController @Inject()(override val childController: TaskController
     * Gets the preferred challenges (hottest, newest, featured)
     *
     * @param limit  The number of challenges to get
-    * @param offset The offset
     * @return A Json array with the hot challenges
     */
   def getPreferredChallenges(limit: Int): Action[AnyContent] = Action.async { implicit request =>
@@ -492,18 +491,27 @@ class ChallengeController @Inject()(override val childController: TaskController
             mapper = task.username.getOrElse("")
           }
 
+          val reviewTimeSeconds = task.reviewStartedAt match {
+            case Some(startTime) =>
+              task.reviewedAt match {
+                case Some(endTime) => (endTime.getMillis() - startTime.getMillis()) / 1000
+                case _ => ""
+              }
+            case _ => ""
+          }
+
           s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
-          s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}","${task.reviewedBy.getOrElse("")}",""" +
-          s"""${task.reviewedAt.getOrElse("")},"${task.comments.getOrElse("")}",""" +
-          s""""${task.tags.getOrElse("")}"""".stripMargin
+          s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
+          s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
+          s""""${task.comments.getOrElse("")}","${task.tags.getOrElse("")}"""".stripMargin
         }
       )
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
         body = HttpEntity.Strict(
           ByteString(
-            "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,Comments,Tags\n"
+            "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,Tags\n"
           ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )

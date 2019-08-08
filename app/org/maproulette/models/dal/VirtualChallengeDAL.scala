@@ -365,18 +365,14 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      SQL"""SELECT row_to_json(fc)::text as geometries
-            FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
-                   FROM ( SELECT 'Feature' As type,
-                                  ST_AsGeoJSON(lg.geom)::json As geometry,
-                                  hstore_to_json(lg.properties) As properties
-                          FROM task_geometries As lg
-                          WHERE task_id IN
-                          (SELECT DISTINCT id FROM tasks WHERE id IN
-                            (SELECT task_id FROM virtual_challenge_tasks
-                              WHERE virtual_challenge_id = $challengeId)) #$filter
-                    ) As f
-            )  As fc""".as(str("geometries").single)
+      SQL"""SELECT ROW_TO_JSON(f)::TEXT AS geometries
+            FROM (
+            	SELECT 'FeatureCollection' AS type, ARRAY_TO_JSON(ARRAY_AGG(ST_ASGEOJSON(geom)::JSON)) AS features
+            	FROM tasks WHERE id IN
+                  (SELECT task_id FROM virtual_challenge_tasks
+                   WHERE virtual_challenge_id = $challengeId)
+              #$filter
+            ) as f""".as(str("geometries").single)
     }
   }
 
@@ -400,18 +396,19 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
       val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~
                         int("status") ~ get[Option[DateTime]]("mapped_on") ~
                         get[Option[Int]]("review_status") ~ get[Option[Int]]("review_requested_by") ~
-                        get[Option[Int]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~ int("priority") map {
+                        get[Option[Int]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
+                        get[Option[DateTime]]("review_started_at") ~ int("priority") map {
         case id ~ name ~ instruction ~ location ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
-             reviewedBy ~ reviewedAt ~ priority =>
+             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
           ClusteredPoint(id, -1, "", name, -1, "", point, JsString(""),
             instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn, reviewStatus,
-            reviewRequestedBy, reviewedBy, reviewedAt, priority)
+            reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
       }
       SQL"""SELECT tasks.id, name, instruction, status, mapped_on, review_status, review_requested_by,
-                   reviewed_by, reviewed_at, ST_AsGeoJSON(location) AS location, priority
+                   reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority
               FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
               WHERE tasks.id IN
               (SELECT task_id FROM virtual_challenge_tasks

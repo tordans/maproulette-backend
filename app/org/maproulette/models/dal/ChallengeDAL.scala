@@ -197,16 +197,17 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Int]]("task_review.review_requested_by") ~
       get[Option[Int]]("task_review.reviewed_by") ~
-      get[Option[DateTime]]("task_review.reviewed_at") map {
+      get[Option[DateTime]]("task_review.reviewed_at") ~
+      get[Option[DateTime]]("task_review.review_started_at") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
         mappedOn ~ priority ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-        reviewedAt =>
+        reviewedAt ~ reviewStartedAt =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
         ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
           instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, priority)
+          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
     }
   }
   val listingParser: RowParser[ChallengeListing] = {
@@ -388,31 +389,6 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   }
 
   /**
-    * A basic retrieval of the object based on the id. With caching, so if it finds
-    * the object in the cache it will return that object without checking the database, otherwise
-    * will hit the database directly.
-    *
-    * @param id The id of the object to be retrieved
-    * @return The object, None if not found
-    */
-  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
-    this.cacheManager.withCaching { () =>
-      this.withMRConnection { implicit c =>
-        val query =
-          s"""
-             |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
-             |FROM challenges c
-             |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-             |WHERE c.id = {id}
-             |GROUP BY c.id
-           """.stripMargin
-
-        SQL(query).on('id -> id).as(this.withVirtualParentParser.singleOpt)
-      }
-    }
-  }
-
-  /**
     * Will run through the tasks in batches of 50 and update the priorities based on the rules
     * of the challenge
     *
@@ -477,46 +453,31 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           get[DateTime]("tasks.modified") ~
           get[Long]("parent_id") ~
           get[Option[String]]("tasks.instruction") ~
-          get[Option[String]]("location") ~
-          get[String]("geometry") ~
-          get[Option[String]]("suggestedFix") ~
+          get[Option[String]]("geo_location") ~
+          get[Option[String]]("geo_json") ~
+          get[Option[String]]("suggestedfix_geojson") ~
           get[Option[Int]]("tasks.status") ~
           get[Option[DateTime]]("tasks.mapped_on") ~
           get[Option[Int]]("task_review.review_status") ~
           get[Option[Long]]("task_review.review_requested_by") ~
           get[Option[Long]]("task_review.reviewed_by") ~
           get[Option[DateTime]]("task_review.reviewed_at") ~
+          get[Option[DateTime]]("task_review.review_started_at") ~
           get[Option[Long]]("task_review.review_claimed_by") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
             geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewClaimedBy ~ priority =>
-            Task(id, name, created, modified, parent_id, instruction, location,
-              geometry, suggestedFix, status, mappedOn, reviewStatus, reviewRequestedBy,
-              reviewedBy, reviewedAt, reviewClaimedBy, priority)
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority =>
+
+            val values = taskDAL.updateAndRetrieve(id, geometry, location, suggestedFix)
+            Task(id, name, created, modified, parent_id, instruction, values._2,
+              values._1, values._3, status, mappedOn, reviewStatus, reviewRequestedBy,
+              reviewedBy, reviewedAt, reviewStartedAt, reviewClaimedBy, priority)
         }
       }
 
       val query =
-        s"""SELECT ${taskDAL.retrieveColumns},
-                        (SELECT row_to_json(fc)::text as geometries
-                          FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
-                                  FROM ( SELECT 'Feature' As type,
-                                                ST_AsGeoJSON(lg.geom)::json As geometry,
-                                                hstore_to_json(lg.properties) As properties
-                                        FROM task_geometries As lg
-                                        WHERE task_id = tasks.id
-                                      ) As f
-                                ) As fc)::text AS geometry,
-                        (SELECT row_to_json(fc)::text as geometries
-                           FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
-                                  FROM ( SELECT 'Feature' As type,
-                                                  ST_AsGeoJSON(lg.geom)::json As geometry,
-                                                  hstore_to_json(lg.properties) As properties
-                                         FROM task_geometries As lg
-                                         WHERE task_id = tasks.id
-                                       ) As f
-                                 ) As fc)::text AS suggestedFix
+        s"""SELECT ${taskDAL.retrieveColumns}
                       FROM tasks
                       LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                       WHERE parent_id = {id} ${this.enabled(onlyEnabled)}
@@ -527,6 +488,31 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         'id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
         'offset -> offset)
         .as(geometryParser.*)
+    }
+  }
+
+  /**
+    * A basic retrieval of the object based on the id. With caching, so if it finds
+    * the object in the cache it will return that object without checking the database, otherwise
+    * will hit the database directly.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query =
+          s"""
+             |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
+             |FROM challenges c
+             |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
+             |WHERE c.id = {id}
+             |GROUP BY c.id
+           """.stripMargin
+
+        SQL(query).on('id -> id).as(this.withVirtualParentParser.singleOpt)
+      }
     }
   }
 
@@ -700,23 +686,23 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                            priorityFilter: Option[List[Int]] = None)(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
       val status = statusFilter match {
-        case Some(s) => s"AND subT.status IN (${s.mkString(",")})"
+        case Some(s) => s"AND t.status IN (${s.mkString(",")})"
         case None => ""
       }
 
       val reviewStatus = reviewStatusFilter match {
         case Some(s) =>
-          var searchQuery = s"subT.id in (SELECT subTR.task_id from task_review subTR where subTR.task_id=subT.id AND subTR.review_status IN (${s.mkString(",")}))"
+          var searchQuery = s"t.id in (SELECT subTR.task_id from task_review subTR where subTR.task_id=t.id AND subTR.review_status IN (${s.mkString(",")}))"
           if (s.contains(-1)) {
             // Return items that do not have a review status
-            searchQuery = searchQuery + " OR subT.id NOT in (SELECT subTR.task_id from task_review subTR where subTR.task_id=subT.id)"
+            searchQuery = searchQuery + " OR t.id NOT in (SELECT subTR.task_id from task_review subTR where subTR.task_id=t.id)"
           }
           s" AND ($searchQuery)"
         case None => ""
       }
 
       val priority = priorityFilter match {
-        case Some(p) => s" AND subT.priority IN (${p.mkString(",")})"
+        case Some(p) => s" AND t.priority IN (${p.mkString(",")})"
         case None => ""
       }
 
@@ -724,24 +710,23 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         SQL"""SELECT row_to_json(fc)::text as geometries
             FROM ( SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
                    FROM ( SELECT 'Feature' As type,
-                                  ST_AsGeoJSON(lg.geom)::json As geometry,
-                                  hstore_to_json(lg.properties)::jsonb ||
-
-                                      hstore_to_json(
-                                        hstore('mr_taskId', t.id::text) ||
+                                  t.geojson_geom::jsonb As geometry,
+                                  t.properties::jsonb ||
+                                      hstore_to_jsonb(
+                                        hstore('mr_taskId', t.tid::text) ||
                                         hstore('mr_challengeId', t.parent_id::text) ||
                                         hstore('mr_taskName', t.name::text) ||
                                         hstore('mr_taskStatus',
                                           (CASE
-                                            WHEN t.status = #${Task.STATUS_CREATED} THEN ${Task.STATUS_CREATED_NAME}
-                                            WHEN t.status = #${Task.STATUS_FIXED} THEN ${Task.STATUS_FIXED_NAME}
-                                            WHEN t.status = #${Task.STATUS_SKIPPED} THEN ${Task.STATUS_SKIPPED_NAME}
-                                            WHEN t.status = #${Task.STATUS_DELETED} THEN ${Task.STATUS_DELETED_NAME}
-                                            WHEN t.status = #${Task.STATUS_ALREADY_FIXED} THEN ${Task.STATUS_ALREADY_FIXED_NAME}
-                                            WHEN t.status = #${Task.STATUS_FALSE_POSITIVE} THEN ${Task.STATUS_FALSE_POSITIVE_NAME}
-                                            WHEN t.status = #${Task.STATUS_TOO_HARD} THEN ${Task.STATUS_TOO_HARD_NAME}
-                                            WHEN t.status = #${Task.STATUS_ANSWERED} THEN ${Task.STATUS_ANSWERED_NAME}
-                                            WHEN t.status = #${Task.STATUS_VALIDATED} THEN ${Task.STATUS_VALIDATED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_CREATED} THEN ${Task.STATUS_CREATED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_FIXED} THEN ${Task.STATUS_FIXED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_SKIPPED} THEN ${Task.STATUS_SKIPPED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_DELETED} THEN ${Task.STATUS_DELETED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_ALREADY_FIXED} THEN ${Task.STATUS_ALREADY_FIXED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_FALSE_POSITIVE} THEN ${Task.STATUS_FALSE_POSITIVE_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_TOO_HARD} THEN ${Task.STATUS_TOO_HARD_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_ANSWERED} THEN ${Task.STATUS_ANSWERED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_VALIDATED} THEN ${Task.STATUS_VALIDATED_NAME}
                                            END)) ||
                                         hstore('mr_taskPriority',
                                           (CASE
@@ -751,32 +736,45 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                            END)) ||
                                         hstore('mr_mappedOn', t.mapped_on::text) ||
                                         hstore('mr_mapper',
-                                          (CASE WHEN tr.review_requested_by = NULL
-                                           THEN (select name from users where osm_id=sa.osm_user_id)::text
-                                           ELSE (select name from users where id=tr.review_requested_by)::text
+                                          (CASE WHEN t.review_requested_by = NULL
+                                           THEN (select name from users where osm_id=t.osm_user_id)::text
+                                           ELSE (select name from users where id=t.review_requested_by)::text
                                            END)) ||
                                         hstore('mr_reviewStatus',
                                           (CASE
-                                            WHEN tr.review_status = #${Task.REVIEW_STATUS_REQUESTED} THEN ${Task.REVIEW_STATUS_REQUESTED_NAME}
-                                            WHEN tr.review_status = #${Task.REVIEW_STATUS_APPROVED} THEN ${Task.REVIEW_STATUS_APPROVED_NAME}
-                                            WHEN tr.review_status = #${Task.REVIEW_STATUS_REJECTED} THEN ${Task.REVIEW_STATUS_REJECTED_NAME}
-                                            WHEN tr.review_status = #${Task.REVIEW_STATUS_ASSISTED} THEN ${Task.REVIEW_STATUS_ASSISTED_NAME}
-                                            WHEN tr.review_status = #${Task.REVIEW_STATUS_DISPUTED} THEN ${Task.REVIEW_STATUS_DISPUTED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_REQUESTED} THEN ${Task.REVIEW_STATUS_REQUESTED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_APPROVED} THEN ${Task.REVIEW_STATUS_APPROVED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_REJECTED} THEN ${Task.REVIEW_STATUS_REJECTED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_ASSISTED} THEN ${Task.REVIEW_STATUS_ASSISTED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_DISPUTED} THEN ${Task.REVIEW_STATUS_DISPUTED_NAME}
                                            END)) ||
-                                        hstore('mr_reviewer', (select name from users where id=tr.reviewed_by)::text) ||
-                                        hstore('mr_reviewedAt', tr.reviewed_at::text) ||
-                                        hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id))
-                                      )::jsonb
-                                  As properties
-                          FROM task_geometries As lg
-                          INNER JOIN tasks t ON t.id = lg.task_id
-                          LEFT OUTER JOIN status_actions sa ON (sa.task_id = lg.task_id AND extract(epoch from age(sa.created, t.mapped_on)) < 0.1)
-                          LEFT OUTER JOIN task_review tr ON t.id = tr.task_id
-                          WHERE lg.task_id IN
-                          (SELECT DISTINCT id FROM tasks subT WHERE parent_id = $challengeId #$status #$priority #$reviewStatus)
+                                        hstore('mr_reviewer', (select name from users where id=t.reviewed_by)::text) ||
+                                        hstore('mr_reviewedAt', t.reviewed_at::text) ||
+                                        hstore('mr_reviewTimeSeconds', FLOOR(EXTRACT(EPOCH FROM (tr.reviewed_at - tr.review_started_at)))::text) ||
+                                        hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags
+                                                            FROM tags_on_tasks tot, tags tg
+                                                            WHERE tot.task_id=t.tid AND tg.id = tot.tag_id))
+                                      ) AS properties
+                          FROM (
+                            SELECT *,
+                                  elements->'geometry' AS geojson_geom,
+                                  elements->'properties' AS properties
+                            FROM (
+                              SELECT *, t.id AS tid, t.status AS tstatus,
+                                  jsonb_array_elements(geojson->'features') AS elements
+                             	FROM tasks t
+                              LEFT OUTER JOIN status_actions sa ON
+                                (sa.task_id = t.id AND extract(epoch from age(sa.created, t.mapped_on)) < 0.1)
+                              LEFT OUTER JOIN task_review tr ON t.id = tr.task_id
+                              WHERE parent_id = $challengeId #$status #$priority #$reviewStatus
+                            ) AS subT ) as t
                     ) As f
             )  As fc"""
-      query.as(str("geometries").single)
+      val challengeGeometry = query.as(str("geometries").single)
+      if (StringUtils.isEmpty(challengeGeometry)) {
+        this.updateGeometry(challengeId)
+      }
+      challengeGeometry
     }
   }
 
@@ -790,21 +788,9 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     */
   def getLineByLineChallengeGeometry(challengeId: Long)(implicit c: Option[Connection] = None): Map[Long, String] = {
     this.withMRConnection { implicit c =>
-      SQL"""SELECT t.id, (
-                  SELECT row_to_json(fc)::text as geometries
-                  FROM ( SELECT task_id, 'FeatureCollection' As type, array_to_json(array_agg(f)) As features
-                          FROM ( SELECT task_id, 'Feature' As type,
-             					                ST_AsGeoJSON(lg.geom)::json As geometry,
-             					                hstore_to_json(lg.properties) As properties
-             					           FROM task_geometries As lg
-             					           WHERE task_id = t.id
-             				          ) As f
-             			            GROUP BY task_id
-             	        )  As fc
-                  ) AS geometry
-              FROM tasks t
+      SQL"""SELECT id, geojson FROM tasks t
               WHERE t.parent_id = $challengeId
-        """.as((long("tasks.id") ~ str("geometry")).*).map(x => x._1 -> x._2).toMap
+        """.as((long("tasks.id") ~ str("geojson")).*).map(x => x._1 -> x._2).toMap
     }
   }
 
@@ -822,9 +808,9 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         case Some(s) => s"AND status IN (${s.mkString(",")}"
         case None => ""
       }
-      SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
+      val clusteredList = SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
                    t.parent_id, tr.review_status, tr.review_requested_by,
-                   tr.reviewed_by, tr.reviewed_at, c.name,
+                   tr.reviewed_by, tr.reviewed_at, tr.review_started_at, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
             INNER JOIN challenges c ON c.id = t.parent_id
@@ -836,6 +822,20 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
             #$filter
             LIMIT #${sqlLimit(limit)}"""
         .as(this.pointParser.*)
+      if (clusteredList.isEmpty) {
+        this.updateGeometry(challengeId)
+      }
+      clusteredList
+    }
+  }
+
+  def updateGeometry(challengeId:Long)(implicit c: Option[Connection] = None) : Future[Boolean] = {
+    Future {
+      logger.info(s"Updating geometry for challenge $challengeId")
+      this.db.withTransaction { implicit c =>
+        val query = "SELECT update_challenge_geometry({id})"
+        SQL(query).on('id -> challengeId).execute()
+      }
     }
   }
 
@@ -949,8 +949,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   /**
     * Updates the challenge to a STATUS_READY if there are incomplete tasks left.
     *
-    * @param id                  The id of the challenge
-    * @param completionTimestamp the unix timestamp of the task completion
+    * @param id The id of the challenge
     */
   def updateReadyStatus()(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
     this.withMRConnection { implicit c =>

@@ -50,12 +50,13 @@ class TaskHistoryDAL @Inject()(override val db: Database,
   private val reviewEntryParser: RowParser[TaskLogEntry] = {
       get[Long]("task_id") ~
       get[DateTime]("reviewed_at") ~
+      get[Option[DateTime]]("review_started_at") ~
       get[Int]("review_status") ~
       get[Int]("requested_by") ~
       get[Option[Int]]("reviewed_by") map {
-      case taskId ~ reviewedAt ~ reviewStatus ~ requestedBy ~
+      case taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
            reviewedBy => new TaskLogEntry(taskId, reviewedAt,
-        TaskLogEntry.ACTION_REVIEW, None, None, None, None, Some(reviewStatus), Some(requestedBy),
+        TaskLogEntry.ACTION_REVIEW, None, None, None, reviewStartedAt, Some(reviewStatus), Some(requestedBy),
         reviewedBy, None)
     }
   }

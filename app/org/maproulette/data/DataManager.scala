@@ -11,6 +11,7 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.models.Task
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
+import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
 import play.api.Application
 import play.api.db.Database
@@ -349,7 +350,8 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
     */
   def getChallengeSummary(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None,
                           limit: Int = (-1), offset: Int = 0, orderColumn: Option[String] = None, orderDirection: String = "ASC",
-                          searchString: String = "", priority: Option[Int] = None, onlyEnabled: Boolean = false): List[ChallengeSummary] = {
+                          searchString: String = "", priority: Option[List[Int]] = None, onlyEnabled: Boolean = false,
+                          params: Option[SearchParameters] = None): List[ChallengeSummary] = {
     this.db.withConnection { implicit c =>
       val parser = for {
         id <- int("tasks.parent_id")
@@ -370,9 +372,37 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         case _ => buildProjectSearch(projectList, "c.parent_id", "c.id")
       }
       val priorityFilter = priority match {
-        case Some(p) => s"AND t.priority = $p"
+        case Some(p) => s"AND t.priority IN (${p.mkString(",")})"
         case None => ""
       }
+
+      var statusFilter = ""
+      var reviewStatusFilter = ""
+
+      params match {
+        case Some(search) =>
+          search.taskStatus match {
+            case Some(s) if s.nonEmpty =>
+              statusFilter = s"AND t.status IN (${s.mkString(",")})"
+            case _ =>
+          }
+
+          search.taskReviewStatus match {
+            case Some(statuses) if statuses.nonEmpty =>
+              val filter = new StringBuilder(s"""AND (t.id IN (SELECT task_id FROM task_review tr
+                                                          WHERE tr.task_id = t.id AND tr.review_status
+                                                                IN (${statuses.mkString(",")})) """)
+              if (statuses.contains(-1)) {
+                filter.append(" OR t.id NOT IN (SELECT task_id FROM task_review tr WHERE tr.task_id = t.id)")
+              }
+              filter.append(")")
+              reviewStatusFilter = filter.toString()
+            case Some(statuses) if statuses.isEmpty => //ignore this scenario
+            case _ =>
+          }
+        case _ =>
+      }
+
       // The percentage columns are a bit of a hack simply so that we can order by the percentages.
       // It won't decrease performance as this is simple basic math calculations, but it certainly
       // isn't pretty
@@ -408,7 +438,7 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         }
       }
                               challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter $priorityFilter
-                              ${searchField("c.name")}
+                              ${searchField("c.name")} $statusFilter $reviewStatusFilter
                               GROUP BY t.parent_id, c.name
                     ) AS t
                     ${this.order(orderColumn, orderDirection)}
