@@ -111,9 +111,9 @@ class TaskDAL @Inject()(override val db: Database,
       get[DateTime]("tasks.modified") ~
       get[Long]("parent_id") ~
       get[Option[String]]("tasks.instruction") ~
-      get[Option[String]]("location") ~
+      get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
-      get[Option[String]]("geojson") ~
+      get[Option[String]]("geo_json") ~
       get[Option[String]]("suggestedfix_geojson") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Int]]("task_review.review_status") ~
