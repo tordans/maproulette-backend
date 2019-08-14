@@ -221,15 +221,10 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
-    val newTask = this.mergeUpdate(task, user)(-1) match {
+    this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
       case None => throw new Exception("Unknown failure occurred while creating new task.")
     }
-    // update the task priority inside a future, so fire and forget and don't impact the performance of the insert
-    Future {
-      this.updateTaskPriority(newTask.id, user)
-    }
-    newTask
   }
 
   /**
@@ -325,13 +320,18 @@ class TaskDAL @Inject()(override val db: Database,
     */
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.permission.hasObjectWriteAccess(element, user)
+    // get the parent challenge, as we need the priority information
+    val parentChallenge = this.challengeDAL.get().retrieveById(element.parent) match {
+      case Some(c) => c
+      case None => throw new NotFoundException(s"No parent was found for task with parentId [${element.parent}, this should never happen.")
+    }
     // before clearing the cache grab the cachedItem
     // by setting the delete implicit to true we clear out the cache for the element
     // The cachedItem could be
     val cachedItem = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       Some(cachedItem)
     }(id, true, true)
-    val updatedTask: Option[Task] = this.withMRTransaction { implicit c =>
+    this.withMRTransaction { implicit c =>
       val query =
         """SELECT create_update_task({name}, {parentId}, {instruction},
                     {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
@@ -346,7 +346,7 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("geojson", ToParameterValue.apply[String].apply(element.geometries)),
         NamedParameter("suggestedFixGeoJson", ToParameterValue.apply[String].apply(element.suggestedFix.orNull)),
         NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
-        NamedParameter("priority", ToParameterValue.apply[Int].apply(element.priority)),
+        NamedParameter("priority", ToParameterValue.apply[Int].apply(element.getTaskPriority(parentChallenge))),
         NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
         NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
         NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
@@ -366,52 +366,6 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       Some(element.copy(id = updatedTaskId))
-    }
-    updatedTask match {
-      case Some(t) => Future {
-        this.updateTaskPriority(t.id, user)
-      }
-      case None => //just ignore and do nothing
-    }
-    updatedTask
-  }
-
-  /**
-    * This function will update the tasks priority based on the parent challenge information. It will
-    * check first to see if it falls inside the HIGH priority bucket, then MEDIUM then LOW. If it doesn't
-    * fall into any priority bucket, it will then set the priority to the default priority defined
-    * in the parent challenge
-    *
-    * @param taskId The id for the task to update the priority for
-    * @param c      The database connection
-    */
-  def updateTaskPriority(taskId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
-    implicit val id = taskId
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
-      this.withMRTransaction { implicit c =>
-        implicit val id = taskId
-        this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
-          this.permission.hasObjectWriteAccess(task, user)
-          // get the parent challenge, as we need the priority information
-          val parentChallenge = this.challengeDAL.get().retrieveById(task.parent) match {
-            case Some(c) => c
-            case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
-          }
-          val newPriority = task.getTaskPriority(parentChallenge)
-          if (newPriority != task.priority) {
-            this.withMRTransaction { implicit c =>
-              // Update the location of the particular task
-              SQL"""UPDATE tasks
-              SET priority = $newPriority
-              WHERE id = $taskId
-            """.executeUpdate()
-              this.retrieveById(taskId)
-            }
-          } else {
-            Some(task)
-          }
-        }
-      }
     }
   }
 
