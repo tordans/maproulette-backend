@@ -826,10 +826,10 @@ class ChallengeController @Inject()(override val childController: TaskController
         dalManager.challenge.retrieveById(challengeId) match {
           case Some(c) =>
             permission.hasObjectWriteAccess(c, user)
-            if (c.status.get == Challenge.STATUS_DELETING_TASKS) {
+            if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_DELETING_TASKS) {
               throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
             }
-            else if (c.status.get == Challenge.STATUS_BUILDING) {
+            else if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_BUILDING) {
               throw new InvalidException("Tasks cannot be added while challenge is being built")
             }
 
