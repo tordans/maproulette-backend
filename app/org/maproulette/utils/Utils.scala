@@ -23,6 +23,34 @@ import scala.util.{Failure, Success, Try}
   */
 object Utils extends DefaultWrites {
 
+  def getProperties(value: JsValue, key: String): JsValue = {
+    (value \ key).asOpt[JsObject] match {
+      case Some(JsObject(p)) =>
+        val idMap = (value \ "id").toOption match {
+          case Some(idValue) => p + ("osmid" -> idValue)
+          case None => p
+        }
+        val updatedMap = idMap.map {
+          kv =>
+            try {
+              val strValue = kv._2 match {
+                case v: JsNumber => v.toString
+                case v: JsArray => v.as[Seq[String]].mkString(",")
+                case v => v.as[String]
+              }
+              kv._1 -> strValue
+            } catch {
+              // if we can't convert it into a string, then just use the toString method and hope we get something sensible
+              // other option could be just to ignore it.
+              case e: Throwable =>
+                kv._1 -> kv._2.toString
+            }
+        }.toMap
+        Json.toJson(updatedMap)
+      case _ => Json.obj()
+    }
+  }
+
   def tryOptional[T](func: () => T) : Option[T] = {
     Try(func.apply()) match {
       case Success(value) => Some(value)
