@@ -12,6 +12,7 @@ import org.maproulette.exception.InvalidException
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.session.User
+import org.maproulette.utils.Utils
 import org.slf4j.LoggerFactory
 import play.api.db.Database
 import play.api.http.Status
@@ -235,7 +236,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     try {
       val createdTasks = featureList.flatMap { value =>
         if (!single) {
-          this.createNewTask(user, taskNameFromJsValue(value), parent, (value \ "geometry").as[JsObject], getProperties(value, "properties"))
+          this.createNewTask(user, taskNameFromJsValue(value), parent, (value \ "geometry").as[JsObject], Utils.getProperties(value, "properties"))
         } else {
           None
         }
@@ -306,7 +307,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
                       geometry match {
                         case Some(geom) =>
-                          this.createNewTask(user, (element \ "id").as[Long] + "", challenge, geom, this.getProperties(element, "tags"))
+                          this.createNewTask(user, (element \ "id").as[Long] + "", challenge, geom, Utils.getProperties(element, "tags"))
                         case None => None
                       }
                     } catch {
@@ -391,34 +392,6 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       s"[out:json][timeout:${osmQLProvider.requestTimeout.toSeconds}];$query"
     }
     // execute regex matching against {{data:string}}, {{geocodeId:name}}, {{geocodeArea:name}}, {{geocodeBbox:name}}, {{geocodeCoords:name}}
-  }
-
-  private def getProperties(value: JsValue, key: String): JsValue = {
-    (value \ key).asOpt[JsObject] match {
-      case Some(JsObject(p)) =>
-        val idMap = (value \ "id").toOption match {
-          case Some(idValue) => p + ("osmid" -> idValue)
-          case None => p
-        }
-        val updatedMap = idMap.map {
-          kv =>
-            try {
-              val strValue = kv._2 match {
-                case v: JsNumber => v.toString
-                case v: JsArray => v.as[Seq[String]].mkString(",")
-                case v => v.as[String]
-              }
-              kv._1 -> strValue
-            } catch {
-              // if we can't convert it into a string, then just use the toString method and hope we get something sensible
-              // other option could be just to ignore it.
-              case e: Throwable =>
-                kv._1 -> kv._2.toString
-            }
-        }.toMap
-        Json.toJson(updatedMap)
-      case _ => Json.obj()
-    }
   }
 
   private def isLineByLineGeoJson(splitJson: Array[String]): Boolean = {

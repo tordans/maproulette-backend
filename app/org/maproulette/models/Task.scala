@@ -90,7 +90,9 @@ case class Task(override val id: Long,
     }
     if (StringUtils.isNotEmpty(g)) {
       val geojson = Json.parse(g)
-      (geojson \ "features").as[List[JsValue]].map(json => (json \ "properties").as[Map[String, String]])
+      (geojson \ "features").as[List[JsValue]].map(json =>
+        Utils.getProperties(json, "properties").as[Map[String, String]]
+      )
     } else {
       List.empty
     }
