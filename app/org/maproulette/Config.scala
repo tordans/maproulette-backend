@@ -37,8 +37,8 @@ class Config @Inject()(implicit val configuration: Configuration) {
     this.config.getOptional[Boolean](Config.KEY_DEBUG).getOrElse(false)
   lazy val isDevMode: Boolean =
     this.config.getOptional[Boolean](Config.KEY_DEVMODE).getOrElse(false)
-  lazy val mockOSM: Boolean =
-    this.config.getOptional[Boolean](Config.KEY_MOCKOSM).getOrElse(false)
+  lazy val skipOSMChangesetSubmission: Boolean =
+    this.config.getOptional[Boolean](Config.KEY_SKIP_OSM_CHANGESET_SUBMISSION).getOrElse(false)
   lazy val impersonateUserId: Long =
     this.config.getOptional[Long](Config.KEY_IMPERSONATE_USER).getOrElse(-1L)
   lazy val actionLevel: Int =
@@ -222,7 +222,7 @@ object Config {
   val KEY_OSM_AUTHORIZATION_URL = s"$GROUP_OSM.authorizationURL"
   val KEY_OSM_CONSUMER_KEY = s"$GROUP_OSM.consumerKey"
   val KEY_OSM_CONSUMER_SECRET = s"$GROUP_OSM.consumerSecret"
-  val KEY_MOCKOSM = s"$GROUP_OSM.mockOSM"
+  val KEY_SKIP_OSM_CHANGESET_SUBMISSION = s"$GROUP_OSM.skipOSMChangesetSubmission"
 
   val GROUP_CHALLENGES = "challenges"
   val KEY_VIRTUAL_CHALLENGE_LIMIT = s"$GROUP_CHALLENGES.virtual.limit"

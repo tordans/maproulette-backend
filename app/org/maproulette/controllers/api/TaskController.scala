@@ -538,8 +538,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
             case None => None
           }
 
-          config.mockOSM match {
-            // If we are mocking OSM then we don't actually do the tag change on OSM
+          config.skipOSMChangesetSubmission match {
+            // If we are skipping the OSM submission then we don't actually do the tag change on OSM
             case true =>
               this.customTaskStatus(taskId, TaskStatusSet(Task.STATUS_FIXED), user, comment, tags, requestReview)
               p success Ok(Json.toJson(true))
