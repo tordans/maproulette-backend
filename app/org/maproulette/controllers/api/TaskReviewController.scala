@@ -11,6 +11,7 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, SearchParameters, User}
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.utils.Utils
+import org.maproulette.services.osm.ChangesetProvider
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -30,9 +31,10 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
                                wsClient: WSClient,
                                config: Config,
                                components: ControllerComponents,
+                               changeService: ChangesetProvider,
                                override val bodyParsers: PlayBodyParsers)
   extends TaskController(sessionManager, actionManager, dal, tagDAL, dalManager,
-                         wsClient, config, components, bodyParsers) {
+                         wsClient, config, components, changeService, bodyParsers) {
 
 
   /**

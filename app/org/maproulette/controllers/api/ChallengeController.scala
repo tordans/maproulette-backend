@@ -650,6 +650,17 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
+  override def internalCreate(requestBody: JsValue, element: Challenge, user: User)
+                            (implicit c: Option[Connection] = None): Option[Challenge] = {
+    var created = super.internalCreate(requestBody, element, user)
+    // Fetch challenge fresh from database. There are some fields that are set after creating
+    // children (ie. hasSuggestedFixes) and our cached copy does not reflect those changes
+    created match {
+      case Some(value) => this.dal._retrieveById(false)(value.id)
+      case None => created
+    }
+  }
+
   /**
     * Classes can override this function to inject values into the object before it is sent along
     * with the response
@@ -683,6 +694,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "hasSuggestedFixes", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", Challenge.PRIORITY_HIGH)(IntWrites)

@@ -278,6 +278,7 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
                               WHERE tasks.id = (SELECT task_id
                                                 FROM virtual_challenge_tasks
                                                 WHERE virtual_challenge_id = $id
+                                                AND task_id != $currentTaskId
                                                 ORDER BY id ASC LIMIT 1)
               """
           SQL(loopQuery).as(lp.*).headOption
@@ -317,6 +318,7 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
                               WHERE tasks.id = (SELECT task_id
                                                 FROM virtual_challenge_tasks
                                                 WHERE virtual_challenge_id = $id
+                                                AND task_id != $currentTaskId
                                                 ORDER BY id DESC LIMIT 1)
               """
           SQL(loopQuery).as(lp.*).headOption
@@ -394,20 +396,21 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
         case None => ""
       }
       val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~
-                        int("status") ~ get[Option[DateTime]]("mapped_on") ~
+                        int("status") ~ get[Option[String]]("suggested_fix") ~ get[Option[DateTime]]("mapped_on") ~
                         get[Option[Int]]("review_status") ~ get[Option[Int]]("review_requested_by") ~
                         get[Option[Int]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
                         get[Option[DateTime]]("review_started_at") ~ int("priority") map {
-        case id ~ name ~ instruction ~ location ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
+        case id ~ name ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
              reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
           ClusteredPoint(id, -1, "", name, -1, "", point, JsString(""),
-            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn, reviewStatus,
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn, reviewStatus,
             reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
       }
-      SQL"""SELECT tasks.id, name, instruction, status, mapped_on, review_status, review_requested_by,
+      SQL"""SELECT tasks.id, name, instruction, status, suggestedfix_geojson::TEXT as suggested_fix,
+                   mapped_on, review_status, review_requested_by,
                    reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority
               FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
               WHERE tasks.id IN

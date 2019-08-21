@@ -1389,6 +1389,934 @@
 			]
 		},
 		{
+			"name": "task",
+			"item": [
+				{
+					"name": "Setup Project",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestProject\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TestProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestProject\",\n    \"description\":\"Test project.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Setup Challenge",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestChallenge\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TestChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"TestChallenge description\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"TestChallenge instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestChallenge\",\n    \"parent\": {{TestProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete All Task Challenges",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "ccbb60bf-2a2d-45b7-8ee1-e472b52afce2",
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TestChallenge}}",
+								"tasks"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Tasks Deleted",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "34086a73-0c30-41d9-9f3c-308e35e15579",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{TestChallenge}}",
+								"tasks"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Create new Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewTask\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"NewTask\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]}\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "UpdateTask",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction UPDATE\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE\",\n    \"tags\":\"newUpdateTaskTag\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Add 1st Task Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewComment\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"comment\"] = jsonData.comment === \"This is a comment\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comment"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20a%20comment"
+								}
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Update 1st Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/comment/{{NewComment}}?comment=This%20is%20an%20updated%20comment",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"comment",
+								"{{NewComment}}"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20an%20updated%20comment"
+								}
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Add 2nd Task Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"comment\"] = jsonData.comment === \"This is a comment Number2\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment%20Number2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comment"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20a%20comment%20Number2"
+								}
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve Single Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/comment/{{NewComment}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"comment",
+								"{{NewComment}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Retrieve All Comments",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"Comment1\"] = jsonData.length == 2;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comments",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comments"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Comment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment/{{NewComment}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"comment",
+								"{{NewComment}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Create new Task withTags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "705b2416-7628-4ad0-acbf-81bf9c0c477b",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewTask1\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"NewTask With Tags\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"NewTask With Tags\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]},\n    \"tags\":\"newtaskTag1, newtaskTag2\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Task Tags Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "accfcc10-4c9d-432b-9798-e893f2cfd930",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"newtasktag1\");",
+									"    pm.expect(pm.response.text()).to.include(\"newtasktag2\");",
+									"    pm.expect(pm.response.text()).to.include(\"newupdatetasktag\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/keywords?type='tasks'",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"keywords"
+							],
+							"query": [
+								{
+									"key": "type",
+									"value": "'tasks'"
+								}
+							]
+						},
+						"description": "Gets the tag"
+					},
+					"response": []
+				},
+				{
+					"name": "Task Tags Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "accfcc10-4c9d-432b-9798-e893f2cfd930",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"sometag1\");",
+									"    pm.expect(pm.response.text()).to.include(\"sometag2\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/tags/update?tags=sometag1,sometag2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}",
+								"tags",
+								"update"
+							],
+							"query": [
+								{
+									"key": "tags",
+									"value": "sometag1,sometag2"
+								}
+							]
+						},
+						"description": "Gets the tag"
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task Tags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "accfcc10-4c9d-432b-9798-e893f2cfd930",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"sometag1\");",
+									"    pm.expect(pm.response.text()).to.include(\"sometag2\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/tags",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}",
+								"tags"
+							]
+						},
+						"description": "Gets the tag"
+					},
+					"response": []
+				},
+				{
+					"name": "Teardown",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{TestProject}}?immediate=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{TestProject}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Deletes the project just created with the children"
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "VirtualChallenge",
 			"item": [
 				{
@@ -4393,934 +5321,6 @@
 			]
 		},
 		{
-			"name": "task",
-			"item": [
-				{
-					"name": "Setup Project",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"postman.setGlobalVariable(\"TestProject\", jsonData.id);",
-									"tests[\"response code is 201\"] = responseCode.code === 201;",
-									"tests[\"name\"] = jsonData.name === \"TestProject\";",
-									"tests[\"description\"] = jsonData.description === \"Test project.\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\":\"TestProject\",\n    \"description\":\"Test project.\",\n    \"enabled\":false\n}"
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/project",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"project"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Setup Challenge",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"postman.setGlobalVariable(\"TestChallenge\", jsonData.id);",
-									"tests[\"response code is 201\"] = responseCode.code === 201;",
-									"tests[\"name\"] = jsonData.name === \"TestChallenge\";",
-									"tests[\"description\"] = jsonData.description === \"TestChallenge description\";",
-									"tests[\"instruction\"] = jsonData.instruction === \"TestChallenge instruction\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\":\"TestChallenge\",\n    \"parent\": {{TestProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/challenge",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"challenge"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Delete All Task Challenges",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "ccbb60bf-2a2d-45b7-8ee1-e472b52afce2",
-								"type": "text/javascript",
-								"exec": [
-									"tests[\"response code is 200\"] = responseCode.code === 200;"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"challenge",
-								"{{TestChallenge}}",
-								"tasks"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Check Tasks Deleted",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "34086a73-0c30-41d9-9f3c-308e35e15579",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 200\"] = responseCode.code === 200;"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/challenge/{{TestChallenge}}/tasks",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"challenge",
-								"{{TestChallenge}}",
-								"tasks"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Create new Task",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"postman.setGlobalVariable(\"NewTask\", jsonData.id);",
-									"tests[\"response code is 201\"] = responseCode.code === 201;",
-									"tests[\"name\"] = jsonData.name === \"NewTask\";",
-									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\":\"NewTask\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]}\n}"
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Read Task",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"name\"] = jsonData.name === \"NewTask\";",
-									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask}}"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "UpdateTask",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"name\"] = jsonData.name === \"NewTask\";",
-									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction UPDATE\";"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE\",\n    \"tags\":\"newUpdateTaskTag\"\n}"
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask}}"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Add 1st Task Comment",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"postman.setGlobalVariable(\"NewComment\", jsonData.id);",
-									"tests[\"response code is 201\"] = responseCode.code === 201;",
-									"tests[\"comment\"] = jsonData.comment === \"This is a comment\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask}}",
-								"comment"
-							],
-							"query": [
-								{
-									"key": "comment",
-									"value": "This%20is%20a%20comment"
-								}
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Update 1st Comment",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/comment/{{NewComment}}?comment=This%20is%20an%20updated%20comment",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"comment",
-								"{{NewComment}}"
-							],
-							"query": [
-								{
-									"key": "comment",
-									"value": "This%20is%20an%20updated%20comment"
-								}
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Add 2nd Task Comment",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 201\"] = responseCode.code === 201;",
-									"tests[\"comment\"] = jsonData.comment === \"This is a comment Number2\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment?comment=This%20is%20a%20comment%20Number2",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask}}",
-								"comment"
-							],
-							"query": [
-								{
-									"key": "comment",
-									"value": "This%20is%20a%20comment%20Number2"
-								}
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Retrieve Single Comment",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/comment/{{NewComment}}",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"comment",
-								"{{NewComment}}"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Retrieve All Comments",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"Comment1\"] = jsonData.length == 2;"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comments",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask}}",
-								"comments"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Delete Comment",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"tests[\"response code is 200\"] = responseCode.code === 200;"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/comment/{{NewComment}}",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask}}",
-								"comment",
-								"{{NewComment}}"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Create new Task withTags",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "705b2416-7628-4ad0-acbf-81bf9c0c477b",
-								"exec": [
-									"var jsonData = JSON.parse(responseBody);",
-									"postman.setGlobalVariable(\"NewTask1\", jsonData.id);",
-									"tests[\"response code is 201\"] = responseCode.code === 201;",
-									"tests[\"name\"] = jsonData.name === \"NewTask With Tags\";",
-									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\":\"NewTask With Tags\",\n    \"parent\": {{TestChallenge}},\n    \"instruction\":\"NewTask instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]},\n    \"tags\":\"newtaskTag1, newtaskTag2\"\n}"
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task"
-							]
-						},
-						"description": "Creates a project with two children within the same request."
-					},
-					"response": []
-				},
-				{
-					"name": "Task Tags Read",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "accfcc10-4c9d-432b-9798-e893f2cfd930",
-								"exec": [
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"var jsonData = JSON.parse(responseBody);",
-									"pm.test(\"Body matches string\", function () {",
-									"    pm.expect(pm.response.text()).to.include(\"newtasktag1\");",
-									"    pm.expect(pm.response.text()).to.include(\"newtasktag2\");",
-									"    pm.expect(pm.response.text()).to.include(\"newupdatetasktag\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/keywords?type='tasks'",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"keywords"
-							],
-							"query": [
-								{
-									"key": "type",
-									"value": "'tasks'"
-								}
-							]
-						},
-						"description": "Gets the tag"
-					},
-					"response": []
-				},
-				{
-					"name": "Task Tags Update",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "accfcc10-4c9d-432b-9798-e893f2cfd930",
-								"exec": [
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"var jsonData = JSON.parse(responseBody);",
-									"pm.test(\"Body matches string\", function () {",
-									"    pm.expect(pm.response.text()).to.include(\"sometag1\");",
-									"    pm.expect(pm.response.text()).to.include(\"sometag2\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/tags/update?tags=sometag1,sometag2",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask1}}",
-								"tags",
-								"update"
-							],
-							"query": [
-								{
-									"key": "tags",
-									"value": "sometag1,sometag2"
-								}
-							]
-						},
-						"description": "Gets the tag"
-					},
-					"response": []
-				},
-				{
-					"name": "Read Task Tags",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"id": "accfcc10-4c9d-432b-9798-e893f2cfd930",
-								"exec": [
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"var jsonData = JSON.parse(responseBody);",
-									"pm.test(\"Body matches string\", function () {",
-									"    pm.expect(pm.response.text()).to.include(\"sometag1\");",
-									"    pm.expect(pm.response.text()).to.include(\"sometag2\");",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/tags",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"task",
-								"{{NewTask1}}",
-								"tags"
-							]
-						},
-						"description": "Gets the tag"
-					},
-					"response": []
-				},
-				{
-					"name": "Teardown",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"var jsonData = JSON.parse(responseBody);",
-									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "apiKey",
-								"value": "test"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": ""
-						},
-						"url": {
-							"raw": "http://localhost:9000/api/v2/project/{{TestProject}}?immediate=true",
-							"protocol": "http",
-							"host": [
-								"localhost"
-							],
-							"port": "9000",
-							"path": [
-								"api",
-								"v2",
-								"project",
-								"{{TestProject}}"
-							],
-							"query": [
-								{
-									"key": "immediate",
-									"value": "true"
-								}
-							]
-						},
-						"description": "Deletes the project just created with the children"
-					},
-					"response": []
-				}
-			]
-		},
-		{
 			"name": "user",
 			"item": [
 				{
@@ -5423,6 +5423,523 @@
 							]
 						},
 						"description": "Gets the super user that is automatically created with the system by using the super user mocked OSM name."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "SuggestedFixes",
+			"item": [
+				{
+					"name": "testChange Delta",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "e2a68b5c-c408-4710-b9a8-ced1dfcf0396",
+								"exec": [
+									"pm.test(\"Successful POST request\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200]);",
+									"});",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"12345\");",
+									"});",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"WAY\");",
+									"});",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"testit\");",
+									"});",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"lanes\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "apiKey",
+								"value": "test",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[{\n  \"osmId\":12345,\n  \"osmType\":\"WAY\",\n  \"updates\":{\"lanes\": \"3\", \"testit\": \"yes\"},\n  \"deletes\":[\"oneway\"]\n}]"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/change/tag/test?changeType=delta",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"change",
+								"tag",
+								"test"
+							],
+							"query": [
+								{
+									"key": "changeType",
+									"value": "delta"
+								}
+							]
+						},
+						"description": "testing a sample suggested fix change"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Project Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleProjectID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleProject\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
+						},
+						"description": "Creates a base project for all the other Map Roulette API Testing"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Creation with Top-Level SF",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "04cdcb8b-ce2e-4a7c-80e6-a1b63c00fb38",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SFChallenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SFChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFChallenge description\",\n    \"instruction\":\"SFChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SF Task 1\",\n\t        \"suggestedFix\":  {\n        \t\t\"osmId\": 243499890,\n    \t\t\t\"osmType\": \"way\",\n        \t\t\"update\": {\n            \t\t\"tags\": {\n                \t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t}\n    \t\t\t}\n    \t\t},\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\"\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
+						},
+						"description": "Creates the most basic challenge with the least set of options in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Creation with Embedded SF",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "04cdcb8b-ce2e-4a7c-80e6-a1b63c00fb38",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleChallengeID1\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SFEChallenge\";",
+									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SFEChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFEChallenge description\",\n    \"instruction\":\"SFEChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SFE Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\",\n            \t\"maproulette\": {\n            \t\t\"suggestedFix\":  {\n        \t\t\t\t\"update\": {\n            \t\t\t\t\"tags\": {\n                \t\t\t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t\t\t}\n        \t\t\t\t}\n    \t\t\t\t}\n            \t}\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
+						},
+						"description": "Creates the most basic challenge with the least set of options in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Tasks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "166ebb2c-eda3-4c07-9e30-71e275566ff5",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SFTagID\", jsonData[0].id);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"SF Task 1\"] = jsonData[0].name === \"SF Task 1\";",
+									"postman.setGlobalVariable(\"SFChallengeTask1ID\", jsonData[0].id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengeID}}/tasks",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengeID}}",
+								"tasks"
+							]
+						},
+						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "apply tag change to task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "e2a68b5c-c408-4710-b9a8-ced1dfcf0396",
+								"exec": [
+									"pm.test(\"Successful POST request\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"type": "text",
+								"value": "application/json"
+							},
+							{
+								"key": "apiKey",
+								"type": "text",
+								"value": "test"
+							},
+							{
+								"key": "comment",
+								"type": "text",
+								"value": "Submitted with Postman."
+							},
+							{
+								"key": "requestReview",
+								"value": "true",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"comment\":\"This is just a test. Please ignore.\",\n  \"changes\":[{\n\t  \"osmId\":12345,\n\t  \"osmType\":\"WAY\",\n\t  \"updates\":{\"testit\": \"yes\"},\n\t  \"deletes\":[]\n\t}]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{SFTagID}}/fix/apply?tags=automated,postman",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{SFTagID}}",
+								"fix",
+								"apply"
+							],
+							"query": [
+								{
+									"key": "",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "tags",
+									"value": "automated,postman"
+								}
+							]
+						},
+						"description": "testing a sample suggested fix change"
+					},
+					"response": []
+				},
+				{
+					"name": "Read Tag Fix Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "166ebb2c-eda3-4c07-9e30-71e275566ff5",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"SF Task 1\"] = jsonData.name === \"SF Task 1\";",
+									"tests[\"SF Task 1 status is fixed\"] = jsonData.status === 1;",
+									"tests[\"SF Task 1 review status is 0\"] = jsonData.reviewStatus === 0;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{SFTagID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{SFTagID}}"
+							]
+						},
+						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Read Tag Task MR Tags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "166ebb2c-eda3-4c07-9e30-71e275566ff5",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"SF Task 1\"]  = jsonData[0].name === \"postman\";",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{SFTagID}}/tags",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{SFTagID}}",
+								"tags"
+							]
+						},
+						"description": "Gets the tasks of the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Project Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectID}}?immediate=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Deletes the project that was used for the challenge tests."
 					},
 					"response": []
 				}
