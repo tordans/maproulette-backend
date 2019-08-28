@@ -1695,8 +1695,11 @@ GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers
 #   - name: proximity
 #     in: query
 #     description: Id of task around which geographically closest tasks are desired
+#   - name: excludeSelfLocked
+#     in: query
+#     description: exclude tasks this user has locked (always excludes tasks locked by others)
 ###
-GET     /challenge/:cid/tasksNearby/:proximityId           @org.maproulette.controllers.api.ChallengeController.getNearbyTasks(cid:Long, proximityId:Long, limit:Int ?= 5)
+GET     /challenge/:cid/tasksNearby/:proximityId           @org.maproulette.controllers.api.ChallengeController.getNearbyTasks(cid:Long, proximityId:Long, excludeSelfLocked:Boolean ?=false, limit:Int ?= 5)
 ###
 # tags: [ Challenge ]
 # summary: Retrieves prioritized random Task
@@ -3030,11 +3033,48 @@ PUT     /task/:id/changeset                         @org.maproulette.controllers
 PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Task ]
+# summary: Update Bundle Task Status
+# produces: [ application/json ]
+# description: Will update a Bundled list of Tasks statuses to one of the following. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
+# responses:
+#   '200':
+#     description: TaskBundle
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The bundle or primary task was not found with the supplied Id.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: bundleId
+#     in: path
+#     description: The ID of the bundle
+#   - name: primaryId
+#     in: path
+#     description: The primary ID of the task for this bundle
+#   - name: status
+#     in: path
+#     description: The status to update the Task too. Following status Integers can be used. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
+#   - name: comment
+#     in: query
+#     description: Any comment that is provided by the user when setting the status
+#   - name: requestReview
+#     in: query
+#     description: Boolean indicating if a review is requested on this task. (Will override user settings if provided)
+#   - name: tags
+#     description: Optional tags to associate with this task
+###
+PUT     /taskBundle/:bundleId/:status                           @org.maproulette.controllers.api.TaskController.setBundleTaskStatus(bundleId:Long, primaryId:Long, status:Int, comment:String ?= "", tags:String ?="")
+###
+# tags: [ Task ]
 # summary: Update Task Review Status
 # produces: [ application/json ]
 # description: Will update a Tasks review status to one of the following. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
 # responses:
-#   '304':
+#   '200':
 #     description: No Content, update successful
 #   '401':
 #     description: The user is not authorized to make this request
@@ -3059,6 +3099,37 @@ PUT     /task/:id/:status                           @org.maproulette.controllers
 #     description: Optional tags to associate with this task
 ###
 PUT     /task/:id/review/:status                           @org.maproulette.controllers.api.TaskController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
+###
+# tags: [ Task ]
+# summary: Update Task Review Status for a Bundle
+# produces: [ application/json ]
+# description: Will update a Tasks review status to one of the following. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+# responses:
+#   '200':
+#     description: Task Bundle
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the bundle
+#   - name: status
+#     in: path
+#     description: The status to update the Task to. Following status Integers can be used. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+#   - name: comment
+#     in: query
+#     description: Any comment that is provided by the user when setting the review status
+#   - name: tags
+#     description: Optional tags to associate with this task
+###
+PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Challenge ]
 # summary: Retrieves task clusters
@@ -3193,6 +3264,27 @@ GET     /task/:id/comments                          @org.maproulette.controllers
 #     description: An optional action ID that may be associated with the comment
 ###
 POST    /task/:id/comment                           @org.maproulette.controllers.api.TaskController.addComment(id:Long, comment:String, actionId:Option[Long])
+###
+# tags: [ Comment ]
+# summary: Adds comment to each Task in a Task Bundle
+# description: Adds a comment to each Task in Bundle
+# responses:
+#   '201':
+#     description: The task bundle
+#   '404':
+#     description: If the bundle is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the bundle
+#   - name: comment
+#     in: query
+#     description: A URLEncoded comment for the Task
+#   - name: actionId
+#     in: query
+#     description: An optional action ID that may be associated with the comment
+###
+POST    /taskBundle/:id/comment                     @org.maproulette.controllers.api.TaskController.addCommentToBundleTasks(id:Long, comment:String, actionId:Option[Long])
 ###
 # tags: [ Comment ]
 # summary: Update comment on Task
@@ -4210,6 +4302,40 @@ POST    /change/tag/test                            @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.services.osm.ChangeObjects.TagChangeSubmission'
 ###
 POST    /task/:taskId/fix/apply                     @org.maproulette.controllers.api.TaskController.applyTagFix(taskId:Long, comment:String ?= "", tags:String ?= "")
+
+###
+# tags: [ Bundle ]
+# summary: Create a task bundle
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Create a new task bundle with the task ids in the supplied JSON body.
+# responses:
+#   '200':
+#     description: The newly created bundle with a unique id.
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.TaskBundle'
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: body
+#     in: body
+#     description: The JSON structure for the bundle body.
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.TaskBundle'
+###
+POST    /taskBundle                                 @org.maproulette.controllers.api.TaskController.createTaskBundle
+### NoDocs ###
+GET     /taskBundle/:id                             @org.maproulette.controllers.api.TaskController.getTaskBundle(id:Long)
+### NoDocs ###
+DELETE     /taskBundle/:id                          @org.maproulette.controllers.api.TaskController.deleteTaskBundle(id:Long, primaryId:Option[Long])
+### NoDocs ###
+GET        /taskBundle/:id/unbundle                 @org.maproulette.controllers.api.TaskController.unbundleTasks(id:Long, taskIds:List[Long])
 ### NoDocs ###
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
 ### NoDocs ###

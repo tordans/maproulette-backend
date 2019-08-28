@@ -54,29 +54,39 @@ class TaskReviewDAL @Inject()(override val db: Database,
       throw new InvalidException("This task is already being reviewed by someone else.")
     }
 
-    this.withMRTransaction { implicit c =>
-      // Unclaim everything before starting a new task.
-      SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
-              WHERE review_claimed_by = #${user.id}""".executeUpdate()
-
-      val updatedRows =
-        SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
-                WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
-
-      // if returning 0, then this is because the item is locked by a different user
-      if (updatedRows == 0) {
-        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot start review at this time.")
+    var taskList = List(task)
+    if (task.isBundlePrimary.getOrElse(false)) {
+      task.bundleId match {
+        case Some(bId) =>
+          this.getTaskBundle(user, bId).tasks match {
+            case Some(tList) =>
+              taskList = tList
+            case None => // do nothing -- just use our current task
+          }
+        case None => // no bundle id, do nothing
       }
+    }
 
-      try {
-        this.unlockItem(user, task)
-      } catch {
-        case e: Exception => logger.warn(e.getMessage)
+    for (task <- taskList) {
+      this.withMRTransaction { implicit c =>
+        // Unclaim everything before starting a new task.
+        SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
+                WHERE review_claimed_by = #${user.id}""".executeUpdate()
+
+        val updatedRows =
+          SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
+                  WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
+
+        try {
+          this.lockItem(user, task)
+        } catch {
+          case e: Exception => logger.warn(e.getMessage)
+        }
+
+        webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
+          WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+        ))
       }
-
-      webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
-      ))
     }
 
     val updatedTask = task.copy(reviewClaimedBy = Option(user.id.toInt))
@@ -163,6 +173,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
         new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}")
     }
 
+    val whereBundleClause = " AND (tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) "
+
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
     joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
@@ -193,6 +205,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           ${joinClause}
           WHERE
           ${whereClause}
+          ${whereBundleClause}
           ${orderByClause}
           LIMIT ${sqlLimit(limit)} OFFSET ${offset}
          """
@@ -212,6 +225,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
                     ug.osm_user_id = ${user.osmProfile.id}) AND
                     task_review.review_requested_by != ${user.id} AND
             ${whereClause}
+            ${whereBundleClause}
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
            """
@@ -227,6 +241,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           SELECT count(*) FROM tasks
           ${joinClause}
           WHERE ${whereClause}
+          ${whereBundleClause}
         """
       case default =>
         s"""
@@ -239,6 +254,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
                   ug.osm_user_id = ${user.osmProfile.id}) AND
                   task_review.review_requested_by != ${user.id} AND
           ${whereClause}
+          ${whereBundleClause}
         """
     }
 
@@ -273,7 +289,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
                        limit:Int = -1, offset:Int=0, sort:String, order:String)
                        (implicit c:Connection=null) : (Int, List[Task]) = {
     var orderByClause = ""
-    val whereClause = new StringBuilder()
+    val whereClause = new StringBuilder("(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND ")
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
     joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "

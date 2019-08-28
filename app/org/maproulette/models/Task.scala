@@ -50,6 +50,8 @@ case class Task(override val id: Long,
                 priority: Int=Challenge.PRIORITY_HIGH,
                 changesetId: Option[Long] = None,
                 completionResponses: Option[String]=None,
+                bundleId: Option[Long] = None,
+                isBundlePrimary: Option[Boolean] = None,
                 mapillaryImages: Option[List[MapillaryImage]]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
