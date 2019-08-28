@@ -198,7 +198,10 @@ trait DALHelper {
                   whereClause ++= this.fuzzySearch(s"$projectPrefix.display_name", "ps", x)(if (whereClause.isEmpty) None else Some(AND()))
                   parameters += ('ps -> ps)
                 case None =>
-                  whereClause ++= this.searchField(s"$projectPrefix.display_name", "ps")(if (whereClause.isEmpty) None else Some(AND()))
+                  whereClause ++= (if (whereClause.isEmpty) "" else " AND ")
+                  whereClause ++= " (" + this.searchField(s"$projectPrefix.display_name", "ps")(None)
+                  whereClause ++= s" OR $challengePrefix.id IN (SELECT vp2.challenge_id FROM virtual_project_challenges vp2 INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE " +
+                                  this.searchField(s"p2.display_name", "ps")(None) + " AND p2.enabled=true)) "
                   parameters += ('ps -> s"%$ps%")
               }
             case _ => // we can ignore this
