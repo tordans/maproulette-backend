@@ -544,7 +544,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
               this.customTaskStatus(taskId, TaskStatusSet(Task.STATUS_FIXED), user, comment, tags, requestReview)
               p success Ok(Json.toJson(true))
             case _ => None
-              changeService.submitTagChange(element.changes, element.comment, user.osmProfile.requestToken) onComplete {
+              changeService.submitTagChange(element.changes, element.comment, user.osmProfile.requestToken, Some(taskId)) onComplete {
                 case Success(res) => {
                   this.customTaskStatus(taskId, TaskStatusSet(Task.STATUS_FIXED), user, comment, tags, requestReview)
                   p success Ok(res)
