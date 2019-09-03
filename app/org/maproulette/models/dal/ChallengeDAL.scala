@@ -735,6 +735,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                             WHEN t.tstatus = #${Task.STATUS_TOO_HARD} THEN ${Task.STATUS_TOO_HARD_NAME}
                                             WHEN t.tstatus = #${Task.STATUS_ANSWERED} THEN ${Task.STATUS_ANSWERED_NAME}
                                             WHEN t.tstatus = #${Task.STATUS_VALIDATED} THEN ${Task.STATUS_VALIDATED_NAME}
+                                            WHEN t.tstatus = #${Task.STATUS_DISABLED} THEN ${Task.STATUS_DISABLED_NAME}
                                            END)) ||
                                         hstore('mr_taskPriority',
                                           (CASE
