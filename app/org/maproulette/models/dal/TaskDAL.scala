@@ -965,7 +965,14 @@ class TaskDAL @Inject()(override val db: Database,
         // is either Created or Skipped
         val taskStatusList = params.taskStatus match {
           case Some(l) if l.nonEmpty => l
-          case _ => List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
+          case _ => {
+            config.skipTooHard match {
+              case true =>
+                List(Task.STATUS_CREATED, Task.STATUS_SKIPPED)
+              case false =>
+                List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
+            }
+          }
         }
         val whereClause = new StringBuilder(
           s"""WHERE tasks.parent_id = $challengeId AND
