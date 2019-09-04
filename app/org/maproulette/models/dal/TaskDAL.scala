@@ -469,7 +469,7 @@ class TaskDAL @Inject()(override val db: Database,
     val reviewNeeded = requestReview match {
       case Some(r) => r
       case None => user.settings.needsReview.getOrElse(config.defaultNeedsReview) != User.REVIEW_NOT_NEEDED &&
-        status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED
+        status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED && status != Task.STATUS_DISABLED
     }
 
     val oldStatus = task.status

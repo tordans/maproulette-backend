@@ -140,6 +140,8 @@ object Task {
   val STATUS_ANSWERED_NAME = "Answered"
   val STATUS_VALIDATED = 8
   val STATUS_VALIDATED_NAME = "Validated"
+  val STATUS_DISABLED = 9
+  val STATUS_DISABLED_NAME = "Disabled"
   val statusMap = Map(
     STATUS_CREATED -> STATUS_CREATED_NAME,
     STATUS_FIXED -> STATUS_FIXED_NAME,
@@ -149,7 +151,8 @@ object Task {
     STATUS_ALREADY_FIXED -> STATUS_ALREADY_FIXED_NAME,
     STATUS_TOO_HARD -> STATUS_TOO_HARD_NAME,
     STATUS_ANSWERED -> STATUS_ANSWERED_NAME,
-    STATUS_VALIDATED -> STATUS_VALIDATED_NAME
+    STATUS_VALIDATED -> STATUS_VALIDATED_NAME,
+    STATUS_DISABLED -> STATUS_DISABLED_NAME
   )
 
 
@@ -198,7 +201,7 @@ object Task {
     * @return True if the status can be set without violating any of the above rules
     */
   def isValidStatusProgression(current: Int, toSet: Int): Boolean = {
-    if (current == toSet || toSet == STATUS_DELETED) {
+    if (current == toSet || toSet == STATUS_DELETED || toSet == STATUS_DISABLED) {
       true
     } else {
       current match {
@@ -212,6 +215,7 @@ object Task {
         case STATUS_ALREADY_FIXED => false
         case STATUS_ANSWERED => false
         case STATUS_VALIDATED => false
+        case STATUS_DISABLED => toSet == STATUS_CREATED
       }
     }
   }
