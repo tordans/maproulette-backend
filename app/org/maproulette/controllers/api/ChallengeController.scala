@@ -544,10 +544,29 @@ class ChallengeController @Inject()(override val childController: TaskController
     } else {
       val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
       val projects = Some(this.dalManager.project.retrieveListById(-1, 0)(challenges.map(c => c.general.parent)).map(p => p.id -> p).toMap)
+
+      var vpIds = scala.collection.mutable.Set[Long]()
+      challenges.map(c => {
+        c.general.virtualParents match {
+          case Some(vps) =>
+            vps.map(vp => vpIds += vp)
+          case _ => // do nothing
+        }
+      })
+      val vpObjects = this.dalManager.project.retrieveListById(-1, 0)(vpIds.toList).map(p => p.id -> p).toMap
+
       val jsonList = challenges.map { c =>
-        val updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
+        var updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
         val projectJson = Json.toJson(projects.get(c.general.parent)).as[JsObject] - Project.KEY_GROUPS
-        Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
+        updated = Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
+
+        c.general.virtualParents match {
+          case Some(vps) =>
+            val vpJson = Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GROUPS))
+            updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
+          case _ => // do nothing
+        }
+        updated
       }
       Json.toJson(jsonList)
     }

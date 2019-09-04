@@ -191,6 +191,7 @@ object Challenge {
 
   val KEY_ANSWER = "answers"
   val KEY_PARENT = "parent"
+  val KEY_VIRTUAL_PARENTS = "virtualParents"
 
   val defaultAnswerValid = Answer(-1, "Valid")
   val defaultAnswerInvalid = Answer(-2, "Invalid")
