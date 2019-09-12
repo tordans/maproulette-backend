@@ -485,6 +485,27 @@ class ChallengeController @Inject()(override val childController: TaskController
 
       val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
 
+      // Find all response property names
+      var responseProperties = Set[String]()
+      tasks.foreach(
+        _.completionResponses match {
+          case Some(responses) =>
+            Json.parse(responses) match {
+              case o: JsObject => o.keys
+                for (key <- o.keys) {
+                  responseProperties += key.toString()
+                }
+              case _ => // do nothing
+            }
+          case None => // do nothing
+        }
+      )
+      var responseHeaders = ""
+      for (p <- responseProperties) {
+        if (responseHeaders != "") responseHeaders += ","
+        responseHeaders += "Recorded_" + p
+      }
+
       val seqString = tasks.map(task => {
           var mapper = task.reviewRequestedBy.getOrElse("")
           if (mapper == "") {
@@ -500,18 +521,37 @@ class ChallengeController @Inject()(override val childController: TaskController
             case _ => ""
           }
 
+          // Find matching response values to each response property name
+          var responseData = ""
+          task.completionResponses match {
+            case Some(responses) =>
+              val responseMap = Json.parse(responses)
+              for (key <- responseProperties) {
+                (responseMap \ key) match {
+                    case value: JsDefined =>
+                      responseData += "," + value.get.toString()
+                    case vaue: JsUndefined => responseData += "," + "\"\"" // empty value
+                }
+              }
+            case None => // No responses, all empty values
+              for (key <- responseProperties) {
+                responseData += "," + "\"\""
+              }
+          }
+
           s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
-          s""""${task.comments.getOrElse("")}","${task.tags.getOrElse("")}"""".stripMargin
+          s""""${task.comments.getOrElse("")}","${task.tags.getOrElse("")}"""".stripMargin +
+          s"""${responseData}""".stripMargin
         }
       )
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
         body = HttpEntity.Strict(
           ByteString(
-            "TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,Tags\n"
+            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,Tags,${responseHeaders}\n"""
           ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )

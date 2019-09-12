@@ -3021,7 +3021,11 @@ PUT     /task/:id/changeset                         @org.maproulette.controllers
 #     in: query
 #     description: Boolean indicating if a review is requested on this task. (Will override user settings if provided)
 #   - name: tags
+#     in: query
 #     description: Optional tags to associate with this task
+#   - name: completionResponses
+#     in: body
+#     description: Optional key/value json to be stored with this task.
 ###
 PUT     /task/:id/:status                           @org.maproulette.controllers.api.TaskController.setTaskStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###

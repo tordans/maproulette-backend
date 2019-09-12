@@ -323,14 +323,15 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         case None => None
       }
 
-      this.customTaskStatus(id, TaskStatusSet(status), user, comment, tags, requestReview)
+      val completionResponses = request.body.asJson
+      this.customTaskStatus(id, TaskStatusSet(status), user, comment, tags, requestReview, completionResponses)
 
       NoContent
     }
   }
 
-  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="",
-                       tags: String= "",requestReview:Option[Boolean] = None) = {
+  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="", tags: String= "",
+                       requestReview:Option[Boolean] = None, completionResponses:Option[JsValue] = None) = {
     val status = actionType match {
       case t: TaskStatusSet => t.status
       case q: QuestionAnswered => Task.STATUS_ANSWERED
@@ -344,7 +345,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       case Some(t) => t
       case None => throw new NotFoundException(s"Task with $taskId not found, can not set status.")
     }
-    this.dal.setTaskStatus(task, status, user, requestReview)
+    this.dal.setTaskStatus(task, status, user, requestReview, completionResponses)
     val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
     // add comment if any provided
     if (comment.nonEmpty) {

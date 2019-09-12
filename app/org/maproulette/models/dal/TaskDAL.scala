@@ -64,7 +64,7 @@ class TaskDAL @Inject()(override val db: Database,
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
   override val retrieveColumns: String = "*, tasks.geojson::TEXT AS geo_json, " +
-    "tasks.suggestedfix_geojson::TEXT AS suggested_fix, " +
+    "tasks.suggestedfix_geojson::TEXT AS suggested_fix, tasks.completion_responses::TEXT AS responses, " +
     "ST_AsGeoJSON(tasks.location) AS geo_location "
 
   val retrieveColumnsWithReview: String = this.retrieveColumns +
@@ -92,16 +92,17 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
-      get[Option[Long]]("tasks.changeset_id") map {
+      get[Option[Long]]("tasks.changeset_id") ~
+      get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
         suggested_fix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-        reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId =>
+        reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ responses =>
 
         val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
         Task(id, name, created, modified, parent_id, instruction, values._2,
           values._1, values._3, status, mappedOn,
           reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-          reviewClaimedBy, priority, changesetId)
+          reviewClaimedBy, priority, changesetId, responses)
     }
   }
 
@@ -127,17 +128,19 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[String]]("challenge_name") ~
       get[Option[String]]("review_requested_by_username") ~
-      get[Option[String]]("reviewed_by_username") map {
+      get[Option[String]]("reviewed_by_username") ~
+      get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
         suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-        reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ challengeName ~ reviewRequestedByUsername ~ reviewedByUsername =>
+        reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ challengeName ~
+        reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
 
         val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
         TaskWithReview(
           Task(id, name, created, modified, parent_id, instruction, values._2,
             values._1, values._3, status, mappedOn,
             reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-            reviewClaimedBy, priority, changesetId),
+            reviewClaimedBy, priority, changesetId, responses),
           TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
             reviewedBy, reviewedByUsername, reviewedAt, reviewStartedAt, reviewClaimedBy, None, None)
         )
@@ -457,9 +460,11 @@ class TaskDAL @Inject()(override val db: Database,
     * @param status        The status to set
     * @param user          The user setting the status
     * @param requestReview Optional boolean to request a review on this task.
+    * @param completionRespones Optional json responses provided by user to task instruction questions
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(task: Task, status: Int, user: User, requestReview: Option[Boolean] = None)(implicit c: Connection = null): Int = {
+  def setTaskStatus(task: Task, status: Int, user: User, requestReview: Option[Boolean] = None,
+                    completionResponses:Option[JsValue] = None)(implicit c: Connection = null): Int = {
     if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
@@ -472,10 +477,15 @@ class TaskDAL @Inject()(override val db: Database,
         status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED && status != Task.STATUS_DISABLED
     }
 
+    val responses = completionResponses match {
+      case Some(r) => r.toString()
+      case None => null
+    }
+
     val oldStatus = task.status
     val updatedRows = this.withMRTransaction { implicit c =>
       val updatedRows =
-        SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW()
+        SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB
                              WHERE t.id = (
                                 SELECT t2.id FROM tasks t2
                                 LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
@@ -536,13 +546,21 @@ class TaskDAL @Inject()(override val db: Database,
         Some(task.copy(status = Some(status),
           reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
           reviewRequestedBy = Some(user.id),
-          modified = new DateTime()))
+          modified = new DateTime(),
+          completionResponses = completionResponses match {
+            case Some(r) => Some(r.toString())
+            case None => None
+          }))
       }
     }
     else {
       this.cacheManager.withOptionCaching { () =>
         Some(task.copy(status = Some(status),
-          modified = new DateTime()))
+          modified = new DateTime(),
+          completionResponses = completionResponses match {
+            case Some(r) => Some(r.toString())
+            case None => None
+          }))
       }
     }
     this.challengeDAL.get().updateFinishedStatus()(task.parent)
@@ -1370,9 +1388,10 @@ class TaskDAL @Inject()(override val db: Database,
         reviewStartedAt <- get[Option[DateTime]]("task_review.review_started_at")
         comments <- get[Option[String]]("comments")
         tags <- get[Option[String]]("tags")
+        responses <- get[Option[String]]("responses")
       } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
-        reviewStartedAt, comments, tags)
+        reviewStartedAt, comments, tags, responses)
 
       val status = statusFilter match {
         case Some(s) => s"AND t.status IN (${s.mkString(",")})"
@@ -1404,7 +1423,8 @@ class TaskDAL @Inject()(override val db: Database,
                    (SELECT string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
                                       CONCAT(chr(10),'---',chr(10))) AS comments
                     FROM task_comments tc WHERE tc.task_id = t.id),
-                   (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id)
+                   (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id),
+                   t.completion_responses::TEXT AS responses
             FROM tasks t LEFT OUTER JOIN (
               SELECT sa.task_id, sa.status, sa.osm_user_id, u.name AS username
               FROM users u, status_actions sa INNER JOIN (
@@ -1511,7 +1531,7 @@ class TaskDAL @Inject()(override val db: Database,
   case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
                          reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
-                         comments: Option[String], tags: Option[String])
+                         comments: Option[String], tags: Option[String], completionResponses: Option[String])
 
 }
 

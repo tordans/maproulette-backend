@@ -498,7 +498,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           get[Option[DateTime]]("task_review.reviewed_at") ~
           get[Option[DateTime]]("task_review.review_started_at") ~
           get[Option[Long]]("task_review.review_claimed_by") ~
-          get[Int]("tasks.priority") map {
+          get[Int]("tasks.priority")  map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
             geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority =>
@@ -762,7 +762,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                         hstore('mr_reviewTimeSeconds', FLOOR(EXTRACT(EPOCH FROM (t.reviewed_at - t.review_started_at)))::text) ||
                                         hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags
                                                             FROM tags_on_tasks tot, tags tg
-                                                            WHERE tot.task_id=t.tid AND tg.id = tot.tag_id))
+                                                            WHERE tot.task_id=t.tid AND tg.id = tot.tag_id)) ||
+                                        hstore('mr_responses', t.completion_responses::text)                    
                                       ) AS properties
                           FROM (
                             SELECT *,
