@@ -37,8 +37,9 @@ case class Point(lat: Double, lng: Double)
   */
 case class ClusteredPoint(id: Long, owner: Long, ownerName: String, title: String, parentId: Long, parentName: String,
                           point: Point, bounding: JsValue, blurb: String, modified: DateTime, difficulty: Int,
-                          `type`: Int, status: Int, mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[Int],
-                          reviewedBy: Option[Int], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime], priority: Int)
+                          `type`: Int, status: Int, suggestedFix: Option[String] = None, mappedOn: Option[DateTime],
+                          reviewStatus: Option[Int], reviewRequestedBy: Option[Int], reviewedBy: Option[Int],
+                          reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime], priority: Int)
 
 object ClusteredPoint {
   implicit val pointWrites: Writes[Point] = Json.writes[Point]

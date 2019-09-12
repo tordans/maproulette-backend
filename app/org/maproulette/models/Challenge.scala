@@ -72,6 +72,7 @@ case class ChallengeGeneral(owner: Long,
                             enabled: Boolean = false,
                             challengeType: Int = Actions.ITEM_TYPE_CHALLENGE,
                             featured: Boolean = false,
+                            hasSuggestedFixes: Boolean = false,
                             popularity: Option[Int] = None,
                             checkinComment: String = "",
                             checkinSource: String = "",
@@ -190,6 +191,7 @@ object Challenge {
 
   val KEY_ANSWER = "answers"
   val KEY_PARENT = "parent"
+  val KEY_VIRTUAL_PARENTS = "virtualParents"
 
   val defaultAnswerValid = Answer(-1, "Valid")
   val defaultAnswerInvalid = Answer(-2, "Invalid")

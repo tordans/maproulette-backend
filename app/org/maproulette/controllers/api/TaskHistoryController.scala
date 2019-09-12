@@ -10,6 +10,7 @@ import org.maproulette.models.{Answer, Challenge, TaskLogEntry}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, User}
 import org.maproulette.utils.Utils
+import org.maproulette.services.osm.ChangesetProvider
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -28,9 +29,10 @@ class TaskHistoryController @Inject()(override val sessionManager: SessionManage
                                wsClient: WSClient,
                                config: Config,
                                components: ControllerComponents,
+                               changeService: ChangesetProvider,
                                override val bodyParsers: PlayBodyParsers)
   extends TaskController(sessionManager, actionManager, dal, tagDAL, dalManager,
-                         wsClient, config, components, bodyParsers) {
+                         wsClient, config, components, changeService, bodyParsers) {
 
   /**
     * Gets the history for a task. This includes commments, status_actions, and review_actions.

@@ -64,6 +64,7 @@ class TaskDAL @Inject()(override val db: Database,
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
   override val retrieveColumns: String = "*, tasks.geojson::TEXT AS geo_json, " +
+    "tasks.suggestedfix_geojson::TEXT AS suggested_fix, " +
     "ST_AsGeoJSON(tasks.location) AS geo_location "
 
   val retrieveColumnsWithReview: String = this.retrieveColumns +
@@ -82,7 +83,7 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
       get[Option[String]]("geo_json") ~
-      get[Option[String]]("tasks.suggestedfix_geojson") ~
+      get[Option[String]]("suggested_fix") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Long]]("task_review.review_requested_by") ~
@@ -93,10 +94,10 @@ class TaskDAL @Inject()(override val db: Database,
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-        suggestedfix_geojson ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
+        suggested_fix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
         reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId =>
 
-        val values = this.updateAndRetrieve(id, geojson, location, suggestedfix_geojson)
+        val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
         Task(id, name, created, modified, parent_id, instruction, values._2,
           values._1, values._3, status, mappedOn,
           reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
@@ -114,7 +115,7 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
       get[Option[String]]("geo_json") ~
-      get[Option[String]]("suggestedfix_geojson") ~
+      get[Option[String]]("suggested_fix") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Long]]("task_review.review_requested_by") ~
@@ -128,10 +129,10 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[String]]("review_requested_by_username") ~
       get[Option[String]]("reviewed_by_username") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-        suggestedfix_geojson ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
+        suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
         reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ challengeName ~ reviewRequestedByUsername ~ reviewedByUsername =>
 
-        val values = this.updateAndRetrieve(id, geojson, location, suggestedfix_geojson)
+        val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
         TaskWithReview(
           Task(id, name, created, modified, parent_id, instruction, values._2,
             values._1, values._3, status, mappedOn,
@@ -221,15 +222,10 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The object that was inserted into the database. This will include the newly created id
     */
   override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
-    val newTask = this.mergeUpdate(task, user)(-1) match {
+    this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
       case None => throw new Exception("Unknown failure occurred while creating new task.")
     }
-    // update the task priority inside a future, so fire and forget and don't impact the performance of the insert
-    Future {
-      this.updateTaskPriority(newTask.id, user)
-    }
-    newTask
   }
 
   /**
@@ -325,13 +321,21 @@ class TaskDAL @Inject()(override val db: Database,
     */
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.permission.hasObjectWriteAccess(element, user)
+    // get the parent challenge, as we need the priority information
+    val parentChallenge = this.challengeDAL.get().retrieveById(element.parent) match {
+      case Some(c) => c
+      case None => throw new NotFoundException(s"No parent was found for task with parentId [${element.parent}, this should never happen.")
+    }
     // before clearing the cache grab the cachedItem
     // by setting the delete implicit to true we clear out the cache for the element
     // The cachedItem could be
     val cachedItem = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
       Some(cachedItem)
     }(id, true, true)
-    val updatedTask: Option[Task] = this.withMRTransaction { implicit c =>
+    this.withMRTransaction { implicit c =>
+      val result = extractSuggestedFix(element.parent, element.geometries, element.suggestedFix)
+      val geometries = result._1
+      var suggestedFix = result._2
       val query =
         """SELECT create_update_task({name}, {parentId}, {instruction},
                     {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
@@ -343,10 +347,10 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("parentId", ToParameterValue.apply[Long].apply(element.parent)),
         NamedParameter("instruction", ToParameterValue.apply[String].apply(element.instruction.getOrElse(""))),
         NamedParameter("status", ToParameterValue.apply[Int].apply(element.status.getOrElse(Task.STATUS_CREATED))),
-        NamedParameter("geojson", ToParameterValue.apply[String].apply(element.geometries)),
-        NamedParameter("suggestedFixGeoJson", ToParameterValue.apply[String].apply(element.suggestedFix.orNull)),
+        NamedParameter("geojson", ToParameterValue.apply[String].apply(geometries)),
+        NamedParameter("suggestedFixGeoJson", ToParameterValue.apply[String].apply(suggestedFix.orNull)),
         NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
-        NamedParameter("priority", ToParameterValue.apply[Int].apply(element.priority)),
+        NamedParameter("priority", ToParameterValue.apply[Int].apply(element.getTaskPriority(parentChallenge))),
         NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
         NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
         NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
@@ -367,51 +371,59 @@ class TaskDAL @Inject()(override val db: Database,
 
       Some(element.copy(id = updatedTaskId))
     }
-    updatedTask match {
-      case Some(t) => Future {
-        this.updateTaskPriority(t.id, user)
-      }
-      case None => //just ignore and do nothing
-    }
-    updatedTask
   }
 
   /**
-    * This function will update the tasks priority based on the parent challenge information. It will
-    * check first to see if it falls inside the HIGH priority bucket, then MEDIUM then LOW. If it doesn't
-    * fall into any priority bucket, it will then set the priority to the default priority defined
-    * in the parent challenge
+    * There can only be a single suggested fix for a task, so if you add one it will remove any
+    * others that were added previously.
     *
-    * @param taskId The id for the task to update the priority for
-    * @param c      The database connection
+    * @param taskId The id for the task
+    * @param challengeId The id for the parent challenge
+    * @param value  The JSON value for the suggested fix
+    * @param c
     */
-  def updateTaskPriority(taskId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
-    implicit val id = taskId
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
-      this.withMRTransaction { implicit c =>
-        implicit val id = taskId
-        this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit task =>
-          this.permission.hasObjectWriteAccess(task, user)
-          // get the parent challenge, as we need the priority information
-          val parentChallenge = this.challengeDAL.get().retrieveById(task.parent) match {
-            case Some(c) => c
-            case None => throw new NotFoundException(s"No parent was found for task [$taskId], this should never happen.")
-          }
-          val newPriority = task.getTaskPriority(parentChallenge)
-          if (newPriority != task.priority) {
-            this.withMRTransaction { implicit c =>
-              // Update the location of the particular task
-              SQL"""UPDATE tasks
-              SET priority = $newPriority
-              WHERE id = $taskId
-            """.executeUpdate()
-              this.retrieveById(taskId)
-            }
-          } else {
-            Some(task)
-          }
-        }
+  def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit = {
+    this.withMRTransaction { implicit c =>
+      val parameters = new ListBuffer[NamedParameter]()
+      parameters += ('suggestedFix -> Json.stringify(value))
+      sqlWithParameters(s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
+                        parameters).execute()
+
+      SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${challengeId}").execute()
+      c.commit()
+    }
+  }
+
+  /**
+    * Function that extracts the suggestedFix from the geometries
+    *
+    * @param parentId      The parent Id of the challenge (for marking this challenge has fixes)
+    * @param geometries    The geojson that contains the geometries/suggestedFix
+    * @param suggestedFix  Any top level suggested fix not embedded in geometries
+    */
+  private def extractSuggestedFix(parentId: Long, geometries: String, suggestedFix: Option[String])(implicit c: Option[Connection] = None): (String, Option[String]) = {
+    this.withMRTransaction { implicit c =>
+      var suggestedFixGeoJson = suggestedFix
+
+      val geoJson = Json.parse(geometries)
+      val sfMatch = (geoJson \\ "suggestedFix")
+      if (!sfMatch.isEmpty) {
+        suggestedFixGeoJson = Some(sfMatch.head.toString())
       }
+
+      val mrTransformer = (__ \ "properties" \ "maproulette").json.prune
+      var extractedGeometries = JsArray((geoJson \ "features").as[JsArray].value.map {
+        case value: JsObject => value.transform(mrTransformer).getOrElse(value)
+        case _ => // do nothing
+      }.asInstanceOf[IndexedSeq[JsObject]])
+
+      suggestedFixGeoJson match {
+        case Some(sf) =>
+          SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${parentId}").execute()
+        case None => // do nothing
+      }
+
+      (JsObject(Seq("features" -> extractedGeometries)).toString, suggestedFixGeoJson)
     }
   }
 
@@ -457,7 +469,7 @@ class TaskDAL @Inject()(override val db: Database,
     val reviewNeeded = requestReview match {
       case Some(r) => r
       case None => user.settings.needsReview.getOrElse(config.defaultNeedsReview) != User.REVIEW_NOT_NEEDED &&
-        status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED
+        status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED && status != Task.STATUS_DISABLED
     }
 
     val oldStatus = task.status
@@ -953,7 +965,14 @@ class TaskDAL @Inject()(override val db: Database,
         // is either Created or Skipped
         val taskStatusList = params.taskStatus match {
           case Some(l) if l.nonEmpty => l
-          case _ => List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
+          case _ => {
+            config.skipTooHard match {
+              case true =>
+                List(Task.STATUS_CREATED, Task.STATUS_SKIPPED)
+              case false =>
+                List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD)
+            }
+          }
         }
         val whereClause = new StringBuilder(
           s"""WHERE tasks.parent_id = $challengeId AND
@@ -1236,6 +1255,7 @@ class TaskDAL @Inject()(override val db: Database,
           val query =
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
+                     t.suggestedfix_geojson::TEXT as suggested_fix,
                      tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
                      tr.review_started_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
@@ -1245,17 +1265,18 @@ class TaskDAL @Inject()(override val db: Database,
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[DateTime]]("tasks.mapped_on") ~
-            get[Option[Int]]("task_review.review_status") ~ get[Option[Int]]("task_review.review_requested_by") ~
-            get[Option[Int]]("task_review.reviewed_by") ~ get[Option[DateTime]]("task_review.reviewed_at") ~
-            get[Option[DateTime]]("task_review.review_started_at") ~ int("tasks.priority") map {
-            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ mappedOn ~
+            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]]("suggested_fix") ~
+            get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
+            get[Option[Int]]("task_review.review_requested_by") ~ get[Option[Int]]("task_review.reviewed_by") ~
+            get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
+            int("tasks.priority") map {
+            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
               reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, mappedOn,
+                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
                 reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)

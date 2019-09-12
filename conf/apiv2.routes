@@ -4166,7 +4166,7 @@ DELETE  /user/project/:projectId/:groupType         @org.maproulette.controllers
 #     description: delta to return a delta version of the changes that would be applied. osmchange for the actual OSMChange value that would be applied to the OSM servers
 #   - name: body
 #     in: body
-#     description: A JSON array of user ids. This can be either the MapRoulette or OSM Id.
+#     description: The tag changes
 #     required: true
 #     schema:
 #       type: array
@@ -4177,7 +4177,7 @@ DELETE  /user/project/:projectId/:groupType         @org.maproulette.controllers
 POST    /change/tag/test                            @org.maproulette.controllers.OSMChangesetController.testTagChange(changeType:String ?= "delta")
 ###
 # tags: [ Changes ]
-# summary: Submit Changes
+# summary: Apply Tag Changes for task
 # description: Submit a group of changes to OSM. Will return a standard OSMChange XML that has been applied to the OSM servers
 # responses:
 #   '200':
@@ -4185,15 +4185,27 @@ POST    /change/tag/test                            @org.maproulette.controllers
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
+#   - name: taskId
+#     in: query
+#     description: The task id that should be marked as fixed after this tag change has been applied.
+#   - name: comment
+#     in: query
+#     description: A task comment to be stored in map roulette with this change.
+#   - name: requestReview
+#     in: query
+#     description: Boolean indicating if a review is requested on this task. (Will override user settings if provided)
+#   - name: tags
+#     in: query
+#     description: A list of mrTags to be stored with the task
 #   - name: body
 #     in: body
-#     description: A JSON array of user ids. This can be either the MapRoulette or OSM Id.
+#     description: The TagChangeSubmission
 #     required: true
 #     schema:
 #       type: object
 #       $ref: '#/definitions/org.maproulette.services.osm.ChangeObjects.TagChangeSubmission'
 ###
-POST    /change/tag/submit                          @org.maproulette.controllers.OSMChangesetController.submitTagChange
+POST    /task/:taskId/fix/apply                     @org.maproulette.controllers.api.TaskController.applyTagFix(taskId:Long, comment:String ?= "", tags:String ?= "")
 ### NoDocs ###
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
 ### NoDocs ###

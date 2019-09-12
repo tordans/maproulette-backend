@@ -4,11 +4,18 @@ package org.maproulette.services.osm
 
 import javax.inject.{Inject, Singleton}
 import org.maproulette.Config
+import org.maproulette.models._
 import org.maproulette.exception.ChangeConflictException
+import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 import org.maproulette.services.osm.objects._
 import play.api.libs.oauth.{OAuthCalculator, RequestToken}
 import play.api.libs.ws.{WSClient, WSResponse}
 
+import java.sql.Connection
+import anorm.SqlParser._
+import anorm._
+import play.api.db.Database
+import org.maproulette.models.utils.TransactionManager
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -18,7 +25,7 @@ import scala.xml.Elem
   * @author mcuthbert
   */
 @Singleton
-class ChangesetProvider @Inject()(ws: WSClient, nodeService: NodeProvider, wayService: WayProvider, relationService: RelationProvider, config: Config) {
+class ChangesetProvider @Inject()(ws: WSClient, nodeService: NodeProvider, wayService: WayProvider, relationService: RelationProvider, config: Config, val db: Database) extends TransactionManager{
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -54,7 +61,8 @@ class ChangesetProvider @Inject()(ws: WSClient, nodeService: NodeProvider, waySe
     * @param changeSetComment The changeset comment to be associated with the change
     * @return future that will return the OSMChange that was submitted to the OSM servers
     */
-  def submitTagChange(tagChanges: List[TagChange], changeSetComment: String, accessToken: RequestToken): Future[Elem] = {
+  def submitTagChange(tagChanges: List[TagChange], changeSetComment: String, accessToken: RequestToken,
+                      taskId: Option[Long] = None)(implicit c: Option[Connection] = None): Future[Elem] = {
     val p = Promise[Elem]
     // create the new changeset
     this.createChangeset(changeSetComment, accessToken) onComplete {
@@ -68,7 +76,16 @@ class ChangesetProvider @Inject()(ws: WSClient, nodeService: NodeProvider, waySe
             ws.url(url).sign(OAuthCalculator(config.getOSMOauth.consumerKey, accessToken)).post(res) onComplete {
               case Success(uploadResult) =>
                 uploadResult.status match {
-                  case ChangesetProvider.STATUS_OK => p success res
+                  case ChangesetProvider.STATUS_OK => {
+                    taskId match {
+                      case Some(id) =>
+                        this.withMRTransaction { implicit c =>
+                          SQL("UPDATE TASKS SET changeset_id= " + changesetId + " WHERE id=" + id).execute()
+                        }
+                      case _ => // do nothing
+                    }
+                    p success res
+                  }
                   case ChangesetProvider.STATUS_CONFLICT => p failure new ChangeConflictException(s"Conflict found in upload: ${uploadResult.body}. $res")
                   case x => p failure new Exception(s"${url} failed with status code $x (${uploadResult.statusText}")
                 }
@@ -181,6 +198,7 @@ class ChangesetProvider @Inject()(ws: WSClient, nodeService: NodeProvider, waySe
     req onComplete {
       case Success(res) => res.status match {
         case ChangesetProvider.STATUS_OK => p success block(res)
+        case ChangesetProvider.STATUS_UNAUTHORIZED => p failure new OAuthNotAuthorizedException(s"User not authorized to submit tag changes on this server. $res")
         case x => p failure new Exception(s"${url} failed with status code $x (${res.statusText}")
       }
       case Failure(f) => p failure f
@@ -210,4 +228,5 @@ object ChangesetProvider {
 
   private val STATUS_OK = 200
   private val STATUS_CONFLICT = 409
+  private val STATUS_UNAUTHORIZED = 401
 }

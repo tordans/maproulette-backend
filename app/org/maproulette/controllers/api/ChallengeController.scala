@@ -544,10 +544,29 @@ class ChallengeController @Inject()(override val childController: TaskController
     } else {
       val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
       val projects = Some(this.dalManager.project.retrieveListById(-1, 0)(challenges.map(c => c.general.parent)).map(p => p.id -> p).toMap)
+
+      var vpIds = scala.collection.mutable.Set[Long]()
+      challenges.map(c => {
+        c.general.virtualParents match {
+          case Some(vps) =>
+            vps.map(vp => vpIds += vp)
+          case _ => // do nothing
+        }
+      })
+      val vpObjects = this.dalManager.project.retrieveListById(-1, 0)(vpIds.toList).map(p => p.id -> p).toMap
+
       val jsonList = challenges.map { c =>
-        val updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
+        var updated = Utils.insertIntoJson(Json.toJson(c), Tag.KEY, Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name)))
         val projectJson = Json.toJson(projects.get(c.general.parent)).as[JsObject] - Project.KEY_GROUPS
-        Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
+        updated = Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
+
+        c.general.virtualParents match {
+          case Some(vps) =>
+            val vpJson = Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GROUPS))
+            updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
+          case _ => // do nothing
+        }
+        updated
       }
       Json.toJson(jsonList)
     }
@@ -650,6 +669,17 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
+  override def internalCreate(requestBody: JsValue, element: Challenge, user: User)
+                            (implicit c: Option[Connection] = None): Option[Challenge] = {
+    var created = super.internalCreate(requestBody, element, user)
+    // Fetch challenge fresh from database. There are some fields that are set after creating
+    // children (ie. hasSuggestedFixes) and our cached copy does not reflect those changes
+    created match {
+      case Some(value) => this.dal._retrieveById(false)(value.id)
+      case None => created
+    }
+  }
+
   /**
     * Classes can override this function to inject values into the object before it is sent along
     * with the response
@@ -683,6 +713,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     jsonBody = Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "hasSuggestedFixes", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", Challenge.PRIORITY_HIGH)(IntWrites)
@@ -826,10 +857,10 @@ class ChallengeController @Inject()(override val childController: TaskController
         dalManager.challenge.retrieveById(challengeId) match {
           case Some(c) =>
             permission.hasObjectWriteAccess(c, user)
-            if (c.status.get == Challenge.STATUS_DELETING_TASKS) {
+            if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_DELETING_TASKS) {
               throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
             }
-            else if (c.status.get == Challenge.STATUS_BUILDING) {
+            else if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_BUILDING) {
               throw new InvalidException("Tasks cannot be added while challenge is being built")
             }
 
