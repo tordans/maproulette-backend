@@ -1379,6 +1379,7 @@ class TaskDAL @Inject()(override val db: Database,
         name <- str("tasks.name")
         status <- int("tasks.status")
         priority <- int("tasks.priority")
+        geojson <- get[Option[String]]("geo_json")
         username <- get[Option[String]]("users.username")
         mappedOn <- get[Option[DateTime]]("mapped_on")
         reviewStatus <- get[Option[Int]]("task_review.review_status")
@@ -1391,7 +1392,7 @@ class TaskDAL @Inject()(override val db: Database,
         responses <- get[Option[String]]("responses")
       } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
-        reviewStartedAt, comments, tags, responses)
+        reviewStartedAt, comments, tags, responses, geojson)
 
       val status = statusFilter match {
         case Some(s) => s"AND t.status IN (${s.mkString(",")})"
@@ -1416,7 +1417,7 @@ class TaskDAL @Inject()(override val db: Database,
 
       val query =
         SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
-                   task_review.review_status,
+                   task_review.review_status, t.geojson::TEXT AS geo_json,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
                    task_review.reviewed_at, task_review.review_started_at,
@@ -1531,7 +1532,8 @@ class TaskDAL @Inject()(override val db: Database,
   case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
                          reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
-                         comments: Option[String], tags: Option[String], completionResponses: Option[String])
+                         comments: Option[String], tags: Option[String], completionResponses: Option[String],
+                         geojson: Option[String])
 
 }
 

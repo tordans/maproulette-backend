@@ -467,6 +467,11 @@ class ChallengeController @Inject()(override val childController: TaskController
                            statusFilter: String, reviewStatusFilter: String,
                            priorityFilter: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
+      val challenge = this.dal.retrieveById(challengeId) match {
+        case Some(c) => c
+        case None => throw new NotFoundException(s"Challenge with id $challengeId not found")
+      }
+
       val status = if (StringUtils.isEmpty(statusFilter)) {
         None
       } else {
@@ -485,6 +490,16 @@ class ChallengeController @Inject()(override val childController: TaskController
 
       val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
 
+      // Setup all exportable properties
+      var propsToExportHeaders = ""
+      var propsToExport = Array[String]()
+      challenge.extra.exportableProperties match {
+        case Some(ex) =>
+          propsToExport = ex.replaceAll("\\s", "").split(",")
+          propsToExportHeaders = "," + propsToExport.mkString(",")
+        case None => // do nothing
+      }
+
       // Find all response property names
       var responseProperties = Set[String]()
       tasks.foreach(
@@ -502,8 +517,7 @@ class ChallengeController @Inject()(override val childController: TaskController
       )
       var responseHeaders = ""
       for (p <- responseProperties) {
-        if (responseHeaders != "") responseHeaders += ","
-        responseHeaders += "Recorded_" + p
+        responseHeaders += "," + "Recorded_" + p
       }
 
       val seqString = tasks.map(task => {
@@ -519,6 +533,21 @@ class ChallengeController @Inject()(override val childController: TaskController
                 case _ => ""
               }
             case _ => ""
+          }
+
+          // Find matching geojson feature properties
+          var propData = ""
+          task.geojson match {
+            case Some(g) =>
+              val taskProps = (Json.parse(g) \\ "properties")(0).as[JsObject]
+              for (key <- propsToExport) {
+                (taskProps \ key) match {
+                    case value: JsDefined =>
+                      propData += "," + value.get.toString()
+                    case vaue: JsUndefined => propData += "," + "\"\"" // empty value
+                }
+              }
+            case None => // do nothing
           }
 
           // Find matching response values to each response property name
@@ -544,14 +573,14 @@ class ChallengeController @Inject()(override val childController: TaskController
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
           s""""${task.comments.getOrElse("")}","${task.tags.getOrElse("")}"""".stripMargin +
-          s"""${responseData}""".stripMargin
+          s"""${propData}${responseData}""".stripMargin
         }
       )
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
         body = HttpEntity.Strict(
           ByteString(
-            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,Tags,${responseHeaders}\n"""
+            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,Tags${propsToExportHeaders}${responseHeaders}\n"""
           ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )

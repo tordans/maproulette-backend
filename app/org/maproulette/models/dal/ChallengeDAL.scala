@@ -87,6 +87,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[String]]("challenges.default_basemap_id") ~
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
+      get[Option[String]]("challenges.exportable_properties") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
@@ -95,7 +96,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
         checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
         mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ updateTasks ~ lastTaskRefresh ~ location ~ bounding ~ deleted =>
+        customBasemap ~ updateTasks ~ exportableProperties ~ lastTaskRefresh ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -112,7 +113,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, hasSuggestedFixes, popularity, checkin_comment.getOrElse(""), checkin_source.getOrElse(""), None),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
-          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks),
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties),
           status, statusMessage, lastTaskRefresh, location, bounding,
         )
     }
@@ -155,6 +156,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[String]]("challenges.default_basemap_id") ~
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
+      get[Option[String]]("challenges.exportable_properties") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
@@ -165,7 +167,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
         defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
         minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-        lastTaskRefresh ~ location ~ bounding ~ deleted ~ virtualParents =>
+        exportableProperties ~ lastTaskRefresh ~ location ~ bounding ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -182,7 +184,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, hasSuggestedFixes, popularity, checkin_comment.getOrElse(""), checkin_source.getOrElse(""), virtualParents),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
-          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks),
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties),
           status, statusMessage, lastTaskRefresh, location, bounding,
         )
     }
@@ -309,15 +311,15 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                       instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
-                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks)
+                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks, exportableProperties)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
                       ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
-                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks}
-                      ) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
+                      ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks},
+                      ${challenge.extra.exportableProperties}) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
       }
     } match {
       case Some(value) => value
@@ -382,6 +384,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         val defaultBasemapId = (updates \ "defaultBasemapId").asOpt[String].getOrElse(cachedItem.extra.defaultBasemapId.getOrElse(""))
         val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.extra.customBasemap.getOrElse(""))
         val updateTasks = (updates \ "updateTasks").asOpt[Boolean].getOrElse(cachedItem.extra.updateTasks)
+        val exportableProperties = (updates \ "exportableProperties").asOpt[String].getOrElse(cachedItem.extra.exportableProperties.getOrElse(""))
 
         SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
@@ -409,7 +412,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           }
         },
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
-                custom_basemap = $customBasemap, updatetasks = $updateTasks, challenge_type = $challengeType
+                custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties, challenge_type = $challengeType
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
       }
     }
@@ -763,7 +766,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                         hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags
                                                             FROM tags_on_tasks tot, tags tg
                                                             WHERE tot.task_id=t.tid AND tg.id = tot.tag_id)) ||
-                                        hstore('mr_responses', t.completion_responses::text)                    
+                                        hstore('mr_responses', t.completion_responses::text)
                                       ) AS properties
                           FROM (
                             SELECT *,
