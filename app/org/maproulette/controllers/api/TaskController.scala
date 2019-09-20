@@ -356,7 +356,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       }
 
       val completionResponses = request.body.asJson
-      this.dal.setTaskStatus(tasks, status, user, requestReview, Some(bundleId), Some(primaryId), completionResponses)
+      this.dal.setTaskStatus(tasks, status, user, requestReview, completionResponses, Some(bundleId), Some(primaryId))
 
       for (task <- tasks) {
         val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
@@ -398,7 +398,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     }
 
     this.dal.setTaskStatus(List(task), status, user, requestReview, completionResponses)
-    
+
     val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
     // add comment if any provided
     if (comment.nonEmpty) {

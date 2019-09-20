@@ -30,6 +30,7 @@ import scala.collection.mutable.ListBuffer
 class TaskReviewDAL @Inject()(override val db: Database,
                                 override val tagDAL: TagDAL, config: Config,
                                 override val permission: Permission,
+                                taskDAL: TaskDAL,
                                 userDAL: Provider[UserDAL],
                                 projectDAL: Provider[ProjectDAL],
                                 challengeDAL: Provider[ChallengeDAL],
@@ -48,15 +49,15 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param id id of task that you wish to start/claim
     * @return task
     */
-  def startTaskReview(user:User, task:Task) (implicit c:Connection=null) : Option[Task] = {
-    if (task.reviewClaimedBy.getOrElse(null) != null &&
-        task.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+  def startTaskReview(user:User, primaryTask:Task) (implicit c:Connection=null) : Option[Task] = {
+    if (primaryTask.review.reviewClaimedBy.getOrElse(null) != null &&
+        primaryTask.review.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
       throw new InvalidException("This task is already being reviewed by someone else.")
     }
 
-    var taskList = List(task)
-    if (task.isBundlePrimary.getOrElse(false)) {
-      task.bundleId match {
+    var taskList = List(primaryTask)
+    if (primaryTask.isBundlePrimary.getOrElse(false)) {
+      primaryTask.bundleId match {
         case Some(bId) =>
           this.getTaskBundle(user, bId).tasks match {
             case Some(tList) =>
@@ -83,13 +84,21 @@ class TaskReviewDAL @Inject()(override val db: Database,
           case e: Exception => logger.warn(e.getMessage)
         }
 
-        webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
-          WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
-        ))
+        implicit val id = task.id
+        this.taskDAL.cacheManager.withUpdatingCache(Long => this.retrieveById) { implicit cachedItem =>
+            val result = Some(task.copy(review = task.review.copy(reviewClaimedBy = Option(user.id.toInt))))
+              result
+            }(task.id, true, true)
       }
     }
 
-    val updatedTask = task.copy(reviewClaimedBy = Option(user.id.toInt))
+    webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
+      WebSocketMessages.ReviewData(this.getTaskWithReview(primaryTask.id))
+    ))
+
+    val updatedTask = primaryTask.copy(review = primaryTask.review.copy(
+      reviewClaimedBy = Option(user.id.toInt)))
+
     this.cacheManager.withOptionCaching { () => Some(updatedTask) }
     Option(updatedTask)
   }
@@ -102,7 +111,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @return task
     */
   def cancelTaskReview(user:User, task:Task) (implicit c:Connection=null) : Option[Task] = {
-    if (task.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+    if (task.review.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
       throw new InvalidException("This task is not currently being reviewed by you.")
     }
 
@@ -126,8 +135,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
       case e: Exception => logger.warn(e.getMessage)
     }
 
-    val updatedTask = task.copy(reviewClaimedBy = None)
-    this.cacheManager.withOptionCaching { () => Some(updatedTask) }
+    val updatedTask = task.copy(review = task.review.copy(reviewClaimedBy = None))
+    this.taskDAL.cacheManager.withOptionCaching { () => Some(updatedTask) }
     Option(updatedTask)
   }
 
@@ -259,7 +268,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
     var count = 0
-    val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
+    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
         count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
         sqlWithParameters(query, parameters).as(this.parser.*)
@@ -388,7 +397,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
    var count = 0
-   val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
+   val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
         count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
         sqlWithParameters(query, parameters).as(this.parser.*)

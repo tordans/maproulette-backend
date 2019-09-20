@@ -93,7 +93,7 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
-      get[Option[String]]("responses") map {
+      get[Option[String]]("responses") ~
       get[Option[Long]]("tasks.bundle_id") ~
       get[Option[Boolean]]("tasks.is_bundle_primary") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
@@ -104,8 +104,8 @@ class TaskDAL @Inject()(override val db: Database,
         val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
         Task(id, name, created, modified, parent_id, instruction, values._2,
           values._1, values._3, status, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-          reviewClaimedBy, priority, changesetId, responses, bundleId, isBundlePrimary)
+          TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
+          reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary)
     }
   }
 
@@ -144,8 +144,8 @@ class TaskDAL @Inject()(override val db: Database,
         TaskWithReview(
           Task(id, name, created, modified, parent_id, instruction, values._2,
             values._1, values._3, status, mappedOn,
-            reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-            reviewClaimedBy, priority, changesetId, responses, bundleId, isBundlePrimary),
+            TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
+            reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary),
           TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
             reviewedBy, reviewedByUsername, reviewedAt, reviewStartedAt, reviewClaimedBy, None, None)
         )
@@ -268,22 +268,22 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
-        case r: JsUndefined => cachedItem.reviewStatus
+        case r: JsUndefined => cachedItem.review.reviewStatus
         case r => r.asOpt[Int]
       }
 
       val reviewRequestedBy = (value \ "reviewRequestedBy") match {
-        case r: JsUndefined => cachedItem.reviewRequestedBy
+        case r: JsUndefined => cachedItem.review.reviewRequestedBy
         case r => r.asOpt[Long]
       }
 
       val reviewedBy = (value \ "reviewedBy") match {
-        case r: JsUndefined => cachedItem.reviewedBy
+        case r: JsUndefined => cachedItem.review.reviewedBy
         case r => r.asOpt[Long]
       }
 
       val reviewedAt = (value \ "reviewedAt") match {
-        case r: JsUndefined => cachedItem.reviewedAt
+        case r: JsUndefined => cachedItem.review.reviewedAt
         case r => r.asOpt[DateTime]
       }
 
@@ -292,10 +292,10 @@ class TaskDAL @Inject()(override val db: Database,
         instruction = Some(instruction),
         status = Some(status),
         mappedOn = mappedOn,
-        reviewStatus = reviewStatus,
+        review = cachedItem.review.copy(reviewStatus = reviewStatus,
         reviewRequestedBy = reviewRequestedBy,
         reviewedBy = reviewedBy,
-        reviewedAt = reviewedAt,
+        reviewedAt = reviewedAt),
         geometries = geometries,
         suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
           None
@@ -362,16 +362,16 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
         NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
         NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
-        NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.reviewStatus)),
-        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.reviewRequestedBy)),
-        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Long]].apply(element.reviewedBy)),
-        NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.reviewedAt))
+        NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.review.reviewStatus)),
+        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewRequestedBy)),
+        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewedBy)),
+        NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.review.reviewedAt))
       ).as(long("create_update_task").*).head
 
       // If we are updating the task review back to None then we need to delete its entry in the task_review table
       cachedItem match {
         case Some(item) =>
-          if (item.reviewRequestedBy != None && element.reviewRequestedBy == None) {
+          if (item.review.reviewRequestedBy != None && element.review.reviewRequestedBy == None) {
             SQL("DELETE FROM task_review WHERE task_id=" + element.id).execute()
           }
         case None => // ignore
@@ -497,13 +497,9 @@ class TaskDAL @Inject()(override val db: Database,
     * @param completionRespones Optional json responses provided by user to task instruction questions
     * @return The number of rows updated, should only ever be 1
     */
-<<<<<<< HEAD
-  def setTaskStatus(task: Task, status: Int, user: User, requestReview: Option[Boolean] = None,
-                    completionResponses:Option[JsValue] = None)(implicit c: Connection = null): Int = {
-    if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
-=======
   def setTaskStatus(tasks: List[Task], status: Int, user: User, requestReview: Option[Boolean] = None,
-                    bundleId: Option[Long] = None, primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Int = {
+                    completionResponses:Option[JsValue] = None, bundleId: Option[Long] = None,
+                    primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Int = {
     if (tasks.length < 1) {
       throw new InvalidException("Must be at least one task in list to setTaskStatus.")
     }
@@ -565,7 +561,7 @@ class TaskDAL @Inject()(override val db: Database,
         this.statusActions.setStatusAction(user, task, status, startedLock)
 
         if (reviewNeeded) {
-          task.reviewStatus match {
+          task.review.reviewStatus match {
             case Some(rs) =>
               SQL"""UPDATE task_review tr
                       SET review_status = ${Task.REVIEW_STATUS_REQUESTED}, review_requested_by = ${user.id}
@@ -605,8 +601,9 @@ class TaskDAL @Inject()(override val db: Database,
         if (reviewNeeded) {
           this.cacheManager.withOptionCaching { () =>
             Some(task.copy(status = Some(status),
-              reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
-              reviewRequestedBy = Some(user.id),
+              review = task.review.copy(
+                reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
+                reviewRequestedBy = Some(user.id)),
               modified = new DateTime(),
               completionResponses = completionResponses match {
                 case Some(r) => Some(r.toString())
@@ -771,13 +768,13 @@ class TaskDAL @Inject()(override val db: Database,
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
-      val isDisputed = task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_DISPUTED &&
+      val isDisputed = task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_DISPUTED &&
         reviewStatus == Task.REVIEW_STATUS_DISPUTED
-      var needsReReview = (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
+      var needsReReview = (task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
-      var reviewedBy = task.reviewedBy
-      var reviewRequestedBy = task.reviewRequestedBy
+      var reviewedBy = task.review.reviewedBy
+      var reviewRequestedBy = task.review.reviewRequestedBy
 
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
@@ -829,35 +826,36 @@ class TaskDAL @Inject()(override val db: Database,
             // Let's note in the task_review_history table that this task needs review again
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                  VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
-                          ${reviewStatus}, ${now}, ${task.reviewStartedAt})""".executeUpdate()
-            this.notificationDAL.get().createReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
+                  VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
+                          ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
+            this.notificationDAL.get().createReviewNotification(user, task.review.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
           }
           else {
             // Let's note in the task_review_history table that this task was reviewed
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                  VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
-                          ${reviewStatus}, ${now}, ${task.reviewStartedAt})""".executeUpdate()
-            this.notificationDAL.get().createReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
+                  VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
+                          ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
+            this.notificationDAL.get().createReviewNotification(user, task.review.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
           }
         }
       }
 
       this.cacheManager.withOptionCaching { () =>
-        Some(task.copy(reviewStatus = Some(reviewStatus),
-          reviewRequestedBy = reviewRequestedBy,
-          reviewedBy = reviewedBy,
-          reviewedAt = Some(new DateTime())))
+        Some(task.copy(review = task.review.copy(
+                                  reviewStatus = Some(reviewStatus),
+                                  reviewRequestedBy = reviewRequestedBy,
+                                  reviewedBy = reviewedBy,
+                                  reviewedAt = Some(new DateTime()))))
       }
 
       if (!needsReReview) {
         this.userDAL.get().updateUserScore(None, Option(reviewStatus),
-          task.reviewedBy != None, false, task.reviewRequestedBy.get)
+          task.review.reviewedBy != None, false, task.review.reviewRequestedBy.get)
       }
       else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, true, task.reviewedBy.get)
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, false, task.reviewRequestedBy.get)
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, true, task.review.reviewedBy.get)
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, false, task.review.reviewRequestedBy.get)
       }
 
       updatedRows

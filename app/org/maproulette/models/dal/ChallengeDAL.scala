@@ -311,7 +311,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                       instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
-                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks, exportableProperties)
+                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
@@ -507,8 +507,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority =>
             val values = taskDAL.updateAndRetrieve(id, geometry, location, suggestedFix)
             Task(id, name, created, modified, parent_id, instruction, values._2,
-              values._1, values._3, status, mappedOn, reviewStatus, reviewRequestedBy,
-              reviewedBy, reviewedAt, reviewStartedAt, reviewClaimedBy, priority)
+              values._1, values._3, status, mappedOn, TaskReviewFields(reviewStatus, reviewRequestedBy,
+              reviewedBy, reviewedAt, reviewStartedAt, reviewClaimedBy), priority)
         }
       }
 
