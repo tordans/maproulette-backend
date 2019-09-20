@@ -180,21 +180,21 @@ class ChallengeController @Inject()(override val childController: TaskController
       Json.toJson(List[JsValue]())
     } else {
       val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewRequestedBy.getOrElse(0).toLong)).map(u =>
+        t => t.pointReview.reviewRequestedBy.getOrElse(0).toLong)).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewedBy.getOrElse(0).toLong)).map(u =>
+        t => t.pointReview.reviewedBy.getOrElse(0).toLong)).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val jsonList = tasks.map { task =>
         var updated = Json.toJson(task)
-        if (task.reviewRequestedBy.getOrElse(0) != 0) {
-          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get.toLong)).as[JsObject]
+        if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
+          val mapperJson = Json.toJson(mappers.get(task.pointReview.reviewRequestedBy.get.toLong)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewRequestedBy", mapperJson, true)
         }
-        if (task.reviewedBy.getOrElse(0) != 0) {
-          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get.toLong)).as[JsObject]
+        if (task.pointReview.reviewedBy.getOrElse(0) != 0) {
+          val reviewerJson = Json.toJson(reviewers.get(task.pointReview.reviewedBy.get.toLong)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
 
@@ -262,12 +262,13 @@ class ChallengeController @Inject()(override val childController: TaskController
     *
     * @param challengeId  The challenge id that is the parent of the tasks that you would be searching for
     * @param proximityId  Id of task for which nearby tasks are desired
+    * @param excludeSelfLocked Also exclude tasks locked by requesting user
     * @param limit        The maximum number of nearby tasks to return
     * @return
     */
-  def getNearbyTasks(challengeId: Long, proximityId: Long, limit: Int): Action[AnyContent] = Action.async { implicit request =>
+  def getNearbyTasks(challengeId: Long, proximityId: Long, excludeSelfLocked: Boolean, limit: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val results = this.dalManager.task.getNearbyTasks(User.userOrMocked(user), challengeId, proximityId, limit)
+      val results = this.dalManager.task.getNearbyTasks(User.userOrMocked(user), challengeId, proximityId, excludeSelfLocked, limit)
       Ok(Json.toJson(results))
     }
   }

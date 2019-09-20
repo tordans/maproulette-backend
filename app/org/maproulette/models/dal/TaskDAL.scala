@@ -93,16 +93,19 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
-      get[Option[String]]("responses") map {
+      get[Option[String]]("responses") ~
+      get[Option[Long]]("tasks.bundle_id") ~
+      get[Option[Boolean]]("tasks.is_bundle_primary") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
         suggested_fix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-        reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ responses =>
+        reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ responses ~
+        bundleId ~ isBundlePrimary =>
 
         val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
         Task(id, name, created, modified, parent_id, instruction, values._2,
           values._1, values._3, status, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-          reviewClaimedBy, priority, changesetId, responses)
+          TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
+          reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary)
     }
   }
 
@@ -126,21 +129,23 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
+      get[Option[Long]]("tasks.bundle_id") ~
+      get[Option[Boolean]]("tasks.is_bundle_primary") ~
       get[Option[String]]("challenge_name") ~
       get[Option[String]]("review_requested_by_username") ~
       get[Option[String]]("reviewed_by_username") ~
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
         suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-        reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ challengeName ~
-        reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
+        reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~ isBundlePrimary ~
+        challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
 
         val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
         TaskWithReview(
           Task(id, name, created, modified, parent_id, instruction, values._2,
             values._1, values._3, status, mappedOn,
-            reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-            reviewClaimedBy, priority, changesetId, responses),
+            TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
+            reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary),
           TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
             reviewedBy, reviewedByUsername, reviewedAt, reviewStartedAt, reviewClaimedBy, None, None)
         )
@@ -263,22 +268,22 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
-        case r: JsUndefined => cachedItem.reviewStatus
+        case r: JsUndefined => cachedItem.review.reviewStatus
         case r => r.asOpt[Int]
       }
 
       val reviewRequestedBy = (value \ "reviewRequestedBy") match {
-        case r: JsUndefined => cachedItem.reviewRequestedBy
+        case r: JsUndefined => cachedItem.review.reviewRequestedBy
         case r => r.asOpt[Long]
       }
 
       val reviewedBy = (value \ "reviewedBy") match {
-        case r: JsUndefined => cachedItem.reviewedBy
+        case r: JsUndefined => cachedItem.review.reviewedBy
         case r => r.asOpt[Long]
       }
 
       val reviewedAt = (value \ "reviewedAt") match {
-        case r: JsUndefined => cachedItem.reviewedAt
+        case r: JsUndefined => cachedItem.review.reviewedAt
         case r => r.asOpt[DateTime]
       }
 
@@ -287,10 +292,10 @@ class TaskDAL @Inject()(override val db: Database,
         instruction = Some(instruction),
         status = Some(status),
         mappedOn = mappedOn,
-        reviewStatus = reviewStatus,
+        review = cachedItem.review.copy(reviewStatus = reviewStatus,
         reviewRequestedBy = reviewRequestedBy,
         reviewedBy = reviewedBy,
-        reviewedAt = reviewedAt,
+        reviewedAt = reviewedAt),
         geometries = geometries,
         suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
           None
@@ -357,16 +362,16 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
         NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
         NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
-        NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.reviewStatus)),
-        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.reviewRequestedBy)),
-        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Long]].apply(element.reviewedBy)),
-        NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.reviewedAt))
+        NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.review.reviewStatus)),
+        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewRequestedBy)),
+        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewedBy)),
+        NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.review.reviewedAt))
       ).as(long("create_update_task").*).head
 
       // If we are updating the task review back to None then we need to delete its entry in the task_review table
       cachedItem match {
         case Some(item) =>
-          if (item.reviewRequestedBy != None && element.reviewRequestedBy == None) {
+          if (item.review.reviewRequestedBy != None && element.review.reviewRequestedBy == None) {
             SQL("DELETE FROM task_review WHERE task_id=" + element.id).execute()
           }
         case None => // ignore
@@ -450,6 +455,35 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
+    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
+    * in the cache and those that aren't will be retrieved from the database
+    *
+    * @param limit  The limit on the number of objects returned. This is not entirely useful as a limit
+    *               could be set simply by how many ids you supplied in the list, but possibly useful
+    *               for paging
+    * @param offset For paging, ie. the page number starting at 0
+    * @param ids    The list of ids to be retrieved
+    * @return A list of objects, empty list if none found
+    */
+  override def retrieveListById(limit: Int = -1, offset: Int = 0)(implicit ids: List[Long], c: Option[Connection] = None): List[Task] = {
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
+        this.withMRConnection { implicit c =>
+          val query =
+            s"""SELECT ${retrieveColumnsWithReview} FROM ${this.tableName}
+                LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+                WHERE tasks.id IN ({inString})
+                LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            'offset -> offset).as(this.parser.*)
+        }
+      }
+    }
+  }
+
+  /**
     * Sets the task for a given user. The user cannot set the status of a task unless the object has
     * been locked by the same user before hand.
     * Will throw an InvalidException if the task status cannot be set due to the current task status
@@ -463,9 +497,31 @@ class TaskDAL @Inject()(override val db: Database,
     * @param completionRespones Optional json responses provided by user to task instruction questions
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(task: Task, status: Int, user: User, requestReview: Option[Boolean] = None,
-                    completionResponses:Option[JsValue] = None)(implicit c: Connection = null): Int = {
-    if (!Task.isValidStatusProgression(task.status.getOrElse(Task.STATUS_CREATED), status)) {
+  def setTaskStatus(tasks: List[Task], status: Int, user: User, requestReview: Option[Boolean] = None,
+                    completionResponses:Option[JsValue] = None, bundleId: Option[Long] = None,
+                    primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Int = {
+    if (tasks.length < 1) {
+      throw new InvalidException("Must be at least one task in list to setTaskStatus.")
+    }
+
+    var primaryTask = tasks.head
+    var bundleUpdate = ""
+
+    // Find primary task in bundle if we are using a bundle
+    bundleId match {
+      case Some(b) =>
+        bundleUpdate = ", bundle_id = " + b
+        for (task <- tasks) {
+          primaryTaskId match {
+            case Some(p) =>
+              if (task.id == p) primaryTask = task
+            case _ => // do nothing
+          }
+        }
+      case _ => // not a bundle
+    }
+
+    if (!Task.isValidStatusProgression(primaryTask.status.getOrElse(Task.STATUS_CREATED), status)) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
       throw new IllegalAccessException("Guest users cannot make edits to tasks.")
@@ -482,97 +538,111 @@ class TaskDAL @Inject()(override val db: Database,
       case None => null
     }
 
-    val oldStatus = task.status
-    val updatedRows = this.withMRTransaction { implicit c =>
-      val updatedRows =
-        SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB
-                             WHERE t.id = (
-                                SELECT t2.id FROM tasks t2
-                                LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
-                                WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
-                              )""".executeUpdate()
-      // if returning 0, then this is because the item is locked by a different user
-      if (updatedRows == 0) {
-        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
-      }
+    val oldStatus = primaryTask.status
+    var updatedRows = 0
 
-      val startedLock = (SQL"""SELECT locked_time FROM locked l WHERE l.item_id = ${task.id} AND
-                                     l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
-                           """).as(SqlParser.scalar[DateTime].singleOpt)
-      this.statusActions.setStatusAction(user, task, status, startedLock)
-
-      if (reviewNeeded) {
-        task.reviewStatus match {
-          case Some(rs) =>
-            SQL"""UPDATE task_review tr
-                    SET review_status = ${Task.REVIEW_STATUS_REQUESTED}, review_requested_by = ${user.id}
-                    WHERE tr.task_id = ${task.id}
-               """.executeUpdate()
-          case None =>
-            SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
-                    VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
+    this.withMRTransaction { implicit c =>
+      for (task <- tasks) {
+        updatedRows =
+          SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
+                               WHERE t.id = (
+                                  SELECT t2.id FROM tasks t2
+                                  LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
+                                  WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
+                                )""".executeUpdate()
+        // if returning 0, then this is because the item is locked by a different user
+        if (updatedRows == 0) {
+          throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
         }
-      }
 
-      // if you set the status successfully on a task you will lose the lock of that task
-      try {
-        this.unlockItem(user, task)
-      } catch {
-        case e: Exception => logger.warn(e.getMessage)
-      }
-      if (config.changeSetEnabled) {
-        // try and match the current task with a changeset from the user
+        val startedLock = (SQL"""SELECT locked_time FROM locked l WHERE l.item_id = ${task.id} AND
+                                       l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
+                             """).as(SqlParser.scalar[DateTime].singleOpt)
+        this.statusActions.setStatusAction(user, task, status, startedLock)
+
+        if (reviewNeeded) {
+          task.review.reviewStatus match {
+            case Some(rs) =>
+              SQL"""UPDATE task_review tr
+                      SET review_status = ${Task.REVIEW_STATUS_REQUESTED}, review_requested_by = ${user.id}
+                      WHERE tr.task_id = ${task.id}
+                 """.executeUpdate()
+            case None =>
+              SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
+                      VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
+          }
+        }
+
+        // if you set the status successfully on a task you will lose the lock of that task
+        try {
+          this.unlockItem(user, task)
+        } catch {
+          case e: Exception => logger.warn(e.getMessage)
+        }
+        if (config.changeSetEnabled) {
+          // try and match the current task with a changeset from the user
+          Future {
+            c.commit()
+            this.matchToOSMChangeSet(task.copy(status = Some(status)), user)
+          }
+        }
+
+        // Update the popularity score on the parent challenge
         Future {
-          c.commit()
-          this.matchToOSMChangeSet(task.copy(status = Some(status)), user)
+          this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
+        }
+
+        // Let's note in the task_review_history table that this task needs review
+        if (reviewNeeded) {
+          SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
+                VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
+        }
+
+        if (reviewNeeded) {
+          this.cacheManager.withOptionCaching { () =>
+            Some(task.copy(status = Some(status),
+              review = task.review.copy(
+                reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
+                reviewRequestedBy = Some(user.id)),
+              modified = new DateTime(),
+              completionResponses = completionResponses match {
+                case Some(r) => Some(r.toString())
+                case None => None
+              },
+              bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id) ))
+          }
+        }
+        else {
+          this.cacheManager.withOptionCaching { () =>
+            Some(task.copy(status = Some(status),
+              modified = new DateTime(),
+              completionResponses = completionResponses match {
+                case Some(r) => Some(r.toString())
+                case None => None
+              },
+              bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+          }
+        }
+
+        // let's give the user credit for doing this task.
+        if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
+          this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
         }
       }
 
-      // Update the popularity score on the parent challenge
-      Future {
-        this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
+      // Mark the primary task id from the bundle, if any
+      bundleId match {
+        case Some(b) =>
+          SQL("UPDATE tasks SET is_bundle_primary = true WHERE id = " + primaryTask.id).executeUpdate()
+        case None => // not part of a bundle
       }
+    }
 
-      // Let's note in the task_review_history table that this task needs review
-      if (reviewNeeded) {
-        SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
-              VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
-      }
-
-      updatedRows
-    }
-    if (reviewNeeded) {
-      this.cacheManager.withOptionCaching { () =>
-        Some(task.copy(status = Some(status),
-          reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
-          reviewRequestedBy = Some(user.id),
-          modified = new DateTime(),
-          completionResponses = completionResponses match {
-            case Some(r) => Some(r.toString())
-            case None => None
-          }))
-      }
-    }
-    else {
-      this.cacheManager.withOptionCaching { () =>
-        Some(task.copy(status = Some(status),
-          modified = new DateTime(),
-          completionResponses = completionResponses match {
-            case Some(r) => Some(r.toString())
-            case None => None
-          }))
-      }
-    }
-    this.challengeDAL.get().updateFinishedStatus()(task.parent)
-
-    // let's give the user credit for doing this task.
-    if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-      this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
-    }
+    this.challengeDAL.get().updateFinishedStatus()(primaryTask.parent)
 
     if (reviewNeeded) {
       webSocketProvider.sendMessage(WebSocketMessages.reviewNew(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+        WebSocketMessages.ReviewData(this.getTaskWithReview(primaryTask.id))
       ))
     }
 
@@ -688,7 +758,7 @@ class TaskDAL @Inject()(override val db: Database,
     * @return The number of rows updated, should only ever be 1
     */
   def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], commentContent: String = "")(implicit c: Connection = null): Int = {
-    if (!user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
+    if (!user.isSuperUser && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
       reviewStatus != Task.REVIEW_STATUS_DISPUTED) {
       throw new IllegalAccessException("User must be a reviewer to edit task review status.")
     }
@@ -698,13 +768,13 @@ class TaskDAL @Inject()(override val db: Database,
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
-      val isDisputed = task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_DISPUTED &&
+      val isDisputed = task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_DISPUTED &&
         reviewStatus == Task.REVIEW_STATUS_DISPUTED
-      var needsReReview = (task.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
+      var needsReReview = (task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
-      var reviewedBy = task.reviewedBy
-      var reviewRequestedBy = task.reviewRequestedBy
+      var reviewedBy = task.review.reviewedBy
+      var reviewRequestedBy = task.review.reviewRequestedBy
 
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
@@ -748,39 +818,44 @@ class TaskDAL @Inject()(override val db: Database,
         case false => None
       }
 
-      if (!isDisputed) {
-        if (needsReReview) {
-          // Let's note in the task_review_history table that this task needs review again
-          SQL"""INSERT INTO task_review_history
-                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                VALUES (${task.id}, ${user.id}, ${task.reviewedBy},
-                        ${reviewStatus}, ${now}, ${task.reviewStartedAt})""".executeUpdate()
-          this.notificationDAL.get().createReviewNotification(user, task.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
-        }
-        else {
-          // Let's note in the task_review_history table that this task was reviewed
-          SQL"""INSERT INTO task_review_history
-                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                VALUES (${task.id}, ${task.reviewRequestedBy}, ${user.id},
-                        ${reviewStatus}, ${now}, ${task.reviewStartedAt})""".executeUpdate()
-          this.notificationDAL.get().createReviewNotification(user, task.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
+      // Don't send a notification for every task in a task bundle, only the
+      // primary task
+      if (task.bundleId == None || task.isBundlePrimary.getOrElse(false)) {
+        if (!isDisputed) {
+          if (needsReReview) {
+            // Let's note in the task_review_history table that this task needs review again
+            SQL"""INSERT INTO task_review_history
+                              (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
+                  VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
+                          ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
+            this.notificationDAL.get().createReviewNotification(user, task.review.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
+          }
+          else {
+            // Let's note in the task_review_history table that this task was reviewed
+            SQL"""INSERT INTO task_review_history
+                              (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
+                  VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
+                          ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
+            this.notificationDAL.get().createReviewNotification(user, task.review.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
+          }
         }
       }
 
       this.cacheManager.withOptionCaching { () =>
-        Some(task.copy(reviewStatus = Some(reviewStatus),
-          reviewRequestedBy = reviewRequestedBy,
-          reviewedBy = reviewedBy,
-          reviewedAt = Some(new DateTime())))
+        Some(task.copy(review = task.review.copy(
+                                  reviewStatus = Some(reviewStatus),
+                                  reviewRequestedBy = reviewRequestedBy,
+                                  reviewedBy = reviewedBy,
+                                  reviewedAt = Some(new DateTime()))))
       }
 
       if (!needsReReview) {
         this.userDAL.get().updateUserScore(None, Option(reviewStatus),
-          task.reviewedBy != None, false, task.reviewRequestedBy.get)
+          task.review.reviewedBy != None, false, task.review.reviewRequestedBy.get)
       }
       else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, true, task.reviewedBy.get)
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, false, task.reviewRequestedBy.get)
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, true, task.review.reviewedBy.get)
+        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, false, task.review.reviewRequestedBy.get)
       }
 
       updatedRows
@@ -1100,15 +1175,20 @@ class TaskDAL @Inject()(override val db: Database,
     * given challenge. Ignores tasks that are complete, locked by other users,
     * or that the current user has worked on in the last hour
     */
-  def getNearbyTasks(user: User, challengeId: Long, proximityId: Long, limit: Int = 5)
+  def getNearbyTasks(user: User, challengeId: Long, proximityId: Long, excludeSelfLocked: Boolean = false, limit: Int = 5)
                     (implicit c: Option[Connection] = None): List[Task] = {
+    var selfLockedClause = ""
+    if (!excludeSelfLocked) {
+      selfLockedClause = s"OR l.user_id = ${user.id}"
+    }
+
     val query =
       s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
       LEFT JOIN locked l ON l.item_id = tasks.id
       LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
       WHERE tasks.id <> $proximityId AND
             tasks.parent_id = $challengeId AND
-            (l.id IS NULL OR l.user_id = ${user.id}) AND
+            (l.id IS NULL ${selfLockedClause}) AND
             tasks.status IN (0, 3, 6) AND
             NOT tasks.id IN (
                 SELECT task_id FROM status_actions
@@ -1273,7 +1353,7 @@ class TaskDAL @Inject()(override val db: Database,
           val query =
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
-                     t.suggestedfix_geojson::TEXT as suggested_fix,
+                     t.bundle_id, t.is_bundle_primary, t.suggestedfix_geojson::TEXT as suggested_fix,
                      tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
                      tr.review_started_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
@@ -1287,15 +1367,18 @@ class TaskDAL @Inject()(override val db: Database,
             get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
             get[Option[Int]]("task_review.review_requested_by") ~ get[Option[Int]]("task_review.reviewed_by") ~
             get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
-            int("tasks.priority") map {
+            int("tasks.priority") ~ get[Option[Long]]("tasks.bundle_id") ~
+            get[Option[Boolean]]("tasks.is_bundle_primary") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
-              reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
+              reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
+              bundleId ~ isBundlePrimary =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
+              val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
                 instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
-                reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
+                pointReview, priority, bundleId, isBundlePrimary)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }
@@ -1506,6 +1589,130 @@ class TaskDAL @Inject()(override val db: Database,
         case None =>
           throw new NotFoundException("Task was not found.")
       }
+    }
+  }
+
+  /**
+    * Creates a new task bundle with the given tasks, assigning ownership of
+    * the bundle to the given user
+    *
+    * @param user    The user who is to own the bundle
+    * @param name    The name of the task bundle
+    * @param taskIds The tasks to be added to the bundle
+    */
+  def createTaskBundle(user: User, name: String, taskIds: List[Long])(implicit c: Connection = null): TaskBundle = {
+    this.withMRTransaction { implicit c =>
+      val lockedTasks = this.withListLocking(user, Some(TaskType())) { () =>
+        this.retrieveListById(-1, 0)(taskIds)
+      }
+
+      val rowId = SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
+      rowId match {
+        case Some(bundleId) =>
+          val sqlQuery = s"""INSERT INTO task_bundles (task_id, bundle_id) VALUES ({taskId}, $bundleId)"""
+          val parameters = lockedTasks.map(task => {
+            Seq[NamedParameter]("taskId" -> task.id)
+          })
+          BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
+          TaskBundle(bundleId, user.id, lockedTasks.map(task => { task.id }), Some(lockedTasks))
+        case None =>
+          throw new Exception("Bundle creation failed")
+      }
+    }
+  }
+
+  /**
+    * Fetches a list of tasks associated with the given bundle id.
+    *
+    * @param bundleId    The id of the bundle
+    */
+  def getTaskBundle(user: User, bundleId: Long)(implicit c: Connection = null): TaskBundle = {
+    this.withMRConnection { implicit c =>
+      val query =
+        s"""SELECT ${retrieveColumnsWithReview} FROM ${this.tableName}
+            INNER JOIN task_bundles tb on tasks.id = tb.task_id
+            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+            WHERE tb.bundle_id = {bundleId}"""
+      val tasks = SQL(query).on('bundleId -> bundleId).as(this.parser.*)
+      TaskBundle(bundleId, user.id, tasks.map(task => { task.id }), Some(tasks))
+    }
+  }
+
+  /**
+    * Deletes a task bundle.
+    *
+    * @param bundleId    The id of the bundle
+    */
+  def deleteTaskBundle(user: User, bundleId: Long, primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Unit = {
+    this.withMRConnection { implicit c =>
+      val bundle = this.getTaskBundle(user, bundleId)
+      if (!user.isSuperUser && bundle.ownerId != user.id) {
+        throw new IllegalAccessException("Only a super user or the original user can delete this bundle.")
+      }
+
+      SQL("UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
+
+      // unlock tasks (everything but the primary task id)
+      val tasks = this.getTaskBundle(user, bundleId).tasks match {
+        case Some(t) =>
+          for (task <- t) {
+            if (task.id != primaryTaskId.getOrElse(0)) {
+              try {
+                this.unlockItem(user, task)
+              } catch {
+                case e: Exception => logger.warn(e.getMessage)
+              }
+            }
+          }
+        case None => // no tasks in bundle
+      }
+
+      SQL("DELETE FROM bundles WHERE id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
+    }
+  }
+
+  /**
+    * Removes tasks from a bundle.
+    *
+    * @param bundleId    The id of the bundle
+    */
+  def unbundleTasks(user: User, bundleId: Long, taskIds: List[Long])(implicit c: Connection = null): TaskBundle = {
+    this.withMRConnection { implicit c =>
+      val bundle = this.getTaskBundle(user, bundleId)
+      if (!user.isSuperUser && bundle.ownerId != user.id) {
+        throw new IllegalAccessException("Only a super user or the original user can delete this bundle.")
+      }
+
+      // Unset any bundle_id on individual tasks (this is set when task is completed)
+      SQL(s"""UPDATE tasks SET bundle_id = NULL
+              WHERE bundle_id = {bundleId}
+              AND (is_bundle_primary != true OR is_bundle_primary is NULL)
+              AND id IN ({inList})""").on('bundleId -> bundleId,
+                'inList ->ToParameterValue.apply[List[Long]].apply(taskIds)).executeUpdate()
+
+      // Remove task from bundle join table.
+      val tasks = this.getTaskBundle(user, bundleId).tasks match {
+        case Some(t) =>
+          for (task <- t) {
+            if (!task.isBundlePrimary.getOrElse(false)) {
+              taskIds.find(id => id == task.id) match {
+                case Some(_) =>
+                  SQL(s"""DELETE FROM task_bundles
+                          WHERE bundle_id = ${bundleId} AND task_id = ${task.id}""").executeUpdate()
+
+                  try {
+                    this.unlockItem(user, task)
+                  } catch {
+                    case e: Exception => logger.warn(e.getMessage)
+                  }
+                case None => // do nothing
+              }
+            }
+          }
+        case None => // No tasks in bundle.
+      }
+
+      this.getTaskBundle(user, bundleId)
     }
   }
 

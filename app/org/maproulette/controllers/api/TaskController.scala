@@ -65,6 +65,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   implicit val tagChangeResultWrites = ChangeObjects.tagChangeResultWrites
   implicit val tagChangeSubmissionReads = ChangeObjects.tagChangeSubmissionReads
 
+  implicit val taskBundleWrites: Writes[TaskBundle] = TaskBundle.taskBundleWrites
+
   override def dalWithTags: TagDALMixin[Task] = dal
 
   /**
@@ -330,8 +332,57 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     }
   }
 
-  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="", tags: String= "",
-                       requestReview:Option[Boolean] = None, completionResponses:Option[JsValue] = None) = {
+  /**
+    * This performs setTaskStatus on a bundle of tasks.
+    *
+    * @param bundleId     The id of the task bundle
+    * @param primaryId    The id of the primary task for this bundle
+    * @param status The status id to set the task's status to
+    * @param comment An optional comment to add to the task
+    * @param tags Optional tags to add to the task
+    * @return 400 BadRequest if status id is invalid or task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setBundleTaskStatus(bundleId: Long, primaryId: Long, status: Int, comment: String = "", tags: String = ""): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val requestReview = request.getQueryString("requestReview") match {
+        case Some(v) => Some(v.toBoolean)
+        case None => None
+      }
+
+      val tasks = this.dal.getTaskBundle(user, bundleId).tasks match {
+        case Some(t) => t
+        case None => throw new InvalidException("No tasks found in this bundle.")
+      }
+
+      val completionResponses = request.body.asJson
+      this.dal.setTaskStatus(tasks, status, user, requestReview, completionResponses, Some(bundleId), Some(primaryId))
+
+      for (task <- tasks) {
+        val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
+        // add comment to each task if any provided
+        if (comment.nonEmpty) {
+          val actionId = action match {
+            case Some(a) => Some(a.id)
+            case None => None
+          }
+          this.dal.addComment(user, task, comment, actionId)
+        }
+
+        // Add tags to each task
+        val tagList = tags.split(",").toList
+        if (tagList.nonEmpty) {
+          this.addTagstoItem(task.id, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
+        }
+      }
+
+      // Refetch to get updated data
+      Ok(Json.toJson(this.dal.getTaskBundle(user, bundleId)))
+    }
+  }
+
+  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="",
+                       tags: String= "",requestReview:Option[Boolean] = None, completionResponses:Option[JsValue] = None) = {
     val status = actionType match {
       case t: TaskStatusSet => t.status
       case q: QuestionAnswered => Task.STATUS_ANSWERED
@@ -345,7 +396,9 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       case Some(t) => t
       case None => throw new NotFoundException(s"Task with $taskId not found, can not set status.")
     }
-    this.dal.setTaskStatus(task, status, user, requestReview, completionResponses)
+
+    this.dal.setTaskStatus(List(task), status, user, requestReview, completionResponses)
+
     val action = this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
     // add comment if any provided
     if (comment.nonEmpty) {
@@ -395,6 +448,45 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       }
 
       NoContent
+    }
+  }
+
+  /**
+    * This function sets the task review status.
+    * Must be authenticated to perform operation and marked as a reviewer.
+    *
+    * @param id The id of the task
+    * @param reviewStatus The review status id to set the task's review status to
+    * @param comment An optional comment to add to the task
+    * @param tags Optional tags to add to the task
+    * @return 400 BadRequest if task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setBundleTaskReviewStatus(id: Long, reviewStatus: Int, comment:String="", tags: String= "") : Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val tasks = this.dal.getTaskBundle(user, id).tasks match {
+        case Some(t) => t
+        case None => throw new InvalidException("No tasks found in this bundle.")
+      }
+
+      for (task <- tasks) {
+        val action = this.actionManager.setAction(Some(user), new TaskItem(task.id),
+                       TaskReviewStatusSet(reviewStatus), task.name)
+        val actionId = action match {
+          case Some(a) => Some(a.id)
+          case None => None
+        }
+
+        this.dal.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+
+        val tagList = tags.split(",").toList
+        if (tagList.nonEmpty) {
+          this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
+        }
+      }
+
+      // Refetch to get updated data
+      Ok(Json.toJson(this.dal.getTaskBundle(user, id)))
     }
   }
 
@@ -461,6 +553,29 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         case None => throw new NotFoundException(s"Task with $taskId not found, can not add comment.")
       }
       Created(Json.toJson(this.dal.addComment(user, task, URLDecoder.decode(comment, "UTF-8"), actionId)))
+    }
+  }
+
+  /**
+    * Adds a comment for tasks in a bundle
+    *
+    * @param bundleId   The id for the bundle
+    * @param comment  The comment the user is leaving
+    * @param actionId The action if any associated with the comment
+    * @return Ok if successful.
+    */
+  def addCommentToBundleTasks(bundleId: Long, comment: String, actionId: Option[Long]): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val tasks = this.dal.getTaskBundle(user, bundleId).tasks match {
+        case Some(t) => t
+        case None => throw new InvalidException("No tasks found in this bundle.")
+      }
+
+      for (task <- tasks) {
+        this.dal.addComment(user, task, URLDecoder.decode(comment, "UTF-8"), actionId)
+      }
+
+      Ok(Json.toJson(this.dal.getTaskBundle(user, bundleId)))
     }
   }
 
@@ -559,4 +674,60 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     }
   }
 
+  /**
+    * Creates a new task bundle with the task ids in the json body, assigning
+    * ownership of the bundle to the logged-in user
+    *
+    * @return A TaskBundle representing the new bundle
+    */
+  def createTaskBundle(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val name = (request.body \ "name").asOpt[String].getOrElse("")
+      val taskIds = (request.body \ "taskIds").asOpt[List[Long]] match {
+        case Some(tasks) => tasks
+        case None => throw new InvalidException("No task ids provided for task bundle")
+      }
+      val bundle = dal.createTaskBundle(user, name, taskIds)
+      Created(Json.toJson(bundle))
+    }
+  }
+
+  /**
+    * Gets the tasks in the given Bundle
+    *
+    * @param id
+    * @return Task Bundle
+    */
+  def getTaskBundle(id: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(Json.toJson(this.dal.getTaskBundle(user, id)))
+    }
+  }
+
+  /**
+    * Remove tasks from a bundle.
+    *
+    * @param id
+    * @param taskIds List of task ids to remove
+    * @return Task Bundle
+    */
+  def unbundleTasks(id: Long, taskIds: List[Long]): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.unbundleTasks(user, id, taskIds)
+      Ok(Json.toJson(this.dal.getTaskBundle(user, id)))
+    }
+  }
+
+  /**
+    * Delete bundle.
+    *
+    * @param id
+    * @param primaryId optional task id to no unlcok after deleting this bundle
+    */
+  def deleteTaskBundle(id: Long, primaryId: Option[Long] = None): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.deleteTaskBundle(user, id, primaryId)
+      Ok
+    }
+  }
 }
