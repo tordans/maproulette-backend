@@ -199,6 +199,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Int]("tasks.status") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Int]("tasks.priority") ~
+      get[Option[Long]]("tasks.bundle_id") ~
+      get[Option[Boolean]]("tasks.is_bundle_primary") ~
       get[Option[String]]("suggested_fix") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Int]]("task_review.review_requested_by") ~
@@ -206,14 +208,15 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[DateTime]]("task_review.reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
-        mappedOn ~ priority ~ suggestedFix ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-        reviewedAt ~ reviewStartedAt =>
+        mappedOn ~ priority ~ bundleId ~ isBundlePrimary ~ suggestedFix ~
+        reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
         val point = Point(coordinates(1), coordinates.head)
+        val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
         ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
           instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
-          reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
+          pointReview, priority, bundleId, isBundlePrimary)
     }
   }
   val listingParser: RowParser[ChallengeListing] = {
@@ -822,7 +825,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         case None => ""
       }
       val clusteredList = SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
-                   t.parent_id, tr.review_status, tr.review_requested_by,
+                   t.parent_id, t.bundle_id, t.is_bundle_primary,
+                   tr.review_status, tr.review_requested_by,
                    tr.reviewed_by, tr.reviewed_at, tr.review_started_at,
                    t.suggestedfix_geojson::TEXT as suggested_fix, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority

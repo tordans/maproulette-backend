@@ -1353,7 +1353,7 @@ class TaskDAL @Inject()(override val db: Database,
           val query =
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
-                     t.suggestedfix_geojson::TEXT as suggested_fix,
+                     t.bundle_id, t.is_bundle_primary, t.suggestedfix_geojson::TEXT as suggested_fix,
                      tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
                      tr.review_started_at,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
@@ -1367,15 +1367,18 @@ class TaskDAL @Inject()(override val db: Database,
             get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
             get[Option[Int]]("task_review.review_requested_by") ~ get[Option[Int]]("task_review.reviewed_by") ~
             get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
-            int("tasks.priority") map {
+            int("tasks.priority") ~ get[Option[Long]]("tasks.bundle_id") ~
+            get[Option[Boolean]]("tasks.is_bundle_primary") map {
             case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
-              reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
+              reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
+              bundleId ~ isBundlePrimary =>
               val locationJSON = Json.parse(location)
               val coordinates = (locationJSON \ "coordinates").as[List[Double]]
               val point = Point(coordinates(1), coordinates.head)
+              val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
               ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
                 instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
-                reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
+                pointReview, priority, bundleId, isBundlePrimary)
           }
           sqlWithParameters(query, parameters).as(pointParser.*)
         }
