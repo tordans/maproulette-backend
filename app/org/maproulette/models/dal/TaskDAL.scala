@@ -508,6 +508,7 @@ class TaskDAL @Inject()(override val db: Database,
     var bundleUpdate = ""
 
     // Find primary task in bundle if we are using a bundle
+    // Also check to make sure they aren't suggested fixes
     bundleId match {
       case Some(b) =>
         bundleUpdate = ", bundle_id = " + b
@@ -515,6 +516,10 @@ class TaskDAL @Inject()(override val db: Database,
           primaryTaskId match {
             case Some(p) =>
               if (task.id == p) primaryTask = task
+              if (task.suggestedFix != None) {
+                throw new InvalidException("Cannot set task status as part of a bundle on task: " +
+                                           task.id + " as it is a suggested fix.")
+              }
             case _ => // do nothing
           }
         }
@@ -543,6 +548,11 @@ class TaskDAL @Inject()(override val db: Database,
 
     this.withMRTransaction { implicit c =>
       for (task <- tasks) {
+        if (task.bundleId != None && task.bundleId.get != bundleId.getOrElse(-1)) {
+          throw new InvalidException("Cannot set task status on task: " +
+                                     task.id + " as it is already assigned to a bundle.")
+        }
+
         updatedRows =
           SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
                                WHERE t.id = (
@@ -1604,6 +1614,27 @@ class TaskDAL @Inject()(override val db: Database,
     this.withMRTransaction { implicit c =>
       val lockedTasks = this.withListLocking(user, Some(TaskType())) { () =>
         this.retrieveListById(-1, 0)(taskIds)
+      }
+
+      if (lockedTasks.length < 1) {
+        throw new InvalidException("Must be at least one task to bundle.")
+      }
+
+      val challengeId = lockedTasks.head.parent
+      // Verify tasks
+      // 1. Must belong to same challenge
+      // 2. suggested Fix tasks not allowed
+      for (task <- lockedTasks) {
+        if (task.suggestedFix != None) {
+          throw new InvalidException("Suggested Fix tasks cannot be bundled.")
+        }
+        if (task.parent != challengeId) {
+          throw new InvalidException("All tasks in the bundle must be part of the same challenge.")
+        }
+        if (task.bundleId != None) {
+          throw new InvalidException("Task " + task.id + " already assigned to bundle: " +
+                                     task.bundleId.getOrElse("") + ".")
+        }
       }
 
       val rowId = SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
