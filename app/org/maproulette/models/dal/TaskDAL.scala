@@ -344,6 +344,12 @@ class TaskDAL @Inject()(override val db: Database,
       val result = extractSuggestedFix(element.parent, element.geometries, element.suggestedFix)
       val geometries = result._1
       var suggestedFix = result._2
+
+      if (element.bundleId != None) {
+        SQL(s"UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL " +
+            s"WHERE bundle_id = ${element.bundleId.get}").executeUpdate()
+      }
+      
       val query =
         """SELECT create_update_task({name}, {parentId}, {instruction},
                     {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
