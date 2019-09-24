@@ -6366,6 +6366,114 @@
 					"response": []
 				},
 				{
+					"name": "Attempt to Create Dup Bundle",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "705b2416-7628-4ad0-acbf-81bf9c0c477b",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 400\"] = responseCode.code === 400;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"New Dup Bundle\",\n    \"taskIds\": [{{NewTask1}},{{NewTask2}}]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Attempt setTaskStatus on Bundle Member",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 400\"] = responseCode.code === 400;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/1?comment=SomeComment&requestReview=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}",
+								"1"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "SomeComment"
+								},
+								{
+									"key": "requestReview",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Start Task Review",
 					"event": [
 						{
@@ -6430,7 +6538,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"name\"] = jsonData.name === \"NewTask2\";",
 									"tests[\"status\"] = jsonData.status === 2;",
-									"tests[\"bundlePrimary\"] = jsonData.isBundlePrimary !== false;",
+									"tests[\"bundlePrimary\"] = jsonData.isBundlePrimary !== true;",
 									"tests[\"reviewClaimedBy\"] = jsonData.reviewClaimedBy === -999;"
 								],
 								"type": "text/javascript"
