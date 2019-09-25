@@ -16,6 +16,7 @@ import org.maproulette.exception.{InvalidException, NotFoundException, StatusMes
 import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm._
+import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
 import play.api.libs.json._
@@ -39,6 +40,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
                                override val tagDAL: TagDAL,
                                dalManager: DALManager,
                                wsClient: WSClient,
+                               webSocketProvider: WebSocketProvider,
                                config: Config,
                                components: ControllerComponents,
                                changeService: ChangesetProvider,
@@ -179,6 +181,9 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
         throw new IllegalAccessException(s"Current task [${taskId}] is locked by another user.")
       }
 
+      webSocketProvider.sendMessage(
+        WebSocketMessages.taskClaimed(task, Some(WebSocketMessages.userSummary(user)))
+      )
       Ok(Json.toJson(task))
     }
   }
@@ -198,6 +203,9 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
 
       try {
         this.dal.unlockItem(user, task)
+        webSocketProvider.sendMessage(
+          WebSocketMessages.taskReleased(task, Some(WebSocketMessages.userSummary(user)))
+        )
       } catch {
         case e: Exception => logger.warn(e.getMessage)
       }

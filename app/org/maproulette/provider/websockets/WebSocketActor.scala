@@ -53,6 +53,8 @@ class WebSocketActor(out: ActorRef) extends Actor {
       out ! Json.toJson(serverMessage)
     case serverMessage: WebSocketMessages.ReviewMessage =>
       out ! Json.toJson(serverMessage)
+    case serverMessage: WebSocketMessages.TaskMessage =>
+      out ! Json.toJson(serverMessage)
     case clientMessage: WebSocketMessages.ClientMessage =>
       clientMessage.messageType match {
         case "subscribe" =>

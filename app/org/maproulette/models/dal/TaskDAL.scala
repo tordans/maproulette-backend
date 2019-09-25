@@ -322,6 +322,15 @@ class TaskDAL @Inject()(override val db: Database,
           if (cachedItem.status != t.status && t.bundleId != None) {
             this.deleteTaskBundle(user, t.bundleId.get)
           }
+
+          // Get the latest task data and notify clients of the update
+          this.retrieveById(t.id) match {
+            case Some(latestTask) =>
+              webSocketProvider.sendMessage(
+                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
+              )
+            case None =>
+          }
         case None => // do NOTHING
       }
 
@@ -651,6 +660,15 @@ class TaskDAL @Inject()(override val db: Database,
         // let's give the user credit for doing this task.
         if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
           this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
+        }
+
+        // Get the latest task data and notify clients of the update
+        this.retrieveById(task.id) match {
+          case Some(t) =>
+            webSocketProvider.sendMessage(
+              WebSocketMessages.taskUpdate(t, Some(WebSocketMessages.userSummary(user)))
+            )
+          case None =>
         }
       }
 
