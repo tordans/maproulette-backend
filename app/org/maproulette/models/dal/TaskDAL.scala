@@ -345,11 +345,15 @@ class TaskDAL @Inject()(override val db: Database,
       val geometries = result._1
       var suggestedFix = result._2
 
+      // If we have a bundle id, then we need to clear it out along with any other
+      // tasks that also have that bundle id -- essentially breaking up the bundle.
+      // Otherwise this task could end up with a different status than other tasks
+      // in that bundle.
       if (element.bundleId != None) {
         SQL(s"UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL " +
             s"WHERE bundle_id = ${element.bundleId.get}").executeUpdate()
       }
-      
+
       val query =
         """SELECT create_update_task({name}, {parentId}, {instruction},
                     {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
