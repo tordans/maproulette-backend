@@ -312,6 +312,19 @@ class TaskDAL @Inject()(override val db: Database,
         this.challengeDAL.get().updateFinishedStatus()(parentId)
       }
 
+      task match {
+        case Some(t) =>
+          // If the status is changing and if we have a bundle id, then we need
+          // to clear it out along with any other tasks that also have that
+          // bundle id -- essentially breaking up the bundle. Otherwise this
+          // task could end up with a different status than other tasks
+          // in that bundle.
+          if (cachedItem.status != t.status && t.bundleId != None) {
+            this.deleteTaskBundle(user, t.bundleId.get)
+          }
+        case None => // do NOTHING
+      }
+
       task
     }
   }
@@ -344,15 +357,6 @@ class TaskDAL @Inject()(override val db: Database,
       val result = extractSuggestedFix(element.parent, element.geometries, element.suggestedFix)
       val geometries = result._1
       var suggestedFix = result._2
-
-      // If we have a bundle id, then we need to clear it out along with any other
-      // tasks that also have that bundle id -- essentially breaking up the bundle.
-      // Otherwise this task could end up with a different status than other tasks
-      // in that bundle.
-      if (element.bundleId != None) {
-        SQL(s"UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL " +
-            s"WHERE bundle_id = ${element.bundleId.get}").executeUpdate()
-      }
 
       val query =
         """SELECT create_update_task({name}, {parentId}, {instruction},
@@ -1689,24 +1693,28 @@ class TaskDAL @Inject()(override val db: Database,
     this.withMRConnection { implicit c =>
       val bundle = this.getTaskBundle(user, bundleId)
       if (!user.isSuperUser && bundle.ownerId != user.id) {
-        throw new IllegalAccessException("Only a super user or the original user can delete this bundle.")
+        val challengeId = bundle.tasks.getOrElse(List()).head.parent
+        val challenge = this.challengeDAL.get().retrieveById(challengeId)
+        this.permission.hasObjectWriteAccess(challenge.get, user)
       }
 
       SQL("UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
 
-      // unlock tasks (everything but the primary task id)
-      val tasks = this.getTaskBundle(user, bundleId).tasks match {
-        case Some(t) =>
-          for (task <- t) {
-            if (task.id != primaryTaskId.getOrElse(0)) {
-              try {
-                this.unlockItem(user, task)
-              } catch {
-                case e: Exception => logger.warn(e.getMessage)
+      if (primaryTaskId != None) {
+        // unlock tasks (everything but the primary task id)
+        val tasks = this.getTaskBundle(user, bundleId).tasks match {
+          case Some(t) =>
+            for (task <- t) {
+              if (task.id != primaryTaskId.getOrElse(0)) {
+                try {
+                  this.unlockItem(user, task)
+                } catch {
+                  case e: Exception => logger.warn(e.getMessage)
+                }
               }
             }
-          }
-        case None => // no tasks in bundle
+          case None => // no tasks in bundle
+        }
       }
 
       SQL("DELETE FROM bundles WHERE id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
