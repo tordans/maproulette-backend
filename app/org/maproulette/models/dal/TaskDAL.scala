@@ -1089,11 +1089,12 @@ class TaskDAL @Inject()(override val db: Database,
         // boundary when there is only one task remaining that they're trying
         // to skip, and also prevents the user from getting bounced between a
         // small number of nearby skipped tasks when loading by proximity
+        // Unless a status is created then ignore this check.
         appendInWhereClause(whereClause,
-          s"""NOT tasks.id IN (
+          s"""NOT (tasks.status != ${Task.STATUS_CREATED} AND tasks.id IN (
              |SELECT task_id FROM status_actions
              |WHERE osm_user_id IN (${user.osmProfile.id})
-             |  AND created >= NOW() - '1 hour'::INTERVAL)""".stripMargin)
+             |  AND created >= NOW() - '1 hour'::INTERVAL))""".stripMargin)
 
         priority match {
           case Some(p) => appendInWhereClause(whereClause, s"tasks.priority = $p")
