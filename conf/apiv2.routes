@@ -1822,7 +1822,7 @@ GET     /challenge/view/:id                         @org.maproulette.controllers
 #     in: query
 #     description: Can filter the Tasks returned by the status of the Task. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
 ###
-GET     /challenge/clustered/:id                    @org.maproulette.controllers.api.ChallengeController.getClusteredPoints(id:Long, filter:String ?= "", limit:Int ?= 2500)
+GET     /challenge/clustered/:id                    @org.maproulette.controllers.api.ChallengeController.getClusteredPoints(id:Long, filter:String ?= "", limit:Int ?= 2500, excludeLocked:Boolean ?= false)
 ###
 # tags: [ Challenge ]
 # summary: Update Task Priorities
@@ -2967,7 +2967,7 @@ GET     /tasks/random                               @org.maproulette.controllers
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
-GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0)
+GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Update Task Changeset

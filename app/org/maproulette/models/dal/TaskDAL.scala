@@ -1361,8 +1361,8 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c      An available connection
     * @return The list of Tasks found within the bounding box
     */
-  def getTasksInBoundingBox(params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)
-                           (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
+  def getTasksInBoundingBox(user: User, params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
+                            excludeLocked: Boolean = false)(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     params.location match {
       case Some(sl) =>
         withMRConnection { implicit c =>
@@ -1374,6 +1374,12 @@ class TaskDAL @Inject()(override val db: Database,
               LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
             """
           )
+
+          if (excludeLocked) {
+            joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
+            this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
+          }
+
           val parameters = this.updateWhereClause(params, whereClause, joinClause)
           val query =
             s"""
