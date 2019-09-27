@@ -37,7 +37,7 @@ For more details on the app registration process, see the [OSM OAuth wiki page](
 > These instructions assume you have at least Mac OS 10.10 (Mavericks) and [Homebrew](http://brew.sh/) installed. We also assume that you have at least PostgreSQL 9.5 and PostGIS 2.2.1 installed. Homebrew provides packages for both (`brew install postgresql` and `brew install postgis`), which we recommend.
 
 * Make sure you have a Java 8 JDK. Check with `java -version` which should mention an 1.8.x version number. [Get](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) and install a Java 8 JDK if necessary.
-* Install the [Play Framework activator](https://www.playframework.com/documentation/2.5.x/Installing): `brew install typesafe-activator`.
+* Install the [Scala Build Tool](https://www.scala-sbt.org): `brew install sbt`.
 * Create a PostgreSQL superuser `osm`: `createuser -sW osm`. Use `osm` as the password.
 * Create a new PostgreSQL database `mp_dev` owned by `osm`: `createdb -O osm mp_dev`.
 * Setup your environment variables:
@@ -47,10 +47,10 @@ For more details on the app registration process, see the [OSM OAuth wiki page](
     - OSM server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER='http://master.dev.openstreetmap.org'`
     - APIHost used for Swagger API documentation as `API_HOST`: `export API_HOST=localhost:9000`
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
-* Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
+* Navigate into the newly created `maproulette2` directory and run the local development server: `sbt run`. This will take some time the first run as dependencies are downloaded.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
 
-If you are having issues getting the activator to run, you can configure your instance with [dev.conf](#using-devconf)
+If you are having issues getting `sbt` to run, you can configure your instance with [dev.conf](#using-devconf)
 
 #### Linux
 
@@ -58,9 +58,9 @@ If you are having issues getting the activator to run, you can configure your in
 
 * Make sure you have a Java 8 JDK. Check with `java -version` which should mention a 1.8.x version number. 
 * If you don't have Java 8 JDK you can get it with the following command `sudo apt install openjdk-8-jdk`
-* Install the [Play Framework activator](https://www.playframework.com/documentation/2.5.x/Installing)
+* Install the [Scala Build Tool](https://www.scala-sbt.org)
     * After downloading unzip the archive to a directory that you have read and write access to
-    * Then add `activator` to your path: Add the following to your `.bashrc` or equivalent: `export PATH=$PATH:/path/to/unzipped-files/bin/`
+    * Then add `sbt` to your path: Add the following to your `.bashrc` or equivalent: `export PATH=$PATH:/path/to/unzipped-files/bin/`
 * Install PostgreSQL and PostGIS: `sudo apt install postgresql postgis`
 * Create a PostgreSQL superuser: `osm`: `sudo -u postgres createuser -sP osm`. Use `osm` as the password
 * Create a new PostgreSQL database `mp_dev` owned by `osm`: `sudo -u postgres createdb -O osm mp_dev`
@@ -71,7 +71,7 @@ If you are having issues getting the activator to run, you can configure your in
     - OSM server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER=http://master.dev.openstreetmap.org`
     - APIHost used for Swagger API documentation as `API_HOST`: `export API_HOST=localhost:9000`
 * Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
-* Navigate into the newly created `maproulette2` directory and run the local development server: `activator run`. This will take some time the first run as dependencies are downloaded.
+* Navigate into the newly created `maproulette2` directory and run the local development server: `sbt run`. This will take some time the first run as dependencies are downloaded. There will be some warnings that you can safely ignore.
 * Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
 
 #### Windows
@@ -83,7 +83,7 @@ A work-in-progress setup guide for Windows lives [here](https://gist.github.com/
 Another way to handle dev related configuration variables is to use the [dev.conf](conf/dev.conf) file which has a couple of prepopulated variables that would be beneficial for a test/development environment. To use this file you simply need to add the file as a jvm parameter, eg. -Dconfig.resource=dev.conf
 
 ```
-activator run -Dconfig.resource=dev.conf
+sbt run -Dconfig.resource=dev.conf
 ```
 
 Your conf/dev.conf file should have the following:
