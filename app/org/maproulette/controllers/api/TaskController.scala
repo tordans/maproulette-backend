@@ -297,11 +297,12 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @param offset The offset used for paging
     * @return
     */
-  def getTasksInBoundingBox(left: Double, bottom: Double, right: Double, top: Double, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
+  def getTasksInBoundingBox(left: Double, bottom: Double, right: Double, top: Double, limit: Int,
+                            offset: Int, excludeLocked: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
-        Ok(Json.toJson(this.dal.getTasksInBoundingBox(params, limit, offset)))
+        Ok(Json.toJson(this.dal.getTasksInBoundingBox(User.userOrMocked(user), params, limit, offset, excludeLocked)))
       }
     }
   }

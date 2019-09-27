@@ -109,7 +109,7 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
   def rebuildVirtualChallenge(id: Long, params: SearchParameters, user: User)(implicit c: Option[Connection] = None): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      this.taskDAL.getTasksInBoundingBox(params, -1, 0).grouped(config.virtualChallengeBatchSize).foreach(batch => {
+      this.taskDAL.getTasksInBoundingBox(user, params, -1, 0).grouped(config.virtualChallengeBatchSize).foreach(batch => {
         val insertRows = batch.map(point => s"(${point.id}, $id)").mkString(",")
         SQL"""
            INSERT INTO virtual_challenge_tasks (task_id, virtual_challenge_id) VALUES #$insertRows

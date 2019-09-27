@@ -817,13 +817,33 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     * @param statusFilter Filter the displayed task cluster points by their status
     * @return A list of clustered point objects
     */
-  def getClusteredPoints(challengeId: Long, statusFilter: Option[List[Int]] = None, limit: Int = 2500)
-                        (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
+  def getClusteredPoints(user: User, challengeId: Long, statusFilter: Option[List[Int]] = None, limit: Int = 2500,
+                         excludeLocked: Boolean = false)(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val filter = statusFilter match {
         case Some(s) => s"AND t.status IN (${s.mkString(",")})"
         case None => ""
       }
+      val joinClause = new StringBuilder(
+        """
+          INNER JOIN challenges c ON c.id = t.parent_id
+          INNER JOIN projects p ON p.id = c.parent_id
+          LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
+        """
+      )
+      val whereClause = new StringBuilder(
+        s"""
+          t.parent_id = $challengeId
+          AND p.deleted = false AND c.deleted = false
+          AND ST_AsGeoJSON(t.location) IS NOT NULL
+        """
+      )
+
+      if (excludeLocked) {
+        joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
+        this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
+      }
+
       val clusteredList = SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
                    t.parent_id, t.bundle_id, t.is_bundle_primary,
                    tr.review_status, tr.review_requested_by,
@@ -831,12 +851,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                    t.suggestedfix_geojson::TEXT as suggested_fix, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
-            INNER JOIN challenges c ON c.id = t.parent_id
-            INNER JOIN projects p ON p.id = c.parent_id
-            LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
-            WHERE t.parent_id = $challengeId
-              AND p.deleted = false AND c.deleted = false
-              AND ST_AsGeoJSON(t.location) IS NOT NULL
+            #${joinClause.toString()}
+            WHERE #${whereClause.toString()}
             #$filter
             LIMIT #${sqlLimit(limit)}"""
         .as(this.pointParser.*)

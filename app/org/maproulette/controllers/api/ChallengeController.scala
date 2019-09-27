@@ -160,14 +160,14 @@ class ChallengeController @Inject()(override val childController: TaskController
     * @param limit        limit the number of tasks returned
     * @return A list of ClusteredPoint's
     */
-  def getClusteredPoints(challengeId: Long, statusFilter: String, limit: Int): Action[AnyContent] = Action.async { implicit request =>
+  def getClusteredPoints(challengeId: Long, statusFilter: String, limit: Int, excludeLocked: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val filter = if (StringUtils.isEmpty(statusFilter)) {
         None
       } else {
         Some(Utils.split(statusFilter).map(_.toInt))
       }
-      val result = this.dal.getClusteredPoints(challengeId, filter, limit)
+      val result = this.dal.getClusteredPoints(User.userOrMocked(user), challengeId, filter, limit, excludeLocked)
       Ok(_insertReviewJSON(result))
     }
   }
