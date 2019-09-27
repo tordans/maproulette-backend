@@ -30,4 +30,8 @@ class WebSocketProvider @Inject()(implicit system: ActorSystem) {
   def sendMessage(message: WebSocketMessages.ServerMessage) = {
     publisher ! message
   }
+
+  def sendMessage(messages: List[WebSocketMessages.ServerMessage]) = {
+    messages.foreach { publisher ! _ }
+  }
 }

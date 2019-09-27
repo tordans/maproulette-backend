@@ -9,6 +9,7 @@ import org.maproulette.models.dal._
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, SearchParameters, User}
+import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm.ChangesetProvider
@@ -29,12 +30,13 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
                                taskReviewDAL: TaskReviewDAL,
                                dalManager: DALManager,
                                wsClient: WSClient,
+                               webSocketProvider: WebSocketProvider,
                                config: Config,
                                components: ControllerComponents,
                                changeService: ChangesetProvider,
                                override val bodyParsers: PlayBodyParsers)
   extends TaskController(sessionManager, actionManager, dal, tagDAL, dalManager,
-                         wsClient, config, components, changeService, bodyParsers) {
+                         wsClient, webSocketProvider, config, components, changeService, bodyParsers) {
 
 
   /**
