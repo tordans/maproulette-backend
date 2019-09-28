@@ -6,40 +6,34 @@ db.default {
   password="osm"
 }
 maproulette {
-  #proxy.port=4040
-  #proxy.ssl=false
+  debug=true
+  bootstrap=true
+
   # The superuser can access, modify, and delete all projects and challenges
   # regardless of who the owner is
   # The API key for superuser access
+
   super.key="CHANGE_ME"
+
   # A comma-separated list of OSM user IDs that will be superusers
   # This can be empty as well
+
   super.accounts="CHANGE_ME"
-  signin=false
-  debug=true
-  bootstrap=true
-  devMode=false
-  scheduler {		  
-    cleanOldTasks.interval="Inf"		
-    updateLocations.interval = "24 hours"		
-    updateChallengeFinished.interval = "24 hours"		
-    challengesLeaderboard.interval = "20 minutes"		
-  }
+
   # Your Mapillary client ID, needed for the Mapillary layer
   # See https://www.mapillary.com/dashboard/developers
+
   mapillary.clientId="CHANGE_ME"
 }
+
 osm {
   # The OSM server we will interact with.
   # Note that you need to register your OAuth app with this server as well.
+
   server="https://master.apis.dev.openstreetmap.org"
+
+  # The Consumer and Secret keys as provided by your OAuth app
+
   consumerKey="CHANGE_ME"
   consumerSecret="CHANGE_ME"
 }
-play {
-  http.parser.maxDiskBuffer=100M
-  http.parser.maxMemoryBuffer=100M
-  http.secret.key="test"
-  server.https.trustStore.noCaVerification = true
-}
-parsers.MultipartFormData.maxLength=100M
