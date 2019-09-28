@@ -19,11 +19,14 @@ It uses the following core technologies:
 
 ## Deploying MapRoulette
 
-### Server
+### Requirements
 
-### Local for test and development
+* A Java 8 SDK 
+* PostgreSQL 9.5
+* PostGIS 2.2.1
+* [Scala Build Tool](https://www.scala-sbt.org/download.html) 1.2.8 
 
-#### Register Dev App with OpenStreetMap
+### Register an OAuth app with OSM
 
 Before beginning, you'll need to register an app with OpenStreetMap to get a consumer key and secret key. For development and testing, you may wish to do this on the [OSM dev server](http://master.apis.dev.openstreetmap.org) (you will need to setup a new user account if you have't used the dev server before).
 
@@ -31,75 +34,45 @@ To register your app, login to your account, go to "My Settings", click on "oaut
 
 For more details on the app registration process, see the [OSM OAuth wiki page](http://wiki.openstreetmap.org/wiki/OAuth).
 
+### PostgreSQL Database Setup
 
-#### Mac OSX
-
-> These instructions assume you have at least Mac OS 10.10 (Mavericks) and [Homebrew](http://brew.sh/) installed. We also assume that you have at least PostgreSQL 9.5 and PostGIS 2.2.1 installed. Homebrew provides packages for both (`brew install postgresql` and `brew install postgis`), which we recommend.
-
-* Make sure you have a Java 8 JDK. Check with `java -version` which should mention an 1.8.x version number. [Get](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) and install a Java 8 JDK if necessary.
-* Install the [Scala Build Tool](https://www.scala-sbt.org): `brew install sbt`.
 * Create a PostgreSQL superuser `osm`: `createuser -sW osm`. Use `osm` as the password.
 * Create a new PostgreSQL database `mp_dev` owned by `osm`: `createdb -O osm mp_dev`.
-* Setup your environment variables:
-    - Database connection JDBC string as `MR_DATABASE_URL`: `export MR_DATABASE_URL='jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm'`
-    - Consumer key from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_KEY`: `export MR_OAUTH_CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`
-    - Consumer secret from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_SECRET`: `export MR_OAUTH_CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`
-    - OSM server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER='http://master.dev.openstreetmap.org'`
-    - APIHost used for Swagger API documentation as `API_HOST`: `export API_HOST=localhost:9000`
-* Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
-* Navigate into the newly created `maproulette2` directory and run the local development server: `sbt run`. This will take some time the first run as dependencies are downloaded.
-* Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
 
-If you are having issues getting `sbt` to run, you can configure your instance with [dev.conf](#using-devconf)
+> On Linux you will need to execute these commands as the `postgres` user, `sudo -u postgres createuser -sP osm && sudo -u postgres createdb -O osm mp_dev`
 
-#### Linux
+### Server Configuration
 
-> These instructions were written for Ubuntu 16.04
+* Clone MapRoulette 2 `git clone https://github.com/maproulette/maproulette2.git`
+* `cd` into the newly created directory `cd maproulette2`
+* Create a configuration file by copying the template file `cp conf/dev.conf.example conf/dev.conf`
+* Open `dev.conf` in a text editor and change at least the following entries:
+    * `super.key`: a randomly chosen API key for superuser access
+    * `super.accounts`: a comma-separated list of OSM accound IDs whose corresponding MapRoulette users will have superuser access. Can be an empty string.
+    * `mapillary.clientId`: a [Mapillary Client ID](https://www.mapillary.com/dashboard/developers), needed if you want to use any of the Mapillary integrations.
+    * `osm.consumerKey` and `osm.consumerSecret`: the OAuth keys from your OSM OAuth app you created earlier.
+* Save `dev.conf`
+* Create an environment variable for the Swagger API documentation: `export API_HOST=localhost:9000`
 
-* Make sure you have a Java 8 JDK. Check with `java -version` which should mention a 1.8.x version number. 
-* If you don't have Java 8 JDK you can get it with the following command `sudo apt install openjdk-8-jdk`
-* Install the [Scala Build Tool](https://www.scala-sbt.org)
-    * After downloading unzip the archive to a directory that you have read and write access to
-    * Then add `sbt` to your path: Add the following to your `.bashrc` or equivalent: `export PATH=$PATH:/path/to/unzipped-files/bin/`
-* Install PostgreSQL and PostGIS: `sudo apt install postgresql postgis`
-* Create a PostgreSQL superuser: `osm`: `sudo -u postgres createuser -sP osm`. Use `osm` as the password
-* Create a new PostgreSQL database `mp_dev` owned by `osm`: `sudo -u postgres createdb -O osm mp_dev`
-* Setup your environment variables:
-    - Database connection JDBC string as `MR_DATABASE_URL`: `export MR_DATABASE_URL='jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm'`
-    - Consumer key from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_KEY`: `export MR_OAUTH_CONSUMER_KEY=<APPLICATION_CONSUMER_KEY>`
-    - Consumer secret from [app registration](#register-dev-app-with-openstreetmap) as `MR_OAUTH_CONSUMER_SECRET`: `export MR_OAUTH_CONSUMER_SECRET=<APPLICATION_CONSUMER_SECRET>`
-    - OSM server URL as `MR_OSM_SERVER` if you wish to use the dev server (defaults to production): `export MR_OSM_SERVER=http://master.dev.openstreetmap.org`
-    - APIHost used for Swagger API documentation as `API_HOST`: `export API_HOST=localhost:9000`
-* Clone New MapRoulette: `git clone https://github.com/maproulette/maproulette2.git`.
-* Navigate into the newly created `maproulette2` directory and run the local development server: `sbt run`. This will take some time the first run as dependencies are downloaded. There will be some warnings that you can safely ignore.
-* Head to [http://localhost:9000/](http://localhost:9000/) and confirm you can see the New MapRoulette front end. This also may take a while as artifacts are compiled.
+Now you're ready to run the MapRoulette backend.
 
-#### Windows
+### Running
+
+You run the MapRoulette backend in development mode like this:
+
+`sbt run -Dconfig.resource=dev.conf`
+
+> This will take some time the first run as dependencies are downloaded.
+
+Confirm that it's all working by getting `http://localhost:9000/api/v2/challenges` which should return `[]` (since we don't have any challenges yet).
+
+> This will take some time on first run as artifacts are compiled.
+
+### Windows
 
 A work-in-progress setup guide for Windows lives [here](https://gist.github.com/3710d7f15534ec747423a3117cd7cc9c). Please fork and improve!
 
-#### Using dev.conf
-
-Another way to handle dev related configuration variables is to use the [dev.conf](conf/dev.conf) file which has a couple of prepopulated variables that would be beneficial for a test/development environment. To use this file you simply need to add the file as a jvm parameter, eg. -Dconfig.resource=dev.conf
-
-```
-sbt run -Dconfig.resource=dev.conf
-```
-
-Your conf/dev.conf file should have the following:
-
-```
-include "application.conf"
-
-db.default.url="jdbc:postgresql://localhost:5432/mp_dev?user=osm&password=osm"
-maproulette.super.key="test"
-maproulette.super.accounts="*"
-osm.server="http://api06.dev.openstreetmap.org"
-osm.consumerKey=<APPLICATION_CONSUMER_KEY>
-osm.consumerSecret=<APPLICATION_CONSUMER_SECRET>
-```
-
-#### SMTP (email) configuration
+### SMTP (email) configuration
 
 MapRoulette now supports transmission of emails, for example to inform users
 when they receive new in-app notifications. You will need access to an SMTP
@@ -149,7 +122,7 @@ notifications.digestEmail.startTime = "20:00:00"    # 8pm local server time
 notifications.digestEmail.interval = "24 hours"     # once daily
 ```
 
-#### SSL
+### SSL
 
 Openstreetmap.org recently moved to SSL only. This means that to authenticate against any SSL server you are now required to make sure that Java trusts the OSM SSL certificates. This is not very difficult to do, however they need to be completed for it to work. The steps below are for linux/Mac systems.
 
