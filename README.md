@@ -22,6 +22,13 @@ Newer versions may work but are untested.
 
 ## Setup
 
+### Requirements
+
+* A Java 8 SDK 
+* PostgreSQL 9.5
+* PostGIS 2.2.1
+* [Scala Build Tool](https://www.scala-sbt.org/download.html) 1.2.8 
+
 ### Register an OAuth app with OSM
 
 Before beginning, you'll need to register an app with OpenStreetMap to get a consumer key and secret key. For development and testing, you may wish to do this on the [OSM dev server](http://master.apis.dev.openstreetmap.org) (you will need to setup a new user account if you have't used the dev server before).
