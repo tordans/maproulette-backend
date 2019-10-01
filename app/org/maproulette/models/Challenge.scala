@@ -118,6 +118,7 @@ case class Challenge(override val id: Long,
                      status: Option[Int] = Some(0),
                      statusMessage: Option[String] = None,
                      lastTaskRefresh: Option[DateTime] = None,
+                     dataOriginDate: Option[DateTime] = None,
                      location: Option[String] = None,
                      bounding: Option[String] = None) extends BaseObject[Long] with DefaultWrites {
 
