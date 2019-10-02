@@ -4,7 +4,8 @@
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change adds the mapped_on, review_status, review_requested_by, reviewed_by
-CREATE OR REPLACE FUNCTION create_update_task(task_name text,
+DROP FUNCTION IF EXISTS create_update_task(text,bigint,text,integer,jsonb,jsonb,bigint,integer,bigint,text,timestamp without time zone,integer,integer,integer,timestamp without time zone);
+CREATE FUNCTION create_update_task(task_name text,
                                               task_parent_id bigint,
                                               task_instruction text,
                                               task_status integer,
@@ -44,7 +45,8 @@ CREATE OR REPLACE FUNCTION create_update_task(task_name text,
   $$
   LANGUAGE plpgsql VOLATILE;;
 
-CREATE OR REPLACE FUNCTION update_task(task_name text,
+DROP FUNCTION IF EXISTS update_task(text,bigint,text,integer,jsonb,jsonb,bigint,integer,bigint,text,timestamp without time zone,integer,integer,integer,timestamp without time zone);
+CREATE FUNCTION update_task(task_name text,
                                          task_parent_id bigint,
                                          task_instruction text,
                                          task_status integer,
