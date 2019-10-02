@@ -1522,9 +1522,11 @@ class TaskDAL @Inject()(override val db: Database,
         comments <- get[Option[String]]("comments")
         tags <- get[Option[String]]("tags")
         responses <- get[Option[String]]("responses")
+        bundleId <- get[Option[Long]]("bundle_id")
+        isBundlePrimary <- get[Option[Boolean]]("is_bundle_primary")
       } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
-        reviewStartedAt, comments, tags, responses, geojson)
+        reviewStartedAt, comments, tags, responses, geojson, bundleId, isBundlePrimary)
 
       val status = statusFilter match {
         case Some(s) => s"AND t.status IN (${s.mkString(",")})"
@@ -1549,7 +1551,7 @@ class TaskDAL @Inject()(override val db: Database,
 
       val query =
         SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
-                   task_review.review_status, t.geojson::TEXT AS geo_json,
+                   task_review.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
                    task_review.reviewed_at, task_review.review_started_at,
@@ -1814,7 +1816,7 @@ class TaskDAL @Inject()(override val db: Database,
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
                          reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
                          comments: Option[String], tags: Option[String], completionResponses: Option[String],
-                         geojson: Option[String])
+                         geojson: Option[String], bundleId: Option[Long], isBundlePrimary: Option[Boolean])
 
 }
 

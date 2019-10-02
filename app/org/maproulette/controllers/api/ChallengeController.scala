@@ -573,15 +573,15 @@ class ChallengeController @Inject()(override val childController: TaskController
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
-          s""""${task.comments.getOrElse("")}","${task.tags.getOrElse("")}"""".stripMargin +
-          s"""${propData}${responseData}""".stripMargin
+          s""""${task.comments.getOrElse("")}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
+          s""""${task.tags.getOrElse("")}",${propData}${responseData}""".stripMargin
         }
       )
       Result(
         header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
         body = HttpEntity.Strict(
           ByteString(
-            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,Tags${propsToExportHeaders}${responseHeaders}\n"""
+            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaders}${responseHeaders}\n"""
           ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )
