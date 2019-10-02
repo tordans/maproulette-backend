@@ -212,7 +212,10 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt =>
         val locationJSON = Json.parse(location)
         val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-        val point = Point(coordinates(1), coordinates.head)
+        var point = Point(-1,-1) // default point if we have a bad task with no coordinates
+        if (coordinates.length >= 2)
+          point = Point(coordinates(1), coordinates.head)
+
         val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
         ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
           instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
@@ -856,10 +859,22 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
             #$filter
             LIMIT #${sqlLimit(limit)}"""
         .as(this.pointParser.*)
-      if (clusteredList.isEmpty) {
+
+      // There was a bug where tasks with no coordinates were being created.
+      // This filters out those tasks to allow the challenge to still be displayed.
+      val filteredList = clusteredList.filter(cp => {
+        if (cp.point.lat == -1 && cp.point.lng == -1) {
+          false
+        }
+        else {
+          true
+        }
+      })
+
+      if (filteredList.isEmpty) {
         this.updateGeometry(challengeId)
       }
-      clusteredList
+      filteredList
     }
   }
 
