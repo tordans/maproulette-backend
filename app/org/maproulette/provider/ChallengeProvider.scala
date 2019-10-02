@@ -236,7 +236,14 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     try {
       val createdTasks = featureList.flatMap { value =>
         if (!single) {
-          this.createNewTask(user, taskNameFromJsValue(value), parent, (value \ "geometry").as[JsObject], Utils.getProperties(value, "properties"))
+          (value \ "geometry").asOpt[JsObject] match {
+            case Some(geometry) =>
+              this.createNewTask(user, taskNameFromJsValue(value), parent, geometry, Utils.getProperties(value, "properties"))
+            case None =>
+              logger.error("Skipping task creation. No geometry provided when creating task for Challenge: " +
+                         parent.id + " in json: " + jsonData.toString())
+              None // skip task if no geometry
+          }
         } else {
           None
         }
@@ -365,7 +372,14 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
   private def _createNewTask(user: User, name: String, parent: Challenge, newTask: Task): Option[Task] = {
     try {
-      this.taskDAL.mergeUpdate(newTask, user)(newTask.id)
+      if (newTask.hasValidCoordinates) {
+        this.taskDAL.mergeUpdate(newTask, user)(newTask.id)
+      }
+      else {
+        logger.error("Invalid task coordinates provided when creating Challenge " +
+                     parent.id + " in json: " + newTask.geometries)
+        None
+      }
     } catch {
       // this task could fail on unique key violation, we need to ignore them
       case e: Exception =>
