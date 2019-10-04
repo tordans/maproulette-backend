@@ -30,6 +30,7 @@ import scala.collection.mutable.ListBuffer
 class TaskReviewDAL @Inject()(override val db: Database,
                                 override val tagDAL: TagDAL, config: Config,
                                 override val permission: Permission,
+                                taskDAL: TaskDAL,
                                 userDAL: Provider[UserDAL],
                                 projectDAL: Provider[ProjectDAL],
                                 challengeDAL: Provider[ChallengeDAL],
@@ -48,38 +49,56 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param id id of task that you wish to start/claim
     * @return task
     */
-  def startTaskReview(user:User, task:Task) (implicit c:Connection=null) : Option[Task] = {
-    if (task.reviewClaimedBy.getOrElse(null) != null &&
-        task.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+  def startTaskReview(user:User, primaryTask:Task) (implicit c:Connection=null) : Option[Task] = {
+    if (primaryTask.review.reviewClaimedBy.getOrElse(null) != null &&
+        primaryTask.review.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
       throw new InvalidException("This task is already being reviewed by someone else.")
     }
 
-    this.withMRTransaction { implicit c =>
-      // Unclaim everything before starting a new task.
-      SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
-              WHERE review_claimed_by = #${user.id}""".executeUpdate()
-
-      val updatedRows =
-        SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
-                WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
-
-      // if returning 0, then this is because the item is locked by a different user
-      if (updatedRows == 0) {
-        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot start review at this time.")
+    var taskList = List(primaryTask)
+    if (primaryTask.isBundlePrimary.getOrElse(false)) {
+      primaryTask.bundleId match {
+        case Some(bId) =>
+          this.getTaskBundle(user, bId).tasks match {
+            case Some(tList) =>
+              taskList = tList
+            case None => // do nothing -- just use our current task
+          }
+        case None => // no bundle id, do nothing
       }
-
-      try {
-        this.unlockItem(user, task)
-      } catch {
-        case e: Exception => logger.warn(e.getMessage)
-      }
-
-      webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
-      ))
     }
 
-    val updatedTask = task.copy(reviewClaimedBy = Option(user.id.toInt))
+    for (task <- taskList) {
+      this.withMRTransaction { implicit c =>
+        // Unclaim everything before starting a new task.
+        SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
+                WHERE review_claimed_by = #${user.id}""".executeUpdate()
+
+        val updatedRows =
+          SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
+                  WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
+
+        try {
+          this.lockItem(user, task)
+        } catch {
+          case e: Exception => logger.warn(e.getMessage)
+        }
+
+        implicit val id = task.id
+        this.taskDAL.cacheManager.withUpdatingCache(Long => this.retrieveById) { implicit cachedItem =>
+            val result = Some(task.copy(review = task.review.copy(reviewClaimedBy = Option(user.id.toInt))))
+              result
+            }(task.id, true, true)
+      }
+    }
+
+    webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
+      WebSocketMessages.ReviewData(this.getTaskWithReview(primaryTask.id))
+    ))
+
+    val updatedTask = primaryTask.copy(review = primaryTask.review.copy(
+      reviewClaimedBy = Option(user.id.toInt)))
+
     this.cacheManager.withOptionCaching { () => Some(updatedTask) }
     Option(updatedTask)
   }
@@ -92,7 +111,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @return task
     */
   def cancelTaskReview(user:User, task:Task) (implicit c:Connection=null) : Option[Task] = {
-    if (task.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+    if (task.review.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
       throw new InvalidException("This task is not currently being reviewed by you.")
     }
 
@@ -116,8 +135,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
       case e: Exception => logger.warn(e.getMessage)
     }
 
-    val updatedTask = task.copy(reviewClaimedBy = None)
-    this.cacheManager.withOptionCaching { () => Some(updatedTask) }
+    val updatedTask = task.copy(review = task.review.copy(reviewClaimedBy = None))
+    this.taskDAL.cacheManager.withOptionCaching { () => Some(updatedTask) }
     Option(updatedTask)
   }
 
@@ -163,6 +182,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
         new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}")
     }
 
+    val whereBundleClause = " AND (tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) "
+
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
     joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
@@ -193,6 +214,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           ${joinClause}
           WHERE
           ${whereClause}
+          ${whereBundleClause}
           ${orderByClause}
           LIMIT ${sqlLimit(limit)} OFFSET ${offset}
          """
@@ -212,6 +234,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
                     ug.osm_user_id = ${user.osmProfile.id}) AND
                     task_review.review_requested_by != ${user.id} AND
             ${whereClause}
+            ${whereBundleClause}
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
            """
@@ -227,6 +250,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           SELECT count(*) FROM tasks
           ${joinClause}
           WHERE ${whereClause}
+          ${whereBundleClause}
         """
       case default =>
         s"""
@@ -239,11 +263,12 @@ class TaskReviewDAL @Inject()(override val db: Database,
                   ug.osm_user_id = ${user.osmProfile.id}) AND
                   task_review.review_requested_by != ${user.id} AND
           ${whereClause}
+          ${whereBundleClause}
         """
     }
 
     var count = 0
-    val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
+    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
         count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
         sqlWithParameters(query, parameters).as(this.parser.*)
@@ -273,7 +298,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
                        limit:Int = -1, offset:Int=0, sort:String, order:String)
                        (implicit c:Connection=null) : (Int, List[Task]) = {
     var orderByClause = ""
-    val whereClause = new StringBuilder()
+    val whereClause = new StringBuilder("(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND ")
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
     joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
@@ -372,7 +397,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
    var count = 0
-   val tasks = this.cacheManager.withIDListCaching { implicit cachedItems =>
+   val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
         count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
         sqlWithParameters(query, parameters).as(this.parser.*)

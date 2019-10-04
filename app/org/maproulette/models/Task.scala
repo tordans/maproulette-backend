@@ -11,6 +11,13 @@ import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
+case class TaskReviewFields(reviewStatus: Option[Int] = None,
+                            reviewRequestedBy: Option[Long] = None,
+                            reviewedBy: Option[Long] = None,
+                            reviewedAt: Option[DateTime] = None,
+                            reviewStartedAt: Option[DateTime] = None,
+                            reviewClaimedBy: Option[Long] = None) extends DefaultWrites
+
 /**
   * The primary object in MapRoulette is the task, this is the object that defines the actual problem
   * in the OSM data that needs to be fixed. It is a child of a Challenge and has a special one to
@@ -41,14 +48,12 @@ case class Task(override val id: Long,
                 suggestedFix: Option[String] = None,
                 status: Option[Int] = None,
                 mappedOn: Option[DateTime] = None,
-                reviewStatus: Option[Int] = None,
-                reviewRequestedBy: Option[Long] = None,
-                reviewedBy: Option[Long] = None,
-                reviewedAt: Option[DateTime] = None,
-                reviewStartedAt: Option[DateTime] = None,
-                reviewClaimedBy: Option[Long] = None,
+                review: TaskReviewFields = TaskReviewFields(),
                 priority: Int=Challenge.PRIORITY_HIGH,
                 changesetId: Option[Long] = None,
+                completionResponses: Option[String]=None,
+                bundleId: Option[Long] = None,
+                isBundlePrimary: Option[Boolean] = None,
                 mapillaryImages: Option[List[MapillaryImage]]=None) extends BaseObject[Long] with DefaultReads with LowPriorityDefaultReads {
   override val itemType: ItemType = TaskType()
 
@@ -92,13 +97,28 @@ case class Task(override val id: Long,
       List.empty
     }
   }
+
+  def hasValidCoordinates(): Boolean = {
+    val geojson = Json.parse(this.geometries)
+    val featureList = (geojson \ "features").asOpt[List[JsValue]]
+    if (featureList.isDefined) {
+      (featureList.get.head \ "geometry" \ "coordinates").asOpt[List[List[JsValue]]] match {
+        case Some(coords) =>
+          if (coords.isEmpty || coords.head.isEmpty) {
+            return false
+          }
+        case None => return false
+      }
+    }
+    true
+  }
 }
 
 object Task {
-
   implicit object TaskFormat extends Format[Task] {
     override def writes(o: Task): JsValue = {
       implicit val mapillaryWrites: Writes[MapillaryImage] = Json.writes[MapillaryImage]
+      implicit val reviewWrites: Writes[TaskReviewFields] = Json.writes[TaskReviewFields]
       implicit val taskWrites: Writes[Task] = Json.writes[Task]
       var original = Json.toJson(o)(Json.writes[Task])
       var updatedLocation = o.location match {
@@ -107,16 +127,48 @@ object Task {
       }
 
       original = Utils.insertIntoJson(updatedLocation, "geometries", Json.parse(o.geometries), true)
-      var updatedSF = o.suggestedFix match {
+      var updated = o.suggestedFix match {
         case Some(sf) => Utils.insertIntoJson(original, "suggestedFix", Json.parse(sf), true)
         case None => original
       }
-      Utils.insertIntoJson(updatedSF, "geometries", Json.parse(o.geometries), true)
+
+      // Move review fields up to top level
+      updated = o.review.reviewStatus match {
+        case Some(r) => {
+          Utils.insertIntoJson(updated, "reviewStatus", r, true)
+        }
+        case None => updated
+      }
+      updated = o.review.reviewRequestedBy match {
+        case Some(r) => Utils.insertIntoJson(updated, "reviewRequestedBy", r, true)
+        case None => updated
+      }
+      updated = o.review.reviewedBy match {
+        case Some(r) => Utils.insertIntoJson(updated, "reviewedBy", r, true)
+        case None => updated
+      }
+      updated = o.review.reviewedAt match {
+        case Some(r) => Utils.insertIntoJson(updated, "reviewedAt", r, true)
+        case None => updated
+      }
+      updated = o.review.reviewStartedAt match {
+        case Some(r) => Utils.insertIntoJson(updated, "reviewStartedAt", r, true)
+        case None => updated
+      }
+      updated = o.review.reviewClaimedBy match {
+        case Some(r) => Utils.insertIntoJson(updated, "reviewClaimedBy", r, true)
+        case None => updated
+      }
+
+      Utils.insertIntoJson(updated, "geometries", Json.parse(o.geometries), true)
     }
 
     override def reads(json: JsValue): JsResult[Task] = {
       implicit val mapillaryReads: Reads[MapillaryImage] = Json.reads[MapillaryImage]
-      Json.fromJson[Task](json)(Json.reads[Task])
+      implicit val reviewReads: Reads[TaskReviewFields] = Json.reads[TaskReviewFields]
+
+      val jsonWithReview = Utils.insertIntoJson(json, "review", Map[String, String](), false)
+      Json.fromJson[Task](jsonWithReview)(Json.reads[Task])
     }
   }
 

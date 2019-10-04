@@ -91,7 +91,8 @@ case class ChallengeExtra(defaultZoom: Int = Challenge.DEFAULT_ZOOM,
                           defaultBasemap: Option[Int] = None,
                           defaultBasemapId: Option[String] = None,
                           customBasemap: Option[String] = None,
-                          updateTasks: Boolean = false) extends DefaultWrites
+                          updateTasks: Boolean = false,
+                          exportableProperties: Option[String] = None) extends DefaultWrites
 
 case class ChallengeListing(id: Long,
                             parent: Long,
@@ -117,6 +118,7 @@ case class Challenge(override val id: Long,
                      status: Option[Int] = Some(0),
                      statusMessage: Option[String] = None,
                      lastTaskRefresh: Option[DateTime] = None,
+                     dataOriginDate: Option[DateTime] = None,
                      location: Option[String] = None,
                      bounding: Option[String] = None) extends BaseObject[Long] with DefaultWrites {
 

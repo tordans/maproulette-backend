@@ -9,6 +9,7 @@ import org.maproulette.models.dal._
 import org.maproulette.models.{Challenge, Task}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SessionManager, SearchParameters, User}
+import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm.ChangesetProvider
@@ -29,12 +30,13 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
                                taskReviewDAL: TaskReviewDAL,
                                dalManager: DALManager,
                                wsClient: WSClient,
+                               webSocketProvider: WebSocketProvider,
                                config: Config,
                                components: ControllerComponents,
                                changeService: ChangesetProvider,
                                override val bodyParsers: PlayBodyParsers)
   extends TaskController(sessionManager, actionManager, dal, tagDAL, dalManager,
-                         wsClient, config, components, changeService, bodyParsers) {
+                         wsClient, webSocketProvider, config, components, changeService, bodyParsers) {
 
 
   /**
@@ -170,22 +172,22 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
                                    "parent" -> Json.toJson(projects.get(c.general.parent)).as[JsObject])).toMap)
 
       val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewRequestedBy.getOrElse(0L))).map(u =>
+        t => t.review.reviewRequestedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
-        t => t.reviewedBy.getOrElse(0L))).map(u =>
+        t => t.review.reviewedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
 
       val jsonList = tasks.map { task =>
         val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
         var updated = Utils.insertIntoJson(Json.toJson(task), Challenge.KEY_PARENT, challengeJson, true)
-        if (task.reviewRequestedBy.getOrElse(0) != 0) {
-          val mapperJson = Json.toJson(mappers.get(task.reviewRequestedBy.get)).as[JsObject]
+        if (task.review.reviewRequestedBy.getOrElse(0) != 0) {
+          val mapperJson = Json.toJson(mappers.get(task.review.reviewRequestedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewRequestedBy", mapperJson, true)
         }
-        if (task.reviewedBy.getOrElse(0) != 0) {
-          val reviewerJson = Json.toJson(reviewers.get(task.reviewedBy.get)).as[JsObject]
+        if (task.review.reviewedBy.getOrElse(0) != 0) {
+          val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
 

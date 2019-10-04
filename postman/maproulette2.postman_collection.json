@@ -5944,6 +5944,975 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "taskBundles",
+			"item": [
+				{
+					"name": "Setup Project",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "b66704e2-4a0d-469b-b3ea-b8178853b754",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestBundleProject\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TestBundleProject\";",
+									"tests[\"description\"] = jsonData.description === \"Test project.\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestBundleProject\",\n    \"description\":\"Test project.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Setup Challenge",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "c38e2230-0f76-4588-80f6-6cc7772d1ff4",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"TestBundleChallenge\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"TestBundleChallenge\";",
+									"tests[\"description\"] = jsonData.description === \"TestChallenge description\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"TestChallenge instruction\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"TestBundleChallenge\",\n    \"parent\": {{TestBundleProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create new Task1",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "95f07c63-a41d-410d-ad61-2617d001c8fb",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewTask1\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"NewTask1\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask1 instruction\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"NewTask1\",\n    \"parent\": {{TestBundleChallenge}},\n    \"instruction\":\"NewTask1 instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]}\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create new Task2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "ecdd7063-cdcc-4607-bcae-a32874ce4b04",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewTask2\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"NewTask2\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask2 instruction\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"NewTask2\",\n    \"parent\": {{TestBundleChallenge}},\n    \"instruction\":\"NewTask2 instruction\",\n    \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[105.1,1.6]},\"properties\":{\"id\": \"test3\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[105.2,1.7]},\"properties\":{ \"identifier\":{\"value\":1111} }}]}\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create new Bundle",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "705b2416-7628-4ad0-acbf-81bf9c0c477b",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewBundle\", jsonData.bundleId);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"New Bundle\",\n    \"taskIds\": [{{NewTask1}},{{NewTask2}}]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Bundle Tasks Comments",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "d0bacf4b-7616-4d8a-ae40-205f8ee5d7c1",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"NewComment\", jsonData.id);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle/{{NewBundle}}/comment?comment=This%20is%20a%20comment",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle",
+								"{{NewBundle}}",
+								"comment"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "This%20is%20a%20comment"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "setTaskBundleStatus",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle/{{NewBundle}}/2?primaryId={{NewTask1}}&comment=SomeComment&requestReview=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle",
+								"{{NewBundle}}",
+								"2"
+							],
+							"query": [
+								{
+									"key": "primaryId",
+									"value": "{{NewTask1}}"
+								},
+								{
+									"key": "comment",
+									"value": "SomeComment"
+								},
+								{
+									"key": "requestReview",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "f34aeb15-22d1-4a6c-a562-0e816d81de82",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask1\";",
+									"tests[\"status\"] = jsonData.status === 2;",
+									"tests[\"bundlePrimary\"] = jsonData.isBundlePrimary === true;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Attempt to Create Dup Bundle",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "705b2416-7628-4ad0-acbf-81bf9c0c477b",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 400\"] = responseCode.code === 400;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"New Dup Bundle\",\n    \"taskIds\": [{{NewTask1}},{{NewTask2}}]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Attempt setTaskStatus on Bundle Member",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 400\"] = responseCode.code === 400;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/1?comment=SomeComment&requestReview=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}",
+								"1"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "SomeComment"
+								},
+								{
+									"key": "requestReview",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Start Task Review",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "f34aeb15-22d1-4a6c-a562-0e816d81de82",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask1\";",
+									"tests[\"reviewStatus\"] = jsonData.reviewStatus === 0;",
+									"tests[\"reviewClaimedBy\"] = jsonData.reviewClaimedBy === -999;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}/review/start",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}",
+								"review",
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Read Other Bundle Task (after start review)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "f34aeb15-22d1-4a6c-a562-0e816d81de82",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask2\";",
+									"tests[\"status\"] = jsonData.status === 2;",
+									"tests[\"bundlePrimary\"] = jsonData.isBundlePrimary !== true;",
+									"tests[\"reviewClaimedBy\"] = jsonData.reviewClaimedBy === -999;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask2}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask2}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "setBundleTaskReviewStatus",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle/{{NewBundle}}/review/1?comment=SomeReviewCommet&reviewStatus=1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle",
+								"{{NewBundle}}",
+								"review",
+								"1"
+							],
+							"query": [
+								{
+									"key": "comment",
+									"value": "SomeReviewCommet"
+								},
+								{
+									"key": "reviewStatus",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task After Review",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "f34aeb15-22d1-4a6c-a562-0e816d81de82",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask1\";",
+									"tests[\"status\"] = jsonData.status === 2;",
+									"tests[\"bundlePrimary\"] = jsonData.isBundlePrimary === true;",
+									"tests[\"reviewStatus\"] = jsonData.reviewStatus === 1;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask1}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask1}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch Bundle",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "3bb07589-1294-4a38-8299-caa0e8cfa152",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"taskName1\"] = jsonData.tasks[0].name === \"NewTask1\"",
+									"tests[\"taskStatus1\"] = jsonData.tasks[0].status === 2",
+									"tests[\"taskName2\"] = jsonData.tasks[1].name === \"NewTask2\"",
+									"tests[\"taskStatus2\"] = jsonData.tasks[1].status === 2"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle/{{NewBundle}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle",
+								"{{NewBundle}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "unbundleTasks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"tasksLength\"] = Object.keys(jsonData.tasks).length === 1",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle/{{NewBundle}}/unbundle?taskIds={{NewTask2}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle",
+								"{{NewBundle}}",
+								"unbundle"
+							],
+							"query": [
+								{
+									"key": "taskIds",
+									"value": "{{NewTask2}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Bundle",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5b81c410-0935-4d7b-89fc-f6bba888a7e4",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/taskBundle/{{NewBundle}}?primaryId={{NewTask1}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"taskBundle",
+								"{{NewBundle}}"
+							],
+							"query": [
+								{
+									"key": "primaryId",
+									"value": "{{NewTask1}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Teardown",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "5b81c410-0935-4d7b-89fc-f6bba888a7e4",
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{TestBundleProject}}?immediate=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{TestBundleProject}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	]
 }

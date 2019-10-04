@@ -408,14 +408,14 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
       // isn't pretty
       val query =
       s"""SELECT *,
-                        (((CAST(available AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100)-100)*1 AS complete_percentage,
-                        (CAST(available AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS available_perc,
-                        (CAST(fixed AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS fixed_perc,
-                        (CAST(false_positive AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS false_positive_perc,
-                        (CAST(skipped AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS skipped_perc,
-                        (CAST(already_fixed AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS already_fixed_perc,
-                        (CAST(too_hard AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS too_hard_perc,
-                        (CAST(answered AS DOUBLE PRECISION)/CAST(total AS DOUBLE PRECISION))*100 AS answered_perc
+                        (((CAST(available AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100)-100)*1 AS complete_percentage,
+                        (CAST(available AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS available_perc,
+                        (CAST(fixed AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS fixed_perc,
+                        (CAST(false_positive AS DOUBLE PRECISION)/CAST(NULLIF(total, 0)AS DOUBLE PRECISION))*100 AS false_positive_perc,
+                        (CAST(skipped AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS skipped_perc,
+                        (CAST(already_fixed AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS already_fixed_perc,
+                        (CAST(too_hard AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS too_hard_perc,
+                        (CAST(answered AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS answered_perc
                       FROM (
                       SELECT t.parent_id, c.name,
                                 SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,

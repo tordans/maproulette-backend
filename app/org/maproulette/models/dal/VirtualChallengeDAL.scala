@@ -109,7 +109,7 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
   def rebuildVirtualChallenge(id: Long, params: SearchParameters, user: User)(implicit c: Option[Connection] = None): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      this.taskDAL.getTasksInBoundingBox(params, -1, 0).grouped(config.virtualChallengeBatchSize).foreach(batch => {
+      this.taskDAL.getTasksInBoundingBox(user, params, -1, 0).grouped(config.virtualChallengeBatchSize).foreach(batch => {
         val insertRows = batch.map(point => s"(${point.id}, $id)").mkString(",")
         SQL"""
            INSERT INTO virtual_challenge_tasks (task_id, virtual_challenge_id) VALUES #$insertRows
@@ -406,19 +406,22 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
                         int("status") ~ get[Option[String]]("suggested_fix") ~ get[Option[DateTime]]("mapped_on") ~
                         get[Option[Int]]("review_status") ~ get[Option[Int]]("review_requested_by") ~
                         get[Option[Int]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
-                        get[Option[DateTime]]("review_started_at") ~ int("priority") map {
+                        get[Option[DateTime]]("review_started_at") ~ int("priority") ~
+                        get[Option[Long]]("bundle_id") ~ get[Option[Boolean]]("is_bundle_primary") map {
         case id ~ name ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
-             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority =>
+             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
+          val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
           ClusteredPoint(id, -1, "", name, -1, "", point, JsString(""),
-            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn, reviewStatus,
-            reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt, priority)
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
+            pointReview, priority, bundleId, isBundlePrimary)
       }
       SQL"""SELECT tasks.id, name, instruction, status, suggestedfix_geojson::TEXT as suggested_fix,
                    mapped_on, review_status, review_requested_by,
-                   reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority
+                   reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority,
+                   bundle_id, is_bundle_primary
               FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
               WHERE tasks.id IN
               (SELECT task_id FROM virtual_challenge_tasks
