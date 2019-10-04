@@ -18,6 +18,8 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
 import play.api.libs.json.{JsString, JsValue, Json}
+import play.api.libs.json.JodaReads._
+import java.sql.Timestamp
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
@@ -89,6 +91,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
+      get[Option[DateTime]]("challenges.data_origin_date") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") map {
@@ -96,7 +99,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
         checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
         mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ updateTasks ~ exportableProperties ~ lastTaskRefresh ~ location ~ bounding ~ deleted =>
+        customBasemap ~ updateTasks ~ exportableProperties ~ lastTaskRefresh ~ dataOriginDate ~ location ~
+        bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -114,7 +118,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties),
-          status, statusMessage, lastTaskRefresh, location, bounding,
+          status, statusMessage, lastTaskRefresh, dataOriginDate, location, bounding,
         )
     }
   }
@@ -158,6 +162,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
+      get[Option[DateTime]]("challenges.data_origin_date") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") ~
@@ -167,7 +172,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
         defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
         minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-        exportableProperties ~ lastTaskRefresh ~ location ~ bounding ~ deleted ~ virtualParents =>
+        exportableProperties ~ lastTaskRefresh ~ dataOriginDate ~ location ~ bounding ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -185,7 +190,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties),
-          status, statusMessage, lastTaskRefresh, location, bounding,
+          status, statusMessage, lastTaskRefresh, dataOriginDate, location, bounding,
         )
     }
   }
@@ -316,8 +321,9 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
                                       instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
-                                      medium_priority_rule, low_priority_rule, default_zoom, min_zoom,
-                                      max_zoom, default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties)
+                                      medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
+                                      default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
+                                      last_task_refresh, data_origin_date)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
@@ -325,7 +331,9 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks},
-                      ${challenge.extra.exportableProperties}) ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
+                      ${challenge.extra.exportableProperties}, ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
+                      ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz)
+                      ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
       }
     } match {
       case Some(value) => value
@@ -373,6 +381,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         val checkinSource = (updates \ "checkinSource").asOpt[String].getOrElse(cachedItem.general.checkinSource)
         val overpassQL = (updates \ "overpassQL").asOpt[String].getOrElse(cachedItem.creation.overpassQL.getOrElse(""))
         val remoteGeoJson = (updates \ "remoteGeoJson").asOpt[String].getOrElse(cachedItem.creation.remoteGeoJson.getOrElse(""))
+        val dataOriginDate = (updates \ "dataOriginDate").asOpt[DateTime].getOrElse(cachedItem.dataOriginDate.getOrElse(DateTime.now()))
         val status = (updates \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(Challenge.STATUS_NA))
         val statusMessage = (updates \ "statusMessage").asOpt[String].getOrElse(cachedItem.statusMessage.getOrElse(""))
         val defaultPriority = (updates \ "defaultPriority").asOpt[Int].getOrElse(cachedItem.priority.defaultPriority)
@@ -396,6 +405,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                 description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
                 enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, checkin_source = $checkinSource, overpass_ql = $overpassQL,
                 remote_geo_json = $remoteGeoJson, status = $status, status_message = $statusMessage, default_priority = $defaultPriority,
+                data_origin_date = ${dataOriginDate.toString()}::timestamptz,
                 high_priority_rule = ${
           if (StringUtils.isEmpty(highPriorityRule)) {
             Option.empty[String]
@@ -1027,23 +1037,27 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   }
 
   /**
-    * Updates the last_task_refresh column of a challenge to indicate its task
-    * data was just refreshed. If overwrite is false, last_task_refresh will
-    * only be updated if it hasn't yet been set.
+    * Updates the last_task_refresh and data_origin_date columns of a challenge
+    * to indicate its task data was just refreshed. If overwrite is false, only
+    * last_task_refresh will be updated.
     *
-    * @param overwrite Set to true to always overwrite last_task_refresh
+    * @param overwrite Set to true to always overwrite data_origin_date
     * @param id        The id of the challenge
     * @param c         an implicit connection
     */
   def markTasksRefreshed(overwrite: Boolean = false)(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
-      if (overwrite || item.lastTaskRefresh == None) {
+      if (overwrite) {
         this.withMRTransaction { implicit c =>
-          SQL"UPDATE challenges SET last_task_refresh = NOW() WHERE id = $id RETURNING #${this.retrieveColumns}".as(this.parser.*).headOption
+          SQL"""UPDATE challenges SET last_task_refresh = NOW(), data_origin_date = NOW()
+                WHERE id = $id RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
         }
       }
       else {
-        Option(item)
+        this.withMRTransaction { implicit c =>
+          SQL"""UPDATE challenges SET last_task_refresh = NOW()
+                WHERE id = $id RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
+        }
       }
     }
   }
