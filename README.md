@@ -22,6 +22,8 @@ Newer versions may work but are untested.
 
 ## Setup
 
+**If you just want to deploy the MapRoulette back-end, [we have a Docker image for that](https://github.com/maproulette/maproulette2-docker)**. Read on if you want to set up an environment for developing.
+
 ### Requirements
 
 * A Java 8 SDK 
