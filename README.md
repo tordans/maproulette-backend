@@ -11,7 +11,7 @@ It uses the following core technologies:
 * Postgres 9.5 with PostGIS 2.2.1
 * Play Framework 2.7.1 with Scala 2.12.8
 
-**If you just want to deploy the MapRoulette back-end, [we have a Docker image for that](https://github.com/maproulette/maproulette2-docker)**. Read on if you want to set up an environment for developing.
+**If you just want to deploy the MapRoulette back-end, [we have a 🚢 Docker image 🚢 for that](https://github.com/maproulette/maproulette2-docker)**. Read on if you want to set up an environment for developing.
 
 ## Requirements
 
