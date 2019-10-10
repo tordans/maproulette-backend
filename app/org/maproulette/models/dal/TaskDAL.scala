@@ -305,7 +305,7 @@ class TaskDAL @Inject()(override val db: Database,
         priority = priority,
         changesetId = Some(changesetId)), user)
 
-      if (status == Task.STATUS_CREATED) {
+      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
         this.challengeDAL.get().updateReadyStatus()(parentId)
       }
       else {
