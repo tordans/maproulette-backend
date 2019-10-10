@@ -97,21 +97,6 @@ case class Task(override val id: Long,
       List.empty
     }
   }
-
-  def hasValidCoordinates(): Boolean = {
-    val geojson = Json.parse(this.geometries)
-    val featureList = (geojson \ "features").asOpt[List[JsValue]]
-    if (featureList.isDefined) {
-      (featureList.get.head \ "geometry" \ "coordinates").asOpt[List[List[JsValue]]] match {
-        case Some(coords) =>
-          if (coords.isEmpty || coords.head.isEmpty) {
-            return false
-          }
-        case None => return false
-      }
-    }
-    true
-  }
 }
 
 object Task {
