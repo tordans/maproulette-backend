@@ -544,7 +544,7 @@ class ChallengeController @Inject()(override val childController: TaskController
               for (key <- propsToExport) {
                 (taskProps \ key) match {
                     case value: JsDefined =>
-                      propData += "," + value.get.toString()
+                      propData += "," + value.get.toString().replaceAll("\"", "\"\"")
                     case vaue: JsUndefined => propData += "," + "\"\"" // empty value
                 }
               }
@@ -559,7 +559,7 @@ class ChallengeController @Inject()(override val childController: TaskController
               for (key <- responseProperties) {
                 (responseMap \ key) match {
                     case value: JsDefined =>
-                      responseData += "," + value.get.toString()
+                      responseData += "," + value.get.toString().replaceAll("\"", "\"\"")
                     case vaue: JsUndefined => responseData += "," + "\"\"" // empty value
                 }
               }
@@ -569,11 +569,13 @@ class ChallengeController @Inject()(override val childController: TaskController
               }
           }
 
+          var comments = task.comments.getOrElse("").replaceAll("\"", "\"\"")
+
           s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
-          s""""${task.comments.getOrElse("")}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
+          s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
           s""""${task.tags.getOrElse("")}",${propData}${responseData}""".stripMargin
         }
       )
