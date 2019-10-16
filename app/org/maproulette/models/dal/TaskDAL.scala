@@ -1393,7 +1393,7 @@ class TaskDAL @Inject()(override val db: Database,
             """
           )
 
-          if (excludeLocked) {
+          if (!excludeLocked) {
             joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
             this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
           }
