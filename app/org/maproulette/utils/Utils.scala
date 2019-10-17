@@ -207,6 +207,17 @@ object Utils extends DefaultWrites {
     Some(stringList.split(",").toList.map(_.toInt))
   }
 
+  def toMap(stringMap: String): Option[Map[String, String]] = if (stringMap.isEmpty) {
+    None
+  } else {
+    val resultMap = scala.collection.mutable.Map[String, String]()
+    stringMap.split(",").foreach { r => {
+      val pair = r.split(":")
+      resultMap += pair(0) -> pair(1)
+    }}
+    Some(resultMap.toMap)
+  }
+
   def getDate(date: String): Option[DateTime] = if (StringUtils.isEmpty(date)) {
     None
   } else {

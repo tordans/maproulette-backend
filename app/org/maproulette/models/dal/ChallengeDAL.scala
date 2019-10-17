@@ -824,16 +824,12 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     * Retrieves the json that contains the central points for all the tasks
     *
     * @param challengeId  The id of the challenge
-    * @param statusFilter Filter the displayed task cluster points by their status
+    * @param params Filter the displayed task cluster points by search parameters (status, priority)
     * @return A list of clustered point objects
     */
-  def getClusteredPoints(user: User, challengeId: Long, statusFilter: Option[List[Int]] = None, limit: Int = 2500,
+  def getClusteredPoints(user: User, challengeId: Long, params: SearchParameters, limit: Int = 2500,
                          excludeLocked: Boolean = false)(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
-      val filter = statusFilter match {
-        case Some(s) => s"AND t.status IN (${s.mkString(",")})"
-        case None => ""
-      }
       val joinClause = new StringBuilder(
         """
           INNER JOIN challenges c ON c.id = t.parent_id
@@ -849,12 +845,21 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         """
       )
 
+      params.taskStatus match {
+        case Some(s) => this.appendInWhereClause(whereClause, s"t.status IN (${s.mkString(",")})")
+        case None => ""
+      }
+      params.location match {
+        case Some(sl) => this.appendInWhereClause(whereClause, s"t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
+        case None => // do nothing
+      }
+
       if (excludeLocked) {
         joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
         this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
       }
 
-      val clusteredList = SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
+      val query = SQL"""SELECT t.id, t.name, t.instruction, t.status, t.mapped_on,
                    t.parent_id, t.bundle_id, t.is_bundle_primary,
                    tr.review_status, tr.review_requested_by,
                    tr.reviewed_by, tr.reviewed_at, tr.review_started_at,
@@ -863,9 +868,10 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
             FROM tasks t
             #${joinClause.toString()}
             WHERE #${whereClause.toString()}
-            #$filter
             LIMIT #${sqlLimit(limit)}"""
-        .as(this.pointParser.*)
+
+      val clusteredList = query.as(this.pointParser.*)
+
       if (clusteredList.isEmpty) {
         this.updateGeometry(challengeId)
       }
@@ -1161,17 +1167,17 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         case _ =>
       }
 
-      searchParameters.challengeEnabled match {
+      searchParameters.challengeParams.challengeEnabled match {
         case Some(true) => this.appendInWhereClause(whereClause, this.enabled(true, "c")(None))
         case _ =>
       }
 
-      searchParameters.challengeDifficulty match {
+      searchParameters.challengeParams.challengeDifficulty match {
         case Some(v) if v > 0 && v < 4 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
         case _ =>
       }
 
-      searchParameters.challengeStatus match {
+      searchParameters.challengeParams.challengeStatus match {
         case Some(sl) if sl.nonEmpty =>
           val statusClause = new StringBuilder(s"(c.status IN (${sl.mkString(",")})")
           if (sl.contains(-1)) {

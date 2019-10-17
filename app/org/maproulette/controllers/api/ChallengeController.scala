@@ -71,7 +71,6 @@ class ChallengeController @Inject()(override val childController: TaskController
   implicit val pointWrites = ClusteredPoint.pointWrites
   implicit val clusteredPointWrites = ClusteredPoint.clusteredPointWrites
   implicit val taskClusterWrites = TaskCluster.taskClusterWrites
-  implicit val searchParameterWrites = SearchParameters.paramsWrites
   implicit val searchLocationWrites = SearchParameters.locationWrites
   implicit val challengeListingWrites: Writes[ChallengeListing] = Json.writes[ChallengeListing]
 
@@ -156,19 +155,26 @@ class ChallengeController @Inject()(override val childController: TaskController
     * and the geometry associated with it is just the centroid of the task geometry
     *
     * @param challengeId  The challenge id, ie. the parent of the tasks
-    * @param statusFilter Filter by status of the task
+    * @param statusFilter Filter by status of the task (@deprecated - please use search paramter tStatus)
     * @param limit        limit the number of tasks returned
+    * @param excludeLocked Don't cluster locked tasks
     * @return A list of ClusteredPoint's
     */
   def getClusteredPoints(challengeId: Long, statusFilter: String, limit: Int, excludeLocked: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val filter = if (StringUtils.isEmpty(statusFilter)) {
-        None
-      } else {
-        Some(Utils.split(statusFilter).map(_.toInt))
+      SearchParameters.withSearch { implicit params =>
+        var searchParams = params
+
+        // For Backward compatibility
+        val filter = if (StringUtils.isEmpty(statusFilter)) {
+          None
+        } else {
+          searchParams = params.copy(taskStatus = Some(Utils.split(statusFilter).map(_.toInt)))
+        }
+
+        val result = this.dal.getClusteredPoints(User.userOrMocked(user), challengeId, searchParams, limit, excludeLocked)
+        Ok(_insertReviewJSON(result))
       }
-      val result = this.dal.getClusteredPoints(User.userOrMocked(user), challengeId, filter, limit, excludeLocked)
-      Ok(_insertReviewJSON(result))
     }
   }
 
@@ -220,7 +226,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
-          challengeIds = Some(List(challengeId)),
+          challengeParams = p.challengeParams.copy(challengeIds = Some(List(challengeId))),
           taskSearch = Some(taskSearch),
           taskTags = Some(Utils.split(tags))
         )
@@ -246,7 +252,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
-          challengeIds = Some(List(challengeId)),
+          challengeParams = p.challengeParams.copy(challengeIds = Some(List(challengeId))),
           taskSearch = Some(taskSearch),
           taskTags = Some(Utils.split(tags))
         )
