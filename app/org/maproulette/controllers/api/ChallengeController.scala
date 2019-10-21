@@ -544,8 +544,10 @@ class ChallengeController @Inject()(override val childController: TaskController
               for (key <- propsToExport) {
                 (taskProps \ key) match {
                     case value: JsDefined =>
-                      propData += "," + value.get.toString().replaceAll("\"", "\"\"")
-                    case vaue: JsUndefined => propData += "," + "\"\"" // empty value
+                      var propValue = value.get.toString()
+                      propValue = propValue.substring(1, propValue.length() - 1)
+                      propData += "," + propValue.replaceAll("\"", "\"\"")
+                    case value: JsUndefined => propData += "," + "\"\"" // empty value
                 }
               }
             case None => // do nothing
@@ -559,7 +561,9 @@ class ChallengeController @Inject()(override val childController: TaskController
               for (key <- responseProperties) {
                 (responseMap \ key) match {
                     case value: JsDefined =>
-                      responseData += "," + value.get.toString().replaceAll("\"", "\"\"")
+                      var propValue = value.get.toString()
+                      propValue = propValue.substring(1, propValue.length() - 1)
+                      responseData += "," + propValue.replaceAll("\"", "\"\"")
                     case vaue: JsUndefined => responseData += "," + "\"\"" // empty value
                 }
               }
@@ -576,7 +580,7 @@ class ChallengeController @Inject()(override val childController: TaskController
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
           s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
-          s""""${task.tags.getOrElse("")}",${propData}${responseData}""".stripMargin
+          s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin
         }
       )
       Result(
