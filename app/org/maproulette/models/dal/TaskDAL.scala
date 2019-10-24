@@ -1265,13 +1265,13 @@ class TaskDAL @Inject()(override val db: Database,
   def getTaskClusters(params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
                      (implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
-      val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~
-        str("geom") ~ str("bounding") map {
-        case kmeans ~ totalPoints ~ geom ~ bounding =>
+      val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
+        get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ str("geom") ~ str("bounding") map {
+        case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geom ~ bounding =>
           val locationJSON = Json.parse(geom)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, params, point, Json.parse(bounding))
+          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point, Json.parse(bounding))
       }
 
       val whereClause = new StringBuilder
@@ -1290,10 +1290,13 @@ class TaskDAL @Inject()(override val db: Database,
 
       val query =
         s"""SELECT kmeans, count(*) as numberOfPoints,
+                CASE WHEN count(*)=1 THEN (array_agg(taskId))[1] END as taskId,
+                CASE WHEN count(*)=1 THEN (array_agg(taskStatus))[1] END as taskStatus,
+                CASE WHEN count(*)=1 THEN (array_agg(taskPriority))[1] END as taskPriority,
                 ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
                 ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding
              FROM (
-               SELECT ST_ClusterKMeans(t.location,
+               SELECT t.id as taskId, t.status as taskStatus, t.priority as taskPriority, ST_ClusterKMeans(t.location,
                           (SELECT
                               CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
                             FROM tasks t
@@ -1330,6 +1333,7 @@ class TaskDAL @Inject()(override val db: Database,
         """
               INNER JOIN challenges c ON c.id = t.parent_id
               INNER JOIN projects p ON p.id = c.parent_id
+              LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
             """
       )
       val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
@@ -1340,12 +1344,17 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val query =
-        s"""SELECT *, ST_AsGeoJSON(location) AS location FROM (
+        s"""SELECT *, suggestedfix_geojson::TEXT as suggested_fix,
+                     ST_AsGeoJSON(t.location) AS location, t.priority
+                     FROM (
                       SELECT ST_ClusterKMeans(t.location,
-                            (SELECT CASE WHEN COUNT(*) < 10 THEN COUNT(*) ELSE 10 END FROM tasks t
-                            ${joinClause.toString}
-                            $where)::Integer
-                      ) OVER () as kmeans, t.*, c.name
+                        (SELECT
+                            CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
+                          FROM tasks t
+                          ${joinClause.toString}
+                          $where
+                        )::Integer
+                      ) OVER () as kmeans, t.*, tr.*, c.name
             FROM tasks t
             ${joinClause.toString}
             $where
@@ -1369,9 +1378,51 @@ class TaskDAL @Inject()(override val db: Database,
       case _ => this.appendInWhereClause(whereClause, "t.status IN (0,3,6)")
     }
 
+    params.taskReviewStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val filter = new StringBuilder(s"""(t.id IN (SELECT task_id FROM task_review tr
+                                                    WHERE tr.task_id = t.id AND tr.review_status
+                                                          IN (${statuses.mkString(",")})) """)
+        if (statuses.contains(-1)) {
+          filter.append(" OR t.id NOT IN (SELECT task_id FROM task_review tr WHERE tr.task_id = t.id)")
+        }
+        filter.append(")")
+        this.appendInWhereClause(whereClause, filter.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _ =>
+    }
+
+    params.taskPriorities match {
+      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"t.priority IN (${sl.mkString(",")})")
+      case Some(sl) if sl.isEmpty => //ignore this scenario
+      case _ => // do nothing
+    }
+
     params.priority match {
       case Some(p) if p == 0 || p == 1 || p == 2 => this.appendInWhereClause(whereClause, s"t.priority = $p")
       case _ => // ignore
+    }
+
+    // For efficiency can only query on task properties with a parent challenge id
+    params.getChallengeIds match {
+      case Some(l) =>
+        params.taskProperties match {
+          case Some(tps) =>
+            val query = new StringBuilder(
+              s"""t.id IN (
+                SELECT id FROM tasks,
+                               jsonb_array_elements(geojson->'features') features
+                WHERE parent_id IN (${l.mkString(",")})
+                AND (true
+               """)
+            for ((k, v) <- tps) {
+              query ++= s" AND features->'properties'->>'${k}' LIKE '${v}' "
+            }
+            query ++= "))"
+            this.appendInWhereClause(whereClause, query.toString())
+          case _ =>
+        }
+      case None => // ignore
     }
 
     parameters ++= this.addSearchToQuery(params, whereClause)(projectSearch)
@@ -1386,11 +1437,12 @@ class TaskDAL @Inject()(override val db: Database,
     * @param params The search parameters from the cookie or the query string parameters.
     * @param limit  A limit for the number of returned tasks
     * @param offset This allows paging for the tasks within in the bounding box
+    * @param excludeLocked Whether to include locked tasks (by other users) or not
     * @param c      An available connection
-    * @return The list of Tasks found within the bounding box
+    * @return The list of Tasks found within the bounding box and the total count of tasks if not bounding
     */
   def getTasksInBoundingBox(user: User, params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            excludeLocked: Boolean = false)(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
+                            excludeLocked: Boolean = false, sort: String = "", order: String = "ASC")(implicit c: Option[Connection] = None): (Int, List[ClusteredPoint]) = {
     params.location match {
       case Some(sl) =>
         withMRConnection { implicit c =>
@@ -1408,7 +1460,21 @@ class TaskDAL @Inject()(override val db: Database,
             this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
           }
 
+          var sortClause = "ORDER BY RANDOM()"
+          if (sort != "") {
+            sortClause = this.order(Some(sort), order, "t")
+          }
+
+          // Lets do a total count of tasks we would return if not paging.
           val parameters = this.updateWhereClause(params, whereClause, joinClause)
+          val countQuery =
+            s"""
+              SELECT count(*) FROM tasks t
+              ${joinClause.toString()}
+              ${whereClause.toString()}
+            """
+          val count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+
           val query =
             s"""
               SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
@@ -1418,9 +1484,10 @@ class TaskDAL @Inject()(override val db: Database,
                      ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
               ${joinClause.toString()}
               ${whereClause.toString()}
-              ORDER BY RANDOM()
+              ${sortClause}
               LIMIT ${sqlLimit(limit)} OFFSET $offset
             """
+
           val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
             str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]]("suggested_fix") ~
             get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
@@ -1439,7 +1506,9 @@ class TaskDAL @Inject()(override val db: Database,
                 instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
                 pointReview, priority, bundleId, isBundlePrimary)
           }
-          sqlWithParameters(query, parameters).as(pointParser.*)
+
+          val results = sqlWithParameters(query, parameters)
+          (count, results.as(pointParser.*))
         }
       case None => throw new InvalidException("Bounding Box required to retrieve tasks within a bounding box")
     }

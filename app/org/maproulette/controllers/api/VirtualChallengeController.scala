@@ -11,7 +11,7 @@ import org.maproulette.data.{ActionManager, TaskViewed, VirtualChallengeType}
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 import org.maproulette.models.{ClusteredPoint, Task, VirtualChallenge}
-import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
+import org.maproulette.session.{SearchLocation, SearchParameters, SearchChallengeParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc._
@@ -40,6 +40,8 @@ class VirtualChallengeController @Inject()(override val sessionManager: SessionM
   //reads and writes for Search Parameters
   implicit val locationWrites = Json.writes[SearchLocation]
   implicit val locationReads = Json.reads[SearchLocation]
+  implicit val challengeParamsWrites = Json.writes[SearchChallengeParameters]
+  implicit val challengeParamsReads = Json.reads[SearchChallengeParameters]
   implicit val paramsWrites = Json.writes[SearchParameters]
   implicit val paramsReads = Json.reads[SearchParameters]
 
