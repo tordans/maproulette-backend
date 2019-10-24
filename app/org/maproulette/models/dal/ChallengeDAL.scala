@@ -961,7 +961,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
   }
 
   /**
-    * Updates the challenge to a STATUS_FINISHED if there are no incomplete tasks left.
+    * Updates the challenge to a STATUS_FINISHED if the challenge has tasks and
+    * there are no tasks remaining in CREATED or SKIPPED status
     *
     * @param id The id of the challenge
     */
@@ -969,15 +970,16 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     this.withMRConnection { implicit c =>
       this.retrieveById(id) match {
         case Some(challenge) =>
-          if (challenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_READY) {
+          if (challenge.status.getOrElse(Challenge.STATUS_NA) != Challenge.STATUS_FINISHED) {
             this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
               // If the challenge has no tasks in the created status it need to be marked finished.
               val updateStatusQuery =
                 s"""UPDATE challenges SET status = ${Challenge.STATUS_FINISHED}
-                            WHERE id = ${id} AND status = ${Challenge.STATUS_READY} AND
+                            WHERE id = ${id} AND
+                            0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND
                             0 = (SELECT COUNT(*) AS total FROM tasks
                                       WHERE tasks.parent_id = ${id}
-                                      AND status = ${Task.STATUS_CREATED})
+                                      AND status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}))
                             RETURNING ${this.retrieveColumns}"""
 
               SQL(updateStatusQuery).as(this.parser.*).headOption
@@ -1005,10 +1007,10 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
               // we need to set the challenge status back to ready
               val updateStatusQuery2 =
                 s"""UPDATE challenges SET status = ${Challenge.STATUS_READY}
-                            WHERE id = $id AND status = ${Challenge.STATUS_FINISHED} AND
-                            0 != (SELECT COUNT(*) AS total FROM tasks
+                            WHERE id = $id AND
+                            0 < (SELECT COUNT(*) AS total FROM tasks
                                       WHERE tasks.parent_id = $id
-                                      AND status = ${Task.STATUS_CREATED})
+                                      AND status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}))
                             RETURNING ${this.retrieveColumns}"""
 
               SQL(updateStatusQuery2).as(this.parser.*).headOption

@@ -12,6 +12,7 @@ import com.vividsolutions.jts.geom.Envelope
 import javax.inject.{Inject, Provider, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
+import org.maproulette.utils.Utils
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
@@ -305,7 +306,7 @@ class TaskDAL @Inject()(override val db: Database,
         priority = priority,
         changesetId = Some(changesetId)), user)
 
-      if (status == Task.STATUS_CREATED) {
+      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
         this.challengeDAL.get().updateReadyStatus()(parentId)
       }
       else {
@@ -437,7 +438,16 @@ class TaskDAL @Inject()(override val db: Database,
       var suggestedFixGeoJson = suggestedFix
 
       val geoJson = Json.parse(geometries)
-      val sfMatch = (geoJson \\ "suggestedFix")
+      var sfMatch = (geoJson \\ "suggestedFix")
+      if (sfMatch.isEmpty) {
+        // Check to see if our suggested fix JSON was changed into a string due
+        // to being a feature property (which are always converted to strings)
+        val parentMatch = (geoJson \\ "maproulette")
+        if (!parentMatch.isEmpty) {
+          sfMatch = (Json.parse(Utils.unescapeStringifiedJSON(parentMatch.head.toString())) \\ "suggestedFix")
+        }
+      }
+
       if (!sfMatch.isEmpty) {
         suggestedFixGeoJson = Some(sfMatch.head.toString())
       }
@@ -1393,7 +1403,7 @@ class TaskDAL @Inject()(override val db: Database,
             """
           )
 
-          if (excludeLocked) {
+          if (!excludeLocked) {
             joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
             this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
           }

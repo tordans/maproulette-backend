@@ -30,14 +30,11 @@ object Utils extends DefaultWrites {
           case Some(idValue) => p + ("osmid" -> idValue)
           case None => p
         }
-        var suggestedFix: JsValue = null
         val updatedMap = idMap.map {
           kv =>
             if (kv._1 == "maproulette") {
               val fix = kv._2 match {
-                case sf: JsValue =>
-                  suggestedFix = sf
-                  ""
+                case sf: JsValue => Json.stringify(sf)
                 case _ => ""
               }
               kv._1 -> fix
@@ -61,6 +58,17 @@ object Utils extends DefaultWrites {
         Json.toJson(updatedMap).as[JsObject]
       case _ => Json.obj()
     }
+  }
+
+  /**
+   * Unescapes stringified JSON (where the JSON data was surrounded by quotes
+   * and the internal quotes escaped). Removes those surrounding quotes and
+   * unescapes internal quotes, making it suitable for parsing. This is
+   * probably safe to call even on most non-stringified strings that are
+   * intended for JSON parsing
+   */
+  def unescapeStringifiedJSON(j: String): String = {
+    StringUtils.removeStart(StringUtils.removeEnd(j, "\""), "\"").replaceAll("\\\\\"", "\"")
   }
 
   def tryOptional[T](func: () => T) : Option[T] = {
