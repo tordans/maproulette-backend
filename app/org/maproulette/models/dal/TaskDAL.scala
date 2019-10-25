@@ -1408,6 +1408,11 @@ class TaskDAL @Inject()(override val db: Database,
       case Some(l) =>
         params.taskProperties match {
           case Some(tps) =>
+            val searchType = params.taskPropertySearchType match {
+              case Some(t) => t
+              case _ => "equals"
+            }
+
             val query = new StringBuilder(
               s"""t.id IN (
                 SELECT id FROM tasks,
@@ -1416,7 +1421,15 @@ class TaskDAL @Inject()(override val db: Database,
                 AND (true
                """)
             for ((k, v) <- tps) {
-              query ++= s" AND features->'properties'->>'${k}' LIKE '${v}' "
+              if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
+                query ++= s" AND features->'properties'->>'${k}' = '${v}' "
+              }
+              else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
+                query ++= s" AND features->'properties'->>'${k}' != '${v}' "
+              }
+              else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
+                query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
+              }
             }
             query ++= "))"
             this.appendInWhereClause(whereClause, query.toString())
