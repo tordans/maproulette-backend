@@ -40,6 +40,7 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             taskStatus: Option[List[Int]] = None,
                             taskReviewStatus: Option[List[Int]] = None,
                             taskProperties: Option[Map[String, String]] = None,
+                            taskPropertySearchType: Option[String] = None,
                             taskPriorities: Option[List[Int]] = None,
                             priority: Option[Int] = None,
                             location: Option[SearchLocation] = None,
@@ -77,6 +78,11 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
 }
 
 object SearchParameters {
+  val TASK_PROP_SEARCH_TYPE_EQUALS = "equals"
+  val TASK_PROP_SEARCH_TYPE_NOT_EQUAL = "not_equal"
+  val TASK_PROP_SEARCH_TYPE_CONTAINS = "contains"
+
+
   implicit val locationWrites = Json.writes[SearchLocation]
   implicit val locationReads = Json.reads[SearchLocation]
 
@@ -245,6 +251,9 @@ object SearchParameters {
         case Some(v) => Utils.toMap(v)
         case None => params.taskProperties
       },
+      //taskPropertySearchType
+      this.getStringParameter(request.getQueryString("tPropsSearchType"),
+                              params.taskPropertySearchType),
       //taskPriorities
       request.getQueryString("priorities") match {
         case Some(v) => Utils.toIntList(v)
