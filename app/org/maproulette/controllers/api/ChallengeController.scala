@@ -6,6 +6,7 @@ import java.io._
 import java.sql.Connection
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
+import org.joda.time.DateTime
 import akka.util.ByteString
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
@@ -933,7 +934,8 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
-  def addTasksToChallengeFromFile(challengeId: Long, lineByLine: Boolean, removeUnmatched: Boolean): Action[MultipartFormData[Files.TemporaryFile]] =
+  def addTasksToChallengeFromFile(challengeId: Long, lineByLine: Boolean, removeUnmatched: Boolean,
+                                  dataOriginDate: Option[String] = None): Action[MultipartFormData[Files.TemporaryFile]] =
     Action.async(parse.multipartFormData) { implicit request => {
       sessionManager.authenticatedRequest { implicit user =>
         dalManager.challenge.retrieveById(challengeId) match {
@@ -958,6 +960,11 @@ class ChallengeController @Inject()(override val childController: TaskController
                   sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
                 } else {
                   challengeProvider.createTasksFromJson(user, c, sourceData.mkString)
+                }
+                dataOriginDate match {
+                  case Some(d) =>
+                    dalManager.challenge.markTasksRefreshed(true, Some(new DateTime(d)))(challengeId)
+                  case _ => // do nothing
                 }
                 NoContent
               case _ =>
