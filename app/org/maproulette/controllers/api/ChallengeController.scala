@@ -495,7 +495,7 @@ class ChallengeController @Inject()(override val childController: TaskController
         Some(Utils.split(priorityFilter).map(_.toInt))
       }
 
-      val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
+      val (tasks, allComments) = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
 
       // Setup all exportable properties
       var propsToExportHeaders = ""
@@ -579,7 +579,7 @@ class ChallengeController @Inject()(override val childController: TaskController
               }
           }
 
-          var comments = task.comments.getOrElse("").replaceAll("\"", "\"\"")
+          var comments = allComments(task.taskId).replaceAll("\"", "\"\"")
 
           s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +

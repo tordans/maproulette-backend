@@ -1596,7 +1596,7 @@ class TaskDAL @Inject()(override val db: Database,
 
   def retrieveTaskSummaries(challengeId: Long, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
                             statusFilter: Option[List[Int]] = None, reviewStatusFilter: Option[List[Int]] = None,
-                            priorityFilter: Option[List[Int]] = None): List[TaskSummary] =
+                            priorityFilter: Option[List[Int]] = None): (List[TaskSummary], Map[Long,String]) =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
@@ -1611,14 +1611,13 @@ class TaskDAL @Inject()(override val db: Database,
         reviewedBy <- get[Option[String]]("reviewedBy")
         reviewedAt <- get[Option[DateTime]]("task_review.reviewed_at")
         reviewStartedAt <- get[Option[DateTime]]("task_review.review_started_at")
-        comments <- get[Option[String]]("comments")
         tags <- get[Option[String]]("tags")
         responses <- get[Option[String]]("responses")
         bundleId <- get[Option[Long]]("bundle_id")
         isBundlePrimary <- get[Option[Boolean]]("is_bundle_primary")
       } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
-        reviewStartedAt, comments, tags, responses, geojson, bundleId, isBundlePrimary)
+        reviewStartedAt, tags, responses, geojson, bundleId, isBundlePrimary)
 
       val status = statusFilter match {
         case Some(s) => s"AND t.status IN (${s.mkString(",")})"
@@ -1641,15 +1640,25 @@ class TaskDAL @Inject()(override val db: Database,
         case None => ""
       }
 
+      val commentParser = for {
+        taskId <- long("task_id")
+        comments <- str("comments")
+      } yield (taskId -> comments)
+
+      val commentsQuery =
+        SQL"""
+          SELECT tc.task_id, string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
+                            CONCAT(chr(10),'---',chr(10))) AS comments
+          FROM task_comments tc WHERE tc.challenge_id = #${challengeId} GROUP BY tc.task_id
+        """
+      val allComments = commentsQuery.as(commentParser.*).toMap.withDefaultValue("")
+
       val query =
         SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
                    task_review.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
                    task_review.reviewed_at, task_review.review_started_at,
-                   (SELECT string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
-                                      CONCAT(chr(10),'---',chr(10))) AS comments
-                    FROM task_comments tc WHERE tc.task_id = t.id),
                    (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id),
                    t.completion_responses::TEXT AS responses
             FROM tasks t LEFT OUTER JOIN (
@@ -1667,7 +1676,7 @@ class TaskDAL @Inject()(override val db: Database,
             WHERE t.parent_id = #${challengeId} #${status} #${priority} #${reviewStatus}
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """
-      query.as(parser.*)
+      (query.as(parser.*), allComments)
     }
 
   /**
@@ -1907,7 +1916,7 @@ class TaskDAL @Inject()(override val db: Database,
   case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
                          reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
-                         comments: Option[String], tags: Option[String], completionResponses: Option[String],
+                         tags: Option[String], completionResponses: Option[String],
                          geojson: Option[String], bundleId: Option[Long], isBundlePrimary: Option[Boolean])
 
 }
