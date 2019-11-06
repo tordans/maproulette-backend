@@ -1060,6 +1060,19 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
       """.as(parser.*)
     }
   }
+
+  def getPropertyKeys(challengeId: Long): List[String] = {
+    db.withConnection { implicit c =>
+      val parser = for {
+        key <- get[String]("key")
+      } yield key
+
+      SQL"""SELECT DISTINCT json_object_keys((features->>'properties')::JSON) as key
+          FROM tasks, jsonb_array_elements(geojson->'features') features
+          WHERE parent_id=#${challengeId}
+       """.as(parser.*)
+    }
+  }
 }
 
 object DataManager {

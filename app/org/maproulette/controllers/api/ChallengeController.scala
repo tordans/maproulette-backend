@@ -6,6 +6,7 @@ import java.io._
 import java.sql.Connection
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
+import org.joda.time.DateTime
 import akka.util.ByteString
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
@@ -71,7 +72,6 @@ class ChallengeController @Inject()(override val childController: TaskController
   implicit val pointWrites = ClusteredPoint.pointWrites
   implicit val clusteredPointWrites = ClusteredPoint.clusteredPointWrites
   implicit val taskClusterWrites = TaskCluster.taskClusterWrites
-  implicit val searchParameterWrites = SearchParameters.paramsWrites
   implicit val searchLocationWrites = SearchParameters.locationWrites
   implicit val challengeListingWrites: Writes[ChallengeListing] = Json.writes[ChallengeListing]
 
@@ -156,19 +156,26 @@ class ChallengeController @Inject()(override val childController: TaskController
     * and the geometry associated with it is just the centroid of the task geometry
     *
     * @param challengeId  The challenge id, ie. the parent of the tasks
-    * @param statusFilter Filter by status of the task
+    * @param statusFilter Filter by status of the task (@deprecated - please use search paramter tStatus)
     * @param limit        limit the number of tasks returned
+    * @param excludeLocked Don't cluster locked tasks
     * @return A list of ClusteredPoint's
     */
   def getClusteredPoints(challengeId: Long, statusFilter: String, limit: Int, excludeLocked: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      val filter = if (StringUtils.isEmpty(statusFilter)) {
-        None
-      } else {
-        Some(Utils.split(statusFilter).map(_.toInt))
+      SearchParameters.withSearch { implicit params =>
+        var searchParams = params
+
+        // For Backward compatibility
+        val filter = if (StringUtils.isEmpty(statusFilter)) {
+          None
+        } else {
+          searchParams = params.copy(taskStatus = Some(Utils.split(statusFilter).map(_.toInt)))
+        }
+
+        val result = this.dal.getClusteredPoints(User.userOrMocked(user), challengeId, searchParams, limit, excludeLocked)
+        Ok(_insertReviewJSON(result))
       }
-      val result = this.dal.getClusteredPoints(User.userOrMocked(user), challengeId, filter, limit, excludeLocked)
-      Ok(_insertReviewJSON(result))
     }
   }
 
@@ -220,7 +227,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
-          challengeIds = Some(List(challengeId)),
+          challengeParams = p.challengeParams.copy(challengeIds = Some(List(challengeId))),
           taskSearch = Some(taskSearch),
           taskTags = Some(Utils.split(tags))
         )
@@ -246,7 +253,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(
-          challengeIds = Some(List(challengeId)),
+          challengeParams = p.challengeParams.copy(challengeIds = Some(List(challengeId))),
           taskSearch = Some(taskSearch),
           taskTags = Some(Utils.split(tags))
         )
@@ -489,7 +496,7 @@ class ChallengeController @Inject()(override val childController: TaskController
         Some(Utils.split(priorityFilter).map(_.toInt))
       }
 
-      val tasks = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
+      val (tasks, allComments) = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
 
       // Setup all exportable properties
       var propsToExportHeaders = ""
@@ -544,8 +551,10 @@ class ChallengeController @Inject()(override val childController: TaskController
               for (key <- propsToExport) {
                 (taskProps \ key) match {
                     case value: JsDefined =>
-                      propData += "," + value.get.toString().replaceAll("\"", "\"\"")
-                    case vaue: JsUndefined => propData += "," + "\"\"" // empty value
+                      var propValue = value.get.toString()
+                      propValue = propValue.substring(1, propValue.length() - 1)
+                      propData += "," + propValue.replaceAll("\"", "\"\"")
+                    case value: JsUndefined => propData += "," + "\"\"" // empty value
                 }
               }
             case None => // do nothing
@@ -559,7 +568,9 @@ class ChallengeController @Inject()(override val childController: TaskController
               for (key <- responseProperties) {
                 (responseMap \ key) match {
                     case value: JsDefined =>
-                      responseData += "," + value.get.toString().replaceAll("\"", "\"\"")
+                      var propValue = value.get.toString()
+                      propValue = propValue.substring(1, propValue.length() - 1)
+                      responseData += "," + propValue.replaceAll("\"", "\"\"")
                     case vaue: JsUndefined => responseData += "," + "\"\"" // empty value
                 }
               }
@@ -569,14 +580,14 @@ class ChallengeController @Inject()(override val childController: TaskController
               }
           }
 
-          var comments = task.comments.getOrElse("").replaceAll("\"", "\"\"")
+          var comments = allComments(task.taskId).replaceAll("\"", "\"\"")
 
           s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
           s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
-          s""""${task.tags.getOrElse("")}",${propData}${responseData}""".stripMargin
+          s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin
         }
       )
       Result(
@@ -923,7 +934,8 @@ class ChallengeController @Inject()(override val childController: TaskController
     }
   }
 
-  def addTasksToChallengeFromFile(challengeId: Long, lineByLine: Boolean, removeUnmatched: Boolean): Action[MultipartFormData[Files.TemporaryFile]] =
+  def addTasksToChallengeFromFile(challengeId: Long, lineByLine: Boolean, removeUnmatched: Boolean,
+                                  dataOriginDate: Option[String] = None): Action[MultipartFormData[Files.TemporaryFile]] =
     Action.async(parse.multipartFormData) { implicit request => {
       sessionManager.authenticatedRequest { implicit user =>
         dalManager.challenge.retrieveById(challengeId) match {
@@ -948,6 +960,11 @@ class ChallengeController @Inject()(override val childController: TaskController
                   sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
                 } else {
                   challengeProvider.createTasksFromJson(user, c, sourceData.mkString)
+                }
+                dataOriginDate match {
+                  case Some(d) =>
+                    dalManager.challenge.markTasksRefreshed(true, Some(new DateTime(d)))(challengeId)
+                  case _ => // do nothing
                 }
                 NoContent
               case _ =>

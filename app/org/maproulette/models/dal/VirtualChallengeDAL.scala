@@ -15,7 +15,7 @@ import org.maproulette.exception.InvalidException
 import org.maproulette.models._
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{SearchLocation, SearchParameters, User}
+import org.maproulette.session.{SearchLocation, SearchParameters, SearchChallengeParameters, User}
 import play.api.db.Database
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.{JsString, JsValue, Json}
@@ -34,8 +34,6 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
 
   implicit val searchLocationWrites = Json.writes[SearchLocation]
   implicit val searchLocationReads = Json.reads[SearchLocation]
-  implicit val paramsWrites = Json.writes[SearchParameters]
-  implicit val paramsReads = Json.reads[SearchParameters]
 
   override val parser: RowParser[VirtualChallenge] = {
     get[Long]("virtual_challenges.id") ~
@@ -109,7 +107,8 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
   def rebuildVirtualChallenge(id: Long, params: SearchParameters, user: User)(implicit c: Option[Connection] = None): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      this.taskDAL.getTasksInBoundingBox(user, params, -1, 0).grouped(config.virtualChallengeBatchSize).foreach(batch => {
+      val (count, result) = this.taskDAL.getTasksInBoundingBox(user, params, -1, 0)
+      result.grouped(config.virtualChallengeBatchSize).foreach(batch => {
         val insertRows = batch.map(point => s"(${point.id}, $id)").mkString(",")
         SQL"""
            INSERT INTO virtual_challenge_tasks (task_id, virtual_challenge_id) VALUES #$insertRows
