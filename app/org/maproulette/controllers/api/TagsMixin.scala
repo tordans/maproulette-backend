@@ -132,7 +132,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
               }
             })
           } catch {
-            case e =>
+            case e: Throwable =>
               List.empty
           }
         }
