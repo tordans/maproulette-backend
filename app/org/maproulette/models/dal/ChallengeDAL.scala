@@ -1038,11 +1038,16 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     * @param id        The id of the challenge
     * @param c         an implicit connection
     */
-  def markTasksRefreshed(overwrite: Boolean = false)(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+  def markTasksRefreshed(overwrite: Boolean = false, dataOriginDate: Option[DateTime] = None)(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
       if (overwrite) {
+        val originDate = dataOriginDate match {
+          case Some(d) => s"""'${d.toString()}'"""
+          case _ => "NOW()"
+        }
+
         this.withMRTransaction { implicit c =>
-          SQL"""UPDATE challenges SET last_task_refresh = NOW(), data_origin_date = NOW()
+          SQL"""UPDATE challenges SET last_task_refresh = NOW(), data_origin_date = #$originDate
                 WHERE id = $id RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
         }
       }
