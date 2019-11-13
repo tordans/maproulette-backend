@@ -13,7 +13,8 @@ import play.api.libs.json._
 case class TaskCluster(clusterId: Int, numberOfPoints: Int, taskId: Option[Long],
                        taskStatus: Option[Int], taskPriority: Option[Int],
                        params: SearchParameters, point: Point,
-                       bounding: JsValue = Json.toJson("{}")) extends DefaultWrites
+                       bounding: JsValue = Json.toJson("{}"),
+                       challengeIds: List[Long]) extends DefaultWrites
 
 object TaskCluster {
   implicit val pointWrites: Writes[Point] = Json.writes[Point]

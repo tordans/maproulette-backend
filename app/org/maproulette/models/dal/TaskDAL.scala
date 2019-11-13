@@ -1266,15 +1266,17 @@ class TaskDAL @Inject()(override val db: Database,
                      (implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
       val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
-        get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ str("geom") ~ str("bounding") map {
-        case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geom ~ bounding =>
+        get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ str("geom") ~
+        str("bounding") ~ get[List[Long]]("challengeIds") map {
+        case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geom ~ bounding ~ challengeIds =>
           val locationJSON = Json.parse(geom)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point, Json.parse(bounding))
+          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
+                      Json.parse(bounding), challengeIds)
       }
 
-      val whereClause = new StringBuilder
+      val whereClause = new StringBuilder(" c.deleted = false AND p.deleted = false  ")
       val joinClause = new StringBuilder(
         """
           INNER JOIN challenges c ON c.id = t.parent_id
@@ -1294,7 +1296,8 @@ class TaskDAL @Inject()(override val db: Database,
                 CASE WHEN count(*)=1 THEN (array_agg(taskStatus))[1] END as taskStatus,
                 CASE WHEN count(*)=1 THEN (array_agg(taskPriority))[1] END as taskPriority,
                 ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
-                ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding
+                ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding,
+                array_agg(distinct challengeIds) as challengeIds
              FROM (
                SELECT t.id as taskId, t.status as taskStatus, t.priority as taskPriority, ST_ClusterKMeans(t.location,
                           (SELECT
@@ -1303,7 +1306,7 @@ class TaskDAL @Inject()(override val db: Database,
                             ${joinClause.toString}
                             $where
                           )::Integer
-                        ) OVER () AS kmeans, t.location
+                        ) OVER () AS kmeans, t.location, t.parent_id as challengeIds
                FROM tasks t
                ${joinClause.toString}
                $where
@@ -1312,7 +1315,7 @@ class TaskDAL @Inject()(override val db: Database,
              GROUP BY kmeans
              ORDER BY kmeans
            """
-      SQL(query).as(taskClusterParser.*)
+      sqlWithParameters(query, parameters).as(taskClusterParser.*)
     }
   }
 
@@ -1372,6 +1375,11 @@ class TaskDAL @Inject()(override val db: Database,
       case None => // do nothing
     }
 
+    params.bounding match {
+      case Some(sl) => this.appendInWhereClause(whereClause, s"c.bounding @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
+      case None => // do nothing
+    }
+
     params.taskStatus match {
       case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"t.status IN (${sl.mkString(",")})")
       case Some(sl) if sl.isEmpty => //ignore this scenario
@@ -1402,6 +1410,24 @@ class TaskDAL @Inject()(override val db: Database,
       case Some(p) if p == 0 || p == 1 || p == 2 => this.appendInWhereClause(whereClause, s"t.priority = $p")
       case _ => // ignore
     }
+
+    params.challengeParams.challengeDifficulty match {
+      case Some(v) if v > 0 && v < 4 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
+      case _ =>
+    }
+
+    params.challengeParams.challengeStatus match {
+      case Some(sl) if sl.nonEmpty =>
+        val statusClause = new StringBuilder(s"(c.status IN (${sl.mkString(",")})")
+        if (sl.contains(-1)) {
+          statusClause ++= " OR c.status IS NULL"
+        }
+        statusClause ++= ")"
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(sl) if sl.isEmpty => //ignore this scenario
+      case _ =>
+    }
+
 
     // For efficiency can only query on task properties with a parent challenge id
     params.getChallengeIds match {
@@ -1480,6 +1506,8 @@ class TaskDAL @Inject()(override val db: Database,
 
           // Lets do a total count of tasks we would return if not paging.
           val parameters = this.updateWhereClause(params, whereClause, joinClause)
+          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
+
           val countQuery =
             s"""
               SELECT count(*) FROM tasks t
