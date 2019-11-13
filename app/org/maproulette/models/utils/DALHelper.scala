@@ -206,7 +206,7 @@ trait DALHelper {
               }
             case _ => // we can ignore this
           }
-          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
+          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), projectPrefix)(None))
       }
     }
 
@@ -225,6 +225,7 @@ trait DALHelper {
             }
           case _ => // ignore
         }
+        this.appendInWhereClause(whereClause, this.enabled(params.challengeParams.challengeEnabled.getOrElse(false), challengePrefix)(None))
     }
 
     parameters

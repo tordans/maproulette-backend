@@ -570,7 +570,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           val locationJSON = Json.parse(geom)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
           val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, None, None, None, params, point, Json.parse(bounding))
+          TaskCluster(kmeans, totalPoints, None, None, None, params, point, Json.parse(bounding), List())
       }
 
       val fetchBy = if (reviewTasksType == 2) "task_review.reviewed_by" else "task_review.review_requested_by"
