@@ -1674,7 +1674,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE\",\n    \"tags\":\"newUpdateTaskTag\"\n}"
+							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE\",\n    \"tags\": \"newupdatetasktag\"\n}"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
@@ -1688,6 +1688,254 @@
 								"v2",
 								"task",
 								"{{NewTask}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "UpdateTask Tags - Array",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"tags\"] = jsonData.tags.length === 2;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tags\": [\"newupdatetasktag\", \"taskTag2\"]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "UpdateTask - No Tags (remain unchanged)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction UPDATE2\";",
+									"tests[\"tags\"] = jsonData.tags.length === 2;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE2\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task Tags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "e7c6af8f-c978-41d6-adb2-6853cfcbb476",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"tagname\"] = jsonData[0].name === \"newupdatetasktag\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/tags",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"tags"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "UpdateTask - Delete all Tags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "9f56731b-4f82-4f20-acc5-6d0878a787ee",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"NewTask\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction UPDATE2\";",
+									"tests[\"tags\"] = jsonData.tags.length === 2;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"instruction\":\"NewTask instruction UPDATE2\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}"
+							]
+						},
+						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Read Task Tags Empty",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "e7c6af8f-c978-41d6-adb2-6853cfcbb476",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"tagname\"] = jsonData[0].name === \"newupdatetasktag\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:9000/api/v2/task/{{NewTask}}/tags",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"task",
+								"{{NewTask}}",
+								"tags"
 							]
 						},
 						"description": "Creates a project with two children within the same request."

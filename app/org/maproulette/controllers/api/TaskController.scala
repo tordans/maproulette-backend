@@ -259,6 +259,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @return A Json representation of the object
     */
   override def inject(obj: Task)(implicit request: Request[Any]): JsValue = {
+    var taskToReturn = obj
+
     val serverInfo = config.getMapillaryServerInfo
     if (serverInfo.clientId.nonEmpty) {
       if (request.getQueryString("mapillary").getOrElse("false").toBoolean) {
@@ -289,10 +291,12 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-1024.jpg",
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-2048.jpg")
         })
-        return super.inject(obj.copy(mapillaryImages = Some(images)))
+        taskToReturn = obj.copy(mapillaryImages = Some(images))
       }
     }
-    super.inject(obj)
+
+    val tags = tagDAL.listByTask(taskToReturn.id)
+    return Utils.insertIntoJson(Json.toJson(taskToReturn), Tag.KEY, Json.toJson(tags.map(_.name)))
   }
 
   /**
