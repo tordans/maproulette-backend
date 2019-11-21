@@ -12,7 +12,7 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL, DALManager}
 import org.maproulette.models._
-import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
+import org.maproulette.exception.{InvalidException, NotFoundException, LockedException, StatusMessage}
 import org.maproulette.session.{SearchLocation, SearchParameters, SearchChallengeParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm._
@@ -226,8 +226,12 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.retrieveById(taskId) match {
         case Some(t) =>
-          this.dal.refreshItemLock(user, t)
-          Ok(Json.toJson(t))
+          try {
+            this.dal.refreshItemLock(user, t)
+            Ok(Json.toJson(t))
+          } catch {
+            case e: LockedException => throw new IllegalAccessException(e.getMessage)
+          }
         case None =>
           throw new NotFoundException(s"Task with $taskId not found, unable to refresh lock.")
       }

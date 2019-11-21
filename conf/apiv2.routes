@@ -2729,14 +2729,14 @@ GET     /task/:id/release                               @org.maproulette.control
 # produces: [ application/json ]
 # description: Refreshes an existing lock, extending its allowed duration, on the
 #              task with the supplied ID. The requesting user must already own an
-#              active lock on the task (i.e. via the task/:id/start API) or a 401
+#              active lock on the task (i.e. via the task/:id/start API) or a 403
 #              will be raised
 # responses:
 #   '200':
 #     description: The lock was successfully refreshed
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.Task'
-#   '401':
+#   '403':
 #     description: The user does not own a lock on the task
 #   '404':
 #     description: ID field supplied but no Task found matching the id
