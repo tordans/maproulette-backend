@@ -2725,6 +2725,29 @@ GET     /task/:id/start                               @org.maproulette.controlle
 GET     /task/:id/release                               @org.maproulette.controllers.api.TaskController.releaseTask(id:Long)
 ###
 # tags: [ Task ]
+# summary: Refresh an existing lock on a Task
+# produces: [ application/json ]
+# description: Refreshes an existing lock, extending its allowed duration, on the
+#              task with the supplied ID. The requesting user must already own an
+#              active lock on the task (i.e. via the task/:id/start API) or a 401
+#              will be raised
+# responses:
+#   '200':
+#     description: The lock was successfully refreshed
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '401':
+#     description: The user does not own a lock on the task
+#   '404':
+#     description: ID field supplied but no Task found matching the id
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the Task on which the lock is to be refreshed
+###
+GET     /task/:id/refreshLock                           @org.maproulette.controllers.api.TaskController.refreshTaskLock(id:Long)
+###
+# tags: [ Task ]
 # summary: Retrieves an already existing Task
 # produces: [ application/json ]
 # description: Retrieves an already existing Task based on the name of the Task rather than an ID

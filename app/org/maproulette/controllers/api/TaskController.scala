@@ -217,6 +217,24 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   }
 
   /**
+    * Refresh the active lock on the task, extending its allowed duration
+    *
+    * @param taskId    Id of the task on which the lock is to be refreshed
+    * @return
+    */
+  def refreshTaskLock(taskId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.retrieveById(taskId) match {
+        case Some(t) =>
+          this.dal.refreshItemLock(user, t)
+          Ok(Json.toJson(t))
+        case None =>
+          throw new NotFoundException(s"Task with $taskId not found, unable to refresh lock.")
+      }
+    }
+  }
+
+  /**
     * Gets a random task(s) given the provided tags.
     *
     * @param projectSearch   Filter on the name of the project
