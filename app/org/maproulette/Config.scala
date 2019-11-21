@@ -61,6 +61,8 @@ class Config @Inject()(implicit val configuration: Configuration) {
     Duration(this.config.getOptional[String](Config.KEY_CHANGESET_TIME_LIMIT).getOrElse(Config.DEFAULT_CHANGESET_HOUR_LIMIT))
   lazy val changeSetEnabled: Boolean =
     this.config.getOptional[Boolean](Config.KEY_CHANGESET_ENABLED).getOrElse(Config.DEFAULT_CHANGESET_ENABLED)
+  lazy val taskLockExpiry: String =
+    this.config.getOptional[String](Config.KEY_TASK_LOCK_EXPIRY).getOrElse(Config.DEFAULT_TASK_LOCK_EXPIRY)
   lazy val taskScoreFixed: Int =
     this.config.getOptional[Int](Config.KEY_TASK_SCORE_FIXED).getOrElse(Config.DEFAULT_TASK_SCORE_FIXED)
   lazy val taskScoreFalsePositive: Int =
@@ -180,6 +182,7 @@ object Config {
   val KEY_EMAIL_FROM = s"$GROUP_MAPROULETTE.emailFrom"
   val KEY_TASK_RESET = s"$GROUP_MAPROULETTE.task.reset"
   val KEY_SIGNIN = s"$GROUP_MAPROULETTE.signin"
+  val KEY_TASK_LOCK_EXPIRY = s"$GROUP_MAPROULETTE.task.lock.expiry"
   val KEY_TASK_SCORE_FIXED = s"$GROUP_MAPROULETTE.task.score.fixed"
   val KEY_TASK_SCORE_FALSE_POSITIVE = s"$GROUP_MAPROULETTE.task.score.falsePositive"
   val KEY_TASK_SCORE_ALREADY_FIXED = s"$GROUP_MAPROULETTE.task.score.alreadyFixed"
@@ -236,6 +239,7 @@ object Config {
   val KEY_OSM_QL_TIMEOUT = s"$GROUP_OSM.ql.timeout"
 
   val DEFAULT_SESSION_TIMEOUT = 3600000L
+  val DEFAULT_TASK_LOCK_EXPIRY = "1 hour"
   val DEFAULT_TASK_RESET = 7
   val DEFAULT_TASK_SCORE_FIXED = 5
   val DEFAULT_TASK_SCORE_FALSE_POSITIVE = 3

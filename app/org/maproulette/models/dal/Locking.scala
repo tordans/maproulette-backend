@@ -43,6 +43,31 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     }
 
   /**
+    * Refreshes an existing lock on an item in the database, extending its allowed duration
+    *
+    * @param user The user requesting to refresh the lock (and who must also own it)
+    * @param item The locked item
+    * @param c    A sql connection that is implicitly passed in from the calling function, this is an
+    *             implicit function because this will always be called from within the code and never
+    *             directly from an API call
+    * @return true if successful
+    */
+  def refreshItemLock(user: User, item: T)(implicit c: Option[Connection] = None): Int =
+    this.withMRTransaction { implicit c =>
+      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
+      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+        case Some(id) =>
+          if (id == user.id) {
+            val query = s"""UPDATE locked set locked_time=NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
+            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+          } else {
+            throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}]")
+          }
+        case None => throw new LockedException(s"Lock on item [${item.id}] does not exist.")
+      }
+    }
+
+  /**
     * Method to lock all items returned in the lambda block. It will first all unlock all items
     * that have been locked by the user.
     *
