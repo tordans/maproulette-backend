@@ -206,14 +206,14 @@ trait DALHelper {
               }
             case _ => // we can ignore this
           }
-          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
+          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), projectPrefix)(None))
       }
     }
 
     params.getChallengeIds match {
       case Some(c) if c.nonEmpty => this.appendInWhereClause(whereClause, s"$challengePrefix.id IN (${c.mkString(",")})")
       case _ =>
-        params.challengeSearch match {
+        params.challengeParams.challengeSearch match {
           case Some(cs) if cs.nonEmpty =>
             params.fuzzySearch match {
               case Some(x) =>
@@ -225,6 +225,7 @@ trait DALHelper {
             }
           case _ => // ignore
         }
+        this.appendInWhereClause(whereClause, this.enabled(params.challengeParams.challengeEnabled.getOrElse(false), challengePrefix)(None))
     }
 
     parameters
@@ -319,7 +320,7 @@ trait DALHelper {
                                      joinClause: StringBuilder, challengePrefix: String = "c"): ListBuffer[NamedParameter] = {
     val parameters = new ListBuffer[NamedParameter]()
 
-    params.challengeTags match {
+    params.challengeParams.challengeTags match {
       case Some(ct) if ct.nonEmpty =>
         joinClause ++=
           s"""

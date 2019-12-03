@@ -112,12 +112,17 @@ trait TagsMixin[T <: BaseObject[Long]] {
     * @param user          the user executing the request
     */
   def extractTags(body: JsValue, createdObject: T, user: User, completeList: Boolean = false): Unit = {
-    val tags: List[Tag] = body \ "tags" match {
+    val tags: Option[List[Tag]] = body \ "tags" match {
       case tags: JsDefined =>
         // this case is for a comma separated list, either of ints or strings
         if (!tags.isEmpty) {
           try {
-            tags.as[String].split(",").toList.map(tag => {
+            val tagList = tags.validate[List[String]] match {
+              case s: JsSuccess[List[String]] => tags.as[List[String]]
+              case e: JsError => tags.as[String].split(",").toList
+            }
+
+            Some(tagList.map(tag => {
               try {
                 Tag(tag.toLong, "")
               } catch {
@@ -130,34 +135,39 @@ trait TagsMixin[T <: BaseObject[Long]] {
                       Tag(-1, tag, tagType = this.dal.tableName)
                   }
               }
-            })
+            }))
           } catch {
-            case e =>
-              List.empty
+            case e: Throwable =>
+              None
           }
         }
         else {
-          List.empty
+          Some(List.empty)
         }
       case tags: JsUndefined =>
         (body \ "fulltags").asOpt[List[JsValue]] match {
           case Some(tagList) =>
-            tagList.map(value => {
+            Some(tagList.map(value => {
               val identifier = (value \ "id").asOpt[Long].getOrElse(-1L)
               val name = (value \ "name").asOpt[String].getOrElse("")
               val description = (value \ "description").asOpt[String]
               Tag(identifier, name, description)
-            })
-          case None => List.empty
+            }))
+          case None => None
         }
-      case _ => List.empty
+      case _ => None
     }
-    val tagIds = this.tagDAL.updateTagList(tags, user).map(_.id)
 
-    if (tagIds.nonEmpty || completeList) {
-      // now we have the ids for the supplied tags, then lets map them to the item created
-      this.dalWithTags.updateItemTags(createdObject.id, tagIds, user, completeList)
-      this.actionManager.setAction(Some(user), this.itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+    tags match {
+      case Some(tagList) =>
+        val tagIds = this.tagDAL.updateTagList(tagList, user).map(_.id)
+
+        if (tagIds.nonEmpty || completeList) {
+          // now we have the ids for the supplied tags, then lets map them to the item created
+          this.dalWithTags.updateItemTags(createdObject.id, tagIds, user, completeList)
+          this.actionManager.setAction(Some(user), this.itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
+        }
+      case _ => return
     }
   }
 

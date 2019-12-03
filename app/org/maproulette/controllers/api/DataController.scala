@@ -351,4 +351,10 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
       ))
     }
   }
+
+  def getPropertyKeys(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(Map("keys" -> dataManager.getPropertyKeys(challengeId))))
+    }
+  }
 }

@@ -1523,7 +1523,7 @@ PUT     /challenge/:id/addTasks                     @org.maproulette.controllers
 #     description: The geojson to build the tasks from.
 #     required: true
 ###
-PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true, removeUnmatched:Boolean ?= false)
+PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true, removeUnmatched:Boolean ?= false, dataOriginDate:Option[String])
 ###
 # tags: [ Challenge ]
 # summary: Retrieves children for Challenge
@@ -2967,7 +2967,7 @@ GET     /tasks/random                               @org.maproulette.controllers
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
-GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false)
+GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Update Task Changeset
@@ -3591,6 +3591,8 @@ GET     /data/status/activity                       @org.maproulette.controllers
 GET     /data/status/latestActivity                 @org.maproulette.controllers.api.DataController.getLatestChallengeActivity(projectIds:String ?= "", challengeIds:String ?= "", entries:Int ?= 1)
 ### NoDocs ###
 GET     /data/status/summary                        @org.maproulette.controllers.api.DataController.getStatusSummary(userIds:String ?= "", projectIds:String ?= "", challengeIds:String ?= "", start:String ?= "", end:String ?= "", limit:Int ?= 10, page:Int ?= 0)
+### NoDocs ###
+GET     /data/challenge/:challengeId/propertyKeys   @org.maproulette.controllers.api.DataController.getPropertyKeys(challengeId:Long)
 ###
 # tags: [ User ]
 # summary: Retrieves current user's JSON information

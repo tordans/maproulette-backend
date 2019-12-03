@@ -13,7 +13,7 @@ import org.maproulette.data._
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL, DALManager}
 import org.maproulette.models._
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
-import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager, User}
+import org.maproulette.session.{SearchLocation, SearchParameters, SearchChallengeParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
@@ -236,8 +236,9 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     this.sessionManager.userAwareRequest { implicit user =>
       val params = SearchParameters(
         projectSearch = Some(projectSearch),
-        challengeSearch = Some(challengeSearch),
-        challengeTags = Some(challengeTags.split(",").toList),
+        challengeParams = SearchChallengeParameters(
+          challengeSearch = Some(challengeSearch),
+          challengeTags = Some(challengeTags.split(",").toList)),
         taskTags = Some(tags.split(",").toList),
         taskSearch = Some(taskSearch)
       )
@@ -258,6 +259,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @return A Json representation of the object
     */
   override def inject(obj: Task)(implicit request: Request[Any]): JsValue = {
+    var taskToReturn = obj
+
     val serverInfo = config.getMapillaryServerInfo
     if (serverInfo.clientId.nonEmpty) {
       if (request.getQueryString("mapillary").getOrElse("false").toBoolean) {
@@ -288,10 +291,12 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-1024.jpg",
             s"https://d1cuyjsrcm0gby.cloudfront.net/$key/thumb-2048.jpg")
         })
-        return super.inject(obj.copy(mapillaryImages = Some(images)))
+        taskToReturn = obj.copy(mapillaryImages = Some(images))
       }
     }
-    super.inject(obj)
+
+    val tags = tagDAL.listByTask(taskToReturn.id)
+    return Utils.insertIntoJson(Json.toJson(taskToReturn), Tag.KEY, Json.toJson(tags.map(_.name)))
   }
 
   /**
@@ -306,11 +311,18 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @return
     */
   def getTasksInBoundingBox(left: Double, bottom: Double, right: Double, top: Double, limit: Int,
-                            offset: Int, excludeLocked: Boolean): Action[AnyContent] = Action.async { implicit request =>
+                            offset: Int, excludeLocked: Boolean, sort: String= "", order: String= "ASC",
+                            includeTotal: Boolean= false): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
-        Ok(Json.toJson(this.dal.getTasksInBoundingBox(User.userOrMocked(user), params, limit, offset, excludeLocked)))
+        val (count, result) = this.dal.getTasksInBoundingBox(User.userOrMocked(user), params, limit, offset, excludeLocked, sort, order)
+        if (includeTotal) {
+          Ok(Json.obj("total" -> count, "tasks" -> result))
+        }
+        else {
+          Ok(Json.toJson(result))
+        }
       }
     }
   }
@@ -390,7 +402,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     }
   }
 
-  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String="",
+  def customTaskStatus(taskId:Long, actionType: ActionType, user:User, comment:String= "",
                        tags: String= "",requestReview:Option[Boolean] = None, completionResponses:Option[JsValue] = None) = {
     val status = actionType match {
       case t: TaskStatusSet => t.status
@@ -435,7 +447,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @return 400 BadRequest if task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  def setTaskReviewStatus(id: Long, reviewStatus: Int, comment:String="", tags: String= "") : Action[AnyContent] = Action.async { implicit request =>
+  def setTaskReviewStatus(id: Long, reviewStatus: Int, comment:String= "", tags: String= "") : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val task = this.dal.retrieveById(id) match {
         case Some(t) => t
@@ -471,7 +483,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @return 400 BadRequest if task with supplied id not found.
     *         If successful then 200 NoContent
     */
-  def setBundleTaskReviewStatus(id: Long, reviewStatus: Int, comment:String="", tags: String= "") : Action[AnyContent] = Action.async { implicit request =>
+  def setBundleTaskReviewStatus(id: Long, reviewStatus: Int, comment:String= "", tags: String= "") : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val tasks = this.dal.getTaskBundle(user, id).tasks match {
         case Some(t) => t

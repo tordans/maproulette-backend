@@ -326,11 +326,11 @@ class ProjectDAL @Inject()(override val db: Database,
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
-      parameters += ('cs -> this.search(params.challengeSearch.getOrElse("")))
+      parameters += ('cs -> this.search(params.challengeParams.challengeSearch.getOrElse("")))
       parameters += ('ps -> this.search(params.projectSearch.getOrElse("")))
       // search by tags if any
-      val challengeTags = if (params.challengeTags.isDefined && params.challengeTags.get.nonEmpty) {
-        val tags = params.challengeTags.get.zipWithIndex.map {
+      val challengeTags = if (params.challengeParams.challengeTags.isDefined && params.challengeParams.challengeTags.get.nonEmpty) {
+        val tags = params.challengeParams.challengeTags.get.zipWithIndex.map {
           case (v, i) =>
             parameters += (s"tag_$i" -> this.search(v))
             s"t.name LIKE {tag_$i}"
