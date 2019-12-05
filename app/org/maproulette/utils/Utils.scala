@@ -213,7 +213,8 @@ object Utils extends DefaultWrites {
     val resultMap = scala.collection.mutable.Map[String, String]()
     stringMap.split(",").foreach { r => {
       val pair = r.split(":")
-      resultMap += pair(0) -> pair(1)
+      resultMap += new String(java.util.Base64.getDecoder.decode(pair(0))) ->
+                    new String(java.util.Base64.getDecoder.decode(pair(1)))
     }}
     Some(resultMap.toMap)
   }
