@@ -73,7 +73,8 @@ class SchedulerActor @Inject()(config: Config,
   def cleanLocks(action: String): Unit = {
     logger.info(action)
     this.db.withTransaction { implicit c =>
-      val locksDeleted = SQL"""DELETE FROM locked WHERE AGE(NOW(), locked_time) > '1 hour'""".executeUpdate()
+      val query = s"DELETE FROM locked WHERE AGE(NOW(), locked_time) > '${config.taskLockExpiry}'"
+      val locksDeleted = SQL(query).executeUpdate()
       logger.info(s"$locksDeleted were found and deleted.")
     }
   }

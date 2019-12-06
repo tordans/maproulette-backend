@@ -12,7 +12,7 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
 import org.maproulette.models.dal.{TagDAL, TagDALMixin, TaskDAL, DALManager}
 import org.maproulette.models._
-import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
+import org.maproulette.exception.{InvalidException, NotFoundException, LockedException, StatusMessage}
 import org.maproulette.session.{SearchLocation, SearchParameters, SearchChallengeParameters, SessionManager, User}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm._
@@ -68,6 +68,8 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   implicit val tagChangeSubmissionReads = ChangeObjects.tagChangeSubmissionReads
 
   implicit val taskBundleWrites: Writes[TaskBundle] = TaskBundle.taskBundleWrites
+
+  implicit val pointReviewWrites = ClusteredPoint.pointReviewWrites
 
   override def dalWithTags: TagDALMixin[Task] = dal
 
@@ -215,6 +217,28 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
   }
 
   /**
+    * Refresh the active lock on the task, extending its allowed duration
+    *
+    * @param taskId    Id of the task on which the lock is to be refreshed
+    * @return
+    */
+  def refreshTaskLock(taskId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.dal.retrieveById(taskId) match {
+        case Some(t) =>
+          try {
+            this.dal.refreshItemLock(user, t)
+            Ok(Json.toJson(t))
+          } catch {
+            case e: LockedException => throw new IllegalAccessException(e.getMessage)
+          }
+        case None =>
+          throw new NotFoundException(s"Task with $taskId not found, unable to refresh lock.")
+      }
+    }
+  }
+
+  /**
     * Gets a random task(s) given the provided tags.
     *
     * @param projectSearch   Filter on the name of the project
@@ -317,11 +341,14 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       SearchParameters.withSearch { p =>
         val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
         val (count, result) = this.dal.getTasksInBoundingBox(User.userOrMocked(user), params, limit, offset, excludeLocked, sort, order)
+
+        val resultJson = _insertExtraJSON(result)
+
         if (includeTotal) {
-          Ok(Json.obj("total" -> count, "tasks" -> result))
+          Ok(Json.obj("total" -> count, "tasks" -> resultJson))
         }
         else {
-          Ok(Json.toJson(result))
+          Ok(resultJson)
         }
       }
     }
@@ -749,6 +776,44 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.deleteTaskBundle(user, id, primaryId)
       Ok
+    }
+  }
+
+  /**
+   * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into
+   * the ClusteredPoint.pointReview
+   */
+  private def _insertExtraJSON(tasks: List[ClusteredPoint]): JsValue = {
+    if (tasks.isEmpty) {
+      Json.toJson(List[JsValue]())
+    } else {
+      val mappers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
+        t => t.pointReview.reviewRequestedBy.getOrElse(0L))).map(u =>
+          u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
+        t => t.pointReview.reviewedBy.getOrElse(0L))).map(u =>
+          u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val jsonList = tasks.map { task =>
+        var updated = Json.toJson(task)
+        var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
+
+        if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
+          val mapperJson = Json.toJson(mappers.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
+          reviewPointJson = Utils.insertIntoJson(reviewPointJson, "reviewRequestedBy", mapperJson, true).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        if (task.pointReview.reviewedBy.getOrElse(0) != 0) {
+          var reviewerJson = Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
+          reviewPointJson = Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        updated
+      }
+      Json.toJson(jsonList)
     }
   }
 }
