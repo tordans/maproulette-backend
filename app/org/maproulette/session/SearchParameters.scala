@@ -246,7 +246,7 @@ object SearchParameters {
         case Some(v) => Utils.toIntList(v)
         case None => params.taskReviewStatus
       },
-      //taskProperties
+      //taskProperties (base 64 encoded key:value comma separated)
       request.getQueryString("tProps") match {
         case Some(v) => Utils.toMap(v)
         case None => params.taskProperties
@@ -261,7 +261,7 @@ object SearchParameters {
       },
       //taskPriority
       this.getIntParameter(request.getQueryString("tp"), params.priority),
-      //taskBoundingBox for Challenge Location
+      //taskBoundingBox for tasks found in bounding Box
       request.getQueryString("tbb") match {
         case Some(v) if v.nonEmpty =>
           v.split(",") match {
@@ -270,7 +270,7 @@ object SearchParameters {
           }
         case _ => params.location
       },
-      //taskBoundingBox for Challenge location
+      //boundingBox for Challenges bounds contained in bounding box
       request.getQueryString("bb") match {
         case Some(v) if v.nonEmpty =>
           v.split(",") match {
