@@ -1501,7 +1501,20 @@ class TaskDAL @Inject()(override val db: Database,
 
           var sortClause = "ORDER BY RANDOM()"
           if (sort != "") {
-            sortClause = this.order(Some(sort), order, "t")
+            sort match {
+              case "reviewRequestedBy" =>
+                sortClause = this.order(Some("review_requested_by"), order, "tr")
+              case "reviewedBy" =>
+                sortClause = this.order(Some("reviewed_by"), order, "tr")
+              case "reviewStatus" =>
+                sortClause = this.order(Some("review_status"), order, "tr")
+              case "reviewedAt" =>
+                sortClause = this.order(Some("reviewed_at"), order, "tr")
+              case "mappedOn" =>
+                sortClause = this.order(Some("mapped_on"), order, "t")
+              case _ =>
+                sortClause = this.order(Some(sort), order, "t")
+            }
           }
 
           // Lets do a total count of tasks we would return if not paging.
