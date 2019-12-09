@@ -460,7 +460,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         var pointer = 0
         var currentTasks: List[Task] = List.empty
         do {
-          currentTasks = listChildren(DEFAULT_NUM_CHILDREN_LIST, pointer)
+          currentTasks = listChildren(DEFAULT_NUM_CHILDREN_LIST, pointer * DEFAULT_NUM_CHILDREN_LIST)
           val highPriorityIDs = currentTasks.filter(_.getTaskPriority(challenge) == Challenge.PRIORITY_HIGH).map(_.id).mkString(",")
           val mediumPriorityIDs = currentTasks.filter(_.getTaskPriority(challenge) == Challenge.PRIORITY_MEDIUM).map(_.id).mkString(",")
           val lowPriorityIDs = currentTasks.filter(_.getTaskPriority(challenge) == Challenge.PRIORITY_LOW).map(_.id).mkString(",")
@@ -476,7 +476,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           }
 
           pointer += 1
-        } while (currentTasks.size == 50)
+        } while (currentTasks.size >= DEFAULT_NUM_CHILDREN_LIST)
         this.taskDAL.clearCaches
       }
     }
