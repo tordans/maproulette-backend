@@ -1271,9 +1271,15 @@ class TaskDAL @Inject()(override val db: Database,
         case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geom ~ bounding ~ challengeIds =>
           val locationJSON = Json.parse(geom)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
-                      Json.parse(bounding), challengeIds)
+          // Let's check to make sure we received valid number of coordinates.
+          if (coordinates.length > 1) {
+            val point = Point(coordinates(1), coordinates.head)
+            TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
+                        Json.parse(bounding), challengeIds)
+          }
+          else {
+            None
+          }
       }
 
       val whereClause = new StringBuilder(" c.deleted = false AND p.deleted = false  ")
@@ -1315,7 +1321,9 @@ class TaskDAL @Inject()(override val db: Database,
              GROUP BY kmeans
              ORDER BY kmeans
            """
-      sqlWithParameters(query, parameters).as(taskClusterParser.*)
+      var result = sqlWithParameters(query, parameters).as(taskClusterParser.*)
+      // Filter out invalid clusters.
+      result.filter( _ != None ).asInstanceOf[List[TaskCluster]]
     }
   }
 
