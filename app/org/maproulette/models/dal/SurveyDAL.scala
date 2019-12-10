@@ -22,9 +22,10 @@ import play.api.libs.json.JsValue
 class SurveyDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                           override val tagDAL: TagDAL,
                           projectDAL: Provider[ProjectDAL],
+                          notificationDAL: Provider[NotificationDAL],
                           override val permission: Permission,
                           config:Config)
-  extends ChallengeDAL(db, taskDAL, tagDAL, projectDAL, permission, config) {
+  extends ChallengeDAL(db, taskDAL, tagDAL, projectDAL, notificationDAL, permission, config) {
 
   private val answerParser: RowParser[Answer] = {
     get[Long]("answers.id") ~

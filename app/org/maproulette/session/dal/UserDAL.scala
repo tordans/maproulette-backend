@@ -121,12 +121,13 @@ class UserDAL @Inject()(override val db: Database,
   // The anorm row parser to convert user records to project manager
   val projectManagerParser: RowParser[ProjectManager] = {
     get[Long]("project_id") ~
+      get[Long]("users.id") ~
       get[Long]("users.osm_id") ~
       get[String]("users.name") ~
       get[Option[String]]("users.avatar_url") ~
       get[List[Int]]("group_types") map {
-      case projectId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
-        ProjectManager(projectId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
+      case projectId ~ userId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
+        ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
     }
   }
 
