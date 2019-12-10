@@ -67,7 +67,10 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
           case Some(ids) => ids.nonEmpty
           case None => element.searchParameters.location match {
             case Some(box) if (box.right - box.left) * (box.top - box.bottom) < config.virtualChallengeLimit => true
-            case None => false
+            case None => element.searchParameters.boundingGeometries match {
+              case Some(bp) => true
+              case None => false
+            }
           }
         }
 
