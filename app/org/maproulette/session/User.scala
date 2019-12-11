@@ -70,12 +70,14 @@ case class UserSearchResult(osmId: Long,
   * a few basic fields about the user, and their group types for the project.
   *
   * @param projectId   The project id
+  * @param userId      The user's MapRoulette id
   * @param osmId       The user's osm id
   * @param displayName The display name for the osm user
   * @param avatarURL   The avatar URL to enabling displaying of their avatar
   * @param groupTypes  List of the user's group types for the project
   */
 case class ProjectManager(projectId: Long,
+                          userId: Long,
                           osmId: Long,
                           displayName: String,
                           avatarURL: String,

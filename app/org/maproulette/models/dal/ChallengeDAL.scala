@@ -35,6 +35,7 @@ import scala.concurrent.Future
 class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                              override val tagDAL: TagDAL,
                              projectDAL: Provider[ProjectDAL],
+                             notificationDAL: Provider[NotificationDAL],
                              override val permission: Permission,
                              config: Config)
   extends ParentDAL[Long, Challenge, Task] with TagDALMixin[Challenge] with OwnerMixin[Challenge] {
@@ -990,6 +991,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
 
               SQL(updateStatusQuery).as(this.parser.*).headOption
             }
+
+            this.notificationDAL.get().createChallengeCompletionNotification(challenge)
             Option(challenge)
           }
         case None =>
