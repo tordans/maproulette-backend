@@ -45,6 +45,7 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             priority: Option[Int] = None,
                             location: Option[SearchLocation] = None,
                             bounding: Option[SearchLocation] = None,
+                            boundingGeometries: Option[List[JsObject]] = None,
                             fuzzySearch: Option[Int] = None,
                             owner: Option[String] = None,
                             reviewer: Option[String] = None) {
@@ -279,6 +280,8 @@ object SearchParameters {
           }
         case _ => None
       },
+      // boundingGeometries (not supported on URL)
+      None,
       //FuzzySearch
       this.getIntParameter(request.getQueryString("fuzzy"), params.fuzzySearch),
       //Owner
