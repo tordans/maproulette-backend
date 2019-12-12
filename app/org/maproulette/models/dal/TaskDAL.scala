@@ -1691,12 +1691,13 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def retrieveTaskSummaries(challengeId: Long, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
+  def retrieveTaskSummaries(challengeIds: List[Long], limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
                             statusFilter: Option[List[Int]] = None, reviewStatusFilter: Option[List[Int]] = None,
                             priorityFilter: Option[List[Int]] = None): (List[TaskSummary], Map[Long,String]) =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
+        parentId <- long("tasks.parent_id")
         name <- str("tasks.name")
         status <- int("tasks.status")
         priority <- int("tasks.priority")
@@ -1712,7 +1713,7 @@ class TaskDAL @Inject()(override val db: Database,
         responses <- get[Option[String]]("responses")
         bundleId <- get[Option[Long]]("bundle_id")
         isBundlePrimary <- get[Option[Boolean]]("is_bundle_primary")
-      } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
+      } yield TaskSummary(taskId, parentId, name, status, priority, username, mappedOn,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
         reviewStartedAt, tags, responses, geojson, bundleId, isBundlePrimary)
 
@@ -1746,12 +1747,12 @@ class TaskDAL @Inject()(override val db: Database,
         SQL"""
           SELECT tc.task_id, string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
                             CONCAT(chr(10),'---',chr(10))) AS comments
-          FROM task_comments tc WHERE tc.challenge_id = #${challengeId} GROUP BY tc.task_id
+          FROM task_comments tc WHERE tc.challenge_id IN (#${challengeIds.mkString(",")}) GROUP BY tc.task_id
         """
       val allComments = commentsQuery.as(commentParser.*).toMap.withDefaultValue("")
 
       val query =
-        SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
+        SQL"""SELECT t.id, t.parent_id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
                    task_review.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
@@ -1763,14 +1764,15 @@ class TaskDAL @Inject()(override val db: Database,
               FROM users u, status_actions sa INNER JOIN (
                 SELECT task_id, MAX(created) AS latest
                 FROM status_actions
-                WHERE challenge_id=#${challengeId}
+                WHERE challenge_id IN (#${challengeIds.mkString(",")})
                 GROUP BY task_id
               ) AS sa_inner
               ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
               WHERE sa.osm_user_id = u.osm_id
             ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
             LEFT OUTER JOIN task_review ON task_review.task_id = t.id
-            WHERE t.parent_id = #${challengeId} #${status} #${priority} #${reviewStatus}
+            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) #${status} #${priority} #${reviewStatus}
+            ORDER BY t.parent_Id
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """
       (query.as(parser.*), allComments)
@@ -2010,7 +2012,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
+  case class TaskSummary(taskId: Long, parent: Long, name: String, status: Int, priority: Int, username: Option[String],
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
                          reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
                          tags: Option[String], completionResponses: Option[String],
