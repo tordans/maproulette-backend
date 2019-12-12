@@ -55,8 +55,10 @@ class VirtualProjectDAL @Inject()(override val db: Database,
         SQL(query).execute()
       } catch {
           case e:PSQLException if (e.getSQLState == "23505") => //ignore
-          case _ =>
-            throw new InvalidException(s"Unable to add challenge ${challengeId} to Virtual Project ${projectId}.")
+          case other:Throwable =>
+            throw new InvalidException(
+              s"Unable to add challenge ${challengeId} to Virtual Project ${projectId}. " +
+              other.getMessage)
       }
       None
     }
