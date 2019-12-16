@@ -989,10 +989,16 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                       AND status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}))
                             RETURNING ${this.retrieveColumns}"""
 
-              SQL(updateStatusQuery).as(this.parser.*).headOption
+              SQL(updateStatusQuery).as(this.parser.*).headOption match {
+                case Some(updatedChallenge) =>
+                  if (updatedChallenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_FINISHED) {
+                    this.notificationDAL.get().createChallengeCompletionNotification(challenge)
+                  }
+                  Some(updatedChallenge)
+                case None => None
+              }
             }
 
-            this.notificationDAL.get().createChallengeCompletionNotification(challenge)
             Option(challenge)
           }
         case None =>
