@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "e6c69530-3f40-47e3-bae4-416fa2ca9011",
+		"_postman_id": "3a20f62f-1c75-432e-8e63-d738d4411a8e",
 		"name": "maproulette2",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -1346,7 +1346,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "task",
@@ -2651,7 +2652,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "VirtualChallenge",
@@ -3656,6 +3658,55 @@
 					"response": []
 				},
 				{
+					"name": "Virtual Challenge Creation w/Boundings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "debcb03c-61d4-41ac-b44c-c4c004a4ef17",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.globals.set(\"VirtualChallengeID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"testBoundingGeos1\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\":\"testBoundingGeos1\",\n  \"searchParameters\":{\n    \"challengeIds\": [ {{TagsChallengeID}} ],\n    \"boundingGeometries\": [\n    \t{\"bounding\": {\n    \t\t\"type\":\"Polygon\",\n    \t\t\"coordinates\":[[[100,0],[100,3],[105,3],[105,0],[100,0]]]\n    \t}},\n    \t{\"bounding\": {\n    \t\t\"type\":\"Polygon\",\n    \t\t\"coordinates\":[[[1,1],[1,2],[2,2],[2,1],[1,1]]]\n    \t}}\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/virtualchallenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"virtualchallenge"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Challenge Project Deletion",
 					"event": [
 						{
@@ -3710,7 +3761,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "data",
@@ -3749,7 +3801,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "project",
@@ -4414,7 +4467,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "VirtualProject",
@@ -5310,7 +5364,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "tag",
@@ -5511,7 +5566,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "user",
@@ -5615,7 +5671,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "SuggestedFixes",
@@ -6120,7 +6177,8 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		},
 		{
 			"name": "taskBundles",
@@ -7069,7 +7127,9 @@
 					},
 					"response": []
 				}
-			]
+			],
+			"protocolProfileBehavior": {}
 		}
-	]
+	],
+	"protocolProfileBehavior": {}
 }

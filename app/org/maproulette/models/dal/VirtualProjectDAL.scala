@@ -13,6 +13,7 @@ import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import org.maproulette.session.dal.UserGroupDAL
+import org.postgresql.util.PSQLException
 import play.api.db.Database
 
 /**
@@ -43,13 +44,22 @@ class VirtualProjectDAL @Inject()(override val db: Database,
       case Some(p) => if (!p.isVirtual.getOrElse(false)) {
         throw new InvalidException(s"Project must be a virtual project to add a challenge.")
       }
-      case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
+      case None => throw new NotFoundException(s"No project found with id $projectId found.")
     }
+
     this.withMRTransaction { implicit c =>
-      val query =
-        s"""INSERT INTO virtual_project_challenges (project_id, challenge_id)
-                      VALUES ($projectId, $challengeId)"""
-      SQL(query).execute()
+      try {
+        val query =
+          s"""INSERT INTO virtual_project_challenges (project_id, challenge_id)
+                        VALUES ($projectId, $challengeId)"""
+        SQL(query).execute()
+      } catch {
+          case e:PSQLException if (e.getSQLState == "23505") => //ignore
+          case other:Throwable =>
+            throw new InvalidException(
+              s"Unable to add challenge ${challengeId} to Virtual Project ${projectId}. " +
+              other.getMessage)
+      }
       None
     }
   }

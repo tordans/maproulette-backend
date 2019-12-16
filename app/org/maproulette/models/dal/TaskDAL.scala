@@ -1271,9 +1271,15 @@ class TaskDAL @Inject()(override val db: Database,
         case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geom ~ bounding ~ challengeIds =>
           val locationJSON = Json.parse(geom)
           val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
-                      Json.parse(bounding), challengeIds)
+          // Let's check to make sure we received valid number of coordinates.
+          if (coordinates.length > 1) {
+            val point = Point(coordinates(1), coordinates.head)
+            TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
+                        Json.parse(bounding), challengeIds)
+          }
+          else {
+            None
+          }
       }
 
       val whereClause = new StringBuilder(" c.deleted = false AND p.deleted = false  ")
@@ -1315,7 +1321,9 @@ class TaskDAL @Inject()(override val db: Database,
              GROUP BY kmeans
              ORDER BY kmeans
            """
-      sqlWithParameters(query, parameters).as(taskClusterParser.*)
+      var result = sqlWithParameters(query, parameters).as(taskClusterParser.*)
+      // Filter out invalid clusters.
+      result.filter( _ != None ).asInstanceOf[List[TaskCluster]]
     }
   }
 
@@ -1378,6 +1386,50 @@ class TaskDAL @Inject()(override val db: Database,
     params.bounding match {
       case Some(sl) => this.appendInWhereClause(whereClause, s"c.bounding @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
       case None => // do nothing
+    }
+
+    params.boundingGeometries match {
+      case Some(bp) =>
+        val allPolygons = new StringBuilder()
+        bp.foreach(value =>
+          value \ "bounding" match {
+            case locationJSON: JsDefined => {
+              val polygonLinestring = new StringBuilder()
+              if (allPolygons.toString() != "")
+                allPolygons.append(" OR ")
+
+              (locationJSON \ "type").as[String] match {
+                case "Polygon" => {
+                  (locationJSON \ "coordinates").as[List[List[List[Double]]]].foreach(p =>
+                    p.foreach( coordinates => {
+                      if (polygonLinestring.toString() != "")
+                        polygonLinestring.append(",")
+                      polygonLinestring.append(coordinates.head + " " + coordinates(1))
+                    })
+                  )
+                  allPolygons.append(s"t.location @ ST_MakePolygon( ST_GeomFromText('LINESTRING($polygonLinestring)'))")
+                }
+                case "LineString" => {
+                  (locationJSON \ "coordinates").as[List[List[Double]]].foreach(coordinates => {
+                    if (polygonLinestring.toString() != "") {
+                      polygonLinestring.append(",")
+                    }
+                    polygonLinestring.append(coordinates.head + " " + coordinates(1))
+                  })
+                  allPolygons.append(s"t.location @ ST_GeomFromText('LINESTRING($polygonLinestring)')")
+                }
+                case "Point" => {
+                  val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+                  allPolygons.append(s"t.location @ ST_GeomFromText('POINT(${coordinates.head} ${coordinates(1)})')")
+                }
+                case _ => // do nothing
+              }
+            }
+            case _ => // do nothing
+          }
+        )
+        this.appendInWhereClause(whereClause, "(" + allPolygons.toString + ")")
+      case _ => // value not present
     }
 
     params.taskStatus match {
@@ -1483,75 +1535,92 @@ class TaskDAL @Inject()(override val db: Database,
   def getTasksInBoundingBox(user: User, params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
                             excludeLocked: Boolean = false, sort: String = "", order: String = "ASC")(implicit c: Option[Connection] = None): (Int, List[ClusteredPoint]) = {
     params.location match {
-      case Some(sl) =>
-        withMRConnection { implicit c =>
-          val whereClause = new StringBuilder(" WHERE p.deleted = false AND c.deleted = false")
-          val joinClause = new StringBuilder(
-            """
-              INNER JOIN challenges c ON c.id = t.parent_id
-              INNER JOIN projects p ON p.id = c.parent_id
-              LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
-            """
-          )
+      case Some(sl) => // params has location
+      case None => params.boundingGeometries match {
+        case Some(bp) => // params has bounding polygons
+        case None => throw new InvalidException("Bounding Box (or Bounding Polygons) required to retrieve tasks within a bounding box")
+      }
+    }
 
-          if (!excludeLocked) {
-            joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
-            this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
-          }
+    withMRConnection { implicit c =>
+      val whereClause = new StringBuilder(" WHERE p.deleted = false AND c.deleted = false")
+      val joinClause = new StringBuilder(
+        """
+          INNER JOIN challenges c ON c.id = t.parent_id
+          INNER JOIN projects p ON p.id = c.parent_id
+          LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
+        """
+      )
 
-          var sortClause = "ORDER BY RANDOM()"
-          if (sort != "") {
+      if (!excludeLocked) {
+        joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
+        this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
+      }
+
+      var sortClause = "ORDER BY RANDOM()"
+      if (sort != "") {
+        sort match {
+          case "reviewRequestedBy" =>
+            sortClause = this.order(Some("review_requested_by"), order, "tr")
+          case "reviewedBy" =>
+            sortClause = this.order(Some("reviewed_by"), order, "tr")
+          case "reviewStatus" =>
+            sortClause = this.order(Some("review_status"), order, "tr")
+          case "reviewedAt" =>
+            sortClause = this.order(Some("reviewed_at"), order, "tr")
+          case "mappedOn" =>
+            sortClause = this.order(Some("mapped_on"), order, "t")
+          case _ =>
             sortClause = this.order(Some(sort), order, "t")
-          }
-
-          // Lets do a total count of tasks we would return if not paging.
-          val parameters = this.updateWhereClause(params, whereClause, joinClause)
-          this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
-
-          val countQuery =
-            s"""
-              SELECT count(*) FROM tasks t
-              ${joinClause.toString()}
-              ${whereClause.toString()}
-            """
-          val count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-
-          val query =
-            s"""
-              SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
-                     t.bundle_id, t.is_bundle_primary, t.suggestedfix_geojson::TEXT as suggested_fix,
-                     tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
-                     tr.review_started_at,
-                     ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
-              ${joinClause.toString()}
-              ${whereClause.toString()}
-              ${sortClause}
-              LIMIT ${sqlLimit(limit)} OFFSET $offset
-            """
-
-          val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-            str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]]("suggested_fix") ~
-            get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
-            get[Option[Long]]("task_review.review_requested_by") ~ get[Option[Long]]("task_review.reviewed_by") ~
-            get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
-            int("tasks.priority") ~ get[Option[Long]]("tasks.bundle_id") ~
-            get[Option[Boolean]]("tasks.is_bundle_primary") map {
-            case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
-              reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
-              bundleId ~ isBundlePrimary =>
-              val locationJSON = Json.parse(location)
-              val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-              val point = Point(coordinates(1), coordinates.head)
-              val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
-              ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-                instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
-                pointReview, priority, bundleId, isBundlePrimary)
-          }
-
-          val results = sqlWithParameters(query, parameters)
-          (count, results.as(pointParser.*))
         }
-      case None => throw new InvalidException("Bounding Box required to retrieve tasks within a bounding box")
+      }
+
+      // Lets do a total count of tasks we would return if not paging.
+      val parameters = this.updateWhereClause(params, whereClause, joinClause)
+      this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
+
+      val countQuery =
+        s"""
+          SELECT count(*) FROM tasks t
+          ${joinClause.toString()}
+          ${whereClause.toString()}
+        """
+      val count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+
+      val query =
+        s"""
+          SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
+                 t.bundle_id, t.is_bundle_primary, t.suggestedfix_geojson::TEXT as suggested_fix,
+                 tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
+                 tr.review_started_at,
+                 ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
+          ${joinClause.toString()}
+          ${whereClause.toString()}
+          ${sortClause}
+          LIMIT ${sqlLimit(limit)} OFFSET $offset
+        """
+
+      val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
+        str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]]("suggested_fix") ~
+        get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
+        get[Option[Long]]("task_review.review_requested_by") ~ get[Option[Long]]("task_review.reviewed_by") ~
+        get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
+        int("tasks.priority") ~ get[Option[Long]]("tasks.bundle_id") ~
+        get[Option[Boolean]]("tasks.is_bundle_primary") map {
+        case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
+          reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
+          bundleId ~ isBundlePrimary =>
+          val locationJSON = Json.parse(location)
+          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+          val point = Point(coordinates(1), coordinates.head)
+          val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
+          ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
+            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
+            pointReview, priority, bundleId, isBundlePrimary)
+      }
+
+      val results = sqlWithParameters(query, parameters)
+      (count, results.as(pointParser.*))
     }
   }
 

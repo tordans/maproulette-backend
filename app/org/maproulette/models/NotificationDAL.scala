@@ -12,7 +12,7 @@ import org.joda.time.{DateTime, DateTimeZone}
 import org.maproulette.exception.InvalidException
 import org.maproulette.Config
 import org.maproulette.session.dal.{UserDAL}
-import org.maproulette.models.{UserNotification, UserNotificationEmail, NotificationSubscriptions, Task, Comment}
+import org.maproulette.models.{UserNotification, UserNotificationEmail, NotificationSubscriptions, Challenge, Task, Comment}
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.User
 import org.maproulette.data.UserType
@@ -77,9 +77,10 @@ class NotificationDAL @Inject()(db: Database,
     get[Int]("mention") ~
     get[Int]("review_approved") ~
     get[Int]("review_rejected") ~
-    get[Int]("review_again") map {
-      case id ~ userId ~ system ~ mention ~ reviewApproved ~ reviewRejected ~ reviewAgain =>
-        NotificationSubscriptions(id, userId, system, mention, reviewApproved, reviewRejected, reviewAgain),
+    get[Int]("review_again") ~
+    get[Int]("challenge_completed") map {
+      case id ~ userId ~ system ~ mention ~ reviewApproved ~ reviewRejected ~ reviewAgain ~ challengeCompleted =>
+        NotificationSubscriptions(id, userId, system, mention, reviewApproved, reviewRejected, reviewAgain, challengeCompleted),
     }
   }
 
@@ -133,6 +134,19 @@ class NotificationDAL @Inject()(db: Database,
     ), User.superUser)
   }
 
+  def createChallengeCompletionNotification(challenge: Challenge) = {
+    userDAL.get().getUsersManagingProject(challenge.general.parent, None, User.superUser).foreach { manager =>
+      this.addNotification(UserNotification(
+        -1,
+        userId=manager.userId,
+        notificationType=UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED,
+        challengeId=Some(challenge.id),
+        projectId=Some(challenge.general.parent),
+        description=Some(challenge.name)
+      ), User.superUser)
+    }
+  }
+
   /**
    * Add/insert a notification. The email setting of the notification will be automatically
    * set based on the recipient's email settings. If the recipient is not subscribed to
@@ -151,6 +165,7 @@ class NotificationDAL @Inject()(db: Database,
       case UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED => subscriptions.reviewApproved
       case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED => subscriptions.reviewRejected
       case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN => subscriptions.reviewAgain
+      case UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED => subscriptions.challengeCompleted
       case _ => throw new InvalidException("Invalid notification type")
     }
 
@@ -209,6 +224,7 @@ class NotificationDAL @Inject()(db: Database,
                                                 UserNotification.NOTIFICATION_EMAIL_NONE,
                                                 UserNotification.NOTIFICATION_EMAIL_NONE,
                                                 UserNotification.NOTIFICATION_EMAIL_NONE,
+                                                UserNotification.NOTIFICATION_EMAIL_NONE,
                                                 UserNotification.NOTIFICATION_EMAIL_NONE)
       }
     }
@@ -227,10 +243,10 @@ class NotificationDAL @Inject()(db: Database,
     db.withConnection { implicit c =>
       // Upsert new subscription settings
       SQL(
-        s"""INSERT INTO user_notification_subscriptions (user_id, system, mention, review_approved, review_rejected, review_again)
-            VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain})
+        s"""INSERT INTO user_notification_subscriptions (user_id, system, mention, review_approved, review_rejected, review_again, challenge_completed)
+            VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain}, {challengeCompleted})
             ON CONFLICT (user_id) DO
-            UPDATE SET system=EXCLUDED.system, mention=EXCLUDED.mention, review_approved=EXCLUDED.review_approved, review_rejected=EXCLUDED.review_rejected, review_again=EXCLUDED.review_again"""
+            UPDATE SET system=EXCLUDED.system, mention=EXCLUDED.mention, review_approved=EXCLUDED.review_approved, review_rejected=EXCLUDED.review_rejected, review_again=EXCLUDED.review_again, challenge_completed=EXCLUDED.challenge_completed"""
       ).on(
         'userId -> userId,
         'system -> subscriptions.system,
@@ -238,6 +254,7 @@ class NotificationDAL @Inject()(db: Database,
         'reviewApproved -> subscriptions.reviewApproved,
         'reviewRejected -> subscriptions.reviewRejected,
         'reviewAgain -> subscriptions.reviewAgain,
+        'challengeCompleted -> subscriptions.challengeCompleted,
       ).executeUpdate()
     }
   }

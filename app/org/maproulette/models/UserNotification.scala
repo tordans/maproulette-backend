@@ -44,12 +44,15 @@ object UserNotification {
   val NOTIFICATION_TYPE_REVIEW_REJECTED_NAME = "Revision Requested"
   val NOTIFICATION_TYPE_REVIEW_AGAIN = 4
   val NOTIFICATION_TYPE_REVIEW_AGAIN_NAME = "Review Requested"
+  val NOTIFICATION_TYPE_CHALLENGE_COMPLETED = 5
+  val NOTIFICATION_TYPE_CHALLENGE_COMPLETED_NAME = "Challenge Completed"
   val notificationTypeMap = Map(
     NOTIFICATION_TYPE_SYSTEM -> NOTIFICATION_TYPE_SYSTEM_NAME,
     NOTIFICATION_TYPE_MENTION -> NOTIFICATION_TYPE_MENTION_NAME,
     NOTIFICATION_TYPE_REVIEW_APPROVED -> NOTIFICATION_TYPE_REVIEW_APPROVED_NAME,
     NOTIFICATION_TYPE_REVIEW_REJECTED -> NOTIFICATION_TYPE_REVIEW_REJECTED_NAME,
     NOTIFICATION_TYPE_REVIEW_AGAIN -> NOTIFICATION_TYPE_REVIEW_AGAIN_NAME,
+    NOTIFICATION_TYPE_CHALLENGE_COMPLETED -> NOTIFICATION_TYPE_CHALLENGE_COMPLETED_NAME,
   )
 
   val NOTIFICATION_IGNORE = 0          // ignore notification
@@ -65,7 +68,8 @@ case class NotificationSubscriptions(val id: Long,
                                      val mention: Int,
                                      val reviewApproved: Int,
                                      val reviewRejected: Int,
-                                     val reviewAgain: Int)
+                                     val reviewAgain: Int,
+                                     val challengeCompleted: Int)
 object NotificationSubscriptions {
   implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] = Json.reads[NotificationSubscriptions]
   implicit val notificationSubscriptionWrites: Writes[NotificationSubscriptions] = Json.writes[NotificationSubscriptions]
