@@ -335,14 +335,15 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
     * @return
     */
   def getTasksInBoundingBox(left: Double, bottom: Double, right: Double, top: Double, limit: Int,
-                            offset: Int, excludeLocked: Boolean, sort: String= "", order: String= "ASC",
-                            includeTotal: Boolean= false): Action[AnyContent] = Action.async { implicit request =>
+                            offset: Int, excludeLocked: Boolean, sort: String= "", order: String= "ASC", includeTotal: Boolean= false,
+                            includeGeometries: Boolean=false): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
         val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
-        val (count, result) = this.dal.getTasksInBoundingBox(User.userOrMocked(user), params, limit, offset, excludeLocked, sort, order)
+        val (count, result) = this.dal.getTasksInBoundingBox(User.userOrMocked(user), params, limit, offset,
+                                excludeLocked, sort, order)
 
-        val resultJson = _insertExtraJSON(result)
+        val resultJson = _insertExtraJSON(result, includeGeometries)
 
         if (includeTotal) {
           Ok(Json.obj("total" -> count, "tasks" -> resultJson))
@@ -783,7 +784,7 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
    * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into
    * the ClusteredPoint.pointReview
    */
-  private def _insertExtraJSON(tasks: List[ClusteredPoint]): JsValue = {
+  private def _insertExtraJSON(tasks: List[ClusteredPoint], includeGeometries: Boolean=false): JsValue = {
     if (tasks.isEmpty) {
       Json.toJson(List[JsValue]())
     } else {
@@ -794,6 +795,14 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
       val reviewers = Some(this.dalManager.user.retrieveListById(-1, 0)(tasks.map(
         t => t.pointReview.reviewedBy.getOrElse(0L))).map(u =>
           u.id -> Json.obj("username" -> u.name, "id" -> u.id)).toMap)
+
+      val taskDetailsMap: Map[Long,Task] =
+        includeGeometries match {
+          case true =>
+            val taskDetails = this.dalManager.task.retrieveListById()(tasks.map(t => t.id))
+            taskDetails.map(t => (t.id -> t)).toMap
+          case false => null
+        }
 
       val jsonList = tasks.map { task =>
         var updated = Json.toJson(task)
@@ -809,6 +818,11 @@ class TaskController @Inject()(override val sessionManager: SessionManager,
           var reviewerJson = Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
           reviewPointJson = Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
           updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        if (includeGeometries) {
+          val geometries = Json.parse(taskDetailsMap(task.id).geometries)
+          updated = Utils.insertIntoJson(updated, "geometries", geometries, true)
         }
 
         updated
