@@ -291,18 +291,27 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
                 elements.foreach {
                   element =>
                     try {
-                      val geometry = (element \ "type").asOpt[String] match {
-                        case Some("way") =>
-                          val points = (element \ "geometry").as[List[JsValue]].map {
-                            geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
-                          }
-                          Some(Json.obj("type" -> "LineString", "coordinates" -> points))
-                        case Some("node") =>
+                      val geometry = (element \ "center").asOpt[JsObject] match {
+                        case Some(center) =>
                           Some(Json.obj(
                             "type" -> "Point",
-                            "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
+                            "coordinates" -> List((center \ "lon").as[Double], (center \ "lat").as[Double])
                           ))
-                        case _ => None
+                        case None => (element \ "type").asOpt[String] match {
+                          case Some("way") =>
+                            // TODO: ways do not have a "geometry" property, instead they have a list of "nodes"
+                            // referencing other elements in the array. So this code does not do the job.
+                            val points = (element \ "geometry").as[List[JsValue]].map {
+                              geom => List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
+                            }
+                            Some(Json.obj("type" -> "LineString", "coordinates" -> points))
+                          case Some("node") =>
+                            Some(Json.obj(
+                              "type" -> "Point",
+                              "coordinates" -> List((element \ "lon").as[Double], (element \ "lat").as[Double])
+                            ))
+                          case _ => None
+                        }
                       }
 
                       geometry match {
