@@ -9,7 +9,7 @@ import anorm.JodaParameterMetaData._
 import javax.inject.{Inject, Provider, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
-import org.maproulette.exception.InvalidException
+import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.Config
 import org.maproulette.session.dal.{UserDAL}
 import org.maproulette.models.{UserNotification, UserNotificationEmail, NotificationSubscriptions, Challenge, Task, Comment}
@@ -29,6 +29,7 @@ import play.api.db.Database
 @Singleton
 class NotificationDAL @Inject()(db: Database,
                                 userDAL: Provider[UserDAL],
+                                projectDAL: Provider[ProjectDAL],
                                 webSocketProvider: WebSocketProvider,
                                 config: Config,
                                 permission: Permission)
@@ -62,10 +63,11 @@ class NotificationDAL @Inject()(db: Database,
     get[Long]("user_notifications.id") ~
     get[Long]("user_notifications.user_id") ~
     get[Int]("user_notifications.notification_type") ~
+    get[Option[String]]("user_notifications.extra") ~
     get[DateTime]("user_notifications.created") ~
     get[Int]("user_notifications.email_status") map {
-      case id ~ userId ~ notificationType ~ created ~ emailStatus =>
-        new UserNotificationEmail(id, userId, notificationType, created, emailStatus)
+      case id ~ userId ~ notificationType ~ extra ~ created ~ emailStatus =>
+        new UserNotificationEmail(id, userId, notificationType, extra, created, emailStatus)
     }
   }
 
@@ -135,15 +137,21 @@ class NotificationDAL @Inject()(db: Database,
   }
 
   def createChallengeCompletionNotification(challenge: Challenge) = {
-    userDAL.get().getUsersManagingProject(challenge.general.parent, None, User.superUser).foreach { manager =>
-      this.addNotification(UserNotification(
-        -1,
-        userId=manager.userId,
-        notificationType=UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED,
-        challengeId=Some(challenge.id),
-        projectId=Some(challenge.general.parent),
-        description=Some(challenge.name)
-      ), User.superUser)
+    projectDAL.get().retrieveById(challenge.general.parent) match {
+      case Some(parentProject) =>
+        userDAL.get().getUsersManagingProject(parentProject.id, None, User.superUser).foreach { manager =>
+          this.addNotification(UserNotification(
+            -1,
+            userId=manager.userId,
+            notificationType=UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED,
+            challengeId=Some(challenge.id),
+            projectId=Some(parentProject.id),
+            description=Some(challenge.name),
+            extra=Some(s""""${challenge.name}" from project "${parentProject.displayName.getOrElse(parentProject.name)}"""")
+          ), User.superUser)
+        }
+      case None =>
+        throw new NotFoundException(s"Parent project ${challenge.general.parent} not found for challenge ${challenge.id}")
     }
   }
 
