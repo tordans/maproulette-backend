@@ -22,6 +22,7 @@ import play.api.libs.ws.WSClient
 import play.api.libs.json._
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.Map
 
 /**
   * @author krotstan
@@ -147,13 +148,56 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @return task
     */
   def nextTaskReview(user:User, searchParameters: SearchParameters, onlySaved: Boolean=false,
-                    sort:String, order:String) (implicit c:Connection=null) : Option[Task] = {
-    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, null, null, onlySaved, 1, 0, sort, order, false)
-    if (count == 0) {
+                    sort:String, order:String, lastTaskId:Option[Long]=None) (implicit c:Connection=null) : Option[Task] = {
+    var position = 0
+
+    lastTaskId match {
+      case Some(taskId) => {
+        val (countAll, queryAll, parametersAll) =
+          _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
+                                     -1, 0, sort, order, false)
+
+        // This only happens if a non-reviewer is trying to do get a review task
+        if (queryAll == null) {
+          return None
+        }
+
+        var rowMap = Map[Long, Int]()
+        val rowNumParser: RowParser[Long] = {
+            get[Int]("row_num") ~
+            get[Long]("tasks.id") map {
+            case row ~ id => {
+              rowMap.put(id, row)
+              id
+            }
+          }
+        }
+
+        this.withMRTransaction { implicit c =>
+          sqlWithParameters(queryAll, parametersAll).as(rowNumParser.*)
+
+          val rowPosition = rowMap.get(taskId)
+          rowPosition match {
+            case Some(row) =>
+              position = row  // fetch next task (offset starts at 0 but rows at 1)
+            case _ => // not found so do nothing
+          }
+        }
+      }
+      case _ => // do nothing
+    }
+
+    val (countQuery, query, parameters) =
+      _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
+                                 1, position, sort, order, false)
+
+    // This only happens if a non-reviewer is trying to do get a review task
+    if (query == null) {
       return None
     }
-    else {
-      return Some(result.head)
+
+    this.withMRTransaction { implicit c =>
+      sqlWithParameters(query, parameters).as(this.parser.*).headOption
     }
   }
 
@@ -174,6 +218,30 @@ class TaskReviewDAL @Inject()(override val db: Database,
                               startDate:String, endDate:String, onlySaved: Boolean=false,
                               limit:Int = -1, offset:Int=0, sort:String, order:String, includeDisputed: Boolean = true)
                     (implicit c:Connection=null) : (Int, List[Task]) = {
+    val (countQuery, query, parameters) =
+      _getReviewRequestedQueries(user, searchParameters, startDate, endDate, onlySaved, limit,
+                                 offset, sort, order, includeDisputed)
+
+    // This only happens if a non-reviewer is trying to get review tasks
+    if (query == null) {
+      return (0, List[Task]())
+    }
+
+    var count = 0
+    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
+      this.withMRTransaction { implicit c =>
+        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+        sqlWithParameters(query, parameters).as(this.parser.*)
+      }
+    }
+
+    return (count, tasks)
+  }
+
+  def _getReviewRequestedQueries(user:User, searchParameters: SearchParameters,
+                              startDate:String, endDate:String, onlySaved: Boolean=false,
+                              limit:Int = -1, offset:Int=0, sort:String, order:String, includeDisputed: Boolean = true)
+                    (implicit c:Connection=null) : (String, String, ListBuffer[NamedParameter]) = {
     var orderByClause = ""
     val whereClause = includeDisputed match {
       case true =>
@@ -203,14 +271,21 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
     sort match {
       case s if s.nonEmpty =>
-        orderByClause = this.order(Some(s), order, "", false)
+        var sortColumn = s
+        // We have two "id" columns: one for Tasks and one for taskReview. So
+        // we need to specify which one to sort by for the SQL query.
+        if (s == "id") {
+          sortColumn = "tasks." + s
+        }
+        orderByClause = this.order(Some(sortColumn), order, "", false)
       case _ => // ignore
     }
 
     val query = user.isSuperUser match {
       case true =>
         s"""
-          SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
+          SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
+            tasks.${this.retrieveColumnsWithReview} FROM tasks
           ${joinClause}
           WHERE
           ${whereClause}
@@ -225,7 +300,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
           // 2. You own the Project
           // 3. You manage the project (your user group matches groups of project)
           s"""
-            SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
+            SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
+              tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
             INNER JOIN groups g ON g.project_id = p.id
             INNER JOIN user_groups ug ON g.id = ug.group_id
@@ -240,7 +316,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
            """
          }
          else {
-           return (0, List[Task]())
+           return (null, null, null)
          }
     }
 
@@ -267,15 +343,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
         """
     }
 
-    var count = 0
-    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
-      this.withMRTransaction { implicit c =>
-        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-        sqlWithParameters(query, parameters).as(this.parser.*)
-      }
-    }
-
-    return (count, tasks)
+    return (countQuery, query, parameters)
   }
 
   /**

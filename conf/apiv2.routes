@@ -707,6 +707,9 @@ GET     /tasks/reviewed                          @org.maproulette.controllers.ap
 #   - name: order
 #     in: query
 #     description: Sort order direction. Either ASC or DESC. Default is "ASC" (ascending)
+#   - name: lastTaskId
+#     in: query
+#     description: Fetch the next task after the lastTaskId. (so if you want to 'skip' a task you can get the next one)
 #   - name: cs
 #     in: query
 #     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
@@ -717,7 +720,7 @@ GET     /tasks/reviewed                          @org.maproulette.controllers.ap
 #     in: query
 #     description: The search string used to match the Reviewer names. (reviewed_by)
 ###
-GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC")
+GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastTaskId:Long ?= -1)
 ###
 # summary: Retrieves tasks that need review
 # produces: [ application/json ]

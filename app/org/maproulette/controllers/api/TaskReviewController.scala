@@ -85,10 +85,11 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     *
     * @return Task
     */
-  def nextTaskReview(onlySaved: Boolean=false, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+  def nextTaskReview(onlySaved: Boolean=false, sort:String, order:String, lastTaskId:Long = -1) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val result = this.taskReviewDAL.nextTaskReview(user, params, onlySaved, sort, order)
+        val result = this.taskReviewDAL.nextTaskReview(user, params, onlySaved, sort, order,
+                                                       (if (lastTaskId == -1) None else Some(lastTaskId)))
         val nextTask = result match {
           case Some(task) =>
             Ok(Json.toJson(this.taskReviewDAL.startTaskReview(user, task)))
