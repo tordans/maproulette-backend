@@ -1484,34 +1484,46 @@ class TaskDAL @Inject()(override val db: Database,
     // For efficiency can only query on task properties with a parent challenge id
     params.getChallengeIds match {
       case Some(l) =>
-        params.taskProperties match {
+        params.taskPropertySearch match {
           case Some(tps) =>
-            val searchType = params.taskPropertySearchType match {
-              case Some(t) => t
-              case _ => "equals"
-            }
-
             val query = new StringBuilder(
               s"""t.id IN (
                 SELECT id FROM tasks,
                                jsonb_array_elements(geojson->'features') features
                 WHERE parent_id IN (${l.mkString(",")})
-                AND (true
+                AND (${tps.toSQL}))
                """)
-            for ((k, v) <- tps) {
-              if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
-                query ++= s" AND features->'properties'->>'${k}' = '${v}' "
-              }
-              else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
-                query ++= s" AND features->'properties'->>'${k}' != '${v}' "
-              }
-              else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
-                query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
-              }
-            }
-            query ++= "))"
             this.appendInWhereClause(whereClause, query.toString())
           case _ =>
+            params.taskProperties match {
+              case Some(tp) =>
+                val searchType = params.taskPropertySearchType match {
+                  case Some(t) => t
+                  case _ => "equals"
+                }
+
+                val query = new StringBuilder(
+                  s"""t.id IN (
+                    SELECT id FROM tasks,
+                                   jsonb_array_elements(geojson->'features') features
+                    WHERE parent_id IN (${l.mkString(",")})
+                    AND (true
+                   """)
+                for ((k, v) <- tp) {
+                  if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
+                    query ++= s" AND features->'properties'->>'${k}' = '${v}' "
+                  }
+                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
+                    query ++= s" AND features->'properties'->>'${k}' != '${v}' "
+                  }
+                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
+                    query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
+                  }
+                }
+                query ++= "))"
+                this.appendInWhereClause(whereClause, query.toString())
+              case _ =>
+            }
         }
       case None => // ignore
     }

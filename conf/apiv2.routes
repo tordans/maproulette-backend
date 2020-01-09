@@ -2984,7 +2984,8 @@ GET     /tasks/random                               @org.maproulette.controllers
 # description: Retrieves tasks within a given bounding box.
 # responses:
 #   '200':
-#     description: The list of clusteredPoints representing Tasks that match the search criteria within the bounding box
+#     description: The list of clusteredPoints representing Tasks that match the search criteria within the bounding box.
+#                  To specify a json body of a taskPropertySearch, use the PUT method.
 #     schema:
 #       type: array
 #       items:
@@ -3014,6 +3015,7 @@ GET     /tasks/random                               @org.maproulette.controllers
 #     description: Optional flag to have geometries data returned for each task.
 ###
 GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
+PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
 ###
 # tags: [ Task ]
 # summary: Update Task Changeset
@@ -3183,7 +3185,8 @@ PUT     /taskBundle/:id/review/:status                     @org.maproulette.cont
 # description: Retrieves task clusters that contain the centroid location for a group of tasks
 # responses:
 #   '200':
-#     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list
+#     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list.
+#                  To specify a json body of a taskPropertySearch, use the PUT method.
 #     schema:
 #       type: array
 #       items:
@@ -3195,6 +3198,7 @@ PUT     /taskBundle/:id/review/:status                     @org.maproulette.cont
 #     description: The number of clusters that you want returned
 ###
 GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+PUT     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
 ###
 # tags: [ TaskReview ]
 # summary: Retrieves task review clusters
