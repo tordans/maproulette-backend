@@ -145,17 +145,23 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * Gets and claims the next task for review.
     *
     * @param user The user executing the request
+    * @param SearchParameters
+    * @param onlySaved
+    * @param sort
+    * @param order
+    * @param lastTaskId
+    * @param excludeOtherReviewers
     * @return task
     */
   def nextTaskReview(user:User, searchParameters: SearchParameters, onlySaved: Boolean=false,
-                    sort:String, order:String, lastTaskId:Option[Long]=None) (implicit c:Connection=null) : Option[Task] = {
+                    sort:String, order:String, lastTaskId:Option[Long]=None, excludeOtherReviewers: Boolean=false) (implicit c:Connection=null) : Option[Task] = {
     var position = 0
 
     lastTaskId match {
       case Some(taskId) => {
         val (countAll, queryAll, parametersAll) =
           _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
-                                     -1, 0, sort, order, false)
+                                     -1, 0, sort, order, false, excludeOtherReviewers)
 
         // This only happens if a non-reviewer is trying to do get a review task
         if (queryAll == null) {
@@ -189,7 +195,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
     val (countQuery, query, parameters) =
       _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
-                                 1, position, sort, order, false)
+                                 1, position, sort, order, false, excludeOtherReviewers)
 
     // This only happens if a non-reviewer is trying to do get a review task
     if (query == null) {
@@ -216,11 +222,12 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewRequestedTasks(user:User, searchParameters: SearchParameters,
                               startDate:String, endDate:String, onlySaved: Boolean=false,
-                              limit:Int = -1, offset:Int=0, sort:String, order:String, includeDisputed: Boolean = true)
+                              limit:Int = -1, offset:Int=0, sort:String, order:String,
+                              includeDisputed: Boolean = true, excludeOtherReviewers: Boolean = false)
                     (implicit c:Connection=null) : (Int, List[Task]) = {
     val (countQuery, query, parameters) =
       _getReviewRequestedQueries(user, searchParameters, startDate, endDate, onlySaved, limit,
-                                 offset, sort, order, includeDisputed)
+                                 offset, sort, order, includeDisputed, excludeOtherReviewers)
 
     // This only happens if a non-reviewer is trying to get review tasks
     if (query == null) {
@@ -240,7 +247,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
   def _getReviewRequestedQueries(user:User, searchParameters: SearchParameters,
                               startDate:String, endDate:String, onlySaved: Boolean=false,
-                              limit:Int = -1, offset:Int=0, sort:String, order:String, includeDisputed: Boolean = true)
+                              limit:Int = -1, offset:Int=0, sort:String, order:String,
+                              includeDisputed: Boolean = true, excludeOtherReviewers: Boolean = false)
                     (implicit c:Connection=null) : (String, String, ListBuffer[NamedParameter]) = {
     var orderByClause = ""
     val whereClause = includeDisputed match {
@@ -263,6 +271,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
     this.appendInWhereClause(whereClause,
       s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})")
+
+    if (excludeOtherReviewers) {
+      this.appendInWhereClause(whereClause,
+        s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+    }
 
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
@@ -303,11 +316,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
             SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
               tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
-            INNER JOIN groups g ON g.project_id = p.id
-            INNER JOIN user_groups ug ON g.id = ug.group_id
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
-                    ug.osm_user_id = ${user.osmProfile.id}) AND
+                    ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                               WHERE ug.group_id = g.id AND g.project_id = p.id))
+                    AND
                     task_review.review_requested_by != ${user.id} AND
             ${whereClause}
             ${whereBundleClause}
@@ -332,11 +345,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
         s"""
           SELECT count(*) FROM tasks
           ${joinClause}
-          INNER JOIN groups g ON g.project_id = p.id
-          INNER JOIN user_groups ug ON g.id = ug.group_id
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ug.osm_user_id = ${user.osmProfile.id}) AND
+                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                             WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
                   task_review.review_requested_by != ${user.id} AND
           ${whereClause}
           ${whereBundleClause}
@@ -425,11 +437,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
           s"""
             SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
-            INNER JOIN groups g ON g.project_id = p.id
-            INNER JOIN user_groups ug ON g.id = ug.group_id
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
-                    ug.osm_user_id = ${user.osmProfile.id} OR
+                    ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                               WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                     task_review.review_requested_by = ${user.id} OR
                     task_review.reviewed_by = ${user.id}) AND
             ${whereClause}
@@ -453,11 +464,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
         s"""
           SELECT count(*) FROM tasks
           ${joinClause}
-          INNER JOIN groups g ON g.project_id = p.id
-          INNER JOIN user_groups ug ON g.id = ug.group_id
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ug.osm_user_id = ${user.osmProfile.id} OR
+                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                             WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                   task_review.review_requested_by = ${user.id} OR
                   task_review.reviewed_by = ${user.id}) AND
           ${whereClause}
@@ -488,7 +498,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewMetrics(user:User, reviewTasksType:Int, searchParameters: SearchParameters,
                        mappers:Option[List[String]]=None, reviewers:Option[List[String]]=None,
-                       priorities:Option[List[Int]]=None, startDate:String, endDate:String, onlySaved: Boolean=false)
+                       priorities:Option[List[Int]]=None, startDate:String, endDate:String,
+                       onlySaved: Boolean=false, excludeOtherReviewers: Boolean=false)
                        (implicit c:Connection=null) : List[ReviewMetrics] = {
 
    // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
@@ -537,28 +548,27 @@ class TaskReviewDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
       }
 
-      if (!user.isSuperUser) {
-        joinClause ++=
-          s""" INNER JOIN groups g ON g.project_id = p.id
-               INNER JOIN user_groups ug ON g.id = ug.group_id """
+      if (excludeOtherReviewers) {
+        this.appendInWhereClause(whereClause,
+          s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+      }
 
+      if (!user.isSuperUser) {
         whereClause ++=
           s""" AND ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
-                ug.osm_user_id = ${user.osmProfile.id}) AND
+                ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                           WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
                 task_review.review_requested_by != ${user.id} """
       }
     }
     else {
       if (!user.isSuperUser) {
-        joinClause ++=
-          s""" INNER JOIN groups g ON g.project_id = p.id
-               INNER JOIN user_groups ug ON g.id = ug.group_id """
-
         whereClause ++=
           s""" AND ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
-                ug.osm_user_id = ${user.osmProfile.id} OR
+                ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                          WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                 task_review.review_requested_by = ${user.id} OR
                 task_review.reviewed_by = ${user.id})"""
       }
@@ -630,7 +640,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewTaskClusters(user:User, reviewTasksType:Int, params: SearchParameters,
                             numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS,
-                            startDate:String, endDate:String, onlySaved: Boolean=false)
+                            startDate:String, endDate:String, onlySaved: Boolean=false,
+                            excludeOtherReviewers: Boolean=false)
                      (implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
       val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~
@@ -656,15 +667,17 @@ class TaskReviewDAL @Inject()(override val db: Database,
           this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
         }
 
-        if (!user.isSuperUser) {
-          joinClause ++=
-            s""" INNER JOIN groups g ON g.project_id = p.id
-                 INNER JOIN user_groups ug ON g.id = ug.group_id """
+        if (excludeOtherReviewers) {
+          this.appendInWhereClause(whereClause,
+            s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+        }
 
+        if (!user.isSuperUser) {
           whereClause ++=
             s""" AND ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ug.osm_user_id = ${user.osmProfile.id}) AND
+                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                             WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
                   task_review.review_requested_by != ${user.id} """
         }
       }
