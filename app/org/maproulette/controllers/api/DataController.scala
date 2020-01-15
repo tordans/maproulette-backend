@@ -6,6 +6,7 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data._
 import org.maproulette.models.Challenge
+import org.maproulette.models.Challenge
 import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.SessionManager
 import org.maproulette.session.SearchParameters
@@ -16,6 +17,7 @@ import play.api.mvc._
 import play.api.libs.json.JodaWrites._
 
 import scala.util.Try
+import scala.collection.mutable
 
 /**
   * @author cuthbertm
@@ -174,7 +176,7 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
     }
   }
 
-  def getChallengeSummary(id: Long, survey: Int, priority: String): Action[AnyContent] = Action.async { implicit request =>
+  def getChallengeSummary(id: Long, survey: Int, priority: String, includeByPriority: Boolean=false): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       if (survey == 1) {
         val priorityInt = this.getPriority( if (priority == "") -1 else priority.toInt)
@@ -183,19 +185,67 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
         ))
       } else {
         SearchParameters.withSearch { implicit params =>
-          Ok(Json.toJson(
-            this.dataManager.getChallengeSummary(challengeId = Some(id), priority = Utils.toIntList(priority), params = Some(params))
-          ))
+          val response = this.dataManager.getChallengeSummary(challengeId = Some(id), priority = Utils.toIntList(priority), params = Some(params))
+
+          if (includeByPriority) {
+            var prioritiesToFetch = List(Challenge.PRIORITY_HIGH, Challenge.PRIORITY_MEDIUM, Challenge.PRIORITY_LOW)
+
+            val priorityMap = mutable.Map[String, JsValue]()
+            prioritiesToFetch.foreach(p => {
+              val pResult = this.dataManager.getChallengeSummary(challengeId = Some(id),
+                                                                 priority = Some(List(p)),
+                                                                 params = Some(params))
+              if (pResult.length > 0) {
+                priorityMap.put(p.toString, Json.toJson(pResult.head.actions))
+              }
+              else {
+                priorityMap.put(p.toString, Json.toJson(ActionSummary(0,0,0,0,0,0,0,0,0)))
+              }
+            })
+
+            val updated = Utils.insertIntoJson(Json.toJson(response).as[JsArray].head.as[JsValue],
+                                               "priorityActions", Json.toJson(priorityMap), false)
+            Ok(Json.toJson(List(updated)))
+          }
+          else {
+            Ok(Json.toJson(response))
+          }
         }
       }
     }
   }
 
-  def getProjectSummary(projects: String, onlyEnabled: Boolean = true): Action[AnyContent] = Action.async { implicit request =>
+  def getProjectSummary(projects: String, onlyEnabled: Boolean = true, includeByPriority: Boolean = false): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(
-        this.dataManager.getChallengeSummary(Utils.toLongList(projects), onlyEnabled = onlyEnabled)
-      ))
+      val response = this.dataManager.getChallengeSummary(Utils.toLongList(projects), onlyEnabled = onlyEnabled)
+
+      if (includeByPriority) {
+        var prioritiesToFetch = List(Challenge.PRIORITY_HIGH, Challenge.PRIORITY_MEDIUM, Challenge.PRIORITY_LOW)
+
+        //val updated = Json.toJson(response).as[JsArray]
+        val allUpdated =
+          response.map(challenge => {
+            val priorityMap = mutable.Map[String, JsValue]()
+            prioritiesToFetch.foreach(p => {
+              val pResult = this.dataManager.getChallengeSummary(challengeId = Some(challenge.id),
+                                                                 priority = Some(List(p)),
+                                                                 onlyEnabled = onlyEnabled)
+              if (pResult.length > 0) {
+                priorityMap.put(p.toString, Json.toJson(pResult.head.actions))
+              }
+              else {
+                priorityMap.put(p.toString, Json.toJson(ActionSummary(0,0,0,0,0,0,0,0,0)))
+              }
+            })
+
+            Utils.insertIntoJson(Json.toJson(challenge), "priorityActions", priorityMap, false)
+          })
+
+        Ok(Json.toJson(allUpdated))
+      }
+      else {
+        Ok(Json.toJson(response))
+      }
     }
   }
 
