@@ -383,9 +383,9 @@ class UserController @Inject()(userDAL: UserDAL,
     }
   }
 
-  def getMetricsForUser(userId: Long, monthDuration:Int = -1, reviewDuration:Int = -1): Action[AnyContent] = Action.async { implicit request =>
+  def getMetricsForUser(userId: Long, monthDuration:Int = -1, reviewDuration:Int = -1, reviewerDuration:Int = -1): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.userDAL.getMetricsForUser(userId, User.userOrMocked(user), monthDuration, reviewDuration)))
+      Ok(Json.toJson(this.userDAL.getMetricsForUser(userId, User.userOrMocked(user), monthDuration, reviewDuration, reviewerDuration)))
     }
   }
 }

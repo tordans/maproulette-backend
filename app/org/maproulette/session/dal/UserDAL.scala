@@ -1043,15 +1043,17 @@ class UserDAL @Inject()(override val db: Database,
     * @param reviewMonthDuration
     * @param c            The existing connection if any
     */
-  def getMetricsForUser(userId: Long, user: User, taskMonthDuration: Int, reviewMonthDuration: Int)(
+  def getMetricsForUser(userId: Long, user: User, taskMonthDuration: Int, reviewMonthDuration: Int, reviewerMonthDuration: Int)(
     implicit c: Option[Connection] = None): Map[String,Map[String,Int]] = {
 
     val targetUser = retrieveById(userId)
+    var isReviewer = false
     targetUser match {
       case Some(u) =>
         if (u.settings.leaderboardOptOut.getOrElse(false) && !user.isSuperUser && userId != user.id) {
           throw new IllegalAccessException(s"User metrics are not public for this user.")
         }
+        isReviewer = u.settings.isReviewer.getOrElse(false)
       case _ =>
         throw new NotFoundException(s"Could not find user with id: $userId")
     }
@@ -1131,7 +1133,33 @@ class UserDAL @Inject()(override val db: Database,
 
         val reviewCounts = SQL(reviewCountsQuery).as(reviewCountsParser.single)
 
-       Map("tasks" -> taskCounts, "reviewTasks" -> reviewCounts)
+        if (isReviewer) {
+          val reviewerTimeClause = reviewerMonthDuration match {
+              case -1 => "1=1"
+              case default =>
+                val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                val startMonth = LocalDate.now.minus(Period.ofMonths(reviewMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                s"""reviewed_at::DATE BETWEEN '$startMonth' AND '$today'"""
+            }
+
+          val asReviewerCountsQuery =
+            s"""
+               |SELECT count(*) as total,
+               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_APPROVED} then 1 else 0 end), 0) approvedCount,
+               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) rejectedCount,
+               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
+               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
+               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount
+               |FROM task_review
+               |WHERE task_review.reviewed_by = $userId AND ${reviewerTimeClause}
+           """.stripMargin
+
+           val asReviewerCounts = SQL(asReviewerCountsQuery).as(reviewCountsParser.single)
+           Map("tasks" -> taskCounts, "reviewTasks" -> reviewCounts, "asReviewerTasks" -> asReviewerCounts)
+        }
+        else {
+          Map("tasks" -> taskCounts, "reviewTasks" -> reviewCounts)
+        }
     }
   }
 }
