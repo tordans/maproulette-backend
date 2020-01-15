@@ -557,6 +557,7 @@ POST     /project/:projectId/challenge/:id/remove           @org.maproulette.con
 ###
 GET     /project/:id/tasks                          @org.maproulette.controllers.api.ProjectController.getRandomTasks(id:Long, limit:Int ?= 1, proximity:Long ?= -1)
 ###
+# tags: [ Task ]
 # summary: Retrieves a history for the task
 # produces: [ application/json ]
 # description: Retrieves list of task history log entries. This includes comments,
@@ -574,6 +575,7 @@ GET     /project/:id/tasks                          @org.maproulette.controllers
 ###
 GET     /task/:id/history                       @org.maproulette.controllers.api.TaskHistoryController.getTaskHistoryLog(id:Long)
 ###
+# tags: [ Review ]
 # summary: Retrieves and claims a review needed Task
 # produces: [ application/json ]
 # description: Retrieves a Task and claims that task for review
@@ -590,6 +592,7 @@ GET     /task/:id/history                       @org.maproulette.controllers.api
 ###
 GET     /task/:id/review/start                       @org.maproulette.controllers.api.TaskReviewController.startTaskReview(id:Long)
 ###
+# tags: [ Review ]
 # summary: Cancels a claim on a task for review
 # produces: [ application/json ]
 # description: Cancels a claim on a task for review
@@ -606,6 +609,7 @@ GET     /task/:id/review/start                       @org.maproulette.controller
 ###
 GET     /task/:id/review/cancel                       @org.maproulette.controllers.api.TaskReviewController.cancelTaskReview(id:Long)
 ###
+# tags: [ Review ]
 # summary: Retrieves tasks that need review
 # produces: [ application/json ]
 # description: Retrieves list of Tasks and total count
@@ -648,6 +652,7 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 ###
 GET     /tasks/review                          @org.maproulette.controllers.api.TaskReviewController.getReviewRequestedTasks(startDate: String ?= null, endDate: String ?= null, onlySaved: Boolean ?= false, limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", excludeOtherReviewers: Boolean ?= false)
 ###
+# tags: [ Review ]
 # summary: Retrieves reviewed tasks that have been reviewed either by this user or where the user requested
 #          the review.
 # produces: [ application/json ]
@@ -697,6 +702,7 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 ###
 GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskReviewController.getReviewedTasks(mappers:String ?= "", reviewers:String ?= "", startDate: String ?= null, endDate: String ?= null, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
 ###
+# tags: [ Review ]
 # summary: Retrieves and claims a the next review needed Task
 # produces: [ application/json ]
 # description: Retrieves the next Task (given the search parameters) and claims that task for review
@@ -734,6 +740,7 @@ GET     /tasks/reviewed                          @org.maproulette.controllers.ap
 ###
 GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastTaskId:Long ?= -1, excludeOtherReviewers:Boolean ?= false)
 ###
+# tags: [ Review ]
 # summary: Retrieves tasks that need review
 # produces: [ application/json ]
 # description: Retrieves list of Tasks and total count

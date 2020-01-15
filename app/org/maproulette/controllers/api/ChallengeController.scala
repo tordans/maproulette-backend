@@ -938,11 +938,12 @@ class ChallengeController @Inject()(override val childController: TaskController
       dalManager.challenge.retrieveById(challengeId) match {
         case Some(c) =>
           permission.hasWriteAccess(ProjectType(), user)(c.general.parent)
-          if (c.status.get == Challenge.STATUS_DELETING_TASKS) {
-            throw new InvalidException("Challenge cannot be rebuilt while undergoing bulk task deletion")
-          }
-          else if (c.status.get == Challenge.STATUS_BUILDING) {
-            throw new InvalidException("Task build is already in progress for this challenge")
+          c.status match {
+            case Some(Challenge.STATUS_DELETING_TASKS) =>
+              throw new InvalidException("Challenge cannot be rebuilt while undergoing bulk task deletion")
+            case Some(Challenge.STATUS_BUILDING) =>
+              throw new InvalidException("Task build is already in progress for this challenge")
+            case None => // just ignore
           }
 
           challengeProvider.rebuildTasks(user, c, removeUnmatched)
@@ -955,21 +956,28 @@ class ChallengeController @Inject()(override val childController: TaskController
   def addTasksToChallenge(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(challengeId) match {
-        case Some(c) =>
-          permission.hasObjectWriteAccess(c, user)
-          if (c.status.get == Challenge.STATUS_DELETING_TASKS) {
-            throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
-          }
-          else if (c.status.get == Challenge.STATUS_BUILDING) {
-            throw new InvalidException("Tasks cannot be added while challenge is being built")
+        case Some(challenge) =>
+          permission.hasObjectWriteAccess(challenge, user)
+          challenge.status match {
+            case Some(Challenge.STATUS_DELETING_TASKS) =>
+              throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
+            case Some(Challenge.STATUS_BUILDING) =>
+              throw new InvalidException("Tasks cannot be added while challenge is being built")
+            case None => // just ignore
           }
 
           request.body.asText match {
-            case Some(j) =>
-              challengeProvider.createTasksFromJson(user, c, j)
+            case Some(bodyText) =>
+              challengeProvider.createTasksFromJson(user, challenge, bodyText)
               NoContent
             case None =>
-              throw new InvalidException("No json data provided to create new tasks from")
+              request.body.asJson match {
+                case Some(bodyJson) =>
+                  challengeProvider.createTasksFromJson(user, challenge, bodyJson.toString())
+                  NoContent
+                case None =>
+                  throw new InvalidException("No json data provided to create new tasks from")
+              }
           }
         case None =>
           throw new NotFoundException(s"No challenge found with id $challengeId")
@@ -984,11 +992,12 @@ class ChallengeController @Inject()(override val childController: TaskController
         dalManager.challenge.retrieveById(challengeId) match {
           case Some(c) =>
             permission.hasObjectWriteAccess(c, user)
-            if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_DELETING_TASKS) {
-              throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
-            }
-            else if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_BUILDING) {
-              throw new InvalidException("Tasks cannot be added while challenge is being built")
+            c.status match {
+              case Some(Challenge.STATUS_DELETING_TASKS) =>
+                throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
+              case Some(Challenge.STATUS_BUILDING) =>
+                throw new InvalidException("Tasks cannot be added while challenge is being built")
+              case None => // just ignore
             }
 
             request.body.file("json") match {
