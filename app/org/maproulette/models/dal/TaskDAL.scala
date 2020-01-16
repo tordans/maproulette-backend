@@ -891,6 +891,13 @@ class TaskDAL @Inject()(override val db: Database,
             this.notificationDAL.get().createReviewNotification(user, task.review.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
           }
         }
+        else {
+          // For disputed tasks.
+          SQL"""INSERT INTO task_review_history
+                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
+                VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
+                        ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
+        }
       }
 
       this.cacheManager.withOptionCaching { () =>
