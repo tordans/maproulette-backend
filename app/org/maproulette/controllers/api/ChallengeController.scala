@@ -943,7 +943,7 @@ class ChallengeController @Inject()(override val childController: TaskController
               throw new InvalidException("Challenge cannot be rebuilt while undergoing bulk task deletion")
             case Some(Challenge.STATUS_BUILDING) =>
               throw new InvalidException("Task build is already in progress for this challenge")
-            case None => // just ignore
+            case _ => // just ignore
           }
 
           challengeProvider.rebuildTasks(user, c, removeUnmatched)
@@ -963,7 +963,7 @@ class ChallengeController @Inject()(override val childController: TaskController
               throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
             case Some(Challenge.STATUS_BUILDING) =>
               throw new InvalidException("Tasks cannot be added while challenge is being built")
-            case None => // just ignore
+            case _ => // just ignore
           }
 
           request.body.asText match {
@@ -997,7 +997,7 @@ class ChallengeController @Inject()(override val childController: TaskController
                 throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
               case Some(Challenge.STATUS_BUILDING) =>
                 throw new InvalidException("Tasks cannot be added while challenge is being built")
-              case None => // just ignore
+              case _ => // just ignore
             }
 
             request.body.file("json") match {

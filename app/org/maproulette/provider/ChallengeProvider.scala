@@ -197,28 +197,19 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     if (featureList.isDefined) {
       taskNameFromJsValue(featureList.get.head) // Base name on first feature
     } else {
-      val name = (value \ "id").asOpt[String] match {
+      val nameKeys = List.apply("id", "@id", "osmid", "osm_id", "name")
+      nameKeys.collectFirst { case x if (value \ x).asOpt[String].isDefined => (value \ x).asOpt[String].get } match {
         case Some(n) => n
-        case None => (value \ "@id").asOpt[String] match {
-          case Some(na) => na
-          case None => (value \ "osmid").asOpt[String] match {
-            case Some(nb) => nb
-            case None => (value \ "name").asOpt[String] match {
-              case Some(nc) => nc
-              case None => (value \ "properties").asOpt[JsObject] match {
-                // See if we can find an id field on the feature properties
-                case Some(properties) => taskNameFromJsValue(properties)
-                case None =>
-                  // if we still don't find anything, create a UUID for it. The
-                  // caveat to this is that if you upload the same file again, it
-                  // will create duplicate tasks
-                  UUID.randomUUID().toString
-              }
-            }
-          }
+        case None => (value \ "properties").asOpt[JsObject] match {
+          // See if we can find an id field on the feature properties
+          case Some(properties) => taskNameFromJsValue(properties)
+          case None =>
+            // if we still don't find anything, create a UUID for it. The
+            // caveat to this is that if you upload the same file again, it
+            // will create duplicate tasks
+            UUID.randomUUID().toString
         }
       }
-      name
     }
   }
 
