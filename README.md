@@ -1,17 +1,12 @@
-# MapRoulette API
-Welcome to New MapRoulette, the powerful & popular bug fixing tool (or is it a game?) for OpenStreetMap.
+# MapRoulette Back-end
+Welcome to the repository for the MapRoulette back-end server code. The MapRoulette back-end exposes the MapRoulette API, which the MapRoulette front-end web application depends on. The source code for the web application is in [a separate repository](https://github.com/osmlab/maproulette3).
 
-This README deals with development related topics only. If you are interested in contributing to OpenStreetMap by fixing some bugs through MapRoulette, just head over to [the MapRoulette web site](http://maproulette.org) and get started - it should be pretty self explanatory.
+**If you just want to deploy the MapRoulette back-end, [we have a 🚢 Docker image 🚢 for that](https://github.com/maproulette/maproulette2-docker)**. This is especially useful if you want to contribute to the MapRoulette front-end and don't intend to touch the back-end.
 
-That said, read on if you want to contribute to MapRoulette development and are ready to deploy your local instance.
-
-New MapRoulette is built upon the Play Framework using Scala. You can find more information about the Play Framework at https://www.playframework.com
-It uses the following core technologies:
+The MapRoulette back-end is built on these core technologies:
 
 * Postgres 9.5 with PostGIS 2.2.1
 * Play Framework 2.7.1 with Scala 2.12.8
-
-**If you just want to deploy the MapRoulette back-end, [we have a 🚢 Docker image 🚢 for that](https://github.com/maproulette/maproulette2-docker)**. Read on if you want to set up an environment for developing.
 
 ## Requirements
 
