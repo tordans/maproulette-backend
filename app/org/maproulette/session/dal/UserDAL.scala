@@ -1062,6 +1062,10 @@ class UserDAL @Inject()(override val db: Database,
       // Fetch task metrics
       val timeClause = taskMonthDuration match {
           case -1 => "1=1"
+          case 0 =>
+            val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            val startOfMonth = LocalDate.now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            s"""sa1.created::DATE BETWEEN '$startOfMonth' AND '$today'"""
           case default =>
             val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
             val startMonth = LocalDate.now.minus(Period.ofMonths(taskMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -1099,6 +1103,10 @@ class UserDAL @Inject()(override val db: Database,
        // Now fetch Review Metrics
        val reviewTimeClause = reviewMonthDuration match {
            case -1 => "1=1"
+           case 0 =>
+             val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+             val startOfMonth = LocalDate.now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+             s"""reviewed_at::DATE BETWEEN '$startOfMonth' AND '$today'"""
            case default =>
              val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
              val startMonth = LocalDate.now.minus(Period.ofMonths(reviewMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -1136,9 +1144,13 @@ class UserDAL @Inject()(override val db: Database,
         if (isReviewer) {
           val reviewerTimeClause = reviewerMonthDuration match {
               case -1 => "1=1"
+              case 0 =>
+                val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                val startOfMonth = LocalDate.now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                s"""reviewed_at::DATE BETWEEN '$startOfMonth' AND '$today'"""
               case default =>
                 val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                val startMonth = LocalDate.now.minus(Period.ofMonths(reviewMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                val startMonth = LocalDate.now.minus(Period.ofMonths(reviewerMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                 s"""reviewed_at::DATE BETWEEN '$startMonth' AND '$today'"""
             }
 
