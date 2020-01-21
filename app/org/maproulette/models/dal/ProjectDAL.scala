@@ -96,21 +96,14 @@ class ProjectDAL @Inject()(override val db: Database,
     //permissions don't need to be checked, anyone can create a project
     //this.permission.hasObjectWriteAccess(project, user)
     this.cacheManager.withOptionCaching { () =>
-      // only super users can enable or disable projects
-      val setProject = if (!user.isSuperUser || user.adminForProject(project.id)) {
-        logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects")
-        project.copy(enabled = false)
-      } else {
-        project
-      }
-      val isVirtual = setProject.isVirtual match {
+      val isVirtual = project.isVirtual match {
         case Some(v) => v
         case _ => false
       }
 
       val newProject = this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual)
-              VALUES (${setProject.name}, ${user.osmProfile.id}, ${setProject.displayName}, ${setProject.description}, ${setProject.enabled}, ${isVirtual})
+              VALUES (${project.name}, ${user.osmProfile.id}, ${project.displayName}, ${project.description}, ${project.enabled}, ${isVirtual})
               RETURNING *""".as(parser.*).head
       }
       db.withTransaction { implicit c =>

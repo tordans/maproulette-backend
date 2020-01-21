@@ -10,6 +10,7 @@ import play.api.data.format.Formats
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
+import org.maproulette.exception.InvalidException
 
 
 /**
@@ -41,6 +42,7 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             taskReviewStatus: Option[List[Int]] = None,
                             taskProperties: Option[Map[String, String]] = None,
                             taskPropertySearchType: Option[String] = None,
+                            taskPropertySearch: Option[TaskPropertySearch] = None,
                             taskPriorities: Option[List[Int]] = None,
                             priority: Option[Int] = None,
                             location: Option[SearchLocation] = None,
@@ -82,10 +84,19 @@ object SearchParameters {
   val TASK_PROP_SEARCH_TYPE_EQUALS = "equals"
   val TASK_PROP_SEARCH_TYPE_NOT_EQUAL = "not_equal"
   val TASK_PROP_SEARCH_TYPE_CONTAINS = "contains"
+  val TASK_PROP_SEARCH_TYPE_LESS_THAN = "less_than"
+  val TASK_PROP_SEARCH_TYPE_GREATER_THAN = "greater_than"
 
+  val TASK_PROP_VALUE_TYPE_STRING = "string"
+  val TASK_PROP_VALUE_TYPE_NUMBER = "number"
+
+  val TASK_PROP_OPERATION_TYPE_AND = "and"
+  val TASK_PROP_OPERATION_TYPE_OR = "or"
 
   implicit val locationWrites = Json.writes[SearchLocation]
   implicit val locationReads = Json.reads[SearchLocation]
+  implicit val taskPropertySearchWrites: Writes[TaskPropertySearch] = Json.writes[TaskPropertySearch]
+  implicit val taskPropertySearchReads: Reads[TaskPropertySearch] = Json.reads[TaskPropertySearch]
 
   implicit val challengeParamsWrites: Writes[SearchChallengeParameters] = Json.writes[SearchChallengeParameters]
   implicit val challengeParamsReads: Reads[SearchChallengeParameters] = Json.reads[SearchChallengeParameters]
@@ -200,6 +211,23 @@ object SearchParameters {
       case None => params.challengeParams.challengeIds
     }
 
+    val taskPropertySearch = (request.body.asJson) match {
+      case Some(v) =>
+        (v \ "taskPropertySearch").toOption match {
+          case Some(result) => {
+            Json.fromJson[TaskPropertySearch](result) match {
+              case JsSuccess(tps, _) => {
+                Some(tps)
+              }
+              case e: JsError =>
+                throw new InvalidException(s"Unable to create TaskPropertySearch from JSON: ${JsError toJson e}")
+            }
+          }
+          case None => None
+        }
+      case None => None
+    }
+
     block(SearchParameters(
       //projectID
       projectIds,
@@ -255,6 +283,8 @@ object SearchParameters {
       //taskPropertySearchType
       this.getStringParameter(request.getQueryString("tPropsSearchType"),
                               params.taskPropertySearchType),
+      //taskPropertySearch
+      taskPropertySearch,
       //taskPriorities
       request.getQueryString("priorities") match {
         case Some(v) => Utils.toIntList(v)

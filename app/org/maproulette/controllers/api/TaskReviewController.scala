@@ -85,10 +85,12 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     *
     * @return Task
     */
-  def nextTaskReview(onlySaved: Boolean=false, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+  def nextTaskReview(onlySaved: Boolean=false, sort:String, order:String, lastTaskId:Long = -1,
+                     excludeOtherReviewers: Boolean = false) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        val result = this.taskReviewDAL.nextTaskReview(user, params, onlySaved, sort, order)
+        val result = this.taskReviewDAL.nextTaskReview(user, params, onlySaved, sort, order,
+                                                       (if (lastTaskId == -1) None else Some(lastTaskId)), excludeOtherReviewers)
         val nextTask = result match {
           case Some(task) =>
             Ok(Json.toJson(this.taskReviewDAL.startTaskReview(user, task)))
@@ -110,17 +112,19 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @param page The page number for the results
     * @param sort The column to sort
     * @param order The order direction to sort
+    * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     * @return
     */
   def getReviewRequestedTasks(startDate: String=null, endDate: String=null, onlySaved: Boolean=false,
-                              limit:Int, page:Int, sort:String, order:String) : Action[AnyContent] = Action.async { implicit request =>
+                              limit:Int, page:Int, sort:String, order:String,
+                              excludeOtherReviewers: Boolean = false) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         //cs => "my challenge name"
         //o => "mapper's name"
         //r => "reviewer's name"
         val (count, result) = this.taskReviewDAL.getReviewRequestedTasks(User.userOrMocked(user), params,
-           startDate, endDate, onlySaved, limit, page, sort, order)
+           startDate, endDate, onlySaved, limit, page, sort, order, true, excludeOtherReviewers)
         Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
       }
     }
@@ -203,16 +207,18 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @param reviewTasksType - 1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users
     * @param startDate Optional start date to filter by reviewedAt date
     * @param endDate Optional end date to filter by reviewedAt date
+    * @param onlySaved Only include saved challenges
+    * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     * @return
     */
   def getReviewMetrics(reviewTasksType: Int, mappers: String="", reviewers: String="", priorities: String="",
                        startDate: String=null, endDate: String=null,
-                       onlySaved: Boolean=false) : Action[AnyContent] = Action.async { implicit request =>
+                       onlySaved: Boolean=false, excludeOtherReviewers: Boolean=false) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val result = this.taskReviewDAL.getReviewMetrics(User.userOrMocked(user),
                        reviewTasksType, params, Some(Utils.split(mappers)), Some(Utils.split(reviewers)),
-                       Utils.toIntList(priorities), startDate, endDate, onlySaved)
+                       Utils.toIntList(priorities), startDate, endDate, onlySaved, excludeOtherReviewers)
         Ok(Json.toJson(result))
       }
     }
@@ -225,13 +231,17 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @param numberOfPoints Number of clustered points you wish to have returned
     * @param startDate Optional start date to filter by reviewedAt date
     * @param endDate Optional end date to filter by reviewedAt date
+    * @param Only include challenges that have been saved
+    * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
+    *
     * @return A list of ClusteredPoint's that represent clusters of tasks
     */
   def getReviewTaskClusters(reviewTasksType: Int, numberOfPoints: Int, startDate: String=null, endDate: String=null,
-                            onlySaved: Boolean=false): Action[AnyContent] = Action.async { implicit request =>
+                            onlySaved: Boolean=false, excludeOtherReviewers: Boolean=false): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
-        Ok(Json.toJson(this.taskReviewDAL.getReviewTaskClusters(User.userOrMocked(user), reviewTasksType, params, numberOfPoints, startDate, endDate, onlySaved)))
+        Ok(Json.toJson(this.taskReviewDAL.getReviewTaskClusters(User.userOrMocked(user), reviewTasksType, params,
+                       numberOfPoints, startDate, endDate, onlySaved, excludeOtherReviewers)))
       }
     }
   }

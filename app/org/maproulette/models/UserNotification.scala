@@ -78,6 +78,7 @@ object NotificationSubscriptions {
 case class UserNotificationEmail(val id: Long,
                                  val userId: Long,
                                  val notificationType: Int,
+                                 val extra: Option[String],
                                  val created: DateTime,
                                  val emailStatus: Int)
 

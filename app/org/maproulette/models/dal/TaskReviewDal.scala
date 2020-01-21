@@ -22,6 +22,7 @@ import play.api.libs.ws.WSClient
 import play.api.libs.json._
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.Map
 
 /**
   * @author krotstan
@@ -144,16 +145,65 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * Gets and claims the next task for review.
     *
     * @param user The user executing the request
+    * @param SearchParameters
+    * @param onlySaved
+    * @param sort
+    * @param order
+    * @param lastTaskId
+    * @param excludeOtherReviewers
     * @return task
     */
   def nextTaskReview(user:User, searchParameters: SearchParameters, onlySaved: Boolean=false,
-                    sort:String, order:String) (implicit c:Connection=null) : Option[Task] = {
-    val (count, result) = this.getReviewRequestedTasks(user, searchParameters, null, null, onlySaved, 1, 0, sort, order, false)
-    if (count == 0) {
+                    sort:String, order:String, lastTaskId:Option[Long]=None, excludeOtherReviewers: Boolean=false) (implicit c:Connection=null) : Option[Task] = {
+    var position = 0
+
+    lastTaskId match {
+      case Some(taskId) => {
+        val (countAll, queryAll, parametersAll) =
+          _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
+                                     -1, 0, sort, order, false, excludeOtherReviewers)
+
+        // This only happens if a non-reviewer is trying to do get a review task
+        if (queryAll == null) {
+          return None
+        }
+
+        var rowMap = Map[Long, Int]()
+        val rowNumParser: RowParser[Long] = {
+            get[Int]("row_num") ~
+            get[Long]("tasks.id") map {
+            case row ~ id => {
+              rowMap.put(id, row)
+              id
+            }
+          }
+        }
+
+        this.withMRTransaction { implicit c =>
+          sqlWithParameters(queryAll, parametersAll).as(rowNumParser.*)
+
+          val rowPosition = rowMap.get(taskId)
+          rowPosition match {
+            case Some(row) =>
+              position = row  // fetch next task (offset starts at 0 but rows at 1)
+            case _ => // not found so do nothing
+          }
+        }
+      }
+      case _ => // do nothing
+    }
+
+    val (countQuery, query, parameters) =
+      _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
+                                 1, position, sort, order, false, excludeOtherReviewers)
+
+    // This only happens if a non-reviewer is trying to do get a review task
+    if (query == null) {
       return None
     }
-    else {
-      return Some(result.head)
+
+    this.withMRTransaction { implicit c =>
+      sqlWithParameters(query, parameters).as(this.parser.*).headOption
     }
   }
 
@@ -172,8 +222,34 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewRequestedTasks(user:User, searchParameters: SearchParameters,
                               startDate:String, endDate:String, onlySaved: Boolean=false,
-                              limit:Int = -1, offset:Int=0, sort:String, order:String, includeDisputed: Boolean = true)
+                              limit:Int = -1, offset:Int=0, sort:String, order:String,
+                              includeDisputed: Boolean = true, excludeOtherReviewers: Boolean = false)
                     (implicit c:Connection=null) : (Int, List[Task]) = {
+    val (countQuery, query, parameters) =
+      _getReviewRequestedQueries(user, searchParameters, startDate, endDate, onlySaved, limit,
+                                 offset, sort, order, includeDisputed, excludeOtherReviewers)
+
+    // This only happens if a non-reviewer is trying to get review tasks
+    if (query == null) {
+      return (0, List[Task]())
+    }
+
+    var count = 0
+    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
+      this.withMRTransaction { implicit c =>
+        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+        sqlWithParameters(query, parameters).as(this.parser.*)
+      }
+    }
+
+    return (count, tasks)
+  }
+
+  def _getReviewRequestedQueries(user:User, searchParameters: SearchParameters,
+                              startDate:String, endDate:String, onlySaved: Boolean=false,
+                              limit:Int = -1, offset:Int=0, sort:String, order:String,
+                              includeDisputed: Boolean = true, excludeOtherReviewers: Boolean = false)
+                    (implicit c:Connection=null) : (String, String, ListBuffer[NamedParameter]) = {
     var orderByClause = ""
     val whereClause = includeDisputed match {
       case true =>
@@ -196,6 +272,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
     this.appendInWhereClause(whereClause,
       s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})")
 
+    if (excludeOtherReviewers) {
+      this.appendInWhereClause(whereClause,
+        s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+    }
+
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
@@ -203,14 +284,21 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
     sort match {
       case s if s.nonEmpty =>
-        orderByClause = this.order(Some(s), order, "", false)
+        var sortColumn = s
+        // We have two "id" columns: one for Tasks and one for taskReview. So
+        // we need to specify which one to sort by for the SQL query.
+        if (s == "id") {
+          sortColumn = "tasks." + s
+        }
+        orderByClause = this.order(Some(sortColumn), order, "", false)
       case _ => // ignore
     }
 
     val query = user.isSuperUser match {
       case true =>
         s"""
-          SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
+          SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
+            tasks.${this.retrieveColumnsWithReview} FROM tasks
           ${joinClause}
           WHERE
           ${whereClause}
@@ -225,13 +313,14 @@ class TaskReviewDAL @Inject()(override val db: Database,
           // 2. You own the Project
           // 3. You manage the project (your user group matches groups of project)
           s"""
-            SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
+            SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
+              tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
-            INNER JOIN groups g ON g.project_id = p.id
-            INNER JOIN user_groups ug ON g.id = ug.group_id
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
-                    ug.osm_user_id = ${user.osmProfile.id}) AND
+                    ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                               WHERE ug.group_id = g.id AND g.project_id = p.id))
+                    AND
                     task_review.review_requested_by != ${user.id} AND
             ${whereClause}
             ${whereBundleClause}
@@ -240,7 +329,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
            """
          }
          else {
-           return (0, List[Task]())
+           return (null, null, null)
          }
     }
 
@@ -256,26 +345,17 @@ class TaskReviewDAL @Inject()(override val db: Database,
         s"""
           SELECT count(*) FROM tasks
           ${joinClause}
-          INNER JOIN groups g ON g.project_id = p.id
-          INNER JOIN user_groups ug ON g.id = ug.group_id
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ug.osm_user_id = ${user.osmProfile.id}) AND
+                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                             WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
                   task_review.review_requested_by != ${user.id} AND
           ${whereClause}
           ${whereBundleClause}
         """
     }
 
-    var count = 0
-    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
-      this.withMRTransaction { implicit c =>
-        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-        sqlWithParameters(query, parameters).as(this.parser.*)
-      }
-    }
-
-    return (count, tasks)
+    return (countQuery, query, parameters)
   }
 
   /**
@@ -357,11 +437,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
           s"""
             SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
-            INNER JOIN groups g ON g.project_id = p.id
-            INNER JOIN user_groups ug ON g.id = ug.group_id
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
-                    ug.osm_user_id = ${user.osmProfile.id} OR
+                    ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                               WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                     task_review.review_requested_by = ${user.id} OR
                     task_review.reviewed_by = ${user.id}) AND
             ${whereClause}
@@ -385,11 +464,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
         s"""
           SELECT count(*) FROM tasks
           ${joinClause}
-          INNER JOIN groups g ON g.project_id = p.id
-          INNER JOIN user_groups ug ON g.id = ug.group_id
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ug.osm_user_id = ${user.osmProfile.id} OR
+                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                             WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                   task_review.review_requested_by = ${user.id} OR
                   task_review.reviewed_by = ${user.id}) AND
           ${whereClause}
@@ -420,7 +498,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewMetrics(user:User, reviewTasksType:Int, searchParameters: SearchParameters,
                        mappers:Option[List[String]]=None, reviewers:Option[List[String]]=None,
-                       priorities:Option[List[Int]]=None, startDate:String, endDate:String, onlySaved: Boolean=false)
+                       priorities:Option[List[Int]]=None, startDate:String, endDate:String,
+                       onlySaved: Boolean=false, excludeOtherReviewers: Boolean=false)
                        (implicit c:Connection=null) : List[ReviewMetrics] = {
 
    // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
@@ -469,28 +548,27 @@ class TaskReviewDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
       }
 
-      if (!user.isSuperUser) {
-        joinClause ++=
-          s""" INNER JOIN groups g ON g.project_id = p.id
-               INNER JOIN user_groups ug ON g.id = ug.group_id """
+      if (excludeOtherReviewers) {
+        this.appendInWhereClause(whereClause,
+          s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+      }
 
+      if (!user.isSuperUser) {
         whereClause ++=
           s""" AND ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
-                ug.osm_user_id = ${user.osmProfile.id}) AND
+                ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                           WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
                 task_review.review_requested_by != ${user.id} """
       }
     }
     else {
       if (!user.isSuperUser) {
-        joinClause ++=
-          s""" INNER JOIN groups g ON g.project_id = p.id
-               INNER JOIN user_groups ug ON g.id = ug.group_id """
-
         whereClause ++=
           s""" AND ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
-                ug.osm_user_id = ${user.osmProfile.id} OR
+                ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                          WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                 task_review.review_requested_by = ${user.id} OR
                 task_review.reviewed_by = ${user.id})"""
       }
@@ -562,21 +640,13 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   def getReviewTaskClusters(user:User, reviewTasksType:Int, params: SearchParameters,
                             numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS,
-                            startDate:String, endDate:String, onlySaved: Boolean=false)
+                            startDate:String, endDate:String, onlySaved: Boolean=false,
+                            excludeOtherReviewers: Boolean=false)
                      (implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
-      val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~
-        str("geom") ~ str("bounding") map {
-        case kmeans ~ totalPoints ~ geom ~ bounding =>
-          val locationJSON = Json.parse(geom)
-          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, None, None, None, params, point, Json.parse(bounding), List())
-      }
-
       val fetchBy = if (reviewTasksType == 2) "task_review.reviewed_by" else "task_review.review_requested_by"
-      val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-      joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
+      val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = t.parent_id ")
+      joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = t.id "
       joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
 
       var whereClause = new StringBuilder(s"${fetchBy}=${user.id}")
@@ -588,19 +658,21 @@ class TaskReviewDAL @Inject()(override val db: Database,
           this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
         }
 
-        if (!user.isSuperUser) {
-          joinClause ++=
-            s""" INNER JOIN groups g ON g.project_id = p.id
-                 INNER JOIN user_groups ug ON g.id = ug.group_id """
+        if (excludeOtherReviewers) {
+          this.appendInWhereClause(whereClause,
+            s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+        }
 
+        if (!user.isSuperUser) {
           whereClause ++=
             s""" AND ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ug.osm_user_id = ${user.osmProfile.id}) AND
+                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
+                                             WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
                   task_review.review_requested_by != ${user.id} """
         }
       }
-      this.appendInWhereClause(whereClause, "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)")
+      this.appendInWhereClause(whereClause, "(t.bundle_id is NULL OR t.is_bundle_primary = true)")
 
       val parameters = new ListBuffer[NamedParameter]()
       parameters ++= addSearchToQuery(params, whereClause)
@@ -609,7 +681,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
       }
 
-      setupReviewSearchClause(whereClause, joinClause, params, startDate, endDate)
+      setupReviewSearchClause(whereClause, joinClause, params, startDate, endDate, "t")
 
       val where = if (whereClause.isEmpty) {
         whereClause.toString
@@ -617,28 +689,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
         "WHERE " + whereClause.toString
       }
 
-      val query =
-        s"""SELECT kmeans, count(*) as numberOfPoints,
-                ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
-                ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding
-             FROM (
-               SELECT ST_ClusterKMeans(tasks.location,
-                          (SELECT
-                              CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
-                            FROM tasks
-                            ${joinClause.toString}
-                            $where
-                          )::Integer
-                        ) OVER () AS kmeans, tasks.location
-               FROM tasks
-               ${joinClause.toString}
-               $where
-             ) AS ksub
-             WHERE location IS NOT NULL
-             GROUP BY kmeans
-             ORDER BY kmeans
-           """
-      sqlWithParameters(query, parameters).as(taskClusterParser.*)
+      val query = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
+      var result = sqlWithParameters(query, parameters).as(getTaskClusterParser(params).*)
+      // Filter out invalid clusters.
+      result.filter( _ != None ).asInstanceOf[List[TaskCluster]]
     }
   }
 
@@ -648,7 +702,8 @@ class TaskReviewDAL @Inject()(override val db: Database,
    */
   private def setupReviewSearchClause(whereClause: StringBuilder, joinClause: StringBuilder,
                                       searchParameters: SearchParameters,
-                                      startDate: String, endDate: String) {
+                                      startDate: String, endDate: String,
+                                      tasksTableName: String = "tasks") {
     searchParameters.owner match {
      case Some(o) if o.nonEmpty =>
        joinClause ++= "INNER JOIN users u ON u.id = task_review.review_requested_by "
@@ -665,7 +720,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
     searchParameters.taskStatus match {
       case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
+        val statusClause = new StringBuilder(s"(${tasksTableName}.status IN (${statuses.mkString(",")})")
         if (statuses.contains(-1)) {
           statusClause ++= " OR c.status IS NULL"
         }
@@ -684,7 +739,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
     searchParameters.location match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"tasks.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
+      case Some(sl) => this.appendInWhereClause(whereClause, s"${tasksTableName}.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
       case None => // do nothing
     }
 

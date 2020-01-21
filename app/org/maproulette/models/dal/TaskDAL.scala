@@ -168,6 +168,53 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
+  protected def getTaskClusterParser(params: SearchParameters): anorm.RowParser[Serializable] = {
+    int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
+      get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ get[Option[String]]("geojson") ~ str("geom") ~
+      str("bounding") ~ get[List[Long]]("challengeIds") map {
+      case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geojson ~ geom ~ bounding ~ challengeIds =>
+        val locationJSON = Json.parse(geom)
+        val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+        // Let's check to make sure we received valid number of coordinates.
+        if (coordinates.length > 1) {
+          val point = Point(coordinates(1), coordinates.head)
+          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
+                      Json.parse(bounding), challengeIds, geojson.map(Json.parse(_)))
+        }
+        else {
+          None
+        }
+    }
+  }
+
+  protected def getTaskClusterQuery(joinClause: String, whereClause: String, numberOfPoints: Int): String =  {
+    s"""SELECT kmeans, count(*) as numberOfPoints,
+          CASE WHEN count(*)=1 THEN (array_agg(taskId))[1] END as taskId,
+          CASE WHEN count(*)=1 THEN (array_agg(geojson))[1] END as geojson,
+          CASE WHEN count(*)=1 THEN (array_agg(taskStatus))[1] END as taskStatus,
+          CASE WHEN count(*)=1 THEN (array_agg(taskPriority))[1] END as taskPriority,
+          ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
+          ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding,
+          array_agg(distinct challengeIds) as challengeIds
+       FROM (
+         SELECT t.id as taskId, t.status as taskStatus, t.priority as taskPriority, t.geojson::TEXT as geojson, ST_ClusterKMeans(t.location,
+                    (SELECT
+                        CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
+                      FROM tasks t
+                      ${joinClause}
+                      $whereClause
+                    )::Integer
+                  ) OVER () AS kmeans, t.location, t.parent_id as challengeIds
+         FROM tasks t
+         ${joinClause}
+         $whereClause
+       ) AS ksub
+       WHERE location IS NOT NULL
+       GROUP BY kmeans
+       ORDER BY kmeans
+    """
+  }
+
   /**
     * Retrieves the object based on the name, this function is somewhat weak as there could be
     * multiple objects with the same name. The database only restricts the same name in combination
@@ -891,6 +938,13 @@ class TaskDAL @Inject()(override val db: Database,
             this.notificationDAL.get().createReviewNotification(user, task.review.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
           }
         }
+        else {
+          // For disputed tasks.
+          SQL"""INSERT INTO task_review_history
+                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
+                VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
+                        ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
+        }
       }
 
       this.cacheManager.withOptionCaching { () =>
@@ -1265,23 +1319,6 @@ class TaskDAL @Inject()(override val db: Database,
   def getTaskClusters(params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
                      (implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
-      val taskClusterParser = int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
-        get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ str("geom") ~
-        str("bounding") ~ get[List[Long]]("challengeIds") map {
-        case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geom ~ bounding ~ challengeIds =>
-          val locationJSON = Json.parse(geom)
-          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          // Let's check to make sure we received valid number of coordinates.
-          if (coordinates.length > 1) {
-            val point = Point(coordinates(1), coordinates.head)
-            TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
-                        Json.parse(bounding), challengeIds)
-          }
-          else {
-            None
-          }
-      }
-
       val whereClause = new StringBuilder(" c.deleted = false AND p.deleted = false  ")
       val joinClause = new StringBuilder(
         """
@@ -1296,32 +1333,8 @@ class TaskDAL @Inject()(override val db: Database,
         "WHERE " + whereClause.toString
       }
 
-      val query =
-        s"""SELECT kmeans, count(*) as numberOfPoints,
-                CASE WHEN count(*)=1 THEN (array_agg(taskId))[1] END as taskId,
-                CASE WHEN count(*)=1 THEN (array_agg(taskStatus))[1] END as taskStatus,
-                CASE WHEN count(*)=1 THEN (array_agg(taskPriority))[1] END as taskPriority,
-                ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
-                ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding,
-                array_agg(distinct challengeIds) as challengeIds
-             FROM (
-               SELECT t.id as taskId, t.status as taskStatus, t.priority as taskPriority, ST_ClusterKMeans(t.location,
-                          (SELECT
-                              CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
-                            FROM tasks t
-                            ${joinClause.toString}
-                            $where
-                          )::Integer
-                        ) OVER () AS kmeans, t.location, t.parent_id as challengeIds
-               FROM tasks t
-               ${joinClause.toString}
-               $where
-             ) AS ksub
-             WHERE location IS NOT NULL
-             GROUP BY kmeans
-             ORDER BY kmeans
-           """
-      var result = sqlWithParameters(query, parameters).as(taskClusterParser.*)
+      val query = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
+      var result = sqlWithParameters(query, parameters).as(getTaskClusterParser(params).*)
       // Filter out invalid clusters.
       result.filter( _ != None ).asInstanceOf[List[TaskCluster]]
     }
@@ -1484,34 +1497,46 @@ class TaskDAL @Inject()(override val db: Database,
     // For efficiency can only query on task properties with a parent challenge id
     params.getChallengeIds match {
       case Some(l) =>
-        params.taskProperties match {
+        params.taskPropertySearch match {
           case Some(tps) =>
-            val searchType = params.taskPropertySearchType match {
-              case Some(t) => t
-              case _ => "equals"
-            }
-
             val query = new StringBuilder(
               s"""t.id IN (
                 SELECT id FROM tasks,
                                jsonb_array_elements(geojson->'features') features
                 WHERE parent_id IN (${l.mkString(",")})
-                AND (true
+                AND (${tps.toSQL}))
                """)
-            for ((k, v) <- tps) {
-              if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
-                query ++= s" AND features->'properties'->>'${k}' = '${v}' "
-              }
-              else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
-                query ++= s" AND features->'properties'->>'${k}' != '${v}' "
-              }
-              else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
-                query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
-              }
-            }
-            query ++= "))"
             this.appendInWhereClause(whereClause, query.toString())
           case _ =>
+            params.taskProperties match {
+              case Some(tp) =>
+                val searchType = params.taskPropertySearchType match {
+                  case Some(t) => t
+                  case _ => "equals"
+                }
+
+                val query = new StringBuilder(
+                  s"""t.id IN (
+                    SELECT id FROM tasks,
+                                   jsonb_array_elements(geojson->'features') features
+                    WHERE parent_id IN (${l.mkString(",")})
+                    AND (true
+                   """)
+                for ((k, v) <- tp) {
+                  if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
+                    query ++= s" AND features->'properties'->>'${k}' = '${v}' "
+                  }
+                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
+                    query ++= s" AND features->'properties'->>'${k}' != '${v}' "
+                  }
+                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
+                    query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
+                  }
+                }
+                query ++= "))"
+                this.appendInWhereClause(whereClause, query.toString())
+              case _ =>
+            }
         }
       case None => // ignore
     }
@@ -1691,12 +1716,13 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def retrieveTaskSummaries(challengeId: Long, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
+  def retrieveTaskSummaries(challengeIds: List[Long], limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
                             statusFilter: Option[List[Int]] = None, reviewStatusFilter: Option[List[Int]] = None,
                             priorityFilter: Option[List[Int]] = None): (List[TaskSummary], Map[Long,String]) =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
+        parentId <- long("tasks.parent_id")
         name <- str("tasks.name")
         status <- int("tasks.status")
         priority <- int("tasks.priority")
@@ -1712,7 +1738,7 @@ class TaskDAL @Inject()(override val db: Database,
         responses <- get[Option[String]]("responses")
         bundleId <- get[Option[Long]]("bundle_id")
         isBundlePrimary <- get[Option[Boolean]]("is_bundle_primary")
-      } yield TaskSummary(taskId, name, status, priority, username, mappedOn,
+      } yield TaskSummary(taskId, parentId, name, status, priority, username, mappedOn,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
         reviewStartedAt, tags, responses, geojson, bundleId, isBundlePrimary)
 
@@ -1746,12 +1772,12 @@ class TaskDAL @Inject()(override val db: Database,
         SQL"""
           SELECT tc.task_id, string_agg(CONCAT((SELECT name from users where tc.osm_id = users.osm_id), ': ', comment),
                             CONCAT(chr(10),'---',chr(10))) AS comments
-          FROM task_comments tc WHERE tc.challenge_id = #${challengeId} GROUP BY tc.task_id
+          FROM task_comments tc WHERE tc.challenge_id IN (#${challengeIds.mkString(",")}) GROUP BY tc.task_id
         """
       val allComments = commentsQuery.as(commentParser.*).toMap.withDefaultValue("")
 
       val query =
-        SQL"""SELECT t.id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
+        SQL"""SELECT t.id, t.parent_id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
                    task_review.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
@@ -1763,14 +1789,15 @@ class TaskDAL @Inject()(override val db: Database,
               FROM users u, status_actions sa INNER JOIN (
                 SELECT task_id, MAX(created) AS latest
                 FROM status_actions
-                WHERE challenge_id=#${challengeId}
+                WHERE challenge_id IN (#${challengeIds.mkString(",")})
                 GROUP BY task_id
               ) AS sa_inner
               ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
               WHERE sa.osm_user_id = u.osm_id
             ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
             LEFT OUTER JOIN task_review ON task_review.task_id = t.id
-            WHERE t.parent_id = #${challengeId} #${status} #${priority} #${reviewStatus}
+            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) #${status} #${priority} #${reviewStatus}
+            ORDER BY t.parent_Id
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """
       (query.as(parser.*), allComments)
@@ -2010,7 +2037,7 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  case class TaskSummary(taskId: Long, name: String, status: Int, priority: Int, username: Option[String],
+  case class TaskSummary(taskId: Long, parent: Long, name: String, status: Int, priority: Int, username: Option[String],
                          mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
                          reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
                          tags: Option[String], completionResponses: Option[String],

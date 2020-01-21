@@ -464,6 +464,28 @@ class ChallengeController @Inject()(override val childController: TaskController
   }
 
   /**
+    * Extracts all the tasks belonging to the challenges in the project and
+    * returns them in a nice format like csv.
+    *
+    * @param projectId The id of the project
+    * @param cId Optional list of challenges
+    * @return A csv list of tasks for the project
+    */
+  def extractAllTaskSummaries(projectId: Long, cId: Option[String]): Action[AnyContent] = {
+    var challengeIds:List[Long] = cId match {
+      case Some(c) => Utils.toLongList(c).getOrElse(List())
+      case None => List()
+    }
+    if (challengeIds.length == 0) {
+      challengeIds = this.dalManager.project.retrieveById(projectId) match {
+          case Some(p) => this.dalManager.project.listChildren(-1)(projectId).map(c => c.id)
+          case None => throw new NotFoundException(s"Project with id $projectId not found")
+        }
+    }
+    this._extractTaskSummaries(challengeIds, -1, 0, "", "", "", s"project_${projectId}_tasks.csv")
+  }
+
+  /**
     * Extracts all the tasks and returns them in a nice format like csv.
     *
     * @param challengeId The id of the challenge
@@ -473,13 +495,17 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def extractTaskSummaries(challengeId: Long, limit: Int, page: Int,
                            statusFilter: String, reviewStatusFilter: String,
-                           priorityFilter: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      val challenge = this.dal.retrieveById(challengeId) match {
-        case Some(c) => c
-        case None => throw new NotFoundException(s"Challenge with id $challengeId not found")
-      }
+                           priorityFilter: String): Action[AnyContent] = {
+    this._extractTaskSummaries(List(challengeId), limit, page, statusFilter,
+                               reviewStatusFilter, priorityFilter,
+                               s"challenge_${challengeId}_tasks.csv")
+  }
 
+  def _extractTaskSummaries(challengeIds: List[Long], limit: Int, page: Int,
+                           statusFilter: String, reviewStatusFilter: String,
+                           priorityFilter: String, filename: String): Action[AnyContent] = Action.async { implicit request =>
+
+    this.sessionManager.authenticatedRequest { implicit user =>
       val status = if (StringUtils.isEmpty(statusFilter)) {
         None
       } else {
@@ -496,17 +522,25 @@ class ChallengeController @Inject()(override val childController: TaskController
         Some(Utils.split(priorityFilter).map(_.toInt))
       }
 
-      val (tasks, allComments) = this.dalManager.task.retrieveTaskSummaries(challengeId, limit, page, status, reviewStatus, priority)
+      val (tasks, allComments) = this.dalManager.task.retrieveTaskSummaries(challengeIds, limit, page, status, reviewStatus, priority)
 
       // Setup all exportable properties
-      var propsToExportHeaders = ""
-      var propsToExport = Array[String]()
-      challenge.extra.exportableProperties match {
-        case Some(ex) =>
-          propsToExport = ex.replaceAll("\\s", "").split(",")
-          propsToExportHeaders = "," + propsToExport.mkString(",")
-        case None => // do nothing
-      }
+      var propsToExportHeaders = Set[String]()
+      //var propsToExport = Array[String]()
+      challengeIds.foreach(cId => {
+        val challenge = this.dal.retrieveById(cId) match {
+          case Some(c) => c
+          case None => throw new NotFoundException(s"Challenge with id $cId not found")
+        }
+        challenge.extra.exportableProperties match {
+          case Some(ex) =>
+            if (!ex.isEmpty) {
+              var propsToExport = ex.replaceAll("\\s", "").split(",")
+              propsToExport.foreach(pe => propsToExportHeaders += pe)
+            }
+          case None => // do nothing
+        }
+      })
 
       // Find all response property names
       var responseProperties = Set[String]()
@@ -548,7 +582,7 @@ class ChallengeController @Inject()(override val childController: TaskController
           task.geojson match {
             case Some(g) =>
               val taskProps = (Json.parse(g) \\ "properties")(0).as[JsObject]
-              for (key <- propsToExport) {
+              for (key <- propsToExportHeaders) {
                 (taskProps \ key) match {
                     case value: JsDefined =>
                       var propValue = value.get.toString()
@@ -569,9 +603,13 @@ class ChallengeController @Inject()(override val childController: TaskController
                 (responseMap \ key) match {
                     case value: JsDefined =>
                       var propValue = value.get.toString()
-                      propValue = propValue.substring(1, propValue.length() - 1)
+                      if (propValue != "true") {
+                        // Strip off ""s
+                        propValue = propValue.substring(1, propValue.length() - 1)
+                      }
                       responseData += "," + propValue.replaceAll("\"", "\"\"")
-                    case vaue: JsUndefined => responseData += "," + "\"\"" // empty value
+                    case vaue: JsUndefined =>
+                      responseData += "," + "\"\"" // empty value
                 }
               }
             case None => // No responses, all empty values
@@ -582,7 +620,7 @@ class ChallengeController @Inject()(override val childController: TaskController
 
           var comments = allComments(task.taskId).replaceAll("\"", "\"\"")
 
-          s"""${task.taskId},$challengeId,"${task.name}","${Task.statusMap.get(task.status).get}",""" +
+          s"""${task.taskId},${task.parent},"${task.name}","${Task.statusMap.get(task.status).get}",""" +
           s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
           s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
           s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
@@ -590,11 +628,16 @@ class ChallengeController @Inject()(override val childController: TaskController
           s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin
         }
       )
+
+      var propsToExportHeaderString = propsToExportHeaders.mkString(",")
+      if (!propsToExportHeaderString.isEmpty) {
+        propsToExportHeaderString = "," + propsToExportHeaderString
+      }
       Result(
-        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_tasks.csv")),
+        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")),
         body = HttpEntity.Strict(
           ByteString(
-            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaders}${responseHeaders}\n"""
+            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
           ).concat(ByteString(seqString.mkString("\n"))),
           Some("text/csv; header=present"))
       )
@@ -895,11 +938,12 @@ class ChallengeController @Inject()(override val childController: TaskController
       dalManager.challenge.retrieveById(challengeId) match {
         case Some(c) =>
           permission.hasWriteAccess(ProjectType(), user)(c.general.parent)
-          if (c.status.get == Challenge.STATUS_DELETING_TASKS) {
-            throw new InvalidException("Challenge cannot be rebuilt while undergoing bulk task deletion")
-          }
-          else if (c.status.get == Challenge.STATUS_BUILDING) {
-            throw new InvalidException("Task build is already in progress for this challenge")
+          c.status match {
+            case Some(Challenge.STATUS_DELETING_TASKS) =>
+              throw new InvalidException("Challenge cannot be rebuilt while undergoing bulk task deletion")
+            case Some(Challenge.STATUS_BUILDING) =>
+              throw new InvalidException("Task build is already in progress for this challenge")
+            case _ => // just ignore
           }
 
           challengeProvider.rebuildTasks(user, c, removeUnmatched)
@@ -912,21 +956,28 @@ class ChallengeController @Inject()(override val childController: TaskController
   def addTasksToChallenge(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(challengeId) match {
-        case Some(c) =>
-          permission.hasObjectWriteAccess(c, user)
-          if (c.status.get == Challenge.STATUS_DELETING_TASKS) {
-            throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
-          }
-          else if (c.status.get == Challenge.STATUS_BUILDING) {
-            throw new InvalidException("Tasks cannot be added while challenge is being built")
+        case Some(challenge) =>
+          permission.hasObjectWriteAccess(challenge, user)
+          challenge.status match {
+            case Some(Challenge.STATUS_DELETING_TASKS) =>
+              throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
+            case Some(Challenge.STATUS_BUILDING) =>
+              throw new InvalidException("Tasks cannot be added while challenge is being built")
+            case _ => // just ignore
           }
 
           request.body.asText match {
-            case Some(j) =>
-              challengeProvider.createTasksFromJson(user, c, j)
+            case Some(bodyText) =>
+              challengeProvider.createTasksFromJson(user, challenge, bodyText)
               NoContent
             case None =>
-              throw new InvalidException("No json data provided to create new tasks from")
+              request.body.asJson match {
+                case Some(bodyJson) =>
+                  challengeProvider.createTasksFromJson(user, challenge, bodyJson.toString())
+                  NoContent
+                case None =>
+                  throw new InvalidException("No json data provided to create new tasks from")
+              }
           }
         case None =>
           throw new NotFoundException(s"No challenge found with id $challengeId")
@@ -941,11 +992,12 @@ class ChallengeController @Inject()(override val childController: TaskController
         dalManager.challenge.retrieveById(challengeId) match {
           case Some(c) =>
             permission.hasObjectWriteAccess(c, user)
-            if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_DELETING_TASKS) {
-              throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
-            }
-            else if (c.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_BUILDING) {
-              throw new InvalidException("Tasks cannot be added while challenge is being built")
+            c.status match {
+              case Some(Challenge.STATUS_DELETING_TASKS) =>
+                throw new InvalidException("Tasks cannot be added while challenge is undergoing bulk task deletion")
+              case Some(Challenge.STATUS_BUILDING) =>
+                throw new InvalidException("Tasks cannot be added while challenge is being built")
+              case _ => // just ignore
             }
 
             request.body.file("json") match {

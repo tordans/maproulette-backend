@@ -23,10 +23,16 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
   def emailNotification(toAddress: String, notification: UserNotificationEmail) = {
     val notificationName = UserNotification.notificationTypeMap.get(notification.notificationType).get
     val emailSubject = s"New MapRoulette notification: ${notificationName}"
+    val notificationDetails = notification.extra match {
+      case Some(details) => s"\n${details}"
+      case None => ""
+    }
+
     val emailBody = s"""
       |You have received a new MapRoulette notification:
       |
       |${notificationName}
+      |${notificationDetails}
       |${this.notificationFooter}""".stripMargin
 
     val email = Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))

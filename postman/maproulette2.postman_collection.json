@@ -1408,7 +1408,7 @@
 						{
 							"listen": "test",
 							"script": {
-								"type": "text/javascript",
+								"id": "efbb42af-bda5-4229-bf7d-49e8e5d44038",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TestChallenge\", jsonData.id);",
@@ -1416,7 +1416,8 @@
 									"tests[\"name\"] = jsonData.name === \"TestChallenge\";",
 									"tests[\"description\"] = jsonData.description === \"TestChallenge description\";",
 									"tests[\"instruction\"] = jsonData.instruction === \"TestChallenge instruction\";"
-								]
+								],
+								"type": "text/javascript"
 							}
 						}
 					],
@@ -1434,7 +1435,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\":\"TestChallenge\",\n    \"parent\": {{TestProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
+							"raw": "{\n    \"name\":\"TestChallenge\",\n    \"parent\": {{TestProject}},\n    \"description\":\"TestChallenge description\",\n    \"instruction\":\"TestChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test1\"}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        },\n        {\n            \"name\":\"Task 2\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103,1.5]},\"properties\":{\"id\": \"test2\", \"version\": 1}},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[103.1,1.6]},\"properties\":{}}]}\n        }\n    ]\n}"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/challenge",
@@ -1450,6 +1451,72 @@
 							]
 						},
 						"description": "Creates a project with two children within the same request."
+					},
+					"response": []
+				},
+				{
+					"name": "Tasks in Bounding Box",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "040adc26-6e95-4944-b364-3aab59535897",
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"pm.test(\"Body matches string\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"Task 1\");",
+									"    pm.expect(pm.response.text()).to.include(\"Task 2\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"taskPropertySearch\": {\n\t\t\"operationType\": \"or\",\n\t\t\"left\": {\n\t\t\t\"key\": \"id\",\n\t\t\t\"value\": \"test1\",\n\t\t\t\"valueType\": \"string\",\n\t\t\t\"searchType\": \"equals\"\n\t\t},\n\t\t\"right\": {\n\t\t\t\"operationType\": \"and\",\n\t\t\t\"left\": {\n\t\t\t\t\"key\": \"id\",\n\t\t\t\t\"value\": \"test2\",\n\t\t\t\t\"valueType\": \"string\",\n\t\t\t\t\"searchType\": \"contains\"\n\t\t\t},\n\t\t\t\"right\": {\n\t\t\t\t\"key\": \"version\",\n\t\t\t\t\"value\": \"0\",\n\t\t\t\t\"valueType\": \"number\",\n\t\t\t\t\"searchType\": \"greater_than\"\n\t\t\t}\n\t\t}\n\t}\n}\n"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/tasks/box/-180/-90/180/90?cid={{TestChallenge}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"tasks",
+								"box",
+								"-180",
+								"-90",
+								"180",
+								"90"
+							],
+							"query": [
+								{
+									"key": "cid",
+									"value": "{{TestChallenge}}"
+								}
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
 					},
 					"response": []
 				},
