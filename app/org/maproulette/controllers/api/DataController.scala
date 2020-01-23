@@ -191,7 +191,7 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
         priorityMap.put(p.toString, Json.toJson(pResult.head.actions))
       }
       else {
-        priorityMap.put(p.toString, Json.toJson(ActionSummary(0,0,0,0,0,0,0,0,0)))
+        priorityMap.put(p.toString, Json.toJson(ActionSummary(0,0,0,0,0,0,0,0,0,0,0)))
       }
     })
 
@@ -209,7 +209,7 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
         SearchParameters.withSearch { implicit params =>
           val response = this.dataManager.getChallengeSummary(challengeId = Some(id), priority = Utils.toIntList(priority), params = Some(params))
 
-          if (includeByPriority) {
+          if (includeByPriority && response.length > 0) {
             val priorityMap = this._fetchPrioritySummaries(Some(id), Some(params))
             val updated = Utils.insertIntoJson(Json.toJson(response).as[JsArray].head.as[JsValue],
                                                "priorityActions", Json.toJson(priorityMap), false)
@@ -226,7 +226,7 @@ class DataController @Inject()(sessionManager: SessionManager, challengeDAL: Cha
   def getProjectSummary(projects: String, onlyEnabled: Boolean = true, includeByPriority: Boolean = false): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       val response = this.dataManager.getChallengeSummary(Utils.toLongList(projects), onlyEnabled = onlyEnabled)
-      
+
       if (includeByPriority) {
         val allUpdated =
           response.map(challenge => {
