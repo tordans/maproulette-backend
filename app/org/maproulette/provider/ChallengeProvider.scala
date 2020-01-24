@@ -62,7 +62,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
               val failedLines = splitJson.zipWithIndex.flatMap(line => {
                 try {
                   val jsonData = Json.parse(line._1)
-                  this.createNewTask(user, taskNameFromJsValue(jsonData), challenge, jsonData)
+                  this.createNewTask(user, taskNameFromJsValue(jsonData, challenge), challenge, jsonData)
                   None
                 } catch {
                   case e: Exception =>
@@ -160,7 +160,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
             splitJson.foreach {
               line =>
                 val jsonData = Json.parse(line)
-                this.createNewTask(user, taskNameFromJsValue(jsonData), challenge, jsonData)
+                this.createNewTask(user, taskNameFromJsValue(jsonData, challenge), challenge, jsonData)
             }
             this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
             this.challengeDAL.markTasksRefreshed()(challenge.id)
@@ -188,21 +188,64 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
   }
 
   /**
+   * Extracts the OSM id from the given JsValue based on the `osmIdProperty`
+   * challenge field. Returns None if either the challenge has not specified an
+   * osmIdProperty or if the JsValue contains neither a field nor property with
+   * the specified name. If the JsValue represents a collection of features,
+   * each feature will be checked and the first OSM id found returned
+   */
+  private def featureOSMId(value: JsValue, challenge: Challenge): Option[String] = {
+    challenge.extra.osmIdProperty match {
+      case Some(osmIdName) =>
+        // Whether `value` represents multiple features or just one, process as List
+        val features = (value \ "features").asOpt[List[JsValue]].getOrElse(List(value))
+        features.map(feature =>
+          // First look for a matching field on the feature itself. If not found, then
+          // look at the feature's properties
+          (feature \ osmIdName).asOpt[String] match {
+            case Some(matchingIdField) => Some(matchingIdField)
+            case None => (feature \ "properties").asOpt[JsObject] match {
+              case Some(properties) =>
+                (properties \ osmIdName).asOpt[String] match {
+                  case Some(matchingIdProperty) => Some(matchingIdProperty)
+                  case None => None // feature doesn't have the id property
+                }
+              case None => None // feature doesn't have any properties
+            }
+          }
+        ).find(_.isDefined) match { // first feature that has a match
+          case Some(featureWithId) => featureWithId
+          case None => None // No features found with matching id field or property
+        }
+      case None => None // No osmIdProperty defined on challenge
+    }
+  }
+
+  /**
     * Extracts an appropriate task name from the given JsValue, looking for any
     * of multiple suitable id fields, or finally defaulting to a random UUID if
     * no acceptable field is found
     */
-  private def taskNameFromJsValue(value: JsValue): String = {
+  private def taskNameFromJsValue(value: JsValue, challenge: Challenge): String = {
+    // Use field/property specified by challenge, if available. Otherwise look
+    // for commonly used id fields/properties
+    if (!challenge.extra.osmIdProperty.getOrElse("").isEmpty) {
+      return featureOSMId(value, challenge) match {
+        case Some(osmId) => osmId
+        case None => UUID.randomUUID().toString // task does not contain id property
+      }
+    }
+
     val featureList = (value \ "features").asOpt[List[JsValue]]
     if (featureList.isDefined) {
-      taskNameFromJsValue(featureList.get.head) // Base name on first feature
+      taskNameFromJsValue(featureList.get.head, challenge) // Base name on first feature
     } else {
       val nameKeys = List.apply("id", "@id", "osmid", "osm_id", "name")
       nameKeys.collectFirst { case x if (value \ x).asOpt[String].isDefined => (value \ x).asOpt[String].get } match {
         case Some(n) => n
         case None => (value \ "properties").asOpt[JsObject] match {
           // See if we can find an id field on the feature properties
-          case Some(properties) => taskNameFromJsValue(properties)
+          case Some(properties) => taskNameFromJsValue(properties, challenge)
           case None =>
             // if we still don't find anything, create a UUID for it. The
             // caveat to this is that if you upload the same file again, it
@@ -227,7 +270,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
     try {
       val createdTasks = featureList.flatMap { value =>
         if (!single) {
-          this.createNewTask(user, taskNameFromJsValue(value), parent, (value \ "geometry").as[JsObject], Utils.getProperties(value, "properties"))
+          this.createNewTask(user, taskNameFromJsValue(value, parent), parent, (value \ "geometry").as[JsObject], Utils.getProperties(value, "properties"))
         } else {
           None
         }
@@ -236,7 +279,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(parent.id)
       this.challengeDAL.markTasksRefreshed()(parent.id)
       if (single) {
-        this.createNewTask(user, taskNameFromJsValue(jsonData), parent, jsonData) match {
+        this.createNewTask(user, taskNameFromJsValue(jsonData, parent), parent, jsonData) match {
           case Some(t) => List(t)
           case None => List.empty
         }
