@@ -141,25 +141,19 @@ trait TagDALMixin[T <: BaseObject[Long]] {
     val lowerTags = tags.map(_.toLowerCase)
     this.withMRConnection { implicit c =>
       val sqlLimit = if (limit == -1) "ALL" else limit + ""
-      val prefix = if (this.tableName == "tasks") {
-        "t"
-      } else {
-        "c"
-      }
-
       val query =
-        s"""SELECT ${this.retrieveColumns} FROM ${this.tableName} $prefix
+        s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       ${
           if (this.tableName == "tasks") {
-            s"INNER JOIN challenges c ON c.id = ${this.tableName}.parent_id"
+            s"""INNER JOIN challenges ON challenges.id = ${this.tableName}.parent_id
+                INNER JOIN projects ON projects.id = challenges.parent_id"""
           } else {
-            ""
+            s"INNER JOIN projects ON projects.id = ${this.tableName}.parent_id"
           }
         }
-                      INNER JOIN projects p ON p.id = $prefix.parent_id
-                      INNER JOIN tags_on_${this.tableName} tt ON $prefix.id = tt.${this.name}_id
-                      INNER JOIN tags tg ON tg.id = tt.tag_id
-                      WHERE c.enabled = TRUE AND p.enabled = TRUE AND tg.name IN ({tags})
+                      INNER JOIN tags_on_${this.tableName} tt ON ${this.tableName}.id = tt.${this.name}_id
+                      INNER JOIN tags ON tags.id = tt.tag_id
+                      WHERE challenges.enabled = TRUE AND projects.enabled = TRUE AND tags.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""
       SQL(query).on('tags -> ToParameterValue.apply[List[String]].apply(lowerTags), 'offset -> offset).as(this.parser.*)
     }
