@@ -9,22 +9,24 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.models.Task
+import org.maproulette.models.{Task, Challenge}
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
 import play.api.Application
 import play.api.db.Database
 
-case class ActionSummary(total: Double,
-                         available: Double,
-                         fixed: Double,
-                         falsePositive: Double,
-                         skipped: Double,
-                         deleted: Double,
-                         alreadyFixed: Double,
-                         tooHard: Double,
-                         answered: Double) {
+case class ActionSummary(total: Int,
+                         available: Int,
+                         fixed: Int,
+                         falsePositive: Int,
+                         skipped: Int,
+                         deleted: Int,
+                         alreadyFixed: Int,
+                         tooHard: Int,
+                         answered: Int,
+                         validated: Int,
+                         disabled: Int) {
   def percentComplete: Double = (((trueAvailable / total) * 100) - 100) * -1
 
   // available in the database means it is created state, available in the UI, means that it is in state
@@ -32,6 +34,9 @@ case class ActionSummary(total: Double,
   def trueAvailable: Double = available + skipped + deleted
 
   def percentage(value: Double): Double = (value / total) * 100
+
+  def values(): List[Int] =
+    List(total, available, fixed, falsePositive, skipped, deleted, alreadyFixed, tooHard, answered, validated, disabled)
 }
 
 /**
@@ -244,22 +249,25 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         case None => buildProjectSearch(projectList, "sa.project_id", "sa.challenge_id")
       }
       val actionParser = for {
-        available <- get[Option[Double]]("available")
-        fixed <- get[Option[Double]]("fixed")
-        falsePositive <- get[Option[Double]]("false_positive")
-        skipped <- get[Option[Double]]("skipped")
-        deleted <- get[Option[Double]]("deleted")
-        alreadyFixed <- get[Option[Double]]("already_fixed")
-        tooHard <- get[Option[Double]]("too_hard")
-        answered <- get[Option[Double]]("answered")
+        available <- get[Option[Int]]("available")
+        fixed <- get[Option[Int]]("fixed")
+        falsePositive <- get[Option[Int]]("false_positive")
+        skipped <- get[Option[Int]]("skipped")
+        deleted <- get[Option[Int]]("deleted")
+        alreadyFixed <- get[Option[Int]]("already_fixed")
+        tooHard <- get[Option[Int]]("too_hard")
+        answered <- get[Option[Int]]("answered")
+        validated <- get[Option[Int]]("validated")
+        disabled <- get[Option[Int]]("disabled")
       } yield ActionSummary(0, available.getOrElse(0), fixed.getOrElse(0), falsePositive.getOrElse(0),
         skipped.getOrElse(0), deleted.getOrElse(0), alreadyFixed.getOrElse(0),
-        tooHard.getOrElse(0), answered.getOrElse(0))
+        tooHard.getOrElse(0), answered.getOrElse(0), validated.getOrElse(0), disabled.getOrElse(0))
 
       val perUser =
         SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                   AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
-                                  AVG(too_hard) AS too_hard, AVG(answered) AS answered
+                                  AVG(too_hard) AS too_hard, AVG(answered) AS answered, AVG(validated) AS validated,
+                                  AVG(disabled) AS disabled
                               FROM (
                                 SELECT sa.osm_user_id,
                                     SUM(CASE sa.status WHEN 0 THEN 1 ELSE 0 END) AS available,
@@ -269,7 +277,9 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
                                     SUM(CASE sa.status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                     SUM(CASE sa.status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
                                     SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
-                                    SUM(CASE sa.status WHEN 7 THEN 1 ELSE 0 END) AS answered
+                                    SUM(CASE sa.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
+                                    SUM(CASE sa.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
+                                    SUM(CASE sa.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
                                 FROM status_actions sa
                                 #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
                                 #$challengeProjectFilter
@@ -278,7 +288,8 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
       val perChallenge =
         SQL"""SELECT AVG(available) AS available, AVG(fixed) AS fixed, AVG(false_positive) AS false_positive,
                                         AVG(skipped) AS skipped, AVG(deleted) AS deleted, AVG(already_fixed) AS already_fixed,
-                                        AVG(too_hard) AS too_hard, AVG(answered) AS answered
+                                        AVG(too_hard) AS too_hard, AVG(answered) AS answered, AVG(validated) AS validated,
+                                        AVG(disabled) AS disabled
                                   FROM (
                                     SELECT osm_user_id, challenge_id,
                                         SUM(CASE sa.status WHEN 0 THEN 1 ELSE 0 END) AS available,
@@ -288,7 +299,9 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
                                         SUM(CASE sa.status WHEN 4 THEN 1 ELSE 0 END) AS deleted,
                                         SUM(CASE sa.status WHEN 5 THEN 1 ELSE 0 END) AS already_fixed,
                                         SUM(CASE sa.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
-                                        SUM(CASE sa.status WHEN 7 THEN 1 ELSE 0 END) AS answered
+                                        SUM(CASE sa.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
+                                        SUM(CASE sa.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
+                                        SUM(CASE sa.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
                                     FROM status_actions sa
                                     #${this.getEnabledPriorityClause(challengeId.isEmpty, false, start, end, priority)}
                                     #$challengeProjectFilter
@@ -365,8 +378,10 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         alreadyFixed <- int("already_fixed")
         tooHard <- int("too_hard")
         answered <- int("answered")
+        validated <- int("validated")
+        disabled <- int("disabled")
       } yield ChallengeSummary(id, name, ActionSummary(total, available, fixed, falsePositive,
-        skipped, deleted, alreadyFixed, tooHard, answered))
+        skipped, deleted, alreadyFixed, tooHard, answered, validated, disabled))
       val challengeFilter = challengeId match {
         case Some(id) if id != -1 => s"AND t.parent_id = $id"
         case _ => buildProjectSearch(projectList, "c.parent_id", "c.id")
@@ -415,7 +430,9 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
                         (CAST(skipped AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS skipped_perc,
                         (CAST(already_fixed AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS already_fixed_perc,
                         (CAST(too_hard AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS too_hard_perc,
-                        (CAST(answered AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS answered_perc
+                        (CAST(answered AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS answered_perc,
+                        (CAST(validated AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS validated_perc,
+                        (CAST(disabled AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS disabled_perc
                       FROM (
                       SELECT t.parent_id, c.name,
                                 SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,
@@ -426,7 +443,9 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
                                 SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
                                 SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
                                 SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
-                                SUM(CASE t.status WHEN 7 THEN 1 ELSE 0 END) AS answered
+                                SUM(CASE t.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
+                                SUM(CASE t.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
+                                SUM(CASE t.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
                               FROM tasks t
                               INNER JOIN challenges c ON c.id = t.parent_id
                               INNER JOIN projects p ON p.id = c.parent_id
@@ -438,7 +457,7 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         }
       }
                               challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter $priorityFilter
-                              ${searchField("c.name")} $statusFilter $reviewStatusFilter
+                              ${if (searchString != "") searchField("c.name") else ""} $statusFilter $reviewStatusFilter
                               GROUP BY t.parent_id, c.name
                     ) AS t
                     ${this.order(orderColumn, orderDirection)}

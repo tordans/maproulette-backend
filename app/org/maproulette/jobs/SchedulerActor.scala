@@ -5,6 +5,7 @@ package org.maproulette.jobs
 import akka.actor.{Actor, Props}
 import anorm.JodaParameterMetaData._
 import anorm._
+import anorm.SqlParser._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
@@ -14,6 +15,7 @@ import org.maproulette.metrics.Metrics
 import org.maproulette.models.{Task, UserNotification, UserNotificationEmail, UserNotificationEmailDigest}
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
+import org.maproulette.data.SnapshotManager
 import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider, EmailProvider}
 import org.maproulette.session.User
 import org.maproulette.utils.BoundingBoxFinder
@@ -36,7 +38,8 @@ class SchedulerActor @Inject()(config: Config,
                                dALManager: DALManager,
                                keepRightProvider: KeepRightProvider,
                                boundingBoxFinder: BoundingBoxFinder,
-                               emailProvider: EmailProvider) extends Actor {
+                               emailProvider: EmailProvider,
+                               implicit val snapshotManager: SnapshotManager) extends Actor {
   // cleanOldTasks configuration
   lazy val oldTasksStatusFilter = appConfig.getOptional[Seq[Int]](Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
     Seq[Int](new Integer(STATUS_CREATED))
@@ -61,6 +64,7 @@ class SchedulerActor @Inject()(config: Config,
     case RunJob("cleanDeleted", action) => this.cleanDeleted(action)
     case RunJob("KeepRightUpdate", action) => this.keepRightUpdate(action)
     case RunJob("snapshotUserMetrics", action) => this.snapshotUserMetrics(action)
+    case RunJob("snapshotChallenges", action) => this.snapshotChallenges(action)
     case RunJob("sendImmediateNotificationEmails", action) => this.sendImmediateNotificationEmails(action)
     case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
   }
@@ -507,6 +511,22 @@ class SchedulerActor @Inject()(config: Config,
     }
   }
 
+  /**
+   * Records snaphshots for all challenges.
+   *
+   * @param action - action string
+   */
+  def snapshotChallenges(action:String) : Unit = {
+    logger.info(action)
+
+    db.withConnection { implicit c =>
+      val ids = SQL(s"""SELECT id FROM challenges""").as(long("id").*)
+      ids.foreach(id => {
+        this.snapshotManager.recordChallengeSnapshot(id, false)
+      })
+      logger.info(s"Succesfully created snapshots of challenges.")
+    }
+  }
 }
 
 object SchedulerActor {

@@ -50,7 +50,8 @@ class ChallengeController @Inject()(override val childController: TaskController
                                     permission: Permission,
                                     config: Config,
                                     components: ControllerComponents,
-                                    override val bodyParsers: PlayBodyParsers)
+                                    override val bodyParsers: PlayBodyParsers,
+                                    implicit val snapshotManager: SnapshotManager)
   extends AbstractController(components) with ParentController[Challenge, Task] with TagsMixin[Challenge] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -933,7 +934,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     *                        updated source data
     * @return A 200 status OK
     */
-  def rebuildChallenge(challengeId: Long, removeUnmatched: Boolean): Action[AnyContent] = Action.async { implicit request =>
+  def rebuildChallenge(challengeId: Long, removeUnmatched: Boolean, skipSnapshot: Boolean): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       dalManager.challenge.retrieveById(challengeId) match {
         case Some(c) =>
@@ -944,6 +945,11 @@ class ChallengeController @Inject()(override val childController: TaskController
             case Some(Challenge.STATUS_BUILDING) =>
               throw new InvalidException("Task build is already in progress for this challenge")
             case _ => // just ignore
+          }
+
+          if (!skipSnapshot) {
+            // First create a snapshot of the challenge before we rebuild.
+            this.snapshotManager.recordChallengeSnapshot(challengeId)
           }
 
           challengeProvider.rebuildTasks(user, c, removeUnmatched)
@@ -986,7 +992,7 @@ class ChallengeController @Inject()(override val childController: TaskController
   }
 
   def addTasksToChallengeFromFile(challengeId: Long, lineByLine: Boolean, removeUnmatched: Boolean,
-                                  dataOriginDate: Option[String] = None): Action[MultipartFormData[Files.TemporaryFile]] =
+                                  dataOriginDate: Option[String] = None, skipSnapshot: Boolean = false): Action[MultipartFormData[Files.TemporaryFile]] =
     Action.async(parse.multipartFormData) { implicit request => {
       sessionManager.authenticatedRequest { implicit user =>
         dalManager.challenge.retrieveById(challengeId) match {
@@ -998,6 +1004,11 @@ class ChallengeController @Inject()(override val childController: TaskController
               case Some(Challenge.STATUS_BUILDING) =>
                 throw new InvalidException("Tasks cannot be added while challenge is being built")
               case _ => // just ignore
+            }
+
+            if (!skipSnapshot) {
+              // First create a snapshot of the challenge before we add tasks.
+              this.snapshotManager.recordChallengeSnapshot(challengeId)
             }
 
             request.body.file("json") match {

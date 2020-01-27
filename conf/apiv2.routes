@@ -1541,6 +1541,10 @@ PUT     /challenge/:id/addTasks                     @org.maproulette.controllers
 #                  data. If set to false, unmatched existing tasks are simply
 #                  left as-is.
 #     default: false
+#   - name: skipSnapshot
+#     in: query
+#     description: If included will skip recording a snapshot before proceeding. (By default false, so it will create snapshot.)
+#     default: false
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
@@ -1551,7 +1555,7 @@ PUT     /challenge/:id/addTasks                     @org.maproulette.controllers
 #     description: The geojson to build the tasks from.
 #     required: true
 ###
-PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true, removeUnmatched:Boolean ?= false, dataOriginDate:Option[String])
+PUT     /challenge/:id/addFileTasks                 @org.maproulette.controllers.api.ChallengeController.addTasksToChallengeFromFile(id:Long, lineByLine:Boolean ?= true, removeUnmatched:Boolean ?= false, dataOriginDate:Option[String], skipSnapshot:Boolean ?= false)
 ###
 # tags: [ Challenge ]
 # summary: Retrieves children for Challenge
@@ -1639,8 +1643,12 @@ PUT     /challenge/:id/clone/:name                  @org.maproulette.controllers
 #                  data. If set to false, unmatched existing tasks are simply
 #                  left as-is.
 #     default: false
+#   - name: skipSnapshot
+#     in: query
+#     description: If included will skip recording a snapshot before proceeding. (By default false, so it will create snapshot.)
+#     default: false
 ###
-PUT     /challenge/:id/rebuild                      @org.maproulette.controllers.api.ChallengeController.rebuildChallenge(id:Long, removeUnmatched:Boolean ?= false)
+PUT     /challenge/:id/rebuild                      @org.maproulette.controllers.api.ChallengeController.rebuildChallenge(id:Long, removeUnmatched:Boolean ?= false, skipSnapshot:Boolean ?= false)
 ###
 # tags: [ Challenge ]
 # summary: Retrieves random Task
@@ -3643,6 +3651,10 @@ GET     /keywords                                   @org.maproulette.controllers
 GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", tagType: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 ### NoDocs ###
 GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, survey:Int ?= -1, priority:String ?= "", includeByPriority:Boolean ?= false)
+GET     /snapshot/challenge/:challengeId/record     @org.maproulette.controllers.api.SnapshotController.recordChallengeSnapshot(challengeId:Long)
+GET     /snapshot/challenge/:challengeId/list       @org.maproulette.controllers.api.SnapshotController.getChallengeSnapshotList(challengeId:Long, includeAllData:Boolean ?= false)
+GET     /snapshot/challenge/:challengeId/export     @org.maproulette.controllers.api.SnapshotController.exportChallengeSnapshots(challengeId:Long)
+GET     /snapshot/:snapshotId                       @org.maproulette.controllers.api.SnapshotController.getChallengeSnapshot(snapshotId:Long)
 ### NoDocs ###
 GET     /data/challenge/:challengeId/users          @org.maproulette.controllers.api.DataController.getUserChallengeSummary(challengeId:Long, start:String ?= "", end:String ?= "", survey:Int ?= 0, priority:Int ?= -1)
 ###

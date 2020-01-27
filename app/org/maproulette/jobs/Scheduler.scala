@@ -47,6 +47,10 @@ class Scheduler @Inject()(val system: ActorSystem,
   scheduleAtTime("snapshotUserMetrics", "Snapshotting User Metrics",
     config.getValue(Config.KEY_SCHEDULER_SNAPSHOT_USER_METRICS_START), Config.KEY_SCHEDULER_SNAPSHOT_USER_METRICS)
 
+  // Run the challenge snapshots at
+  scheduleAtTime("snapshotChallenges", "Snapshotting Challenges",
+    config.getValue(Config.KEY_SCHEDULER_SNAPSHOT_CHALLENGES_START), Config.KEY_SCHEDULER_SNAPSHOT_CHALLENGES_INTERVAL)
+
   /**
     * Conditionally schedules message event to start at an initial time and run every duration
     *
