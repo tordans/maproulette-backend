@@ -633,24 +633,34 @@ class TaskDAL @Inject()(override val db: Database,
                                      task.id + " as it is already assigned to a bundle.")
         }
 
-        updatedRows =
-          SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
-                               WHERE t.id = (
-                                  SELECT t2.id FROM tasks t2
-                                  LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
-                                  WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
-                                )""".executeUpdate()
-        // if returning 0, then this is because the item is locked by a different user
-        if (updatedRows == 0) {
-          throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
+        // If we are 'skipping' this task and it's in some other status let's honor
+        // the other status and not actually update the task status. We should only
+        // note the skip by the user in the status actions and remove the lock.
+        val skipStatusUpdate =
+           (primaryTask.status.getOrElse(Task.STATUS_CREATED) != Task.STATUS_CREATED &&
+            status == Task.STATUS_SKIPPED)
+
+        if (!skipStatusUpdate) {
+          updatedRows =
+            SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
+                                 WHERE t.id = (
+                                    SELECT t2.id FROM tasks t2
+                                    LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
+                                    WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
+                                  )""".executeUpdate()
+          // if returning 0, then this is because the item is locked by a  different user
+          if (updatedRows == 0) {
+            throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
+          }
         }
 
         val startedLock = (SQL"""SELECT locked_time FROM locked l WHERE l.item_id = ${task.id} AND
                                        l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
                              """).as(SqlParser.scalar[DateTime].singleOpt)
+
         this.statusActions.setStatusAction(user, task, status, startedLock)
 
-        if (reviewNeeded) {
+        if (reviewNeeded && !skipStatusUpdate) {
           task.review.reviewStatus match {
             case Some(rs) =>
               SQL"""UPDATE task_review tr
@@ -677,55 +687,55 @@ class TaskDAL @Inject()(override val db: Database,
           }
         }
 
-        // Update the popularity score on the parent challenge
-        Future {
-          this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
-        }
-
-        // Let's note in the task_review_history table that this task needs review
-        if (reviewNeeded) {
-          SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
-                VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
-        }
-
-        if (reviewNeeded) {
-          this.cacheManager.withOptionCaching { () =>
-            Some(task.copy(status = Some(status),
-              review = task.review.copy(
-                reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
-                reviewRequestedBy = Some(user.id)),
-              modified = new DateTime(),
-              completionResponses = completionResponses match {
-                case Some(r) => Some(r.toString())
-                case None => None
-              },
-              bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id) ))
+        if (!skipStatusUpdate) {
+          // Update the popularity score on the parent challenge
+          Future {
+            this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
           }
-        }
-        else {
-          this.cacheManager.withOptionCaching { () =>
-            Some(task.copy(status = Some(status),
-              modified = new DateTime(),
-              completionResponses = completionResponses match {
-                case Some(r) => Some(r.toString())
-                case None => None
-              },
-              bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+
+          if (reviewNeeded) {
+            // Let's note in the task_review_history table that this task needs review
+            SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
+                  VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
+
+            this.cacheManager.withOptionCaching { () =>
+              Some(task.copy(status = Some(status),
+                review = task.review.copy(
+                  reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
+                  reviewRequestedBy = Some(user.id)),
+                modified = new DateTime(),
+                completionResponses = completionResponses match {
+                  case Some(r) => Some(r.toString())
+                  case None => None
+                },
+                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id) ))
+            }
           }
-        }
+          else {
+            this.cacheManager.withOptionCaching { () =>
+              Some(task.copy(status = Some(status),
+                modified = new DateTime(),
+                completionResponses = completionResponses match {
+                  case Some(r) => Some(r.toString())
+                  case None => None
+                },
+                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+            }
+          }
 
-        // let's give the user credit for doing this task.
-        if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-          this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
-        }
+          // let's give the user credit for doing this task.
+          if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
+            this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
+          }
 
-        // Get the latest task data and notify clients of the update
-        this.retrieveById(task.id) match {
-          case Some(t) =>
-            webSocketProvider.sendMessage(
-              WebSocketMessages.taskUpdate(t, Some(WebSocketMessages.userSummary(user)))
-            )
-          case None =>
+          // Get the latest task data and notify clients of the update
+          this.retrieveById(task.id) match {
+            case Some(t) =>
+              webSocketProvider.sendMessage(
+                WebSocketMessages.taskUpdate(t, Some(WebSocketMessages.userSummary(user)))
+              )
+            case None =>
+          }
         }
       }
 
