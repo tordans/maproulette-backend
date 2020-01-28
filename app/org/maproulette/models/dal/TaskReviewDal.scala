@@ -473,7 +473,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           ${whereClause}
         """
     }
-
+   
    var count = 0
    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
@@ -674,6 +674,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
       }
       this.appendInWhereClause(whereClause, "(t.bundle_id is NULL OR t.is_bundle_primary = true)")
 
+      params.taskId match {
+        case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(t.id AS TEXT) LIKE '${tid}%'")
+        case _ => // do nothing
+      }
+
       val parameters = new ListBuffer[NamedParameter]()
       parameters ++= addSearchToQuery(params, whereClause)
 
@@ -749,6 +754,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, s"""LOWER(p.display_name) LIKE LOWER('%${projectName}%')""")
       }
       case None => // do nothing
+    }
+
+    searchParameters.taskId match {
+      case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(${tasksTableName}.id AS TEXT) LIKE '${tid}%'")
+      case _ => // do nothing
     }
 
     if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {

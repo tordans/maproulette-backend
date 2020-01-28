@@ -1334,6 +1334,7 @@ class TaskDAL @Inject()(override val db: Database,
         """
           INNER JOIN challenges c ON c.id = t.parent_id
           INNER JOIN projects p ON p.id = c.parent_id
+          LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
         """
       )
       val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
@@ -1461,6 +1462,11 @@ class TaskDAL @Inject()(override val db: Database,
       case _ => this.appendInWhereClause(whereClause, "t.status IN (0,3,6)")
     }
 
+    params.taskId match {
+      case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(t.id AS TEXT) LIKE '${tid}%'")
+      case _ => // do nothing
+    }
+
     params.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val filter = new StringBuilder(s"""(t.id IN (SELECT task_id FROM task_review tr
@@ -1473,6 +1479,20 @@ class TaskDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, filter.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
       case _ =>
+    }
+
+    params.owner match {
+     case Some(o) if o.nonEmpty =>
+       joinClause ++= "INNER JOIN users u ON u.id = tr.review_requested_by "
+       this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
+     case _ => // ignore
+    }
+
+    params.reviewer match {
+     case Some(r) if r.nonEmpty =>
+       joinClause ++= "INNER JOIN users u2 ON u2.id = tr.reviewed_by "
+       this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
+     case _ => // ignore
     }
 
     params.taskPriorities match {

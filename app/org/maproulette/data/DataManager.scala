@@ -391,14 +391,13 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         case None => ""
       }
 
-      var statusFilter = ""
-      var reviewStatusFilter = ""
+      var searchFilters = new StringBuilder
 
       params match {
         case Some(search) =>
           search.taskStatus match {
             case Some(s) if s.nonEmpty =>
-              statusFilter = s"AND t.status IN (${s.mkString(",")})"
+              searchFilters.append(s" AND t.status IN (${s.mkString(",")}) ")
             case _ =>
           }
 
@@ -411,9 +410,38 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
                 filter.append(" OR t.id NOT IN (SELECT task_id FROM task_review tr WHERE tr.task_id = t.id)")
               }
               filter.append(")")
-              reviewStatusFilter = filter.toString()
+              searchFilters.append(filter)
             case Some(statuses) if statuses.isEmpty => //ignore this scenario
             case _ =>
+          }
+
+          search.owner match {
+           case Some(o) if o.nonEmpty =>
+             val filter = new StringBuilder(s""" AND (t.id IN (SELECT task_id
+                                                              FROM task_review tr
+                                                              INNER JOIN users u ON u.id = tr.review_requested_by
+                                                         WHERE tr.task_id = t.id AND
+                                                         LOWER(u.name) LIKE LOWER('%${o}%') )) """)
+             searchFilters.append(filter)
+           case _ => // ignore
+          }
+
+          search.reviewer match {
+           case Some(r) if r.nonEmpty =>
+             val filter = new StringBuilder(s""" AND (t.id IN (SELECT task_id
+                                                              FROM task_review tr
+                                                              INNER JOIN users u ON u.id = tr.reviewed_by
+                                                         WHERE tr.task_id = t.id AND
+                                                         LOWER(u.name) LIKE LOWER('%${r}%') )) """)
+             searchFilters.append(filter)
+           case _ => // ignore
+          }
+
+          search.taskId match {
+           case Some(tid) =>
+             val filter = new StringBuilder(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
+             searchFilters.append(filter)
+           case _ => // ignore
           }
         case _ =>
       }
@@ -457,7 +485,7 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         }
       }
                               challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter $priorityFilter
-                              ${if (searchString != "") searchField("c.name") else ""} $statusFilter $reviewStatusFilter
+                              ${if (searchString != "") searchField("c.name") else ""} ${searchFilters.toString()}
                               GROUP BY t.parent_id, c.name
                     ) AS t
                     ${this.order(orderColumn, orderDirection)}
