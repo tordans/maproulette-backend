@@ -67,7 +67,7 @@ class SnapshotController @Inject()(sessionManager: SessionManager,
   def exportChallengeSnapshots(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Result(
-        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_comments.csv")),
+        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_snapshots.csv")),
         body = HttpEntity.Strict(
           ByteString(
             "Snapshot_Time,Snapshot_ID,Challenge_ID,Challenge_Name,Challenge_Status," +
