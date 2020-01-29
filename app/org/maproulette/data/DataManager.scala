@@ -417,30 +417,27 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
 
           search.owner match {
            case Some(o) if o.nonEmpty =>
-             val filter = new StringBuilder(s""" AND (t.id IN (SELECT task_id
-                                                              FROM task_review tr
-                                                              INNER JOIN users u ON u.id = tr.review_requested_by
-                                                         WHERE tr.task_id = t.id AND
-                                                         LOWER(u.name) LIKE LOWER('%${o}%') )) """)
-             searchFilters.append(filter)
+             searchFilters.append(s""" AND (t.id IN (SELECT task_id
+                                                     FROM task_review tr
+                                                     INNER JOIN users u ON u.id = tr.review_requested_by
+                                                     WHERE tr.task_id = t.id AND
+                                                     LOWER(u.name) LIKE LOWER('%${o}%') )) """)
            case _ => // ignore
           }
 
           search.reviewer match {
            case Some(r) if r.nonEmpty =>
-             val filter = new StringBuilder(s""" AND (t.id IN (SELECT task_id
-                                                              FROM task_review tr
-                                                              INNER JOIN users u ON u.id = tr.reviewed_by
-                                                         WHERE tr.task_id = t.id AND
-                                                         LOWER(u.name) LIKE LOWER('%${r}%') )) """)
-             searchFilters.append(filter)
+             searchFilters.append(s""" AND (t.id IN (SELECT task_id
+                                                     FROM task_review tr
+                                                     INNER JOIN users u ON u.id = tr.reviewed_by
+                                                     WHERE tr.task_id = t.id AND
+                                                    LOWER(u.name) LIKE LOWER('%${r}%') )) """)
            case _ => // ignore
           }
 
           search.taskId match {
            case Some(tid) =>
-             val filter = new StringBuilder(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
-             searchFilters.append(filter)
+             searchFilters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
            case _ => // ignore
           }
         case _ =>
