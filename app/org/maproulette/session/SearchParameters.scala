@@ -39,6 +39,7 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             taskTagConjunction: Option[Boolean] = None,
                             taskSearch: Option[String] = None,
                             taskStatus: Option[List[Int]] = None,
+                            taskId: Option[Long] = None,
                             taskReviewStatus: Option[List[Int]] = None,
                             taskProperties: Option[Map[String, String]] = None,
                             taskPropertySearchType: Option[String] = None,
@@ -270,6 +271,8 @@ object SearchParameters {
         case Some(v) => Utils.toIntList(v)
         case None => params.taskStatus
       },
+      //taskIds
+      this.getLongParameter(request.getQueryString("tid"), params.taskId),
       //taskReviewStatus
       request.getQueryString("trStatus") match {
         case Some(v) => Utils.toIntList(v)
