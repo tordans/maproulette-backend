@@ -94,7 +94,8 @@ case class ChallengeExtra(defaultZoom: Int = Challenge.DEFAULT_ZOOM,
                           updateTasks: Boolean = false,
                           exportableProperties: Option[String] = None,
                           osmIdProperty: Option[String] = None,
-                          preferredTags: Option[String] = None) extends DefaultWrites
+                          preferredTags: Option[String] = None,
+                          taskStyles: Option[String] = None) extends DefaultWrites
 
 case class ChallengeListing(id: Long,
                             parent: Long,
