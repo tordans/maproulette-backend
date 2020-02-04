@@ -123,31 +123,33 @@ class ChallengeController @Inject()(override val childController: TaskController
   def getChallengeGeoJSON(challengeId: Long, statusFilter: String, reviewStatusFilter: String,
                           priorityFilter: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      this.dal.retrieveById(challengeId) match {
-        case Some(c) =>
-          val status = if (StringUtils.isEmpty(statusFilter)) {
-            None
-          } else {
-            Some(Utils.split(statusFilter).map(_.toInt))
-          }
-          val reviewStatus = if (StringUtils.isEmpty(reviewStatusFilter)) {
-            None
-          } else {
-            Some(Utils.split(reviewStatusFilter).map(_.toInt))
-          }
-          val priority = if (StringUtils.isEmpty(priorityFilter)) {
-            None
-          } else {
-            Some(Utils.split(priorityFilter).map(_.toInt))
-          }
+      SearchParameters.withSearch { implicit params =>
+        this.dal.retrieveById(challengeId) match {
+          case Some(c) =>
+            val status = if (StringUtils.isEmpty(statusFilter)) {
+              None
+            } else {
+              Some(Utils.split(statusFilter).map(_.toInt))
+            }
+            val reviewStatus = if (StringUtils.isEmpty(reviewStatusFilter)) {
+              None
+            } else {
+              Some(Utils.split(reviewStatusFilter).map(_.toInt))
+            }
+            val priority = if (StringUtils.isEmpty(priorityFilter)) {
+              None
+            } else {
+              Some(Utils.split(priorityFilter).map(_.toInt))
+            }
 
-          Result(
-            header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_geojson.json")),
-            body = HttpEntity.Strict(
-              ByteString(this.dal.getChallengeGeometry(challengeId, status, reviewStatus, priority)),
-              Some("application/json;charset=utf-8;header=present"))
-          )
-        case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
+            Result(
+              header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_geojson.json")),
+              body = HttpEntity.Strict(
+                ByteString(this.dal.getChallengeGeometry(challengeId, status, reviewStatus, priority, Some(params))),
+                Some("application/json;charset=utf-8;header=present"))
+            )
+          case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
+        }
       }
     }
   }
@@ -507,141 +509,153 @@ class ChallengeController @Inject()(override val childController: TaskController
                            priorityFilter: String, filename: String): Action[AnyContent] = Action.async { implicit request =>
 
     this.sessionManager.authenticatedRequest { implicit user =>
-      val status = if (StringUtils.isEmpty(statusFilter)) {
-        None
-      } else {
-        Some(Utils.split(statusFilter).map(_.toInt))
-      }
-      val reviewStatus = if (StringUtils.isEmpty(reviewStatusFilter)) {
-        None
-      } else {
-        Some(Utils.split(reviewStatusFilter).map(_.toInt))
-      }
-      val priority = if (StringUtils.isEmpty(priorityFilter)) {
-        None
-      } else {
-        Some(Utils.split(priorityFilter).map(_.toInt))
-      }
-
-      val (tasks, allComments) = this.dalManager.task.retrieveTaskSummaries(challengeIds, limit, page, status, reviewStatus, priority)
-
-      // Setup all exportable properties
-      var propsToExportHeaders = Set[String]()
-      //var propsToExport = Array[String]()
-      challengeIds.foreach(cId => {
-        val challenge = this.dal.retrieveById(cId) match {
-          case Some(c) => c
-          case None => throw new NotFoundException(s"Challenge with id $cId not found")
+      SearchParameters.withSearch { implicit params =>
+        val status = if (StringUtils.isEmpty(statusFilter)) {
+          None
+        } else {
+          Some(Utils.split(statusFilter).map(_.toInt))
         }
-        challenge.extra.exportableProperties match {
-          case Some(ex) =>
-            if (!ex.isEmpty) {
-              var propsToExport = ex.replaceAll("\\s", "").split(",")
-              propsToExport.foreach(pe => propsToExportHeaders += pe)
-            }
-          case None => // do nothing
+        val reviewStatus = if (StringUtils.isEmpty(reviewStatusFilter)) {
+          None
+        } else {
+          Some(Utils.split(reviewStatusFilter).map(_.toInt))
         }
-      })
-
-      // Find all response property names
-      var responseProperties = Set[String]()
-      tasks.foreach(
-        _.completionResponses match {
-          case Some(responses) =>
-            Json.parse(responses) match {
-              case o: JsObject => o.keys
-                for (key <- o.keys) {
-                  responseProperties += key.toString()
-                }
-              case _ => // do nothing
-            }
-          case None => // do nothing
+        val priority = if (StringUtils.isEmpty(priorityFilter)) {
+          None
+        } else {
+          Some(Utils.split(priorityFilter).map(_.toInt))
         }
-      )
-      var responseHeaders = ""
-      for (p <- responseProperties) {
-        responseHeaders += "," + "Recorded_" + p
-      }
 
-      val seqString = tasks.map(task => {
-          var mapper = task.reviewRequestedBy.getOrElse("")
-          if (mapper == "") {
-            mapper = task.username.getOrElse("")
+        val allParams =
+          params.copy(
+            challengeParams = params.challengeParams.copy(
+              challengeIds = Some(challengeIds)),
+            taskStatus = status,
+            taskReviewStatus = reviewStatus,
+            taskPriorities = priority
+          )
+
+        val (tasks, allComments) =
+          this.dalManager.task.retrieveTaskSummaries(challengeIds, limit, page, params)
+
+        // Setup all exportable properties
+        var propsToExportHeaders = Set[String]()
+        //var propsToExport = Array[String]()
+        challengeIds.foreach(cId => {
+          val challenge = this.dal.retrieveById(cId) match {
+            case Some(c) => c
+            case None => throw new NotFoundException(s"Challenge with id $cId not found")
           }
-
-          val reviewTimeSeconds = task.reviewStartedAt match {
-            case Some(startTime) =>
-              task.reviewedAt match {
-                case Some(endTime) => (endTime.getMillis() - startTime.getMillis()) / 1000
-                case _ => ""
-              }
-            case _ => ""
-          }
-
-          // Find matching geojson feature properties
-          var propData = ""
-          task.geojson match {
-            case Some(g) =>
-              val taskProps = (Json.parse(g) \\ "properties")(0).as[JsObject]
-              for (key <- propsToExportHeaders) {
-                (taskProps \ key) match {
-                    case value: JsDefined =>
-                      var propValue = value.get.toString()
-                      propValue = propValue.substring(1, propValue.length() - 1)
-                      propData += "," + propValue.replaceAll("\"", "\"\"")
-                    case value: JsUndefined => propData += "," + "\"\"" // empty value
-                }
+          challenge.extra.exportableProperties match {
+            case Some(ex) =>
+              if (!ex.isEmpty) {
+                var propsToExport = ex.replaceAll("\\s", "").split(",")
+                propsToExport.foreach(pe => propsToExportHeaders += pe)
               }
             case None => // do nothing
           }
+        })
 
-          // Find matching response values to each response property name
-          var responseData = ""
-          task.completionResponses match {
+        // Find all response property names
+        var responseProperties = Set[String]()
+        tasks.foreach(
+          _.completionResponses match {
             case Some(responses) =>
-              val responseMap = Json.parse(responses)
-              for (key <- responseProperties) {
-                (responseMap \ key) match {
-                    case value: JsDefined =>
-                      var propValue = value.get.toString()
-                      if (propValue != "true") {
-                        // Strip off ""s
-                        propValue = propValue.substring(1, propValue.length() - 1)
-                      }
-                      responseData += "," + propValue.replaceAll("\"", "\"\"")
-                    case vaue: JsUndefined =>
-                      responseData += "," + "\"\"" // empty value
-                }
+              Json.parse(responses) match {
+                case o: JsObject => o.keys
+                  for (key <- o.keys) {
+                    responseProperties += key.toString()
+                  }
+                case _ => // do nothing
               }
-            case None => // No responses, all empty values
-              for (key <- responseProperties) {
-                responseData += "," + "\"\""
-              }
+            case None => // do nothing
           }
-
-          var comments = allComments(task.taskId).replaceAll("\"", "\"\"")
-
-          s"""${task.taskId},${task.parent},"${task.name}","${Task.statusMap.get(task.status).get}",""" +
-          s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
-          s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
-          s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
-          s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
-          s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin
+        )
+        var responseHeaders = ""
+        for (p <- responseProperties) {
+          responseHeaders += "," + "Recorded_" + p
         }
-      )
 
-      var propsToExportHeaderString = propsToExportHeaders.mkString(",")
-      if (!propsToExportHeaderString.isEmpty) {
-        propsToExportHeaderString = "," + propsToExportHeaderString
+        val seqString = tasks.map(task => {
+            var mapper = task.reviewRequestedBy.getOrElse("")
+            if (mapper == "") {
+              mapper = task.username.getOrElse("")
+            }
+
+            val reviewTimeSeconds = task.reviewStartedAt match {
+              case Some(startTime) =>
+                task.reviewedAt match {
+                  case Some(endTime) => (endTime.getMillis() - startTime.getMillis()) / 1000
+                  case _ => ""
+                }
+              case _ => ""
+            }
+
+            // Find matching geojson feature properties
+            var propData = ""
+            task.geojson match {
+              case Some(g) =>
+                val taskProps = (Json.parse(g) \\ "properties")(0).as[JsObject]
+                for (key <- propsToExportHeaders) {
+                  (taskProps \ key) match {
+                      case value: JsDefined =>
+                        var propValue = value.get.toString()
+                        propValue = propValue.substring(1, propValue.length() - 1)
+                        propData += "," + propValue.replaceAll("\"", "\"\"")
+                      case value: JsUndefined => propData += "," + "\"\"" // empty value
+                  }
+                }
+              case None => // do nothing
+            }
+
+            // Find matching response values to each response property name
+            var responseData = ""
+            task.completionResponses match {
+              case Some(responses) =>
+                val responseMap = Json.parse(responses)
+                for (key <- responseProperties) {
+                  (responseMap \ key) match {
+                      case value: JsDefined =>
+                        var propValue = value.get.toString()
+                        if (propValue != "true") {
+                          // Strip off ""s
+                          propValue = propValue.substring(1, propValue.length() - 1)
+                        }
+                        responseData += "," + propValue.replaceAll("\"", "\"\"")
+                      case vaue: JsUndefined =>
+                        responseData += "," + "\"\"" // empty value
+                  }
+                }
+              case None => // No responses, all empty values
+                for (key <- responseProperties) {
+                  responseData += "," + "\"\""
+                }
+            }
+
+            var comments = allComments(task.taskId).replaceAll("\"", "\"\"")
+
+            s"""${task.taskId},${task.parent},"${task.name}","${Task.statusMap.get(task.status).get}",""" +
+            s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn.getOrElse("")},""" +
+            s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
+            s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt.getOrElse("")},"${reviewTimeSeconds}",""" +
+            s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary.getOrElse("")}",""" +
+            s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin
+          }
+        )
+
+        var propsToExportHeaderString = propsToExportHeaders.mkString(",")
+        if (!propsToExportHeaderString.isEmpty) {
+          propsToExportHeaderString = "," + propsToExportHeaderString
+        }
+        Result(
+          header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")),
+          body = HttpEntity.Strict(
+            ByteString(
+              s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
+            ).concat(ByteString(seqString.mkString("\n"))),
+            Some("text/csv; header=present"))
+        )
       }
-      Result(
-        header = ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")),
-        body = HttpEntity.Strict(
-          ByteString(
-            s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
-          ).concat(ByteString(seqString.mkString("\n"))),
-          Some("text/csv; header=present"))
-      )
     }
   }
 

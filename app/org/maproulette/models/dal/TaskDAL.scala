@@ -1747,8 +1747,7 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   def retrieveTaskSummaries(challengeIds: List[Long], limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            statusFilter: Option[List[Int]] = None, reviewStatusFilter: Option[List[Int]] = None,
-                            priorityFilter: Option[List[Int]] = None): (List[TaskSummary], Map[Long,String]) =
+                            params: SearchParameters): (List[TaskSummary], Map[Long,String]) =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
@@ -1772,26 +1771,10 @@ class TaskDAL @Inject()(override val db: Database,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
         reviewStartedAt, tags, responses, geojson, bundleId, isBundlePrimary)
 
-      val status = statusFilter match {
-        case Some(s) => s"AND t.status IN (${s.mkString(",")})"
-        case None => ""
-      }
+      val filters = new StringBuilder()
+      val joinClause = new StringBuilder()
+      this.updateWhereClause(params, filters, joinClause)
 
-      val reviewStatus = reviewStatusFilter match {
-        case Some(s) =>
-          var searchQuery = s"task_review.review_status IN (${s.mkString(",")})"
-          if (s.contains(-1)) {
-            // Return items that do not have a review status
-            searchQuery = searchQuery + " OR task_review.review_status IS NULL"
-          }
-          s" AND ($searchQuery)"
-        case None => ""
-      }
-
-      val priority = priorityFilter match {
-        case Some(p) => s" AND t.priority IN (${p.mkString(",")})"
-        case None => ""
-      }
 
       val commentParser = for {
         taskId <- long("task_id")
@@ -1808,10 +1791,10 @@ class TaskDAL @Inject()(override val db: Database,
 
       val query =
         SQL"""SELECT t.id, t.parent_id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
-                   task_review.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
-                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
-                   (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
-                   task_review.reviewed_at, task_review.review_started_at,
+                   tr.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
+                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = tr.review_requested_by),
+                   (SELECT name as reviewedBy FROM users WHERE users.id = tr.reviewed_by),
+                   tr.reviewed_at, tr.review_started_at,
                    (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id),
                    t.completion_responses::TEXT AS responses
             FROM tasks t LEFT OUTER JOIN (
@@ -1825,8 +1808,10 @@ class TaskDAL @Inject()(override val db: Database,
               ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
               WHERE sa.osm_user_id = u.osm_id
             ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
-            LEFT OUTER JOIN task_review ON task_review.task_id = t.id
-            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) #${status} #${priority} #${reviewStatus}
+            INNER JOIN challenges c ON c.id = t.parent_id
+            LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
+            #${joinClause.toString}
+            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) AND #${filters.toString}
             ORDER BY t.parent_Id
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """

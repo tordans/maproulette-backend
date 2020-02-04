@@ -1835,8 +1835,12 @@ GET     /challenge/:cid/previousTask/:id            @org.maproulette.controllers
 #   - name: reviewStatus
 #     in: query
 #     description: Can filter the Tasks returned by the reviewStatus of the Task. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted, 4 - Disputed
+#   - name: taskPropertySearch
+#     in: POST form data
+#     description: Can filter by specific task properties.
 ###
 GET     /challenge/view/:id                         @org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(id:Long, status:String ?= "", reviewStatus:String ?= "", priority:String ?= "")
+POST    /challenge/view/:id                         @org.maproulette.controllers.api.ChallengeController.getChallengeGeoJSON(id:Long, status:String ?= "", reviewStatus:String ?= "", priority:String ?= "")
 ###
 # tags: [ Challenge ]
 # summary: Retrieves clustered Task points
@@ -1981,8 +1985,12 @@ GET     /challenge/:id/comments/extract             @org.maproulette.controllers
 #   - name: reviewStatus
 #     in: query
 #     description: Can filter the Tasks returned by the reviewStatus of the Task. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted, 4 - Disputed
+#   - name: taskPropertySearch
+#     in: POST form data
+#     description: Can filter by specific task properties.
 ###
 GET     /challenge/:id/tasks/extract             @org.maproulette.controllers.api.ChallengeController.extractTaskSummaries(id:Long, limit:Int ?= -1, page:Int ?= 0, status:String ?= "", reviewStatus:String ?= "", priority:String ?= "")
+POST     /challenge/:id/tasks/extract             @org.maproulette.controllers.api.ChallengeController.extractTaskSummaries(id:Long, limit:Int ?= -1, page:Int ?= 0, status:String ?= "", reviewStatus:String ?= "", priority:String ?= "")
 ###
 # tags: [ Project ]
 # summary: Retrieve summaries of all tasks in a Project

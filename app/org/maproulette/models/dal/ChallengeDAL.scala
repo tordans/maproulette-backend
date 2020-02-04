@@ -713,32 +713,81 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     * @param statusFilter       To view the geojson for only challenges with a specific status
     * @param reviewStatusFilter To view the geojson for only challenges with a specific review status
     * @param priorityFilter     To view the geojson for only challenges with a specific priority
+    * @param params             SearchParameters for filtering by taskPropertySearch
     * @param c                  The implicit connection for the function
     * @return
     */
   def getChallengeGeometry(challengeId: Long, statusFilter: Option[List[Int]] = None,
                            reviewStatusFilter: Option[List[Int]] = None,
-                           priorityFilter: Option[List[Int]] = None)(implicit c: Option[Connection] = None): String = {
+                           priorityFilter: Option[List[Int]] = None,
+                           params: Option[SearchParameters] = None)(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
-      val status = statusFilter match {
-        case Some(s) => s"AND t.status IN (${s.mkString(",")})"
-        case None => ""
+      val filters = new StringBuilder()
+
+      statusFilter match {
+        case Some(s) => filters.append(s"AND t.status IN (${s.mkString(",")})")
+        case None => //
       }
 
-      val reviewStatus = reviewStatusFilter match {
+      reviewStatusFilter match {
         case Some(s) =>
           var searchQuery = s"t.id in (SELECT subTR.task_id from task_review subTR where subTR.task_id=t.id AND subTR.review_status IN (${s.mkString(",")}))"
           if (s.contains(-1)) {
             // Return items that do not have a review status
             searchQuery = searchQuery + " OR t.id NOT in (SELECT subTR.task_id from task_review subTR where subTR.task_id=t.id)"
           }
-          s" AND ($searchQuery)"
-        case None => ""
+          filters.append(s" AND ($searchQuery)")
+        case None => //
       }
 
-      val priority = priorityFilter match {
-        case Some(p) => s" AND t.priority IN (${p.mkString(",")})"
-        case None => ""
+      priorityFilter match {
+        case Some(p) => filters.append(s" AND t.priority IN (${p.mkString(",")})")
+        case None => //
+      }
+
+      params match {
+        case Some(p) =>
+          p.taskPropertySearch match {
+            case Some(tps) =>
+              filters.append(
+                s""" AND t.id IN (
+                  SELECT id FROM tasks,
+                                 jsonb_array_elements(geojson->'features') features
+                  WHERE parent_id IN ($challengeId)
+                  AND (${tps.toSQL}))
+                 """)
+            case None => // do nothing
+          }
+
+          p.taskId match {
+            case Some(tid) => filters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%'")
+            case _ => // do nothing
+          }
+
+          p.reviewer match {
+            case Some(r) =>
+              filters.append(
+                s""" AND t.id IN (
+                  SELECT subTR.task_id FROM task_review subTR
+                  INNER JOIN users u2 ON u2.id = subTR.reviewed_by
+                  WHERE subTR.task_id=t.id AND
+                  LOWER(u2.name) LIKE LOWER('%${r}%')
+                )""")
+            case _ => // do nothing
+          }
+
+          p.owner match {
+            case Some(o) =>
+              filters.append(
+                s""" AND t.id IN (
+                  SELECT subTR.task_id FROM task_review subTR
+                  INNER JOIN users u3 ON u3.id = subTR.review_requested_by
+                  WHERE subTR.task_id=t.id AND
+                  LOWER(u3.name) LIKE LOWER('%${o}%')
+                )""")
+            case _ => // do nothing
+          }
+        case None => // do nothing
       }
 
       val query =
@@ -803,7 +852,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                               LEFT OUTER JOIN status_actions sa ON
                                 (sa.task_id = t.id AND extract(epoch from age(sa.created, t.mapped_on)) < 0.1)
                               LEFT OUTER JOIN task_review tr ON t.id = tr.task_id
-                              WHERE parent_id = $challengeId #$status #$priority #$reviewStatus
+                              WHERE parent_id = $challengeId #${filters.toString}
                             ) AS subT ) as t
                     ) As f
             )  As fc"""
