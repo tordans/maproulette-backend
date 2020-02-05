@@ -498,15 +498,17 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def extractTaskSummaries(challengeId: Long, limit: Int, page: Int,
                            statusFilter: String, reviewStatusFilter: String,
-                           priorityFilter: String): Action[AnyContent] = {
+                           priorityFilter: String, exportProperties: String = ""): Action[AnyContent] = {
     this._extractTaskSummaries(List(challengeId), limit, page, statusFilter,
                                reviewStatusFilter, priorityFilter,
-                               s"challenge_${challengeId}_tasks.csv")
+                               s"challenge_${challengeId}_tasks.csv",
+                               exportProperties)
   }
 
   def _extractTaskSummaries(challengeIds: List[Long], limit: Int, page: Int,
                            statusFilter: String, reviewStatusFilter: String,
-                           priorityFilter: String, filename: String): Action[AnyContent] = Action.async { implicit request =>
+                           priorityFilter: String, filename: String,
+                           exportProperties: String = ""): Action[AnyContent] = Action.async { implicit request =>
 
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -536,16 +538,24 @@ class ChallengeController @Inject()(override val childController: TaskController
           )
 
         val (tasks, allComments) =
-          this.dalManager.task.retrieveTaskSummaries(challengeIds, limit, page, params)
+          this.dalManager.task.retrieveTaskSummaries(challengeIds, limit, page, allParams)
 
         // Setup all exportable properties
         var propsToExportHeaders = Set[String]()
-        //var propsToExport = Array[String]()
+
         challengeIds.foreach(cId => {
           val challenge = this.dal.retrieveById(cId) match {
             case Some(c) => c
             case None => throw new NotFoundException(s"Challenge with id $cId not found")
           }
+
+          // Include any properties requested in the csv
+          if (!exportProperties.isEmpty) {
+            var propsToExport = exportProperties.replaceAll("\\s", "").split(",")
+            propsToExport.foreach(pe => propsToExportHeaders += pe)
+          }
+
+          // Include properties from the challenge configuration
           challenge.extra.exportableProperties match {
             case Some(ex) =>
               if (!ex.isEmpty) {
