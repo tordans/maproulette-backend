@@ -362,13 +362,22 @@ class TaskDAL @Inject()(override val db: Database,
 
       task match {
         case Some(t) =>
-          // If the status is changing and if we have a bundle id, then we need
-          // to clear it out along with any other tasks that also have that
-          // bundle id -- essentially breaking up the bundle. Otherwise this
-          // task could end up with a different status than other tasks
-          // in that bundle.
-          if (cachedItem.status != t.status && t.bundleId != None) {
-            this.deleteTaskBundle(user, t.bundleId.get)
+          if (cachedItem.status != t.status) {
+            // If the status is changing and if we have a bundle id, then we need
+            // to clear it out along with any other tasks that also have that
+            // bundle id -- essentially breaking up the bundle. Otherwise this
+            // task could end up with a different status than other tasks
+            // in that bundle.
+            if (t.bundleId != None) {
+              this.deleteTaskBundle(user, t.bundleId.get)
+            }
+
+            // If we are moving this task back to a created status, then we don't need to do a review on it.
+            if (t.status.getOrElse(-1) == Task.STATUS_CREATED) {
+              this.withMRConnection { implicit c =>
+                SQL(s"DELETE FROM task_review tr WHERE tr.task_id = ${t.id}").executeUpdate()
+              }
+            }
           }
 
           // Get the latest task data and notify clients of the update
@@ -671,6 +680,11 @@ class TaskDAL @Inject()(override val db: Database,
               SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
                       VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
           }
+        }
+
+        if (status == Task.STATUS_CREATED) {
+          // If we are moving this task back to a created status, then we don't need to do a review on it.
+          SQL(s"DELETE FROM task_review tr WHERE tr.task_id = ${task.id}").executeUpdate()
         }
 
         // if you set the status successfully on a task you will lose the lock of that task
