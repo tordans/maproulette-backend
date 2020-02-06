@@ -643,7 +643,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       val query =
         s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
-                      WHERE featured = TRUE ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
+                      WHERE c.featured = TRUE ${this.enabled(enabledOnly, "c")} ${this.enabled(enabledOnly, "p")}
                       AND c.deleted = false and p.deleted = false
                       AND (c.status <> ${Challenge.STATUS_BUILDING} AND
                            c.status <> ${Challenge.STATUS_DELETING_TASKS} AND

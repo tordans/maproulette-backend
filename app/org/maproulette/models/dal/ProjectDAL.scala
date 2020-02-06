@@ -55,10 +55,11 @@ class ProjectDAL @Inject()(override val db: Database,
       get[Boolean]("projects.enabled") ~
       get[Option[String]]("projects.display_name") ~
       get[Boolean]("projects.deleted") ~
-      get[Boolean]("projects.is_virtual") map {
-      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName ~ deleted ~ isVirtual =>
+      get[Boolean]("projects.is_virtual") ~
+      get[Boolean]("projects.featured") map {
+      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName ~ deleted ~ isVirtual ~ featured =>
         new Project(id, ownerId, name, created, modified, description,
-          userGroupDAL.getProjectGroups(id, User.superUser), enabled, displayName, deleted, Some(isVirtual))
+          userGroupDAL.getProjectGroups(id, User.superUser), enabled, displayName, deleted, Some(isVirtual), featured)
     }
   }
 
@@ -101,9 +102,12 @@ class ProjectDAL @Inject()(override val db: Database,
         case _ => false
       }
 
+      // Only super users can feature a project
+      val featured = project.featured && user.isSuperUser
+
       val newProject = this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual)
-              VALUES (${project.name}, ${user.osmProfile.id}, ${project.displayName}, ${project.description}, ${project.enabled}, ${isVirtual})
+        SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual, featured)
+              VALUES (${project.name}, ${user.osmProfile.id}, ${project.displayName}, ${project.description}, ${project.enabled}, ${isVirtual}, ${featured})
               RETURNING *""".as(parser.*).head
       }
       db.withTransaction { implicit c =>
@@ -138,12 +142,20 @@ class ProjectDAL @Inject()(override val db: Database,
           case Some(e) => e
           case None => cachedItem.enabled
         }
+        val featured = (updates \ "featured").asOpt[Boolean] match {
+          case Some(f) if !user.isSuperUser =>
+            logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot feature projects")
+            cachedItem.featured
+          case Some(f) => f
+          case None => cachedItem.featured
+        }
 
         SQL"""UPDATE projects SET name = $name,
               owner_id = $owner,
               display_name = $displayName,
               description = $description,
-              enabled = $enabled
+              enabled = $enabled,
+              featured = $featured
               WHERE id = $id RETURNING *""".as(this.parser.*).headOption
       }
     }
@@ -161,6 +173,26 @@ class ProjectDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE TRUE ${this.getLongListFilter(projectList, "id")}"""
       SQL(query).as(this.parser.*)
+    }
+  }
+
+  /**
+    * Retrieves a list of projects that are featured
+    *
+    * @param onlyEnabled Restrict to enabled projects
+    * @param limit       Limit the number of results to be returned
+    * @param offset      For paging, ie. the page number starting at 0
+    * @return A list of projects
+    */
+  def getFeaturedProjects(onlyEnabled: Boolean = true, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)
+                         (implicit c: Option[Connection] = None): List[Project] = {
+    this.withMRConnection { implicit c =>
+      val query =
+        s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+            WHERE featured = TRUE ${this.enabled(onlyEnabled)}
+            LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+
+      SQL(query).on('offset -> offset).as(this.parser.*)
     }
   }
 
