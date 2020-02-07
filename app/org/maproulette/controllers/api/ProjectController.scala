@@ -109,6 +109,20 @@ class ProjectController @Inject()(override val childController: ChallengeControl
   }
 
   /**
+    * Gets the featured projects
+    *
+    * @param onlyEnabled Only include enabled projects
+    * @param limit       The number of challenges to get
+    * @param offset      The offset
+    * @return A json array with the featured projects
+    */
+  def getFeaturedProjects(onlyEnabled: Boolean, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.dal.getFeaturedProjects(onlyEnabled, limit, offset)))
+    }
+  }
+
+  /**
     * Gets a random task that is an descendant of the project.
     *
     * @param limit       Limit of how many tasks should be returned

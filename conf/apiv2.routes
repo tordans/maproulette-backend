@@ -296,6 +296,31 @@ PUT  /project/:id/undelete                         @org.maproulette.controllers.
 GET     /projects/find                              @org.maproulette.controllers.api.ProjectController.find(q:String ?= "", parentId:Long ?= -1, limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 ###
 # tags: [ Project ]
+# summary: Retrieve featured projects
+# produces: [ application/json ]
+# description: Get all the currently featured projects
+# responses:
+#   '200':
+#     description: An array of all the featured projects
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Project'
+# parameters:
+#   - name: onlyEnabled
+#     in: query
+#     description: Flag to set if only wanting enabled projects returned. Default value is true.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /projects/featured                          @org.maproulette.controllers.api.ProjectController.getFeaturedProjects(onlyEnabled:Boolean ?= true, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Project ]
 # summary: List all the projects.
 # consumes: [ application/json ]
 # produces: [ application/json ]
