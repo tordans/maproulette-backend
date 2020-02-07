@@ -473,7 +473,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
           ${whereClause}
         """
     }
-   
+
    var count = 0
    val tasks = this.taskDAL.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
@@ -500,7 +500,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
                        mappers:Option[List[String]]=None, reviewers:Option[List[String]]=None,
                        priorities:Option[List[Int]]=None, startDate:String, endDate:String,
                        onlySaved: Boolean=false, excludeOtherReviewers: Boolean=false)
-                       (implicit c:Connection=null) : List[ReviewMetrics] = {
+                       (implicit c:Connection=null) : ReviewMetrics = {
 
    // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
    // 2: MY_REVIEWED_TASKS = 'myReviewedTasks'
@@ -513,35 +513,9 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
     var whereClause = new StringBuilder()
 
-    mappers match {
-      case Some(m) =>
-        if (m.size > 0) {
-          whereClause ++= s"task_review.review_requested_by IN (${m.mkString(",")}) "
-        }
-        else {
-          whereClause ++= s"task_review.review_requested_by IS NOT NULL "
-        }
-      case _ => whereClause ++= s"task_review.review_requested_by IS NOT NULL "
-    }
-
-    reviewers match {
-      case Some(r) =>
-        if (r.size > 0) {
-          whereClause ++= s" AND task_review.reviewed_by IN (${r.mkString(",")}) "
-        }
-      case _ => // do nothing
-    }
-
-    priorities match {
-      case Some(priority) if priority.nonEmpty =>
-        val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
-        this.appendInWhereClause(whereClause, priorityClause.toString())
-      case Some(priority) if priority.isEmpty => //ignore this scenario
-      case _ =>
-    }
-
     if (reviewTasksType == 1) {
-      whereClause = new StringBuilder(s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})")
+      this.appendInWhereClause(whereClause,
+        s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})")
 
       if (onlySaved) {
         joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
@@ -554,24 +528,53 @@ class TaskReviewDAL @Inject()(override val db: Database,
       }
 
       if (!user.isSuperUser) {
-        whereClause ++=
-          s""" AND ((p.enabled AND c.enabled) OR
+        this.appendInWhereClause(whereClause,
+          s""" ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
                 ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
                                            WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
-                task_review.review_requested_by != ${user.id} """
+                task_review.review_requested_by != ${user.id} """)
       }
     }
     else {
       if (!user.isSuperUser) {
-        whereClause ++=
-          s""" AND ((p.enabled AND c.enabled) OR
+        this.appendInWhereClause(whereClause,
+          s"""((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
                 ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
                                           WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                 task_review.review_requested_by = ${user.id} OR
-                task_review.reviewed_by = ${user.id})"""
+                task_review.reviewed_by = ${user.id})""")
       }
+    }
+    
+    mappers match {
+      case Some(m) =>
+        if (m.size > 0) {
+          this.appendInWhereClause(whereClause,
+            s"task_review.review_requested_by IN (${m.mkString(",")}) ")
+        }
+        else {
+          this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
+        }
+      case _ => this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
+    }
+
+    reviewers match {
+      case Some(r) =>
+        if (r.size > 0) {
+          this.appendInWhereClause(whereClause,
+            s"task_review.reviewed_by IN (${r.mkString(",")}) ")
+        }
+      case _ => // do nothing
+    }
+
+    priorities match {
+      case Some(priority) if priority.nonEmpty =>
+        val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
+        this.appendInWhereClause(whereClause, priorityClause.toString())
+      case Some(priority) if priority.isEmpty => //ignore this scenario
+      case _ =>
     }
 
     val parameters = new ListBuffer[NamedParameter]()
@@ -622,7 +625,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
     this.withMRTransaction { implicit c =>
-      sqlWithParameters(query, parameters).as(reviewMetricsParser.*)
+      sqlWithParameters(query, parameters).as(reviewMetricsParser.single)
     }
   }
 

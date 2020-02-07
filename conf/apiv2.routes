@@ -777,8 +777,11 @@ GET     /tasks/review/next                       @org.maproulette.controllers.ap
 #   - name: excludeOtherReviewers
 #     in: query
 #     description: exclude tasks that have been reviewed by someone else
+#   - name: includeByPriority
+#     in: query
+#     description: Also include a breakdown of review status by priority
 ###
-GET     /tasks/review/metrics                          @org.maproulette.controllers.api.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers: Boolean ?= false)
+GET     /tasks/review/metrics                          @org.maproulette.controllers.api.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers: Boolean ?= false, includeByPriority:Boolean ?= false)
 ###
 # tags: [ Project ]
 # summary: Retrieves clustered challenge points
