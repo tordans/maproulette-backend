@@ -673,6 +673,11 @@ class TaskDAL @Inject()(override val db: Database,
           }
         }
 
+        if (status == Task.STATUS_CREATED) {
+          // If we are moving this task back to a created status, then we don't need to do a review on it.
+          SQL(s"DELETE FROM task_review tr WHERE tr.task_id = ${task.id}").executeUpdate()
+        }
+
         // if you set the status successfully on a task you will lose the lock of that task
         try {
           this.unlockItem(user, task)
