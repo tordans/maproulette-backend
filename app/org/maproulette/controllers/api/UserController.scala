@@ -220,16 +220,16 @@ class UserController @Inject()(userDAL: UserDAL,
     * @param groupType The type of group 1 - Admin, 2 - Write, 3 - Read
     * @return Standard status message
     */
-  def addUserToProject(userId: Long, projectId: Long, groupType: Int): Action[AnyContent] = Action.async { implicit request =>
+  def addUserToProject(userId: Long, projectId: Long, groupType: Int, isOSMUserId: Boolean): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      this.addUser(userId, projectId, groupType, user)
+      this.addUser(userId, isOSMUserId, projectId, groupType, user)
       // clear group caches
       this.userGroupDAL.clearCache()
       Ok(Json.toJson(StatusMessage("OK", JsString(s"User with id [$userId] added to project $projectId"))))
     }
   }
 
-  def addUsersToProject(projectId: Long, groupType: Int): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+  def addUsersToProject(projectId: Long, groupType: Int, isOSMUserId: Boolean): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val jsBody = request.body
       if (!jsBody.isInstanceOf[JsArray]) {
@@ -238,7 +238,7 @@ class UserController @Inject()(userDAL: UserDAL,
 
       val idList = jsBody.as[JsArray].value
       idList.foreach(id => {
-        this.addUser(id.as[Long], projectId, groupType, user)
+        this.addUser(id.as[Long], isOSMUserId, projectId, groupType, user)
       })
       // clear the group caches
       this.userGroupDAL.clearCache()
@@ -246,16 +246,9 @@ class UserController @Inject()(userDAL: UserDAL,
     }
   }
 
-  private def addUser(userId: Long, projectId: Long, groupType: Int, user: User): Unit = {
-    val addUser = this.userDAL.retrieveById(userId) match {
-      case Some(addUser) => addUser
-      case None =>
-        // check to see if the osm id was supplied instead
-        this.userDAL.retrieveByOSMID(userId, user) match {
-          case Some(u) => u
-          case None => throw new NotFoundException(s"Could not find user with ID $userId")
-        }
-    }
+  private def addUser(userId: Long, isOSMUserId: Boolean, projectId: Long, groupType: Int, user: User): Unit = {
+    val addUser = this.retrieveUser(userId, isOSMUserId, user)
+
     if (addUser.groups.exists(g => g.projectId == projectId && g.groupType == groupType)) {
       throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
     }
@@ -267,6 +260,19 @@ class UserController @Inject()(userDAL: UserDAL,
     this.userDAL.addUserToProject(addUser.osmProfile.id, projectId, groupType, user)
   }
 
+  private def retrieveUser(userId: Long, isOSMUserId: Boolean, user: User): User = {
+    isOSMUserId match {
+      case true => this.userDAL.retrieveByOSMID(userId, user) match {
+        case Some(u) => u
+        case None => throw new NotFoundException(s"Could not find user with OSM ID $userId")
+      }
+      case false => this.userDAL.retrieveById(userId) match {
+        case Some(u) => u
+        case None => throw new NotFoundException(s"Could not find user with ID $userId")
+      }
+    }
+  }
+
   /**
     * Sets the group type of the user in a project, first removing any prior
     * group types.
@@ -276,17 +282,9 @@ class UserController @Inject()(userDAL: UserDAL,
     * @param groupType The type of group 1 - Admin, 2 - Write, 3 - Read
     * @return Standard status message
     */
-  def setUserProjectGroup(userId: Long, projectId: Long, groupType: Int): Action[AnyContent] = Action.async { implicit request =>
+   def setUserProjectGroup(userId: Long, projectId: Long, groupType: Int, isOSMUserId: Boolean): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val addUser = this.userDAL.retrieveById(userId) match {
-        case Some(addUser) => addUser
-        case None =>
-          // check to see if the osm id was supplied instead. Superuser promotion required.
-          this.userDAL.retrieveByOSMID(userId, User.superUser) match {
-            case Some(u) => u
-            case None => throw new NotFoundException(s"Could not found user with ID $userId")
-          }
-      }
+      val addUser = retrieveUser(userId, isOSMUserId, user)
       this.userDAL.setUserProjectGroup(addUser.osmProfile.id, projectId, groupType, user)
       // clear group caches
       this.userGroupDAL.clearCache()
@@ -301,25 +299,17 @@ class UserController @Inject()(userDAL: UserDAL,
     * @param projectId
     * @return
     */
-  def removeUserFromProject(userId: Long, projectId: Long, groupType: Int): Action[AnyContent] = Action.async { implicit request =>
+   def removeUserFromProject(userId: Long, projectId: Long, groupType: Int, isOSMUserId: Boolean): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      this.removeUser(userId, projectId, groupType, user)
+      this.removeUser(userId, isOSMUserId, projectId, groupType, user)
       // clear group caches
       this.userGroupDAL.clearCache()
       Ok(Json.toJson(StatusMessage("OK", JsString(s"User with id $userId removed from project $projectId"))))
     }
   }
 
-  private def removeUser(userId: Long, projectId: Long, groupType: Int, user: User): Unit = {
-    val addUser = this.userDAL.retrieveById(userId) match {
-      case Some(addUser) => addUser
-      case None =>
-        // check to see if the osm id was supplied instead. Superuser promotion required.
-        this.userDAL.retrieveByOSMID(userId, User.superUser) match {
-          case Some(u) => u
-          case None => throw new NotFoundException(s"Could not find user with ID $userId")
-        }
-    }
+  private def removeUser(userId: Long, isOSMUserId: Boolean, projectId: Long, groupType: Int, user: User): Unit = {
+    val addUser = this.retrieveUser(userId, isOSMUserId, user)
     // just check to make sure that the project exists
     this.projectDAL.retrieveById(projectId) match {
       case Some(_) => // just ignore
@@ -328,7 +318,7 @@ class UserController @Inject()(userDAL: UserDAL,
     this.userDAL.removeUserFromProject(addUser.osmProfile.id, projectId, groupType, user)
   }
 
-  def removeUsersFromProject(projectId: Long, groupType: Int): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+  def removeUsersFromProject(projectId: Long, groupType: Int, isOSMUserId: Boolean): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val jsBody = request.body
       if (!jsBody.isInstanceOf[JsArray]) {
@@ -337,7 +327,7 @@ class UserController @Inject()(userDAL: UserDAL,
 
       val idList = jsBody.as[JsArray].value
       idList.foreach(id => {
-        this.removeUser(id.as[Long], projectId, groupType, user)
+        this.removeUser(id.as[Long], isOSMUserId, projectId, groupType, user)
       })
       // clear the group caches
       this.userGroupDAL.clearCache()

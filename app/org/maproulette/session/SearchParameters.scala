@@ -5,7 +5,7 @@ package org.maproulette.session
 import java.net.URLDecoder
 
 import org.maproulette.utils.Utils
-import play.api.mvc.{AnyContent, Request}
+import play.api.mvc.{AnyContent, Request, AnyContentAsFormUrlEncoded}
 import play.api.data.format.Formats
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
@@ -39,6 +39,7 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
                             taskTagConjunction: Option[Boolean] = None,
                             taskSearch: Option[String] = None,
                             taskStatus: Option[List[Int]] = None,
+                            taskId: Option[Long] = None,
                             taskReviewStatus: Option[List[Int]] = None,
                             taskProperties: Option[Map[String, String]] = None,
                             taskPropertySearchType: Option[String] = None,
@@ -211,21 +212,44 @@ object SearchParameters {
       case None => params.challengeParams.challengeIds
     }
 
-    val taskPropertySearch = (request.body.asJson) match {
-      case Some(v) =>
-        (v \ "taskPropertySearch").toOption match {
-          case Some(result) => {
-            Json.fromJson[TaskPropertySearch](result) match {
-              case JsSuccess(tps, _) => {
-                Some(tps)
+    var taskPropertySearch:Option[TaskPropertySearch] = None
+
+    // If we are submitting the taskPropertySearch JSON as POST form data
+    if (request.method == "POST") {
+      request.body match {
+        case AnyContentAsFormUrlEncoded(formData) =>
+          val tpsData = formData("taskPropertySearch")
+          if (tpsData.length > 0 && tpsData.head != "{}") {
+            taskPropertySearch =
+              Json.fromJson[TaskPropertySearch](Json.parse(tpsData.head)) match {
+                case JsSuccess(tps, _) => {
+                  Some(tps)
+                }
+                case e: JsError =>
+                  throw new InvalidException(s"Unable to create TaskPropertySearch from JSON: ${JsError toJson e}")
               }
-              case e: JsError =>
-                throw new InvalidException(s"Unable to create TaskPropertySearch from JSON: ${JsError toJson e}")
-            }
           }
-          case None => None
-        }
-      case None => None
+        case _ => None
+      }
+    }
+    // Otherwise if submitted as PUT data.
+    else {
+      taskPropertySearch = (request.body.asJson) match {
+        case Some(v) =>
+          (v \ "taskPropertySearch").toOption match {
+            case Some(result) => {
+              Json.fromJson[TaskPropertySearch](result) match {
+                case JsSuccess(tps, _) => {
+                  Some(tps)
+                }
+                case e: JsError =>
+                  throw new InvalidException(s"Unable to create TaskPropertySearch from JSON: ${JsError toJson e}")
+              }
+            }
+            case None => None
+          }
+        case None => None
+      }
     }
 
     block(SearchParameters(
@@ -270,6 +294,8 @@ object SearchParameters {
         case Some(v) => Utils.toIntList(v)
         case None => params.taskStatus
       },
+      //taskIds
+      this.getLongParameter(request.getQueryString("tid"), params.taskId),
       //taskReviewStatus
       request.getQueryString("trStatus") match {
         case Some(v) => Utils.toIntList(v)

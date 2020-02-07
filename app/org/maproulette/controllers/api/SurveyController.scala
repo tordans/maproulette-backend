@@ -4,7 +4,7 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 import org.maproulette.Config
-import org.maproulette.data.{ActionManager, QuestionAnswered, SurveyType}
+import org.maproulette.data.{ActionManager, QuestionAnswered, SurveyType, SnapshotManager}
 import org.maproulette.exception.NotFoundException
 import org.maproulette.models.dal._
 import org.maproulette.models.{Answer, Challenge}
@@ -35,8 +35,10 @@ class SurveyController @Inject()(override val childController: TaskController,
                                  permission: Permission,
                                  config: Config,
                                  components: ControllerComponents,
-                                 override val bodyParsers: PlayBodyParsers)
-  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL, challengeProvider, wsClient, permission, config, components, bodyParsers) {
+                                 override val bodyParsers: PlayBodyParsers,
+                                 override val snapshotManager: SnapshotManager)
+  extends ChallengeController(childController, sessionManager, actionManager, dalManager.challenge, dalManager, tagDAL,
+    challengeProvider, wsClient, permission, config, components, bodyParsers, snapshotManager) {
 
   // The type of object that this controller deals with.
   override implicit val itemType = SurveyType()

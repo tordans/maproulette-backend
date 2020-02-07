@@ -91,6 +91,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
+      get[Option[String]]("challenges.osm_id_property") ~
+      get[Option[String]]("challenges.preferred_tags") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
       get[Option[String]]("locationJSON") ~
@@ -100,8 +102,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
         checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
         mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-        customBasemap ~ updateTasks ~ exportableProperties ~ lastTaskRefresh ~ dataOriginDate ~ location ~
-        bounding ~ deleted =>
+        customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ lastTaskRefresh ~
+        dataOriginDate ~ location ~ bounding ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -118,7 +120,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, hasSuggestedFixes, popularity, checkin_comment.getOrElse(""), checkin_source.getOrElse(""), None),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
-          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties),
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties, osmIdProperty, preferredTags),
           status, statusMessage, lastTaskRefresh, dataOriginDate, location, bounding,
         )
     }
@@ -162,6 +164,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       get[Option[String]]("challenges.custom_basemap") ~
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
+      get[Option[String]]("challenges.osm_id_property") ~
+      get[Option[String]]("challenges.preferred_tags") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
       get[Option[String]]("locationJSON") ~
@@ -173,7 +177,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
         defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
         minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-        exportableProperties ~ lastTaskRefresh ~ dataOriginDate ~ location ~ bounding ~ deleted ~ virtualParents =>
+        exportableProperties ~ osmIdProperty ~ preferredTags ~ lastTaskRefresh ~ dataOriginDate ~
+        location ~ bounding ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r => r
@@ -190,7 +195,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           ChallengeGeneral(ownerId, parentId, instruction, difficulty, blurb, enabled, challenge_type, featured, hasSuggestedFixes, popularity, checkin_comment.getOrElse(""), checkin_source.getOrElse(""), virtualParents),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
-          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties),
+          ChallengeExtra(defaultZoom, minZoom, maxZoom, defaultBasemap, defaultBasemapId, customBasemap, updateTasks, exportableProperties, osmIdProperty, preferredTags),
           status, statusMessage, lastTaskRefresh, dataOriginDate, location, bounding,
         )
     }
@@ -321,7 +326,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
-                                      last_task_refresh, data_origin_date)
+                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
@@ -329,8 +334,10 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks},
-                      ${challenge.extra.exportableProperties}, ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
-                      ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz)
+                      ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty},
+                      ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
+                      ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
+                      ${challenge.extra.preferredTags})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}""".as(this.parser.*).headOption
       }
     } match {
@@ -398,6 +405,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         val customBasemap = (updates \ "customBasemap").asOpt[String].getOrElse(cachedItem.extra.customBasemap.getOrElse(""))
         val updateTasks = (updates \ "updateTasks").asOpt[Boolean].getOrElse(cachedItem.extra.updateTasks)
         val exportableProperties = (updates \ "exportableProperties").asOpt[String].getOrElse(cachedItem.extra.exportableProperties.getOrElse(""))
+        val osmIdProperty = (updates \ "osmIdProperty").asOpt[String].getOrElse(cachedItem.extra.osmIdProperty.getOrElse(""))
+        val preferredTags = (updates \ "preferredTags").asOpt[String].getOrElse(cachedItem.extra.preferredTags.getOrElse(null))
 
         SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
@@ -426,7 +435,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
           }
         },
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
-                custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties, challenge_type = $challengeType
+                custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
+                osm_id_property = $osmIdProperty, challenge_type = $challengeType, preferred_tags = $preferredTags
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
       }
     }
@@ -703,32 +713,81 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
     * @param statusFilter       To view the geojson for only challenges with a specific status
     * @param reviewStatusFilter To view the geojson for only challenges with a specific review status
     * @param priorityFilter     To view the geojson for only challenges with a specific priority
+    * @param params             SearchParameters for filtering by taskPropertySearch
     * @param c                  The implicit connection for the function
     * @return
     */
   def getChallengeGeometry(challengeId: Long, statusFilter: Option[List[Int]] = None,
                            reviewStatusFilter: Option[List[Int]] = None,
-                           priorityFilter: Option[List[Int]] = None)(implicit c: Option[Connection] = None): String = {
+                           priorityFilter: Option[List[Int]] = None,
+                           params: Option[SearchParameters] = None)(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
-      val status = statusFilter match {
-        case Some(s) => s"AND t.status IN (${s.mkString(",")})"
-        case None => ""
+      val filters = new StringBuilder()
+
+      statusFilter match {
+        case Some(s) => filters.append(s"AND t.status IN (${s.mkString(",")})")
+        case None => //
       }
 
-      val reviewStatus = reviewStatusFilter match {
+      reviewStatusFilter match {
         case Some(s) =>
           var searchQuery = s"t.id in (SELECT subTR.task_id from task_review subTR where subTR.task_id=t.id AND subTR.review_status IN (${s.mkString(",")}))"
           if (s.contains(-1)) {
             // Return items that do not have a review status
             searchQuery = searchQuery + " OR t.id NOT in (SELECT subTR.task_id from task_review subTR where subTR.task_id=t.id)"
           }
-          s" AND ($searchQuery)"
-        case None => ""
+          filters.append(s" AND ($searchQuery)")
+        case None => //
       }
 
-      val priority = priorityFilter match {
-        case Some(p) => s" AND t.priority IN (${p.mkString(",")})"
-        case None => ""
+      priorityFilter match {
+        case Some(p) => filters.append(s" AND t.priority IN (${p.mkString(",")})")
+        case None => //
+      }
+
+      params match {
+        case Some(p) =>
+          p.taskPropertySearch match {
+            case Some(tps) =>
+              filters.append(
+                s""" AND t.id IN (
+                  SELECT id FROM tasks,
+                                 jsonb_array_elements(geojson->'features') features
+                  WHERE parent_id IN ($challengeId)
+                  AND (${tps.toSQL}))
+                 """)
+            case None => // do nothing
+          }
+
+          p.taskId match {
+            case Some(tid) => filters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%'")
+            case _ => // do nothing
+          }
+
+          p.reviewer match {
+            case Some(r) =>
+              filters.append(
+                s""" AND t.id IN (
+                  SELECT subTR.task_id FROM task_review subTR
+                  INNER JOIN users u2 ON u2.id = subTR.reviewed_by
+                  WHERE subTR.task_id=t.id AND
+                  LOWER(u2.name) LIKE LOWER('%${r}%')
+                )""")
+            case _ => // do nothing
+          }
+
+          p.owner match {
+            case Some(o) =>
+              filters.append(
+                s""" AND t.id IN (
+                  SELECT subTR.task_id FROM task_review subTR
+                  INNER JOIN users u3 ON u3.id = subTR.review_requested_by
+                  WHERE subTR.task_id=t.id AND
+                  LOWER(u3.name) LIKE LOWER('%${o}%')
+                )""")
+            case _ => // do nothing
+          }
+        case None => // do nothing
       }
 
       val query =
@@ -793,7 +852,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                               LEFT OUTER JOIN status_actions sa ON
                                 (sa.task_id = t.id AND extract(epoch from age(sa.created, t.mapped_on)) < 0.1)
                               LEFT OUTER JOIN task_review tr ON t.id = tr.task_id
-                              WHERE parent_id = $challengeId #$status #$priority #$reviewStatus
+                              WHERE parent_id = $challengeId #${filters.toString}
                             ) AS subT ) as t
                     ) As f
             )  As fc"""

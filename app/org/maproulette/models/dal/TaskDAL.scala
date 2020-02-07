@@ -633,24 +633,34 @@ class TaskDAL @Inject()(override val db: Database,
                                      task.id + " as it is already assigned to a bundle.")
         }
 
-        updatedRows =
-          SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
-                               WHERE t.id = (
-                                  SELECT t2.id FROM tasks t2
-                                  LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
-                                  WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
-                                )""".executeUpdate()
-        // if returning 0, then this is because the item is locked by a different user
-        if (updatedRows == 0) {
-          throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
+        // If we are 'skipping' this task and it's in some other status let's honor
+        // the other status and not actually update the task status. We should only
+        // note the skip by the user in the status actions and remove the lock.
+        val skipStatusUpdate =
+           (primaryTask.status.getOrElse(Task.STATUS_CREATED) != Task.STATUS_CREATED &&
+            status == Task.STATUS_SKIPPED)
+
+        if (!skipStatusUpdate) {
+          updatedRows =
+            SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
+                                 WHERE t.id = (
+                                    SELECT t2.id FROM tasks t2
+                                    LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
+                                    WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
+                                  )""".executeUpdate()
+          // if returning 0, then this is because the item is locked by a  different user
+          if (updatedRows == 0) {
+            throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
+          }
         }
 
         val startedLock = (SQL"""SELECT locked_time FROM locked l WHERE l.item_id = ${task.id} AND
                                        l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
                              """).as(SqlParser.scalar[DateTime].singleOpt)
+
         this.statusActions.setStatusAction(user, task, status, startedLock)
 
-        if (reviewNeeded) {
+        if (reviewNeeded && !skipStatusUpdate) {
           task.review.reviewStatus match {
             case Some(rs) =>
               SQL"""UPDATE task_review tr
@@ -661,6 +671,11 @@ class TaskDAL @Inject()(override val db: Database,
               SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
                       VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
           }
+        }
+
+        if (status == Task.STATUS_CREATED) {
+          // If we are moving this task back to a created status, then we don't need to do a review on it.
+          SQL(s"DELETE FROM task_review tr WHERE tr.task_id = ${task.id}").executeUpdate()
         }
 
         // if you set the status successfully on a task you will lose the lock of that task
@@ -677,55 +692,55 @@ class TaskDAL @Inject()(override val db: Database,
           }
         }
 
-        // Update the popularity score on the parent challenge
-        Future {
-          this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
-        }
-
-        // Let's note in the task_review_history table that this task needs review
-        if (reviewNeeded) {
-          SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
-                VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
-        }
-
-        if (reviewNeeded) {
-          this.cacheManager.withOptionCaching { () =>
-            Some(task.copy(status = Some(status),
-              review = task.review.copy(
-                reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
-                reviewRequestedBy = Some(user.id)),
-              modified = new DateTime(),
-              completionResponses = completionResponses match {
-                case Some(r) => Some(r.toString())
-                case None => None
-              },
-              bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id) ))
+        if (!skipStatusUpdate) {
+          // Update the popularity score on the parent challenge
+          Future {
+            this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
           }
-        }
-        else {
-          this.cacheManager.withOptionCaching { () =>
-            Some(task.copy(status = Some(status),
-              modified = new DateTime(),
-              completionResponses = completionResponses match {
-                case Some(r) => Some(r.toString())
-                case None => None
-              },
-              bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+
+          if (reviewNeeded) {
+            // Let's note in the task_review_history table that this task needs review
+            SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
+                  VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
+
+            this.cacheManager.withOptionCaching { () =>
+              Some(task.copy(status = Some(status),
+                review = task.review.copy(
+                  reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
+                  reviewRequestedBy = Some(user.id)),
+                modified = new DateTime(),
+                completionResponses = completionResponses match {
+                  case Some(r) => Some(r.toString())
+                  case None => None
+                },
+                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id) ))
+            }
           }
-        }
+          else {
+            this.cacheManager.withOptionCaching { () =>
+              Some(task.copy(status = Some(status),
+                modified = new DateTime(),
+                completionResponses = completionResponses match {
+                  case Some(r) => Some(r.toString())
+                  case None => None
+                },
+                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+            }
+          }
 
-        // let's give the user credit for doing this task.
-        if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-          this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
-        }
+          // let's give the user credit for doing this task.
+          if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
+            this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
+          }
 
-        // Get the latest task data and notify clients of the update
-        this.retrieveById(task.id) match {
-          case Some(t) =>
-            webSocketProvider.sendMessage(
-              WebSocketMessages.taskUpdate(t, Some(WebSocketMessages.userSummary(user)))
-            )
-          case None =>
+          // Get the latest task data and notify clients of the update
+          this.retrieveById(task.id) match {
+            case Some(t) =>
+              webSocketProvider.sendMessage(
+                WebSocketMessages.taskUpdate(t, Some(WebSocketMessages.userSummary(user)))
+              )
+            case None =>
+          }
         }
       }
 
@@ -1324,6 +1339,7 @@ class TaskDAL @Inject()(override val db: Database,
         """
           INNER JOIN challenges c ON c.id = t.parent_id
           INNER JOIN projects p ON p.id = c.parent_id
+          LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
         """
       )
       val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
@@ -1451,6 +1467,11 @@ class TaskDAL @Inject()(override val db: Database,
       case _ => this.appendInWhereClause(whereClause, "t.status IN (0,3,6)")
     }
 
+    params.taskId match {
+      case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(t.id AS TEXT) LIKE '${tid}%'")
+      case _ => // do nothing
+    }
+
     params.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val filter = new StringBuilder(s"""(t.id IN (SELECT task_id FROM task_review tr
@@ -1463,6 +1484,20 @@ class TaskDAL @Inject()(override val db: Database,
         this.appendInWhereClause(whereClause, filter.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
       case _ =>
+    }
+
+    params.owner match {
+     case Some(o) if o.nonEmpty =>
+       joinClause ++= "INNER JOIN users u ON u.id = tr.review_requested_by "
+       this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
+     case _ => // ignore
+    }
+
+    params.reviewer match {
+     case Some(r) if r.nonEmpty =>
+       joinClause ++= "INNER JOIN users u2 ON u2.id = tr.reviewed_by "
+       this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
+     case _ => // ignore
     }
 
     params.taskPriorities match {
@@ -1717,8 +1752,7 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   def retrieveTaskSummaries(challengeIds: List[Long], limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            statusFilter: Option[List[Int]] = None, reviewStatusFilter: Option[List[Int]] = None,
-                            priorityFilter: Option[List[Int]] = None): (List[TaskSummary], Map[Long,String]) =
+                            params: SearchParameters): (List[TaskSummary], Map[Long,String]) =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
@@ -1742,26 +1776,10 @@ class TaskDAL @Inject()(override val db: Database,
         reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
         reviewStartedAt, tags, responses, geojson, bundleId, isBundlePrimary)
 
-      val status = statusFilter match {
-        case Some(s) => s"AND t.status IN (${s.mkString(",")})"
-        case None => ""
-      }
+      val filters = new StringBuilder()
+      val joinClause = new StringBuilder()
+      this.updateWhereClause(params, filters, joinClause)
 
-      val reviewStatus = reviewStatusFilter match {
-        case Some(s) =>
-          var searchQuery = s"task_review.review_status IN (${s.mkString(",")})"
-          if (s.contains(-1)) {
-            // Return items that do not have a review status
-            searchQuery = searchQuery + " OR task_review.review_status IS NULL"
-          }
-          s" AND ($searchQuery)"
-        case None => ""
-      }
-
-      val priority = priorityFilter match {
-        case Some(p) => s" AND t.priority IN (${p.mkString(",")})"
-        case None => ""
-      }
 
       val commentParser = for {
         taskId <- long("task_id")
@@ -1778,10 +1796,10 @@ class TaskDAL @Inject()(override val db: Database,
 
       val query =
         SQL"""SELECT t.id, t.parent_id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
-                   task_review.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
-                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
-                   (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
-                   task_review.reviewed_at, task_review.review_started_at,
+                   tr.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
+                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = tr.review_requested_by),
+                   (SELECT name as reviewedBy FROM users WHERE users.id = tr.reviewed_by),
+                   tr.reviewed_at, tr.review_started_at,
                    (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id),
                    t.completion_responses::TEXT AS responses
             FROM tasks t LEFT OUTER JOIN (
@@ -1795,8 +1813,10 @@ class TaskDAL @Inject()(override val db: Database,
               ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
               WHERE sa.osm_user_id = u.osm_id
             ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
-            LEFT OUTER JOIN task_review ON task_review.task_id = t.id
-            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) #${status} #${priority} #${reviewStatus}
+            INNER JOIN challenges c ON c.id = t.parent_id
+            LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
+            #${joinClause.toString}
+            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) AND #${filters.toString}
             ORDER BY t.parent_Id
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """
