@@ -241,7 +241,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
       taskNameFromJsValue(featureList.get.head, challenge) // Base name on first feature
     } else {
       val nameKeys = List.apply("id", "@id", "osmid", "osm_id", "name")
-      nameKeys.collectFirst { case x if (value \ x).asOpt[String].isDefined => (value \ x).asOpt[String].get } match {
+      nameKeys.collectFirst { case x if (value \ x).asOpt[JsValue].isDefined => (value \ x).asOpt[JsValue].get.toString } match {
         case Some(n) => n
         case None => (value \ "properties").asOpt[JsObject] match {
           // See if we can find an id field on the feature properties
