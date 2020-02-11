@@ -11,6 +11,7 @@ import org.maproulette.Config
 import org.maproulette.cache.{CacheManager, TagCacheManager}
 import org.maproulette.exception.{InvalidException, UniqueViolationException}
 import org.maproulette.models.Tag
+import org.maproulette.models.utils.OR
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
@@ -212,7 +213,13 @@ class TagDAL @Inject()(override val db: Database,
                                 "id" -> tag.id, "tagType" -> tag.tagType)
           })
           BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
-          this.retrieveListByName(names, -1, Some(c))
+
+          val fetchWhere = new StringBuilder()
+          tags.foreach(t => {
+            // Look for each tag in the database by name/tagType. (Sanitize by removing any ' characters)
+            appendInWhereClause(fetchWhere, s"(name = '${t.name.replaceAll("'", "")}' AND tag_type = '${t.tagType}')")(Some(OR()))
+          })
+          SQL("SELECT * from tags WHERE " + fetchWhere.toString).as(this.parser.*)
         }
       }
     } else {
