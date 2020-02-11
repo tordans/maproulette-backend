@@ -238,17 +238,18 @@ class ProjectDAL @Inject()(override val db: Database,
         } else {
           var permissionMatch = "p.owner_id = {osmId}"
           if (!onlyOwned) {
-            permissionMatch = permissionMatch + " OR (g.project_id = p.id AND g.id IN ({ids}))"
+            permissionMatch = permissionMatch + " OR g.id IN ({ids})"
           }
 
           val query =
             s"""SELECT distinct p.*, LOWER(p.name), LOWER(p.display_name)
-                FROM projects p, groups g
+                FROM projects p
+                INNER JOIN groups g on g.project_id = p.id
                 WHERE ${permissionMatch}
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
                 ${
               this.order(orderColumn = Some(sort), orderDirection = "ASC",
-                nameFix = true, ignoreCase = (sort == "name" || sort == "display_name"))
+                nameFix = true, ignoreCase = (sort == "p.name" || sort == "p.display_name"))
             }
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
