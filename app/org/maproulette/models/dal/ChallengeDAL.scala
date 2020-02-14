@@ -17,9 +17,11 @@ import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
-import play.api.libs.json.{JsString, JsValue, Json, JsArray}
+import play.api.libs.json.{JsArray, JsString, JsValue, Json}
 import play.api.libs.json.JodaReads._
 import java.sql.Timestamp
+
+import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future

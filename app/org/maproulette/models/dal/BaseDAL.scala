@@ -174,27 +174,6 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
   }
 
   /**
-    * Our key for our objects are current Long, but can support String if need be. This function
-    * handles transforming java objects to SQL for a specific set related to the object key
-    *
-    * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
-    * @return
-    */
-  def keyToStatement[Key]: ToStatement[Key] = {
-    new ToStatement[Key] {
-      def set(s: PreparedStatement, i: Int, identifier: Key) =
-        identifier match {
-          case id: String => ToStatement.stringToStatement.set(s, i, id)
-          case Some(id: String) => ToStatement.stringToStatement.set(s, i, id)
-          case id: Long => ToStatement.longToStatement.set(s, i, id)
-          case Some(id: Long) => ToStatement.longToStatement.set(s, i, id)
-          case intValue: Integer => ToStatement.integerToStatement.set(s, i, intValue)
-          case list: List[Long@unchecked] => ToStatement.listToStatement[Long].set(s, i, list)
-        }
-    }
-  }
-
-  /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
     * object is itself.
     *

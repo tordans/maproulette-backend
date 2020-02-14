@@ -15,6 +15,7 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.dal.UserGroupDAL
 import org.maproulette.session.{Group, SearchParameters, User}
 import org.maproulette.exception.NotFoundException
+import org.maproulette.models.dal.mixin.OwnerMixin
 import play.api.db.Database
 import play.api.libs.json.{JsValue, Json}
 

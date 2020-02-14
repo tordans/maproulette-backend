@@ -12,17 +12,16 @@ import com.vividsolutions.jts.geom.Envelope
 import javax.inject.{Inject, Provider, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
-import org.maproulette.utils.Utils
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.models._
-import org.maproulette.models.utils.DALHelper
+import org.maproulette.models.dal.mixin.{Locking, SearchParametersMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
-import org.maproulette.session.dal.UserDAL
 import org.maproulette.session.{SearchParameters, User}
+import org.maproulette.utils.Utils
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
 import play.api.db.Database
@@ -43,20 +42,15 @@ import scala.xml.XML
   */
 @Singleton
 class TaskDAL @Inject()(override val db: Database,
-                        override val tagDAL: TagDAL, config: Config,
+                        override val tagDAL: TagDAL,
                         override val permission: Permission,
-                        userDAL: Provider[UserDAL],
-                        projectDAL: Provider[ProjectDAL],
-                        challengeDAL: Provider[ChallengeDAL],
-                        notificationDAL: Provider[NotificationDAL],
-                        actions: ActionManager,
-                        statusActions: StatusActionManager,
+                        config: Config,
+                        dalManager: Provider[DALManager],
                         webSocketProvider: WebSocketProvider,
                         ws: WSClient)
-  extends BaseDAL[Long, Task] with DALHelper with TagDALMixin[Task] with Locking[Task] {
+  extends BaseDAL[Long, Task] with TagDALMixin[Task] with Locking[Task] with SearchParametersMixin {
 
   import scala.concurrent.ExecutionContext.Implicits.global
-
   // The cache manager for that tasks
   override val cacheManager = new CacheManager[Long, Task](config, Config.CACHE_ID_TASKS)(taskReads, taskReads)
   // The database table name for the tasks
@@ -67,11 +61,31 @@ class TaskDAL @Inject()(override val db: Database,
   override val retrieveColumns: String = "*, tasks.geojson::TEXT AS geo_json, " +
     "tasks.suggestedfix_geojson::TEXT AS suggested_fix, tasks.completion_responses::TEXT AS responses, " +
     "ST_AsGeoJSON(tasks.location) AS geo_location "
-
   val retrieveColumnsWithReview: String = this.retrieveColumns +
     ", task_review.review_status, task_review.review_requested_by, " +
     "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
     "task_review.review_claimed_by "
+
+  /**
+    * Retrieves the object based on the name, this function is somewhat weak as there could be
+    * multiple objects with the same name. The database only restricts the same name in combination
+    * with a parent. So this will just return the first one it finds. With caching, so if it finds
+    * the object in the cache it will return that object without checking the database, otherwise
+    * will hit the database directly.
+    *
+    * @param name The name you are looking up by
+    * @return The object that you are looking up, None if not found
+    */
+  override def retrieveByName(implicit name: String, parentId: Long = (-1), c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withOptionCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
+          s"LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
+          s"WHERE name = {name} ${this.parentFilter(parentId)}"
+        SQL(query).on('name -> name).as(this.parser.*).headOption
+      }
+    }
+  }
 
   // The anorm row parser to convert records from the task table to task objects
   implicit val parser: RowParser[Task] = {
@@ -106,133 +120,7 @@ class TaskDAL @Inject()(override val db: Database,
         Task(id, name, created, modified, parent_id, instruction, values._2,
           values._1, values._3, status, mappedOn,
           TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-          reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary)
-    }
-  }
-
-  implicit val taskWithReviewParser: RowParser[TaskWithReview] = {
-    get[Long]("tasks.id") ~
-      get[String]("tasks.name") ~
-      get[DateTime]("tasks.created") ~
-      get[DateTime]("tasks.modified") ~
-      get[Long]("parent_id") ~
-      get[Option[String]]("tasks.instruction") ~
-      get[Option[String]]("geo_location") ~
-      get[Option[Int]]("tasks.status") ~
-      get[Option[String]]("geo_json") ~
-      get[Option[String]]("suggested_fix") ~
-      get[Option[DateTime]]("tasks.mapped_on") ~
-      get[Option[Int]]("task_review.review_status") ~
-      get[Option[Long]]("task_review.review_requested_by") ~
-      get[Option[Long]]("task_review.reviewed_by") ~
-      get[Option[DateTime]]("task_review.reviewed_at") ~
-      get[Option[DateTime]]("task_review.review_started_at") ~
-      get[Option[Long]]("task_review.review_claimed_by") ~
-      get[Int]("tasks.priority") ~
-      get[Option[Long]]("tasks.changeset_id") ~
-      get[Option[Long]]("tasks.bundle_id") ~
-      get[Option[Boolean]]("tasks.is_bundle_primary") ~
-      get[Option[String]]("challenge_name") ~
-      get[Option[String]]("review_requested_by_username") ~
-      get[Option[String]]("reviewed_by_username") ~
-      get[Option[String]]("responses") map {
-      case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-        suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-        reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~ isBundlePrimary ~
-        challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
-
-        val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
-        TaskWithReview(
-          Task(id, name, created, modified, parent_id, instruction, values._2,
-            values._1, values._3, status, mappedOn,
-            TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-            reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary),
-          TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
-            reviewedBy, reviewedByUsername, reviewedAt, reviewStartedAt, reviewClaimedBy, None, None)
-        )
-    }
-  }
-
-  val commentParser: RowParser[Comment] = {
-    get[Long]("task_comments.id") ~
-      get[Long]("task_comments.osm_id") ~
-      get[String]("users.name") ~
-      get[Long]("task_comments.task_id") ~
-      get[Long]("task_comments.challenge_id") ~
-      get[Long]("task_comments.project_id") ~
-      get[DateTime]("task_comments.created") ~
-      get[String]("task_comments.comment") ~
-      get[Option[Long]]("task_comments.action_id") map {
-      case id ~ osm_id ~ osm_name ~ taskId ~ challengeId ~ projectId ~ created ~ comment ~ action_id =>
-        Comment(id, osm_id, osm_name, taskId, challengeId, projectId, created, comment, action_id)
-    }
-  }
-
-  protected def getTaskClusterParser(params: SearchParameters): anorm.RowParser[Serializable] = {
-    int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
-      get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ get[Option[String]]("geojson") ~ str("geom") ~
-      str("bounding") ~ get[List[Long]]("challengeIds") map {
-      case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geojson ~ geom ~ bounding ~ challengeIds =>
-        val locationJSON = Json.parse(geom)
-        val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-        // Let's check to make sure we received valid number of coordinates.
-        if (coordinates.length > 1) {
-          val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
-                      Json.parse(bounding), challengeIds, geojson.map(Json.parse(_)))
-        }
-        else {
-          None
-        }
-    }
-  }
-
-  protected def getTaskClusterQuery(joinClause: String, whereClause: String, numberOfPoints: Int): String =  {
-    s"""SELECT kmeans, count(*) as numberOfPoints,
-          CASE WHEN count(*)=1 THEN (array_agg(taskId))[1] END as taskId,
-          CASE WHEN count(*)=1 THEN (array_agg(geojson))[1] END as geojson,
-          CASE WHEN count(*)=1 THEN (array_agg(taskStatus))[1] END as taskStatus,
-          CASE WHEN count(*)=1 THEN (array_agg(taskPriority))[1] END as taskPriority,
-          ST_AsGeoJSON(ST_Centroid(ST_Collect(location))) AS geom,
-          ST_AsGeoJSON(ST_ConvexHull(ST_Collect(location))) AS bounding,
-          array_agg(distinct challengeIds) as challengeIds
-       FROM (
-         SELECT t.id as taskId, t.status as taskStatus, t.priority as taskPriority, t.geojson::TEXT as geojson, ST_ClusterKMeans(t.location,
-                    (SELECT
-                        CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
-                      FROM tasks t
-                      ${joinClause}
-                      $whereClause
-                    )::Integer
-                  ) OVER () AS kmeans, t.location, t.parent_id as challengeIds
-         FROM tasks t
-         ${joinClause}
-         $whereClause
-       ) AS ksub
-       WHERE location IS NOT NULL
-       GROUP BY kmeans
-       ORDER BY kmeans
-    """
-  }
-
-  /**
-    * Retrieves the object based on the name, this function is somewhat weak as there could be
-    * multiple objects with the same name. The database only restricts the same name in combination
-    * with a parent. So this will just return the first one it finds. With caching, so if it finds
-    * the object in the cache it will return that object without checking the database, otherwise
-    * will hit the database directly.
-    *
-    * @param name The name you are looking up by
-    * @return The object that you are looking up, None if not found
-    */
-  override def retrieveByName(implicit name: String, parentId: Long = (-1), c: Option[Connection] = None): Option[Task] = {
-    this.cacheManager.withOptionCaching { () =>
-      this.withMRConnection { implicit c =>
-        val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
-          s"LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
-          s"WHERE name = {name} ${this.parentFilter(parentId)}"
-        SQL(query).on('name -> name).as(this.parser.*).headOption
-      }
+            reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary)
     }
   }
 
@@ -248,27 +136,29 @@ class TaskDAL @Inject()(override val db: Database,
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(TaskType(), user)(id)
-        this.projectDAL.get().cacheManager.withOptionCaching { () =>
+        this.manager.project.cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT p.* FROM projects p
              INNER JOIN challenges c ON c.parent_id = p.id
              INNER JOIN task t ON t.parent_id = c.id
              WHERE t.id = $id
-           """.as(this.projectDAL.get().parser.*).headOption
+           """.as(this.manager.project.parser.*).headOption
           }
         }
       case Right(task) =>
         this.permission.hasObjectReadAccess(task, user)
-        this.projectDAL.get().cacheManager.withOptionCaching { () =>
+        this.manager.project.cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT p.* FROM projects p
              INNER JOIN challenges c ON c.parent_id = p.id
              WHERE c.id = ${task.parent}
-           """.as(this.projectDAL.get().parser.*).headOption
+           """.as(this.manager.project.parser.*).headOption
           }
         }
     }
   }
+
+  def manager: DALManager = dalManager.get()
 
   /**
     * Inserts a new task object into the database
@@ -341,9 +231,9 @@ class TaskDAL @Inject()(override val db: Database,
         status = Some(status),
         mappedOn = mappedOn,
         review = cachedItem.review.copy(reviewStatus = reviewStatus,
-        reviewRequestedBy = reviewRequestedBy,
-        reviewedBy = reviewedBy,
-        reviewedAt = reviewedAt),
+          reviewRequestedBy = reviewRequestedBy,
+          reviewedBy = reviewedBy,
+          reviewedAt = reviewedAt),
         geometries = geometries,
         suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
           None
@@ -354,10 +244,10 @@ class TaskDAL @Inject()(override val db: Database,
         changesetId = Some(changesetId)), user)
 
       if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
-        this.challengeDAL.get().updateReadyStatus()(parentId)
+        this.manager.challenge.updateReadyStatus()(parentId)
       }
       else {
-        this.challengeDAL.get().updateFinishedStatus()(parentId)
+        this.manager.challenge.updateFinishedStatus()(parentId)
       }
 
       task match {
@@ -368,7 +258,7 @@ class TaskDAL @Inject()(override val db: Database,
           // task could end up with a different status than other tasks
           // in that bundle.
           if (cachedItem.status != t.status && t.bundleId != None) {
-            this.deleteTaskBundle(user, t.bundleId.get)
+            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
           }
 
           // Get the latest task data and notify clients of the update
@@ -400,7 +290,7 @@ class TaskDAL @Inject()(override val db: Database,
   override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.permission.hasObjectWriteAccess(element, user)
     // get the parent challenge, as we need the priority information
-    val parentChallenge = this.challengeDAL.get().retrieveById(element.parent) match {
+    val parentChallenge = this.manager.challenge.retrieveById(element.parent) match {
       case Some(c) => c
       case None => throw new NotFoundException(s"No parent was found for task with parentId [${element.parent}, this should never happen.")
     }
@@ -453,32 +343,11 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
-    * There can only be a single suggested fix for a task, so if you add one it will remove any
-    * others that were added previously.
-    *
-    * @param taskId The id for the task
-    * @param challengeId The id for the parent challenge
-    * @param value  The JSON value for the suggested fix
-    * @param c
-    */
-  def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit = {
-    this.withMRTransaction { implicit c =>
-      val parameters = new ListBuffer[NamedParameter]()
-      parameters += ('suggestedFix -> Json.stringify(value))
-      sqlWithParameters(s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
-                        parameters).execute()
-
-      SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${challengeId}").execute()
-      c.commit()
-    }
-  }
-
-  /**
     * Function that extracts the suggestedFix from the geometries
     *
-    * @param parentId      The parent Id of the challenge (for marking this challenge has fixes)
-    * @param geometries    The geojson that contains the geometries/suggestedFix
-    * @param suggestedFix  Any top level suggested fix not embedded in geometries
+    * @param parentId     The parent Id of the challenge (for marking this challenge has fixes)
+    * @param geometries   The geojson that contains the geometries/suggestedFix
+    * @param suggestedFix Any top level suggested fix not embedded in geometries
     */
   private def extractSuggestedFix(parentId: Long, geometries: String, suggestedFix: Option[String])(implicit c: Option[Connection] = None): (String, Option[String]) = {
     this.withMRTransaction { implicit c =>
@@ -535,31 +404,23 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
-    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
-    * in the cache and those that aren't will be retrieved from the database
+    * There can only be a single suggested fix for a task, so if you add one it will remove any
+    * others that were added previously.
     *
-    * @param limit  The limit on the number of objects returned. This is not entirely useful as a limit
-    *               could be set simply by how many ids you supplied in the list, but possibly useful
-    *               for paging
-    * @param offset For paging, ie. the page number starting at 0
-    * @param ids    The list of ids to be retrieved
-    * @return A list of objects, empty list if none found
+    * @param taskId      The id for the task
+    * @param challengeId The id for the parent challenge
+    * @param value       The JSON value for the suggested fix
+    * @param c
     */
-  override def retrieveListById(limit: Int = -1, offset: Int = 0)(implicit ids: List[Long], c: Option[Connection] = None): List[Task] = {
-    if (ids.isEmpty) {
-      List.empty
-    } else {
-      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
-        this.withMRConnection { implicit c =>
-          val query =
-            s"""SELECT ${retrieveColumnsWithReview} FROM ${this.tableName}
-                LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
-                WHERE tasks.id IN ({inString})
-                LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
-            'offset -> offset).as(this.parser.*)
-        }
-      }
+  def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit = {
+    this.withMRTransaction { implicit c =>
+      val parameters = new ListBuffer[NamedParameter]()
+      parameters += ('suggestedFix -> Json.stringify(value))
+      sqlWithParameters(s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
+        parameters).execute()
+
+      SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${challengeId}").execute()
+      c.commit()
     }
   }
 
@@ -570,15 +431,15 @@ class TaskDAL @Inject()(override val db: Database,
     * Will throw an IllegalAccessException if the user is a guest user, or if the task is locked by
     * a different user.
     *
-    * @param task          The task to set the status for
-    * @param status        The status to set
-    * @param user          The user setting the status
-    * @param requestReview Optional boolean to request a review on this task.
-    * @param completionRespones Optional json responses provided by user to task instruction questions
+    * @param tasks               The task to set the status for
+    * @param status              The status to set
+    * @param user                The user setting the status
+    * @param requestReview       Optional boolean to request a review on this task.
+    * @param completionResponses Optional json responses provided by user to task instruction questions
     * @return The number of rows updated, should only ever be 1
     */
   def setTaskStatus(tasks: List[Task], status: Int, user: User, requestReview: Option[Boolean] = None,
-                    completionResponses:Option[JsValue] = None, bundleId: Option[Long] = None,
+                    completionResponses: Option[JsValue] = None, bundleId: Option[Long] = None,
                     primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Int = {
     if (tasks.length < 1) {
       throw new InvalidException("Must be at least one task in list to setTaskStatus.")
@@ -598,7 +459,7 @@ class TaskDAL @Inject()(override val db: Database,
               if (task.id == p) primaryTask = task
               if (task.suggestedFix != None) {
                 throw new InvalidException("Cannot set task status as part of a bundle on task: " +
-                                           task.id + " as it is a suggested fix.")
+                  task.id + " as it is a suggested fix.")
               }
             case _ => // do nothing
           }
@@ -630,15 +491,15 @@ class TaskDAL @Inject()(override val db: Database,
       for (task <- tasks) {
         if (task.bundleId != None && task.bundleId.get != bundleId.getOrElse(-1)) {
           throw new InvalidException("Cannot set task status on task: " +
-                                     task.id + " as it is already assigned to a bundle.")
+            task.id + " as it is already assigned to a bundle.")
         }
 
         // If we are 'skipping' this task and it's in some other status let's honor
         // the other status and not actually update the task status. We should only
         // note the skip by the user in the status actions and remove the lock.
         val skipStatusUpdate =
-           (primaryTask.status.getOrElse(Task.STATUS_CREATED) != Task.STATUS_CREATED &&
-            status == Task.STATUS_SKIPPED)
+        (primaryTask.status.getOrElse(Task.STATUS_CREATED) != Task.STATUS_CREATED &&
+          status == Task.STATUS_SKIPPED)
 
         if (!skipStatusUpdate) {
           updatedRows =
@@ -658,7 +519,7 @@ class TaskDAL @Inject()(override val db: Database,
                                        l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
                              """).as(SqlParser.scalar[DateTime].singleOpt)
 
-        this.statusActions.setStatusAction(user, task, status, startedLock)
+        this.manager.statusAction.setStatusAction(user, task, status, startedLock)
 
         if (reviewNeeded && !skipStatusUpdate) {
           task.review.reviewStatus match {
@@ -695,7 +556,7 @@ class TaskDAL @Inject()(override val db: Database,
         if (!skipStatusUpdate) {
           // Update the popularity score on the parent challenge
           Future {
-            this.challengeDAL.get().updatePopularity(Instant.now().getEpochSecond())(task.parent)
+            this.manager.challenge.updatePopularity(Instant.now().getEpochSecond())(task.parent)
           }
 
           if (reviewNeeded) {
@@ -713,7 +574,7 @@ class TaskDAL @Inject()(override val db: Database,
                   case Some(r) => Some(r.toString())
                   case None => None
                 },
-                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id) ))
+                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
             }
           }
           else {
@@ -730,7 +591,7 @@ class TaskDAL @Inject()(override val db: Database,
 
           // let's give the user credit for doing this task.
           if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-            this.userDAL.get().updateUserScore(Option(status), None, false, false, user.id)
+            this.manager.user.updateUserScore(Option(status), None, false, false, user.id)
           }
 
           // Get the latest task data and notify clients of the update
@@ -752,11 +613,11 @@ class TaskDAL @Inject()(override val db: Database,
       }
     }
 
-    this.challengeDAL.get().updateFinishedStatus()(primaryTask.parent)
+    this.manager.challenge.updateFinishedStatus()(primaryTask.parent)
 
     if (reviewNeeded) {
       webSocketProvider.sendMessage(WebSocketMessages.reviewNew(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(primaryTask.id))
+        WebSocketMessages.ReviewData(this.manager.taskReview.getTaskWithReview(primaryTask.id))
       ))
     }
 
@@ -776,7 +637,7 @@ class TaskDAL @Inject()(override val db: Database,
       task.status match {
         case Some(Task.STATUS_FIXED) =>
           val currentDateTimeUTC = DateTime.now(DateTimeZone.UTC)
-          val statusAction = statusActions.getStatusActions(task, user, Some(List(Task.STATUS_FIXED))).headOption
+          val statusAction = this.manager.statusAction.getStatusActions(task, user, Some(List(Task.STATUS_FIXED))).headOption
           statusAction match {
             case Some(sa) =>
               this.getSortedChangeList(sa) onComplete {
@@ -857,184 +718,6 @@ class TaskDAL @Inject()(override val db: Database,
       case Failure(error) => result failure error
     }
     result.future
-  }
-
-  /**
-    * Sets the review status for a task. The user cannot set the status of a task unless the object has
-    * been locked by the same user before hand.
-    * Will throw an InvalidException if the task review status cannot be set due to the current review status
-    * Will throw an IllegalAccessException if the user is a not a reviewer, or if the task is locked by
-    * a different user.
-    *
-    * @param task         The task to set the status for
-    * @param reviewStatus The review status to set
-    * @param user         The user setting the status
-    * @return The number of rows updated, should only ever be 1
-    */
-  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], commentContent: String = "")(implicit c: Connection = null): Int = {
-    if (!user.isSuperUser && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
-      reviewStatus != Task.REVIEW_STATUS_DISPUTED) {
-      throw new IllegalAccessException("User must be a reviewer to edit task review status.")
-    }
-
-    val now = Instant.now()
-
-    val updatedRows = this.withMRTransaction { implicit c =>
-      var fetchBy = "reviewed_by"
-
-      val isDisputed = task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_DISPUTED &&
-        reviewStatus == Task.REVIEW_STATUS_DISPUTED
-      var needsReReview = (task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
-        reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
-
-      var reviewedBy = task.review.reviewedBy
-      var reviewRequestedBy = task.review.reviewRequestedBy
-
-      // If we are changing the status back to "needsReview" then this task
-      // has been fixed by the mapper and the mapper is requesting review again
-      if (needsReReview) {
-        fetchBy = "review_requested_by"
-        reviewRequestedBy = Some(user.id)
-      }
-      else {
-        reviewedBy = Some(user.id)
-      }
-      val updatedRows =
-        SQL"""UPDATE task_review t SET review_status = $reviewStatus,
-                                 #${fetchBy} = ${user.id},
-                                 reviewed_at = ${now},
-                                 review_started_at = t.review_claimed_at,
-                                 review_claimed_at = NULL,
-                                 review_claimed_by = NULL
-                             WHERE t.task_id = (
-                                SELECT t2.id FROM tasks t2
-                                LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
-                                WHERE t2.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
-                              )""".executeUpdate()
-      // if returning 0, then this is because the item is locked by a different user
-      if (updatedRows == 0) {
-        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update review status at this time.")
-      }
-
-      // if you set the status successfully on a task you will lose the lock of that task
-      try {
-        this.unlockItem(user, task)
-      } catch {
-        case e: Exception => logger.warn(e.getMessage)
-      }
-
-      webSocketProvider.sendMessage(WebSocketMessages.reviewUpdate(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
-      ))
-
-      val comment = commentContent.nonEmpty match {
-        case true => Some(addComment(user, task, commentContent, actionId))
-        case false => None
-      }
-
-      // Don't send a notification for every task in a task bundle, only the
-      // primary task
-      if (task.bundleId == None || task.isBundlePrimary.getOrElse(false)) {
-        if (!isDisputed) {
-          if (needsReReview) {
-            // Let's note in the task_review_history table that this task needs review again
-            SQL"""INSERT INTO task_review_history
-                              (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                  VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                          ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
-            this.notificationDAL.get().createReviewNotification(user, task.review.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
-          }
-          else {
-            // Let's note in the task_review_history table that this task was reviewed
-            SQL"""INSERT INTO task_review_history
-                              (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                  VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
-                          ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
-            this.notificationDAL.get().createReviewNotification(user, task.review.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
-          }
-        }
-        else {
-          // For disputed tasks.
-          SQL"""INSERT INTO task_review_history
-                            (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
-                VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                        ${reviewStatus}, ${now}, ${task.review.reviewStartedAt})""".executeUpdate()
-        }
-      }
-
-      this.cacheManager.withOptionCaching { () =>
-        Some(task.copy(review = task.review.copy(
-                                  reviewStatus = Some(reviewStatus),
-                                  reviewRequestedBy = reviewRequestedBy,
-                                  reviewedBy = reviewedBy,
-                                  reviewedAt = Some(new DateTime()))))
-      }
-
-      if (!needsReReview) {
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus),
-          task.review.reviewedBy != None, false, task.review.reviewRequestedBy.get)
-      }
-      else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, true, task.review.reviewedBy.get)
-        this.userDAL.get().updateUserScore(None, Option(reviewStatus), true, false, task.review.reviewRequestedBy.get)
-      }
-
-      updatedRows
-    }
-
-    updatedRows
-  }
-
-  def getTaskWithReview(taskId: Long): TaskWithReview = {
-    this.withMRConnection { implicit c =>
-      val query =
-        s"""
-        SELECT $retrieveColumnsWithReview,
-               challenges.name as challenge_name,
-               mappers.name as review_requested_by_username,
-               reviewers.name as reviewed_by_username
-        FROM ${this.tableName}
-        LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
-        LEFT OUTER JOIN users mappers ON task_review.review_requested_by = mappers.id
-        LEFT OUTER JOIN users reviewers ON task_review.reviewed_by = reviewers.id
-        INNER JOIN challenges ON challenges.id = tasks.parent_id
-        WHERE tasks.id = {taskId}
-      """
-      SQL(query).on('taskId -> taskId).as(this.taskWithReviewParser.single)
-    }
-  }
-
-  /**
-    * Add comment to a task
-    *
-    * @param user     The user adding the comment
-    * @param task     The task that you are adding the comment too
-    * @param comment  The actual comment
-    * @param actionId the id for the action if any action associated
-    * @param c
-    */
-  def addComment(user: User, task: Task, comment: String, actionId: Option[Long])(implicit c: Option[Connection] = None): Comment = {
-    withMRConnection { implicit c =>
-      if (StringUtils.isEmpty(comment)) {
-        throw new InvalidException("Invalid empty string supplied.")
-      }
-      val query =
-        s"""
-           |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
-           |VALUES ({osm_id}, {task_id}, {comment}, {action_id}) RETURNING id, project_id, challenge_id
-         """.stripMargin
-      SQL(query).on('osm_id -> user.osmProfile.id,
-        'task_id -> task.id,
-        'comment -> comment,
-        'action_id -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
-        case Some(ids) =>
-          val newComment =
-            Comment(ids._1._1, user.osmProfile.id, user.name, task.id, ids._1._2, ids._2, DateTime.now(), comment, actionId)
-          this.notificationDAL.get().createMentionNotifications(user, newComment, task)
-          newComment
-        case None => throw new Exception("Failed to add comment")
-      }
-    }
   }
 
   /**
@@ -1324,367 +1007,6 @@ class TaskDAL @Inject()(override val db: Database,
   }
 
   /**
-    * Retrieves task clusters
-    *
-    * @param params         SearchParameters used to filter the tasks in the cluster
-    * @param numberOfPoints Number of cluster points to group all the tasks by
-    * @param c              an implicit connection
-    * @return A list of task clusters
-    */
-  def getTaskClusters(params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
-                     (implicit c: Option[Connection] = None): List[TaskCluster] = {
-    this.withMRConnection { implicit c =>
-      val whereClause = new StringBuilder(" c.deleted = false AND p.deleted = false  ")
-      val joinClause = new StringBuilder(
-        """
-          INNER JOIN challenges c ON c.id = t.parent_id
-          INNER JOIN projects p ON p.id = c.parent_id
-          LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
-        """
-      )
-      val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
-      val where = if (whereClause.isEmpty) {
-        whereClause.toString
-      } else {
-        "WHERE " + whereClause.toString
-      }
-
-      val query = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
-      var result = sqlWithParameters(query, parameters).as(getTaskClusterParser(params).*)
-      // Filter out invalid clusters.
-      result.filter( _ != None ).asInstanceOf[List[TaskCluster]]
-    }
-  }
-
-  /**
-    * Gets the specific tasks within a cluster
-    *
-    * @param clusterId      The id of the cluster
-    * @param params         SearchParameters used to filter the tasks in the cluster
-    * @param numberOfPoints Number of cluster points to group all the tasks by
-    * @param c              an implicit connection
-    * @return A list of clustered task points
-    */
-  def getTasksInCluster(clusterId: Int, params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
-                       (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
-    this.withMRConnection { implicit c =>
-      val whereClause = new StringBuilder
-      val joinClause = new StringBuilder(
-        """
-              INNER JOIN challenges c ON c.id = t.parent_id
-              INNER JOIN projects p ON p.id = c.parent_id
-              LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
-            """
-      )
-      val parameters = this.updateWhereClause(params, whereClause, joinClause)(false)
-      val where = if (whereClause.isEmpty) {
-        whereClause.toString
-      } else {
-        "WHERE " + whereClause.toString
-      }
-
-      val query =
-        s"""SELECT *, suggestedfix_geojson::TEXT as suggested_fix,
-                     ST_AsGeoJSON(t.location) AS location, t.priority
-                     FROM (
-                      SELECT ST_ClusterKMeans(t.location,
-                        (SELECT
-                            CASE WHEN COUNT(*) < $numberOfPoints THEN COUNT(*) ELSE $numberOfPoints END
-                          FROM tasks t
-                          ${joinClause.toString}
-                          $where
-                        )::Integer
-                      ) OVER () as kmeans, t.*, tr.*, c.name
-            FROM tasks t
-            ${joinClause.toString}
-            $where
-            ) AS t WHERE t.kmeans = $clusterId
-         """
-      SQL(query).as(challengeDAL.get().pointParser.*)
-    }
-  }
-
-  def updateWhereClause(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder)
-                       (implicit projectSearch: Boolean = true): ListBuffer[NamedParameter] = {
-    val parameters = new ListBuffer[NamedParameter]()
-    params.location match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"t.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
-      case None => // do nothing
-    }
-
-    params.bounding match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"c.bounding @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
-      case None => // do nothing
-    }
-
-    params.boundingGeometries match {
-      case Some(bp) =>
-        val allPolygons = new StringBuilder()
-        bp.foreach(value =>
-          value \ "bounding" match {
-            case locationJSON: JsDefined => {
-              val polygonLinestring = new StringBuilder()
-              if (allPolygons.toString() != "")
-                allPolygons.append(" OR ")
-
-              (locationJSON \ "type").as[String] match {
-                case "Polygon" => {
-                  (locationJSON \ "coordinates").as[List[List[List[Double]]]].foreach(p =>
-                    p.foreach( coordinates => {
-                      if (polygonLinestring.toString() != "")
-                        polygonLinestring.append(",")
-                      polygonLinestring.append(coordinates.head + " " + coordinates(1))
-                    })
-                  )
-                  allPolygons.append(s"t.location @ ST_MakePolygon( ST_GeomFromText('LINESTRING($polygonLinestring)'))")
-                }
-                case "LineString" => {
-                  (locationJSON \ "coordinates").as[List[List[Double]]].foreach(coordinates => {
-                    if (polygonLinestring.toString() != "") {
-                      polygonLinestring.append(",")
-                    }
-                    polygonLinestring.append(coordinates.head + " " + coordinates(1))
-                  })
-                  allPolygons.append(s"t.location @ ST_GeomFromText('LINESTRING($polygonLinestring)')")
-                }
-                case "Point" => {
-                  val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-                  allPolygons.append(s"t.location @ ST_GeomFromText('POINT(${coordinates.head} ${coordinates(1)})')")
-                }
-                case _ => // do nothing
-              }
-            }
-            case _ => // do nothing
-          }
-        )
-        this.appendInWhereClause(whereClause, "(" + allPolygons.toString + ")")
-      case _ => // value not present
-    }
-
-    params.taskStatus match {
-      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"t.status IN (${sl.mkString(",")})")
-      case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ => this.appendInWhereClause(whereClause, "t.status IN (0,3,6)")
-    }
-
-    params.taskId match {
-      case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(t.id AS TEXT) LIKE '${tid}%'")
-      case _ => // do nothing
-    }
-
-    params.taskReviewStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val filter = new StringBuilder(s"""(t.id IN (SELECT task_id FROM task_review tr
-                                                    WHERE tr.task_id = t.id AND tr.review_status
-                                                          IN (${statuses.mkString(",")})) """)
-        if (statuses.contains(-1)) {
-          filter.append(" OR t.id NOT IN (SELECT task_id FROM task_review tr WHERE tr.task_id = t.id)")
-        }
-        filter.append(")")
-        this.appendInWhereClause(whereClause, filter.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _ =>
-    }
-
-    params.owner match {
-     case Some(o) if o.nonEmpty =>
-       joinClause ++= "INNER JOIN users u ON u.id = tr.review_requested_by "
-       this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
-     case _ => // ignore
-    }
-
-    params.reviewer match {
-     case Some(r) if r.nonEmpty =>
-       joinClause ++= "INNER JOIN users u2 ON u2.id = tr.reviewed_by "
-       this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
-     case _ => // ignore
-    }
-
-    params.taskPriorities match {
-      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"t.priority IN (${sl.mkString(",")})")
-      case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ => // do nothing
-    }
-
-    params.priority match {
-      case Some(p) if p == 0 || p == 1 || p == 2 => this.appendInWhereClause(whereClause, s"t.priority = $p")
-      case _ => // ignore
-    }
-
-    params.challengeParams.challengeDifficulty match {
-      case Some(v) if v > 0 && v < 4 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
-      case _ =>
-    }
-
-    params.challengeParams.challengeStatus match {
-      case Some(sl) if sl.nonEmpty =>
-        val statusClause = new StringBuilder(s"(c.status IN (${sl.mkString(",")})")
-        if (sl.contains(-1)) {
-          statusClause ++= " OR c.status IS NULL"
-        }
-        statusClause ++= ")"
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ =>
-    }
-
-
-    // For efficiency can only query on task properties with a parent challenge id
-    params.getChallengeIds match {
-      case Some(l) =>
-        params.taskPropertySearch match {
-          case Some(tps) =>
-            val query = new StringBuilder(
-              s"""t.id IN (
-                SELECT id FROM tasks,
-                               jsonb_array_elements(geojson->'features') features
-                WHERE parent_id IN (${l.mkString(",")})
-                AND (${tps.toSQL}))
-               """)
-            this.appendInWhereClause(whereClause, query.toString())
-          case _ =>
-            params.taskProperties match {
-              case Some(tp) =>
-                val searchType = params.taskPropertySearchType match {
-                  case Some(t) => t
-                  case _ => "equals"
-                }
-
-                val query = new StringBuilder(
-                  s"""t.id IN (
-                    SELECT id FROM tasks,
-                                   jsonb_array_elements(geojson->'features') features
-                    WHERE parent_id IN (${l.mkString(",")})
-                    AND (true
-                   """)
-                for ((k, v) <- tp) {
-                  if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
-                    query ++= s" AND features->'properties'->>'${k}' = '${v}' "
-                  }
-                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
-                    query ++= s" AND features->'properties'->>'${k}' != '${v}' "
-                  }
-                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
-                    query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
-                  }
-                }
-                query ++= "))"
-                this.appendInWhereClause(whereClause, query.toString())
-              case _ =>
-            }
-        }
-      case None => // ignore
-    }
-
-    parameters ++= this.addSearchToQuery(params, whereClause)(projectSearch)
-    parameters ++= this.addChallengeTagMatchingToQuery(params, whereClause, joinClause)
-    parameters
-  }
-
-  /**
-    * This function will retrieve all the tasks in a given bounded area. You can use various search
-    * parameters to limit the tasks retrieved in the bounding box area.
-    *
-    * @param params The search parameters from the cookie or the query string parameters.
-    * @param limit  A limit for the number of returned tasks
-    * @param offset This allows paging for the tasks within in the bounding box
-    * @param excludeLocked Whether to include locked tasks (by other users) or not
-    * @param c      An available connection
-    * @return The list of Tasks found within the bounding box and the total count of tasks if not bounding
-    */
-  def getTasksInBoundingBox(user: User, params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            excludeLocked: Boolean = false, sort: String = "", order: String = "ASC")(implicit c: Option[Connection] = None): (Int, List[ClusteredPoint]) = {
-    params.location match {
-      case Some(sl) => // params has location
-      case None => params.boundingGeometries match {
-        case Some(bp) => // params has bounding polygons
-        case None => throw new InvalidException("Bounding Box (or Bounding Polygons) required to retrieve tasks within a bounding box")
-      }
-    }
-
-    withMRConnection { implicit c =>
-      val whereClause = new StringBuilder(" WHERE p.deleted = false AND c.deleted = false")
-      val joinClause = new StringBuilder(
-        """
-          INNER JOIN challenges c ON c.id = t.parent_id
-          INNER JOIN projects p ON p.id = c.parent_id
-          LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
-        """
-      )
-
-      if (!excludeLocked) {
-        joinClause ++= " LEFT JOIN locked l ON l.item_id = t.id "
-        this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
-      }
-
-      var sortClause = "ORDER BY RANDOM()"
-      if (sort != "") {
-        sort match {
-          case "reviewRequestedBy" =>
-            sortClause = this.order(Some("review_requested_by"), order, "tr")
-          case "reviewedBy" =>
-            sortClause = this.order(Some("reviewed_by"), order, "tr")
-          case "reviewStatus" =>
-            sortClause = this.order(Some("review_status"), order, "tr")
-          case "reviewedAt" =>
-            sortClause = this.order(Some("reviewed_at"), order, "tr")
-          case "mappedOn" =>
-            sortClause = this.order(Some("mapped_on"), order, "t")
-          case _ =>
-            sortClause = this.order(Some(sort), order, "t")
-        }
-      }
-
-      // Lets do a total count of tasks we would return if not paging.
-      val parameters = this.updateWhereClause(params, whereClause, joinClause)
-      this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
-
-      val countQuery =
-        s"""
-          SELECT count(*) FROM tasks t
-          ${joinClause.toString()}
-          ${whereClause.toString()}
-        """
-      val count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-
-      val query =
-        s"""
-          SELECT t.id, t.name, t.parent_id, c.name, t.instruction, t.status, t.mapped_on,
-                 t.bundle_id, t.is_bundle_primary, t.suggestedfix_geojson::TEXT as suggested_fix,
-                 tr.review_status, tr.review_requested_by, tr.reviewed_by, tr.reviewed_at,
-                 tr.review_started_at,
-                 ST_AsGeoJSON(t.location) AS location, priority FROM tasks t
-          ${joinClause.toString()}
-          ${whereClause.toString()}
-          ${sortClause}
-          LIMIT ${sqlLimit(limit)} OFFSET $offset
-        """
-
-      val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-        str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]]("suggested_fix") ~
-        get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
-        get[Option[Long]]("task_review.review_requested_by") ~ get[Option[Long]]("task_review.reviewed_by") ~
-        get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
-        int("tasks.priority") ~ get[Option[Long]]("tasks.bundle_id") ~
-        get[Option[Boolean]]("tasks.is_bundle_primary") map {
-        case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
-          reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
-          bundleId ~ isBundlePrimary =>
-          val locationJSON = Json.parse(location)
-          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
-          ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
-            pointReview, priority, bundleId, isBundlePrimary)
-      }
-
-      val results = sqlWithParameters(query, parameters)
-      (count, results.as(pointParser.*))
-    }
-  }
-
-  /**
     * Returns the list of users that modified the requested task
     *
     * @param user  The user making the request
@@ -1697,7 +1019,7 @@ class TaskDAL @Inject()(override val db: Database,
     withMRConnection { implicit c =>
       val query =
         s"""
-           |SELECT ${userDAL.get().retrieveColumns}, score FROM users
+           |SELECT ${this.manager.user.retrieveColumns}, score FROM users
            |  LEFT JOIN user_metrics ON users.id = user_metrics.user_id
            |  WHERE osm_id IN (
            |  SELECT osm_user_id FROM status_actions WHERE task_id = {id}
@@ -1705,54 +1027,12 @@ class TaskDAL @Inject()(override val db: Database,
            |  LIMIT {limit}
            |)
          """.stripMargin
-      SQL(query).on('id -> id, 'limit -> limit).as(userDAL.get().parser.*)
-    }
-  }
-
-  /**
-    * Retrieves all the comments for a task, challenge or project
-    *
-    * @param projectIdList   A list of all project ids to match on
-    * @param challengeIdList A list of all challenge ids to match on
-    * @param taskIdList      A list of all task ids to match on
-    * @param limit           limit the number of tasks in the response
-    * @param offset          for paging
-    * @param c
-    * @return The list of comments for the task
-    */
-  def retrieveComments(projectIdList: List[Long], challengeIdList: List[Long], taskIdList: List[Long],
-                       limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)(implicit c: Option[Connection] = None): List[Comment] = {
-    withMRConnection { implicit c =>
-      val whereClause = new StringBuilder("")
-      if (projectIdList.nonEmpty) {
-        var vpSearch =
-          s"""OR 1 IN (SELECT 1 FROM unnest(ARRAY[${projectIdList.mkString(",")}]) AS pIds
-                         WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
-                                        WHERE vp.challenge_id = tc.challenge_id))"""
-
-        this.appendInWhereClause(whereClause, s"project_id IN (${projectIdList.mkString(",")}) ${vpSearch}")
-      }
-      if (challengeIdList.nonEmpty) {
-        this.appendInWhereClause(whereClause, s"challenge_id IN (${challengeIdList.mkString(",")})")
-      }
-      if (taskIdList.nonEmpty) {
-        this.appendInWhereClause(whereClause, s"task_id IN (${taskIdList.mkString(",")})")
-      }
-
-      SQL(
-        s"""
-              SELECT * FROM task_comments tc
-              INNER JOIN users u ON u.osm_id = tc.osm_id
-              WHERE $whereClause
-              ORDER BY tc.project_id, tc.challenge_id, tc.created DESC
-              LIMIT ${this.sqlLimit(limit)} OFFSET $offset
-          """
-      ).as(this.commentParser.*)
+      SQL(query).on('id -> id, 'limit -> limit).as(this.manager.user.parser.*)
     }
   }
 
   def retrieveTaskSummaries(challengeIds: List[Long], limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            params: SearchParameters): (List[TaskSummary], Map[Long,String]) =
+                            params: SearchParameters): (List[TaskSummary], Map[Long, String]) =
     db.withConnection { implicit c =>
       val parser = for {
         taskId <- long("tasks.id")
@@ -1780,7 +1060,6 @@ class TaskDAL @Inject()(override val db: Database,
       val joinClause = new StringBuilder()
       this.updateWhereClause(params, filters, joinClause)
 
-
       val commentParser = for {
         taskId <- long("task_id")
         comments <- str("comments")
@@ -1795,14 +1074,14 @@ class TaskDAL @Inject()(override val db: Database,
       val allComments = commentsQuery.as(commentParser.*).toMap.withDefaultValue("")
 
       val query =
-        SQL"""SELECT t.id, t.parent_id, t.name, t.status, t.priority, sa_outer.username, t.mapped_on,
-                   tr.review_status, t.is_bundle_primary, t.bundle_id, t.geojson::TEXT AS geo_json,
-                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = tr.review_requested_by),
-                   (SELECT name as reviewedBy FROM users WHERE users.id = tr.reviewed_by),
-                   tr.reviewed_at, tr.review_started_at,
-                   (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id=t.id AND tg.id = tot.tag_id),
-                   t.completion_responses::TEXT AS responses
-            FROM tasks t LEFT OUTER JOIN (
+        SQL"""SELECT tasks.id, tasks.parent_id, tasks.name, tasks.status, tasks.priority, sa_outer.username, tasks.mapped_on,
+                   task_review.review_status, tasks.is_bundle_primary, tasks.bundle_id, tasks.geojson::TEXT AS geo_json,
+                   (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
+                   (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
+                   task_review.reviewed_at, task_review.review_started_at,
+                   (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id = tasks.id AND tg.id = tot.tag_id),
+                   tasks.completion_responses::TEXT AS responses
+            FROM tasks LEFT OUTER JOIN (
               SELECT sa.task_id, sa.status, sa.osm_user_id, u.name AS username
               FROM users u, status_actions sa INNER JOIN (
                 SELECT task_id, MAX(created) AS latest
@@ -1812,230 +1091,46 @@ class TaskDAL @Inject()(override val db: Database,
               ) AS sa_inner
               ON sa.task_id = sa_inner.task_id AND sa.created = sa_inner.latest
               WHERE sa.osm_user_id = u.osm_id
-            ) AS sa_outer ON t.id = sa_outer.task_id AND t.status = sa_outer.status
-            INNER JOIN challenges c ON c.id = t.parent_id
-            LEFT OUTER JOIN task_review tr ON tr.task_id = t.id
+            ) AS sa_outer ON tasks.id = sa_outer.task_id AND tasks.status = sa_outer.status
+            INNER JOIN challenges c ON c.id = tasks.parent_id
+            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
             #${joinClause.toString}
-            WHERE t.parent_id IN (#${challengeIds.mkString(",")}) AND #${filters.toString}
-            ORDER BY t.parent_Id
+            WHERE tasks.parent_id IN (#${challengeIds.mkString(",")}) AND #${filters.toString}
+            ORDER BY tasks.parent_Id
             LIMIT #${this.sqlLimit(limit)} OFFSET #${offset}
       """
       (query.as(parser.*), allComments)
     }
 
   /**
-    * Updates a comment that a user previously set
+    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
+    * in the cache and those that aren't will be retrieved from the database
     *
-    * @param user           The user updating the comment, it has to be the original user who made the comment
-    * @param commentId      The id for the original comment
-    * @param updatedComment The new comment
-    * @param c
-    * @return The updated comment
+    * @param limit  The limit on the number of objects returned. This is not entirely useful as a limit
+    *               could be set simply by how many ids you supplied in the list, but possibly useful
+    *               for paging
+    * @param offset For paging, ie. the page number starting at 0
+    * @param ids    The list of ids to be retrieved
+    * @return A list of objects, empty list if none found
     */
-  def updateComment(user: User, commentId: Long, updatedComment: String)(implicit c: Option[Connection] = None): Comment = {
-    withMRConnection { implicit c =>
-      if (StringUtils.isEmpty(updatedComment)) {
-        throw new InvalidException("Invalid empty string supplied.")
-      }
-      // first get the comment
-      this.retrieveComment(commentId) match {
-        case Some(original) =>
-          if (!user.isSuperUser && original.osm_id != user.osmProfile.id) {
-            throw new IllegalAccessException("User updating the comment must be a Super user or the original user who made the comment")
-          }
-          SQL("UPDATE task_comments SET comment = {comment} WHERE id = {id}")
-            .on('comment -> updatedComment, 'id -> commentId).executeUpdate()
-          original.copy(comment = updatedComment)
-        case None => throw new NotFoundException("Original comment does not exist")
-      }
-    }
-  }
-
-  /**
-    * Retrieves a specific comment
-    *
-    * @param commentId The id for the comment
-    * @param c
-    * @return An optional comment
-    */
-  def retrieveComment(commentId: Long)(implicit c: Option[Connection] = None): Option[Comment] = {
-    withMRConnection { implicit c =>
-      SQL(
-        """SELECT * FROM task_comments tc
-              INNER JOIN users u ON u.osm_id = tc.osm_id
-              WHERE tc.id = {commentId}"""
-      ).on('commentId -> commentId).as(this.commentParser.*).headOption
-    }
-  }
-
-  /**
-    * Deletes a comment from a task
-    *
-    * @param user      The user deleting the comment, only super user or challenge admin can delete
-    * @param taskId    The task that the comment is associated with
-    * @param commentId The id for the comment being deleted
-    * @param c
-    */
-  def deleteComment(user: User, taskId: Long, commentId: Long)(implicit c: Option[Connection] = None): Unit = {
-    withMRConnection { implicit c =>
-      this.retrieveById(taskId) match {
-        case Some(task) =>
-          this.permission.hasObjectAdminAccess(task, user)
-          SQL("DELETE FROM task_comments WHERE id = {id}").on('id -> commentId)
-        case None =>
-          throw new NotFoundException("Task was not found.")
-      }
-    }
-  }
-
-  /**
-    * Creates a new task bundle with the given tasks, assigning ownership of
-    * the bundle to the given user
-    *
-    * @param user    The user who is to own the bundle
-    * @param name    The name of the task bundle
-    * @param taskIds The tasks to be added to the bundle
-    */
-  def createTaskBundle(user: User, name: String, taskIds: List[Long])(implicit c: Connection = null): TaskBundle = {
-    this.withMRTransaction { implicit c =>
-      val lockedTasks = this.withListLocking(user, Some(TaskType())) { () =>
-        this.retrieveListById(-1, 0)(taskIds)
-      }
-
-      if (lockedTasks.length < 1) {
-        throw new InvalidException("Must be at least one task to bundle.")
-      }
-
-      val challengeId = lockedTasks.head.parent
-      // Verify tasks
-      // 1. Must belong to same challenge
-      // 2. suggested Fix tasks not allowed
-      for (task <- lockedTasks) {
-        if (task.suggestedFix != None) {
-          throw new InvalidException("Suggested Fix tasks cannot be bundled.")
-        }
-        if (task.parent != challengeId) {
-          throw new InvalidException("All tasks in the bundle must be part of the same challenge.")
-        }
-        if (task.bundleId != None) {
-          throw new InvalidException("Task " + task.id + " already assigned to bundle: " +
-                                     task.bundleId.getOrElse("") + ".")
+  override def retrieveListById(limit: Int = -1, offset: Int = 0)(implicit ids: List[Long], c: Option[Connection] = None): List[Task] = {
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
+        this.withMRConnection { implicit c =>
+          val query =
+            s"""SELECT ${retrieveColumnsWithReview} FROM ${this.tableName}
+                LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+                WHERE tasks.id IN ({inString})
+                LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            'offset -> offset).as(this.parser.*)
         }
       }
-
-      val rowId = SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
-      rowId match {
-        case Some(bundleId) =>
-          val sqlQuery = s"""INSERT INTO task_bundles (task_id, bundle_id) VALUES ({taskId}, $bundleId)"""
-          val parameters = lockedTasks.map(task => {
-            Seq[NamedParameter]("taskId" -> task.id)
-          })
-          BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
-          TaskBundle(bundleId, user.id, lockedTasks.map(task => { task.id }), Some(lockedTasks))
-        case None =>
-          throw new Exception("Bundle creation failed")
-      }
     }
   }
 
-  /**
-    * Fetches a list of tasks associated with the given bundle id.
-    *
-    * @param bundleId    The id of the bundle
-    */
-  def getTaskBundle(user: User, bundleId: Long)(implicit c: Connection = null): TaskBundle = {
-    this.withMRConnection { implicit c =>
-      val query =
-        s"""SELECT ${retrieveColumnsWithReview} FROM ${this.tableName}
-            INNER JOIN task_bundles tb on tasks.id = tb.task_id
-            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
-            WHERE tb.bundle_id = {bundleId}"""
-      val tasks = SQL(query).on('bundleId -> bundleId).as(this.parser.*)
-      TaskBundle(bundleId, user.id, tasks.map(task => { task.id }), Some(tasks))
-    }
-  }
-
-  /**
-    * Deletes a task bundle.
-    *
-    * @param bundleId    The id of the bundle
-    */
-  def deleteTaskBundle(user: User, bundleId: Long, primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Unit = {
-    this.withMRConnection { implicit c =>
-      val bundle = this.getTaskBundle(user, bundleId)
-      if (!user.isSuperUser && bundle.ownerId != user.id) {
-        val challengeId = bundle.tasks.getOrElse(List()).head.parent
-        val challenge = this.challengeDAL.get().retrieveById(challengeId)
-        this.permission.hasObjectWriteAccess(challenge.get, user)
-      }
-
-      SQL("UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
-
-      if (primaryTaskId != None) {
-        // unlock tasks (everything but the primary task id)
-        val tasks = this.getTaskBundle(user, bundleId).tasks match {
-          case Some(t) =>
-            for (task <- t) {
-              if (task.id != primaryTaskId.getOrElse(0)) {
-                try {
-                  this.unlockItem(user, task)
-                } catch {
-                  case e: Exception => logger.warn(e.getMessage)
-                }
-              }
-            }
-          case None => // no tasks in bundle
-        }
-      }
-
-      SQL("DELETE FROM bundles WHERE id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
-    }
-  }
-
-  /**
-    * Removes tasks from a bundle.
-    *
-    * @param bundleId    The id of the bundle
-    */
-  def unbundleTasks(user: User, bundleId: Long, taskIds: List[Long])(implicit c: Connection = null): TaskBundle = {
-    this.withMRConnection { implicit c =>
-      val bundle = this.getTaskBundle(user, bundleId)
-      if (!user.isSuperUser && bundle.ownerId != user.id) {
-        throw new IllegalAccessException("Only a super user or the original user can delete this bundle.")
-      }
-
-      // Unset any bundle_id on individual tasks (this is set when task is completed)
-      SQL(s"""UPDATE tasks SET bundle_id = NULL
-              WHERE bundle_id = {bundleId}
-              AND (is_bundle_primary != true OR is_bundle_primary is NULL)
-              AND id IN ({inList})""").on('bundleId -> bundleId,
-                'inList ->ToParameterValue.apply[List[Long]].apply(taskIds)).executeUpdate()
-
-      // Remove task from bundle join table.
-      val tasks = this.getTaskBundle(user, bundleId).tasks match {
-        case Some(t) =>
-          for (task <- t) {
-            if (!task.isBundlePrimary.getOrElse(false)) {
-              taskIds.find(id => id == task.id) match {
-                case Some(_) =>
-                  SQL(s"""DELETE FROM task_bundles
-                          WHERE bundle_id = ${bundleId} AND task_id = ${task.id}""").executeUpdate()
-
-                  try {
-                    this.unlockItem(user, task)
-                  } catch {
-                    case e: Exception => logger.warn(e.getMessage)
-                  }
-                case None => // do nothing
-              }
-            }
-          }
-        case None => // No tasks in bundle.
-      }
-
-      this.getTaskBundle(user, bundleId)
-    }
-  }
 
   /**
     * A temporary solution that will allow us to lazy update the geojson data

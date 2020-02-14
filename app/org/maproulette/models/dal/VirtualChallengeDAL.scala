@@ -13,9 +13,10 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.models._
+import org.maproulette.models.dal.mixin.Locking
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{SearchLocation, SearchParameters, SearchChallengeParameters, User}
+import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters, User}
 import play.api.db.Database
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.{JsString, JsValue, Json}
@@ -26,6 +27,7 @@ import play.api.libs.json.{JsString, JsValue, Json}
 class VirtualChallengeDAL @Inject()(override val db: Database,
                                     override val permission: Permission,
                                     val taskDAL: TaskDAL,
+                                    val taskClusterDAL: TaskClusterDAL,
                                     val config: Config)
   extends BaseDAL[Long, VirtualChallenge] with DALHelper with Locking[Task] {
 
@@ -110,7 +112,7 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
   def rebuildVirtualChallenge(id: Long, params: SearchParameters, user: User)(implicit c: Option[Connection] = None): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      val (count, result) = this.taskDAL.getTasksInBoundingBox(user, params, -1, 0)
+      val (count, result) = this.taskClusterDAL.getTasksInBoundingBox(user, params, -1, 0)
       result.grouped(config.virtualChallengeBatchSize).foreach(batch => {
         val insertRows = batch.map(point => s"(${point.id}, $id)").mkString(",")
         SQL"""

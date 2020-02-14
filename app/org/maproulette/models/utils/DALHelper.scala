@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.utils
 
-import java.sql.SQLException
+import java.sql.{PreparedStatement, SQLException}
 
 import anorm._
 import org.apache.commons.lang3.StringUtils
@@ -337,6 +337,27 @@ trait DALHelper {
       case _ => // ignore
     }
     parameters
+  }
+
+  /**
+    * Our key for our objects are current Long, but can support String if need be. This function
+    * handles transforming java objects to SQL for a specific set related to the object key
+    *
+    * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
+    * @return
+    */
+  def keyToStatement[Key]: ToStatement[Key] = {
+    new ToStatement[Key] {
+      def set(s: PreparedStatement, i: Int, identifier: Key) =
+        identifier match {
+          case id: String => ToStatement.stringToStatement.set(s, i, id)
+          case Some(id: String) => ToStatement.stringToStatement.set(s, i, id)
+          case id: Long => ToStatement.longToStatement.set(s, i, id)
+          case Some(id: Long) => ToStatement.longToStatement.set(s, i, id)
+          case intValue: Integer => ToStatement.integerToStatement.set(s, i, intValue)
+          case list: List[Long@unchecked] => ToStatement.listToStatement[Long].set(s, i, list)
+        }
+    }
   }
 }
 

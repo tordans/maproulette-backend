@@ -16,6 +16,7 @@ import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, MPExceptionUtil, NotFoundException, StatusMessage}
 import org.maproulette.models._
 import org.maproulette.models.dal._
+import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.ChallengeProvider
 import org.maproulette.session.{SearchParameters, SessionManager, User}
@@ -66,6 +67,7 @@ class ChallengeController @Inject()(override val childController: TaskController
   override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType: ItemType = ChallengeType()
+  override implicit val tableName: String = this.dal.tableName
 
   // implicit writes used for various JSON responses
   implicit val answerWrites = Challenge.answerWrites
@@ -429,7 +431,7 @@ class ChallengeController @Inject()(override val childController: TaskController
     */
   def retrieveComments(challengeId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)))
+      Ok(Json.toJson(this.dalManager.comment.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)))
     }
   }
 
@@ -455,7 +457,7 @@ class ChallengeController @Inject()(override val childController: TaskController
   }
 
   private def extractComments(challengeId: Long, limit: Int, page: Int, host: String): Seq[String] = {
-    val comments = this.dalManager.task.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)
+    val comments = this.dalManager.comment.retrieveComments(List.empty, List(challengeId), List.empty, limit, page)
     val urlPrefix = config.getPublicOrigin match {
       case Some(origin) => s"${origin}/"
       case None => s"http://$host/"

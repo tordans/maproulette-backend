@@ -108,8 +108,13 @@ trait TestSpec extends MockitoSugar {
   val dataManager = mock[DataManager]
   val statusActionManager = mock[StatusActionManager]
   var notificationDAL = mock[NotificationDAL]
+  val commentDAL = mock[CommentDAL]
+  val taskBundleDAL = mock[TaskBundleDAL]
+  val taskReviewDAL = mock[TaskReviewDAL]
+  val taskClusterDAL = mock[TaskClusterDAL]
+
   val dalManager = new DALManager(tagDAL, taskDAL, challengeDAL, virtualChallengeDAL,
     surveyDAL, projectDAL, userDAL, userGroupDAL, notificationDAL, actionManager, dataManager,
-    statusActionManager)
+    commentDAL, taskBundleDAL, taskReviewDAL, taskClusterDAL, statusActionManager)
   val permission = new Permission(Providers.of[DALManager](dalManager))
 }

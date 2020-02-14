@@ -262,7 +262,7 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @param numberOfPoints Number of clustered points you wish to have returned
     * @param startDate Optional start date to filter by reviewedAt date
     * @param endDate Optional end date to filter by reviewedAt date
-    * @param Only include challenges that have been saved
+    * @param onlySaved include challenges that have been saved
     * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     *
     * @return A list of ClusteredPoint's that represent clusters of tasks

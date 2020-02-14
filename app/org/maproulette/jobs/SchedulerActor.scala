@@ -42,7 +42,7 @@ class SchedulerActor @Inject()(config: Config,
                                implicit val snapshotManager: SnapshotManager) extends Actor {
   // cleanOldTasks configuration
   lazy val oldTasksStatusFilter = appConfig.getOptional[Seq[Int]](Config.KEY_SCHEDULER_CLEAN_TASKS_STATUS_FILTER).getOrElse(
-    Seq[Int](new Integer(STATUS_CREATED))
+    Seq[Int](STATUS_CREATED)
   )
 
   import scala.concurrent.ExecutionContext.Implicits.global

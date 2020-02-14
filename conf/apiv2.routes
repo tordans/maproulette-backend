@@ -3187,7 +3187,7 @@ PUT     /task/:id/:status                           @org.maproulette.controllers
 #   - name: tags
 #     description: Optional tags to associate with this task
 ###
-PUT     /taskBundle/:bundleId/:status                           @org.maproulette.controllers.api.TaskController.setBundleTaskStatus(bundleId:Long, primaryId:Long, status:Int, comment:String ?= "", tags:String ?="")
+PUT     /taskBundle/:bundleId/:status                           @org.maproulette.controllers.api.TaskBundleController.setBundleTaskStatus(bundleId:Long, primaryId:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Task ]
 # summary: Update Task Review Status
@@ -3249,7 +3249,7 @@ PUT     /task/:id/review/:status                           @org.maproulette.cont
 #   - name: tags
 #     description: Optional tags to associate with this task
 ###
-PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
+PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Challenge ]
 # summary: Retrieves task clusters
@@ -3347,7 +3347,7 @@ GET     /tasksInCluster/:clusterId                  @org.maproulette.controllers
 #     in: path
 #     description: The ID for the comment
 ###
-GET     /comment/:id                                @org.maproulette.controllers.api.TaskController.retrieveComment(id:Long)
+GET     /comment/:id                                @org.maproulette.controllers.api.CommentController.retrieveComment(id:Long)
 ###
 # tags: [ Comment ]
 # summary: Retrieves comments for a Task
@@ -3368,7 +3368,7 @@ GET     /comment/:id                                @org.maproulette.controllers
 #     in: path
 #     description: The ID for the Task
 ###
-GET     /task/:id/comments                          @org.maproulette.controllers.api.TaskController.retrieveComments(id:Long)
+GET     /task/:id/comments                          @org.maproulette.controllers.api.CommentController.retrieveComments(id:Long)
 ###
 # tags: [ Comment ]
 # summary: Adds comment to Task
@@ -3391,7 +3391,7 @@ GET     /task/:id/comments                          @org.maproulette.controllers
 #     in: query
 #     description: An optional action ID that may be associated with the comment
 ###
-POST    /task/:id/comment                           @org.maproulette.controllers.api.TaskController.addComment(id:Long, comment:String, actionId:Option[Long])
+POST    /task/:id/comment                           @org.maproulette.controllers.api.CommentController.addComment(id:Long, comment:String, actionId:Option[Long])
 ###
 # tags: [ Comment ]
 # summary: Adds comment to each Task in a Task Bundle
@@ -3412,7 +3412,7 @@ POST    /task/:id/comment                           @org.maproulette.controllers
 #     in: query
 #     description: An optional action ID that may be associated with the comment
 ###
-POST    /taskBundle/:id/comment                     @org.maproulette.controllers.api.TaskController.addCommentToBundleTasks(id:Long, comment:String, actionId:Option[Long])
+POST    /taskBundle/:id/comment                     @org.maproulette.controllers.api.CommentController.addCommentToBundleTasks(id:Long, comment:String, actionId:Option[Long])
 ###
 # tags: [ Comment ]
 # summary: Update comment on Task
@@ -3434,7 +3434,7 @@ POST    /taskBundle/:id/comment                     @org.maproulette.controllers
 #     in: query
 #     description: A URLEncoded comment for the Task
 ###
-PUT    /comment/:commentId                          @org.maproulette.controllers.api.TaskController.updateComment(commentId:Long, comment:String)
+PUT    /comment/:commentId                          @org.maproulette.controllers.api.CommentController.updateComment(commentId:Long, comment:String)
 ###
 # tags: [ Comment ]
 # summary: Deletes comment from Task
@@ -3452,7 +3452,7 @@ PUT    /comment/:commentId                          @org.maproulette.controllers
 #     in: path
 #     description: The ID for the Comment
 ###
-DELETE  /task/:id/comment/:commentId                @org.maproulette.controllers.api.TaskController.deleteComment(id:Long, commentId:Long)
+DELETE  /task/:id/comment/:commentId                @org.maproulette.controllers.api.CommentController.deleteComment(id:Long, commentId:Long)
 ###
 # tags: [ Keyword ]
 # summary: Create a Keyword
@@ -4493,13 +4493,13 @@ POST    /task/:taskId/fix/apply                     @org.maproulette.controllers
 #     schema:
 #       $ref: '#/definitions/org.maproulette.models.TaskBundle'
 ###
-POST    /taskBundle                                 @org.maproulette.controllers.api.TaskController.createTaskBundle
+POST    /taskBundle                                 @org.maproulette.controllers.api.TaskBundleController.createTaskBundle
 ### NoDocs ###
-GET     /taskBundle/:id                             @org.maproulette.controllers.api.TaskController.getTaskBundle(id:Long)
+GET     /taskBundle/:id                             @org.maproulette.controllers.api.TaskBundleController.getTaskBundle(id:Long)
 ### NoDocs ###
-DELETE     /taskBundle/:id                          @org.maproulette.controllers.api.TaskController.deleteTaskBundle(id:Long, primaryId:Option[Long])
+DELETE     /taskBundle/:id                          @org.maproulette.controllers.api.TaskBundleController.deleteTaskBundle(id:Long, primaryId:Option[Long])
 ### NoDocs ###
-GET        /taskBundle/:id/unbundle                 @org.maproulette.controllers.api.TaskController.unbundleTasks(id:Long, taskIds:List[Long])
+GET        /taskBundle/:id/unbundle                 @org.maproulette.controllers.api.TaskBundleController.unbundleTasks(id:Long, taskIds:List[Long])
 ### NoDocs ###
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
 ### NoDocs ###
