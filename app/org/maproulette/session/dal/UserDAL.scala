@@ -1043,7 +1043,9 @@ class UserDAL @Inject()(override val db: Database,
     * @param reviewMonthDuration
     * @param c            The existing connection if any
     */
-  def getMetricsForUser(userId: Long, user: User, taskMonthDuration: Int, reviewMonthDuration: Int, reviewerMonthDuration: Int)(
+  def getMetricsForUser(userId: Long, user: User, taskMonthDuration: Int, reviewMonthDuration: Int, reviewerMonthDuration: Int,
+                        startDate: String, endDate: String, reviewStartDate: String, reviewEndDate: String,
+                        reviewerStartDate: String, reviewerEndDate: String)(
     implicit c: Option[Connection] = None): Map[String,Map[String,Int]] = {
 
     val targetUser = retrieveById(userId)
@@ -1060,7 +1062,7 @@ class UserDAL @Inject()(override val db: Database,
 
     this.withMRConnection { implicit c =>
       // Fetch task metrics
-      val timeClause = taskMonthDuration match {
+      var timeClause = taskMonthDuration match {
           case -1 => "1=1"
           case 0 =>
             val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -1071,6 +1073,12 @@ class UserDAL @Inject()(override val db: Database,
             val startMonth = LocalDate.now.minus(Period.ofMonths(taskMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
             s"""sa1.created::DATE BETWEEN '$startMonth' AND '$today'"""
         }
+
+      if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]") &&
+          endDate != null && endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+        timeClause =
+          s"""sa1.created::DATE BETWEEN '${startDate} 00:00:00' AND '${endDate} 23:59:59'"""
+      }
 
       val taskCountsParser: RowParser[Map[String,Int]] = {
           get[Int]("total") ~
@@ -1101,7 +1109,7 @@ class UserDAL @Inject()(override val db: Database,
        val taskCounts = SQL(taskCountsQuery).as(taskCountsParser.single)
 
        // Now fetch Review Metrics
-       val reviewTimeClause = reviewMonthDuration match {
+       var reviewTimeClause = reviewMonthDuration match {
            case -1 => "1=1"
            case 0 =>
              val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -1112,6 +1120,12 @@ class UserDAL @Inject()(override val db: Database,
              val startMonth = LocalDate.now.minus(Period.ofMonths(reviewMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
              s"""reviewed_at::DATE BETWEEN '$startMonth' AND '$today'"""
          }
+
+       if (reviewStartDate != null && reviewStartDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]") &&
+           reviewEndDate != null && reviewEndDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+         reviewTimeClause =
+           s"""reviewed_at::DATE BETWEEN '${reviewStartDate} 00:00:00' AND '${reviewEndDate} 23:59:59'"""
+       }
 
        val reviewCountsParser: RowParser[Map[String,Int]] = {
            get[Int]("total") ~
@@ -1136,13 +1150,13 @@ class UserDAL @Inject()(override val db: Database,
             |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
             |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount
             |FROM task_review
-            |WHERE task_review.review_requested_by = $userId AND ${reviewTimeClause}
+            |WHERE task_review.review_requested_by = $userId AND (${reviewTimeClause} OR task_review.reviewed_at IS NULL)
         """.stripMargin
 
         val reviewCounts = SQL(reviewCountsQuery).as(reviewCountsParser.single)
 
         if (isReviewer) {
-          val reviewerTimeClause = reviewerMonthDuration match {
+          var reviewerTimeClause = reviewerMonthDuration match {
               case -1 => "1=1"
               case 0 =>
                 val today = LocalDate.now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
@@ -1153,6 +1167,11 @@ class UserDAL @Inject()(override val db: Database,
                 val startMonth = LocalDate.now.minus(Period.ofMonths(reviewerMonthDuration)).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                 s"""reviewed_at::DATE BETWEEN '$startMonth' AND '$today'"""
             }
+          if (reviewerStartDate != null && reviewerStartDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]") &&
+              reviewerEndDate != null && reviewerEndDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+            reviewerTimeClause =
+              s"""reviewed_at::DATE BETWEEN '${reviewerStartDate} 00:00:00' AND '${reviewerEndDate} 23:59:59'"""
+          }
 
           val asReviewerCountsQuery =
             s"""
