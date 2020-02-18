@@ -8,10 +8,10 @@ import java.time.Instant
 import anorm.JodaParameterMetaData._
 import anorm.SqlParser._
 import anorm._
-import com.vividsolutions.jts.geom.Envelope
 import javax.inject.{Inject, Provider, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
+import org.locationtech.jts.geom.Envelope
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
@@ -29,7 +29,7 @@ import play.api.libs.json.JodaReads._
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.concurrent.{Future, Promise}
 import scala.util.control.Exception.allCatch
 import scala.util.{Failure, Success, Try}
@@ -82,7 +82,7 @@ class TaskDAL @Inject()(override val db: Database,
         val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
           s"LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
           s"WHERE name = {name} ${this.parentFilter(parentId)}"
-        SQL(query).on('name -> name).as(this.parser.*).headOption
+        SQL(query).on(Symbol("name") -> name).as(this.parser.*).headOption
       }
     }
   }
@@ -321,7 +321,7 @@ class TaskDAL @Inject()(override val db: Database,
         NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
         NamedParameter("priority", ToParameterValue.apply[Int].apply(element.getTaskPriority(parentChallenge))),
         NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
-        NamedParameter("reset", ToParameterValue.apply[String].apply(config.taskReset + " days")),
+        NamedParameter("reset", ToParameterValue.apply[String].apply(s"${config.taskReset} days")),
         NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
         NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.review.reviewStatus)),
         NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewRequestedBy)),
@@ -369,10 +369,10 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val mrTransformer = (__ \ "properties" \ "maproulette").json.prune
-      var extractedGeometries = JsArray((geoJson \ "features").as[JsArray].value.map {
+      val extractedGeometries = JsArray((geoJson \ "features").as[JsArray].value.map {
         case value: JsObject => value.transform(mrTransformer).getOrElse(value)
         case _ => // do nothing
-      }.asInstanceOf[IndexedSeq[JsObject]])
+      }.asInstanceOf[ArrayBuffer[JsObject]])
 
       suggestedFixGeoJson match {
         case Some(sf) =>
@@ -398,7 +398,7 @@ class TaskDAL @Inject()(override val db: Database,
         val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
           "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
           "WHERE tasks.id = {id}"
-        SQL(query).on('id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id)).as(this.parser.singleOpt)
+        SQL(query).on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id)).as(this.parser.singleOpt)
       }
     }
   }
@@ -415,7 +415,7 @@ class TaskDAL @Inject()(override val db: Database,
   def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
-      parameters += ('suggestedFix -> Json.stringify(value))
+      parameters += (Symbol("suggestedFix") -> Json.stringify(value))
       sqlWithParameters(s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
         parameters).execute()
 
@@ -746,7 +746,7 @@ class TaskDAL @Inject()(override val db: Database,
         case Nil => Task.statusMap.keys.toSeq
         case t => t
       }
-      SQL(query).on('statusList -> slist).as(lp.*).headOption match {
+      SQL(query).on(Symbol("statusList") -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
           val loopQuery =
@@ -756,7 +756,7 @@ class TaskDAL @Inject()(override val db: Database,
                               WHERE tasks.parent_id = $parentId
                               AND status IN ({statusList})
                               ORDER BY tasks.id ASC LIMIT 1"""
-          SQL(loopQuery).on('statusList -> slist).as(lp.*).headOption
+          SQL(loopQuery).on(Symbol("statusList") -> slist).as(lp.*).headOption
       }
     }
   }
@@ -788,7 +788,7 @@ class TaskDAL @Inject()(override val db: Database,
         case t => t
       }
 
-      SQL(query).on('statusList -> slist).as(lp.*).headOption match {
+      SQL(query).on(Symbol("statusList") -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
         case None =>
           val loopQuery =
@@ -798,7 +798,7 @@ class TaskDAL @Inject()(override val db: Database,
                               WHERE tasks.parent_id = $parentId
                               AND status IN ({statusList})
                               ORDER BY tasks.id DESC LIMIT 1"""
-          SQL(loopQuery).on('statusList -> slist).as(lp.*).headOption
+          SQL(loopQuery).on(Symbol("statusList") -> slist).as(lp.*).headOption
       }
     }
   }
@@ -876,7 +876,7 @@ class TaskDAL @Inject()(override val db: Database,
               (l.id IS NULL OR l.user_id = ${user.id}) AND
               tasks.status IN ({statusList})
             """)
-        parameters += ('statusList -> ToParameterValue.apply[List[Int]].apply(taskStatusList))
+        parameters += (Symbol("statusList") -> ToParameterValue.apply[List[Int]].apply(taskStatusList))
 
         // Make sure that the user doesn't see the same task multiple times in
         // the same hour. This prevents users from getting stuck at a priority
@@ -898,11 +898,11 @@ class TaskDAL @Inject()(override val db: Database,
         if (taskTagIds.nonEmpty) {
           queryBuilder ++= "INNER JOIN tags_on_tasks tt ON tt.task_id = tasks.id "
           appendInWhereClause(whereClause, "tt.tag_id IN ({tagids})")
-          parameters += ('tagids -> ToParameterValue.apply[List[Long]].apply(taskTagIds))
+          parameters += (Symbol("tagids") -> ToParameterValue.apply[List[Long]].apply(taskTagIds))
         }
         if (params.taskSearch.nonEmpty) {
           appendInWhereClause(whereClause, s"${searchField("tasks.name", "taskSearch")(None)}")
-          parameters += ('taskSearch -> search(params.taskSearch.getOrElse("")))
+          parameters += (Symbol("taskSearch") -> search(params.taskSearch.getOrElse("")))
         }
 
         val proximityOrdering = proximityId match {
@@ -1027,7 +1027,7 @@ class TaskDAL @Inject()(override val db: Database,
            |  LIMIT {limit}
            |)
          """.stripMargin
-      SQL(query).on('id -> id, 'limit -> limit).as(this.manager.user.parser.*)
+      SQL(query).on(Symbol("id") -> id, Symbol("limit") -> limit).as(this.manager.user.parser.*)
     }
   }
 
@@ -1124,8 +1124,8 @@ class TaskDAL @Inject()(override val db: Database,
                 LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                 WHERE tasks.id IN ({inString})
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
-            'offset -> offset).as(this.parser.*)
+          SQL(query).on(Symbol("inString") -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            Symbol("offset") -> offset).as(this.parser.*)
         }
       }
     }
@@ -1143,7 +1143,7 @@ class TaskDAL @Inject()(override val db: Database,
       case Some(g) => (g, location, suggestedfix)
       case None =>
         this.withMRTransaction { implicit c =>
-          SQL("SELECT * FROM update_geometry({id})").on('id -> ToParameterValue.apply[Long](p = keyToStatement).apply(taskId))
+          SQL("SELECT * FROM update_geometry({id})").on(Symbol("id")-> ToParameterValue.apply[Long](p = keyToStatement).apply(taskId))
             .as((str("geo") ~ get[Option[String]]("loc") ~ get[Option[String]]("fix_geo")).*).headOption match {
             case Some(values) => (values._1._1, values._1._2, values._2)
             case None => throw new Exception("Failed to retrieve task data")

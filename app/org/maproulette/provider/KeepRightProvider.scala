@@ -18,7 +18,7 @@ import play.api.db.Database
 import play.api.http.Status
 import play.api.libs.ws.WSClient
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}

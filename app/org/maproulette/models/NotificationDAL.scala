@@ -143,18 +143,17 @@ class NotificationDAL @Inject()(db: Database,
                        {email_status}, {task_id}, {challenge_id}, {project_id}, {target_id}, {extra})
                RETURNING *"""
 
-          val newNotification = SQL(query).on(
-            'user_id -> notification.userId,
-            'notification_type -> notification.notificationType,
-            'description -> notification.description,
-            'from_username -> notification.fromUsername,
-            'is_read -> false,
-            'email_status -> notification.emailStatus,
-            'task_id -> notification.taskId,
-            'challenge_id -> notification.challengeId,
-            'project_id -> notification.projectId,
-            'target_id -> notification.targetId,
-            'extra -> notification.extra
+          SQL(query).on(Symbol("user_id") -> notification.userId,
+                        Symbol("notification_type") -> notification.notificationType,
+                        Symbol("description") -> notification.description,
+                        Symbol("from_username") -> notification.fromUsername,
+                        Symbol("is_read") -> false,
+                        Symbol("email_status") -> notification.emailStatus,
+                        Symbol("task_id") -> notification.taskId,
+                        Symbol("challenge_id") -> notification.challengeId,
+                        Symbol("project_id") -> notification.projectId,
+                        Symbol("target_id") -> notification.targetId,
+                        Symbol("extra") -> notification.extra
           ).execute()
         }
         webSocketProvider.sendMessage(WebSocketMessages.notificationNew(
@@ -250,14 +249,13 @@ class NotificationDAL @Inject()(db: Database,
             VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain}, {challengeCompleted})
             ON CONFLICT (user_id) DO
             UPDATE SET system=EXCLUDED.system, mention=EXCLUDED.mention, review_approved=EXCLUDED.review_approved, review_rejected=EXCLUDED.review_rejected, review_again=EXCLUDED.review_again, challenge_completed=EXCLUDED.challenge_completed"""
-      ).on(
-        'userId -> userId,
-        'system -> subscriptions.system,
-        'mention -> subscriptions.mention,
-        'reviewApproved -> subscriptions.reviewApproved,
-        'reviewRejected -> subscriptions.reviewRejected,
-        'reviewAgain -> subscriptions.reviewAgain,
-        'challengeCompleted -> subscriptions.challengeCompleted,
+      ).on(Symbol("userId") -> userId,
+          Symbol("system") -> subscriptions.system,
+          Symbol("mention") -> subscriptions.mention,
+          Symbol("reviewApproved") -> subscriptions.reviewApproved,
+          Symbol("reviewRejected") -> subscriptions.reviewRejected,
+          Symbol("reviewAgain") -> subscriptions.reviewAgain,
+          Symbol("challengeCompleted") -> subscriptions.challengeCompleted,
       ).executeUpdate()
     }
   }
@@ -276,7 +274,7 @@ class NotificationDAL @Inject()(db: Database,
         s"""UPDATE user_notifications SET is_read=true
             WHERE user_notifications.user_id={user_id}
             ${this.getLongListFilter(Some(notificationIds), "user_notifications.id")}"""
-      SQL(query).on('user_id -> userId).execute()
+      SQL(query).on(Symbol("user_id") -> userId).execute()
     }
   }
 
@@ -295,7 +293,7 @@ class NotificationDAL @Inject()(db: Database,
         s"""DELETE from user_notifications
             WHERE user_notifications.user_id={user_id}
             ${this.getLongListFilter(Some(notificationIds), "user_notifications.id")}"""
-      SQL(query).on('user_id -> userId).execute()
+      SQL(query).on(Symbol("user_id") -> userId).execute()
     }
   }
 
@@ -331,11 +329,11 @@ class NotificationDAL @Inject()(db: Database,
            |LIMIT ${sqlLimit(limit)} OFFSET $offset
        """.stripMargin
       SQL(query).on(
-        'userId -> userId,
-        'notificationType -> notificationType,
-        'isRead -> isRead,
-        'challengeId -> challengeId,
-        'fromUsername -> fromUsername,
+        Symbol("userId") -> userId,
+          Symbol("notificationType") -> notificationType,
+          Symbol("isRead") -> isRead,
+          Symbol("challengeId") -> challengeId,
+          Symbol("fromUsername") -> fromUsername,
       ).as(userNotificationParser.*)
     }
   }

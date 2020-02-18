@@ -62,7 +62,7 @@ class CommentDAL @Inject()(override val db: Database,
             throw new IllegalAccessException("User updating the comment must be a Super user or the original user who made the comment")
           }
           SQL("UPDATE task_comments SET comment = {comment} WHERE id = {id}")
-            .on('comment -> updatedComment, 'id -> commentId).executeUpdate()
+            .on(Symbol("comment") -> updatedComment, Symbol("id") -> commentId).executeUpdate()
           original.copy(comment = updatedComment)
         case None => throw new NotFoundException("Original comment does not exist")
       }
@@ -82,7 +82,7 @@ class CommentDAL @Inject()(override val db: Database,
         """SELECT * FROM task_comments tc
               INNER JOIN users u ON u.osm_id = tc.osm_id
               WHERE tc.id = {commentId}"""
-      ).on('commentId -> commentId).as(this.commentParser.*).headOption
+      ).on(Symbol("commentId") -> commentId).as(this.commentParser.*).headOption
     }
   }
 
@@ -99,7 +99,7 @@ class CommentDAL @Inject()(override val db: Database,
       this.taskDAL.retrieveById(taskId) match {
         case Some(task) =>
           this.permission.hasObjectAdminAccess(task, user)
-          SQL("DELETE FROM task_comments WHERE id = {id}").on('id -> commentId)
+          SQL("DELETE FROM task_comments WHERE id = {id}").on(Symbol("id") -> commentId)
         case None =>
           throw new NotFoundException("Task was not found.")
       }
@@ -167,10 +167,10 @@ class CommentDAL @Inject()(override val db: Database,
            |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
            |VALUES ({osm_id}, {task_id}, {comment}, {action_id}) RETURNING id, project_id, challenge_id
          """.stripMargin
-      SQL(query).on('osm_id -> user.osmProfile.id,
-        'task_id -> task.id,
-        'comment -> comment,
-        'action_id -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
+      SQL(query).on(Symbol("osm_id") -> user.osmProfile.id,
+        Symbol("task_id") -> task.id,
+        Symbol("comment") -> comment,
+        Symbol("action_id") -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
         case Some(ids) =>
           val newComment =
             Comment(ids._1._1, user.osmProfile.id, user.name, task.id, ids._1._2, ids._2, DateTime.now(), comment, actionId)

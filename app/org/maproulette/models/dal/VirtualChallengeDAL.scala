@@ -82,11 +82,11 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
                              VALUES ({owner}, {name}, {description}, {parameters}, {expiry}::timestamp)
                              RETURNING *"""
           val newChallenge = SQL(query).on(
-            'owner -> user.osmProfile.id,
-            'name -> element.name,
-            'description -> element.description,
-            'parameters -> Json.toJson(element.searchParameters).toString(),
-            'expiry -> ToParameterValue.apply[String].apply(String.valueOf(element.expiry))
+            Symbol("owner") -> user.osmProfile.id,
+            Symbol("name") -> element.name,
+            Symbol("description") -> element.description,
+            Symbol("parameters") -> Json.toJson(element.searchParameters).toString(),
+            Symbol("expiry") -> ToParameterValue.apply[String].apply(String.valueOf(element.expiry))
           ).as(this.parser.single)
           c.commit()
           element.taskIdList match {
@@ -165,10 +165,10 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
                WHERE id = {id} RETURNING *"""
           SQL(query)
             .on(
-              'name -> name,
-              'description -> description,
-              'expiry -> ToParameterValue.apply[String].apply(String.valueOf(expiry)),
-              'id -> id
+              Symbol("name") -> name,
+              Symbol("description") -> description,
+              Symbol("expiry") -> ToParameterValue.apply[String].apply(String.valueOf(expiry)),
+              Symbol("id") -> id
             ).as(this.parser.*).headOption
         }
       }
@@ -251,7 +251,7 @@ class VirtualChallengeDAL @Inject()(override val db: Database,
       withMRTransaction { implicit c =>
         SQL(query)
           .on(
-            'statusList -> ToParameterValue.apply[List[Int]].apply(taskStatusList)
+            Symbol("statusList") -> ToParameterValue.apply[List[Int]].apply(taskStatusList)
           ).as(taskDAL.parser.*).headOption
       }
     }

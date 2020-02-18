@@ -111,9 +111,11 @@ class TaskBundleController @Inject()(override val sessionManager: SessionManager
 
         this.dalManager.taskReview.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
 
-        val tagList = tags.split(",").toList
-        if (tagList.nonEmpty) {
-          this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tableName)), user)
+        if (tags.nonEmpty) {
+          val tagList = tags.split(",").toList
+          if (tagList.nonEmpty) {
+            this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tableName)), user)
+          }
         }
       }
 

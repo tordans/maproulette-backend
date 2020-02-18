@@ -143,7 +143,7 @@ class SchedulerActor @Inject()(config: Config,
 
     db.withTransaction { implicit c =>
       SQL("SELECT id FROM challenges WHERE last_updated > {currentTime}")
-        .on('currentTime -> ToParameterValue.apply[DateTime].apply(currentTime))
+        .on(Symbol("currentTime") -> ToParameterValue.apply[DateTime].apply(currentTime))
         .as(SqlParser.long("id").*)
         .foreach(id => {
           logger.debug(s"Flushing challenge cache of challenge with id $id")
@@ -169,8 +169,8 @@ class SchedulerActor @Inject()(config: Config,
                     WHERE t.parent_id = c.id AND c.updateTasks = true AND t.status IN ({statuses})
                      AND AGE(NOW(), c.modified) > {duration}::INTERVAL
                      AND AGE(NOW(), t.modified) > {duration}::INTERVAL""").on(
-              'duration -> ToParameterValue.apply[String].apply(String.valueOf(duration)),
-              'statuses -> ToParameterValue.apply[Seq[Int]].apply(oldTasksStatusFilter)
+              Symbol("duration") -> ToParameterValue.apply[String].apply(String.valueOf(duration)),
+              Symbol("statuses") -> ToParameterValue.apply[Seq[Int]].apply(oldTasksStatusFilter)
             ).executeUpdate()
           logger.info(s"$tasksDeleted old challenge tasks were found and deleted.")
           // Clear the task cache if any were deleted

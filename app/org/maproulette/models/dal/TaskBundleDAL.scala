@@ -95,8 +95,8 @@ class TaskBundleDAL @Inject()(val db:Database,
         s"""UPDATE tasks SET bundle_id = NULL
               WHERE bundle_id = {bundleId}
               AND (is_bundle_primary != true OR is_bundle_primary is NULL)
-              AND id IN ({inList})""").on('bundleId -> bundleId,
-        'inList -> ToParameterValue.apply[List[Long]].apply(taskIds)).executeUpdate()
+              AND id IN ({inList})""").on(Symbol("bundleId") -> bundleId,
+        Symbol("inList") -> ToParameterValue.apply[List[Long]].apply(taskIds)).executeUpdate()
 
       // Remove task from bundle join table.
       val tasks = this.getTaskBundle(user, bundleId).tasks match {
@@ -139,7 +139,7 @@ class TaskBundleDAL @Inject()(val db:Database,
         this.permission.hasObjectWriteAccess(challenge.get, user)
       }
 
-      SQL("UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
+      SQL("UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}").on(Symbol("bundleId") -> bundleId).executeUpdate()
 
       if (primaryTaskId != None) {
         // unlock tasks (everything but the primary task id)
@@ -158,7 +158,7 @@ class TaskBundleDAL @Inject()(val db:Database,
         }
       }
 
-      SQL("DELETE FROM bundles WHERE id = {bundleId}").on('bundleId -> bundleId).executeUpdate()
+      SQL("DELETE FROM bundles WHERE id = {bundleId}").on(Symbol("bundleId") -> bundleId).executeUpdate()
     }
   }
 
@@ -174,7 +174,7 @@ class TaskBundleDAL @Inject()(val db:Database,
             INNER JOIN task_bundles tb on tasks.id = tb.task_id
             LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
             WHERE tb.bundle_id = {bundleId}"""
-      val tasks = SQL(query).on('bundleId -> bundleId).as(this.taskDAL.parser.*)
+      val tasks = SQL(query).on(Symbol("bundleId") -> bundleId).as(this.taskDAL.parser.*)
       TaskBundle(bundleId, user.id, tasks.map(task => {
         task.id
       }), Some(tasks))

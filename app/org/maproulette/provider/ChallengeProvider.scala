@@ -350,7 +350,7 @@ class ChallengeProvider @Inject()(challengeDAL: ChallengeDAL, taskDAL: TaskDAL,
 
                       geometry match {
                         case Some(geom) =>
-                          this.createNewTask(user, (element \ "id").as[Long] + "", challenge, geom, Utils.getProperties(element, "tags"))
+                          this.createNewTask(user, s"${(element \ "id").as[Long]}", challenge, geom, Utils.getProperties(element, "tags"))
                         case None => None
                       }
                     } catch {

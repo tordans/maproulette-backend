@@ -191,7 +191,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
         INNER JOIN challenges ON challenges.id = tasks.parent_id
         WHERE tasks.id = {taskId}
       """
-      SQL(query).on('taskId -> taskId).as(this.taskWithReviewParser.single)
+      SQL(query).on(Symbol("taskId") -> taskId).as(this.taskWithReviewParser.single)
     }
   }
 
@@ -469,7 +469,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
     val query = user.isSuperUser match {
       case true =>
         s"""
-          SELECT t.${this.retrieveColumnsWithReview} FROM tasks
+          SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
           ${joinClause}
           WHERE
           ${whereClause}
@@ -539,20 +539,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
     */
   private def setupReviewSearchClause(whereClause: StringBuilder, joinClause: StringBuilder,
                                       searchParameters: SearchParameters,
-                                      startDate: String, endDate: String) {
-    searchParameters.owner match {
-      case Some(o) if o.nonEmpty =>
-        joinClause ++= "INNER JOIN users u ON u.id = tr.review_requested_by "
-        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
-      case _ => // ignore
-    }
+                                      startDate: String, endDate: String) : Unit = {
 
-    searchParameters.reviewer match {
-      case Some(r) if r.nonEmpty =>
-        joinClause ++= "INNER JOIN users u2 ON u2.id = tr.reviewed_by "
-        this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
-      case _ => // ignore
-    }
+    this.paramsOwner(searchParameters, whereClause, joinClause)
+    this.paramsReviewer(searchParameters, whereClause, joinClause)
 
     searchParameters.taskStatus match {
       case Some(statuses) if statuses.nonEmpty =>
@@ -574,23 +564,9 @@ class TaskReviewDAL @Inject()(override val db: Database,
       case _ =>
     }
 
-    searchParameters.location match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"tasks.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
-      case None => // do nothing
-    }
-
-    searchParameters.projectSearch match {
-      case Some(ps) => {
-        val projectName = ps.replace("'", "''")
-        this.appendInWhereClause(whereClause, s"""LOWER(p.display_name) LIKE LOWER('%${projectName}%')""")
-      }
-      case None => // do nothing
-    }
-
-    searchParameters.taskId match {
-      case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
-      case _ => // do nothing
-    }
+    this.paramsLocation(searchParameters, whereClause)
+    this.paramsProjectSearch(searchParameters, whereClause)
+    this.paramsTaskId(searchParameters, whereClause)
 
     if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
       this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")

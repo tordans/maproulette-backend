@@ -228,15 +228,15 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
         VALUES
           ({id}, {name}, {status}, {all}, {low}, {medium}, {high}, {review}, {manual})
       """
-      SQL(query).on('id -> challengeId,
-                    'name -> result.name,
-                    'status -> challenge.status,
-                    'all -> allPriorities,
-                    'low -> lowPriorities,
-                    'medium -> mediumPriorities,
-                    'high -> highPriorities,
-                    'review -> reviewSnapshotId,
-                    'manual -> manual
+      SQL(query).on(Symbol("id") -> challengeId,
+                      Symbol("name") -> result.name,
+                      Symbol("status") -> challenge.status,
+                      Symbol("all") -> allPriorities,
+                      Symbol("low") -> lowPriorities,
+                      Symbol("medium") -> mediumPriorities,
+                      Symbol("high") -> highPriorities,
+                      Symbol("review") -> reviewSnapshotId,
+                      Symbol("manual") -> manual
                    ).executeInsert().map(id => id).head
     }
   }
@@ -262,18 +262,18 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
                 {false_positive}, {skipped}, {deleted}, {already_fixed}, {too_hard},
                 {answered}, {validated}, {disabled})
       """
-      SQL(query).on('id -> summary.id,
-                    'priority -> priority,
-                    'available -> summary.actions.available,
-                    'fixed -> summary.actions.fixed,
-                    'false_positive -> summary.actions.falsePositive,
-                    'skipped -> summary.actions.skipped,
-                    'deleted -> summary.actions.deleted,
-                    'already_fixed -> summary.actions.alreadyFixed,
-                    'too_hard -> summary.actions.tooHard,
-                    'answered -> summary.actions.answered,
-                    'validated -> summary.actions.validated,
-                    'disabled -> summary.actions.disabled
+      SQL(query).on(Symbol("id") -> summary.id,
+                      Symbol("priority") -> priority,
+                      Symbol("available") -> summary.actions.available,
+                      Symbol("fixed") -> summary.actions.fixed,
+                      Symbol("false_positive") -> summary.actions.falsePositive,
+                      Symbol("skipped") -> summary.actions.skipped,
+                      Symbol("deleted") -> summary.actions.deleted,
+                      Symbol("already_fixed") -> summary.actions.alreadyFixed,
+                      Symbol("too_hard") -> summary.actions.tooHard,
+                      Symbol("answered") -> summary.actions.answered,
+                      Symbol("validated") -> summary.actions.validated,
+                      Symbol("disabled") -> summary.actions.disabled
                     ).executeInsert().map(id => id)
     }
   }

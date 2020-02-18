@@ -28,11 +28,11 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
   def unlockItem(user: User, item: T)(implicit c: Option[Connection] = None): Int =
     this.withMRTransaction { implicit c =>
       val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      SQL(checkQuery).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
             val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
-            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+            SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
           } else {
             throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
           }
@@ -53,11 +53,11 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
   def refreshItemLock(user: User, item: T)(implicit c: Option[Connection] = None): Int =
     this.withMRTransaction { implicit c =>
       val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      SQL(checkQuery).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
             val query = s"""UPDATE locked set locked_time=NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
-            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+            SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
           } else {
             throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}]")
           }
@@ -140,18 +140,18 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
       // first check to see if the item is already locked
       val checkQuery =
         s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      SQL(checkQuery).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
             val query = s"UPDATE locked SET locked_time = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
-            SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+            SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
           } else {
             0
             //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
           }
         case None =>
           val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType.typeId}, {itemId}, ${user.id})"
-          SQL(query).on('itemId -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+          SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
       }
     }
 

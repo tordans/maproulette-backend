@@ -165,7 +165,7 @@ class ProjectDAL @Inject()(override val db: Database,
   /**
     * This fetch function will retreive a list of projects with the given projectIds
     *
-    * @param projectIds The projectIds to fetch
+    * @param projectList The projectIds to fetch
     * @return A list of tags that contain the supplied prefix
     */
   def fetch(projectList: Option[List[Long]] = None): List[Project] = {
@@ -193,7 +193,7 @@ class ProjectDAL @Inject()(override val db: Database,
             WHERE featured = TRUE ${this.enabled(onlyEnabled)}
             LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-      SQL(query).on('offset -> offset).as(this.parser.*)
+      SQL(query).on(Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 
@@ -218,7 +218,7 @@ class ProjectDAL @Inject()(override val db: Database,
                       ${this.parentFilter(parentId)}
                       ${this.order(orderColumn = Some(orderColumn), orderDirection = orderDirection, nameFix = true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
+      SQL(query).on(Symbol("ss") -> searchString, Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 
@@ -254,9 +254,9 @@ class ProjectDAL @Inject()(override val db: Database,
             }
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-          SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
-            'osmId -> user.osmProfile.id,
-            'ids -> user.groups.map(_.id))
+          SQL(query).on(Symbol("ss") -> this.search(searchString), Symbol("offset") -> ToParameterValue.apply[Int].apply(offset),
+            Symbol("osmId") -> user.osmProfile.id,
+            Symbol("ids") -> user.groups.map(_.id))
             .as(this.parser.*)
         }
       }
@@ -289,9 +289,9 @@ class ProjectDAL @Inject()(override val db: Database,
                           ${this.order(Some(orderColumn), orderDirection)}
                           LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-          SQL(query).on('ss -> this.search(searchString),
-            'id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
-            'offset -> offset)
+          SQL(query).on(Symbol("ss") -> this.search(searchString),
+            Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
+            Symbol("offset") -> offset)
             .as(this.childDAL.withVirtualParentParser.*)
         }
       case _ =>
@@ -337,7 +337,7 @@ class ProjectDAL @Inject()(override val db: Database,
                     ${this.searchField("p.name")} ${this.enabled(onlyEnabled, "p")}
                     GROUP BY p.id
                     LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
-      SQL(query).on('ss -> this.search(searchString), 'ids -> user.groups.map(_.id)).as(parser.*)
+      SQL(query).on(Symbol("ss") -> this.search(searchString), Symbol("ids") -> user.groups.map(_.id)).as(parser.*)
         .map(v => v._1 -> (v._2, v._3)).toMap
     }
   }
@@ -353,8 +353,8 @@ class ProjectDAL @Inject()(override val db: Database,
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
-      parameters += ('cs -> this.search(params.challengeParams.challengeSearch.getOrElse("")))
-      parameters += ('ps -> this.search(params.projectSearch.getOrElse("")))
+      parameters += (Symbol("cs") -> this.search(params.challengeParams.challengeSearch.getOrElse("")))
+      parameters += (Symbol("ps") -> this.search(params.projectSearch.getOrElse("")))
       // search by tags if any
       val challengeTags = if (params.challengeParams.challengeTags.isDefined && params.challengeParams.challengeTags.get.nonEmpty) {
         val tags = params.challengeParams.challengeTags.get.zipWithIndex.map {

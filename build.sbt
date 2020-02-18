@@ -2,7 +2,7 @@ name := "MapRouletteAPI"
 
 version := "3.7.0"
 
-scalaVersion := "2.12.8"
+scalaVersion := "2.13.1"
 
 packageName in Universal := "MapRouletteAPI"
 
@@ -34,22 +34,23 @@ libraryDependencies ++= Seq(
   specs2 % Test,
   filters,
   guice,
-  "com.typesafe.play" %% "play-json-joda" % "2.7.0",
-  "com.typesafe.play" %% "play-json" % "2.7.1",
-  "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
-  "org.webjars" % "swagger-ui" % "3.20.5",
-  "org.playframework.anorm" %% "anorm" % "2.6.2",
-  "org.postgresql" % "postgresql" % "42.2.5",
+  "com.typesafe.play" %% "play-json-joda" % "2.8.1",
+  "com.typesafe.play" %% "play-json" % "2.8.1",
+  "org.scalatestplus.play" %% "scalatestplus-play" % "5.0.0" % Test,
+  "org.webjars" % "swagger-ui" % "3.25.0",
+  "org.playframework.anorm" %% "anorm" % "2.6.5",
+  "org.postgresql" % "postgresql" % "42.2.10",
   "net.postgis" % "postgis-jdbc" % "2.3.0",
-  "joda-time" % "joda-time" % "2.10.1",
+  "joda-time" % "joda-time" % "2.10.5",
   "com.vividsolutions" % "jts" % "1.13",
-  "org.wololo" % "jts2geojson" % "0.10.0",
-  "org.apache.commons" % "commons-lang3" % "3.8.1",
-  "commons-codec" % "commons-codec" % "1.11",
-  "com.typesafe.play" %% "play-mailer" % "6.0.1",
-  "com.typesafe.play" %% "play-mailer-guice" % "6.0.1",
-  "com.typesafe.akka" %% "akka-cluster-tools" % "2.5.19",
-  "net.debasishg" %% "redisclient" % "3.10"
+  "org.wololo" % "jts2geojson" % "0.14.3",
+  "org.apache.commons" % "commons-lang3" % "3.9",
+  "commons-codec" % "commons-codec" % "1.14",
+  "com.typesafe.play" %% "play-mailer" % "8.0.0",
+  "com.typesafe.play" %% "play-mailer-guice" % "8.0.0",
+  "com.typesafe.akka" %% "akka-cluster-tools" % "2.6.1",
+  "com.typesafe.akka" %% "akka-cluster-typed" % "2.6.1",
+  "net.debasishg" %% "redisclient" % "3.20"
 )
 
 resolvers ++= Seq(

@@ -2,11 +2,10 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.controllers.api
 
-import java.net.URLDecoder
 import java.sql.Connection
 
-import com.vividsolutions.jts.geom.Envelope
 import javax.inject.Inject
+import org.locationtech.jts.geom.Envelope
 import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
