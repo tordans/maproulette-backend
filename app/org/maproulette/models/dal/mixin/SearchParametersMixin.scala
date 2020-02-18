@@ -18,8 +18,11 @@ import scala.collection.mutable.ListBuffer
   */
 trait SearchParametersMixin extends DALHelper {
 
-  def updateWhereClause(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder)
-                       (implicit projectSearch: Boolean = true): ListBuffer[NamedParameter] = {
+  def updateWhereClause(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  )(implicit projectSearch: Boolean = true): ListBuffer[NamedParameter] = {
     val parameters = new ListBuffer[NamedParameter]()
 
     this.paramsLocation(params, whereClause)
@@ -44,84 +47,109 @@ trait SearchParametersMixin extends DALHelper {
     parameters
   }
 
-  def paramsProjectSearch(params: SearchParameters, whereClause: StringBuilder) : Unit = {
+  def paramsProjectSearch(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.projectSearch match {
       case Some(ps) =>
         val projectName = ps.replace("'", "''")
-        this.appendInWhereClause(whereClause, s"""LOWER(p.display_name) LIKE LOWER('%${projectName}%')""")
+        this.appendInWhereClause(
+          whereClause,
+          s"""LOWER(p.display_name) LIKE LOWER('%${projectName}%')"""
+        )
       case None => // do nothing
     }
   }
 
   def paramsLocation(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.location match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"tasks.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
+      case Some(sl) =>
+        this.appendInWhereClause(
+          whereClause,
+          s"tasks.location @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)"
+        )
       case None => // do nothing
     }
   }
 
   def paramsBounding(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.bounding match {
-      case Some(sl) => this.appendInWhereClause(whereClause, s"c.bounding @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)")
+      case Some(sl) =>
+        this.appendInWhereClause(
+          whereClause,
+          s"c.bounding @ ST_MakeEnvelope (${sl.left}, ${sl.bottom}, ${sl.right}, ${sl.top}, 4326)"
+        )
       case None => // do nothing
     }
   }
 
   def paramsTaskStatus(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskStatus match {
-      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
+      case Some(sl) if sl.nonEmpty =>
+        this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
       case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ => this.appendInWhereClause(whereClause, "tasks.status IN (0,3,6)")
+      case _                      => this.appendInWhereClause(whereClause, "tasks.status IN (0,3,6)")
     }
   }
 
   def paramsTaskId(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskId match {
-      case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
+      case Some(tid) =>
+        this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
       case _ => // do nothing
     }
   }
 
   def paramsTaskPriorities(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskPriorities match {
-      case Some(sl) if sl.nonEmpty => this.appendInWhereClause(whereClause, s"tasks.priority IN (${sl.mkString(",")})")
+      case Some(sl) if sl.nonEmpty =>
+        this.appendInWhereClause(whereClause, s"tasks.priority IN (${sl.mkString(",")})")
       case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ => // do nothing
+      case _                      => // do nothing
     }
   }
 
   def paramsPriority(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.priority match {
-      case Some(p) if p == 0 || p == 1 || p == 2 => this.appendInWhereClause(whereClause, s"tasks.priority = $p")
+      case Some(p) if p == 0 || p == 1 || p == 2 =>
+        this.appendInWhereClause(whereClause, s"tasks.priority = $p")
       case _ => // ignore
     }
   }
 
   def paramsChallengeDifficulty(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.challengeParams.challengeDifficulty match {
-      case Some(v) if v > 0 && v < 4 => this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
+      case Some(v) if v > 0 && v < 4 =>
+        this.appendInWhereClause(whereClause, s"c.difficulty = ${v}")
       case _ =>
     }
   }
 
-  def paramsTaskReviewStatus(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder): Unit = {
+  def paramsTaskReviewStatus(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
     params.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
-        val filter = new StringBuilder(
-          s"""(tasks.id IN (SELECT task_id FROM task_review
+        val filter = new StringBuilder(s"""(tasks.id IN (SELECT task_id FROM task_review
                                                     WHERE task_review.task_id = tasks.id AND task_review.review_status
                                                           IN (${statuses.mkString(",")})) """)
         if (statuses.contains(-1)) {
-          filter.append(" OR tasks.id NOT IN (SELECT task_id FROM task_review task_review WHERE task_review.task_id = tasks.id)")
+          filter.append(
+            " OR tasks.id NOT IN (SELECT task_id FROM task_review task_review WHERE task_review.task_id = tasks.id)"
+          )
         }
         filter.append(")")
         this.appendInWhereClause(whereClause, filter.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _ =>
+      case _                                  =>
     }
   }
 
-  def paramsChallengeStatus(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder): Unit = {
+  def paramsChallengeStatus(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
     params.challengeParams.challengeStatus match {
       case Some(sl) if sl.nonEmpty =>
         val statusClause = new StringBuilder(s"(c.status IN (${sl.mkString(",")})")
@@ -131,7 +159,7 @@ trait SearchParametersMixin extends DALHelper {
         statusClause ++= ")"
         this.appendInWhereClause(whereClause, statusClause.toString())
       case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _ =>
+      case _                      =>
     }
   }
 
@@ -148,27 +176,37 @@ trait SearchParametersMixin extends DALHelper {
 
               (locationJSON \ "type").as[String] match {
                 case "Polygon" => {
-                  (locationJSON \ "coordinates").as[List[List[List[Double]]]].foreach(p =>
-                    p.foreach(coordinates => {
-                      if (polygonLinestring.toString() != "")
-                        polygonLinestring.append(",")
-                      polygonLinestring.append(s"${coordinates.head} ${coordinates(1)}")
-                    })
+                  (locationJSON \ "coordinates")
+                    .as[List[List[List[Double]]]]
+                    .foreach(p =>
+                      p.foreach(coordinates => {
+                        if (polygonLinestring.toString() != "")
+                          polygonLinestring.append(",")
+                        polygonLinestring.append(s"${coordinates.head} ${coordinates(1)}")
+                      })
+                    )
+                  allPolygons.append(
+                    s"tasks.location @ ST_MakePolygon( ST_GeomFromText('LINESTRING($polygonLinestring)'))"
                   )
-                  allPolygons.append(s"tasks.location @ ST_MakePolygon( ST_GeomFromText('LINESTRING($polygonLinestring)'))")
                 }
                 case "LineString" => {
-                  (locationJSON \ "coordinates").as[List[List[Double]]].foreach(coordinates => {
-                    if (polygonLinestring.toString() != "") {
-                      polygonLinestring.append(",")
-                    }
-                    polygonLinestring.append(s"${coordinates.head} ${coordinates(1)}")
-                  })
-                  allPolygons.append(s"tasks.location @ ST_GeomFromText('LINESTRING($polygonLinestring)')")
+                  (locationJSON \ "coordinates")
+                    .as[List[List[Double]]]
+                    .foreach(coordinates => {
+                      if (polygonLinestring.toString() != "") {
+                        polygonLinestring.append(",")
+                      }
+                      polygonLinestring.append(s"${coordinates.head} ${coordinates(1)}")
+                    })
+                  allPolygons.append(
+                    s"tasks.location @ ST_GeomFromText('LINESTRING($polygonLinestring)')"
+                  )
                 }
                 case "Point" => {
                   val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-                  allPolygons.append(s"tasks.location @ ST_GeomFromText('POINT(${coordinates.head} ${coordinates(1)})')")
+                  allPolygons.append(
+                    s"tasks.location @ ST_GeomFromText('POINT(${coordinates.head} ${coordinates(1)})')"
+                  )
                 }
                 case _ => // do nothing
               }
@@ -181,13 +219,16 @@ trait SearchParametersMixin extends DALHelper {
     }
   }
 
-  def paramsChallengeIds(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder): Unit = {
+  def paramsChallengeIds(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
     params.getChallengeIds match {
       case Some(l) =>
         params.taskPropertySearch match {
           case Some(tps) =>
-            val query = new StringBuilder(
-              s"""tasks.id IN (
+            val query = new StringBuilder(s"""tasks.id IN (
                 SELECT id FROM tasks,
                                jsonb_array_elements(geojson->'features') features
                 WHERE parent_id IN (${l.mkString(",")})
@@ -199,11 +240,10 @@ trait SearchParametersMixin extends DALHelper {
               case Some(tp) =>
                 val searchType = params.taskPropertySearchType match {
                   case Some(t) => t
-                  case _ => "equals"
+                  case _       => "equals"
                 }
 
-                val query = new StringBuilder(
-                  s"""tasks.id IN (
+                val query = new StringBuilder(s"""tasks.id IN (
                     SELECT id FROM tasks,
                                    jsonb_array_elements(geojson->'features') features
                     WHERE parent_id IN (${l.mkString(",")})
@@ -212,11 +252,9 @@ trait SearchParametersMixin extends DALHelper {
                 for ((k, v) <- tp) {
                   if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
                     query ++= s" AND features->'properties'->>'${k}' = '${v}' "
-                  }
-                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
+                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
                     query ++= s" AND features->'properties'->>'${k}' != '${v}' "
-                  }
-                  else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
+                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
                     query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
                   }
                 }
@@ -229,7 +267,11 @@ trait SearchParametersMixin extends DALHelper {
     }
   }
 
-  def paramsOwner(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder): Unit = {
+  def paramsOwner(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
     params.owner match {
       case Some(o) if o.nonEmpty =>
         joinClause ++= "INNER JOIN users u ON u.id = task_review.review_requested_by "
@@ -238,7 +280,11 @@ trait SearchParametersMixin extends DALHelper {
     }
   }
 
-  def paramsReviewer(params: SearchParameters, whereClause: StringBuilder, joinClause: StringBuilder): Unit = {
+  def paramsReviewer(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
     params.reviewer match {
       case Some(r) if r.nonEmpty =>
         joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "

@@ -13,3 +13,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-gzip" % "1.0.2")
 addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "1.0.0")
 
 addSbtPlugin("com.iheart" % "sbt-play-swagger" % "0.9.1-PLAY2.8")
+
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.3.1")

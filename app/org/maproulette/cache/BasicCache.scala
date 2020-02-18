@@ -18,8 +18,8 @@ import scala.collection.mutable.Map
   */
 class BasicCache[Key, Value <: CacheObject[Key]](config: Config) extends Cache[Key, Value] {
 
-  override implicit val cacheLimit: Int = config.cacheLimit
-  override implicit val cacheExpiry: Int = config.cacheExpiry
+  override implicit val cacheLimit: Int            = config.cacheLimit
+  override implicit val cacheExpiry: Int           = config.cacheExpiry
   val cache: Map[Key, BasicInnerValue[Key, Value]] = Map.empty
 
   /**
@@ -51,7 +51,8 @@ class BasicCache[Key, Value <: CacheObject[Key]](config: Config) extends Cache[K
     */
   def trueSize: Int = this.cache.keysIterator.count(!isExpiredByKey(_))
 
-  override protected def innerGet(key: Key): Option[BasicInnerValue[Key, Value]] = this.cache.get(key)
+  override protected def innerGet(key: Key): Option[BasicInnerValue[Key, Value]] =
+    this.cache.get(key)
 
   /**
     * Adds an object to the cache, if cache limit has been reached, then will remove the oldest
@@ -63,7 +64,9 @@ class BasicCache[Key, Value <: CacheObject[Key]](config: Config) extends Cache[K
     */
   def add(key: Key, obj: Value, localExpiry: Option[Int] = None): Option[Value] = synchronized {
     if (this.cache.size == cacheLimit) {
-      val oldestEntry = this.cache.valuesIterator.reduceLeft((x, y) => if (x.accessTime.isBefore(y.accessTime)) x else y)
+      val oldestEntry = this.cache.valuesIterator.reduceLeft((x, y) =>
+        if (x.accessTime.isBefore(y.accessTime)) x else y
+      )
       remove(oldestEntry.key)
     } else if (this.cache.size > cacheLimit) {
       // something has gone very wrong if the cacheLimit has already been exceeded, this really shouldn't ever happen
@@ -72,7 +75,7 @@ class BasicCache[Key, Value <: CacheObject[Key]](config: Config) extends Cache[K
     }
     this.cache.put(key, BasicInnerValue(key, obj, new LocalDateTime(), localExpiry)) match {
       case Some(value) => Some(value.value)
-      case None => None
+      case None        => None
     }
   }
 
@@ -86,7 +89,7 @@ class BasicCache[Key, Value <: CacheObject[Key]](config: Config) extends Cache[K
   def remove(id: Key): Option[Value] = synchronized {
     this.cache.remove(id) match {
       case Some(value) => Some(value.value)
-      case None => None
+      case None        => None
     }
   }
 
@@ -100,7 +103,7 @@ class BasicCache[Key, Value <: CacheObject[Key]](config: Config) extends Cache[K
   def remove(name: String): Option[Value] = synchronized {
     this.find(name) match {
       case Some(value) => this.remove(value.id)
-      case None => None
+      case None        => None
     }
   }
 

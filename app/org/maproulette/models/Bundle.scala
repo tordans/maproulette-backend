@@ -9,19 +9,20 @@ import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 import play.api.libs.json._
 
-
-case class Bundle(override val id: Long,
-                  val owner: Long,
-                  override val name: String = "",
-                  override val description: Option[String] = None,
-                  override val created: DateTime = DateTime.now(),
-                  override val modified: DateTime = DateTime.now()) extends BaseObject[Long] {
+case class Bundle(
+    override val id: Long,
+    val owner: Long,
+    override val name: String = "",
+    override val description: Option[String] = None,
+    override val created: DateTime = DateTime.now(),
+    override val modified: DateTime = DateTime.now()
+) extends BaseObject[Long] {
   override val itemType: ItemType = BundleType()
 }
 
 object Bundle {
   implicit val bundleWrites: Writes[Bundle] = Json.writes[Bundle]
-  implicit val bundleReads: Reads[Bundle] = Json.reads[Bundle]
+  implicit val bundleReads: Reads[Bundle]   = Json.reads[Bundle]
 
   val KEY = "bundles"
 }
@@ -31,8 +32,9 @@ object Bundle {
   *
   * @author nrotstan
   */
-case class TaskBundle(bundleId: Long, ownerId: Long, taskIds: List[Long], tasks:Option[List[Task]]) extends DefaultWrites
+case class TaskBundle(bundleId: Long, ownerId: Long, taskIds: List[Long], tasks: Option[List[Task]])
+    extends DefaultWrites
 object TaskBundle {
   implicit val taskBundleWrites: Writes[TaskBundle] = Json.writes[TaskBundle]
-  implicit val taskBundleReads: Reads[TaskBundle] = Json.reads[TaskBundle]
+  implicit val taskBundleReads: Reads[TaskBundle]   = Json.reads[TaskBundle]
 }

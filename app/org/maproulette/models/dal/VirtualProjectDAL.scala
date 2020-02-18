@@ -22,13 +22,14 @@ import play.api.db.Database
   * @author krotstan
   */
 @Singleton
-class VirtualProjectDAL @Inject()(override val db: Database,
-                                  childDAL: ChallengeDAL,
-                                  surveyDAL: SurveyDAL,
-                                  userGroupDAL: UserGroupDAL,
-                                  override val permission: Permission,
-                                  config: Config)
-  extends ProjectDAL(db, childDAL, surveyDAL, userGroupDAL, permission, config) {
+class VirtualProjectDAL @Inject() (
+    override val db: Database,
+    childDAL: ChallengeDAL,
+    surveyDAL: SurveyDAL,
+    userGroupDAL: UserGroupDAL,
+    override val permission: Permission,
+    config: Config
+) extends ProjectDAL(db, childDAL, surveyDAL, userGroupDAL, permission, config) {
 
   /**
     * Adds a challenge to a virtual project. You are required to have write access
@@ -38,12 +39,15 @@ class VirtualProjectDAL @Inject()(override val db: Database,
     * @param challengeId The id of the challenge that you are moving
     * @param c           an implicit connection
     */
-  def addChallenge(projectId: Long, challengeId: Long, user: User)(implicit c: Option[Connection] = None): Option[Project] = {
+  def addChallenge(projectId: Long, challengeId: Long, user: User)(
+      implicit c: Option[Connection] = None
+  ): Option[Project] = {
     this.permission.hasWriteAccess(ProjectType(), user)(projectId)
     this.retrieveById(projectId) match {
-      case Some(p) => if (!p.isVirtual.getOrElse(false)) {
-        throw new InvalidException(s"Project must be a virtual project to add a challenge.")
-      }
+      case Some(p) =>
+        if (!p.isVirtual.getOrElse(false)) {
+          throw new InvalidException(s"Project must be a virtual project to add a challenge.")
+        }
       case None => throw new NotFoundException(s"No project found with id $projectId found.")
     }
 
@@ -54,11 +58,12 @@ class VirtualProjectDAL @Inject()(override val db: Database,
                         VALUES ($projectId, $challengeId)"""
         SQL(query).execute()
       } catch {
-          case e:PSQLException if (e.getSQLState == "23505") => //ignore
-          case other:Throwable =>
-            throw new InvalidException(
-              s"Unable to add challenge ${challengeId} to Virtual Project ${projectId}. " +
-              other.getMessage)
+        case e: PSQLException if (e.getSQLState == "23505") => //ignore
+        case other: Throwable =>
+          throw new InvalidException(
+            s"Unable to add challenge ${challengeId} to Virtual Project ${projectId}. " +
+              other.getMessage
+          )
       }
       None
     }
@@ -72,12 +77,15 @@ class VirtualProjectDAL @Inject()(override val db: Database,
     * @param challengeId The id of the challenge that you are moving
     * @param c           an implicit connection
     */
-  def removeChallenge(projectId: Long, challengeId: Long, user: User)(implicit c: Option[Connection] = None): Option[Project] = {
+  def removeChallenge(projectId: Long, challengeId: Long, user: User)(
+      implicit c: Option[Connection] = None
+  ): Option[Project] = {
     this.permission.hasWriteAccess(ProjectType(), user)(projectId)
     this.retrieveById(projectId) match {
-      case Some(p) => if (!p.isVirtual.getOrElse(false)) {
-        throw new InvalidException(s"Project must be a virtual project to remove a challenge.")
-      }
+      case Some(p) =>
+        if (!p.isVirtual.getOrElse(false)) {
+          throw new InvalidException(s"Project must be a virtual project to remove a challenge.")
+        }
       case None => throw new NotFoundException(s"No challenge with id $challengeId found.")
     }
     this.withMRTransaction { implicit c =>

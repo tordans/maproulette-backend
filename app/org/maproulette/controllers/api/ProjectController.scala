@@ -21,15 +21,17 @@ import play.api.mvc._
   *
   * @author cuthbertm
   */
-class ProjectController @Inject()(override val childController: ChallengeController,
-                                  override val sessionManager: SessionManager,
-                                  override val actionManager: ActionManager,
-                                  override val dal: ProjectDAL,
-                                  components: ControllerComponents,
-                                  taskDAL: TaskDAL,
-                                  commentDAL: CommentDAL,
-                                  override val bodyParsers: PlayBodyParsers)
-  extends AbstractController(components) with ParentController[Project, Challenge] {
+class ProjectController @Inject() (
+    override val childController: ChallengeController,
+    override val sessionManager: SessionManager,
+    override val actionManager: ActionManager,
+    override val dal: ProjectDAL,
+    components: ControllerComponents,
+    taskDAL: TaskDAL,
+    commentDAL: CommentDAL,
+    override val bodyParsers: PlayBodyParsers
+) extends AbstractController(components)
+    with ParentController[Project, Challenge] {
 
   // json reads for automatically reading Projects from a posted json body
   override implicit val tReads: Reads[Project] = Project.projectReads
@@ -75,9 +77,21 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     * @param onlyEnabled only enabled objects if true
     * @return A list of the requested items in JSON format
     */
-  override def find(search: String, parentId: Long, limit: Int, offset: Int, onlyEnabled: Boolean): Action[AnyContent] = Action.async { implicit request =>
+  override def find(
+      search: String,
+      parentId: Long,
+      limit: Int,
+      offset: Int,
+      onlyEnabled: Boolean
+  ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "display_name", "DESC")(parentId).map(this.inject)))
+      Ok(
+        Json.toJson(
+          this.dal
+            .find(search, limit, offset, onlyEnabled, "display_name", "DESC")(parentId)
+            .map(this.inject)
+        )
+      )
     }
   }
 
@@ -104,9 +118,21 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     * @param sort         An optional column to sort by.
     * @return json list of managed projects
     */
-  def listManagedProjects(limit: Int, offset: Int, onlyEnabled: Boolean, onlyOwned: Boolean, searchString: String, sort: String = "display_name"): Action[AnyContent] = Action.async { implicit response =>
+  def listManagedProjects(
+      limit: Int,
+      offset: Int,
+      onlyEnabled: Boolean,
+      onlyOwned: Boolean,
+      searchString: String,
+      sort: String = "display_name"
+  ): Action[AnyContent] = Action.async { implicit response =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.dal.listManagedProjects(user, limit, offset, onlyEnabled, onlyOwned, searchString, sort)))
+      Ok(
+        Json.toJson(
+          this.dal
+            .listManagedProjects(user, limit, offset, onlyEnabled, onlyOwned, searchString, sort)
+        )
+      )
     }
   }
 
@@ -118,11 +144,12 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     * @param offset      The offset
     * @return A json array with the featured projects
     */
-  def getFeaturedProjects(onlyEnabled: Boolean, limit: Int, offset: Int): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.dal.getFeaturedProjects(onlyEnabled, limit, offset)))
+  def getFeaturedProjects(onlyEnabled: Boolean, limit: Int, offset: Int): Action[AnyContent] =
+    Action.async { implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        Ok(Json.toJson(this.dal.getFeaturedProjects(onlyEnabled, limit, offset)))
+      }
     }
-  }
 
   /**
     * Gets a random task that is an descendant of the project.
@@ -131,39 +158,51 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of Tasks that match the supplied filters
     */
-  def getRandomTasks(projectId: Long, limit: Int, proximityId: Long): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      SearchParameters.withSearch { params =>
-        params.copy(projectIds = Some(List(projectId)))
-        val result = this.taskDAL.getRandomTasks(User.userOrMocked(user), params, limit, None, Utils.negativeToOption(proximityId))
-        result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
-        Ok(Json.toJson(result))
+  def getRandomTasks(projectId: Long, limit: Int, proximityId: Long): Action[AnyContent] =
+    Action.async { implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        SearchParameters.withSearch { params =>
+          params.copy(projectIds = Some(List(projectId)))
+          val result = this.taskDAL.getRandomTasks(
+            User.userOrMocked(user),
+            params,
+            limit,
+            None,
+            Utils.negativeToOption(proximityId)
+          )
+          result.foreach(task =>
+            this.actionManager
+              .setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), "")
+          )
+          Ok(Json.toJson(result))
+        }
       }
     }
+
+  def getSearchedClusteredPoints(searchCookie: String): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        SearchParameters.withSearch { params =>
+          Ok(Json.toJson(this.dal.getSearchedClusteredPoints(params)))
+        }
+      }
   }
 
-  def getSearchedClusteredPoints(searchCookie: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      SearchParameters.withSearch { params =>
-        Ok(Json.toJson(this.dal.getSearchedClusteredPoints(params)))
+  def getClusteredPoints(projectId: Long, challengeIds: String): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        val pid = if (projectId < 0) {
+          None
+        } else {
+          Some(projectId)
+        }
+        val cids = if (StringUtils.isEmpty(challengeIds)) {
+          List.empty
+        } else {
+          Utils.split(challengeIds).map(_.toLong)
+        }
+        Ok(Json.toJson(this.dal.getClusteredPoints(pid, cids)))
       }
-    }
-  }
-
-  def getClusteredPoints(projectId: Long, challengeIds: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      val pid = if (projectId < 0) {
-        None
-      } else {
-        Some(projectId)
-      }
-      val cids = if (StringUtils.isEmpty(challengeIds)) {
-        List.empty
-      } else {
-        Utils.split(challengeIds).map(_.toLong)
-      }
-      Ok(Json.toJson(this.dal.getClusteredPoints(pid, cids)))
-    }
   }
 
   /**
@@ -172,9 +211,14 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     * @param projectId The id of the challenge
     * @return A list of comments that exist for a specific challenge
     */
-  def retrieveComments(projectId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.commentDAL.retrieveComments(List(projectId), List.empty, List.empty, limit, page)))
-    }
+  def retrieveComments(projectId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        Ok(
+          Json.toJson(
+            this.commentDAL.retrieveComments(List(projectId), List.empty, List.empty, limit, page)
+          )
+        )
+      }
   }
 }

@@ -60,12 +60,12 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
               // if you provide the ID in the post method we will send you to the update path
               this.internalUpdate(request.body, user)(element.id.toString, -1) match {
                 case Some(value) => Ok(this.inject(value))
-                case None => NotModified
+                case None        => NotModified
               }
             } else {
               this.internalCreate(request.body, element, user) match {
                 case Some(value) => Created(this.inject(value))
-                case None => NotModified
+                case None        => NotModified
               }
             }
           }
@@ -84,7 +84,8 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     */
   def updateCreateBody(body: JsValue, user: User): JsValue = {
     var jsonBody = Utils.insertJsonID(body)
-    jsonBody = Utils.insertIntoJson(jsonBody, "created", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
+    jsonBody =
+      Utils.insertIntoJson(jsonBody, "created", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
     Utils.insertIntoJson(jsonBody, "modified", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
   }
 
@@ -99,11 +100,18 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param user        The user that is executing this request
     * @return The createdObject (not any of it's children if creating multiple objects, only top level)
     */
-  def internalCreate(requestBody: JsValue, element: T, user: User)(implicit c: Option[Connection] = None): Option[T] = {
+  def internalCreate(requestBody: JsValue, element: T, user: User)(
+      implicit c: Option[Connection] = None
+  ): Option[T] = {
     this.dal.mergeUpdate(element, user)(element.id) match {
       case Some(created) =>
         this.extractAndCreate(requestBody, created, user)
-        this.actionManager.setAction(Some(user), this.itemType.convertToItem(created.id), ActionCreated(), "")
+        this.actionManager.setAction(
+          Some(user),
+          this.itemType.convertToItem(created.id),
+          ActionCreated(),
+          ""
+        )
         Some(created)
       case None => None
     }
@@ -118,7 +126,9 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param createdObject The object that was created by the create function
     * @param user          The user that is executing the function
     */
-  def extractAndCreate(body: JsValue, createdObject: T, user: User)(implicit c: Option[Connection] = None): Unit = {}
+  def extractAndCreate(body: JsValue, createdObject: T, user: User)(
+      implicit c: Option[Connection] = None
+  ): Unit = {}
 
   /**
     * The function that does the actual update of the object, it will pass of the updatedObject to
@@ -129,7 +139,10 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param id          The id of the object being updated
     * @return The object that was updated, None if it was not updated.
     */
-  def internalUpdate(requestBody: JsValue, user: User)(implicit id: String, parentId: Long, c: Option[Connection] = None): Option[T] = {
+  def internalUpdate(
+      requestBody: JsValue,
+      user: User
+  )(implicit id: String, parentId: Long, c: Option[Connection] = None): Option[T] = {
     val updatedObject = if (Utils.isDigit(id)) {
       this.dal.update(requestBody, user)(id.toLong)
     } else {
@@ -137,7 +150,8 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     }
     this.extractAndUpdate(requestBody, updatedObject, user)
     updatedObject match {
-      case Some(obj) => this.actionManager.setAction(Some(user), this.itemType.convertToItem(obj.id), Updated(), "")
+      case Some(obj) =>
+        this.actionManager.setAction(Some(user), this.itemType.convertToItem(obj.id), Updated(), "")
       case None => //ignore
     }
     updatedObject
@@ -154,7 +168,7 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
   def extractAndUpdate(body: JsValue, updatedObject: Option[T], user: User): Unit = {
     updatedObject match {
       case Some(updated) => this.extractAndCreate(body, updated, user)
-      case None => // ignore
+      case None          => // ignore
     }
   }
 
@@ -166,19 +180,20 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param id The id for the object
     * @return 200 OK with the updated object, 304 NotModified if not updated
     */
-  def update(implicit id: Long): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      try {
-        this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
-          case Some(value) => Ok(this.inject(value))
-          case None => throw new NotFoundException(s"No object found with id [$id]")
+  def update(implicit id: Long): Action[JsValue] = Action.async(bodyParsers.json) {
+    implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        try {
+          this.internalUpdate(updateUpdateBody(request.body, user), user)(id.toString, -1) match {
+            case Some(value) => Ok(this.inject(value))
+            case None        => throw new NotFoundException(s"No object found with id [$id]")
+          }
+        } catch {
+          case e: JsonMappingException =>
+            logger.error(e.getMessage, e)
+            BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
         }
-      } catch {
-        case e: JsonMappingException =>
-          logger.error(e.getMessage, e)
-          BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
       }
-    }
   }
 
   /**
@@ -201,7 +216,7 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveById match {
         case Some(value) => Ok(this.inject(value))
-        case None => NotFound
+        case None        => NotFound
       }
     }
   }
@@ -218,7 +233,7 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     this.sessionManager.userAwareRequest { implicit user =>
       this.dal.retrieveByName(name, id) match {
         case Some(value) => Ok(this.inject(value))
-        case None => NotFound
+        case None        => NotFound
       }
     }
   }
@@ -234,11 +249,16 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
   def delete(id: Long, immediate: Boolean): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       this.dal.delete(id.toLong, user, immediate)
-      this.actionManager.setAction(Some(user), this.itemType.convertToItem(id.toLong), Deleted(), "")
+      this.actionManager
+        .setAction(Some(user), this.itemType.convertToItem(id.toLong), Deleted(), "")
       val message = if (immediate) {
-        JsString(s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}.")
+        JsString(
+          s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id deleted by user ${user.id}."
+        )
       } else {
-        JsString(s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id set for delayed deletion by user ${user.id}.")
+        JsString(
+          s"${Actions.getTypeName(this.itemType.typeId).getOrElse("Unknown Object")} $id set for delayed deletion by user ${user.id}."
+        )
       }
       Ok(Json.toJson(StatusMessage("OK", message)))
     }
@@ -256,16 +276,20 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param offset For paging, if limit is 10, total 100, then offset 1 will return items 11 - 20
     * @return A list of requested objects
     */
-  def list(limit: Int, offset: Int, onlyEnabled: Boolean): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      val result = this.dal.list(limit, offset, onlyEnabled)
-      this.itemType match {
-        case it: TaskType if user.isDefined =>
-          result.foreach(task => this.actionManager.setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), ""))
-        case _ => //ignore, only update view actions if it is a task type
+  def list(limit: Int, offset: Int, onlyEnabled: Boolean): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        val result = this.dal.list(limit, offset, onlyEnabled)
+        this.itemType match {
+          case it: TaskType if user.isDefined =>
+            result.foreach(task =>
+              this.actionManager
+                .setAction(user, this.itemType.convertToItem(task.id), TaskViewed(), "")
+            )
+          case _ => //ignore, only update view actions if it is a task type
+        }
+        Ok(Json.toJson(result.map(this.inject)))
       }
-      Ok(Json.toJson(result.map(this.inject)))
-    }
   }
 
   /**
@@ -293,18 +317,21 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param update Whether to update any objects found matching in the database
     * @return 200 OK basic message saying all items where uploaded
     */
-  def batchUpload(update: Boolean): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      request.body.validate[List[JsValue]].fold(
-        errors => {
-          BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
-        },
-        items => {
-          this.internalBatchUpload(request.body, items, user, update)
-          Ok(Json.toJson(StatusMessage("OK", JsString("Items created and updated"))))
-        }
-      )
-    }
+  def batchUpload(update: Boolean): Action[JsValue] = Action.async(bodyParsers.json) {
+    implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        request.body
+          .validate[List[JsValue]]
+          .fold(
+            errors => {
+              BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+            },
+            items => {
+              this.internalBatchUpload(request.body, items, user, update)
+              Ok(Json.toJson(StatusMessage("OK", JsString("Items created and updated"))))
+            }
+          )
+      }
   }
 
   /**
@@ -315,17 +342,28 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param user        The user executing the request
     * @param update      Whether to update the object if a matching object is found, if false will simply do nothing
     */
-  def internalBatchUpload(requestBody: JsValue, arr: List[JsValue], user: User, update: Boolean = false): Unit = {
+  def internalBatchUpload(
+      requestBody: JsValue,
+      arr: List[JsValue],
+      user: User,
+      update: Boolean = false
+  ): Unit = {
     this.dal.getDatabase.withTransaction { implicit c =>
       Metrics.timer("BatchUpload LOOP") { () =>
-        arr.foreach(element => (element \ "id").asOpt[String] match {
-          case Some(itemID) => if (update) this.internalUpdate(element, user)(itemID, -1)
-          case None =>
-            this.updateCreateBody(element, user).validate[T].fold(
-              errors => logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
-              validT => this.internalCreate(element, validT, user)
-            )
-        })
+        arr.foreach(element =>
+          (element \ "id").asOpt[String] match {
+            case Some(itemID) => if (update) this.internalUpdate(element, user)(itemID, -1)
+            case None =>
+              this
+                .updateCreateBody(element, user)
+                .validate[T]
+                .fold(
+                  errors =>
+                    logger.warn(s"Invalid json for type: ${JsError.toJson(errors).toString}"),
+                  validT => this.internalCreate(element, validT, user)
+                )
+          }
+        )
       }
     }
   }
@@ -347,9 +385,21 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     * @param onlyEnabled only enabled objects if true
     * @return A list of the requested items in JSON format
     */
-  def find(search: String, parentId: Long, limit: Int, offset: Int, onlyEnabled: Boolean): Action[AnyContent] = Action.async { implicit request =>
+  def find(
+      search: String,
+      parentId: Long,
+      limit: Int,
+      offset: Int,
+      onlyEnabled: Boolean
+  ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
-      Ok(Json.toJson(this.dal.find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId).map(this.inject)))
+      Ok(
+        Json.toJson(
+          this.dal
+            .find(search, limit, offset, onlyEnabled, "name", "DESC")(parentId)
+            .map(this.inject)
+        )
+      )
     }
   }
 }
