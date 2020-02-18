@@ -9,17 +9,17 @@ import org.maproulette.session.{Group, User}
   */
 trait Readers extends ChallengeReads {
   // User Readers
-  implicit val tokenReads = User.tokenReads
-  implicit val settingsReads = User.settingsReads
+  implicit val tokenReads     = User.tokenReads
+  implicit val settingsReads  = User.settingsReads
   implicit val userGroupReads = User.userGroupReads
-  implicit val locationReads = User.locationReads
-  implicit val osmReads = User.osmReads
+  implicit val locationReads  = User.locationReads
+  implicit val osmReads       = User.osmReads
   // Group Readers
   implicit val groupReads = Group.groupReads
   // Challenge Readers
   implicit val answerReads = Challenge.answerReads
   // Point Readers
-  implicit val pointReads = ClusteredPoint.pointReads
+  implicit val pointReads          = ClusteredPoint.pointReads
   implicit val clusteredPointReads = ClusteredPoint.clusteredPointReads
   // Comment Readers
   implicit val commentReads = Comment.commentReads
@@ -28,12 +28,13 @@ trait Readers extends ChallengeReads {
   // Tag Readers
   implicit val tagReads = Tag.tagReads
   // Task Readers
-  implicit val taskReads = Task.TaskFormat
-  implicit val taskClusterReads = TaskCluster.taskClusterReads
-  implicit val taskLogEntryReads = TaskLogEntry.taskLogEntryReads
-  implicit val taskReviewReads = TaskReview.reviewReads
+  implicit val taskReads           = Task.TaskFormat
+  implicit val taskClusterReads    = TaskCluster.taskClusterReads
+  implicit val taskLogEntryReads   = TaskLogEntry.taskLogEntryReads
+  implicit val taskReviewReads     = TaskReview.reviewReads
   implicit val taskWithReviewReads = TaskWithReview.taskWithReviewReads
   // UserNotification Readers
   implicit val userNotificationReads = UserNotification.notificationReads
-  implicit val userNotificationSubscriptionsReads = NotificationSubscriptions.notificationSubscriptionReads
+  implicit val userNotificationSubscriptionsReads =
+    NotificationSubscriptions.notificationSubscriptionReads
 }

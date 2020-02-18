@@ -15,11 +15,13 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Application @Inject()(components: ControllerComponents,
-                            sessionManager: SessionManager,
-                            dalManager: DALManager,
-                            @Named("scheduler-actor") schedulerActor: ActorRef
-                           ) extends AbstractController(components) with StatusMessages {
+class Application @Inject() (
+    components: ControllerComponents,
+    sessionManager: SessionManager,
+    dalManager: DALManager,
+    @Named("scheduler-actor") schedulerActor: ActorRef
+) extends AbstractController(components)
+    with StatusMessages {
   def untrail(path: String): Action[AnyContent] = Action {
     MovedPermanently(s"/$path")
   }

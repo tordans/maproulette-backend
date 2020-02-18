@@ -20,10 +20,14 @@ import play.api.db.Database
   * @author mcuthbert
   */
 @Singleton
-class TaskBundleDAL @Inject()(val db:Database,
-                              permission: Permission,
-                              taskDAL: TaskDAL,
-                              challengeDAL: ChallengeDAL) extends DALHelper with TransactionManager with Locking[Task] {
+class TaskBundleDAL @Inject() (
+    val db: Database,
+    permission: Permission,
+    taskDAL: TaskDAL,
+    challengeDAL: ChallengeDAL
+) extends DALHelper
+    with TransactionManager
+    with Locking[Task] {
   protected val logger = LoggerFactory.getLogger(this.getClass)
 
   /**
@@ -34,7 +38,9 @@ class TaskBundleDAL @Inject()(val db:Database,
     * @param name    The name of the task bundle
     * @param taskIds The tasks to be added to the bundle
     */
-  def createTaskBundle(user: User, name: String, taskIds: List[Long])(implicit c: Connection = null): TaskBundle = {
+  def createTaskBundle(user: User, name: String, taskIds: List[Long])(
+      implicit c: Connection = null
+  ): TaskBundle = {
     this.withMRTransaction { implicit c =>
       val lockedTasks = this.withListLocking(user, Some(TaskType())) { () =>
         this.taskDAL.retrieveListById(-1, 0)(taskIds)
@@ -56,15 +62,19 @@ class TaskBundleDAL @Inject()(val db:Database,
           throw new InvalidException("All tasks in the bundle must be part of the same challenge.")
         }
         if (task.bundleId.isDefined) {
-          throw new InvalidException("Task " + task.id + " already assigned to bundle: " +
-            task.bundleId.getOrElse("") + ".")
+          throw new InvalidException(
+            "Task " + task.id + " already assigned to bundle: " +
+              task.bundleId.getOrElse("") + "."
+          )
         }
       }
 
-      val rowId = SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
+      val rowId =
+        SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
       rowId match {
         case Some(bundleId) =>
-          val sqlQuery = s"""INSERT INTO task_bundles (task_id, bundle_id) VALUES ({taskId}, $bundleId)"""
+          val sqlQuery =
+            s"""INSERT INTO task_bundles (task_id, bundle_id) VALUES ({taskId}, $bundleId)"""
           val parameters = lockedTasks.map(task => {
             Seq[NamedParameter]("taskId" -> task.id)
           })
@@ -83,20 +93,27 @@ class TaskBundleDAL @Inject()(val db:Database,
     *
     * @param bundleId The id of the bundle
     */
-  def unbundleTasks(user: User, bundleId: Long, taskIds: List[Long])(implicit c: Connection = null): TaskBundle = {
+  def unbundleTasks(user: User, bundleId: Long, taskIds: List[Long])(
+      implicit c: Connection = null
+  ): TaskBundle = {
     this.withMRConnection { implicit c =>
       val bundle = this.getTaskBundle(user, bundleId)
       if (!user.isSuperUser && bundle.ownerId != user.id) {
-        throw new IllegalAccessException("Only a super user or the original user can delete this bundle.")
+        throw new IllegalAccessException(
+          "Only a super user or the original user can delete this bundle."
+        )
       }
 
       // Unset any bundle_id on individual tasks (this is set when task is completed)
-      SQL(
-        s"""UPDATE tasks SET bundle_id = NULL
+      SQL(s"""UPDATE tasks SET bundle_id = NULL
               WHERE bundle_id = {bundleId}
               AND (is_bundle_primary != true OR is_bundle_primary is NULL)
-              AND id IN ({inList})""").on(Symbol("bundleId") -> bundleId,
-        Symbol("inList") -> ToParameterValue.apply[List[Long]].apply(taskIds)).executeUpdate()
+              AND id IN ({inList})""")
+        .on(
+          Symbol("bundleId") -> bundleId,
+          Symbol("inList")   -> ToParameterValue.apply[List[Long]].apply(taskIds)
+        )
+        .executeUpdate()
 
       // Remove task from bundle join table.
       val tasks = this.getTaskBundle(user, bundleId).tasks match {
@@ -105,8 +122,7 @@ class TaskBundleDAL @Inject()(val db:Database,
             if (!task.isBundlePrimary.getOrElse(false)) {
               taskIds.find(id => id == task.id) match {
                 case Some(_) =>
-                  SQL(
-                    s"""DELETE FROM task_bundles
+                  SQL(s"""DELETE FROM task_bundles
                           WHERE bundle_id = ${bundleId} AND task_id = ${task.id}""").executeUpdate()
 
                   try {
@@ -130,16 +146,20 @@ class TaskBundleDAL @Inject()(val db:Database,
     *
     * @param bundleId The id of the bundle
     */
-  def deleteTaskBundle(user: User, bundleId: Long, primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Unit = {
+  def deleteTaskBundle(user: User, bundleId: Long, primaryTaskId: Option[Long] = None)(
+      implicit c: Connection = null
+  ): Unit = {
     this.withMRConnection { implicit c =>
       val bundle = this.getTaskBundle(user, bundleId)
       if (!user.isSuperUser && bundle.ownerId != user.id) {
         val challengeId = bundle.tasks.getOrElse(List()).head.parent
-        val challenge = this.challengeDAL.retrieveById(challengeId)
+        val challenge   = this.challengeDAL.retrieveById(challengeId)
         this.permission.hasObjectWriteAccess(challenge.get, user)
       }
 
-      SQL("UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}").on(Symbol("bundleId") -> bundleId).executeUpdate()
+      SQL(
+        "UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}"
+      ).on(Symbol("bundleId") -> bundleId).executeUpdate()
 
       if (primaryTaskId != None) {
         // unlock tasks (everything but the primary task id)
@@ -158,7 +178,9 @@ class TaskBundleDAL @Inject()(val db:Database,
         }
       }
 
-      SQL("DELETE FROM bundles WHERE id = {bundleId}").on(Symbol("bundleId") -> bundleId).executeUpdate()
+      SQL("DELETE FROM bundles WHERE id = {bundleId}")
+        .on(Symbol("bundleId") -> bundleId)
+        .executeUpdate()
     }
   }
 

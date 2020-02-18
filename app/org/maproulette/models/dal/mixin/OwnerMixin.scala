@@ -20,7 +20,9 @@ trait OwnerMixin[T <: BaseObject[_]] {
     * @param newUserId The new users id
     * @param user      The user making the request
     */
-  def changeOwner(objectId: Long, newUserId: Long, user: User)(implicit c: Option[Connection] = None): Unit = {
+  def changeOwner(objectId: Long, newUserId: Long, user: User)(
+      implicit c: Option[Connection] = None
+  ): Unit = {
     // for now only super users can change the owners
     this.permission.hasSuperAccess(user)
     this.withMRConnection { implicit c =>

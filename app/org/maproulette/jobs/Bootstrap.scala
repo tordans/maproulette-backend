@@ -15,7 +15,7 @@ import scala.concurrent.Future
   * @author mcuthbert
   */
 @Singleton
-class Bootstrap @Inject()(appLifeCycle: ApplicationLifecycle, db: Database, config: Config) {
+class Bootstrap @Inject() (appLifeCycle: ApplicationLifecycle, db: Database, config: Config) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -29,13 +29,19 @@ class Bootstrap @Inject()(appLifeCycle: ApplicationLifecycle, db: Database, conf
         // make sure all the super user id's are in the super user group
         config.superAccounts.headOption match {
           case Some("*") =>
-            logger.info("WARNING: Configuration is setting all users to super users. Make sure this is what you want.")
-            SQL"""INSERT INTO user_groups (group_id, osm_user_id) (SELECT -999 AS group_id, osm_id FROM users WHERE NOT osm_id = -999)""".executeUpdate()
+            logger.info(
+              "WARNING: Configuration is setting all users to super users. Make sure this is what you want."
+            )
+            SQL"""INSERT INTO user_groups (group_id, osm_user_id) (SELECT -999 AS group_id, osm_id FROM users WHERE NOT osm_id = -999)"""
+              .executeUpdate()
           case Some("") =>
-            logger.info("WARNING: Configuration has NO super users. Make sure this is what you want.")
+            logger.info(
+              "WARNING: Configuration has NO super users. Make sure this is what you want."
+            )
           case _ =>
             val inserts = config.superAccounts.map(s => s"(-999, $s)").mkString(",")
-            SQL"""INSERT INTO user_groups (group_id, osm_user_id) VALUES #$inserts""".executeUpdate()
+            SQL"""INSERT INTO user_groups (group_id, osm_user_id) VALUES #$inserts"""
+              .executeUpdate()
         }
       }
     }

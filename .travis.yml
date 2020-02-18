@@ -3,5 +3,5 @@ language: scala
 jdk: openjdk11
 
 script:
-  - sbt clean compile test
+  - sbt clean scalafmtCheckAll compile test
 

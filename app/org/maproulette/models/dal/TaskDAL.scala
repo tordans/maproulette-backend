@@ -41,18 +41,23 @@ import scala.xml.XML
   * @author cuthbertm
   */
 @Singleton
-class TaskDAL @Inject()(override val db: Database,
-                        override val tagDAL: TagDAL,
-                        override val permission: Permission,
-                        config: Config,
-                        dalManager: Provider[DALManager],
-                        webSocketProvider: WebSocketProvider,
-                        ws: WSClient)
-  extends BaseDAL[Long, Task] with TagDALMixin[Task] with Locking[Task] with SearchParametersMixin {
+class TaskDAL @Inject() (
+    override val db: Database,
+    override val tagDAL: TagDAL,
+    override val permission: Permission,
+    config: Config,
+    dalManager: Provider[DALManager],
+    webSocketProvider: WebSocketProvider,
+    ws: WSClient
+) extends BaseDAL[Long, Task]
+    with TagDALMixin[Task]
+    with Locking[Task]
+    with SearchParametersMixin {
 
   import scala.concurrent.ExecutionContext.Implicits.global
   // The cache manager for that tasks
-  override val cacheManager = new CacheManager[Long, Task](config, Config.CACHE_ID_TASKS)(taskReads, taskReads)
+  override val cacheManager =
+    new CacheManager[Long, Task](config, Config.CACHE_ID_TASKS)(taskReads, taskReads)
   // The database table name for the tasks
   override val tableName: String = "tasks"
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
@@ -76,7 +81,11 @@ class TaskDAL @Inject()(override val db: Database,
     * @param name The name you are looking up by
     * @return The object that you are looking up, None if not found
     */
-  override def retrieveByName(implicit name: String, parentId: Long = (-1), c: Option[Connection] = None): Option[Task] = {
+  override def retrieveByName(
+      implicit name: String,
+      parentId: Long = (-1),
+      c: Option[Connection] = None
+  ): Option[Task] = {
     this.cacheManager.withOptionCaching { () =>
       this.withMRConnection { implicit c =>
         val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
@@ -112,15 +121,36 @@ class TaskDAL @Inject()(override val db: Database,
       get[Option[Long]]("tasks.bundle_id") ~
       get[Option[Boolean]]("tasks.is_bundle_primary") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-        suggested_fix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-        reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ responses ~
-        bundleId ~ isBundlePrimary =>
-
+            suggested_fix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
+            reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ responses ~
+            bundleId ~ isBundlePrimary =>
         val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
-        Task(id, name, created, modified, parent_id, instruction, values._2,
-          values._1, values._3, status, mappedOn,
-          TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-            reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary)
+        Task(
+          id,
+          name,
+          created,
+          modified,
+          parent_id,
+          instruction,
+          values._2,
+          values._1,
+          values._3,
+          status,
+          mappedOn,
+          TaskReviewFields(
+            reviewStatus,
+            reviewRequestedBy,
+            reviewedBy,
+            reviewedAt,
+            reviewStartedAt,
+            reviewClaimedBy
+          ),
+          priority,
+          changesetId,
+          responses,
+          bundleId,
+          isBundlePrimary
+        )
     }
   }
 
@@ -132,7 +162,9 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj: Either[Long, Task], user: User)(implicit c: Option[Connection] = None): Option[Project] = {
+  override def retrieveRootObject(obj: Either[Long, Task], user: User)(
+      implicit c: Option[Connection] = None
+  ): Option[Project] = {
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(TaskType(), user)(id)
@@ -170,7 +202,7 @@ class TaskDAL @Inject()(override val db: Database,
   override def insert(task: Task, user: User)(implicit c: Option[Connection] = None): Task = {
     this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
-      case None => throw new Exception("Unknown failure occurred while creating new task.")
+      case None    => throw new Exception("Unknown failure occurred while creating new task.")
     }
   }
 
@@ -182,71 +214,84 @@ class TaskDAL @Inject()(override val db: Database,
     * @param id    The id of the object that you are updating
     * @return An optional object, it will return None if no object found with a matching id that was supplied
     */
-  override def update(value: JsValue, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+  override def update(
+      value: JsValue,
+      user: User
+  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      val name = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
       val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-      val instruction = (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+      val instruction =
+        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
       // status should probably not be allowed to be set through the update function, and rather
       // it should be forced to use the setTaskStatus function
       val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
       if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
-        allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
-        throw new InvalidException(s"Could not set status for task [$id], " +
-          s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid.")
+          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
+        throw new InvalidException(
+          s"Could not set status for task [$id], " +
+            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
+        )
       }
-      val priority = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
-      val geometries = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
+      val priority               = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
+      val geometries             = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
       val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
-      val changesetId = (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
+      val changesetId =
+        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
 
       val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
         case m: JsUndefined => cachedItem.mappedOn
-        case m => m.asOpt[DateTime]
+        case m              => m.asOpt[DateTime]
       }
 
       val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
         case r: JsUndefined => cachedItem.review.reviewStatus
-        case r => r.asOpt[Int]
+        case r              => r.asOpt[Int]
       }
 
       val reviewRequestedBy = (value \ "reviewRequestedBy") match {
         case r: JsUndefined => cachedItem.review.reviewRequestedBy
-        case r => r.asOpt[Long]
+        case r              => r.asOpt[Long]
       }
 
       val reviewedBy = (value \ "reviewedBy") match {
         case r: JsUndefined => cachedItem.review.reviewedBy
-        case r => r.asOpt[Long]
+        case r              => r.asOpt[Long]
       }
 
       val reviewedAt = (value \ "reviewedAt") match {
         case r: JsUndefined => cachedItem.review.reviewedAt
-        case r => r.asOpt[DateTime]
+        case r              => r.asOpt[DateTime]
       }
 
-      val task = this.mergeUpdate(cachedItem.copy(name = name,
-        parent = parentId,
-        instruction = Some(instruction),
-        status = Some(status),
-        mappedOn = mappedOn,
-        review = cachedItem.review.copy(reviewStatus = reviewStatus,
-          reviewRequestedBy = reviewRequestedBy,
-          reviewedBy = reviewedBy,
-          reviewedAt = reviewedAt),
-        geometries = geometries,
-        suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
-          None
-        } else {
-          Some(suggestedFixGeometries)
-        },
-        priority = priority,
-        changesetId = Some(changesetId)), user)
+      val task = this.mergeUpdate(
+        cachedItem.copy(
+          name = name,
+          parent = parentId,
+          instruction = Some(instruction),
+          status = Some(status),
+          mappedOn = mappedOn,
+          review = cachedItem.review.copy(
+            reviewStatus = reviewStatus,
+            reviewRequestedBy = reviewRequestedBy,
+            reviewedBy = reviewedBy,
+            reviewedAt = reviewedAt
+          ),
+          geometries = geometries,
+          suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
+            None
+          } else {
+            Some(suggestedFixGeometries)
+          },
+          priority = priority,
+          changesetId = Some(changesetId)
+        ),
+        user
+      )
 
       if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
         this.manager.challenge.updateReadyStatus()(parentId)
-      }
-      else {
+      } else {
         this.manager.challenge.updateFinishedStatus()(parentId)
       }
 
@@ -287,22 +332,29 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c       A connection to execute against
     * @return
     */
-  override def mergeUpdate(element: Task, user: User)(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+  override def mergeUpdate(
+      element: Task,
+      user: User
+  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
     this.permission.hasObjectWriteAccess(element, user)
     // get the parent challenge, as we need the priority information
     val parentChallenge = this.manager.challenge.retrieveById(element.parent) match {
       case Some(c) => c
-      case None => throw new NotFoundException(s"No parent was found for task with parentId [${element.parent}, this should never happen.")
+      case None =>
+        throw new NotFoundException(
+          s"No parent was found for task with parentId [${element.parent}, this should never happen."
+        )
     }
     // before clearing the cache grab the cachedItem
     // by setting the delete implicit to true we clear out the cache for the element
     // The cachedItem could be
-    val cachedItem = this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      Some(cachedItem)
+    val cachedItem = this.cacheManager.withUpdatingCache(Long => retrieveById) {
+      implicit cachedItem =>
+        Some(cachedItem)
     }(id, true, true)
     this.withMRTransaction { implicit c =>
-      val result = extractSuggestedFix(element.parent, element.geometries, element.suggestedFix)
-      val geometries = result._1
+      val result       = extractSuggestedFix(element.parent, element.geometries, element.suggestedFix)
+      val geometries   = result._1
       var suggestedFix = result._2
 
       val query =
@@ -311,23 +363,59 @@ class TaskDAL @Inject()(override val db: Database,
                     {reset}, {mappedOn}, {reviewStatus}, CAST({reviewRequestedBy} AS INTEGER),
                     CAST({reviewedBy} AS INTEGER), {reviewedAt})"""
 
-      val updatedTaskId = SQL(query).on(
-        NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
-        NamedParameter("parentId", ToParameterValue.apply[Long].apply(element.parent)),
-        NamedParameter("instruction", ToParameterValue.apply[String].apply(element.instruction.getOrElse(""))),
-        NamedParameter("status", ToParameterValue.apply[Int].apply(element.status.getOrElse(Task.STATUS_CREATED))),
-        NamedParameter("geojson", ToParameterValue.apply[String].apply(geometries)),
-        NamedParameter("suggestedFixGeoJson", ToParameterValue.apply[String].apply(suggestedFix.orNull)),
-        NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
-        NamedParameter("priority", ToParameterValue.apply[Int].apply(element.getTaskPriority(parentChallenge))),
-        NamedParameter("changesetId", ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))),
-        NamedParameter("reset", ToParameterValue.apply[String].apply(s"${config.taskReset} days")),
-        NamedParameter("mappedOn", ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)),
-        NamedParameter("reviewStatus", ToParameterValue.apply[Option[Int]].apply(element.review.reviewStatus)),
-        NamedParameter("reviewRequestedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewRequestedBy)),
-        NamedParameter("reviewedBy", ToParameterValue.apply[Option[Long]].apply(element.review.reviewedBy)),
-        NamedParameter("reviewedAt", ToParameterValue.apply[Option[DateTime]].apply(element.review.reviewedAt))
-      ).as(long("create_update_task").*).head
+      val updatedTaskId = SQL(query)
+        .on(
+          NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
+          NamedParameter("parentId", ToParameterValue.apply[Long].apply(element.parent)),
+          NamedParameter(
+            "instruction",
+            ToParameterValue.apply[String].apply(element.instruction.getOrElse(""))
+          ),
+          NamedParameter(
+            "status",
+            ToParameterValue.apply[Int].apply(element.status.getOrElse(Task.STATUS_CREATED))
+          ),
+          NamedParameter("geojson", ToParameterValue.apply[String].apply(geometries)),
+          NamedParameter(
+            "suggestedFixGeoJson",
+            ToParameterValue.apply[String].apply(suggestedFix.orNull)
+          ),
+          NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
+          NamedParameter(
+            "priority",
+            ToParameterValue.apply[Int].apply(element.getTaskPriority(parentChallenge))
+          ),
+          NamedParameter(
+            "changesetId",
+            ToParameterValue.apply[Long].apply(element.changesetId.getOrElse(-1L))
+          ),
+          NamedParameter(
+            "reset",
+            ToParameterValue.apply[String].apply(s"${config.taskReset} days")
+          ),
+          NamedParameter(
+            "mappedOn",
+            ToParameterValue.apply[Option[DateTime]].apply(element.mappedOn)
+          ),
+          NamedParameter(
+            "reviewStatus",
+            ToParameterValue.apply[Option[Int]].apply(element.review.reviewStatus)
+          ),
+          NamedParameter(
+            "reviewRequestedBy",
+            ToParameterValue.apply[Option[Long]].apply(element.review.reviewRequestedBy)
+          ),
+          NamedParameter(
+            "reviewedBy",
+            ToParameterValue.apply[Option[Long]].apply(element.review.reviewedBy)
+          ),
+          NamedParameter(
+            "reviewedAt",
+            ToParameterValue.apply[Option[DateTime]].apply(element.review.reviewedAt)
+          )
+        )
+        .as(long("create_update_task").*)
+        .head
 
       // If we are updating the task review back to None then we need to delete its entry in the task_review table
       cachedItem match {
@@ -349,7 +437,9 @@ class TaskDAL @Inject()(override val db: Database,
     * @param geometries   The geojson that contains the geometries/suggestedFix
     * @param suggestedFix Any top level suggested fix not embedded in geometries
     */
-  private def extractSuggestedFix(parentId: Long, geometries: String, suggestedFix: Option[String])(implicit c: Option[Connection] = None): (String, Option[String]) = {
+  private def extractSuggestedFix(parentId: Long, geometries: String, suggestedFix: Option[String])(
+      implicit c: Option[Connection] = None
+  ): (String, Option[String]) = {
     this.withMRTransaction { implicit c =>
       var suggestedFixGeoJson = suggestedFix
 
@@ -369,10 +459,16 @@ class TaskDAL @Inject()(override val db: Database,
       }
 
       val mrTransformer = (__ \ "properties" \ "maproulette").json.prune
-      val extractedGeometries = JsArray((geoJson \ "features").as[JsArray].value.map {
-        case value: JsObject => value.transform(mrTransformer).getOrElse(value)
-        case _ => // do nothing
-      }.asInstanceOf[ArrayBuffer[JsObject]])
+      val extractedGeometries = JsArray(
+        (geoJson \ "features")
+          .as[JsArray]
+          .value
+          .map {
+            case value: JsObject => value.transform(mrTransformer).getOrElse(value)
+            case _               => // do nothing
+          }
+          .asInstanceOf[ArrayBuffer[JsObject]]
+      )
 
       suggestedFixGeoJson match {
         case Some(sf) =>
@@ -398,7 +494,9 @@ class TaskDAL @Inject()(override val db: Database,
         val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
           "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
           "WHERE tasks.id = {id}"
-        SQL(query).on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id)).as(this.parser.singleOpt)
+        SQL(query)
+          .on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id))
+          .as(this.parser.singleOpt)
       }
     }
   }
@@ -412,12 +510,16 @@ class TaskDAL @Inject()(override val db: Database,
     * @param value       The JSON value for the suggested fix
     * @param c
     */
-  def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(implicit c: Option[Connection] = None): Unit = {
+  def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(
+      implicit c: Option[Connection] = None
+  ): Unit = {
     this.withMRTransaction { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       parameters += (Symbol("suggestedFix") -> Json.stringify(value))
-      sqlWithParameters(s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
-        parameters).execute()
+      sqlWithParameters(
+        s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
+        parameters
+      ).execute()
 
       SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${challengeId}").execute()
       c.commit()
@@ -438,14 +540,20 @@ class TaskDAL @Inject()(override val db: Database,
     * @param completionResponses Optional json responses provided by user to task instruction questions
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskStatus(tasks: List[Task], status: Int, user: User, requestReview: Option[Boolean] = None,
-                    completionResponses: Option[JsValue] = None, bundleId: Option[Long] = None,
-                    primaryTaskId: Option[Long] = None)(implicit c: Connection = null): Int = {
+  def setTaskStatus(
+      tasks: List[Task],
+      status: Int,
+      user: User,
+      requestReview: Option[Boolean] = None,
+      completionResponses: Option[JsValue] = None,
+      bundleId: Option[Long] = None,
+      primaryTaskId: Option[Long] = None
+  )(implicit c: Connection = null): Int = {
     if (tasks.length < 1) {
       throw new InvalidException("Must be at least one task in list to setTaskStatus.")
     }
 
-    var primaryTask = tasks.head
+    var primaryTask  = tasks.head
     var bundleUpdate = ""
 
     // Find primary task in bundle if we are using a bundle
@@ -458,8 +566,10 @@ class TaskDAL @Inject()(override val db: Database,
             case Some(p) =>
               if (task.id == p) primaryTask = task
               if (task.suggestedFix != None) {
-                throw new InvalidException("Cannot set task status as part of a bundle on task: " +
-                  task.id + " as it is a suggested fix.")
+                throw new InvalidException(
+                  "Cannot set task status as part of a bundle on task: " +
+                    task.id + " as it is a suggested fix."
+                )
               }
             case _ => // do nothing
           }
@@ -475,31 +585,34 @@ class TaskDAL @Inject()(override val db: Database,
 
     val reviewNeeded = requestReview match {
       case Some(r) => r
-      case None => user.settings.needsReview.getOrElse(config.defaultNeedsReview) != User.REVIEW_NOT_NEEDED &&
-        status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED && status != Task.STATUS_DISABLED
+      case None =>
+        user.settings.needsReview.getOrElse(config.defaultNeedsReview) != User.REVIEW_NOT_NEEDED &&
+          status != Task.STATUS_SKIPPED && status != Task.STATUS_DELETED && status != Task.STATUS_DISABLED
     }
 
     val responses = completionResponses match {
       case Some(r) => r.toString()
-      case None => null
+      case None    => null
     }
 
-    val oldStatus = primaryTask.status
+    val oldStatus   = primaryTask.status
     var updatedRows = 0
 
     this.withMRTransaction { implicit c =>
       for (task <- tasks) {
         if (task.bundleId != None && task.bundleId.get != bundleId.getOrElse(-1)) {
-          throw new InvalidException("Cannot set task status on task: " +
-            task.id + " as it is already assigned to a bundle.")
+          throw new InvalidException(
+            "Cannot set task status on task: " +
+              task.id + " as it is already assigned to a bundle."
+          )
         }
 
         // If we are 'skipping' this task and it's in some other status let's honor
         // the other status and not actually update the task status. We should only
         // note the skip by the user in the status actions and remove the lock.
         val skipStatusUpdate =
-        (primaryTask.status.getOrElse(Task.STATUS_CREATED) != Task.STATUS_CREATED &&
-          status == Task.STATUS_SKIPPED)
+          (primaryTask.status.getOrElse(Task.STATUS_CREATED) != Task.STATUS_CREATED &&
+            status == Task.STATUS_SKIPPED)
 
         if (!skipStatusUpdate) {
           updatedRows =
@@ -511,7 +624,9 @@ class TaskDAL @Inject()(override val db: Database,
                                   )""".executeUpdate()
           // if returning 0, then this is because the item is locked by a  different user
           if (updatedRows == 0) {
-            throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update status at this time.")
+            throw new IllegalAccessException(
+              s"Current task [${task.id} is locked by another user, cannot update status at this time."
+            )
           }
         }
 
@@ -530,7 +645,8 @@ class TaskDAL @Inject()(override val db: Database,
                  """.executeUpdate()
             case None =>
               SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
-                      VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})""".executeUpdate()
+                      VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})"""
+                .executeUpdate()
           }
         }
 
@@ -562,30 +678,41 @@ class TaskDAL @Inject()(override val db: Database,
           if (reviewNeeded) {
             // Let's note in the task_review_history table that this task needs review
             SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
-                  VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})""".executeUpdate()
+                  VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})"""
+              .executeUpdate()
 
             this.cacheManager.withOptionCaching { () =>
-              Some(task.copy(status = Some(status),
-                review = task.review.copy(
-                  reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
-                  reviewRequestedBy = Some(user.id)),
-                modified = new DateTime(),
-                completionResponses = completionResponses match {
-                  case Some(r) => Some(r.toString())
-                  case None => None
-                },
-                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+              Some(
+                task.copy(
+                  status = Some(status),
+                  review = task.review.copy(
+                    reviewStatus = Some(Task.REVIEW_STATUS_REQUESTED),
+                    reviewRequestedBy = Some(user.id)
+                  ),
+                  modified = new DateTime(),
+                  completionResponses = completionResponses match {
+                    case Some(r) => Some(r.toString())
+                    case None    => None
+                  },
+                  bundleId = bundleId,
+                  isBundlePrimary = Some(task.id == primaryTask.id)
+                )
+              )
             }
-          }
-          else {
+          } else {
             this.cacheManager.withOptionCaching { () =>
-              Some(task.copy(status = Some(status),
-                modified = new DateTime(),
-                completionResponses = completionResponses match {
-                  case Some(r) => Some(r.toString())
-                  case None => None
-                },
-                bundleId = bundleId, isBundlePrimary = Some(task.id == primaryTask.id)))
+              Some(
+                task.copy(
+                  status = Some(status),
+                  modified = new DateTime(),
+                  completionResponses = completionResponses match {
+                    case Some(r) => Some(r.toString())
+                    case None    => None
+                  },
+                  bundleId = bundleId,
+                  isBundlePrimary = Some(task.id == primaryTask.id)
+                )
+              )
             }
           }
 
@@ -608,7 +735,8 @@ class TaskDAL @Inject()(override val db: Database,
       // Mark the primary task id from the bundle, if any
       bundleId match {
         case Some(b) =>
-          SQL("UPDATE tasks SET is_bundle_primary = true WHERE id = " + primaryTask.id).executeUpdate()
+          SQL("UPDATE tasks SET is_bundle_primary = true WHERE id = " + primaryTask.id)
+            .executeUpdate()
         case None => // not part of a bundle
       }
     }
@@ -616,9 +744,11 @@ class TaskDAL @Inject()(override val db: Database,
     this.manager.challenge.updateFinishedStatus()(primaryTask.parent)
 
     if (reviewNeeded) {
-      webSocketProvider.sendMessage(WebSocketMessages.reviewNew(
-        WebSocketMessages.ReviewData(this.manager.taskReview.getTaskWithReview(primaryTask.id))
-      ))
+      webSocketProvider.sendMessage(
+        WebSocketMessages.reviewNew(
+          WebSocketMessages.ReviewData(this.manager.taskReview.getTaskWithReview(primaryTask.id))
+        )
+      )
     }
 
     updatedRows
@@ -631,13 +761,17 @@ class TaskDAL @Inject()(override val db: Database,
     * @param user The user making the request
     * @param c    An implicit connection
     */
-  def matchToOSMChangeSet(task: Task, user: User, immediate: Boolean = true)(implicit c: Option[Connection] = None): Future[Boolean] = {
+  def matchToOSMChangeSet(task: Task, user: User, immediate: Boolean = true)(
+      implicit c: Option[Connection] = None
+  ): Future[Boolean] = {
     val result = Promise[Boolean]
     if (config.allowMatchOSM) {
       task.status match {
         case Some(Task.STATUS_FIXED) =>
           val currentDateTimeUTC = DateTime.now(DateTimeZone.UTC)
-          val statusAction = this.manager.statusAction.getStatusActions(task, user, Some(List(Task.STATUS_FIXED))).headOption
+          val statusAction = this.manager.statusAction
+            .getStatusActions(task, user, Some(List(Task.STATUS_FIXED)))
+            .headOption
           statusAction match {
             case Some(sa) =>
               this.getSortedChangeList(sa) onComplete {
@@ -649,8 +783,9 @@ class TaskDAL @Inject()(override val db: Database,
                     if (c.hasMapRouletteComment) {
                       true
                     } else {
-                      val feature = GeoJSONFactory.create(task.geometries).asInstanceOf[FeatureCollection]
-                      val reader = new GeoJSONReader()
+                      val feature =
+                        GeoJSONFactory.create(task.geometries).asInstanceOf[FeatureCollection]
+                      val reader   = new GeoJSONReader()
                       val envelope = new Envelope()
                       feature.getFeatures.foreach(f => {
                         val current = reader.read(f.getGeometry)
@@ -663,7 +798,9 @@ class TaskDAL @Inject()(override val db: Database,
                   }) match {
                     case Some(change) =>
                       this.withMRConnection { implicit c =>
-                        SQL(s"""UPDATE tasks SET changeset_id = ${change.id} WHERE id = ${task.id}""").executeUpdate()
+                        SQL(
+                          s"""UPDATE tasks SET changeset_id = ${change.id} WHERE id = ${task.id}"""
+                        ).executeUpdate()
                       }
                       result success true
                     case None =>
@@ -671,7 +808,8 @@ class TaskDAL @Inject()(override val db: Database,
                         // if we can't find any viable option set the id to -2 so that we don't try again
                         // but only set it to -2 if the current time is 1 hour after the set time for the task
                         if (Math.abs(currentDateTimeUTC.getMillis - sa.created.getMillis) > (config.changeSetTimeLimit.toHours * 3600 * 1000)) {
-                          SQL(s"""UPDATE tasks SET changeset_id = -2 WHERE id = ${task.id}""").executeUpdate()
+                          SQL(s"""UPDATE tasks SET changeset_id = -2 WHERE id = ${task.id}""")
+                            .executeUpdate()
                         }
                       }
                       result success false
@@ -698,22 +836,31 @@ class TaskDAL @Inject()(override val db: Database,
     * @return A list of sorted changesets
     */
   private def getSortedChangeList(statusAction: StatusActionItem): Future[Seq[Changeset]] = {
-    val result = Promise[Seq[Changeset]]
-    val format = "YYYY-MM-dd'T'HH:mm:ss'Z'"
+    val result        = Promise[Seq[Changeset]]
+    val format        = "YYYY-MM-dd'T'HH:mm:ss'Z'"
     val fixedTimeDiff = statusAction.created.getMillis
-    val prevHours = statusAction.created.minusHours(config.changeSetTimeLimit.toHours.toInt).toString(format)
-    val nextHours = statusAction.created.plusHours(config.changeSetTimeLimit.toHours.toInt).toString(format)
-    ws.url(s"${config.getOSMServer}/api/0.6/changesets?user=${statusAction.osmUserId}&time=$prevHours,$nextHours")
-      .withHttpHeaders("User-Agent" -> "MapRoulette").get() onComplete {
+    val prevHours =
+      statusAction.created.minusHours(config.changeSetTimeLimit.toHours.toInt).toString(format)
+    val nextHours =
+      statusAction.created.plusHours(config.changeSetTimeLimit.toHours.toInt).toString(format)
+    ws.url(
+        s"${config.getOSMServer}/api/0.6/changesets?user=${statusAction.osmUserId}&time=$prevHours,$nextHours"
+      )
+      .withHttpHeaders("User-Agent" -> "MapRoulette")
+      .get() onComplete {
       case Success(response) =>
         if (response.status == 200) {
           val changeSetList = ChangesetParser.parse(XML.loadString(response.body)).filter(!_.open)
           val sortedList = changeSetList.sortWith((c1, c2) => {
-            Math.abs(c1.createdAt.getMillis - fixedTimeDiff) < Math.abs(c2.createdAt.getMillis - fixedTimeDiff)
+            Math.abs(c1.createdAt.getMillis - fixedTimeDiff) < Math.abs(
+              c2.createdAt.getMillis - fixedTimeDiff
+            )
           })
           result success sortedList
         } else {
-          result failure new InvalidException(s"Response failed with status ${response.status} messages ${response.statusText}")
+          result failure new InvalidException(
+            s"Response failed with status ${response.status} messages ${response.statusText}"
+          )
         }
       case Failure(error) => result failure error
     }
@@ -728,8 +875,11 @@ class TaskDAL @Inject()(override val db: Database,
     * @param statusList    the list of status' to filter by
     * @return An optional task, if no more tasks in the list will retrieve the first task
     */
-  def getNextTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
-                           (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
+  def getNextTaskInSequence(
+      parentId: Long,
+      currentTaskId: Long,
+      statusList: Option[Seq[Int]] = None
+  )(implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -744,7 +894,7 @@ class TaskDAL @Inject()(override val db: Database,
                       ORDER BY tasks.id ASC LIMIT 1"""
       val slist = statusList.getOrElse(Task.statusMap.keys.toSeq) match {
         case Nil => Task.statusMap.keys.toSeq
-        case t => t
+        case t   => t
       }
       SQL(query).on(Symbol("statusList") -> slist).as(lp.*).headOption match {
         case Some(t) => Some(t)
@@ -769,8 +919,11 @@ class TaskDAL @Inject()(override val db: Database,
     * @param statusList    the list of status' to filter by
     * @return An optional task, if no more tasks in the list will retrieve the last task
     */
-  def getPreviousTaskInSequence(parentId: Long, currentTaskId: Long, statusList: Option[Seq[Int]] = None)
-                               (implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
+  def getPreviousTaskInSequence(
+      parentId: Long,
+      currentTaskId: Long,
+      statusList: Option[Seq[Int]] = None
+  )(implicit c: Option[Connection] = None): Option[(Task, Lock)] = {
     this.withMRConnection { implicit c =>
       val lp = for {
         task <- parser
@@ -785,7 +938,7 @@ class TaskDAL @Inject()(override val db: Database,
                       ORDER BY tasks.id DESC LIMIT 1"""
       val slist = statusList.getOrElse(Task.statusMap.keys.toSeq) match {
         case Nil => Task.statusMap.keys.toSeq
-        case t => t
+        case t   => t
       }
 
       SQL(query).on(Symbol("statusList") -> slist).as(lp.*).headOption match {
@@ -803,16 +956,24 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def getRandomTasksWithPriority(user: User, params: SearchParameters, limit: Int = -1, proximityId: Option[Long] = None)
-                                (implicit c: Option[Connection] = None): List[Task] = {
-    val highPriorityTasks = Try(this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_HIGH), proximityId)) match {
+  def getRandomTasksWithPriority(
+      user: User,
+      params: SearchParameters,
+      limit: Int = -1,
+      proximityId: Option[Long] = None
+  )(implicit c: Option[Connection] = None): List[Task] = {
+    val highPriorityTasks = Try(
+      this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_HIGH), proximityId)
+    ) match {
       case Success(res) => res
-      case Failure(f) => List.empty
+      case Failure(f)   => List.empty
     }
     if (highPriorityTasks.isEmpty) {
-      val mediumPriorityTasks = Try(this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_MEDIUM), proximityId)) match {
+      val mediumPriorityTasks = Try(
+        this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_MEDIUM), proximityId)
+      ) match {
         case Success(res) => res
-        case Failure(f) => List.empty
+        case Failure(f)   => List.empty
       }
       if (mediumPriorityTasks.isEmpty) {
         this.getRandomTasks(user, params, limit, Some(Challenge.PRIORITY_LOW), proximityId)
@@ -838,9 +999,13 @@ class TaskDAL @Inject()(override val db: Database,
     * @param proximityId Id of task that you wish to find the next task based on the proximity of that task
     * @return A list of random tags matching the above criteria, an empty list if none match
     */
-  def getRandomTasks(user: User, params: SearchParameters, limit: Int = -1,
-                     priority: Option[Int] = None, proximityId: Option[Long] = None)
-                    (implicit c: Option[Connection] = None): List[Task] = {
+  def getRandomTasks(
+      user: User,
+      params: SearchParameters,
+      limit: Int = -1,
+      priority: Option[Int] = None,
+      proximityId: Option[Long] = None
+  )(implicit c: Option[Connection] = None): List[Task] = {
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
@@ -855,7 +1020,7 @@ class TaskDAL @Inject()(override val db: Database,
           LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
        """.stripMargin
 
-        val parameters = new ListBuffer[NamedParameter]()
+        val parameters   = new ListBuffer[NamedParameter]()
         val queryBuilder = new StringBuilder
         // The default where clause will check to see if the parents are enabled, that the task is
         // not locked (or if it is, it is locked by the current user) and that the status of the task
@@ -871,12 +1036,13 @@ class TaskDAL @Inject()(override val db: Database,
             }
           }
         }
-        val whereClause = new StringBuilder(
-          s"""WHERE tasks.parent_id = $challengeId AND
+        val whereClause = new StringBuilder(s"""WHERE tasks.parent_id = $challengeId AND
               (l.id IS NULL OR l.user_id = ${user.id}) AND
               tasks.status IN ({statusList})
             """)
-        parameters += (Symbol("statusList") -> ToParameterValue.apply[List[Int]].apply(taskStatusList))
+        parameters += (Symbol("statusList") -> ToParameterValue
+          .apply[List[Int]]
+          .apply(taskStatusList))
 
         // Make sure that the user doesn't see the same task multiple times in
         // the same hour. This prevents users from getting stuck at a priority
@@ -884,15 +1050,17 @@ class TaskDAL @Inject()(override val db: Database,
         // to skip, and also prevents the user from getting bounced between a
         // small number of nearby skipped tasks when loading by proximity
         // Unless a status is created then ignore this check.
-        appendInWhereClause(whereClause,
+        appendInWhereClause(
+          whereClause,
           s"""NOT (tasks.status != ${Task.STATUS_CREATED} AND tasks.id IN (
              |SELECT task_id FROM status_actions
              |WHERE osm_user_id IN (${user.osmProfile.id})
-             |  AND created >= NOW() - '1 hour'::INTERVAL))""".stripMargin)
+             |  AND created >= NOW() - '1 hour'::INTERVAL))""".stripMargin
+        )
 
         priority match {
           case Some(p) => appendInWhereClause(whereClause, s"tasks.priority = $p")
-          case None => //Ignore
+          case None    => //Ignore
         }
 
         if (taskTagIds.nonEmpty) {
@@ -935,17 +1103,20 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c      The connection to the database, will create one if not already created
     * @return The id of the random challenge
     */
-  private def getRandomChallenge(params: SearchParameters)(implicit c: Option[Connection] = None): Option[Long] = {
+  private def getRandomChallenge(
+      params: SearchParameters
+  )(implicit c: Option[Connection] = None): Option[Long] = {
     params.getChallengeIds match {
       case Some(v) if v.lengthCompare(1) == 0 => Some(v.head)
       case v =>
         withMRConnection { implicit c =>
-          val parameters = new ListBuffer[NamedParameter]()
+          val parameters  = new ListBuffer[NamedParameter]()
           val whereClause = new StringBuilder
-          val joinClause = new StringBuilder
+          val joinClause  = new StringBuilder
 
           v match {
-            case Some(l) if l.nonEmpty => appendInWhereClause(whereClause, s"c.id IN (${l.mkString(",")})")
+            case Some(l) if l.nonEmpty =>
+              appendInWhereClause(whereClause, s"c.id IN (${l.mkString(",")})")
             case None => // ignore
           }
 
@@ -960,7 +1131,10 @@ class TaskDAL @Inject()(override val db: Database,
           parameters ++= addSearchToQuery(params, whereClause)
 
           //add a where clause that just makes sure that any random challenge retrieved actually has some tasks in it
-          appendInWhereClause(whereClause, "1 = (SELECT 1 FROM tasks WHERE parent_id = c.id LIMIT 1)")
+          appendInWhereClause(
+            whereClause,
+            "1 = (SELECT 1 FROM tasks WHERE parent_id = c.id LIMIT 1)"
+          )
 
           val query =
             s"""
@@ -980,8 +1154,13 @@ class TaskDAL @Inject()(override val db: Database,
     * given challenge. Ignores tasks that are complete, locked by other users,
     * or that the current user has worked on in the last hour
     */
-  def getNearbyTasks(user: User, challengeId: Long, proximityId: Long, excludeSelfLocked: Boolean = false, limit: Int = 5)
-                    (implicit c: Option[Connection] = None): List[Task] = {
+  def getNearbyTasks(
+      user: User,
+      challengeId: Long,
+      proximityId: Long,
+      excludeSelfLocked: Boolean = false,
+      limit: Int = 5
+  )(implicit c: Option[Connection] = None): List[Task] = {
     var selfLockedClause = ""
     if (!excludeSelfLocked) {
       selfLockedClause = s"OR l.user_id = ${user.id}"
@@ -1015,7 +1194,9 @@ class TaskDAL @Inject()(override val db: Database,
     * @param c     An implicit connection to use, if not found will create a new connection
     * @return A list of users that modified the task
     */
-  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(implicit c: Option[Connection] = None): List[User] = {
+  def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(
+      implicit c: Option[Connection] = None
+  ): List[User] = {
     withMRConnection { implicit c =>
       val query =
         s"""
@@ -1031,37 +1212,57 @@ class TaskDAL @Inject()(override val db: Database,
     }
   }
 
-  def retrieveTaskSummaries(challengeIds: List[Long], limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            params: SearchParameters): (List[TaskSummary], Map[Long, String]) =
+  def retrieveTaskSummaries(
+      challengeIds: List[Long],
+      limit: Int = Config.DEFAULT_LIST_SIZE,
+      offset: Int = 0,
+      params: SearchParameters
+  ): (List[TaskSummary], Map[Long, String]) =
     db.withConnection { implicit c =>
       val parser = for {
-        taskId <- long("tasks.id")
-        parentId <- long("tasks.parent_id")
-        name <- str("tasks.name")
-        status <- int("tasks.status")
-        priority <- int("tasks.priority")
-        geojson <- get[Option[String]]("geo_json")
-        username <- get[Option[String]]("users.username")
-        mappedOn <- get[Option[DateTime]]("mapped_on")
-        reviewStatus <- get[Option[Int]]("task_review.review_status")
+        taskId            <- long("tasks.id")
+        parentId          <- long("tasks.parent_id")
+        name              <- str("tasks.name")
+        status            <- int("tasks.status")
+        priority          <- int("tasks.priority")
+        geojson           <- get[Option[String]]("geo_json")
+        username          <- get[Option[String]]("users.username")
+        mappedOn          <- get[Option[DateTime]]("mapped_on")
+        reviewStatus      <- get[Option[Int]]("task_review.review_status")
         reviewRequestedBy <- get[Option[String]]("reviewRequestedBy")
-        reviewedBy <- get[Option[String]]("reviewedBy")
-        reviewedAt <- get[Option[DateTime]]("task_review.reviewed_at")
-        reviewStartedAt <- get[Option[DateTime]]("task_review.review_started_at")
-        tags <- get[Option[String]]("tags")
-        responses <- get[Option[String]]("responses")
-        bundleId <- get[Option[Long]]("bundle_id")
-        isBundlePrimary <- get[Option[Boolean]]("is_bundle_primary")
-      } yield TaskSummary(taskId, parentId, name, status, priority, username, mappedOn,
-        reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt,
-        reviewStartedAt, tags, responses, geojson, bundleId, isBundlePrimary)
+        reviewedBy        <- get[Option[String]]("reviewedBy")
+        reviewedAt        <- get[Option[DateTime]]("task_review.reviewed_at")
+        reviewStartedAt   <- get[Option[DateTime]]("task_review.review_started_at")
+        tags              <- get[Option[String]]("tags")
+        responses         <- get[Option[String]]("responses")
+        bundleId          <- get[Option[Long]]("bundle_id")
+        isBundlePrimary   <- get[Option[Boolean]]("is_bundle_primary")
+      } yield TaskSummary(
+        taskId,
+        parentId,
+        name,
+        status,
+        priority,
+        username,
+        mappedOn,
+        reviewStatus,
+        reviewRequestedBy,
+        reviewedBy,
+        reviewedAt,
+        reviewStartedAt,
+        tags,
+        responses,
+        geojson,
+        bundleId,
+        isBundlePrimary
+      )
 
-      val filters = new StringBuilder()
+      val filters    = new StringBuilder()
       val joinClause = new StringBuilder()
       this.updateWhereClause(params, filters, joinClause)
 
       val commentParser = for {
-        taskId <- long("task_id")
+        taskId   <- long("task_id")
         comments <- str("comments")
       } yield (taskId -> comments)
 
@@ -1113,7 +1314,10 @@ class TaskDAL @Inject()(override val db: Database,
     * @param ids    The list of ids to be retrieved
     * @return A list of objects, empty list if none found
     */
-  override def retrieveListById(limit: Int = -1, offset: Int = 0)(implicit ids: List[Long], c: Option[Connection] = None): List[Task] = {
+  override def retrieveListById(
+      limit: Int = -1,
+      offset: Int = 0
+  )(implicit ids: List[Long], c: Option[Connection] = None): List[Task] = {
     if (ids.isEmpty) {
       List.empty
     } else {
@@ -1124,39 +1328,64 @@ class TaskDAL @Inject()(override val db: Database,
                 LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
                 WHERE tasks.id IN ({inString})
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on(Symbol("inString") -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
-            Symbol("offset") -> offset).as(this.parser.*)
+          SQL(query)
+            .on(
+              Symbol("inString") -> ToParameterValue
+                .apply[List[Long]](s = keyToSQL, p = keyToStatement)
+                .apply(uncachedIDs),
+              Symbol("offset") -> offset
+            )
+            .as(this.parser.*)
         }
       }
     }
   }
-
 
   /**
     * A temporary solution that will allow us to lazy update the geojson data
     *
     * @param taskId The identifier of the task
     */
-  def updateAndRetrieve(taskId: Long, geojson: Option[String], location: Option[String], suggestedfix: Option[String])
-                       (implicit c: Option[Connection] = None): (String, Option[String], Option[String]) = {
+  def updateAndRetrieve(
+      taskId: Long,
+      geojson: Option[String],
+      location: Option[String],
+      suggestedfix: Option[String]
+  )(implicit c: Option[Connection] = None): (String, Option[String], Option[String]) = {
     geojson match {
       case Some(g) => (g, location, suggestedfix)
       case None =>
         this.withMRTransaction { implicit c =>
-          SQL("SELECT * FROM update_geometry({id})").on(Symbol("id")-> ToParameterValue.apply[Long](p = keyToStatement).apply(taskId))
-            .as((str("geo") ~ get[Option[String]]("loc") ~ get[Option[String]]("fix_geo")).*).headOption match {
+          SQL("SELECT * FROM update_geometry({id})")
+            .on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(taskId))
+            .as((str("geo") ~ get[Option[String]]("loc") ~ get[Option[String]]("fix_geo")).*)
+            .headOption match {
             case Some(values) => (values._1._1, values._1._2, values._2)
-            case None => throw new Exception("Failed to retrieve task data")
+            case None         => throw new Exception("Failed to retrieve task data")
           }
         }
     }
   }
 
-  case class TaskSummary(taskId: Long, parent: Long, name: String, status: Int, priority: Int, username: Option[String],
-                         mappedOn: Option[DateTime], reviewStatus: Option[Int], reviewRequestedBy: Option[String],
-                         reviewedBy: Option[String], reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime],
-                         tags: Option[String], completionResponses: Option[String],
-                         geojson: Option[String], bundleId: Option[Long], isBundlePrimary: Option[Boolean])
+  case class TaskSummary(
+      taskId: Long,
+      parent: Long,
+      name: String,
+      status: Int,
+      priority: Int,
+      username: Option[String],
+      mappedOn: Option[DateTime],
+      reviewStatus: Option[Int],
+      reviewRequestedBy: Option[String],
+      reviewedBy: Option[String],
+      reviewedAt: Option[DateTime],
+      reviewStartedAt: Option[DateTime],
+      tags: Option[String],
+      completionResponses: Option[String],
+      geojson: Option[String],
+      bundleId: Option[Long],
+      isBundlePrimary: Option[Boolean]
+  )
 
 }
 

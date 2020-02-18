@@ -21,10 +21,13 @@ import play.api.db.Database
   * @author mcuthbert
   */
 @Singleton
-class CommentDAL @Inject()(override val db: Database,
-                           permission: Permission,
-                           notificationDAL: Provider[NotificationDAL],
-                           taskDAL: TaskDAL) extends DALHelper with TransactionManager {
+class CommentDAL @Inject() (
+    override val db: Database,
+    permission: Permission,
+    notificationDAL: Provider[NotificationDAL],
+    taskDAL: TaskDAL
+) extends DALHelper
+    with TransactionManager {
 
   val commentParser: RowParser[Comment] = {
     get[Long]("task_comments.id") ~
@@ -50,7 +53,9 @@ class CommentDAL @Inject()(override val db: Database,
     * @param c              Implicit provided optional connection
     * @return The updated comment
     */
-  def update(user: User, commentId: Long, updatedComment: String)(implicit c: Option[Connection] = None): Comment = {
+  def update(user: User, commentId: Long, updatedComment: String)(
+      implicit c: Option[Connection] = None
+  ): Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(updatedComment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -59,10 +64,13 @@ class CommentDAL @Inject()(override val db: Database,
       this.retrieve(commentId) match {
         case Some(original) =>
           if (!user.isSuperUser && original.osm_id != user.osmProfile.id) {
-            throw new IllegalAccessException("User updating the comment must be a Super user or the original user who made the comment")
+            throw new IllegalAccessException(
+              "User updating the comment must be a Super user or the original user who made the comment"
+            )
           }
           SQL("UPDATE task_comments SET comment = {comment} WHERE id = {id}")
-            .on(Symbol("comment") -> updatedComment, Symbol("id") -> commentId).executeUpdate()
+            .on(Symbol("comment") -> updatedComment, Symbol("id") -> commentId)
+            .executeUpdate()
           original.copy(comment = updatedComment)
         case None => throw new NotFoundException("Original comment does not exist")
       }
@@ -94,7 +102,9 @@ class CommentDAL @Inject()(override val db: Database,
     * @param commentId The id for the comment being deleted
     * @param c         Implicit provided optional connection
     */
-  def delete(user: User, taskId: Long, commentId: Long)(implicit c: Option[Connection] = None): Unit = {
+  def delete(user: User, taskId: Long, commentId: Long)(
+      implicit c: Option[Connection] = None
+  ): Unit = {
     withMRConnection { implicit c =>
       this.taskDAL.retrieveById(taskId) match {
         case Some(task) =>
@@ -117,8 +127,13 @@ class CommentDAL @Inject()(override val db: Database,
     * @param c               Implicit provided optional connection
     * @return The list of comments for the task
     */
-  def retrieveComments(projectIdList: List[Long], challengeIdList: List[Long], taskIdList: List[Long],
-               limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)(implicit c: Option[Connection] = None): List[Comment] = {
+  def retrieveComments(
+      projectIdList: List[Long],
+      challengeIdList: List[Long],
+      taskIdList: List[Long],
+      limit: Int = Config.DEFAULT_LIST_SIZE,
+      offset: Int = 0
+  )(implicit c: Option[Connection] = None): List[Comment] = {
     withMRConnection { implicit c =>
       val whereClause = new StringBuilder("")
       if (projectIdList.nonEmpty) {
@@ -127,7 +142,10 @@ class CommentDAL @Inject()(override val db: Database,
                          WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
                                         WHERE vp.challenge_id = tc.challenge_id))"""
 
-        this.appendInWhereClause(whereClause, s"project_id IN (${projectIdList.mkString(",")}) $vpSearch")
+        this.appendInWhereClause(
+          whereClause,
+          s"project_id IN (${projectIdList.mkString(",")}) $vpSearch"
+        )
       }
       if (challengeIdList.nonEmpty) {
         this.appendInWhereClause(whereClause, s"challenge_id IN (${challengeIdList.mkString(",")})")
@@ -157,7 +175,9 @@ class CommentDAL @Inject()(override val db: Database,
     * @param actionId the id for the action if any action associated
     * @param c        Implicit provided optional connection
     */
-  def add(user: User, task: Task, comment: String, actionId: Option[Long])(implicit c: Option[Connection] = None): Comment = {
+  def add(user: User, task: Task, comment: String, actionId: Option[Long])(
+      implicit c: Option[Connection] = None
+  ): Comment = {
     withMRConnection { implicit c =>
       if (StringUtils.isEmpty(comment)) {
         throw new InvalidException("Invalid empty string supplied.")
@@ -167,13 +187,28 @@ class CommentDAL @Inject()(override val db: Database,
            |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
            |VALUES ({osm_id}, {task_id}, {comment}, {action_id}) RETURNING id, project_id, challenge_id
          """.stripMargin
-      SQL(query).on(Symbol("osm_id") -> user.osmProfile.id,
-        Symbol("task_id") -> task.id,
-        Symbol("comment") -> comment,
-        Symbol("action_id") -> actionId).as((long("id") ~ long("project_id") ~ long("challenge_id")).*).headOption match {
+      SQL(query)
+        .on(
+          Symbol("osm_id")    -> user.osmProfile.id,
+          Symbol("task_id")   -> task.id,
+          Symbol("comment")   -> comment,
+          Symbol("action_id") -> actionId
+        )
+        .as((long("id") ~ long("project_id") ~ long("challenge_id")).*)
+        .headOption match {
         case Some(ids) =>
           val newComment =
-            Comment(ids._1._1, user.osmProfile.id, user.name, task.id, ids._1._2, ids._2, DateTime.now(), comment, actionId)
+            Comment(
+              ids._1._1,
+              user.osmProfile.id,
+              user.name,
+              task.id,
+              ids._1._2,
+              ids._2,
+              DateTime.now(),
+              comment,
+              actionId
+            )
           this.notificationDAL.get().createMentionNotifications(user, newComment, task)
           newComment
         case None => throw new Exception("Failed to add comment")

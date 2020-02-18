@@ -11,14 +11,20 @@ import scala.util.Try
 /**
   * @author mcuthbert
   */
-class RedisCache[Key, Value <: CacheObject[Key]](config: Config, prefix: String)
-                                                (implicit r: Reads[Value], w: Writes[Value])
-  extends Cache[Key, Value] with Readers with Writers {
+class RedisCache[Key, Value <: CacheObject[Key]](config: Config, prefix: String)(
+    implicit r: Reads[Value],
+    w: Writes[Value]
+) extends Cache[Key, Value]
+    with Readers
+    with Writers {
 
-  override implicit val cacheLimit: Int = config.cacheLimit
+  override implicit val cacheLimit: Int  = config.cacheLimit
   override implicit val cacheExpiry: Int = config.cacheExpiry
-  private val databaseId = Try(prefix.toInt).getOrElse(0)
-  private val pool = new RedisClientPool(config.redisHost.getOrElse("localhost"), config.redisPort.getOrElse(6379))
+  private val databaseId                 = Try(prefix.toInt).getOrElse(0)
+  private val pool = new RedisClientPool(
+    config.redisHost.getOrElse("localhost"),
+    config.redisPort.getOrElse(RedisCache.DEFAULT_REDIS_PORT)
+  )
 
   /**
     * Checks if an item is cached or not
@@ -61,16 +67,17 @@ class RedisCache[Key, Value <: CacheObject[Key]](config: Config, prefix: String)
     * @param value You can add a custom expiry to a specific element in seconds
     * @return The object put in the cache, or None if it could not be placed in the cache
     */
-  override def add(key: Key, value: Value, localExpiry: Option[Int]): Option[Value] = this.withClient { client =>
-    client.set(value.name, key.toString)
-    client.expire(value.name, this.cacheExpiry)
-    if (client.set(key.toString, serialise(key, value))) {
-      client.expire(key.toString, this.cacheExpiry)
-      Some(value)
-    } else {
-      None
+  override def add(key: Key, value: Value, localExpiry: Option[Int]): Option[Value] =
+    this.withClient { client =>
+      client.set(value.name, key.toString)
+      client.expire(value.name, this.cacheExpiry)
+      if (client.set(key.toString, serialise(key, value))) {
+        client.expire(key.toString, this.cacheExpiry)
+        Some(value)
+      } else {
+        None
+      }
     }
-  }
 
   private def serialise(key: Key, value: Value): String = {
     Json.toJson(value).toString()
@@ -92,7 +99,7 @@ class RedisCache[Key, Value <: CacheObject[Key]](config: Config, prefix: String)
   override def find(name: String): Option[Value] = this.withClient { client =>
     client.get[String](name) match {
       case Some(k) => deserialise(client.get[String](k))
-      case None => None
+      case None    => None
     }
   }
 
@@ -139,4 +146,8 @@ class RedisCache[Key, Value <: CacheObject[Key]](config: Config, prefix: String)
       body(client)
     }
   }
+}
+
+object RedisCache {
+  val DEFAULT_REDIS_PORT = 6379
 }

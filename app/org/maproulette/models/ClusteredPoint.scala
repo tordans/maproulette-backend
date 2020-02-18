@@ -12,8 +12,13 @@ import play.api.libs.json.JodaReads._
   */
 case class Point(lat: Double, lng: Double)
 
-case class PointReview(reviewStatus: Option[Int], reviewRequestedBy: Option[Long], reviewedBy: Option[Long],
-                       reviewedAt: Option[DateTime], reviewStartedAt: Option[DateTime])
+case class PointReview(
+    reviewStatus: Option[Int],
+    reviewRequestedBy: Option[Long],
+    reviewedBy: Option[Long],
+    reviewedAt: Option[DateTime],
+    reviewStartedAt: Option[DateTime]
+)
 
 /**
   * This is the clustered point that will be displayed on the map. The popup will contain the title
@@ -37,17 +42,33 @@ case class PointReview(reviewStatus: Option[Int], reviewRequestedBy: Option[Long
   * @param bundleId id of bundle task is member of, if any
   * @param isBundlePrimary whether task is primary task in bundle (if a member of a bundle)
   */
-case class ClusteredPoint(id: Long, owner: Long, ownerName: String, title: String, parentId: Long, parentName: String,
-                          point: Point, bounding: JsValue, blurb: String, modified: DateTime, difficulty: Int,
-                          `type`: Int, status: Int, suggestedFix: Option[String] = None, mappedOn: Option[DateTime],
-                          pointReview: PointReview, priority: Int,
-                          bundleId: Option[Long]=None, isBundlePrimary: Option[Boolean]=None)
+case class ClusteredPoint(
+    id: Long,
+    owner: Long,
+    ownerName: String,
+    title: String,
+    parentId: Long,
+    parentName: String,
+    point: Point,
+    bounding: JsValue,
+    blurb: String,
+    modified: DateTime,
+    difficulty: Int,
+    `type`: Int,
+    status: Int,
+    suggestedFix: Option[String] = None,
+    mappedOn: Option[DateTime],
+    pointReview: PointReview,
+    priority: Int,
+    bundleId: Option[Long] = None,
+    isBundlePrimary: Option[Boolean] = None
+)
 
 object ClusteredPoint {
-  implicit val pointWrites: Writes[Point] = Json.writes[Point]
-  implicit val pointReads: Reads[Point] = Json.reads[Point]
-  implicit val pointReviewWrites: Writes[PointReview] = Json.writes[PointReview]
-  implicit val pointReviewReads: Reads[PointReview] = Json.reads[PointReview]
+  implicit val pointWrites: Writes[Point]                   = Json.writes[Point]
+  implicit val pointReads: Reads[Point]                     = Json.reads[Point]
+  implicit val pointReviewWrites: Writes[PointReview]       = Json.writes[PointReview]
+  implicit val pointReviewReads: Reads[PointReview]         = Json.reads[PointReview]
   implicit val clusteredPointWrites: Writes[ClusteredPoint] = Json.writes[ClusteredPoint]
-  implicit val clusteredPointReads: Reads[ClusteredPoint] = Json.reads[ClusteredPoint]
+  implicit val clusteredPointReads: Reads[ClusteredPoint]   = Json.reads[ClusteredPoint]
 }

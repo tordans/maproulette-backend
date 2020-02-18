@@ -21,11 +21,12 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def emailNotification(toAddress: String, notification: UserNotificationEmail) = {
-    val notificationName = UserNotification.notificationTypeMap.get(notification.notificationType).get
+    val notificationName =
+      UserNotification.notificationTypeMap.get(notification.notificationType).get
     val emailSubject = s"New MapRoulette notification: ${notificationName}"
     val notificationDetails = notification.extra match {
       case Some(details) => s"\n${details}"
-      case None => ""
+      case None          => ""
     }
 
     val emailBody = s"""
@@ -35,7 +36,8 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
       |${notificationDetails}
       |${this.notificationFooter}""".stripMargin
 
-    val email = Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))
+    val email =
+      Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))
     mailerClient.send(email)
   }
 
@@ -45,15 +47,17 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
     )
     val notificationNameCounts = notificationNames.groupBy(identity).view.mapValues(_.size)
     val notificationLines = notificationNameCounts.foldLeft("") {
-      (s: String, pair: (String, Int)) => s + pair._1 + " (" + pair._2 + ")\n"
+      (s: String, pair: (String, Int)) =>
+        s + pair._1 + " (" + pair._2 + ")\n"
     }
     val emailSubject = s"MapRoulette Notifications Daily Digest"
-    val emailBody = s"""
+    val emailBody    = s"""
       |You have received new MapRoulette notifications over the past day:
       |
       |${notificationLines}${this.notificationFooter}""".stripMargin
 
-    val email = Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))
+    val email =
+      Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))
     mailerClient.send(email)
   }
 

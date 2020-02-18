@@ -26,14 +26,15 @@ import scala.collection.mutable.ListBuffer
   * @author krotstan
   */
 @Singleton
-class TaskReviewDAL @Inject()(override val db: Database,
-                              override val tagDAL: TagDAL,
-                              override val permission: Permission,
-                              config: Config,
-                              dalManager: Provider[DALManager],
-                              webSocketProvider: WebSocketProvider,
-                              ws: WSClient)
-  extends TaskDAL(db, tagDAL, permission, config, dalManager, webSocketProvider, ws) {
+class TaskReviewDAL @Inject() (
+    override val db: Database,
+    override val tagDAL: TagDAL,
+    override val permission: Permission,
+    config: Config,
+    dalManager: Provider[DALManager],
+    webSocketProvider: WebSocketProvider,
+    ws: WSClient
+) extends TaskDAL(db, tagDAL, permission, config, dalManager, webSocketProvider, ws) {
 
   implicit val taskWithReviewParser: RowParser[TaskWithReview] = {
     get[Long]("tasks.id") ~
@@ -62,18 +63,52 @@ class TaskReviewDAL @Inject()(override val db: Database,
       get[Option[String]]("reviewed_by_username") ~
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-        suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-        reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~ isBundlePrimary ~
-        challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
-
+            suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
+            reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~ isBundlePrimary ~
+            challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
         val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
         TaskWithReview(
-          Task(id, name, created, modified, parent_id, instruction, values._2,
-            values._1, values._3, status, mappedOn,
-            TaskReviewFields(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt,
-              reviewClaimedBy), priority, changesetId, responses, bundleId, isBundlePrimary),
-          TaskReview(-1, id, reviewStatus, challengeName, reviewRequestedBy, reviewRequestedByUsername,
-            reviewedBy, reviewedByUsername, reviewedAt, reviewStartedAt, reviewClaimedBy, None, None)
+          Task(
+            id,
+            name,
+            created,
+            modified,
+            parent_id,
+            instruction,
+            values._2,
+            values._1,
+            values._3,
+            status,
+            mappedOn,
+            TaskReviewFields(
+              reviewStatus,
+              reviewRequestedBy,
+              reviewedBy,
+              reviewedAt,
+              reviewStartedAt,
+              reviewClaimedBy
+            ),
+            priority,
+            changesetId,
+            responses,
+            bundleId,
+            isBundlePrimary
+          ),
+          TaskReview(
+            -1,
+            id,
+            reviewStatus,
+            challengeName,
+            reviewRequestedBy,
+            reviewRequestedByUsername,
+            reviewedBy,
+            reviewedByUsername,
+            reviewedAt,
+            reviewStartedAt,
+            reviewClaimedBy,
+            None,
+            None
+          )
         )
     }
   }
@@ -85,9 +120,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param primaryTask id of task that you wish to start/claim
     * @return task
     */
-  def startTaskReview(user: User, primaryTask: Task)(implicit c: Connection = null): Option[Task] = {
+  def startTaskReview(user: User, primaryTask: Task)(
+      implicit c: Connection = null
+  ): Option[Task] = {
     if (primaryTask.review.reviewClaimedBy.getOrElse(null) != null &&
-      primaryTask.review.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
+        primaryTask.review.reviewClaimedBy.getOrElse(null) != user.id.toLong) {
       throw new InvalidException("This task is already being reviewed by someone else.")
     }
 
@@ -120,21 +157,27 @@ class TaskReviewDAL @Inject()(override val db: Database,
         }
 
         implicit val id = task.id
-        this.manager.task.cacheManager.withUpdatingCache(Long => this.retrieveById) { implicit cachedItem =>
-          val result = Some(task.copy(review = task.review.copy(reviewClaimedBy = Option(user.id.toInt))))
-          result
+        this.manager.task.cacheManager.withUpdatingCache(Long => this.retrieveById) {
+          implicit cachedItem =>
+            val result =
+              Some(task.copy(review = task.review.copy(reviewClaimedBy = Option(user.id.toInt))))
+            result
         }(task.id, true, true)
       }
     }
 
-    webSocketProvider.sendMessage(WebSocketMessages.reviewClaimed(
-      WebSocketMessages.ReviewData(this.getTaskWithReview(primaryTask.id))
-    ))
+    webSocketProvider.sendMessage(
+      WebSocketMessages.reviewClaimed(
+        WebSocketMessages.ReviewData(this.getTaskWithReview(primaryTask.id))
+      )
+    )
 
-    val updatedTask = primaryTask.copy(review = primaryTask.review.copy(
-      reviewClaimedBy = Option(user.id.toInt)))
+    val updatedTask =
+      primaryTask.copy(review = primaryTask.review.copy(reviewClaimedBy = Option(user.id.toInt)))
 
-    this.cacheManager.withOptionCaching { () => Some(updatedTask) }
+    this.cacheManager.withOptionCaching { () =>
+      Some(updatedTask)
+    }
     Option(updatedTask)
   }
 
@@ -157,12 +200,16 @@ class TaskReviewDAL @Inject()(override val db: Database,
 
       // if returning 0, then this is because the item is locked by a different user
       if (updatedRows == 0) {
-        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot cancel review at this time.")
+        throw new IllegalAccessException(
+          s"Current task [${task.id} is locked by another user, cannot cancel review at this time."
+        )
       }
 
-      webSocketProvider.sendMessage(WebSocketMessages.reviewUpdate(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
-      ))
+      webSocketProvider.sendMessage(
+        WebSocketMessages.reviewUpdate(
+          WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+        )
+      )
     }
 
     try {
@@ -172,7 +219,9 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
     val updatedTask = task.copy(review = task.review.copy(reviewClaimedBy = None))
-    this.manager.task.cacheManager.withOptionCaching { () => Some(updatedTask) }
+    this.manager.task.cacheManager.withOptionCaching { () =>
+      Some(updatedTask)
+    }
     Option(updatedTask)
   }
 
@@ -207,15 +256,33 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param excludeOtherReviewers
     * @return task
     */
-  def nextTaskReview(user: User, searchParameters: SearchParameters, onlySaved: Boolean = false,
-                     sort: String, order: String, lastTaskId: Option[Long] = None, excludeOtherReviewers: Boolean = false)(implicit c: Connection = null): Option[Task] = {
+  def nextTaskReview(
+      user: User,
+      searchParameters: SearchParameters,
+      onlySaved: Boolean = false,
+      sort: String,
+      order: String,
+      lastTaskId: Option[Long] = None,
+      excludeOtherReviewers: Boolean = false
+  )(implicit c: Connection = null): Option[Task] = {
     var position = 0
 
     lastTaskId match {
       case Some(taskId) => {
         val (countAll, queryAll, parametersAll) =
-          _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
-            -1, 0, sort, order, false, excludeOtherReviewers)
+          _getReviewRequestedQueries(
+            user,
+            searchParameters,
+            null,
+            null,
+            onlySaved,
+            -1,
+            0,
+            sort,
+            order,
+            false,
+            excludeOtherReviewers
+          )
 
         // This only happens if a non-reviewer is trying to do get a review task
         if (queryAll == null) {
@@ -248,16 +315,27 @@ class TaskReviewDAL @Inject()(override val db: Database,
     }
 
     val (countQuery, query, parameters) =
-      _getReviewRequestedQueries(user, searchParameters, null, null, onlySaved,
-        1, position, sort, order, false, excludeOtherReviewers)
+      _getReviewRequestedQueries(
+        user,
+        searchParameters,
+        null,
+        null,
+        onlySaved,
+        1,
+        position,
+        sort,
+        order,
+        false,
+        excludeOtherReviewers
+      )
 
     // This only happens if a non-reviewer is trying to do get a review task
     if (query == null) {
-      return None
-    }
-
-    this.withMRTransaction { implicit c =>
-      sqlWithParameters(query, parameters).as(this.parser.*).headOption
+      None
+    } else {
+      this.withMRTransaction { implicit c =>
+        sqlWithParameters(query, parameters).as(this.parser.*).headOption
+      }
     }
   }
 
@@ -274,38 +352,67 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param includeDisputed Whether disputed tasks whould be returned in results (default is true)
     * @return A list of tasks
     */
-  def getReviewRequestedTasks(user: User, searchParameters: SearchParameters,
-                              startDate: String, endDate: String, onlySaved: Boolean = false,
-                              limit: Int = -1, offset: Int = 0, sort: String, order: String,
-                              includeDisputed: Boolean = true, excludeOtherReviewers: Boolean = false)
-                             (implicit c: Connection = null): (Int, List[Task]) = {
+  def getReviewRequestedTasks(
+      user: User,
+      searchParameters: SearchParameters,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false,
+      limit: Int = -1,
+      offset: Int = 0,
+      sort: String,
+      order: String,
+      includeDisputed: Boolean = true,
+      excludeOtherReviewers: Boolean = false
+  )(implicit c: Connection = null): (Int, List[Task]) = {
     val (countQuery, query, parameters) =
-      _getReviewRequestedQueries(user, searchParameters, startDate, endDate, onlySaved, limit,
-        offset, sort, order, includeDisputed, excludeOtherReviewers)
+      _getReviewRequestedQueries(
+        user,
+        searchParameters,
+        startDate,
+        endDate,
+        onlySaved,
+        limit,
+        offset,
+        sort,
+        order,
+        includeDisputed,
+        excludeOtherReviewers
+      )
 
     // This only happens if a non-reviewer is trying to get review tasks
     if (query == null) {
-      return (0, List[Task]())
-    }
-
-    var count = 0
-    val tasks = this.manager.task.cacheManager.withIDListCaching { implicit cachedItems =>
-      this.withMRTransaction { implicit c =>
-        count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-        sqlWithParameters(query, parameters).as(this.parser.*)
+      (0, List[Task]())
+    } else {
+      var count = 0
+      val tasks = this.manager.task.cacheManager.withIDListCaching { implicit cachedItems =>
+        this.withMRTransaction { implicit c =>
+          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+          sqlWithParameters(query, parameters).as(this.parser.*)
+        }
       }
+      (count, tasks)
     }
-    (count, tasks)
   }
 
-  def _getReviewRequestedQueries(user: User, searchParameters: SearchParameters,
-                                 startDate: String, endDate: String, onlySaved: Boolean = false,
-                                 limit: Int = -1, offset: Int = 0, sort: String, order: String,
-                                 includeDisputed: Boolean = true, excludeOtherReviewers: Boolean = false)
-                                (implicit c: Connection = null): (String, String, ListBuffer[NamedParameter]) = {
+  def _getReviewRequestedQueries(
+      user: User,
+      searchParameters: SearchParameters,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false,
+      limit: Int = -1,
+      offset: Int = 0,
+      sort: String,
+      order: String,
+      includeDisputed: Boolean = true,
+      excludeOtherReviewers: Boolean = false
+  )(implicit c: Connection = null): (String, String, ListBuffer[NamedParameter]) = {
     var orderByClause = ""
     val whereClause = if (includeDisputed) {
-      new StringBuilder(s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})")
+      new StringBuilder(
+        s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
+      )
     } else {
       new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}")
     }
@@ -321,12 +428,16 @@ class TaskReviewDAL @Inject()(override val db: Database,
       this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id}")
     }
 
-    this.appendInWhereClause(whereClause,
-      s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})")
+    this.appendInWhereClause(
+      whereClause,
+      s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})"
+    )
 
     if (excludeOtherReviewers) {
-      this.appendInWhereClause(whereClause,
-        s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+      this.appendInWhereClause(
+        whereClause,
+        s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
+      )
     }
 
     val parameters = new ListBuffer[NamedParameter]()
@@ -378,8 +489,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
            """
-      }
-      else {
+      } else {
         return (null, null, null)
       }
     }
@@ -421,13 +531,23 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param order             DESC or ASC
     * @return A list of tasks
     */
-  def getReviewedTasks(user: User, searchParameters: SearchParameters,
-                       mappers: Option[List[String]] = None, reviewers: Option[List[String]] = None,
-                       startDate: String, endDate: String, allowReviewNeeded: Boolean = false,
-                       limit: Int = -1, offset: Int = 0, sort: String, order: String)
-                      (implicit c: Connection = null): (Int, List[Task]) = {
+  def getReviewedTasks(
+      user: User,
+      searchParameters: SearchParameters,
+      mappers: Option[List[String]] = None,
+      reviewers: Option[List[String]] = None,
+      startDate: String,
+      endDate: String,
+      allowReviewNeeded: Boolean = false,
+      limit: Int = -1,
+      offset: Int = 0,
+      sort: String,
+      order: String
+  )(implicit c: Connection = null): (Int, List[Task]) = {
     var orderByClause = ""
-    val whereClause = new StringBuilder("(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND ")
+    val whereClause = new StringBuilder(
+      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND "
+    )
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
     joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
@@ -436,8 +556,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
       case Some(m) =>
         if (m.size > 0) {
           whereClause ++= s"task_review.review_requested_by IN (${m.mkString(",")}) "
-        }
-        else {
+        } else {
           whereClause ++= s"task_review.review_requested_by IS NOT NULL "
         }
       case _ => whereClause ++= s"task_review.review_requested_by IS NOT NULL "
@@ -455,7 +574,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
     if (!allowReviewNeeded) {
-      this.appendInWhereClause(whereClause, s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+      this.appendInWhereClause(
+        whereClause,
+        s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
+      )
     }
 
     setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
@@ -496,8 +618,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
            """
-        }
-        else {
+        } else {
           return (0, List[Task]())
         }
     }
@@ -537,9 +658,13 @@ class TaskReviewDAL @Inject()(override val db: Database,
   /**
     * private setup the search clauses for searching the review tables
     */
-  private def setupReviewSearchClause(whereClause: StringBuilder, joinClause: StringBuilder,
-                                      searchParameters: SearchParameters,
-                                      startDate: String, endDate: String) : Unit = {
+  private def setupReviewSearchClause(
+      whereClause: StringBuilder,
+      joinClause: StringBuilder,
+      searchParameters: SearchParameters,
+      startDate: String,
+      endDate: String
+  ): Unit = {
 
     this.paramsOwner(searchParameters, whereClause, joinClause)
     this.paramsReviewer(searchParameters, whereClause, joinClause)
@@ -553,15 +678,17 @@ class TaskReviewDAL @Inject()(override val db: Database,
         statusClause ++= ")"
         this.appendInWhereClause(whereClause, statusClause.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _ =>
+      case _                                  =>
     }
 
     searchParameters.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(s"(task_review.review_status IN (${statuses.mkString(",")}))")
+        val statusClause = new StringBuilder(
+          s"(task_review.review_status IN (${statuses.mkString(",")}))"
+        )
         this.appendInWhereClause(whereClause, statusClause.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _ =>
+      case _                                  =>
     }
 
     this.paramsLocation(searchParameters, whereClause)
@@ -587,11 +714,18 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param endDate   Limit tasks to reviewed before date (YYYY-MM-DD)
     * @return A list of tasks
     */
-  def getReviewMetrics(user: User, reviewTasksType: Int, searchParameters: SearchParameters,
-                       mappers: Option[List[String]] = None, reviewers: Option[List[String]] = None,
-                       priorities: Option[List[Int]] = None, startDate: String, endDate: String,
-                       onlySaved: Boolean = false, excludeOtherReviewers: Boolean = false)
-                      (implicit c: Connection = null): ReviewMetrics = {
+  def getReviewMetrics(
+      user: User,
+      reviewTasksType: Int,
+      searchParameters: SearchParameters,
+      mappers: Option[List[String]] = None,
+      reviewers: Option[List[String]] = None,
+      priorities: Option[List[Int]] = None,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false,
+      excludeOtherReviewers: Boolean = false
+  )(implicit c: Connection = null): ReviewMetrics = {
 
     // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
     // 2: MY_REVIEWED_TASKS = 'myReviewedTasks'
@@ -605,8 +739,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
     val whereClause = new StringBuilder()
 
     if (reviewTasksType == 1) {
-      this.appendInWhereClause(whereClause,
-        s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})")
+      this.appendInWhereClause(
+        whereClause,
+        s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
+      )
 
       if (onlySaved) {
         joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
@@ -614,48 +750,54 @@ class TaskReviewDAL @Inject()(override val db: Database,
       }
 
       if (excludeOtherReviewers) {
-        this.appendInWhereClause(whereClause,
-          s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+        this.appendInWhereClause(
+          whereClause,
+          s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
+        )
       }
 
       if (!user.isSuperUser) {
-        this.appendInWhereClause(whereClause,
+        this.appendInWhereClause(
+          whereClause,
           s""" ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
                 ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
                                            WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
-                task_review.review_requested_by != ${user.id} """)
+                task_review.review_requested_by != ${user.id} """
+        )
       }
-    }
-    else {
+    } else {
       if (!user.isSuperUser) {
-        this.appendInWhereClause(whereClause,
+        this.appendInWhereClause(
+          whereClause,
           s"""((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
                 ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
                                           WHERE ug.group_id = g.id AND g.project_id = p.id) OR
                 task_review.review_requested_by = ${user.id} OR
-                task_review.reviewed_by = ${user.id})""")
+                task_review.reviewed_by = ${user.id})"""
+        )
       }
     }
 
     mappers match {
       case Some(m) =>
         if (m.size > 0) {
-          this.appendInWhereClause(whereClause,
-            s"task_review.review_requested_by IN (${m.mkString(",")}) ")
-        }
-        else {
+          this.appendInWhereClause(
+            whereClause,
+            s"task_review.review_requested_by IN (${m.mkString(",")}) "
+          )
+        } else {
           this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
         }
-      case _ => this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
+      case _ =>
+        this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
     }
 
     reviewers match {
       case Some(r) =>
         if (r.size > 0) {
-          this.appendInWhereClause(whereClause,
-            s"task_review.reviewed_by IN (${r.mkString(",")}) ")
+          this.appendInWhereClause(whereClause, s"task_review.reviewed_by IN (${r.mkString(",")}) ")
         }
       case _ => // do nothing
     }
@@ -665,17 +807,23 @@ class TaskReviewDAL @Inject()(override val db: Database,
         val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
         this.appendInWhereClause(whereClause, priorityClause.toString())
       case Some(priority) if priority.isEmpty => //ignore this scenario
-      case _ =>
+      case _                                  =>
     }
 
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
     if (reviewTasksType == 2) {
-      this.appendInWhereClause(whereClause, s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+      this.appendInWhereClause(
+        whereClause,
+        s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
+      )
     }
 
-    this.appendInWhereClause(whereClause, "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)")
+    this.appendInWhereClause(
+      whereClause,
+      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
+    )
     setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
 
     val query =
@@ -709,9 +857,20 @@ class TaskReviewDAL @Inject()(override val db: Database,
         get[Int]("alreadyFixed") ~
         get[Int]("tooHard") map {
         case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
-          fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard => {
-          new ReviewMetrics(total, requested, approved, rejected, assisted, disputed,
-            fixed, falsePositive, skipped, alreadyFixed, tooHard)
+              fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard => {
+          new ReviewMetrics(
+            total,
+            requested,
+            approved,
+            rejected,
+            assisted,
+            disputed,
+            fixed,
+            falsePositive,
+            skipped,
+            alreadyFixed,
+            tooHard
+          )
         }
       }
     }
@@ -733,20 +892,28 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param c              an implicit connection
     * @return A list of task clusters
     */
-  def getReviewTaskClusters(user: User, reviewTasksType: Int, params: SearchParameters,
-                            numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS,
-                            startDate: String, endDate: String, onlySaved: Boolean = false,
-                            excludeOtherReviewers: Boolean = false)
-                           (implicit c: Option[Connection] = None): List[TaskCluster] = {
+  def getReviewTaskClusters(
+      user: User,
+      reviewTasksType: Int,
+      params: SearchParameters,
+      numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false,
+      excludeOtherReviewers: Boolean = false
+  )(implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
-      val fetchBy = if (reviewTasksType == 2) "task_review.reviewed_by" else "task_review.review_requested_by"
+      val fetchBy =
+        if (reviewTasksType == 2) "task_review.reviewed_by" else "task_review.review_requested_by"
       val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
       joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
       joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
 
       var whereClause = new StringBuilder(s"${fetchBy}=${user.id}")
       if (reviewTasksType == 1) {
-        whereClause = new StringBuilder(s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})")
+        whereClause = new StringBuilder(
+          s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
+        )
 
         if (onlySaved) {
           joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
@@ -754,8 +921,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
         }
 
         if (excludeOtherReviewers) {
-          this.appendInWhereClause(whereClause,
-            s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})")
+          this.appendInWhereClause(
+            whereClause,
+            s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
+          )
         }
 
         if (!user.isSuperUser) {
@@ -767,10 +936,14 @@ class TaskReviewDAL @Inject()(override val db: Database,
                   task_review.review_requested_by != ${user.id} """
         }
       }
-      this.appendInWhereClause(whereClause, "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)")
+      this.appendInWhereClause(
+        whereClause,
+        "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
+      )
 
       params.taskId match {
-        case Some(tid) => this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
+        case Some(tid) =>
+          this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
         case _ => // do nothing
       }
 
@@ -778,7 +951,10 @@ class TaskReviewDAL @Inject()(override val db: Database,
       parameters ++= addSearchToQuery(params, whereClause)
 
       if (reviewTasksType == 2) {
-        this.appendInWhereClause(whereClause, s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} ")
+        this.appendInWhereClause(
+          whereClause,
+          s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
+        )
       }
 
       setupReviewSearchClause(whereClause, joinClause, params, startDate, endDate)
@@ -789,8 +965,11 @@ class TaskReviewDAL @Inject()(override val db: Database,
         "WHERE " + whereClause.toString
       }
 
-      val query = this.manager.taskCluster.getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
-      val result = sqlWithParameters(query, parameters).as(this.manager.taskCluster.getTaskClusterParser(params).*)
+      val query =
+        this.manager.taskCluster.getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
+      val result = sqlWithParameters(query, parameters).as(
+        this.manager.taskCluster.getTaskClusterParser(params).*
+      )
       // Filter out invalid clusters.
       result.filter(_ != None).asInstanceOf[List[TaskCluster]]
     }
@@ -808,9 +987,15 @@ class TaskReviewDAL @Inject()(override val db: Database,
     * @param user         The user setting the status
     * @return The number of rows updated, should only ever be 1
     */
-  def setTaskReviewStatus(task: Task, reviewStatus: Int, user: User, actionId: Option[Long], commentContent: String = "")(implicit c: Connection = null): Int = {
+  def setTaskReviewStatus(
+      task: Task,
+      reviewStatus: Int,
+      user: User,
+      actionId: Option[Long],
+      commentContent: String = ""
+  )(implicit c: Connection = null): Int = {
     if (!user.isSuperUser && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
-      reviewStatus != Task.REVIEW_STATUS_DISPUTED) {
+        reviewStatus != Task.REVIEW_STATUS_DISPUTED) {
       throw new IllegalAccessException("User must be a reviewer to edit task review status.")
     }
 
@@ -824,7 +1009,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
       val needsReReview = (task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
-      var reviewedBy = task.review.reviewedBy
+      var reviewedBy        = task.review.reviewedBy
       var reviewRequestedBy = task.review.reviewRequestedBy
 
       // If we are changing the status back to "needsReview" then this task
@@ -832,8 +1017,7 @@ class TaskReviewDAL @Inject()(override val db: Database,
       if (needsReReview) {
         fetchBy = "review_requested_by"
         reviewRequestedBy = Some(user.id)
-      }
-      else {
+      } else {
         reviewedBy = Some(user.id)
       }
       val updatedRows =
@@ -850,7 +1034,9 @@ class TaskReviewDAL @Inject()(override val db: Database,
                               )""".executeUpdate()
       // if returning 0, then this is because the item is locked by a different user
       if (updatedRows == 0) {
-        throw new IllegalAccessException(s"Current task [${task.id} is locked by another user, cannot update review status at this time.")
+        throw new IllegalAccessException(
+          s"Current task [${task.id} is locked by another user, cannot update review status at this time."
+        )
       }
 
       // if you set the status successfully on a task you will lose the lock of that task
@@ -860,12 +1046,14 @@ class TaskReviewDAL @Inject()(override val db: Database,
         case e: Exception => logger.warn(e.getMessage)
       }
 
-      webSocketProvider.sendMessage(WebSocketMessages.reviewUpdate(
-        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
-      ))
+      webSocketProvider.sendMessage(
+        WebSocketMessages.reviewUpdate(
+          WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+        )
+      )
 
       val comment = commentContent.nonEmpty match {
-        case true => Some(this.manager.comment.add(user, task, commentContent, actionId))
+        case true  => Some(this.manager.comment.add(user, task, commentContent, actionId))
         case false => None
       }
 
@@ -879,18 +1067,28 @@ class TaskReviewDAL @Inject()(override val db: Database,
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
                           $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
-            this.manager.notification.createReviewNotification(user, task.review.reviewedBy.getOrElse(-1), reviewStatus, task, comment)
-          }
-          else {
+            this.manager.notification.createReviewNotification(
+              user,
+              task.review.reviewedBy.getOrElse(-1),
+              reviewStatus,
+              task,
+              comment
+            )
+          } else {
             // Let's note in the task_review_history table that this task was reviewed
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
                           $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
-            this.manager.notification.createReviewNotification(user, task.review.reviewRequestedBy.getOrElse(-1), reviewStatus, task, comment)
+            this.manager.notification.createReviewNotification(
+              user,
+              task.review.reviewRequestedBy.getOrElse(-1),
+              reviewStatus,
+              task,
+              comment
+            )
           }
-        }
-        else {
+        } else {
           // For disputed tasks.
           SQL"""INSERT INTO task_review_history
                             (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
@@ -900,20 +1098,40 @@ class TaskReviewDAL @Inject()(override val db: Database,
       }
 
       this.cacheManager.withOptionCaching { () =>
-        Some(task.copy(review = task.review.copy(
-          reviewStatus = Some(reviewStatus),
-          reviewRequestedBy = reviewRequestedBy,
-          reviewedBy = reviewedBy,
-          reviewedAt = Some(new DateTime()))))
+        Some(
+          task.copy(review = task.review.copy(
+            reviewStatus = Some(reviewStatus),
+            reviewRequestedBy = reviewRequestedBy,
+            reviewedBy = reviewedBy,
+            reviewedAt = Some(new DateTime())
+          )
+          )
+        )
       }
 
       if (!needsReReview) {
-        this.manager.user.updateUserScore(None, Option(reviewStatus),
-          task.review.reviewedBy != None, false, task.review.reviewRequestedBy.get)
-      }
-      else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
-        this.manager.user.updateUserScore(None, Option(reviewStatus), true, true, task.review.reviewedBy.get)
-        this.manager.user.updateUserScore(None, Option(reviewStatus), true, false, task.review.reviewRequestedBy.get)
+        this.manager.user.updateUserScore(
+          None,
+          Option(reviewStatus),
+          task.review.reviewedBy != None,
+          false,
+          task.review.reviewRequestedBy.get
+        )
+      } else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
+        this.manager.user.updateUserScore(
+          None,
+          Option(reviewStatus),
+          true,
+          true,
+          task.review.reviewedBy.get
+        )
+        this.manager.user.updateUserScore(
+          None,
+          Option(reviewStatus),
+          true,
+          false,
+          task.review.reviewRequestedBy.get
+        )
       }
 
       updatedRows
