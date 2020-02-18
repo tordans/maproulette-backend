@@ -22,9 +22,10 @@ import play.api.libs.json.{JsString, Json}
   * @author mcuthbert
   */
 @Singleton
-class TaskClusterDAL @Inject()(override val db: Database,
-                               challengeDAL: ChallengeDAL)
-  extends DALHelper with TransactionManager with SearchParametersMixin {
+class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: ChallengeDAL)
+    extends DALHelper
+    with TransactionManager
+    with SearchParametersMixin {
 
   /**
     * Retrieves task clusters
@@ -34,8 +35,10 @@ class TaskClusterDAL @Inject()(override val db: Database,
     * @param c              an implicit connection
     * @return A list of task clusters
     */
-  def getTaskClusters(params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
-                     (implicit c: Option[Connection] = None): List[TaskCluster] = {
+  def getTaskClusters(
+      params: SearchParameters,
+      numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS
+  )(implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
       val whereClause = new StringBuilder(" c.deleted = false AND p.deleted = false  ")
       val joinClause = new StringBuilder(
@@ -52,7 +55,7 @@ class TaskClusterDAL @Inject()(override val db: Database,
         "WHERE " + whereClause.toString
       }
 
-      val query = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
+      val query  = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
       val result = sqlWithParameters(query, parameters).as(getTaskClusterParser(params).*)
       // Filter out invalid clusters.
       result.filter(_ != None).asInstanceOf[List[TaskCluster]]
@@ -61,18 +64,29 @@ class TaskClusterDAL @Inject()(override val db: Database,
 
   def getTaskClusterParser(params: SearchParameters): anorm.RowParser[Serializable] = {
     int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
-      get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ get[Option[String]]("geojson") ~ str("geom") ~
+      get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ get[Option[String]](
+      "geojson"
+    ) ~ str("geom") ~
       str("bounding") ~ get[List[Long]]("challengeIds") map {
       case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geojson ~ geom ~ bounding ~ challengeIds =>
         val locationJSON = Json.parse(geom)
-        val coordinates = (locationJSON \ "coordinates").as[List[Double]]
+        val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         // Let's check to make sure we received valid number of coordinates.
         if (coordinates.length > 1) {
           val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(kmeans, totalPoints, taskId, taskStatus, taskPriority, params, point,
-            Json.parse(bounding), challengeIds, geojson.map(Json.parse(_)))
-        }
-        else {
+          TaskCluster(
+            kmeans,
+            totalPoints,
+            taskId,
+            taskStatus,
+            taskPriority,
+            params,
+            point,
+            Json.parse(bounding),
+            challengeIds,
+            geojson.map(Json.parse(_))
+          )
+        } else {
           None
         }
     }
@@ -115,8 +129,11 @@ class TaskClusterDAL @Inject()(override val db: Database,
     * @param c              an implicit connection
     * @return A list of clustered task points
     */
-  def getTasksInCluster(clusterId: Int, params: SearchParameters, numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS)
-                       (implicit c: Option[Connection] = None): List[ClusteredPoint] = {
+  def getTasksInCluster(
+      clusterId: Int,
+      params: SearchParameters,
+      numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS
+  )(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRConnection { implicit c =>
       val whereClause = new StringBuilder
       val joinClause = new StringBuilder(
@@ -165,14 +182,25 @@ class TaskClusterDAL @Inject()(override val db: Database,
     * @param c             An available connection
     * @return The list of Tasks found within the bounding box and the total count of tasks if not bounding
     */
-  def getTasksInBoundingBox(user: User, params: SearchParameters, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                            excludeLocked: Boolean = false, sort: String = "", order: String = "ASC")(implicit c: Option[Connection] = None): (Int, List[ClusteredPoint]) = {
+  def getTasksInBoundingBox(
+      user: User,
+      params: SearchParameters,
+      limit: Int = Config.DEFAULT_LIST_SIZE,
+      offset: Int = 0,
+      excludeLocked: Boolean = false,
+      sort: String = "",
+      order: String = "ASC"
+  )(implicit c: Option[Connection] = None): (Int, List[ClusteredPoint]) = {
     params.location match {
       case Some(sl) => // params has location
-      case None => params.boundingGeometries match {
-        case Some(bp) => // params has bounding polygons
-        case None => throw new InvalidException("Bounding Box (or Bounding Polygons) required to retrieve tasks within a bounding box")
-      }
+      case None =>
+        params.boundingGeometries match {
+          case Some(bp) => // params has bounding polygons
+          case None =>
+            throw new InvalidException(
+              "Bounding Box (or Bounding Polygons) required to retrieve tasks within a bounding box"
+            )
+        }
     }
 
     withMRConnection { implicit c =>
@@ -210,7 +238,10 @@ class TaskClusterDAL @Inject()(override val db: Database,
 
       // Lets do a total count of tasks we would return if not paging.
       val parameters = this.updateWhereClause(params, whereClause, joinClause)
-      this.appendInWhereClause(whereClause, this.enabled(params.projectEnabled.getOrElse(false), "p")(None))
+      this.appendInWhereClause(
+        whereClause,
+        this.enabled(params.projectEnabled.getOrElse(false), "p")(None)
+      )
 
       val countQuery =
         s"""
@@ -233,23 +264,50 @@ class TaskClusterDAL @Inject()(override val db: Database,
           LIMIT ${sqlLimit(limit)} OFFSET $offset
         """
 
-      val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str("challenges.name") ~
-        str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]]("suggested_fix") ~
+      val pointParser = long("tasks.id") ~ str("tasks.name") ~ int("tasks.parent_id") ~ str(
+        "challenges.name"
+      ) ~
+        str("tasks.instruction") ~ str("location") ~ int("tasks.status") ~ get[Option[String]](
+        "suggested_fix"
+      ) ~
         get[Option[DateTime]]("tasks.mapped_on") ~ get[Option[Int]]("task_review.review_status") ~
-        get[Option[Long]]("task_review.review_requested_by") ~ get[Option[Long]]("task_review.reviewed_by") ~
-        get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]]("task_review.review_started_at") ~
+        get[Option[Long]]("task_review.review_requested_by") ~ get[Option[Long]](
+        "task_review.reviewed_by"
+      ) ~
+        get[Option[DateTime]]("task_review.reviewed_at") ~ get[Option[DateTime]](
+        "task_review.review_started_at"
+      ) ~
         int("tasks.priority") ~ get[Option[Long]]("tasks.bundle_id") ~
         get[Option[Boolean]]("tasks.is_bundle_primary") map {
         case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
-          reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
-          bundleId ~ isBundlePrimary =>
+              reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~
+              bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
-          val coordinates = (locationJSON \ "coordinates").as[List[Double]]
-          val point = Point(coordinates(1), coordinates.head)
-          val pointReview = PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
-          ClusteredPoint(id, -1, "", name, parentId, parentName, point, JsString(""),
-            instruction, DateTime.now(), -1, Actions.ITEM_TYPE_TASK, status, suggestedFix, mappedOn,
-            pointReview, priority, bundleId, isBundlePrimary)
+          val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
+          val point        = Point(coordinates(1), coordinates.head)
+          val pointReview =
+            PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
+          ClusteredPoint(
+            id,
+            -1,
+            "",
+            name,
+            parentId,
+            parentName,
+            point,
+            JsString(""),
+            instruction,
+            DateTime.now(),
+            -1,
+            Actions.ITEM_TYPE_TASK,
+            status,
+            suggestedFix,
+            mappedOn,
+            pointReview,
+            priority,
+            bundleId,
+            isBundlePrimary
+          )
       }
 
       val results = sqlWithParameters(query, parameters)

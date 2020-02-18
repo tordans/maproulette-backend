@@ -20,8 +20,8 @@ import play.api.db.Database
   * @author cuthbertm
   */
 @Singleton
-class TagCacheManager @Inject()(tagDAL: Provider[TagDAL], db: Database, config: Config)
-  extends CacheManager[Long, Tag](config, Config.CACHE_ID_TAGS) {
+class TagCacheManager @Inject() (tagDAL: Provider[TagDAL], db: Database, config: Config)
+    extends CacheManager[Long, Tag](config, Config.CACHE_ID_TAGS) {
 
   private val loadingLock: ReadWriteLock = new ReentrantReadWriteLock()
 

@@ -5,12 +5,17 @@ import org.joda.time.{LocalDateTime, Seconds}
 /**
   * @author mcuthbert
   */
-case class BasicInnerValue[Key, Value](key: Key, value: Value, accessTime: LocalDateTime, localExpiry: Option[Int] = None)
+case class BasicInnerValue[Key, Value](
+    key: Key,
+    value: Value,
+    accessTime: LocalDateTime,
+    localExpiry: Option[Int] = None
+)
 
 trait Cache[Key, Value <: CacheObject[Key]] {
 
-  implicit val cacheLimit:Int
-  implicit val cacheExpiry:Int
+  implicit val cacheLimit: Int
+  implicit val cacheExpiry: Int
 
   /**
     * Adds an object to the cache, if cache limit has been reached, then will remove the oldest
@@ -100,14 +105,14 @@ trait Cache[Key, Value <: CacheObject[Key]] {
     */
   def remove(name: String): Option[Value]
 
-  def remove(id: Key) : Option[Value]
+  def remove(id: Key): Option[Value]
 
   protected def innerGet(key: Key): Option[BasicInnerValue[Key, Value]]
 
   protected def isExpiredByKey(key: Key): Boolean = synchronized {
     this.innerGet(key) match {
       case Some(value) => isExpired(value)
-      case None => true
+      case None        => true
     }
   }
 
@@ -122,7 +127,7 @@ trait Cache[Key, Value <: CacheObject[Key]] {
     val currentTime = new LocalDateTime()
     val itemExpiry = value.localExpiry match {
       case Some(v) => v
-      case None => cacheExpiry
+      case None    => cacheExpiry
     }
     if (currentTime.isAfter(value.accessTime.plus(Seconds.seconds(itemExpiry)))) {
       remove(value.key)

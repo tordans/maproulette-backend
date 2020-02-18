@@ -18,13 +18,23 @@ import scala.xml.Node
   * @author mcuthbert
   */
 @Singleton
-class NodeProvider @Inject()(override val ws: WSClient, override val config: Config) extends ObjectProvider[VersionedNode] {
+class NodeProvider @Inject() (override val ws: WSClient, override val config: Config)
+    extends ObjectProvider[VersionedNode] {
   val cache = new BasicCache[Long, VersionedObjects[VersionedNode]](config)
 
   def get(ids: List[Long]): Future[List[VersionedNode]] = getFromType(ids, OSMType.NODE)
 
-  override protected def createVersionedObjectFromXML(elem: Node, id: Long, visible: Boolean, version: Int, changeset: Int,
-                                                      timestamp: DateTime, user: String, uid: Long, tags: Map[String, String]): VersionedNode = {
+  override protected def createVersionedObjectFromXML(
+      elem: Node,
+      id: Long,
+      visible: Boolean,
+      version: Int,
+      changeset: Int,
+      timestamp: DateTime,
+      user: String,
+      uid: Long,
+      tags: Map[String, String]
+  ): VersionedNode = {
     VersionedNode(
       s"Node_$id",
       id,

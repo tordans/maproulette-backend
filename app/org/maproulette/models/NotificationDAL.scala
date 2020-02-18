@@ -17,18 +17,18 @@ import org.maproulette.session.User
 import org.maproulette.session.dal.UserDAL
 import play.api.db.Database
 
-
 /**
   * @author nrotstan
   */
 @Singleton
-class NotificationDAL @Inject()(db: Database,
-                                userDAL: Provider[UserDAL],
-                                projectDAL: Provider[ProjectDAL],
-                                webSocketProvider: WebSocketProvider,
-                                config: Config,
-                                permission: Permission)
-  extends DALHelper {
+class NotificationDAL @Inject() (
+    db: Database,
+    userDAL: Provider[UserDAL],
+    projectDAL: Provider[ProjectDAL],
+    webSocketProvider: WebSocketProvider,
+    config: Config,
+    permission: Permission
+) extends DALHelper {
 
   import org.maproulette.utils.AnormExtension._
 
@@ -50,7 +50,23 @@ class NotificationDAL @Inject()(db: Database,
       get[Option[Long]]("user_notifications.target_id") ~
       get[Option[String]]("user_notifications.extra") map {
       case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra =>
-        new UserNotification(id, userId, notificationType, created, modified, description, fromUsername, challengeName, isRead, emailStatus, taskId, challengeId, projectId, targetId, extra)
+        new UserNotification(
+          id,
+          userId,
+          notificationType,
+          created,
+          modified,
+          description,
+          fromUsername,
+          challengeName,
+          isRead,
+          emailStatus,
+          taskId,
+          challengeId,
+          projectId,
+          targetId,
+          extra
+        )
     }
   }
 
@@ -77,7 +93,16 @@ class NotificationDAL @Inject()(db: Database,
       get[Int]("review_again") ~
       get[Int]("challenge_completed") map {
       case id ~ userId ~ system ~ mention ~ reviewApproved ~ reviewRejected ~ reviewAgain ~ challengeCompleted =>
-        NotificationSubscriptions(id, userId, system, mention, reviewApproved, reviewRejected, reviewAgain, challengeCompleted)
+        NotificationSubscriptions(
+          id,
+          userId,
+          system,
+          mention,
+          reviewApproved,
+          reviewRejected,
+          reviewAgain,
+          challengeCompleted
+        )
     }
   }
 
@@ -92,16 +117,19 @@ class NotificationDAL @Inject()(db: Database,
       // Retrieve and notify mentioned user
       userDAL.get().retrieveByOSMUsername(username, User.superUser) match {
         case Some(mentionedUser) =>
-          this.addNotification(UserNotification(
-            -1,
-            userId = mentionedUser.id,
-            notificationType = UserNotification.NOTIFICATION_TYPE_MENTION,
-            fromUsername = Some(fromUser.osmProfile.displayName),
-            taskId = Some(task.id),
-            challengeId = Some(task.parent),
-            targetId = Some(comment.id),
-            extra = Some(comment.comment),
-          ), User.superUser)
+          this.addNotification(
+            UserNotification(
+              -1,
+              userId = mentionedUser.id,
+              notificationType = UserNotification.NOTIFICATION_TYPE_MENTION,
+              fromUsername = Some(fromUser.osmProfile.displayName),
+              taskId = Some(task.id),
+              challengeId = Some(task.parent),
+              targetId = Some(comment.id),
+              extra = Some(comment.comment)
+            ),
+            User.superUser
+          )
         case None => None
       }
     }
@@ -120,12 +148,13 @@ class NotificationDAL @Inject()(db: Database,
     permission.hasWriteAccess(UserType(), user)(notification.userId)
     val subscriptions = this.getNotificationSubscriptions(notification.userId, user)
     val subscriptionType = notification.notificationType match {
-      case UserNotification.NOTIFICATION_TYPE_SYSTEM => subscriptions.system
-      case UserNotification.NOTIFICATION_TYPE_MENTION => subscriptions.mention
+      case UserNotification.NOTIFICATION_TYPE_SYSTEM          => subscriptions.system
+      case UserNotification.NOTIFICATION_TYPE_MENTION         => subscriptions.mention
       case UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED => subscriptions.reviewApproved
       case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED => subscriptions.reviewRejected
-      case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN => subscriptions.reviewAgain
-      case UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED => subscriptions.challengeCompleted
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN    => subscriptions.reviewAgain
+      case UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED =>
+        subscriptions.challengeCompleted
       case _ => throw new InvalidException("Invalid notification type")
     }
 
@@ -143,22 +172,27 @@ class NotificationDAL @Inject()(db: Database,
                        {email_status}, {task_id}, {challenge_id}, {project_id}, {target_id}, {extra})
                RETURNING *"""
 
-          SQL(query).on(Symbol("user_id") -> notification.userId,
-                        Symbol("notification_type") -> notification.notificationType,
-                        Symbol("description") -> notification.description,
-                        Symbol("from_username") -> notification.fromUsername,
-                        Symbol("is_read") -> false,
-                        Symbol("email_status") -> notification.emailStatus,
-                        Symbol("task_id") -> notification.taskId,
-                        Symbol("challenge_id") -> notification.challengeId,
-                        Symbol("project_id") -> notification.projectId,
-                        Symbol("target_id") -> notification.targetId,
-                        Symbol("extra") -> notification.extra
-          ).execute()
+          SQL(query)
+            .on(
+              Symbol("user_id")           -> notification.userId,
+              Symbol("notification_type") -> notification.notificationType,
+              Symbol("description")       -> notification.description,
+              Symbol("from_username")     -> notification.fromUsername,
+              Symbol("is_read")           -> false,
+              Symbol("email_status")      -> notification.emailStatus,
+              Symbol("task_id")           -> notification.taskId,
+              Symbol("challenge_id")      -> notification.challengeId,
+              Symbol("project_id")        -> notification.projectId,
+              Symbol("target_id")         -> notification.targetId,
+              Symbol("extra")             -> notification.extra
+            )
+            .execute()
         }
-        webSocketProvider.sendMessage(WebSocketMessages.notificationNew(
-          WebSocketMessages.NotificationData(notification.userId, notification.notificationType)
-        ))
+        webSocketProvider.sendMessage(
+          WebSocketMessages.notificationNew(
+            WebSocketMessages.NotificationData(notification.userId, notification.notificationType)
+          )
+        )
     }
   }
 
@@ -177,58 +211,78 @@ class NotificationDAL @Inject()(db: Database,
             WHERE user_id=${userId} LIMIT 1"""
       ).as(notificationSubscriptionParser.*).headOption match {
         case Some(subscription) => subscription
-        case None =>
+        case None               =>
           // Default to subscribing to all notifications, but with no emails
-          NotificationSubscriptions(-1, userId, UserNotification.NOTIFICATION_EMAIL_NONE,
+          NotificationSubscriptions(
+            -1,
+            userId,
             UserNotification.NOTIFICATION_EMAIL_NONE,
             UserNotification.NOTIFICATION_EMAIL_NONE,
             UserNotification.NOTIFICATION_EMAIL_NONE,
             UserNotification.NOTIFICATION_EMAIL_NONE,
-            UserNotification.NOTIFICATION_EMAIL_NONE)
+            UserNotification.NOTIFICATION_EMAIL_NONE,
+            UserNotification.NOTIFICATION_EMAIL_NONE
+          )
       }
     }
   }
 
-  def createReviewNotification(user: User, forUserId: Long, reviewStatus: Int, task: Task, comment: Option[Comment]) = {
+  def createReviewNotification(
+      user: User,
+      forUserId: Long,
+      reviewStatus: Int,
+      task: Task,
+      comment: Option[Comment]
+  ) = {
     val notificationType = reviewStatus match {
       case Task.REVIEW_STATUS_REQUESTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
-      case Task.REVIEW_STATUS_APPROVED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
-      case Task.REVIEW_STATUS_ASSISTED => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
-      case Task.REVIEW_STATUS_REJECTED => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
-      case Task.REVIEW_STATUS_DISPUTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
+      case Task.REVIEW_STATUS_APPROVED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+      case Task.REVIEW_STATUS_ASSISTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+      case Task.REVIEW_STATUS_REJECTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
+      case Task.REVIEW_STATUS_DISPUTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
     }
 
-    this.addNotification(UserNotification(
-      -1,
-      userId = forUserId,
-      notificationType = notificationType,
-      fromUsername = Some(user.osmProfile.displayName),
-      description = Some(reviewStatus.toString()),
-      taskId = Some(task.id),
-      challengeId = Some(task.parent),
-      extra = comment match {
-        case Some(c) => Some(c.comment)
-        case None => None
-      }
-    ), User.superUser)
+    this.addNotification(
+      UserNotification(
+        -1,
+        userId = forUserId,
+        notificationType = notificationType,
+        fromUsername = Some(user.osmProfile.displayName),
+        description = Some(reviewStatus.toString()),
+        taskId = Some(task.id),
+        challengeId = Some(task.parent),
+        extra = comment match {
+          case Some(c) => Some(c.comment)
+          case None    => None
+        }
+      ),
+      User.superUser
+    )
   }
 
   def createChallengeCompletionNotification(challenge: Challenge) = {
     projectDAL.get().retrieveById(challenge.general.parent) match {
       case Some(parentProject) =>
-        userDAL.get().getUsersManagingProject(parentProject.id, None, User.superUser).foreach { manager =>
-          this.addNotification(UserNotification(
-            -1,
-            userId = manager.userId,
-            notificationType = UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED,
-            challengeId = Some(challenge.id),
-            projectId = Some(parentProject.id),
-            description = Some(challenge.name),
-            extra = Some(s""""${challenge.name}" from project "${parentProject.displayName.getOrElse(parentProject.name)}"""")
-          ), User.superUser)
+        userDAL.get().getUsersManagingProject(parentProject.id, None, User.superUser).foreach {
+          manager =>
+            this.addNotification(
+              UserNotification(
+                -1,
+                userId = manager.userId,
+                notificationType = UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED,
+                challengeId = Some(challenge.id),
+                projectId = Some(parentProject.id),
+                description = Some(challenge.name),
+                extra = Some(s""""${challenge.name}" from project "${parentProject.displayName
+                  .getOrElse(parentProject.name)}"""")
+              ),
+              User.superUser
+            )
         }
       case None =>
-        throw new NotFoundException(s"Parent project ${challenge.general.parent} not found for challenge ${challenge.id}")
+        throw new NotFoundException(
+          s"Parent project ${challenge.general.parent} not found for challenge ${challenge.id}"
+        )
     }
   }
 
@@ -240,7 +294,11 @@ class NotificationDAL @Inject()(db: Database,
     * @param subscriptions The updated subscriptions
     * @return
     */
-  def updateNotificationSubscriptions(userId: Long, user: User, subscriptions: NotificationSubscriptions) = {
+  def updateNotificationSubscriptions(
+      userId: Long,
+      user: User,
+      subscriptions: NotificationSubscriptions
+  ) = {
     permission.hasWriteAccess(UserType(), user)(userId)
     db.withConnection { implicit c =>
       // Upsert new subscription settings
@@ -249,14 +307,16 @@ class NotificationDAL @Inject()(db: Database,
             VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain}, {challengeCompleted})
             ON CONFLICT (user_id) DO
             UPDATE SET system=EXCLUDED.system, mention=EXCLUDED.mention, review_approved=EXCLUDED.review_approved, review_rejected=EXCLUDED.review_rejected, review_again=EXCLUDED.review_again, challenge_completed=EXCLUDED.challenge_completed"""
-      ).on(Symbol("userId") -> userId,
-          Symbol("system") -> subscriptions.system,
-          Symbol("mention") -> subscriptions.mention,
-          Symbol("reviewApproved") -> subscriptions.reviewApproved,
-          Symbol("reviewRejected") -> subscriptions.reviewRejected,
-          Symbol("reviewAgain") -> subscriptions.reviewAgain,
-          Symbol("challengeCompleted") -> subscriptions.challengeCompleted,
-      ).executeUpdate()
+      ).on(
+          Symbol("userId")             -> userId,
+          Symbol("system")             -> subscriptions.system,
+          Symbol("mention")            -> subscriptions.mention,
+          Symbol("reviewApproved")     -> subscriptions.reviewApproved,
+          Symbol("reviewRejected")     -> subscriptions.reviewRejected,
+          Symbol("reviewAgain")        -> subscriptions.reviewAgain,
+          Symbol("challengeCompleted") -> subscriptions.challengeCompleted
+        )
+        .executeUpdate()
     }
   }
 
@@ -300,17 +360,34 @@ class NotificationDAL @Inject()(db: Database,
   /**
     * Retrieves the user notifications sent to the given userId
     */
-  def getUserNotifications(userId: Long, user: User, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0,
-                           orderColumn: String = "is_read", orderDirection: String = "ASC",
-                           notificationType: Option[Int] = None, isRead: Option[Boolean] = None,
-                           fromUsername: Option[String] = None, challengeId: Option[Long] = None): List[UserNotification] = {
+  def getUserNotifications(
+      userId: Long,
+      user: User,
+      limit: Int = Config.DEFAULT_LIST_SIZE,
+      offset: Int = 0,
+      orderColumn: String = "is_read",
+      orderDirection: String = "ASC",
+      notificationType: Option[Int] = None,
+      isRead: Option[Boolean] = None,
+      fromUsername: Option[String] = None,
+      challengeId: Option[Long] = None
+  ): List[UserNotification] = {
     permission.hasReadAccess(UserType(), user)(userId)
     db.withConnection { implicit c =>
       val whereClause = new StringBuilder("WHERE user_id = {userId}")
-      appendInWhereClause(whereClause, getOptionalFilter(notificationType, "notification_type", "notificationType"))
+      appendInWhereClause(
+        whereClause,
+        getOptionalFilter(notificationType, "notification_type", "notificationType")
+      )
       appendInWhereClause(whereClause, getOptionalFilter(isRead, "is_read", "isRead"))
-      appendInWhereClause(whereClause, getOptionalFilter(challengeId, "challenge_id", "challengeId"))
-      appendInWhereClause(whereClause, getOptionalMatchFilter(fromUsername, "from_username", "fromUsername"))
+      appendInWhereClause(
+        whereClause,
+        getOptionalFilter(challengeId, "challenge_id", "challengeId")
+      )
+      appendInWhereClause(
+        whereClause,
+        getOptionalMatchFilter(fromUsername, "from_username", "fromUsername")
+      )
 
       // In addition to the requested sort, we always add a sort by created desc
       // (unless created was the requested sort column)
@@ -328,13 +405,15 @@ class NotificationDAL @Inject()(db: Database,
            |${orderClause}
            |LIMIT ${sqlLimit(limit)} OFFSET $offset
        """.stripMargin
-      SQL(query).on(
-        Symbol("userId") -> userId,
+      SQL(query)
+        .on(
+          Symbol("userId")           -> userId,
           Symbol("notificationType") -> notificationType,
-          Symbol("isRead") -> isRead,
-          Symbol("challengeId") -> challengeId,
-          Symbol("fromUsername") -> fromUsername,
-      ).as(userNotificationParser.*)
+          Symbol("isRead")           -> isRead,
+          Symbol("challengeId")      -> challengeId,
+          Symbol("fromUsername")     -> fromUsername
+        )
+        .as(userNotificationParser.*)
     }
   }
 }

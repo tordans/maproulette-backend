@@ -18,26 +18,41 @@ import org.maproulette.exception.NotFoundException
 import play.api.Application
 import play.api.db.Database
 
-case class ReviewActions(total: Int, requested: Int, approved: Int, rejected: Int,
-                         assisted: Int, disputed: Int)
+case class ReviewActions(
+    total: Int,
+    requested: Int,
+    approved: Int,
+    rejected: Int,
+    assisted: Int,
+    disputed: Int
+)
 
-case class Snapshot(id: Long, itemId: Long, typeId: Long,
-                    name: String, status: Option[Int], created: DateTime,
-                    actions: Option[ActionSummary] = None,
-                    priorityActions: Option[Map[String, ActionSummary]] = None,
-                    reviewActions: Option[ReviewActions] = None)
+case class Snapshot(
+    id: Long,
+    itemId: Long,
+    typeId: Long,
+    name: String,
+    status: Option[Int],
+    created: DateTime,
+    actions: Option[ActionSummary] = None,
+    priorityActions: Option[Map[String, ActionSummary]] = None,
+    reviewActions: Option[ReviewActions] = None
+)
 
 /**
   * @author krotstan
   */
 @Singleton
-class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: ChallengeDAL,
-                                boundingBoxFinder: BoundingBoxFinder)(implicit application: Application)
-                                extends DataManager(config, db, boundingBoxFinder) {
-
+class SnapshotManager @Inject() (
+    config: Config,
+    db: Database,
+    challengeDAL: ChallengeDAL,
+    boundingBoxFinder: BoundingBoxFinder
+)(implicit application: Application)
+    extends DataManager(config, db, boundingBoxFinder) {
 
   val snapshotBriefParser: RowParser[Snapshot] = {
-      get[Long]("id") ~
+    get[Long]("id") ~
       get[Long]("challenge_id") ~
       get[String]("challenge_name") ~
       get[Option[Int]]("challenge_status") ~
@@ -49,82 +64,137 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
   }
 
   val snapshotParser = for {
-      id <- get[Long]("id")
-      challengeId <- get[Long]("challenge_id")
-      name <- get[String]("challenge_name")
-      status <- get[Option[Int]]("challenge_status")
-      created <- get[DateTime]("created")
-      typeId <- get[Long]("type_id")
-      available <- int("available")
-      fixed <- int("fixed")
-      falsePositive <- int("false_positive")
-      skipped <- int("skipped")
-      deleted <- int("deleted")
-      alreadyFixed <- int("already_fixed")
-      tooHard <- int("too_hard")
-      answered <- int("answered")
-      validated <- int("validated")
-      disabled <- int("disabled")
-      availableLow <- int("availableLow")
-      fixedLow <- int("fixedLow")
-      falsePositiveLow <- int("false_positiveLow")
-      skippedLow <- int("skippedLow")
-      deletedLow <- int("deletedLow")
-      alreadyFixedLow <- int("already_fixedLow")
-      tooHardLow <- int("too_hardLow")
-      answeredLow <- int("answeredLow")
-      validatedLow <- int("validatedLow")
-      disabledLow <- int("disabledLow")
-      availableMedium <- int("availableMedium")
-      fixedMedium <- int("fixedMedium")
-      falsePositiveMedium <- int("false_positiveMedium")
-      skippedMedium <- int("skippedMedium")
-      deletedMedium <- int("deletedMedium")
-      alreadyFixedMedium <- int("already_fixedMedium")
-      tooHardMedium <- int("too_hardMedium")
-      answeredMedium <- int("answeredMedium")
-      validatedMedium <- int("validatedMedium")
-      disabledMedium <- int("disabledMedium")
-      availableHigh <- int("availableHigh")
-      fixedHigh <- int("fixedHigh")
-      falsePositiveHigh <- int("false_positiveHigh")
-      skippedHigh <- int("skippedHigh")
-      deletedHigh <- int("deletedHigh")
-      alreadyFixedHigh <- int("already_fixedHigh")
-      tooHardHigh <- int("too_hardHigh")
-      answeredHigh <- int("answeredHigh")
-      validatedHigh <- int("validatedHigh")
-      disabledHigh <- int("disabledHigh")
-      reviewRequested <- int("requested")
-      reviewApproved <- int("approved")
-      reviewRejected <- int("rejected")
-      reviewAssisted <- int("assisted")
-      reviewDisputed <- int("disputed")
-  } yield Snapshot(id, challengeId, typeId, name, status, created,
-     Some(ActionSummary((available + fixed + falsePositive + skipped + deleted +
-                         alreadyFixed + tooHard + answered + validated + disabled),
-            available, fixed, falsePositive, skipped, deleted, alreadyFixed,
-            tooHard, answered, validated, disabled)),
-     Some(Map(
-       Challenge.PRIORITY_LOW.toString -> ActionSummary(
-         (availableLow + fixedLow + falsePositiveLow + skippedLow + deletedLow +
-          alreadyFixedLow + tooHardLow + answeredLow + validatedLow + disabledLow),
-              availableLow, fixedLow, falsePositiveLow, skippedLow, deletedLow, alreadyFixedLow,
-              tooHardLow, answeredLow, validatedLow, disabledLow),
-       Challenge.PRIORITY_MEDIUM.toString -> ActionSummary(
-         (availableMedium + fixedMedium + falsePositiveMedium + skippedMedium + deletedMedium +
-          alreadyFixedMedium + tooHardMedium + answeredMedium + validatedMedium + disabledMedium),
-              availableMedium, fixedMedium, falsePositiveMedium, skippedMedium, deletedMedium,
-              alreadyFixedMedium, tooHardMedium, answeredMedium, validatedMedium, disabledMedium),
-       Challenge.PRIORITY_HIGH.toString -> ActionSummary(
-         (availableHigh + fixedHigh + falsePositiveHigh + skippedHigh + deletedHigh +
-          alreadyFixedHigh + tooHardHigh + answeredHigh + validatedHigh + disabledHigh),
-              availableHigh, fixedHigh, falsePositiveHigh, skippedHigh, deletedHigh, alreadyFixedHigh,
-              tooHardHigh, answeredHigh, validatedHigh, disabledHigh),
-     )),
-     Some(ReviewActions((reviewRequested + reviewApproved + reviewRejected + reviewAssisted + reviewDisputed),
-           reviewRequested, reviewApproved, reviewRejected, reviewAssisted, reviewDisputed))
-   )
+    id                  <- get[Long]("id")
+    challengeId         <- get[Long]("challenge_id")
+    name                <- get[String]("challenge_name")
+    status              <- get[Option[Int]]("challenge_status")
+    created             <- get[DateTime]("created")
+    typeId              <- get[Long]("type_id")
+    available           <- int("available")
+    fixed               <- int("fixed")
+    falsePositive       <- int("false_positive")
+    skipped             <- int("skipped")
+    deleted             <- int("deleted")
+    alreadyFixed        <- int("already_fixed")
+    tooHard             <- int("too_hard")
+    answered            <- int("answered")
+    validated           <- int("validated")
+    disabled            <- int("disabled")
+    availableLow        <- int("availableLow")
+    fixedLow            <- int("fixedLow")
+    falsePositiveLow    <- int("false_positiveLow")
+    skippedLow          <- int("skippedLow")
+    deletedLow          <- int("deletedLow")
+    alreadyFixedLow     <- int("already_fixedLow")
+    tooHardLow          <- int("too_hardLow")
+    answeredLow         <- int("answeredLow")
+    validatedLow        <- int("validatedLow")
+    disabledLow         <- int("disabledLow")
+    availableMedium     <- int("availableMedium")
+    fixedMedium         <- int("fixedMedium")
+    falsePositiveMedium <- int("false_positiveMedium")
+    skippedMedium       <- int("skippedMedium")
+    deletedMedium       <- int("deletedMedium")
+    alreadyFixedMedium  <- int("already_fixedMedium")
+    tooHardMedium       <- int("too_hardMedium")
+    answeredMedium      <- int("answeredMedium")
+    validatedMedium     <- int("validatedMedium")
+    disabledMedium      <- int("disabledMedium")
+    availableHigh       <- int("availableHigh")
+    fixedHigh           <- int("fixedHigh")
+    falsePositiveHigh   <- int("false_positiveHigh")
+    skippedHigh         <- int("skippedHigh")
+    deletedHigh         <- int("deletedHigh")
+    alreadyFixedHigh    <- int("already_fixedHigh")
+    tooHardHigh         <- int("too_hardHigh")
+    answeredHigh        <- int("answeredHigh")
+    validatedHigh       <- int("validatedHigh")
+    disabledHigh        <- int("disabledHigh")
+    reviewRequested     <- int("requested")
+    reviewApproved      <- int("approved")
+    reviewRejected      <- int("rejected")
+    reviewAssisted      <- int("assisted")
+    reviewDisputed      <- int("disputed")
+  } yield Snapshot(
+    id,
+    challengeId,
+    typeId,
+    name,
+    status,
+    created,
+    Some(
+      ActionSummary(
+        (available + fixed + falsePositive + skipped + deleted +
+          alreadyFixed + tooHard + answered + validated + disabled),
+        available,
+        fixed,
+        falsePositive,
+        skipped,
+        deleted,
+        alreadyFixed,
+        tooHard,
+        answered,
+        validated,
+        disabled
+      )
+    ),
+    Some(
+      Map(
+        Challenge.PRIORITY_LOW.toString -> ActionSummary(
+          (availableLow + fixedLow + falsePositiveLow + skippedLow + deletedLow +
+            alreadyFixedLow + tooHardLow + answeredLow + validatedLow + disabledLow),
+          availableLow,
+          fixedLow,
+          falsePositiveLow,
+          skippedLow,
+          deletedLow,
+          alreadyFixedLow,
+          tooHardLow,
+          answeredLow,
+          validatedLow,
+          disabledLow
+        ),
+        Challenge.PRIORITY_MEDIUM.toString -> ActionSummary(
+          (availableMedium + fixedMedium + falsePositiveMedium + skippedMedium + deletedMedium +
+            alreadyFixedMedium + tooHardMedium + answeredMedium + validatedMedium + disabledMedium),
+          availableMedium,
+          fixedMedium,
+          falsePositiveMedium,
+          skippedMedium,
+          deletedMedium,
+          alreadyFixedMedium,
+          tooHardMedium,
+          answeredMedium,
+          validatedMedium,
+          disabledMedium
+        ),
+        Challenge.PRIORITY_HIGH.toString -> ActionSummary(
+          (availableHigh + fixedHigh + falsePositiveHigh + skippedHigh + deletedHigh +
+            alreadyFixedHigh + tooHardHigh + answeredHigh + validatedHigh + disabledHigh),
+          availableHigh,
+          fixedHigh,
+          falsePositiveHigh,
+          skippedHigh,
+          deletedHigh,
+          alreadyFixedHigh,
+          tooHardHigh,
+          answeredHigh,
+          validatedHigh,
+          disabledHigh
+        )
+      )
+    ),
+    Some(
+      ReviewActions(
+        (reviewRequested + reviewApproved + reviewRejected + reviewAssisted + reviewDisputed),
+        reviewRequested,
+        reviewApproved,
+        reviewRejected,
+        reviewAssisted,
+        reviewDisputed
+      )
+    )
+  )
 
   def getChallengeSnapshotList(challengeId: Long): List[Snapshot] = {
     db.withConnection { implicit c =>
@@ -164,41 +234,54 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
     db.withConnection { implicit c =>
       val challenge = challengeDAL.retrieveById(challengeId) match {
         case Some(c) => c
-        case None => throw new NotFoundException(s"Could not record snapshot, no challenge with id $challengeId found.")
+        case None =>
+          throw new NotFoundException(
+            s"Could not record snapshot, no challenge with id $challengeId found."
+          )
       }
 
-      val result = this.getChallengeSummary(challengeId = Some(challengeId))match {
-          case l if(l.size > 0) => l.head
-          case _ => ChallengeSummary(challengeId, "", ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-        }
+      val result = this.getChallengeSummary(challengeId = Some(challengeId)) match {
+        case l if (l.size > 0) => l.head
+        case _                 => ChallengeSummary(challengeId, "", ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+      }
 
       val resultLow =
-        this.getChallengeSummary(challengeId = Some(challengeId),
-                                 priority = Some(List(Challenge.PRIORITY_LOW))) match {
-          case l if(l.size > 0) => l.head
-          case _ => ChallengeSummary(result.id, result.name, ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+        this.getChallengeSummary(
+          challengeId = Some(challengeId),
+          priority = Some(List(Challenge.PRIORITY_LOW))
+        ) match {
+          case l if (l.size > 0) => l.head
+          case _ =>
+            ChallengeSummary(result.id, result.name, ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
         }
 
       val resultMedium =
-        this.getChallengeSummary(challengeId = Some(challengeId),
-                                 priority = Some(List(Challenge.PRIORITY_MEDIUM))) match {
-          case l if(l.size > 0) => l.head
-          case _ => ChallengeSummary(result.id, result.name, ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+        this.getChallengeSummary(
+          challengeId = Some(challengeId),
+          priority = Some(List(Challenge.PRIORITY_MEDIUM))
+        ) match {
+          case l if (l.size > 0) => l.head
+          case _ =>
+            ChallengeSummary(result.id, result.name, ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
         }
 
       val resultHigh =
-        this.getChallengeSummary(challengeId = Some(challengeId),
-                                 priority = Some(List(Challenge.PRIORITY_HIGH))) match {
-          case l if(l.size > 0) => l.head
-          case _ => ChallengeSummary(result.id, result.name, ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+        this.getChallengeSummary(
+          challengeId = Some(challengeId),
+          priority = Some(List(Challenge.PRIORITY_HIGH))
+        ) match {
+          case l if (l.size > 0) => l.head
+          case _ =>
+            ChallengeSummary(result.id, result.name, ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
         }
 
       val allPriorities = _recordCompletionSnapshot(result, None)
       val lowPriorities = _recordCompletionSnapshot(resultLow, Some(Challenge.PRIORITY_LOW))
-      val mediumPriorities = _recordCompletionSnapshot(resultMedium, Some(Challenge.PRIORITY_MEDIUM))
+      val mediumPriorities =
+        _recordCompletionSnapshot(resultMedium, Some(Challenge.PRIORITY_MEDIUM))
       val highPriorities = _recordCompletionSnapshot(resultHigh, Some(Challenge.PRIORITY_HIGH))
 
-      val reviewQuery = s"""
+      val reviewQuery      = s"""
         INSERT INTO review_snapshots
          (type_id, item_id, requested, approved, rejected, assisted, disputed)
         SELECT ${Actions.ITEM_TYPE_CHALLENGE}, ${challengeId},
@@ -228,20 +311,28 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
         VALUES
           ({id}, {name}, {status}, {all}, {low}, {medium}, {high}, {review}, {manual})
       """
-      SQL(query).on(Symbol("id") -> challengeId,
-                      Symbol("name") -> result.name,
-                      Symbol("status") -> challenge.status,
-                      Symbol("all") -> allPriorities,
-                      Symbol("low") -> lowPriorities,
-                      Symbol("medium") -> mediumPriorities,
-                      Symbol("high") -> highPriorities,
-                      Symbol("review") -> reviewSnapshotId,
-                      Symbol("manual") -> manual
-                   ).executeInsert().map(id => id).head
+      SQL(query)
+        .on(
+          Symbol("id")     -> challengeId,
+          Symbol("name")   -> result.name,
+          Symbol("status") -> challenge.status,
+          Symbol("all")    -> allPriorities,
+          Symbol("low")    -> lowPriorities,
+          Symbol("medium") -> mediumPriorities,
+          Symbol("high")   -> highPriorities,
+          Symbol("review") -> reviewSnapshotId,
+          Symbol("manual") -> manual
+        )
+        .executeInsert()
+        .map(id => id)
+        .head
     }
   }
 
-  private def _recordCompletionSnapshot(summary: ChallengeSummary, priority: Option[Integer]): Option[Long] = {
+  private def _recordCompletionSnapshot(
+      summary: ChallengeSummary,
+      priority: Option[Integer]
+  ): Option[Long] = {
     db.withConnection { implicit c =>
       val query = s"""
         INSERT INTO completion_snapshots
@@ -262,19 +353,23 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
                 {false_positive}, {skipped}, {deleted}, {already_fixed}, {too_hard},
                 {answered}, {validated}, {disabled})
       """
-      SQL(query).on(Symbol("id") -> summary.id,
-                      Symbol("priority") -> priority,
-                      Symbol("available") -> summary.actions.available,
-                      Symbol("fixed") -> summary.actions.fixed,
-                      Symbol("false_positive") -> summary.actions.falsePositive,
-                      Symbol("skipped") -> summary.actions.skipped,
-                      Symbol("deleted") -> summary.actions.deleted,
-                      Symbol("already_fixed") -> summary.actions.alreadyFixed,
-                      Symbol("too_hard") -> summary.actions.tooHard,
-                      Symbol("answered") -> summary.actions.answered,
-                      Symbol("validated") -> summary.actions.validated,
-                      Symbol("disabled") -> summary.actions.disabled
-                    ).executeInsert().map(id => id)
+      SQL(query)
+        .on(
+          Symbol("id")             -> summary.id,
+          Symbol("priority")       -> priority,
+          Symbol("available")      -> summary.actions.available,
+          Symbol("fixed")          -> summary.actions.fixed,
+          Symbol("false_positive") -> summary.actions.falsePositive,
+          Symbol("skipped")        -> summary.actions.skipped,
+          Symbol("deleted")        -> summary.actions.deleted,
+          Symbol("already_fixed")  -> summary.actions.alreadyFixed,
+          Symbol("too_hard")       -> summary.actions.tooHard,
+          Symbol("answered")       -> summary.actions.answered,
+          Symbol("validated")      -> summary.actions.validated,
+          Symbol("disabled")       -> summary.actions.disabled
+        )
+        .executeInsert()
+        .map(id => id)
     }
   }
 
@@ -282,7 +377,7 @@ class SnapshotManager @Inject()(config: Config, db: Database, challengeDAL: Chal
     val cols = new StringBuilder()
     List("", "Low", "Medium", "High").foreach(p => {
       cols ++=
-       s"""
+        s"""
          cs${p}.available as available${p},
          cs${p}.fixed as fixed${p},
          cs${p}.false_positive as false_positive${p},

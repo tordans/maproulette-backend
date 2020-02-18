@@ -12,7 +12,6 @@ import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 import org.maproulette.exception.InvalidException
 
-
 /**
   * This holds the search parameters that are used to define task sets for retrieving random tasks
   * from the database
@@ -23,58 +22,63 @@ import org.maproulette.exception.InvalidException
   */
 case class SearchLocation(left: Double, bottom: Double, right: Double, top: Double)
 
-case class SearchChallengeParameters(challengeIds: Option[List[Long]] = None,
-                                     challengeTags: Option[List[String]] = None,
-                                     challengeTagConjunction: Option[Boolean] = None,
-                                     challengeSearch: Option[String] = None,
-                                     challengeEnabled: Option[Boolean] = None,
-                                     challengeDifficulty: Option[Int] = None,
-                                     challengeStatus: Option[List[Int]] = None)
+case class SearchChallengeParameters(
+    challengeIds: Option[List[Long]] = None,
+    challengeTags: Option[List[String]] = None,
+    challengeTagConjunction: Option[Boolean] = None,
+    challengeSearch: Option[String] = None,
+    challengeEnabled: Option[Boolean] = None,
+    challengeDifficulty: Option[Int] = None,
+    challengeStatus: Option[List[Int]] = None
+)
 
-case class SearchParameters(projectIds: Option[List[Long]] = None,
-                            projectSearch: Option[String] = None,
-                            projectEnabled: Option[Boolean] = None,
-                            challengeParams: SearchChallengeParameters = new SearchChallengeParameters(),
-                            taskTags: Option[List[String]] = None,
-                            taskTagConjunction: Option[Boolean] = None,
-                            taskSearch: Option[String] = None,
-                            taskStatus: Option[List[Int]] = None,
-                            taskId: Option[Long] = None,
-                            taskReviewStatus: Option[List[Int]] = None,
-                            taskProperties: Option[Map[String, String]] = None,
-                            taskPropertySearchType: Option[String] = None,
-                            taskPropertySearch: Option[TaskPropertySearch] = None,
-                            taskPriorities: Option[List[Int]] = None,
-                            priority: Option[Int] = None,
-                            location: Option[SearchLocation] = None,
-                            bounding: Option[SearchLocation] = None,
-                            boundingGeometries: Option[List[JsObject]] = None,
-                            fuzzySearch: Option[Int] = None,
-                            owner: Option[String] = None,
-                            reviewer: Option[String] = None) {
+case class SearchParameters(
+    projectIds: Option[List[Long]] = None,
+    projectSearch: Option[String] = None,
+    projectEnabled: Option[Boolean] = None,
+    challengeParams: SearchChallengeParameters = new SearchChallengeParameters(),
+    taskTags: Option[List[String]] = None,
+    taskTagConjunction: Option[Boolean] = None,
+    taskSearch: Option[String] = None,
+    taskStatus: Option[List[Int]] = None,
+    taskId: Option[Long] = None,
+    taskReviewStatus: Option[List[Int]] = None,
+    taskProperties: Option[Map[String, String]] = None,
+    taskPropertySearchType: Option[String] = None,
+    taskPropertySearch: Option[TaskPropertySearch] = None,
+    taskPriorities: Option[List[Int]] = None,
+    priority: Option[Int] = None,
+    location: Option[SearchLocation] = None,
+    bounding: Option[SearchLocation] = None,
+    boundingGeometries: Option[List[JsObject]] = None,
+    fuzzySearch: Option[Int] = None,
+    owner: Option[String] = None,
+    reviewer: Option[String] = None
+) {
   def getProjectIds: Option[List[Long]] = projectIds match {
     case Some(v) => Some(v.filter(_ != -1))
-    case None => None
+    case None    => None
   }
 
   def getChallengeIds: Option[List[Long]] = challengeParams.challengeIds match {
     case Some(v) => Some(v.filter(_ != -1))
-    case None => None
+    case None    => None
   }
 
   def getPriority: Option[Int] = priority match {
     case Some(v) if v == -1 => None
-    case _ => priority
+    case _                  => priority
   }
 
   def getChallengeDifficulty: Option[Int] = challengeParams.challengeDifficulty match {
     case Some(v) if v == -1 => None
-    case _ => challengeParams.challengeDifficulty
+    case _                  => challengeParams.challengeDifficulty
   }
 
   def hasTaskTags: Boolean = taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
 
-  def hasChallengeTags: Boolean = challengeParams.challengeTags.getOrElse(List.empty).exists(ct => ct.nonEmpty)
+  def hasChallengeTags: Boolean =
+    challengeParams.challengeTags.getOrElse(List.empty).exists(ct => ct.nonEmpty)
 
   def enabledProject: Boolean = projectEnabled.getOrElse(true)
 
@@ -82,27 +86,30 @@ case class SearchParameters(projectIds: Option[List[Long]] = None,
 }
 
 object SearchParameters {
-  val TASK_PROP_SEARCH_TYPE_EQUALS = "equals"
-  val TASK_PROP_SEARCH_TYPE_NOT_EQUAL = "not_equal"
-  val TASK_PROP_SEARCH_TYPE_CONTAINS = "contains"
-  val TASK_PROP_SEARCH_TYPE_LESS_THAN = "less_than"
+  val TASK_PROP_SEARCH_TYPE_EQUALS       = "equals"
+  val TASK_PROP_SEARCH_TYPE_NOT_EQUAL    = "not_equal"
+  val TASK_PROP_SEARCH_TYPE_CONTAINS     = "contains"
+  val TASK_PROP_SEARCH_TYPE_LESS_THAN    = "less_than"
   val TASK_PROP_SEARCH_TYPE_GREATER_THAN = "greater_than"
 
   val TASK_PROP_VALUE_TYPE_STRING = "string"
   val TASK_PROP_VALUE_TYPE_NUMBER = "number"
 
   val TASK_PROP_OPERATION_TYPE_AND = "and"
-  val TASK_PROP_OPERATION_TYPE_OR = "or"
+  val TASK_PROP_OPERATION_TYPE_OR  = "or"
 
   implicit val locationWrites = Json.writes[SearchLocation]
-  implicit val locationReads = Json.reads[SearchLocation]
-  implicit val taskPropertySearchWrites: Writes[TaskPropertySearch] = Json.writes[TaskPropertySearch]
+  implicit val locationReads  = Json.reads[SearchLocation]
+  implicit val taskPropertySearchWrites: Writes[TaskPropertySearch] =
+    Json.writes[TaskPropertySearch]
   implicit val taskPropertySearchReads: Reads[TaskPropertySearch] = Json.reads[TaskPropertySearch]
 
-  implicit val challengeParamsWrites: Writes[SearchChallengeParameters] = Json.writes[SearchChallengeParameters]
-  implicit val challengeParamsReads: Reads[SearchChallengeParameters] = Json.reads[SearchChallengeParameters]
+  implicit val challengeParamsWrites: Writes[SearchChallengeParameters] =
+    Json.writes[SearchChallengeParameters]
+  implicit val challengeParamsReads: Reads[SearchChallengeParameters] =
+    Json.reads[SearchChallengeParameters]
   implicit val paramsWrites: Writes[SearchParameters] = Json.writes[SearchParameters]
-  implicit val paramsReads: Reads[SearchParameters] = Json.reads[SearchParameters]
+  implicit val paramsReads: Reads[SearchParameters]   = Json.reads[SearchParameters]
 
   implicit object SearchParametersFormat extends Format[SearchParameters] {
     override def writes(o: SearchParameters): JsValue = {
@@ -111,31 +118,31 @@ object SearchParameters {
       // Move challenge param fields up to top level
       var updated = o.challengeParams.challengeIds match {
         case Some(c) => Utils.insertIntoJson(original, "challengeIds", c, true)
-        case None => original
+        case None    => original
       }
       updated = o.challengeParams.challengeTags match {
         case Some(c) => Utils.insertIntoJson(updated, "challengeTags", c, true)
-        case None => updated
+        case None    => updated
       }
       updated = o.challengeParams.challengeTagConjunction match {
         case Some(c) => Utils.insertIntoJson(updated, "challengeTagConjunction", c, true)
-        case None => updated
+        case None    => updated
       }
       updated = o.challengeParams.challengeSearch match {
         case Some(r) => Utils.insertIntoJson(updated, "challengeSearch", r, true)
-        case None => updated
+        case None    => updated
       }
       updated = o.challengeParams.challengeEnabled match {
         case Some(r) => Utils.insertIntoJson(updated, "challengeEnabled", r, true)
-        case None => updated
+        case None    => updated
       }
       updated = o.challengeParams.challengeDifficulty match {
         case Some(r) => Utils.insertIntoJson(updated, "challengeDifficulty", r, true)
-        case None => updated
+        case None    => updated
       }
       updated = o.challengeParams.challengeStatus match {
         case Some(r) => Utils.insertIntoJson(updated, "challengeStatus", r, true)
-        case None => updated
+        case None    => updated
       }
 
       updated = updated.as[JsObject] - "challengeParams"
@@ -143,45 +150,47 @@ object SearchParameters {
     }
 
     override def reads(json: JsValue): JsResult[SearchParameters] = {
-      implicit val challengeParamsReads: Reads[SearchChallengeParameters] = Json.reads[SearchChallengeParameters]
+      implicit val challengeParamsReads: Reads[SearchChallengeParameters] =
+        Json.reads[SearchChallengeParameters]
 
       var challengeParams = Map[String, JsValue]()
       (json \ "challengeIds").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeIds" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
       (json \ "challengeTags").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeTags" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
       (json \ "challengeTagConjunction").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeTagConjunction" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
       (json \ "challengeSearch").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeSearch" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
       (json \ "challengeEnabled").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeEnabled" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
       (json \ "challengeDifficulty").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeDifficulty" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
       (json \ "challengeStatus").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeStatus" -> v)
-        case None => // do nothing
+        case None    => // do nothing
       }
 
-      val jsonWithChallengeParams = Utils.insertIntoJson(json, "challengeParams", challengeParams, false)
+      val jsonWithChallengeParams =
+        Utils.insertIntoJson(json, "challengeParams", challengeParams, false)
       Json.fromJson[SearchParameters](jsonWithChallengeParams)(Json.reads[SearchParameters])
     }
   }
@@ -196,6 +205,7 @@ object SearchParameters {
     * @tparam T The response type from the block of code
     * @return The response from the block of code
     */
+  // format: off
   def withSearch[T](block: SearchParameters => T)(implicit request: Request[AnyContent]): T = {
     val params = request.cookies.get("search") match {
       case Some(c) => convert(c.value)
@@ -346,6 +356,7 @@ object SearchParameters {
       this.getStringParameter(request.getQueryString("r"), params.reviewer)
     ))
   }
+  // format: off
 
   /**
     * Will attempt to convert the cookie to SearchParameters, if it fails it simply initializes an

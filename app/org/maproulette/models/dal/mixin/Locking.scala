@@ -27,16 +27,25 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     */
   def unlockItem(user: User, item: T)(implicit c: Option[Connection] = None): Int =
     this.withMRTransaction { implicit c =>
-      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      val checkQuery =
+        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
+      SQL(checkQuery)
+        .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+        .as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
-            val query = s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
-            SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+            val query =
+              s"""DELETE FROM locked WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
+            SQL(query)
+              .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+              .executeUpdate()
           } else {
-            throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}")
+            throw new LockedException(
+              s"Item [${item.id}] currently locked by different user. [${user.id}"
+            )
           }
-        case None => throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
+        case None =>
+          throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
       }
     }
 
@@ -52,14 +61,22 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     */
   def refreshItemLock(user: User, item: T)(implicit c: Option[Connection] = None): Int =
     this.withMRTransaction { implicit c =>
-      val checkQuery = s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      val checkQuery =
+        s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
+      SQL(checkQuery)
+        .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+        .as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
-            val query = s"""UPDATE locked set locked_time=NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
-            SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+            val query =
+              s"""UPDATE locked set locked_time=NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"""
+            SQL(query)
+              .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+              .executeUpdate()
           } else {
-            throw new LockedException(s"Item [${item.id}] currently locked by different user. [${user.id}]")
+            throw new LockedException(
+              s"Item [${item.id}] currently locked by different user. [${user.id}]"
+            )
           }
         case None => throw new LockedException(s"Lock on item [${item.id}] does not exist.")
       }
@@ -75,8 +92,9 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     * @param c        The connection
     * @return List of objects
     */
-  def withListLocking(user: User, itemType: Option[ItemType] = None)(block: () => List[T])
-                     (implicit c: Option[Connection] = None): List[T] = {
+  def withListLocking(user: User, itemType: Option[ItemType] = None)(
+      block: () => List[T]
+  )(implicit c: Option[Connection] = None): List[T] = {
     this.withMRTransaction { implicit c =>
       // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
       // task can be locked at a time
@@ -108,8 +126,9 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     * @param c        The connection
     * @return Option object
     */
-  def withSingleLocking(user: User, itemType: Option[ItemType] = None)(block: () => Option[T])
-                       (implicit c: Option[Connection] = None): Option[T] = {
+  def withSingleLocking(user: User, itemType: Option[ItemType] = None)(
+      block: () => Option[T]
+  )(implicit c: Option[Connection] = None): Option[T] = {
     this.withMRTransaction { implicit c =>
       // if a user is requesting a task, then we can unlock all other tasks for that user, as only a single
       // task can be locked at a time
@@ -118,7 +137,7 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
       if (!user.guest) {
         result match {
           case Some(r) => lockItem(user, r)
-          case None => // ignore
+          case None    => // ignore
         }
       }
       result
@@ -140,18 +159,26 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
       // first check to see if the item is already locked
       val checkQuery =
         s"""SELECT user_id FROM locked WHERE item_id = {itemId} AND item_type = ${item.itemType.typeId} FOR UPDATE"""
-      SQL(checkQuery).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).as(SqlParser.long("user_id").singleOpt) match {
+      SQL(checkQuery)
+        .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+        .as(SqlParser.long("user_id").singleOpt) match {
         case Some(id) =>
           if (id == user.id) {
-            val query = s"UPDATE locked SET locked_time = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
-            SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+            val query =
+              s"UPDATE locked SET locked_time = NOW() WHERE user_id = ${user.id} AND item_id = {itemId} AND item_type = ${item.itemType.typeId}"
+            SQL(query)
+              .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+              .executeUpdate()
           } else {
             0
             //throw new LockedException(s"Could not acquire lock on object [${item.id}, already locked by user [$id]")
           }
         case None =>
-          val query = s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType.typeId}, {itemId}, ${user.id})"
-          SQL(query).on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement)).executeUpdate()
+          val query =
+            s"INSERT INTO locked (item_type, item_id, user_id) VALUES (${item.itemType.typeId}, {itemId}, ${user.id})"
+          SQL(query)
+            .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
+            .executeUpdate()
       }
     }
 
@@ -163,11 +190,14 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     *             with other requests
     * @return Number of locks removed
     */
-  def unlockAllItems(user: User, itemType: Option[ItemType] = None)(implicit c: Option[Connection] = None): Int =
+  def unlockAllItems(user: User, itemType: Option[ItemType] = None)(
+      implicit c: Option[Connection] = None
+  ): Int =
     this.withMRTransaction { implicit c =>
       itemType match {
         case Some(it) =>
-          SQL"""DELETE FROM locked WHERE user_id = ${user.id} AND item_type = ${it.typeId}""".executeUpdate()
+          SQL"""DELETE FROM locked WHERE user_id = ${user.id} AND item_type = ${it.typeId}"""
+            .executeUpdate()
         case None =>
           SQL"""DELETE FROM locked WHERE user_id = ${user.id}""".executeUpdate()
       }
