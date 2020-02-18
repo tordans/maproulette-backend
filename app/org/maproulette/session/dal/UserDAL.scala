@@ -145,7 +145,7 @@ class UserDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns}, score FROM users
                       LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                       WHERE osm_id = {id}"""
-      SQL(query).on('id -> id).as(this.parser.*).headOption match {
+      SQL(query).on(Symbol("id") -> id).as(this.parser.*).headOption match {
         case Some(u) =>
           this.permission.hasObjectReadAccess(u, user)
           Some(u)
@@ -166,7 +166,7 @@ class UserDAL @Inject()(override val db: Database,
         val query = s"""SELECT $retrieveColumns, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                         WHERE id = {id}"""
-        SQL(query).on('id -> id).as(this.parser.singleOpt)
+        SQL(query).on(Symbol("id") -> id).as(this.parser.singleOpt)
       }
     }
   }
@@ -184,7 +184,7 @@ class UserDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns}, score FROM users
                       LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                       WHERE (id = {id} OR osm_id = {id}) AND api_key = {apiKey}"""
-      SQL(query).on('id -> id, 'apiKey -> apiKey).as(this.parser.*).headOption match {
+      SQL(query).on(Symbol("id") -> id, Symbol("apiKey") -> apiKey).as(this.parser.*).headOption match {
         case Some(u) =>
           this.permission.hasObjectReadAccess(u, user)
           Some(u)
@@ -199,7 +199,7 @@ class UserDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns}, score FROM users
                       LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                       WHERE name = {name} AND api_key = {apiKey}"""
-      SQL(query).on('name -> username, 'apiKey -> apiKey).as(this.parser.*).headOption
+      SQL(query).on(Symbol("name") -> username, Symbol("apiKey") -> apiKey).as(this.parser.*).headOption
     }
   }
 
@@ -219,7 +219,7 @@ class UserDAL @Inject()(override val db: Database,
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                         WHERE LOWER(name) = LOWER({name})"""
-        SQL(query).on('name -> username).as(this.parser.*).headOption
+        SQL(query).on(Symbol("name") -> username).as(this.parser.*).headOption
       }
     } else {
       throw new IllegalAccessException("Only Superuser allowed to look up users by just OSM username")
@@ -241,7 +241,7 @@ class UserDAL @Inject()(override val db: Database,
             WHERE name ILIKE '${username}%'
             ORDER BY (users.name ILIKE '${username}') DESC, users.name
             LIMIT ${limit}"""
-      SQL(query).on('name -> username).as(this.searchResultParser.*)
+      SQL(query).on(Symbol("name") -> username).as(this.searchResultParser.*)
     }
   }
 
@@ -259,7 +259,7 @@ class UserDAL @Inject()(override val db: Database,
           s"""SELECT ${this.retrieveColumns}, score FROM users
                         LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                         WHERE id = {id} AND oauth_token = {token} AND oauth_secret = {secret}"""
-        SQL(query).on('id -> id, 'token -> requestToken.token, 'secret -> requestToken.secret).as(this.parser.*).headOption
+        SQL(query).on(Symbol("id") -> id, Symbol("token") -> requestToken.token, Symbol("secret") -> requestToken.secret).as(this.parser.*).headOption
       }
     }
     requestedUser match {
@@ -288,7 +288,7 @@ class UserDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns}, score FROM users
                       LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                       WHERE oauth_token = {token} AND oauth_secret = {secret}"""
-      SQL(query).on('token -> requestToken.token, 'secret -> requestToken.secret).as(this.parser.*).headOption
+      SQL(query).on(Symbol("token") -> requestToken.token, Symbol("secret") -> requestToken.secret).as(this.parser.*).headOption
     }
   }
 
@@ -323,16 +323,16 @@ class UserDAL @Inject()(override val db: Database,
             SELECT {apiKey}, {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, {secret}, ST_GeomFromEWKT({wkt})
             WHERE NOT EXISTS (SELECT * FROM upsert)"""
       SQL(query).on(
-        'apiKey -> newAPIKey,
-        'osmID -> item.osmProfile.id,
-        'osmCreated -> item.osmProfile.created,
-        'name -> item.osmProfile.displayName,
-        'description -> item.osmProfile.description,
-        'avatarURL -> item.osmProfile.avatarURL,
-        'token -> item.osmProfile.requestToken.token,
-        'secret -> item.osmProfile.requestToken.secret,
-        'wkt -> s"SRID=4326;$ewkt",
-        'id -> item.id
+          Symbol("apiKey") -> newAPIKey,
+          Symbol("osmID") -> item.osmProfile.id,
+          Symbol("osmCreated") -> item.osmProfile.created,
+          Symbol("name") -> item.osmProfile.displayName,
+          Symbol("description") -> item.osmProfile.description,
+          Symbol("avatarURL") -> item.osmProfile.avatarURL,
+          Symbol("token") -> item.osmProfile.requestToken.token,
+          Symbol("secret") -> item.osmProfile.requestToken.secret,
+          Symbol("wkt") -> s"SRID=4326;$ewkt",
+          Symbol("id") -> item.id
       ).executeUpdate()
     }
     // just in case expire the osm ID
@@ -345,7 +345,7 @@ class UserDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns}, score FROM users
                       LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                       WHERE osm_id = {id}"""
-      SQL(query).on('id -> item.osmProfile.id).as(this.parser.*).head
+      SQL(query).on(Symbol("id") -> item.osmProfile.id).as(this.parser.*).head
     }
 
     // now update the groups by adding any new groups, from the supplied user
@@ -394,8 +394,8 @@ class UserDAL @Inject()(override val db: Database,
                           LEFT JOIN user_metrics ON users.id = user_metrics.user_id
                           WHERE id IN ({inString})
                           LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('inString -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
-            'offset -> offset).as(this.parser.*)
+          SQL(query).on(Symbol("inString") -> ToParameterValue.apply[List[Long]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            Symbol("offset") -> offset).as(this.parser.*)
         }
       }
     }
@@ -479,25 +479,25 @@ class UserDAL @Inject()(override val db: Database,
                         WHERE id = {id} RETURNING ${this.retrieveColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
         SQL(query).on(
-          'name -> displayName,
-          'description -> description,
-          'avatarURL -> avatarURL,
-          'token -> token,
-          'secret -> secret,
-          'wkt -> s"SRID=4326;$ewkt",
-          'id -> id,
-          'defaultEditor -> defaultEditor,
-          'defaultBasemap -> defaultBasemap,
-          'defaultBasemapId -> defaultBasemapId,
-          'customBasemap -> customBasemap,
-          'locale -> locale,
-          'email -> email,
-          'emailOptIn -> emailOptIn,
-          'leaderboardOptOut -> leaderboardOptOut,
-          'needsReview -> needsReview,
-          'isReviewer -> isReviewer,
-          'theme -> theme,
-          'properties -> properties
+            Symbol("name") -> displayName,
+            Symbol("description") -> description,
+            Symbol("avatarURL") -> avatarURL,
+            Symbol("token") -> token,
+            Symbol("secret") -> secret,
+            Symbol("wkt") -> s"SRID=4326;$ewkt",
+            Symbol("id") -> id,
+            Symbol("defaultEditor") -> defaultEditor,
+            Symbol("defaultBasemap") -> defaultBasemap,
+            Symbol("defaultBasemapId") -> defaultBasemapId,
+            Symbol("customBasemap") -> customBasemap,
+            Symbol("locale") -> locale,
+            Symbol("email") -> email,
+            Symbol("emailOptIn") -> emailOptIn,
+            Symbol("leaderboardOptOut") -> leaderboardOptOut,
+            Symbol("needsReview") -> needsReview,
+            Symbol("isReviewer") -> isReviewer,
+            Symbol("theme") -> theme,
+            Symbol("properties") -> properties
         ).as(this.parser.*).headOption
       }
     }
@@ -723,7 +723,7 @@ class UserDAL @Inject()(override val db: Database,
           s"""UPDATE users SET api_key = {apiKey} WHERE id = {id}
                         RETURNING ${this.retrieveColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = {id}) as score"""
-        SQL(query).on('apiKey -> newAPIKey, 'id -> apiKeyUser.id).as(this.parser.*).headOption
+        SQL(query).on(Symbol("apiKey") -> newAPIKey, Symbol("id") -> apiKeyUser.id).as(this.parser.*).headOption
       }
     }
   }

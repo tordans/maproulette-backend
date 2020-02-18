@@ -23,6 +23,10 @@ class DALManager @Inject()(tagDAL: TagDAL,
                            notificationDAL: NotificationDAL,
                            actionManager: ActionManager,
                            dataManager: DataManager,
+                           commentDAL: CommentDAL,
+                           taskBundleDAL: TaskBundleDAL,
+                           taskReviewDAL: TaskReviewDAL,
+                           taskClusterDAL: TaskClusterDAL,
                            statusActionManager: StatusActionManager) {
   def tag: TagDAL = tagDAL
 
@@ -47,6 +51,14 @@ class DALManager @Inject()(tagDAL: TagDAL,
   def data: DataManager = dataManager
 
   def statusAction: StatusActionManager = statusActionManager
+
+  def comment: CommentDAL = commentDAL
+
+  def taskBundle: TaskBundleDAL = taskBundleDAL
+
+  def taskReview: TaskReviewDAL = taskReviewDAL
+
+  def taskCluster: TaskClusterDAL = taskClusterDAL
 
   def getManager(itemType: ItemType): BaseDAL[Long, _] = {
     itemType match {

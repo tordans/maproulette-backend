@@ -145,7 +145,7 @@ class Config @Inject()(implicit val configuration: Configuration) {
     */
   def withFiniteDuration(key: String)(block: (FiniteDuration) => Unit): Unit = {
     configuration.getOptional[String](key)
-      .map(Duration(_)).filter(_.isFinite())
+      .map(Duration(_)).filter(_.isFinite)
       .map(duration => FiniteDuration(duration._1, duration._2))
       .foreach(block(_))
   }

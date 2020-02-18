@@ -45,7 +45,7 @@ trait ParentDAL[Key, T <: BaseObject[Key], C <: BaseObject[Key]] extends BaseDAL
         } else {
           s"UPDATE ${this.tableName} SET deleted = true WHERE id = {id}"
         }
-        SQL(query).on('id -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).executeUpdate()
+        SQL(query).on(Symbol("id") -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).executeUpdate()
         Some(deletedItem)
       }
     }
@@ -71,7 +71,7 @@ trait ParentDAL[Key, T <: BaseObject[Key], C <: BaseObject[Key]] extends BaseDAL
       this.permission.hasObjectWriteAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
       this.withMRTransaction { implicit c =>
         val query = s"UPDATE ${this.tableName} SET deleted = false WHERE id = {id}"
-        SQL(query).on('id -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).executeUpdate()
+        SQL(query).on(Symbol("id") -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).executeUpdate()
         Some(deletedItem)
       }
     }
@@ -99,9 +99,9 @@ trait ParentDAL[Key, T <: BaseObject[Key], C <: BaseObject[Key]] extends BaseDAL
                       ${this.searchField("name")}
                       ${this.order(Some(orderColumn), orderDirection)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> this.search(searchString),
-        'id -> ToParameterValue.apply[Key](p = keyToStatement).apply(id),
-        'offset -> offset)
+      SQL(query).on(Symbol("ss") -> this.search(searchString),
+        Symbol("id") -> ToParameterValue.apply[Key](p = keyToStatement).apply(id),
+        Symbol("offset") -> offset)
         .as(this.childParser.*)
     }
   }
@@ -127,9 +127,9 @@ trait ParentDAL[Key, T <: BaseObject[Key], C <: BaseObject[Key]] extends BaseDAL
                       ${this.searchField("c.name")}
                       ${this.order(Some(orderColumn), orderDirection, "c")}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> this.search(searchString),
-        'name -> ToParameterValue.apply[String].apply(name),
-        'offset -> offset)
+      SQL(query).on(Symbol("ss") -> this.search(searchString),
+        Symbol("name") -> ToParameterValue.apply[String].apply(name),
+        Symbol("offset") -> offset)
         .as(this.childParser.*)
     }
   }
@@ -148,8 +148,8 @@ trait ParentDAL[Key, T <: BaseObject[Key], C <: BaseObject[Key]] extends BaseDAL
            |WHERE parent_id = {id} ${this.searchField("name")}
            |${this.enabled(onlyEnabled)}""".stripMargin
       SQL(query).on(
-        'id -> ToParameterValue.apply[Key](p = keyToStatement).apply(id),
-        'ss -> this.search(searchString)
+        Symbol("id") -> ToParameterValue.apply[Key](p = keyToStatement).apply(id),
+        Symbol("ss") -> this.search(searchString)
       ).as(SqlParser.int("TotalChildren").single)
     }
   }

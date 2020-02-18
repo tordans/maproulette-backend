@@ -17,9 +17,11 @@ import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchParameters, User}
 import play.api.db.Database
-import play.api.libs.json.{JsString, JsValue, Json, JsArray}
+import play.api.libs.json.{JsArray, JsString, JsValue, Json}
 import play.api.libs.json.JodaReads._
 import java.sql.Timestamp
+
+import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
@@ -269,7 +271,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
             |GROUP BY c.id
            """.stripMargin
 
-        SQL(query).on('id -> id).as(this.withVirtualParentParser.singleOpt)
+        SQL(query).on(Symbol("id") -> id).as(this.withVirtualParentParser.singleOpt)
       }
     }(id, caching)
   }
@@ -550,9 +552,9 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                       ${this.searchField("name")}
                       ${this.order(orderColumn = Some("tasks." + orderColumn), orderDirection = orderDirection, nameFix = true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> this.search(searchString),
-        'id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
-        'offset -> offset)
+      SQL(query).on(Symbol("ss") -> this.search(searchString),
+        Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
+        Symbol("offset") -> offset)
         .as(geometryParser.*)
     }
   }
@@ -575,7 +577,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                       ${this.parentFilter(parentId)}
                       ${this.order(Some(orderColumn), orderDirection, "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
+      SQL(query).on(Symbol("ss") -> searchString, Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 
@@ -601,7 +603,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                       GROUP BY c.id
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-      SQL(query).on('offset -> offset).as(this.listingParser.*)
+      SQL(query).on(Symbol("offset") -> offset).as(this.listingParser.*)
     }
   }
 
@@ -629,8 +631,8 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
                         ${this.parentFilter(parentId)}
                         ${this.order(Some(orderColumn), orderDirection, "c", true)}
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-        SQL(query).on('ss -> this.search(searchString),
-          'offset -> ToParameterValue.apply[Int].apply(offset)
+        SQL(query).on(Symbol("ss") -> this.search(searchString),
+          Symbol("offset") -> ToParameterValue.apply[Int].apply(offset)
         ).as(this.parser.*)
       }
     }
@@ -950,7 +952,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
       logger.info(s"Updating geometry for challenge $challengeId")
       this.db.withTransaction { implicit c =>
         val query = "SELECT update_challenge_geometry({id})"
-        SQL(query).on('id -> challengeId).execute()
+        SQL(query).on(Symbol("id") -> challengeId).execute()
       }
     }
   }
@@ -1149,7 +1151,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
             throw new InvalidException("Cannot reset Task instructions if there is no Challenge instruction available.")
           }
           this.permission.hasObjectAdminAccess(challenge, user)
-          SQL("UPDATE tasks SET instruction = '' WHERE parent_id = {id}").on('id -> challengeId).executeUpdate()
+          SQL("UPDATE tasks SET instruction = '' WHERE parent_id = {id}").on(Symbol("id") -> challengeId).executeUpdate()
         case None =>
           throw new NotFoundException(s"No challenge found with id $challengeId")
       }
@@ -1177,7 +1179,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         s"""DELETE FROM tasks WHERE id in (SELECT id from tasks WHERE parent_id = {challengeId} $filter LIMIT 50)"""
       var deleteCount = 0
       do {
-        deleteCount = SQL(query).on('challengeId -> challengeId).executeUpdate()
+        deleteCount = SQL(query).on(Symbol("challengeId") -> challengeId).executeUpdate()
       }
       while (deleteCount > 0)
     }
@@ -1225,7 +1227,7 @@ class ChallengeDAL @Inject()(override val db: Database, taskDAL: TaskDAL,
         case Some(o) if o.nonEmpty =>
           joinClause ++= "INNER JOIN users u ON u.id = c.owner_id"
           this.appendInWhereClause(whereClause, s"u.name = {owner}")
-          parameters += ('owner -> o)
+          parameters += (Symbol("owner") -> o)
         case _ => // ignore
       }
 

@@ -43,7 +43,7 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
     val notificationNames = notifications.map(notification =>
       UserNotification.notificationTypeMap.get(notification.notificationType).get
     )
-    val notificationNameCounts = notificationNames.groupBy(identity).mapValues(_.size)
+    val notificationNameCounts = notificationNames.groupBy(identity).view.mapValues(_.size)
     val notificationLines = notificationNameCounts.foldLeft("") {
       (s: String, pair: (String, Int)) => s + pair._1 + " (" + pair._2 + ")\n"
     }

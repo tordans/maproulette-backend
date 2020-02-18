@@ -9,7 +9,7 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.models.{Task, Challenge}
+import org.maproulette.models.Task
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
@@ -131,47 +131,6 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
              #$projectFilter""".as(get[Option[Int]]("count").single).getOrElse(0)
   }
 
-  private def getEnabledPriorityClause(onlyEnabled: Boolean = true, isSurvey: Boolean = true,
-                                       start: Option[DateTime] = None, end: Option[DateTime] = None,
-                                       priority: Option[Int] = None, ignoreDates: Boolean = false): String = {
-    val priorityClauses = priority match {
-      case Some(p) => ("INNER JOIN tasks t ON t.id = sa.task_id", s"AND t.priority = $p")
-      case None => ("", "")
-    }
-    if (onlyEnabled) {
-      s"""|INNER JOIN challenges c ON c.id = sa.${
-        if (isSurvey) {
-          "survey_id"
-        } else {
-          "challenge_id"
-        }
-      }
-          |${priorityClauses._1}
-          |INNER JOIN projects p ON p.id = c.parent_id
-          |WHERE c.enabled = true and p.enabled = true
-          |${priorityClauses._2}
-          |${
-        if (!ignoreDates) {
-          getDateClause("sa.created", start, end)(Some(AND()))
-        } else {
-          ""
-        }
-      }
-       """.stripMargin
-    } else if (!ignoreDates) {
-      s"""
-         |${priorityClauses._1}
-         |${getDateClause("sa.created", start, end)(Some(WHERE()))}
-         |${priorityClauses._2}
-       """.stripMargin
-    } else {
-      s"""
-         |${priorityClauses._1}
-         |WHERE 1=1 ${priorityClauses._2}
-       """.stripMargin
-    }
-  }
-
   private def getDistinctUsersPerChallenge(projectFilter: String, survey: Boolean = false, onlyEnabled: Boolean = true,
                                            start: Option[DateTime] = None, end: Option[DateTime] = None, priority: Option[Int])(implicit c: Connection): Double = {
     SQL"""SELECT AVG(count) AS count FROM (
@@ -213,32 +172,6 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
           #${this.getEnabledPriorityClause(onlyEnabled, survey, start, end, priority)}  #$projectFilter
           AND sa.created::date BETWEEN current_date - INTERVAL '2 days' AND current_date"""
       .as(get[Option[Int]]("count").single).getOrElse(0)
-  }
-
-  private def buildProjectSearch(projectList: Option[List[Long]] = None, projectColumn: String, challengeColumn: String): String = {
-    projectList match {
-      case Some(idList) if idList.nonEmpty =>
-        s"""AND ($projectColumn IN (${idList.mkString(",")})
-                 OR 1 IN (SELECT 1 FROM unnest(ARRAY[${idList.mkString(",")}]) AS pIds
-                     WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
-                                    WHERE vp.challenge_id = ${challengeColumn})))"""
-      case _ => ""
-    }
-  }
-
-  private def findRelevantChallenges(projectList: Option[List[Long]]): Option[List[Long]] = {
-    this.db.withConnection { implicit c =>
-      // Let's determine all the challenges that are in these projects
-      // to make our query faster.
-      implicit val conjunction = Some(WHERE())
-      val projectChallengeQuery =
-        s"""SELECT id FROM challenges
-         ${getLongListFilter(projectList, "parent_id")} OR id IN
-          (SELECT challenge_id FROM virtual_project_challenges vp
-           ${getLongListFilter(projectList, "vp.project_id")})
-         """
-      Some(SQL(projectChallengeQuery).as(long("id").*))
-    }
   }
 
   def getUserChallengeSummary(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None,
@@ -391,7 +324,7 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         case None => ""
       }
 
-      var searchFilters = new StringBuilder
+      val searchFilters = new StringBuilder
 
       params match {
         case Some(search) =>
@@ -403,7 +336,8 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
 
           search.taskReviewStatus match {
             case Some(statuses) if statuses.nonEmpty =>
-              val filter = new StringBuilder(s"""AND (t.id IN (SELECT task_id FROM task_review tr
+              val filter = new StringBuilder(
+                s"""AND (t.id IN (SELECT task_id FROM task_review tr
                                                           WHERE tr.task_id = t.id AND tr.review_status
                                                                 IN (${statuses.mkString(",")})) """)
               if (statuses.contains(-1)) {
@@ -416,29 +350,31 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
           }
 
           search.owner match {
-           case Some(o) if o.nonEmpty =>
-             searchFilters.append(s""" AND (t.id IN (SELECT task_id
+            case Some(o) if o.nonEmpty =>
+              searchFilters.append(
+                s""" AND (t.id IN (SELECT task_id
                                                      FROM task_review tr
                                                      INNER JOIN users u ON u.id = tr.review_requested_by
                                                      WHERE tr.task_id = t.id AND
                                                      LOWER(u.name) LIKE LOWER('%${o}%') )) """)
-           case _ => // ignore
+            case _ => // ignore
           }
 
           search.reviewer match {
-           case Some(r) if r.nonEmpty =>
-             searchFilters.append(s""" AND (t.id IN (SELECT task_id
+            case Some(r) if r.nonEmpty =>
+              searchFilters.append(
+                s""" AND (t.id IN (SELECT task_id
                                                      FROM task_review tr
                                                      INNER JOIN users u ON u.id = tr.reviewed_by
                                                      WHERE tr.task_id = t.id AND
                                                     LOWER(u.name) LIKE LOWER('%${r}%') )) """)
-           case _ => // ignore
+            case _ => // ignore
           }
 
           search.taskId match {
-           case Some(tid) =>
-             searchFilters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
-           case _ => // ignore
+            case Some(tid) =>
+              searchFilters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
+            case _ => // ignore
           }
         case _ =>
       }
@@ -489,7 +425,7 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
                     LIMIT ${this.sqlLimit(limit)} OFFSET {offset}
         """
 
-      SQL(query).on('ss -> this.search(searchString), 'offset -> offset).as(parser.*)
+      SQL(query).on(Symbol("ss") -> this.search(searchString), Symbol("offset") -> offset).as(parser.*)
     }
   }
 
@@ -501,7 +437,6 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
     * @param challengeId  The challenge used to filter the results, optional
     * @param searchString The search string that was applied to the query
     * @return A integer value which is the total challenges included in the results
-    *
     * @deprecated("This method does not support virtual projects.", "05-23-2019")
     */
   def getTotalSummaryCount(projectList: Option[List[Long]] = None, challengeId: Option[Long] = None, searchString: String = ""): Int = {
@@ -522,7 +457,7 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
         }
                       challenge_type = ${Actions.ITEM_TYPE_CHALLENGE}
                       $challengeFilter ${this.searchField("c.name")}"""
-      SQL(query).on('ss -> this.search(searchString)).as(int("total").single)
+      SQL(query).on(Symbol("ss") -> this.search(searchString)).as(int("total").single)
     }
   }
 
@@ -602,6 +537,58 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
     }
   }
 
+  private def getEnabledPriorityClause(onlyEnabled: Boolean = true, isSurvey: Boolean = true,
+                                       start: Option[DateTime] = None, end: Option[DateTime] = None,
+                                       priority: Option[Int] = None, ignoreDates: Boolean = false): String = {
+    val priorityClauses = priority match {
+      case Some(p) => ("INNER JOIN tasks t ON t.id = sa.task_id", s"AND t.priority = $p")
+      case None => ("", "")
+    }
+    if (onlyEnabled) {
+      s"""|INNER JOIN challenges c ON c.id = sa.${
+        if (isSurvey) {
+          "survey_id"
+        } else {
+          "challenge_id"
+        }
+      }
+          |${priorityClauses._1}
+          |INNER JOIN projects p ON p.id = c.parent_id
+          |WHERE c.enabled = true and p.enabled = true
+          |${priorityClauses._2}
+          |${
+        if (!ignoreDates) {
+          getDateClause("sa.created", start, end)(Some(AND()))
+        } else {
+          ""
+        }
+      }
+       """.stripMargin
+    } else if (!ignoreDates) {
+      s"""
+         |${priorityClauses._1}
+         |${getDateClause("sa.created", start, end)(Some(WHERE()))}
+         |${priorityClauses._2}
+       """.stripMargin
+    } else {
+      s"""
+         |${priorityClauses._1}
+         |WHERE 1=1 ${priorityClauses._2}
+       """.stripMargin
+    }
+  }
+
+  private def buildProjectSearch(projectList: Option[List[Long]] = None, projectColumn: String, challengeColumn: String): String = {
+    projectList match {
+      case Some(idList) if idList.nonEmpty =>
+        s"""AND ($projectColumn IN (${idList.mkString(",")})
+                 OR 1 IN (SELECT 1 FROM unnest(ARRAY[${idList.mkString(",")}]) AS pIds
+                     WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
+                                    WHERE vp.challenge_id = ${challengeColumn})))"""
+      case _ => ""
+    }
+  }
+
   /**
     * Gets the raw activity from the status action logs, it joins the user, projects and challenges
     * table to get the names for the various objects
@@ -646,6 +633,21 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
          #${getLongListFilter(challengeList, "sa.challenge_id")}
          #${getLongListFilter(userFilter, "sa.osm_user_id")}
          """.as(parser.*)
+    }
+  }
+
+  private def findRelevantChallenges(projectList: Option[List[Long]]): Option[List[Long]] = {
+    this.db.withConnection { implicit c =>
+      // Let's determine all the challenges that are in these projects
+      // to make our query faster.
+      implicit val conjunction = Some(WHERE())
+      val projectChallengeQuery =
+        s"""SELECT id FROM challenges
+         ${getLongListFilter(projectList, "parent_id")} OR id IN
+          (SELECT challenge_id FROM virtual_project_challenges vp
+           ${getLongListFilter(projectList, "vp.project_id")})
+         """
+      Some(SQL(projectChallengeQuery).as(long("id").*))
     }
   }
 
@@ -1061,9 +1063,9 @@ class DataManager @Inject()(config: Config, db: Database, boundingBoxFinder: Bou
   /**
     * Gets the most recent activity entries for each challenge, regardless of date.
     *
-    * @param projectIds   restrict to specified projects
-    * @param challengeIds restrict to specified challenges
-    * @param entries      the number of most recent activity entries per challenge. Defaults to 1.
+    * @param projectFilter   restrict to specified projects
+    * @param challengeFilter restrict to specified challenges
+    * @param entries         the number of most recent activity entries per challenge. Defaults to 1.
     * @return most recent activity entries for each challenge
     */
   def getLatestChallengeActivity(projectFilter: Option[List[Long]] = None, challengeFilter: Option[List[Long]] = None, entries: Int = 1): List[RawActivity] = {

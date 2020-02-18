@@ -6,7 +6,7 @@ import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.controllers.ParentController
 import org.maproulette.data.{ActionManager, ProjectType, TaskViewed}
-import org.maproulette.models.dal.{ProjectDAL, TaskDAL}
+import org.maproulette.models.dal.{CommentDAL, ProjectDAL, TaskDAL}
 import org.maproulette.models.{Challenge, ClusteredPoint, Project}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
@@ -27,6 +27,7 @@ class ProjectController @Inject()(override val childController: ChallengeControl
                                   override val dal: ProjectDAL,
                                   components: ControllerComponents,
                                   taskDAL: TaskDAL,
+                                  commentDAL: CommentDAL,
                                   override val bodyParsers: PlayBodyParsers)
   extends AbstractController(components) with ParentController[Project, Challenge] {
 
@@ -55,6 +56,7 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     jsonBody = Utils.insertIntoJson(jsonBody, "groups", Array.emptyShortArray)(arrayWrites[Short])
     jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "deleted", false)(BooleanWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
     Utils.insertIntoJson(jsonBody, "enabled", true)(BooleanWrites)
   }
 
@@ -172,7 +174,7 @@ class ProjectController @Inject()(override val childController: ChallengeControl
     */
   def retrieveComments(projectId: Long, limit: Int, page: Int): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.taskDAL.retrieveComments(List(projectId), List.empty, List.empty, limit, page)))
+      Ok(Json.toJson(this.commentDAL.retrieveComments(List(projectId), List.empty, List.empty, limit, page)))
     }
   }
 }

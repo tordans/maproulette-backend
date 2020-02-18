@@ -144,12 +144,12 @@ class ActionManager @Inject()(config: Config, db: Database)(implicit application
           """
                INSERT INTO actions (osm_user_id, type_id, item_id, action, status, extra)
                VALUES ({userId}, {typeId}, {itemId}, {actionId}, {statusId}, {extra}) RETURNING *"""
-        SQL(query).on('userId -> userId,
-          'typeId -> item.typeId,
-          'itemId -> item.itemId,
-          'actionId -> action.getId,
-          'statusId -> statusId,
-          'extra -> extra
+        SQL(query).on(Symbol("userId") -> userId,
+          Symbol("typeId") -> item.typeId,
+          Symbol("itemId") -> item.itemId,
+          Symbol("actionId") -> action.getId,
+          Symbol("statusId") -> statusId,
+          Symbol("extra") -> extra
         ).as(baseParser.*).headOption
       }
     }
@@ -184,12 +184,12 @@ class ActionManager @Inject()(config: Config, db: Database)(implicit application
     val parameters = new ListBuffer[NamedParameter]()
     val whereClause = new StringBuilder()
     if (actionLimits.typeLimit.nonEmpty) {
-      parameters += ('typeIds -> actionLimits.typeLimit)
+      parameters += (Symbol("typeIds") -> actionLimits.typeLimit)
       whereClause ++= "type_id IN ({typeIds})"
     }
 
     if (actionLimits.itemLimit.nonEmpty) {
-      parameters += ('itemIds -> actionLimits.itemLimit)
+      parameters += (Symbol("itemIds") -> actionLimits.itemLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "
       }
@@ -197,7 +197,7 @@ class ActionManager @Inject()(config: Config, db: Database)(implicit application
     }
 
     if (actionLimits.actionLimit.nonEmpty) {
-      parameters += ('actions -> actionLimits.actionLimit)
+      parameters += (Symbol("actions") -> actionLimits.actionLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "
       }
@@ -205,7 +205,7 @@ class ActionManager @Inject()(config: Config, db: Database)(implicit application
     }
 
     if (actionLimits.osmUserLimit.nonEmpty) {
-      parameters += ('userIds -> actionLimits.osmUserLimit)
+      parameters += (Symbol("userIds") -> actionLimits.osmUserLimit)
       if (whereClause.nonEmpty) {
         whereClause ++= " AND "
       }

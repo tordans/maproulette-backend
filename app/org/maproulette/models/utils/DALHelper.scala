@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.models.utils
 
-import java.sql.SQLException
+import java.sql.{PreparedStatement, SQLException}
 
 import anorm._
 import org.apache.commons.lang3.StringUtils
@@ -46,7 +46,7 @@ trait DALHelper {
     * @param value The limit used in the query
     * @return ALL if 0 otherwise the value
     */
-  def sqlLimit(value: Int): String = if (value <= 0) "ALL" else value + ""
+  def sqlLimit(value: Int): String = if (value <= 0) "ALL" else s"$value"
 
   /**
     * Corrects the search string by adding % before and after string, so that it doesn't rely
@@ -103,7 +103,7 @@ trait DALHelper {
 
   def sqlWithParameters(query: String, parameters: ListBuffer[NamedParameter]): SimpleSql[Row] = {
     if (parameters.nonEmpty) {
-      SQL(query).on(parameters: _*)
+      SQL(query).on(parameters.toSeq:_*)
     } else {
       SQL(query).asSimple[Row]()
     }
@@ -196,13 +196,13 @@ trait DALHelper {
               params.fuzzySearch match {
                 case Some(x) =>
                   whereClause ++= this.fuzzySearch(s"$projectPrefix.display_name", "ps", x)(if (whereClause.isEmpty) None else Some(AND()))
-                  parameters += ('ps -> ps)
+                  parameters += (Symbol("ps") -> ps)
                 case None =>
                   whereClause ++= (if (whereClause.isEmpty) "" else " AND ")
                   whereClause ++= " (" + this.searchField(s"$projectPrefix.display_name", "ps")(None)
                   whereClause ++= s" OR $challengePrefix.id IN (SELECT vp2.challenge_id FROM virtual_project_challenges vp2 INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE " +
                                   this.searchField(s"p2.display_name", "ps")(None) + " AND p2.enabled=true)) "
-                  parameters += ('ps -> s"%$ps%")
+                  parameters += (Symbol("ps") -> s"%$ps%")
               }
             case _ => // we can ignore this
           }
@@ -218,10 +218,10 @@ trait DALHelper {
             params.fuzzySearch match {
               case Some(x) =>
                 this.appendInWhereClause(whereClause, this.fuzzySearch(s"$challengePrefix.name", "cs", x)(None))
-                parameters += ('cs -> cs)
+                parameters += (Symbol("cs") -> cs)
               case None =>
                 this.appendInWhereClause(whereClause, this.searchField(s"$challengePrefix.name", "cs")(None))
-                parameters += ('cs -> s"%$cs%")
+                parameters += (Symbol("cs") -> s"%$cs%")
             }
           case _ => // ignore
         }
@@ -337,6 +337,27 @@ trait DALHelper {
       case _ => // ignore
     }
     parameters
+  }
+
+  /**
+    * Our key for our objects are current Long, but can support String if need be. This function
+    * handles transforming java objects to SQL for a specific set related to the object key
+    *
+    * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
+    * @return
+    */
+  def keyToStatement[Key]: ToStatement[Key] = {
+    new ToStatement[Key] {
+      def set(s: PreparedStatement, i: Int, identifier: Key) =
+        identifier match {
+          case id: String => ToStatement.stringToStatement.set(s, i, id)
+          case Some(id: String) => ToStatement.stringToStatement.set(s, i, id)
+          case id: Long => ToStatement.longToStatement.set(s, i, id)
+          case Some(id: Long) => ToStatement.longToStatement.set(s, i, id)
+          case intValue: Integer => ToStatement.integerToStatement.set(s, i, intValue)
+          case list: List[Long@unchecked] => ToStatement.listToStatement[Long].set(s, i, list)
+        }
+    }
   }
 }
 
