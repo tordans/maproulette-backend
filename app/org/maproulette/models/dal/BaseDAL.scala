@@ -126,7 +126,7 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
     this.cacheManager.withOptionCaching { () =>
       this.withMRConnection { implicit c =>
         val query = s"SELECT ${this.retrieveColumns} FROM ${this.tableName} WHERE name = {name} ${this.parentFilter(parentId)}"
-        SQL(query).on('name -> name).as(this.parser.*).headOption
+        SQL(query).on(Symbol("name") -> name).as(this.parser.*).headOption
       }
     }
   }
@@ -145,7 +145,7 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
       this.permission.hasObjectAdminAccess(deletedItem.asInstanceOf[BaseObject[Long]], user)
       this.withMRTransaction { implicit c =>
         val query = s"DELETE FROM ${this.tableName} WHERE id = {id}"
-        SQL(query).on('id -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).executeUpdate()
+        SQL(query).on(Symbol("id") -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).executeUpdate()
         Some(deletedItem)
       }
     }
@@ -168,29 +168,8 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
     this.cacheManager.withCaching { () =>
       this.withMRConnection { implicit c =>
         val query = s"SELECT $retrieveColumns FROM ${this.tableName} WHERE id = {id}"
-        SQL(query).on('id -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).as(this.parser.singleOpt)
+        SQL(query).on(Symbol("id") -> ToParameterValue.apply[Key](p = keyToStatement).apply(id)).as(this.parser.singleOpt)
       }
-    }
-  }
-
-  /**
-    * Our key for our objects are current Long, but can support String if need be. This function
-    * handles transforming java objects to SQL for a specific set related to the object key
-    *
-    * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
-    * @return
-    */
-  def keyToStatement[Key]: ToStatement[Key] = {
-    new ToStatement[Key] {
-      def set(s: PreparedStatement, i: Int, identifier: Key) =
-        identifier match {
-          case id: String => ToStatement.stringToStatement.set(s, i, id)
-          case Some(id: String) => ToStatement.stringToStatement.set(s, i, id)
-          case id: Long => ToStatement.longToStatement.set(s, i, id)
-          case Some(id: Long) => ToStatement.longToStatement.set(s, i, id)
-          case intValue: Integer => ToStatement.integerToStatement.set(s, i, intValue)
-          case list: List[Long@unchecked] => ToStatement.listToStatement[Long].set(s, i, list)
-        }
     }
   }
 
@@ -231,8 +210,8 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
             s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                           WHERE id IN ({inString})
                           LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-          SQL(query).on('inString -> ToParameterValue.apply[List[Key]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
-            'offset -> offset).as(this.parser.*)
+          SQL(query).on(Symbol("inString") -> ToParameterValue.apply[List[Key]](s = keyToSQL, p = keyToStatement).apply(uncachedIDs),
+            Symbol("offset") -> offset).as(this.parser.*)
         }
       }
     }
@@ -262,7 +241,7 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
       this.cacheManager.withNameListCaching { implicit uncachedNames =>
         this.withMRConnection { implicit c =>
           val query = s"SELECT ${this.retrieveColumns} FROM ${this.tableName} WHERE name IN ({inString}) ${this.parentFilter(parentId)}"
-          SQL(query).on('inString -> ToParameterValue.apply[List[String]].apply(uncachedNames)).as(this.parser.*)
+          SQL(query).on(Symbol("inString") -> ToParameterValue.apply[List[String]].apply(uncachedNames)).as(this.parser.*)
         }
       }
     }
@@ -302,7 +281,7 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
                       ${this.parentFilter(parentId)}
                       ${this.order(orderColumn = Some(orderColumn), orderDirection = orderDirection, nameFix = true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
+      SQL(query).on(Symbol("ss") -> searchString, Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 
@@ -334,8 +313,8 @@ trait BaseDAL[Key, T <: BaseObject[Key]] extends DALHelper with TransactionManag
               ignoreCase = (orderColumn == "name" || orderColumn == "display_name"))
           }
                         LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-        SQL(query).on('ss -> this.search(searchString),
-          'offset -> ToParameterValue.apply[Int].apply(offset)
+        SQL(query).on(Symbol("ss") -> this.search(searchString),
+          Symbol("offset") -> ToParameterValue.apply[Int].apply(offset)
         ).as(this.parser.*)
       }
     }

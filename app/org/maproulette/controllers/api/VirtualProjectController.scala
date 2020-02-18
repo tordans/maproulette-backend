@@ -4,9 +4,8 @@ package org.maproulette.controllers.api
 
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
-
 import org.maproulette.data.{ActionManager, ProjectType, TaskViewed}
-import org.maproulette.models.dal.{ProjectDAL, TaskDAL, VirtualProjectDAL}
+import org.maproulette.models.dal.{CommentDAL, ProjectDAL, TaskDAL, VirtualProjectDAL}
 import org.maproulette.models.{Challenge, ClusteredPoint, Project}
 import org.maproulette.session.{SearchParameters, SessionManager, User}
 import org.maproulette.utils.Utils
@@ -28,8 +27,9 @@ class VirtualProjectController @Inject()(override val childController: Challenge
                                   virtualProjectDAL: VirtualProjectDAL,
                                   components: ControllerComponents,
                                   taskDAL: TaskDAL,
+                                   commentDAL: CommentDAL,
                                   override val bodyParsers: PlayBodyParsers)
-  extends ProjectController(childController, sessionManager, actionManager, dal, components, taskDAL, bodyParsers) {
+  extends ProjectController(childController, sessionManager, actionManager, dal, components, taskDAL, commentDAL, bodyParsers) {
 
   /**
     * Adds a challenge to a virtual project. This requires Write access on the project

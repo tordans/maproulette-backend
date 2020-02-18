@@ -1,11 +1,10 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
-package org.maproulette.models.dal
+package org.maproulette.models.dal.mixin
 
 import java.sql.Connection
 
 import anorm._
 import org.maproulette.models.BaseObject
+import org.maproulette.models.dal.BaseDAL
 import org.maproulette.session.User
 
 /**

@@ -212,17 +212,48 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @return
     */
   def getReviewMetrics(reviewTasksType: Int, mappers: String="", reviewers: String="", priorities: String="",
-                       startDate: String=null, endDate: String=null,
-                       onlySaved: Boolean=false, excludeOtherReviewers: Boolean=false) : Action[AnyContent] = Action.async { implicit request =>
+                       startDate: String=null, endDate: String=null, onlySaved: Boolean=false,
+                       excludeOtherReviewers: Boolean=false, includeByPriority: Boolean=false) : Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val result = this.taskReviewDAL.getReviewMetrics(User.userOrMocked(user),
                        reviewTasksType, params, Some(Utils.split(mappers)), Some(Utils.split(reviewers)),
                        Utils.toIntList(priorities), startDate, endDate, onlySaved, excludeOtherReviewers)
-        Ok(Json.toJson(result))
+
+        if (includeByPriority) {
+          val priorityMap = this._fetchPriorityReviewMetrics(
+                              User.userOrMocked(user), reviewTasksType, params,
+                              Some(Utils.split(mappers)), Some(Utils.split(reviewers)),
+                              startDate, endDate, onlySaved, excludeOtherReviewers)
+
+          Ok(Json.obj("reviewActions" -> Json.toJson(result),
+                      "priorityReviewActions" -> Json.toJson(priorityMap)))
+        }
+        else {
+          Ok(Json.toJson(List(result)))
+        }
       }
     }
   }
+
+  private def _fetchPriorityReviewMetrics(user: User, reviewTasksType: Int, params: SearchParameters,
+                       mappers: Option[List[String]], reviewers: Option[List[String]],
+                       startDate: String, endDate: String, onlySaved: Boolean,
+                       excludeOtherReviewers: Boolean): scala.collection.mutable.Map[String, JsValue] = {
+    val prioritiesToFetch = List(Challenge.PRIORITY_HIGH, Challenge.PRIORITY_MEDIUM, Challenge.PRIORITY_LOW)
+
+    val priorityMap = scala.collection.mutable.Map[String, JsValue]()
+
+    prioritiesToFetch.foreach(p => {
+      val pResult = this.taskReviewDAL.getReviewMetrics(user, reviewTasksType, params,
+                      mappers, reviewers, Some(List(p)), startDate, endDate, onlySaved, excludeOtherReviewers)
+
+      priorityMap.put(p.toString, Json.toJson(pResult))
+    })
+
+    priorityMap
+  }
+
 
   /**
     * Gets clusters of review tasks. Uses kmeans method in postgis.
@@ -231,7 +262,7 @@ class TaskReviewController @Inject()(override val sessionManager: SessionManager
     * @param numberOfPoints Number of clustered points you wish to have returned
     * @param startDate Optional start date to filter by reviewedAt date
     * @param endDate Optional end date to filter by reviewedAt date
-    * @param Only include challenges that have been saved
+    * @param onlySaved include challenges that have been saved
     * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     *
     * @return A list of ClusteredPoint's that represent clusters of tasks

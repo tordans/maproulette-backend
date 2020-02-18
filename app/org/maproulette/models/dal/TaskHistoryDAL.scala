@@ -26,16 +26,10 @@ import play.api.libs.ws.WSClient
 class TaskHistoryDAL @Inject()(override val db: Database,
                                 override val tagDAL: TagDAL, config: Config,
                                 override val permission: Permission,
-                                userDAL: Provider[UserDAL],
-                                projectDAL: Provider[ProjectDAL],
-                                challengeDAL: Provider[ChallengeDAL],
-                                notificationDAL: Provider[NotificationDAL],
-                                actions: ActionManager,
-                                statusActions: StatusActionManager,
+                                dalManager: Provider[DALManager],
                                 webSocketProvider: WebSocketProvider,
                                 ws: WSClient)
-  extends TaskDAL(db, tagDAL, config, permission, userDAL, projectDAL, challengeDAL, notificationDAL,
-                  actions, statusActions, webSocketProvider, ws) {
+  extends TaskDAL(db, tagDAL, permission, config, dalManager, webSocketProvider, ws) {
 
   private val commentEntryParser: RowParser[TaskLogEntry] = {
       get[Long]("task_comments.task_id") ~

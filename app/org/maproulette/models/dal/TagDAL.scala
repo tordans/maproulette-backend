@@ -11,6 +11,7 @@ import org.maproulette.Config
 import org.maproulette.cache.{CacheManager, TagCacheManager}
 import org.maproulette.exception.{InvalidException, UniqueViolationException}
 import org.maproulette.models.Tag
+import org.maproulette.models.utils.OR
 import org.maproulette.permissions.Permission
 import org.maproulette.session.User
 import play.api.db.Database
@@ -55,7 +56,7 @@ class TagDAL @Inject()(override val db: Database,
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         SQL("INSERT INTO tags (name, description, tag_type) VALUES ({name}, {description}, {tagType}) ON CONFLICT(LOWER(name), tag_type) DO NOTHING RETURNING *")
-          .on('name -> tag.name.toLowerCase, 'description -> tag.description,'tagType -> tag.tagType).as(this.parser.*).headOption
+          .on(Symbol("name") -> tag.name.toLowerCase, Symbol("description") -> tag.description, Symbol("tagType") -> tag.tagType).as(this.parser.*).headOption
       }
     } match {
       case Some(t) => t
@@ -100,7 +101,7 @@ class TagDAL @Inject()(override val db: Database,
         s"""SELECT * FROM tags
                       WHERE ${this.searchField("name")(None)} ${tagTypeSearch}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> s"$prefix%", 'offset -> offset, 'tagType -> tagType.trim).as(this.parser.*)
+      SQL(query).on(Symbol("ss") -> s"$prefix%", Symbol("offset") -> offset, Symbol("tagType") -> tagType.trim).as(this.parser.*)
     }
   }
 
@@ -212,7 +213,13 @@ class TagDAL @Inject()(override val db: Database,
                                 "id" -> tag.id, "tagType" -> tag.tagType)
           })
           BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
-          this.retrieveListByName(names, -1, Some(c))
+
+          val fetchWhere = new StringBuilder()
+          tags.foreach(t => {
+            // Look for each tag in the database by name/tagType. (Sanitize by removing any ' characters)
+            appendInWhereClause(fetchWhere, s"(name = '${t.name.replaceAll("'", "")}' AND tag_type = '${t.tagType}')")(Some(OR()))
+          })
+          SQL("SELECT * from tags WHERE " + fetchWhere.toString).as(this.parser.*)
         }
       }
     } else {

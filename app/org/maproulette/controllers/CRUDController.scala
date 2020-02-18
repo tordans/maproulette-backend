@@ -24,22 +24,15 @@ import play.api.mvc._
   *
   * @author cuthbertm
   */
-trait CRUDController[T <: BaseObject[Long]] extends BaseController with DefaultWrites with StatusMessages {
+trait CRUDController[T <: BaseObject[Long]] extends SessionController {
   this: AbstractController =>
 
-  protected val logger = LoggerFactory.getLogger(this.getClass)
-
-  // The session manager which should be injected into the implementing class using @Inject
-  val sessionManager: SessionManager
   // The default reads that allows the class to read the json from a posted json body
   implicit val tReads: Reads[T]
   // The default writes that allows the class to write the object as json to a response body
   implicit val tWrites: Writes[T]
   // the type of object that the controller is executing against
   implicit val itemType: ItemType
-  // The action manager which should be injected into the implementing class using @Inject
-  val actionManager: ActionManager
-  val bodyParsers: PlayBodyParsers
   // Data access layer that has to be instantiated by the class that mixes in the trait
   protected val dal: BaseDAL[Long, T]
 

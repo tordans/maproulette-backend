@@ -1,12 +1,11 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
-package org.maproulette.models.dal
+package org.maproulette.models.dal.mixin
 
 import java.sql.Connection
 
 import anorm._
 import org.maproulette.data.{ChallengeType, ItemType, TaskType}
 import org.maproulette.exception.InvalidException
+import org.maproulette.models.dal.{BaseDAL, TagDAL}
 import org.maproulette.models.{BaseObject, Tag}
 import org.maproulette.session.User
 
@@ -62,7 +61,7 @@ trait TagDALMixin[T <: BaseObject[Long]] {
           s"""DELETE FROM tags_on_${this.tableName} tt USING tags t
                             WHERE tt.tag_id = t.id AND tt.${this.name}_id = $id AND
                             t.name IN ({tags})"""
-        SQL(query).on('tags -> lowerTags).execute()
+        SQL(query).on(Symbol("tags") -> lowerTags).execute()
       }
     }
   }
@@ -140,7 +139,7 @@ trait TagDALMixin[T <: BaseObject[Long]] {
   def getItemsBasedOnTags(tags: List[String], limit: Int, offset: Int)(implicit c: Option[Connection] = None): List[T] = {
     val lowerTags = tags.map(_.toLowerCase)
     this.withMRConnection { implicit c =>
-      val sqlLimit = if (limit == -1) "ALL" else limit + ""
+      val sqlLimit = if (limit == -1) "ALL" else s"$limit"
       val query =
         s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       ${
@@ -155,7 +154,7 @@ trait TagDALMixin[T <: BaseObject[Long]] {
                       INNER JOIN tags ON tags.id = tt.tag_id
                       WHERE challenges.enabled = TRUE AND projects.enabled = TRUE AND tags.name IN ({tags})
                       LIMIT $sqlLimit OFFSET {offset}"""
-      SQL(query).on('tags -> ToParameterValue.apply[List[String]].apply(lowerTags), 'offset -> offset).as(this.parser.*)
+      SQL(query).on(Symbol("tags") -> ToParameterValue.apply[List[String]].apply(lowerTags), Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 }

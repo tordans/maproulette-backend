@@ -15,6 +15,7 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.dal.UserGroupDAL
 import org.maproulette.session.{Group, SearchParameters, User}
 import org.maproulette.exception.NotFoundException
+import org.maproulette.models.dal.mixin.OwnerMixin
 import play.api.db.Database
 import play.api.libs.json.{JsValue, Json}
 
@@ -55,10 +56,11 @@ class ProjectDAL @Inject()(override val db: Database,
       get[Boolean]("projects.enabled") ~
       get[Option[String]]("projects.display_name") ~
       get[Boolean]("projects.deleted") ~
-      get[Boolean]("projects.is_virtual") map {
-      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName ~ deleted ~ isVirtual =>
+      get[Boolean]("projects.is_virtual") ~
+      get[Boolean]("projects.featured") map {
+      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName ~ deleted ~ isVirtual ~ featured =>
         new Project(id, ownerId, name, created, modified, description,
-          userGroupDAL.getProjectGroups(id, User.superUser), enabled, displayName, deleted, Some(isVirtual))
+          userGroupDAL.getProjectGroups(id, User.superUser), enabled, displayName, deleted, Some(isVirtual), featured)
     }
   }
 
@@ -101,9 +103,12 @@ class ProjectDAL @Inject()(override val db: Database,
         case _ => false
       }
 
+      // Only super users can feature a project
+      val featured = project.featured && user.isSuperUser
+
       val newProject = this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual)
-              VALUES (${project.name}, ${user.osmProfile.id}, ${project.displayName}, ${project.description}, ${project.enabled}, ${isVirtual})
+        SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual, featured)
+              VALUES (${project.name}, ${user.osmProfile.id}, ${project.displayName}, ${project.description}, ${project.enabled}, ${isVirtual}, ${featured})
               RETURNING *""".as(parser.*).head
       }
       db.withTransaction { implicit c =>
@@ -138,12 +143,20 @@ class ProjectDAL @Inject()(override val db: Database,
           case Some(e) => e
           case None => cachedItem.enabled
         }
+        val featured = (updates \ "featured").asOpt[Boolean] match {
+          case Some(f) if !user.isSuperUser =>
+            logger.warn(s"User [${user.name} - ${user.id}] is not a super user and cannot feature projects")
+            cachedItem.featured
+          case Some(f) => f
+          case None => cachedItem.featured
+        }
 
         SQL"""UPDATE projects SET name = $name,
               owner_id = $owner,
               display_name = $displayName,
               description = $description,
-              enabled = $enabled
+              enabled = $enabled,
+              featured = $featured
               WHERE id = $id RETURNING *""".as(this.parser.*).headOption
       }
     }
@@ -152,7 +165,7 @@ class ProjectDAL @Inject()(override val db: Database,
   /**
     * This fetch function will retreive a list of projects with the given projectIds
     *
-    * @param projectIds The projectIds to fetch
+    * @param projectList The projectIds to fetch
     * @return A list of tags that contain the supplied prefix
     */
   def fetch(projectList: Option[List[Long]] = None): List[Project] = {
@@ -161,6 +174,26 @@ class ProjectDAL @Inject()(override val db: Database,
         s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
                       WHERE TRUE ${this.getLongListFilter(projectList, "id")}"""
       SQL(query).as(this.parser.*)
+    }
+  }
+
+  /**
+    * Retrieves a list of projects that are featured
+    *
+    * @param onlyEnabled Restrict to enabled projects
+    * @param limit       Limit the number of results to be returned
+    * @param offset      For paging, ie. the page number starting at 0
+    * @return A list of projects
+    */
+  def getFeaturedProjects(onlyEnabled: Boolean = true, limit: Int = Config.DEFAULT_LIST_SIZE, offset: Int = 0)
+                         (implicit c: Option[Connection] = None): List[Project] = {
+    this.withMRConnection { implicit c =>
+      val query =
+        s"""SELECT ${this.retrieveColumns} FROM ${this.tableName}
+            WHERE featured = TRUE ${this.enabled(onlyEnabled)}
+            LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
+
+      SQL(query).on(Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 
@@ -185,7 +218,7 @@ class ProjectDAL @Inject()(override val db: Database,
                       ${this.parentFilter(parentId)}
                       ${this.order(orderColumn = Some(orderColumn), orderDirection = orderDirection, nameFix = true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
-      SQL(query).on('ss -> searchString, 'offset -> offset).as(this.parser.*)
+      SQL(query).on(Symbol("ss") -> searchString, Symbol("offset") -> offset).as(this.parser.*)
     }
   }
 
@@ -206,23 +239,24 @@ class ProjectDAL @Inject()(override val db: Database,
         } else {
           var permissionMatch = "p.owner_id = {osmId}"
           if (!onlyOwned) {
-            permissionMatch = permissionMatch + " OR (g.project_id = p.id AND g.id IN ({ids}))"
+            permissionMatch = permissionMatch + " OR g.id IN ({ids})"
           }
 
           val query =
             s"""SELECT distinct p.*, LOWER(p.name), LOWER(p.display_name)
-                FROM projects p, groups g
+                FROM projects p
+                INNER JOIN groups g on g.project_id = p.id
                 WHERE ${permissionMatch}
                 ${this.searchField("p.name")} ${this.enabled(onlyEnabled)}
                 ${
               this.order(orderColumn = Some(sort), orderDirection = "ASC",
-                nameFix = true, ignoreCase = (sort == "name" || sort == "display_name"))
+                nameFix = true, ignoreCase = (sort == "p.name" || sort == "p.display_name"))
             }
                 LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-          SQL(query).on('ss -> this.search(searchString), 'offset -> ToParameterValue.apply[Int].apply(offset),
-            'osmId -> user.osmProfile.id,
-            'ids -> user.groups.map(_.id))
+          SQL(query).on(Symbol("ss") -> this.search(searchString), Symbol("offset") -> ToParameterValue.apply[Int].apply(offset),
+            Symbol("osmId") -> user.osmProfile.id,
+            Symbol("ids") -> user.groups.map(_.id))
             .as(this.parser.*)
         }
       }
@@ -255,9 +289,9 @@ class ProjectDAL @Inject()(override val db: Database,
                           ${this.order(Some(orderColumn), orderDirection)}
                           LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-          SQL(query).on('ss -> this.search(searchString),
-            'id -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
-            'offset -> offset)
+          SQL(query).on(Symbol("ss") -> this.search(searchString),
+            Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id),
+            Symbol("offset") -> offset)
             .as(this.childDAL.withVirtualParentParser.*)
         }
       case _ =>
@@ -303,7 +337,7 @@ class ProjectDAL @Inject()(override val db: Database,
                     ${this.searchField("p.name")} ${this.enabled(onlyEnabled, "p")}
                     GROUP BY p.id
                     LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
-      SQL(query).on('ss -> this.search(searchString), 'ids -> user.groups.map(_.id)).as(parser.*)
+      SQL(query).on(Symbol("ss") -> this.search(searchString), Symbol("ids") -> user.groups.map(_.id)).as(parser.*)
         .map(v => v._1 -> (v._2, v._3)).toMap
     }
   }
@@ -319,8 +353,8 @@ class ProjectDAL @Inject()(override val db: Database,
     this.withMRConnection { implicit c =>
       val parameters = new ListBuffer[NamedParameter]()
       // the named parameter for the challenge name
-      parameters += ('cs -> this.search(params.challengeParams.challengeSearch.getOrElse("")))
-      parameters += ('ps -> this.search(params.projectSearch.getOrElse("")))
+      parameters += (Symbol("cs") -> this.search(params.challengeParams.challengeSearch.getOrElse("")))
+      parameters += (Symbol("ps") -> this.search(params.projectSearch.getOrElse("")))
       // search by tags if any
       val challengeTags = if (params.challengeParams.challengeTags.isDefined && params.challengeParams.challengeTags.get.nonEmpty) {
         val tags = params.challengeParams.challengeTags.get.zipWithIndex.map {

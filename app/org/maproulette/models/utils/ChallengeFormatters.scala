@@ -9,6 +9,8 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json._
+import org.maproulette.utils.Utils
+
 
 /**
   * @author cuthbertm
@@ -27,7 +29,15 @@ trait ChallengeWrites {
       ))
   }
 
-  implicit val challengeExtraWrites: Writes[ChallengeExtra] = Json.writes[ChallengeExtra]
+  implicit val challengeExtraWrites = new Writes[ChallengeExtra] {
+    def writes(o: ChallengeExtra): JsValue = {
+      var original = Json.toJson(o)(Json.writes[ChallengeExtra])
+      o.taskStyles match {
+        case Some(ts) => Utils.insertIntoJson(original, "taskStyles", Json.parse(ts), true)
+        case None => original
+      }
+    }
+  }
 
   implicit val challengeWrites: Writes[Challenge] = (
     (JsPath \ "id").write[Long] and
@@ -54,7 +64,18 @@ trait ChallengeReads extends DefaultReads {
   implicit val challengeGeneralReads: Reads[ChallengeGeneral] = Json.reads[ChallengeGeneral]
   implicit val challengeCreationReads: Reads[ChallengeCreation] = Json.reads[ChallengeCreation]
   implicit val challengePriorityReads: Reads[ChallengePriority] = Json.reads[ChallengePriority]
-  implicit val challengeExtraReads: Reads[ChallengeExtra] = Json.reads[ChallengeExtra]
+
+  implicit val challengeExtraReads = new Reads[ChallengeExtra] {
+    def reads(json: JsValue): JsResult[ChallengeExtra] = {
+      val jsonWithStyles =
+        (json \ "taskStyles").asOpt[JsValue] match {
+          case Some(value) =>  Utils.insertIntoJson(json, "taskStyles", value.toString(), true)
+          case None => json
+        }
+
+      Json.fromJson[ChallengeExtra](jsonWithStyles)(Json.reads[ChallengeExtra])
+    }
+  }
 
   implicit val challengeReads: Reads[Challenge] = (
     (JsPath \ "id").read[Long] and

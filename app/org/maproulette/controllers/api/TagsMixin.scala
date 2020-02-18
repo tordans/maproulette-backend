@@ -3,10 +3,11 @@
 package org.maproulette.controllers.api
 
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.controllers.CRUDController
+import org.maproulette.controllers.SessionController
 import org.maproulette.data._
 import org.maproulette.exception.MPExceptionUtil
-import org.maproulette.models.dal.{TagDAL, TagDALMixin}
+import org.maproulette.models.dal.TagDAL
+import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.models.{BaseObject, Tag}
 import org.maproulette.session.User
 import org.maproulette.utils.Utils
@@ -17,12 +18,20 @@ import play.api.mvc.{Action, AnyContent}
   * @author cuthbertm
   */
 trait TagsMixin[T <: BaseObject[Long]] {
+  this: SessionController =>
 
-  this: CRUDController[T] =>
+  // The default reads that allows the class to read the json from a posted json body
+  implicit val tReads: Reads[T]
+  // The default writes that allows the class to write the object as json to a response body
+  implicit val tWrites: Writes[T]
 
   def tagDAL: TagDAL
-
   def dalWithTags: TagDALMixin[T]
+
+  // the type of object that the controller is executing against
+  implicit val itemType: ItemType
+  // The name of the base table that the tags would be pulling from ie. Task table
+  implicit val tableName: String
 
   /**
     * Gets tasks based on tags, this is regardless of the project or challenge parents.
@@ -70,7 +79,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
   def updateItemTags(id: Long, tags: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val tagList = tags.split(",").toList
-      val tagObjects = tagList.map((tag) => new Tag(-1, tag.trim, tagType = this.dal.tableName))
+      val tagObjects = tagList.map((tag) => new Tag(-1, tag.trim, tagType = this.tableName))
       val tagIds = this.tagDAL.updateTagList(tagObjects, user).map(_.id)
 
       // now we have the ids for the supplied tags, then lets map them to the item created
@@ -82,6 +91,21 @@ trait TagsMixin[T <: BaseObject[Long]] {
   }
 
   /**
+    * Gets the tags for either the challenge or the task depending on what controller is using the mixin
+    *
+    * @param id The id of the object you are looking for
+    * @return A list of tags associated with the item
+    */
+  def getTags(id: Long): List[Tag] = {
+    this.itemType match {
+      case ChallengeType() => this.tagDAL.listByChallenge(id)
+      case SurveyType() => this.tagDAL.listByChallenge(id)
+      case TaskType() => this.tagDAL.listByTask(id)
+      case _ => List.empty
+    }
+  }
+
+  /**
     * Add tags to a given item.
     * Must be authenticated to perform operation
     *
@@ -89,7 +113,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
     * @param tags A comma separated list of tags to add
     * @param user the user executing the request
     */
-  def addTagstoItem(id:Long, tags:List[Tag], user:User): Unit = {
+  def addTagstoItem(id: Long, tags: List[Tag], user: User): Unit = {
     val tagIds = this.tagDAL.updateTagList(tags, user).map(_.id)
 
     if (tagIds.nonEmpty) {
@@ -132,7 +156,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
                   this.tagDAL.retrieveByName(tag) match {
                     case Some(t) => t.asInstanceOf[Tag]
                     case None =>
-                      Tag(-1, tag, tagType = this.dal.tableName)
+                      Tag(-1, tag, tagType = this.tableName)
                   }
               }
             }))
@@ -167,22 +191,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
           this.dalWithTags.updateItemTags(createdObject.id, tagIds, user, completeList)
           this.actionManager.setAction(Some(user), this.itemType.convertToItem(createdObject.id), TagAdded(), tagIds.mkString(","))
         }
-      case _ => return
-    }
-  }
-
-  /**
-    * Gets the tags for either the challenge or the task depending on what controller is using the mixin
-    *
-    * @param id The id of the object you are looking for
-    * @return A list of tags associated with the item
-    */
-  def getTags(id: Long): List[Tag] = {
-    this.itemType match {
-      case ChallengeType() => this.tagDAL.listByChallenge(id)
-      case SurveyType() => this.tagDAL.listByChallenge(id)
-      case TaskType() => this.tagDAL.listByTask(id)
-      case _ => List.empty
+      case _ =>
     }
   }
 }
