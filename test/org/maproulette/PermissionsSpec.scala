@@ -11,7 +11,7 @@ import org.scalatestplus.play.PlaySpec
   */
 class PermissionsSpec extends PlaySpec with TestSpec with BeforeAndAfterAll {
 
-  implicit val id:Long = 1L
+  implicit val id: Long = 1L
 
   override def beforeAll(): Unit = {
     this.setupMocks()

@@ -14,7 +14,7 @@ case class BasicInnerValue[Key, Value](
 
 trait Cache[Key, Value <: CacheObject[Key]] {
 
-  implicit val cacheLimit:Int
+  implicit val cacheLimit: Int
   implicit val cacheExpiry: Int
 
   /**
