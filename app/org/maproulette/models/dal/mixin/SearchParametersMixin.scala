@@ -33,6 +33,7 @@ trait SearchParametersMixin extends DALHelper {
     this.paramsTaskReviewStatus(params, whereClause, joinClause)
     this.paramsOwner(params, whereClause, joinClause)
     this.paramsReviewer(params, whereClause, joinClause)
+    this.paramsMapper(params, whereClause, joinClause)
     this.paramsTaskPriorities(params, whereClause)
     this.paramsPriority(params, whereClause)
     this.paramsChallengeDifficulty(params, whereClause)
@@ -289,6 +290,19 @@ trait SearchParametersMixin extends DALHelper {
       case Some(r) if r.nonEmpty =>
         joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "
         this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
+      case _ => // ignore
+    }
+  }
+
+  def paramsMapper(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
+    params.mapper match {
+      case Some(o) if o.nonEmpty =>
+        joinClause ++= "INNER JOIN users u ON u.id = tasks.completed_by "
+        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
       case _ => // ignore
     }
   }

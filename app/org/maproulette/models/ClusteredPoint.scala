@@ -58,6 +58,8 @@ case class ClusteredPoint(
     status: Int,
     suggestedFix: Option[String] = None,
     mappedOn: Option[DateTime],
+    completedTimeSpent: Option[Long] = None,
+    completedBy: Option[Long] = None,
     pointReview: PointReview,
     priority: Int,
     bundleId: Option[Long] = None,

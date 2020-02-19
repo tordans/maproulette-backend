@@ -656,6 +656,13 @@ class TaskController @Inject() (
     } else {
       val mappers = Some(
         this.dalManager.user
+          .retrieveListById(-1, 0)(tasks.map(t => t.completedBy.getOrElse(0L)))
+          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
+          .toMap
+      )
+
+      val reviewRequesters = Some(
+        this.dalManager.user
           .retrieveListById(-1, 0)(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
@@ -680,11 +687,16 @@ class TaskController @Inject() (
         var updated         = Json.toJson(task)
         var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
 
+        if (task.completedBy.getOrElse(0) != 0) {
+          val mappersJson = Json.toJson(mappers.get(task.completedBy.get)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "completedBy", mappersJson, true)
+        }
+
         if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
-          val mapperJson =
-            Json.toJson(mappers.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
+          val reviewRequestersJson =
+            Json.toJson(reviewRequesters.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
           reviewPointJson = Utils
-            .insertIntoJson(reviewPointJson, "reviewRequestedBy", mapperJson, true)
+            .insertIntoJson(reviewPointJson, "reviewRequestedBy", reviewRequestersJson, true)
             .as[JsObject]
           updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
         }

@@ -48,6 +48,8 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("geo_json") ~
       get[Option[String]]("suggested_fix") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
+      get[Option[Long]]("tasks.completed_time_spent") ~
+      get[Option[Long]]("tasks.completed_by") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
@@ -63,9 +65,9 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("reviewed_by_username") ~
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-            reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~ isBundlePrimary ~
-            challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
+            suggestedFix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~
+            isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
         val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
         TaskWithReview(
           Task(
@@ -80,6 +82,8 @@ class TaskReviewDAL @Inject() (
             values._3,
             status,
             mappedOn,
+            completedTimeSpent,
+            completedBy,
             TaskReviewFields(
               reviewStatus,
               reviewRequestedBy,
@@ -141,14 +145,14 @@ class TaskReviewDAL @Inject() (
       }
     }
 
-    for (task <- taskList) {
-      this.withMRTransaction { implicit c =>
-        // Unclaim everything before starting a new task.
-        SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
-                WHERE review_claimed_by = #${user.id}""".executeUpdate()
+    this.withMRTransaction { implicit c =>
+      // Unclaim everything before starting a new task.
+      SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE review_claimed_by = #${user.id}""".executeUpdate()
 
+      for (task <- taskList) {
         SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
-                  WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
+                    WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
 
         try {
           this.lockItem(user, task)

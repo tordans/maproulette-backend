@@ -52,6 +52,7 @@ case class SearchParameters(
     bounding: Option[SearchLocation] = None,
     boundingGeometries: Option[List[JsObject]] = None,
     fuzzySearch: Option[Int] = None,
+    mapper: Option[String] = None,
     owner: Option[String] = None,
     reviewer: Option[String] = None
 ) {
@@ -350,6 +351,8 @@ object SearchParameters {
       None,
       //FuzzySearch
       this.getIntParameter(request.getQueryString("fuzzy"), params.fuzzySearch),
+      //CompletedBy
+      this.getStringParameter(request.getQueryString("m"), params.mapper),
       //Owner
       this.getStringParameter(request.getQueryString("o"), params.owner),
       //Reviewer

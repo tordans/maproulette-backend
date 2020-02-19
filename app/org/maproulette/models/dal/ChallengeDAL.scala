@@ -296,6 +296,8 @@ class ChallengeDAL @Inject() (
       get[String]("location") ~
       get[Int]("tasks.status") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
+      get[Option[Long]]("tasks.completed_time_spent") ~
+      get[Option[Long]]("tasks.completed_by") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.bundle_id") ~
       get[Option[Boolean]]("tasks.is_bundle_primary") ~
@@ -306,8 +308,9 @@ class ChallengeDAL @Inject() (
       get[Option[DateTime]]("task_review.reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
-            mappedOn ~ priority ~ bundleId ~ isBundlePrimary ~ suggestedFix ~
-            reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt =>
+            mappedOn ~ completedTimeSpent ~ completedBy ~ priority ~ bundleId ~
+            isBundlePrimary ~ suggestedFix ~ reviewStatus ~ reviewRequestedBy ~
+            reviewedBy ~ reviewedAt ~ reviewStartedAt =>
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
@@ -329,6 +332,8 @@ class ChallengeDAL @Inject() (
           status,
           suggestedFix,
           mappedOn,
+          completedTimeSpent,
+          completedBy,
           pointReview,
           priority,
           bundleId,
@@ -711,6 +716,8 @@ class ChallengeDAL @Inject() (
           get[Option[String]]("suggested_fix") ~
           get[Option[Int]]("tasks.status") ~
           get[Option[DateTime]]("tasks.mapped_on") ~
+          get[Option[Long]]("tasks.completed_time_spent") ~
+          get[Option[Long]]("tasks.completed_by") ~
           get[Option[Int]]("task_review.review_status") ~
           get[Option[Long]]("task_review.review_requested_by") ~
           get[Option[Long]]("task_review.reviewed_by") ~
@@ -719,8 +726,9 @@ class ChallengeDAL @Inject() (
           get[Option[Long]]("task_review.review_claimed_by") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
-                geometry ~ suggestedFix ~ status ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
-                reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority =>
+                geometry ~ suggestedFix ~ status ~ mappedOn ~ completedTimeSpent ~
+                completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
+                reviewStartedAt ~ reviewClaimedBy ~ priority =>
             val values = taskDAL.updateAndRetrieve(id, geometry, location, suggestedFix)
             Task(
               id,
@@ -734,6 +742,8 @@ class ChallengeDAL @Inject() (
               values._3,
               status,
               mappedOn,
+              completedTimeSpent,
+              completedBy,
               TaskReviewFields(
                 reviewStatus,
                 reviewRequestedBy,
