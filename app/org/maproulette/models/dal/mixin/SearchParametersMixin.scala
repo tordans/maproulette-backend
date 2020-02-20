@@ -84,7 +84,10 @@ trait SearchParametersMixin extends DALHelper {
   def paramsTaskStatus(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskStatus match {
       case Some(sl) if sl.nonEmpty =>
-        this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
+        // If list contains -1 then ignore filtering by status
+        if (!sl.contains(-1)) {
+          this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
+        }
       case Some(sl) if sl.isEmpty => //ignore this scenario
       case _                      => this.appendInWhereClause(whereClause, "tasks.status IN (0,3,6)")
     }
