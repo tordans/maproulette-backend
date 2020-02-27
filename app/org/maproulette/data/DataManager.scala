@@ -27,7 +27,9 @@ case class ActionSummary(
     tooHard: Int,
     answered: Int,
     validated: Int,
-    disabled: Int
+    disabled: Int,
+    avgTimeSpent: Double,
+    tasksWithTime: Int
 ) {
   def percentComplete: Double = (((trueAvailable / total) * 100) - 100) * -1
 
@@ -277,7 +279,9 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
         tooHard.getOrElse(0),
         answered.getOrElse(0),
         validated.getOrElse(0),
-        disabled.getOrElse(0)
+        disabled.getOrElse(0),
+        0,
+        0
       )
 
       val perUser =
@@ -428,19 +432,21 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
   ): List[ChallengeSummary] = {
     this.db.withConnection { implicit c =>
       val parser = for {
-        id            <- int("tasks.parent_id")
-        name          <- str("challenges.name")
-        total         <- int("total")
-        available     <- int("available")
-        fixed         <- int("fixed")
-        falsePositive <- int("false_positive")
-        skipped       <- int("skipped")
-        deleted       <- int("deleted")
-        alreadyFixed  <- int("already_fixed")
-        tooHard       <- int("too_hard")
-        answered      <- int("answered")
-        validated     <- int("validated")
-        disabled      <- int("disabled")
+        id             <- int("tasks.parent_id")
+        name           <- str("challenges.name")
+        total          <- int("total")
+        available      <- int("available")
+        fixed          <- int("fixed")
+        falsePositive  <- int("false_positive")
+        skipped        <- int("skipped")
+        deleted        <- int("deleted")
+        alreadyFixed   <- int("already_fixed")
+        tooHard        <- int("too_hard")
+        answered       <- int("answered")
+        validated      <- int("validated")
+        disabled       <- int("disabled")
+        totalTimeSpent <- int("totalTimeSpent")
+        tasksWithTime  <- int("tasksWithTime")
       } yield ChallengeSummary(
         id,
         name,
@@ -455,7 +461,9 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
           tooHard,
           answered,
           validated,
-          disabled
+          disabled,
+          if (tasksWithTime > 0) (totalTimeSpent / tasksWithTime) else 0,
+          tasksWithTime
         )
       )
       val challengeFilter = challengeId match {
@@ -525,47 +533,35 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
       // It won't decrease performance as this is simple basic math calculations, but it certainly
       // isn't pretty
       val query =
-        s"""SELECT *,
-                        (((CAST(available AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100)-100)*1 AS complete_percentage,
-                        (CAST(available AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS available_perc,
-                        (CAST(fixed AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS fixed_perc,
-                        (CAST(false_positive AS DOUBLE PRECISION)/CAST(NULLIF(total, 0)AS DOUBLE PRECISION))*100 AS false_positive_perc,
-                        (CAST(skipped AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS skipped_perc,
-                        (CAST(already_fixed AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS already_fixed_perc,
-                        (CAST(too_hard AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS too_hard_perc,
-                        (CAST(answered AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS answered_perc,
-                        (CAST(validated AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS validated_perc,
-                        (CAST(disabled AS DOUBLE PRECISION)/CAST(NULLIF(total, 0) AS DOUBLE PRECISION))*100 AS disabled_perc
-                      FROM (
-                      SELECT t.parent_id, c.name,
-                                SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,
-                                SUM(CASE t.status WHEN 0 THEN 1 ELSE 0 END) as available,
-                                SUM(CASE t.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
-                                SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
-                                SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
-                                SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
-                                SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
-                                SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
-                                SUM(CASE t.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
-                                SUM(CASE t.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
-                                SUM(CASE t.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
-                              FROM tasks t
-                              INNER JOIN challenges c ON c.id = t.parent_id
-                              INNER JOIN projects p ON p.id = c.parent_id
-                              WHERE ${if (onlyEnabled) {
+        s"""SELECT t.parent_id, c.name,
+              COUNT(t.completed_time_spent) as tasksWithTime,
+              COALESCE(SUM(t.completed_time_spent), 0) as totalTimeSpent,
+              SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,
+              SUM(CASE t.status WHEN 0 THEN 1 ELSE 0 END) as available,
+              SUM(CASE t.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
+              SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
+              SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
+              SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
+              SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
+              SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
+              SUM(CASE t.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
+              SUM(CASE t.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
+              SUM(CASE t.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
+            FROM tasks t
+            INNER JOIN challenges c ON c.id = t.parent_id
+            INNER JOIN projects p ON p.id = c.parent_id
+            WHERE ${if (onlyEnabled) {
           "c.enabled = true AND p.enabled = true AND"
         } else {
           ""
         }}
-                              challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter $priorityFilter
-                              ${if (searchString != "") searchField("c.name") else ""} ${searchFilters
-          .toString()}
-                              GROUP BY t.parent_id, c.name
-                    ) AS t
-                    ${this.order(orderColumn, orderDirection)}
-                    LIMIT ${this.sqlLimit(limit)} OFFSET {offset}
+              challenge_type = ${Actions.ITEM_TYPE_CHALLENGE} $challengeFilter $priorityFilter
+              ${if (searchString != "") searchField("c.name") else ""}
+              ${searchFilters.toString()}
+            GROUP BY t.parent_id, c.name
+            ${this.order(orderColumn, orderDirection)}
+            LIMIT ${this.sqlLimit(limit)} OFFSET {offset}
         """
-
       SQL(query)
         .on(Symbol("ss") -> this.search(searchString), Symbol("offset") -> offset)
         .as(parser.*)

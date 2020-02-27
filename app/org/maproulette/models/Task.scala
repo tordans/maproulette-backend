@@ -17,7 +17,8 @@ case class TaskReviewFields(
     reviewedBy: Option[Long] = None,
     reviewedAt: Option[DateTime] = None,
     reviewStartedAt: Option[DateTime] = None,
-    reviewClaimedBy: Option[Long] = None
+    reviewClaimedBy: Option[Long] = None,
+    reviewClaimedAt: Option[DateTime] = None
 ) extends DefaultWrites
 
 /**

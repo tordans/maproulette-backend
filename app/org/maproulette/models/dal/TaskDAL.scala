@@ -69,7 +69,7 @@ class TaskDAL @Inject() (
   val retrieveColumnsWithReview: String = this.retrieveColumns +
     ", task_review.review_status, task_review.review_requested_by, " +
     "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
-    "task_review.review_claimed_by "
+    "task_review.review_claimed_by, task_review.review_claimed_at "
 
   /**
     * Retrieves the object based on the name, this function is somewhat weak as there could be
@@ -117,6 +117,7 @@ class TaskDAL @Inject() (
       get[Option[DateTime]]("task_review.reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
+      get[Option[DateTime]]("task_review.review_claimed_at") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[String]]("responses") ~
@@ -125,7 +126,7 @@ class TaskDAL @Inject() (
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             suggested_fix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
             reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
-            priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
+            reviewClaimedAt ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
         val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
         Task(
           id,
@@ -147,7 +148,8 @@ class TaskDAL @Inject() (
             reviewedBy,
             reviewedAt,
             reviewStartedAt,
-            reviewClaimedBy
+            reviewClaimedBy,
+            reviewClaimedAt
           ),
           priority,
           changesetId,
@@ -639,11 +641,12 @@ class TaskDAL @Inject() (
                                        l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
                              """).as(SqlParser.scalar[DateTime].singleOpt)
 
+        var completedTimeSpent: Option[Long] = None
         if (!skipStatusUpdate) {
           startedLock match {
             case Some(l) =>
-              val completedTimeSpent = (new DateTime()).getMillis() - l.getMillis()
-              SQL"""UPDATE tasks SET completed_time_spent = $completedTimeSpent
+              completedTimeSpent = Some(new DateTime().getMillis() - l.getMillis())
+              SQL"""UPDATE tasks SET completed_time_spent = ${completedTimeSpent.get}
                     WHERE id = ${task.id}""".executeUpdate()
             case _ => // do nothing
           }
@@ -733,7 +736,15 @@ class TaskDAL @Inject() (
 
           // let's give the user credit for doing this task.
           if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-            this.manager.user.updateUserScore(Option(status), None, false, false, user.id)
+            this.manager.user.updateUserScore(
+              Option(status),
+              completedTimeSpent,
+              None,
+              false,
+              false,
+              None,
+              user.id
+            )
           }
 
           // Get the latest task data and notify clients of the update

@@ -724,11 +724,12 @@ class ChallengeDAL @Inject() (
           get[Option[DateTime]]("task_review.reviewed_at") ~
           get[Option[DateTime]]("task_review.review_started_at") ~
           get[Option[Long]]("task_review.review_claimed_by") ~
+          get[Option[DateTime]]("task_review.review_claimed_at") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
                 geometry ~ suggestedFix ~ status ~ mappedOn ~ completedTimeSpent ~
                 completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-                reviewStartedAt ~ reviewClaimedBy ~ priority =>
+                reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority =>
             val values = taskDAL.updateAndRetrieve(id, geometry, location, suggestedFix)
             Task(
               id,
@@ -750,7 +751,8 @@ class ChallengeDAL @Inject() (
                 reviewedBy,
                 reviewedAt,
                 reviewStartedAt,
-                reviewClaimedBy
+                reviewClaimedBy,
+                reviewClaimedAt
               ),
               priority
             )
