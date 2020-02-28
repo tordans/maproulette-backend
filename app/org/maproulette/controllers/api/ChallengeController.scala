@@ -613,7 +613,7 @@ class ChallengeController @Inject() (
         case None    => throw new NotFoundException(s"Project with id $projectId not found")
       }
     }
-    this._extractTaskSummaries(challengeIds, -1, 0, "", "", "", s"project_${projectId}_tasks.csv")
+    this._extractTaskSummaries(challengeIds, -1, 0, "-1", "", "", s"project_${projectId}_tasks.csv")
   }
 
   /**
