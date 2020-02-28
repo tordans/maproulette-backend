@@ -311,7 +311,8 @@ class DataController @Inject() (
       if (pResult.length > 0) {
         priorityMap.put(p.toString, Json.toJson(pResult.head.actions))
       } else {
-        priorityMap.put(p.toString, Json.toJson(ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
+        priorityMap
+          .put(p.toString, Json.toJson(ActionSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
       }
     })
 

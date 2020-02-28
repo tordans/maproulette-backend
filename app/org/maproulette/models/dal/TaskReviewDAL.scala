@@ -48,12 +48,15 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("geo_json") ~
       get[Option[String]]("suggested_fix") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
+      get[Option[Long]]("tasks.completed_time_spent") ~
+      get[Option[Long]]("tasks.completed_by") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
+      get[Option[DateTime]]("task_review.review_claimed_at") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[Long]]("tasks.bundle_id") ~
@@ -63,9 +66,10 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("reviewed_by_username") ~
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-            reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ bundleId ~ isBundlePrimary ~
-            challengeName ~ reviewRequestedByUsername ~ reviewedByUsername ~ responses =>
+            suggestedFix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority ~
+            changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
+            reviewedByUsername ~ responses =>
         val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
         TaskWithReview(
           Task(
@@ -80,13 +84,16 @@ class TaskReviewDAL @Inject() (
             values._3,
             status,
             mappedOn,
+            completedTimeSpent,
+            completedBy,
             TaskReviewFields(
               reviewStatus,
               reviewRequestedBy,
               reviewedBy,
               reviewedAt,
               reviewStartedAt,
-              reviewClaimedBy
+              reviewClaimedBy,
+              reviewClaimedAt
             ),
             priority,
             changesetId,
@@ -141,14 +148,14 @@ class TaskReviewDAL @Inject() (
       }
     }
 
-    for (task <- taskList) {
-      this.withMRTransaction { implicit c =>
-        // Unclaim everything before starting a new task.
-        SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
-                WHERE review_claimed_by = #${user.id}""".executeUpdate()
+    this.withMRTransaction { implicit c =>
+      // Unclaim everything before starting a new task.
+      SQL"""UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE review_claimed_by = #${user.id}""".executeUpdate()
 
+      for (task <- taskList) {
         SQL"""UPDATE task_review SET review_claimed_by = #${user.id}, review_claimed_at = NOW()
-                  WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
+                    WHERE task_id = #${task.id} AND review_claimed_at IS NULL""".executeUpdate()
 
         try {
           this.lockItem(user, task)
@@ -829,6 +836,8 @@ class TaskReviewDAL @Inject() (
     val query =
       s"""
      SELECT COUNT(*) AS total,
+     COUNT(tasks.completed_time_spent) as tasksWithReviewTime,
+     COALESCE(SUM(EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000),0) as totalReviewTime,
      COUNT(review_status) FILTER (where review_status = 0) AS requested,
      COUNT(review_status) FILTER (where review_status = 1) AS approved,
      COUNT(review_status) FILTER (where review_status = 2) AS rejected,
@@ -855,9 +864,12 @@ class TaskReviewDAL @Inject() (
         get[Int]("falsePositive") ~
         get[Int]("skipped") ~
         get[Int]("alreadyFixed") ~
-        get[Int]("tooHard") map {
+        get[Int]("tooHard") ~
+        get[Double]("totalReviewTime") ~
+        get[Int]("tasksWithReviewTime") map {
         case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
-              fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard => {
+              fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
+              totalReviewTime ~ tasksWithReviewTime => {
           new ReviewMetrics(
             total,
             requested,
@@ -869,7 +881,8 @@ class TaskReviewDAL @Inject() (
             falsePositive,
             skipped,
             alreadyFixed,
-            tooHard
+            tooHard,
+            if (tasksWithReviewTime > 0) (totalReviewTime / tasksWithReviewTime) else 0
           )
         }
       }
@@ -1110,26 +1123,48 @@ class TaskReviewDAL @Inject() (
       }
 
       if (!needsReReview) {
+        var reviewTime: Long = 0
+        task.review.reviewClaimedAt match {
+          case Some(t) =>
+            reviewTime = new DateTime().getMillis() - t.getMillis()
+          case None => // do nothing
+        }
+
         this.manager.user.updateUserScore(
+          None,
           None,
           Option(reviewStatus),
           task.review.reviewedBy != None,
           false,
+          None,
           task.review.reviewRequestedBy.get
+        )
+        this.manager.user.updateUserScore(
+          None,
+          None,
+          Option(reviewStatus),
+          false,
+          true,
+          Some(reviewTime),
+          user.id
         )
       } else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
         this.manager.user.updateUserScore(
           None,
+          None,
           Option(reviewStatus),
           true,
           true,
+          None,
           task.review.reviewedBy.get
         )
         this.manager.user.updateUserScore(
           None,
+          None,
           Option(reviewStatus),
           true,
           false,
+          None,
           task.review.reviewRequestedBy.get
         )
       }

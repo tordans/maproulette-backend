@@ -44,7 +44,8 @@ case class ReviewMetrics(
     falsePositive: Int,
     skipped: Int,
     alreadyFixed: Int,
-    tooHard: Int
+    tooHard: Int,
+    avgReviewTime: Double
 )
 object ReviewMetrics {
   implicit val reviewMetricsWrites = Json.writes[ReviewMetrics]

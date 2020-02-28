@@ -567,7 +567,8 @@ class SchedulerActor @Inject() (
     db.withConnection { implicit c =>
       SQL(s"""UPDATE user_metrics set score=data.score, total_fixed=data.total_fixed,
               total_false_positive=data.total_false_positive, total_already_fixed=data.total_already_fixed,
-              total_too_hard=data.total_too_hard, total_skipped=data.total_skipped
+              total_too_hard=data.total_too_hard, total_skipped=data.total_skipped,
+              total_time_spent=data.total_time_spent, tasks_with_time=data.tasks_with_time
               FROM (
               SELECT users.id,
                        SUM(CASE sa.status
@@ -582,7 +583,14 @@ class SchedulerActor @Inject() (
                        SUM(CASE WHEN sa.status = ${Task.STATUS_FALSE_POSITIVE} THEN ${config.taskScoreFalsePositive} else 0 end) total_false_positive,
                        SUM(CASE WHEN sa.status = ${Task.STATUS_ALREADY_FIXED} THEN ${config.taskScoreAlreadyFixed} else 0 end) total_already_fixed,
                        SUM(CASE WHEN sa.status = ${Task.STATUS_TOO_HARD} THEN ${config.taskScoreTooHard} end) total_too_hard,
-                       SUM(CASE WHEN sa.status = ${Task.STATUS_SKIPPED} THEN ${config.taskScoreSkipped} else 0 end) total_skipped
+                       SUM(CASE WHEN sa.status = ${Task.STATUS_SKIPPED} THEN ${config.taskScoreSkipped} else 0 end) total_skipped,
+                       SUM(CASE WHEN (sa.created IS NOT NULL AND
+                                       sa.started_at IS NOT NULL)
+                                THEN (EXTRACT(EPOCH FROM (sa.created - sa.started_at)) * 1000)
+                                ELSE 0 END) as total_time_spent,
+                       SUM(CASE WHEN (sa.created IS NOT NULL AND
+                                       sa.started_at IS NOT NULL)
+                                THEN 1 ELSE 0 END) as tasks_with_time
                FROM status_actions sa, users
                WHERE users.osm_id = sa.osm_user_id AND sa.old_status <> sa.status
                GROUP BY sa.osm_user_id, users.id) AS data
@@ -596,7 +604,8 @@ class SchedulerActor @Inject() (
               SELECT user_id, score, total_fixed, total_false_positive, total_already_fixed,
                      total_too_hard, total_skipped, now(), initial_rejected, initial_approved,
                      initial_assisted, total_rejected, total_approved, total_assisted,
-                     total_disputed_as_mapper, total_disputed_as_reviewer
+                     total_disputed_as_mapper, total_disputed_as_reviewer,
+                     total_time_spent, tasks_with_time, total_review_time, tasks_with_review_time
               FROM user_metrics
            """).executeUpdate()
 
