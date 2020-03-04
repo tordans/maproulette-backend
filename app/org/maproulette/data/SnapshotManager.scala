@@ -441,7 +441,9 @@ class SnapshotManager @Inject() (
 
     s"""
       SELECT snap.id as id, challenge_id, challenge_name, challenge_status, snap.created,
-             cs.type_id as type_id, $cols review_snapshots.*
+             cs.type_id as type_id, $cols review_snapshots.*,
+             COALESCE(review_snapshots.total_review_time, 0) as total_review_time,
+             COALESCE(review_snapshots.tasks_with_review_time, 0) as tasks_with_review_time
       FROM challenge_snapshots snap
       INNER JOIN completion_snapshots cs ON cs.id = completion_snapshot_id
       INNER JOIN completion_snapshots csLow ON csLow.id = low_completion_snapshot_id
