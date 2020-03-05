@@ -531,6 +531,32 @@ class TaskController @Inject() (
   }
 
   /**
+    * Changes the status on tasks that meet the search criteria (SearchParameters)
+    *
+    * @param newStatus The status to change all the tasks to
+    * @return The number of tasks changed.
+    */
+  def bulkStatusChange(newStatus: Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      SearchParameters.withSearch { p =>
+        var params = p
+        params.location match {
+          case Some(l) => // do nothing, already have bounding box
+          case None    =>
+            // No bounding box, so search everything
+            params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
+        }
+        val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
+        tasks.foreach(task => {
+          val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
+          this.dal.update(taskJson, user)(task.id)
+        })
+        Ok(Json.toJson(tasks.length))
+      }
+    }
+  }
+
+  /**
     * Matches the task to a OSM Changeset, this will only
     *
     * @param taskId the id for the task
