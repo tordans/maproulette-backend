@@ -432,7 +432,9 @@ class TaskDAL @Inject() (
         case None => // ignore
       }
 
-      Some(element.copy(id = updatedTaskId))
+      this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+        Some(element.copy(id = updatedTaskId))
+      }(updatedTaskId, true, true)
     }
   }
 
