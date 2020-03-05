@@ -104,6 +104,33 @@ trait MRSchemaTypes {
         )
       )
     )
+  implicit lazy val ActionItemType: ObjectType[Unit, ActionItem] =
+    deriveObjectType[Unit, ActionItem](
+      ObjectTypeName("ActionItem"),
+      Interfaces(IdentifiableType),
+      ReplaceField(
+        "osmUserId",
+        Field(
+          "user",
+          UserType,
+          resolve = context => UserFetchers.osmUsersFetcher.defer(context.value.osmUserId.get)
+        )
+      ),
+      AddFields(
+        Field(
+          "task",
+          OptionType(TaskType),
+          resolve = context => {
+            context.value.typeId match {
+              case Some(typeId) if typeId == Actions.ITEM_TYPE_TASK =>
+                TaskFetchers.tasksFetcher.deferOpt(context.value.itemId.get)
+              case _ =>
+                Future.successful(None)
+            }
+          }
+        )
+      )
+    )
   implicit val ProjectManagerType: ObjectType[Unit, ProjectManager] =
     deriveObjectType[Unit, ProjectManager](ObjectTypeName("ProjectManager"))
   // Challenge Types

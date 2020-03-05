@@ -9,7 +9,7 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, Identifiable}
 import org.maproulette.models.utils.DALHelper
 import org.slf4j.LoggerFactory
 import play.api.Application
@@ -38,7 +38,7 @@ case class ActionItem(
     action: Option[Int] = None,
     status: Option[Int] = None,
     extra: Option[String] = None
-)
+) extends Identifiable
 
 /**
   * @param columns      The columns that you want returned limited to UserId = 0, typeId = 1, itemId = 2, action = 3 and status = 4

@@ -325,7 +325,7 @@ class TaskDAL @Inject() (
           this.retrieveById(t.id) match {
             case Some(latestTask) =>
               webSocketProvider.sendMessage(
-                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
+                WebSocketMessages.taskUpdated(latestTask, Some(WebSocketMessages.userSummary(user)))
               )
             case None =>
           }
@@ -777,10 +777,30 @@ class TaskDAL @Inject() (
 
           // Get the latest task data and notify clients of the update
           this.retrieveById(task.id) match {
-            case Some(t) =>
+            case Some(latestTask) =>
               webSocketProvider.sendMessage(
-                WebSocketMessages.taskUpdate(t, Some(WebSocketMessages.userSummary(user)))
+                WebSocketMessages.taskUpdated(latestTask, Some(WebSocketMessages.userSummary(user)))
               )
+
+              // Also transmit a task-completion if the status changed
+              if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
+                this.serviceManager.challenge.retrieve(latestTask.parent) match {
+                  case Some(challenge) =>
+                    this.serviceManager.project.retrieve(challenge.general.parent) match {
+                      case Some(project) =>
+                        webSocketProvider.sendMessage(
+                          WebSocketMessages.taskCompleted(
+                            latestTask,
+                            WebSocketMessages.challengeSummary(challenge),
+                            WebSocketMessages.projectSummary(project),
+                            WebSocketMessages.userSummary(user)
+                          )
+                        )
+                      case None =>
+                    }
+                  case None =>
+                }
+              }
             case None =>
           }
         }
