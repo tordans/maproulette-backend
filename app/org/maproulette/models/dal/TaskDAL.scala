@@ -379,7 +379,7 @@ class TaskDAL @Inject() (
           ),
           NamedParameter(
             "status",
-            ToParameterValue.apply[Int].apply(element.status.getOrElse(Task.STATUS_CREATED))
+            ToParameterValue.apply[Option[Int]].apply(element.status)
           ),
           NamedParameter("geojson", ToParameterValue.apply[String].apply(geometries)),
           NamedParameter(
