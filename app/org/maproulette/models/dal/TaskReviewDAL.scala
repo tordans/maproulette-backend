@@ -62,7 +62,7 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
       get[Option[String]]("geo_json") ~
-      get[Option[String]]("suggested_fix") ~
+      get[Option[String]]("cooperative_work") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Long]]("tasks.completed_time_spent") ~
       get[Option[Long]]("tasks.completed_by") ~
@@ -82,11 +82,11 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("reviewed_by_username") ~
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            suggestedFix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
+            cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority ~
             changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
             reviewedByUsername ~ responses =>
-        val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
+        val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
         model.TaskWithReview(
           Task(
             id,

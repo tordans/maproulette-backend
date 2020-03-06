@@ -1,6 +1,6 @@
 # OSM Changeset API
 
-This API in MapRoulette allows users to submit tag changes to the server, and then MapRoulette will attempt to conflate those changes with current data in OpenStreetMap. This API is primarily for support for the feature in MapRoulette called Suggested Fixes. Suggested fixes allow challenges to be created that ask the user if a change is valid or not. And if it is then MapRoulette can submit those changes directly to OpenStreetMap without the user having to make edits in JOSM or iD. This document however focuses on the API that is used to make those calls and what is going on behind the scenes and explain the workflow to the user.
+This API in MapRoulette allows users to submit tag changes to the server, and then MapRoulette will attempt to conflate those changes with current data in OpenStreetMap. This API primarily supports a type of "cooperative" task in which tag changes can be proposed in the task, and a MapRoulette mapper can determine if they are valid or not during task completion. If the proposed tag changes are correct then MapRoulette can submit those changes directly to OpenStreetMap without the user having to make edits in JOSM or iD. This document however focuses on the API that is used to make those calls and what is going on behind the scenes and explain the workflow to the user.
 
 ### Tag Changes
 
