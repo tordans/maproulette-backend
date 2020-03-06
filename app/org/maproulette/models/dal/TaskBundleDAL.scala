@@ -8,11 +8,12 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.maproulette.data.TaskType
 import org.maproulette.exception.InvalidException
+import org.maproulette.framework.model.User
+import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.dal.mixin.Locking
+import org.maproulette.models.utils.DALHelper
 import org.maproulette.models.{Task, TaskBundle}
-import org.maproulette.models.utils.{DALHelper, TransactionManager}
 import org.maproulette.permissions.Permission
-import org.maproulette.session.User
 import org.slf4j.LoggerFactory
 import play.api.db.Database
 

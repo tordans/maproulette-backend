@@ -9,9 +9,9 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.InvalidException
+import org.maproulette.framework.model.{Challenge, User}
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
-import org.maproulette.models.{Challenge, Task}
-import org.maproulette.session.User
+import org.maproulette.models.Task
 import org.maproulette.utils.Utils
 import org.slf4j.LoggerFactory
 import play.api.db.Database

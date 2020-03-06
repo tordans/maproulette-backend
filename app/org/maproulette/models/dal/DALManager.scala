@@ -4,7 +4,6 @@ package org.maproulette.models.dal
 
 import javax.inject.{Inject, Singleton}
 import org.maproulette.data._
-import org.maproulette.session.dal.{UserDAL, UserGroupDAL}
 
 /**
   * Factory that contains references to all the DAL's in the system
@@ -17,14 +16,9 @@ class DALManager @Inject() (
     taskDAL: TaskDAL,
     challengeDAL: ChallengeDAL,
     virtualChallengeDAL: VirtualChallengeDAL,
-    surveyDAL: SurveyDAL,
-    projectDAL: ProjectDAL,
-    userDAL: UserDAL,
-    userGroupDAL: UserGroupDAL,
     notificationDAL: NotificationDAL,
     actionManager: ActionManager,
     dataManager: DataManager,
-    commentDAL: CommentDAL,
     taskBundleDAL: TaskBundleDAL,
     taskReviewDAL: TaskReviewDAL,
     taskClusterDAL: TaskClusterDAL,
@@ -38,14 +32,6 @@ class DALManager @Inject() (
 
   def virtualChallenge: VirtualChallengeDAL = virtualChallengeDAL
 
-  def survey: SurveyDAL = surveyDAL
-
-  def project: ProjectDAL = projectDAL
-
-  def user: UserDAL = userDAL
-
-  def userGroup: UserGroupDAL = userGroupDAL
-
   def notification: NotificationDAL = notificationDAL
 
   def action: ActionManager = actionManager
@@ -53,8 +39,6 @@ class DALManager @Inject() (
   def data: DataManager = dataManager
 
   def statusAction: StatusActionManager = statusActionManager
-
-  def comment: CommentDAL = commentDAL
 
   def taskBundle: TaskBundleDAL = taskBundleDAL
 
@@ -64,12 +48,9 @@ class DALManager @Inject() (
 
   def getManager(itemType: ItemType): BaseDAL[Long, _] = {
     itemType match {
-      case ProjectType()          => projectDAL
       case ChallengeType()        => challengeDAL
       case VirtualChallengeType() => virtualChallengeDAL
-      case SurveyType()           => surveyDAL
       case TaskType()             => taskDAL
-      case UserType()             => userDAL
       case TagType()              => tagDAL
     }
   }

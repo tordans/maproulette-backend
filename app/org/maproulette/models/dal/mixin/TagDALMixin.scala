@@ -5,9 +5,9 @@ import java.sql.Connection
 import anorm._
 import org.maproulette.data.{ChallengeType, ItemType, TaskType}
 import org.maproulette.exception.InvalidException
+import org.maproulette.framework.model.{BaseObject, User}
 import org.maproulette.models.dal.{BaseDAL, TagDAL}
-import org.maproulette.models.{BaseObject, Tag}
-import org.maproulette.session.User
+import org.maproulette.models.Tag
 
 /**
   * @author cuthbertm

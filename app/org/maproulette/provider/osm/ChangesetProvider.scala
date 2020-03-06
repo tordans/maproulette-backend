@@ -2,22 +2,20 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.services.osm
 
+import java.sql.Connection
+
 import javax.inject.{Inject, Singleton}
 import org.maproulette.Config
-import org.maproulette.models._
-import org.maproulette.session.User
-import org.maproulette.models.dal.DALManager
 import org.maproulette.exception.ChangeConflictException
-import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
+import org.maproulette.framework.model.User
+import org.maproulette.framework.psql.TransactionManager
+import org.maproulette.models.dal.DALManager
 import org.maproulette.services.osm.objects._
+import play.api.db.Database
 import play.api.libs.oauth.{OAuthCalculator, RequestToken}
 import play.api.libs.ws.{WSClient, WSResponse}
+import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 
-import java.sql.Connection
-import anorm.SqlParser._
-import anorm._
-import play.api.db.Database
-import org.maproulette.models.utils.TransactionManager
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -132,7 +130,8 @@ class ChangesetProvider @Inject() (
   /**
     * Returns a osmChange XML object for geometry changes
     *
-    * @param geometryChanges The geometry changes to process
+    * @param change The geometry changes to process
+    * @param changeSetId The id of the changeset
     * @return The osmChange XML
     */
   def getOsmChange(change: OSMChange, changeSetId: Option[Int]): Future[Elem] = {
@@ -248,7 +247,7 @@ class ChangesetProvider @Inject() (
     * @param accessToken The access token for the user
     * @return
     */
-  private def createChangeset(comment: String, accessToken: RequestToken): Future[Int] = {
+  def createChangeset(comment: String, accessToken: RequestToken): Future[Int] = {
     // Changeset XML Element
     val newChangeSet =
       <osm>
@@ -293,7 +292,7 @@ class ChangesetProvider @Inject() (
     * @param accessToken The access token for the user
     * @return true if succeeded, if failed will respond with exception failure
     */
-  private def closeChangeset(changesetId: Int, accessToken: RequestToken): Future[Boolean] = {
+  def closeChangeset(changesetId: Int, accessToken: RequestToken): Future[Boolean] = {
     implicit val url = s"${config.getOSMServer}/api/0.6/changeset/$changesetId/close"
     implicit val req =
       ws.url(url).sign(OAuthCalculator(config.getOSMOauth.consumerKey, accessToken)).put("")

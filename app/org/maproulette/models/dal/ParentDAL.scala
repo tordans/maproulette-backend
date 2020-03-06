@@ -7,9 +7,8 @@ import java.sql.Connection
 import anorm._
 import org.maproulette.Config
 import org.maproulette.exception.NotFoundException
-import org.maproulette.models.BaseObject
+import org.maproulette.framework.model.{BaseObject, User}
 import org.maproulette.models.utils.DALHelper
-import org.maproulette.session.User
 
 /**
   * Parent data access layer that simply includes the ability to list the children of the current

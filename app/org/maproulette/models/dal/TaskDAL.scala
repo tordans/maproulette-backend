@@ -16,11 +16,16 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.framework.model.{Challenge, Project, StatusActions, User}
+import org.maproulette.framework.psql.filter.{BaseFilterParameter, SubQueryFilter}
+import org.maproulette.framework.psql.{Order, Paging, Query}
+import org.maproulette.framework.repository.ProjectRepository
+import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{Locking, SearchParametersMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
-import org.maproulette.session.{SearchParameters, User}
+import org.maproulette.session.SearchParameters
 import org.maproulette.utils.Utils
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
@@ -45,6 +50,7 @@ class TaskDAL @Inject() (
     override val db: Database,
     override val tagDAL: TagDAL,
     override val permission: Permission,
+    serviceManager: ServiceManager,
     config: Config,
     dalManager: Provider[DALManager],
     webSocketProvider: WebSocketProvider,
@@ -171,32 +177,33 @@ class TaskDAL @Inject() (
   override def retrieveRootObject(obj: Either[Long, Task], user: User)(
       implicit c: Option[Connection] = None
   ): Option[Project] = {
+    val projectParser = ProjectRepository.parser(projectId =>
+      this.serviceManager.group.retrieveProjectGroups(projectId, User.superUser)
+    )
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(TaskType(), user)(id)
-        this.manager.project.cacheManager.withOptionCaching { () =>
+        this.serviceManager.project.cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT p.* FROM projects p
              INNER JOIN challenges c ON c.parent_id = p.id
              INNER JOIN task t ON t.parent_id = c.id
              WHERE t.id = $id
-           """.as(this.manager.project.parser.*).headOption
+           """.as(projectParser.*).headOption
           }
         }
       case Right(task) =>
         this.permission.hasObjectReadAccess(task, user)
-        this.manager.project.cacheManager.withOptionCaching { () =>
+        this.serviceManager.project.cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT p.* FROM projects p
              INNER JOIN challenges c ON c.parent_id = p.id
              WHERE c.id = ${task.parent}
-           """.as(this.manager.project.parser.*).headOption
+           """.as(projectParser.*).headOption
           }
         }
     }
   }
-
-  def manager: DALManager = dalManager.get()
 
   /**
     * Inserts a new task object into the database
@@ -209,121 +216,6 @@ class TaskDAL @Inject() (
     this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
       case None    => throw new Exception("Unknown failure occurred while creating new task.")
-    }
-  }
-
-  /**
-    * Updates a task object in the database.
-    *
-    * @param value A json object containing fields to be updated for the task
-    * @param user  The user executing the task
-    * @param id    The id of the object that you are updating
-    * @return An optional object, it will return None if no object found with a matching id that was supplied
-    */
-  override def update(
-      value: JsValue,
-      user: User
-  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
-      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-      val instruction =
-        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-      // status should probably not be allowed to be set through the update function, and rather
-      // it should be forced to use the setTaskStatus function
-      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
-          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
-        throw new InvalidException(
-          s"Could not set status for task [$id], " +
-            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
-        )
-      }
-      val priority               = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
-      val geometries             = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
-      val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
-      val changesetId =
-        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
-
-      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
-        case m: JsUndefined => cachedItem.mappedOn
-        case m              => m.asOpt[DateTime]
-      }
-
-      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
-        case r: JsUndefined => cachedItem.review.reviewStatus
-        case r              => r.asOpt[Int]
-      }
-
-      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
-        case r: JsUndefined => cachedItem.review.reviewRequestedBy
-        case r              => r.asOpt[Long]
-      }
-
-      val reviewedBy = (value \ "reviewedBy") match {
-        case r: JsUndefined => cachedItem.review.reviewedBy
-        case r              => r.asOpt[Long]
-      }
-
-      val reviewedAt = (value \ "reviewedAt") match {
-        case r: JsUndefined => cachedItem.review.reviewedAt
-        case r              => r.asOpt[DateTime]
-      }
-
-      val task = this.mergeUpdate(
-        cachedItem.copy(
-          name = name,
-          parent = parentId,
-          instruction = Some(instruction),
-          status = Some(status),
-          mappedOn = mappedOn,
-          review = cachedItem.review.copy(
-            reviewStatus = reviewStatus,
-            reviewRequestedBy = reviewRequestedBy,
-            reviewedBy = reviewedBy,
-            reviewedAt = reviewedAt
-          ),
-          geometries = geometries,
-          suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
-            None
-          } else {
-            Some(suggestedFixGeometries)
-          },
-          priority = priority,
-          changesetId = Some(changesetId)
-        ),
-        user
-      )
-
-      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
-        this.manager.challenge.updateReadyStatus()(parentId)
-      } else {
-        this.manager.challenge.updateFinishedStatus()(parentId)
-      }
-
-      task match {
-        case Some(t) =>
-          // If the status is changing and if we have a bundle id, then we need
-          // to clear it out along with any other tasks that also have that
-          // bundle id -- essentially breaking up the bundle. Otherwise this
-          // task could end up with a different status than other tasks
-          // in that bundle.
-          if (cachedItem.status != t.status && t.bundleId != None) {
-            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
-          }
-
-          // Get the latest task data and notify clients of the update
-          this.retrieveById(t.id) match {
-            case Some(latestTask) =>
-              webSocketProvider.sendMessage(
-                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
-              )
-            case None =>
-          }
-        case None => // do NOTHING
-      }
-
-      task
     }
   }
 
@@ -506,6 +398,123 @@ class TaskDAL @Inject() (
           .on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id))
           .as(this.parser.singleOpt)
       }
+    }
+  }
+
+  def manager: DALManager = dalManager.get()
+
+  /**
+    * Updates a task object in the database.
+    *
+    * @param value A json object containing fields to be updated for the task
+    * @param user  The user executing the task
+    * @param id    The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  override def update(
+      value: JsValue,
+      user: User
+  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+      val instruction =
+        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+      // status should probably not be allowed to be set through the update function, and rather
+      // it should be forced to use the setTaskStatus function
+      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
+        throw new InvalidException(
+          s"Could not set status for task [$id], " +
+            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
+        )
+      }
+      val priority               = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
+      val geometries             = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
+      val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
+      val changesetId =
+        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
+
+      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
+        case m: JsUndefined => cachedItem.mappedOn
+        case m              => m.asOpt[DateTime]
+      }
+
+      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
+        case r: JsUndefined => cachedItem.review.reviewStatus
+        case r              => r.asOpt[Int]
+      }
+
+      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
+        case r: JsUndefined => cachedItem.review.reviewRequestedBy
+        case r              => r.asOpt[Long]
+      }
+
+      val reviewedBy = (value \ "reviewedBy") match {
+        case r: JsUndefined => cachedItem.review.reviewedBy
+        case r              => r.asOpt[Long]
+      }
+
+      val reviewedAt = (value \ "reviewedAt") match {
+        case r: JsUndefined => cachedItem.review.reviewedAt
+        case r              => r.asOpt[DateTime]
+      }
+
+      val task = this.mergeUpdate(
+        cachedItem.copy(
+          name = name,
+          parent = parentId,
+          instruction = Some(instruction),
+          status = Some(status),
+          mappedOn = mappedOn,
+          review = cachedItem.review.copy(
+            reviewStatus = reviewStatus,
+            reviewRequestedBy = reviewRequestedBy,
+            reviewedBy = reviewedBy,
+            reviewedAt = reviewedAt
+          ),
+          geometries = geometries,
+          suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
+            None
+          } else {
+            Some(suggestedFixGeometries)
+          },
+          priority = priority,
+          changesetId = Some(changesetId)
+        ),
+        user
+      )
+
+      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
+        this.manager.challenge.updateReadyStatus()(parentId)
+      } else {
+        this.manager.challenge.updateFinishedStatus()(parentId)
+      }
+
+      task match {
+        case Some(t) =>
+          // If the status is changing and if we have a bundle id, then we need
+          // to clear it out along with any other tasks that also have that
+          // bundle id -- essentially breaking up the bundle. Otherwise this
+          // task could end up with a different status than other tasks
+          // in that bundle.
+          if (cachedItem.status != t.status && t.bundleId != None) {
+            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
+          }
+
+          // Get the latest task data and notify clients of the update
+          this.retrieveById(t.id) match {
+            case Some(latestTask) =>
+              webSocketProvider.sendMessage(
+                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
+              )
+            case None =>
+          }
+        case None => // do NOTHING
+      }
+
+      task
     }
   }
 
@@ -738,7 +747,7 @@ class TaskDAL @Inject() (
 
           // let's give the user credit for doing this task.
           if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-            this.manager.user.updateUserScore(
+            this.serviceManager.userMetrics.updateUserScore(
               Option(status),
               completedTimeSpent,
               None,
@@ -1225,19 +1234,22 @@ class TaskDAL @Inject() (
   def getLastModifiedUser(user: User, id: Long, limit: Int = 1)(
       implicit c: Option[Connection] = None
   ): List[User] = {
-    withMRConnection { implicit c =>
-      val query =
-        s"""
-           |SELECT ${this.manager.user.retrieveColumns}, score FROM users
-           |  LEFT JOIN user_metrics ON users.id = user_metrics.user_id
-           |  WHERE osm_id IN (
-           |  SELECT osm_user_id FROM status_actions WHERE task_id = {id}
-           |  ORDER BY created DESC
-           |  LIMIT {limit}
-           |)
-         """.stripMargin
-      SQL(query).on(Symbol("id") -> id, Symbol("limit") -> limit).as(this.manager.user.parser.*)
-    }
+    this.serviceManager.user.query(
+      Query.simple(
+        List(
+          SubQueryFilter(
+            User.FIELD_OSM_ID,
+            Query.simple(
+              List(BaseFilterParameter(StatusActions.FIELD_TASK_ID, id)),
+              "SELECT osm_user_id FROM status_action",
+              order = Order.simple("created"),
+              paging = Paging(limit)
+            )
+          )
+        )
+      ),
+      user
+    )
   }
 
   def retrieveTaskSummaries(

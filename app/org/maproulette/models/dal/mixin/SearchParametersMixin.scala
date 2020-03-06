@@ -16,6 +16,7 @@ import scala.collection.mutable.ListBuffer
   *
   * @author mcuthbert
   */
+@deprecated
 trait SearchParametersMixin extends DALHelper {
 
   def updateWhereClause(

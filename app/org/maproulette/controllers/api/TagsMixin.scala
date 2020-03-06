@@ -3,13 +3,13 @@
 package org.maproulette.controllers.api
 
 import org.apache.commons.lang3.StringUtils
-import org.maproulette.controllers.SessionController
 import org.maproulette.data._
 import org.maproulette.exception.MPExceptionUtil
+import org.maproulette.framework.controller.SessionController
+import org.maproulette.framework.model.{BaseObject, User}
 import org.maproulette.models.dal.TagDAL
 import org.maproulette.models.dal.mixin.TagDALMixin
-import org.maproulette.models.{BaseObject, Tag}
-import org.maproulette.session.User
+import org.maproulette.models.Tag
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent}
@@ -110,7 +110,6 @@ trait TagsMixin[T <: BaseObject[Long]] {
   def getTags(id: Long): List[Tag] = {
     this.itemType match {
       case ChallengeType() => this.tagDAL.listByChallenge(id)
-      case SurveyType()    => this.tagDAL.listByChallenge(id)
       case TaskType()      => this.tagDAL.listByTask(id)
       case _               => List.empty
     }

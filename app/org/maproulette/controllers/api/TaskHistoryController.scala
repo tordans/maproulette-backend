@@ -5,13 +5,13 @@ package org.maproulette.controllers.api
 import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data.ActionManager
+import org.maproulette.framework.service.ServiceManager
+import org.maproulette.models.TaskLogEntry
 import org.maproulette.models.dal._
-import org.maproulette.models.{Answer, Challenge, TaskLogEntry}
-import org.maproulette.permissions.Permission
-import org.maproulette.session.{SessionManager, User}
-import org.maproulette.utils.Utils
+import org.maproulette.provider.websockets.WebSocketProvider
 import org.maproulette.services.osm.ChangesetProvider
-import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
+import org.maproulette.session.SessionManager
+import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -27,6 +27,7 @@ class TaskHistoryController @Inject() (
     override val dal: TaskDAL,
     override val tagDAL: TagDAL,
     taskHistoryDAL: TaskHistoryDAL,
+    serviceManager: ServiceManager,
     dalManager: DALManager,
     wsClient: WSClient,
     webSocketProvider: WebSocketProvider,
@@ -39,6 +40,7 @@ class TaskHistoryController @Inject() (
       actionManager,
       dal,
       tagDAL,
+      serviceManager,
       dalManager,
       wsClient,
       webSocketProvider,
@@ -46,7 +48,7 @@ class TaskHistoryController @Inject() (
       components,
       changeService,
       bodyParsers
-    ) {
+) {
 
   /**
     * Gets the history for a task. This includes commments, status_actions, and review_actions.
@@ -68,22 +70,22 @@ class TaskHistoryController @Inject() (
       Json.toJson(List[JsValue]())
     } else {
       val users = Some(
-        this.dalManager.user
-          .retrieveListById(-1, 0)(entries.map(t => t.user.getOrElse(0).toLong))
+        this.serviceManager.user
+          .retrieveListById(entries.map(t => t.user.getOrElse(0).toLong))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )
 
       val mappers = Some(
-        this.dalManager.user
-          .retrieveListById(-1, 0)(entries.map(t => t.reviewRequestedBy.getOrElse(0).toLong))
+        this.serviceManager.user
+          .retrieveListById(entries.map(t => t.reviewRequestedBy.getOrElse(0).toLong))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )
 
       val reviewers = Some(
-        this.dalManager.user
-          .retrieveListById(-1, 0)(entries.map(t => t.reviewedBy.getOrElse(0).toLong))
+        this.serviceManager.user
+          .retrieveListById(entries.map(t => t.reviewedBy.getOrElse(0).toLong))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )

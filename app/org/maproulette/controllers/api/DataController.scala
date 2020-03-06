@@ -5,8 +5,7 @@ package org.maproulette.controllers.api
 import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data._
-import org.maproulette.models.Challenge
-import org.maproulette.models.Challenge
+import org.maproulette.framework.model.Challenge
 import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.SessionManager
 import org.maproulette.session.SearchParameters
@@ -308,7 +307,7 @@ class DataController @Inject() (
         params = params,
         onlyEnabled = onlyEnabled
       )
-      if (pResult.length > 0) {
+      if (pResult.nonEmpty) {
         priorityMap.put(p.toString, Json.toJson(pResult.head.actions))
       } else {
         priorityMap
@@ -341,7 +340,7 @@ class DataController @Inject() (
             params = Some(params)
           )
 
-          if (includeByPriority && response.length > 0) {
+          if (includeByPriority && response.nonEmpty) {
             val priorityMap = this._fetchPrioritySummaries(Some(id), Some(params))
             val updated = Utils.insertIntoJson(
               Json.toJson(response).as[JsArray].head.as[JsValue],

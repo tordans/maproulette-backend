@@ -1,5 +1,6 @@
 package org.maproulette.models
 
+import org.maproulette.framework.model.PriorityRule
 import org.scalatestplus.play.PlaySpec
 
 /**

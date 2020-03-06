@@ -26,6 +26,7 @@ routesGenerator := InjectedRoutesGenerator
 
 libraryDependencies ++= Seq(
   jdbc,
+  jdbc % Test,
   ehcache,
   ws,
   evolutions,
@@ -65,3 +66,9 @@ scalacOptions ++= Seq(
 )
 
 javaOptions in Test ++= Option(System.getProperty("config.file")).map("-Dconfig.file=" + _).toSeq
+
+javaOptions in Compile ++= Seq(
+  "-Xmx2G",
+  // Increase stack size for compilation
+  "-Xss4M"
+)

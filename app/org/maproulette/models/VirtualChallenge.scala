@@ -4,6 +4,7 @@ package org.maproulette.models
 
 import org.joda.time.DateTime
 import org.maproulette.data.{ItemType, VirtualChallengeType}
+import org.maproulette.framework.model.BaseObject
 import org.maproulette.session.SearchParameters
 import play.api.libs.json.{DefaultWrites, Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._

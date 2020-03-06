@@ -9,16 +9,10 @@ import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data.{ActionManager, TaskViewed, VirtualChallengeType}
 import org.maproulette.exception.NotFoundException
+import org.maproulette.framework.model.User
 import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 import org.maproulette.models.{ClusteredPoint, Task, VirtualChallenge}
-import org.maproulette.session.{
-  SearchLocation,
-  SearchParameters,
-  SearchChallengeParameters,
-  SessionManager,
-  User,
-  TaskPropertySearch
-}
+import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters, SessionManager, TaskPropertySearch}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc._

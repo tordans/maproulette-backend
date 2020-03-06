@@ -6,7 +6,7 @@ import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
 import org.maproulette.models.dal.{NotificationDAL}
-import org.maproulette.session.{SessionManager, User}
+import org.maproulette.session.SessionManager
 import org.maproulette.models.{NotificationSubscriptions}
 import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json._

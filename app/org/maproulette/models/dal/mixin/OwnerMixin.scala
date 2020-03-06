@@ -3,9 +3,8 @@ package org.maproulette.models.dal.mixin
 import java.sql.Connection
 
 import anorm._
-import org.maproulette.models.BaseObject
+import org.maproulette.framework.model.{BaseObject, User}
 import org.maproulette.models.dal.BaseDAL
-import org.maproulette.session.User
 
 /**
   * @author mcuthbert

@@ -12,17 +12,13 @@ import org.maproulette.Config
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
-import org.maproulette.models.{
-  Task,
-  UserNotification,
-  UserNotificationEmail,
-  UserNotificationEmailDigest
-}
+import org.maproulette.models.{Task, UserNotification, UserNotificationEmail, UserNotificationEmailDigest}
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
 import org.maproulette.data.SnapshotManager
-import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider, EmailProvider}
-import org.maproulette.session.User
+import org.maproulette.framework.model.User
+import org.maproulette.framework.service.ServiceManager
+import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
 import play.api.Application
@@ -42,6 +38,7 @@ class SchedulerActor @Inject() (
     application: Application,
     db: Database,
     dALManager: DALManager,
+    serviceManager: ServiceManager,
     keepRightProvider: KeepRightProvider,
     boundingBoxFinder: BoundingBoxFinder,
     emailProvider: EmailProvider,
@@ -251,7 +248,7 @@ class SchedulerActor @Inject() (
         implicit val id = values(1).toLong
         values(0) match {
           case "p" =>
-            dALManager.project
+            this.serviceManager.project
               .listChildren(-1)
               .foreach(c => {
                 dALManager.challenge
@@ -470,7 +467,7 @@ class SchedulerActor @Inject() (
         .foreach(notification => {
           // Send email if user has an email address on file
           try {
-            dALManager.user.retrieveById(notification.userId) match {
+            this.serviceManager.user.retrieveById(notification.userId) match {
               case Some(user) =>
                 user.settings.email match {
                   case Some(address) if (!address.isEmpty) =>
@@ -515,7 +512,7 @@ class SchedulerActor @Inject() (
     // Email each digest if recipient has an email address on file
     digests.foreach(digest => {
       try {
-        dALManager.user.retrieveById(digest.userId) match {
+        this.serviceManager.user.retrieveById(digest.userId) match {
           case Some(user) =>
             user.settings.email match {
               case Some(address) if (!address.isEmpty) =>

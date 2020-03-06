@@ -11,20 +11,11 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
 import org.maproulette.models.dal.{DALManager, TagDAL, TaskDAL}
 import org.maproulette.models._
-import org.maproulette.exception.{
-  InvalidException,
-  LockedException,
-  NotFoundException,
-  StatusMessage
-}
+import org.maproulette.exception.{InvalidException, LockedException, NotFoundException, StatusMessage}
+import org.maproulette.framework.model.{Challenge, Comment, User}
+import org.maproulette.framework.service.{CommentService, ServiceManager, UserService}
 import org.maproulette.models.dal.mixin.TagDALMixin
-import org.maproulette.session.{
-  SearchChallengeParameters,
-  SearchLocation,
-  SearchParameters,
-  SessionManager,
-  User
-}
+import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters, SessionManager}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
@@ -50,6 +41,7 @@ class TaskController @Inject() (
     override val actionManager: ActionManager,
     override val dal: TaskDAL,
     override val tagDAL: TagDAL,
+    serviceManager:ServiceManager,
     dalManager: DALManager,
     wsClient: WSClient,
     webSocketProvider: WebSocketProvider,
@@ -75,8 +67,8 @@ class TaskController @Inject() (
   override implicit val tableName = this.dal.tableName
   // json reads for automatically reading Tags from a posted json body
   implicit val tagReads: Reads[Tag]           = Tag.tagReads
-  implicit val commentReads: Reads[Comment]   = Comment.commentReads
-  implicit val commentWrites: Writes[Comment] = Comment.commentWrites
+  implicit val commentReads: Reads[Comment]   = Comment.reads
+  implicit val commentWrites: Writes[Comment] = Comment.writes
 
   implicit val tagChangeReads           = ChangeObjects.tagChangeReads
   implicit val tagChangeResultWrites    = ChangeObjects.tagChangeResultWrites
@@ -479,7 +471,7 @@ class TaskController @Inject() (
         case Some(a) => Some(a.id)
         case None    => None
       }
-      this.dalManager.comment.add(user, task, comment, actionId)
+      this.serviceManager.comment.add(user, task.id, comment, actionId)
     }
 
     val tagList = tags.split(",").toList
@@ -755,22 +747,22 @@ class TaskController @Inject() (
       Json.toJson(List[JsValue]())
     } else {
       val mappers = Some(
-        this.dalManager.user
-          .retrieveListById(-1, 0)(tasks.map(t => t.completedBy.getOrElse(0L)))
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.completedBy.getOrElse(0L)))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )
 
       val reviewRequesters = Some(
-        this.dalManager.user
-          .retrieveListById(-1, 0)(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )
 
       val reviewers = Some(
-        this.dalManager.user
-          .retrieveListById(-1, 0)(tasks.map(t => t.pointReview.reviewedBy.getOrElse(0L)))
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.pointReview.reviewedBy.getOrElse(0L)))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )

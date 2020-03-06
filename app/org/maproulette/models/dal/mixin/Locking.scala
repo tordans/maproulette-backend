@@ -5,9 +5,9 @@ import java.sql.Connection
 import anorm._
 import org.maproulette.data.ItemType
 import org.maproulette.exception.LockedException
-import org.maproulette.models.BaseObject
-import org.maproulette.models.utils.{DALHelper, TransactionManager}
-import org.maproulette.session.User
+import org.maproulette.framework.model.{BaseObject, User}
+import org.maproulette.framework.psql.TransactionManager
+import org.maproulette.models.utils.DALHelper
 
 /**
   * @author mcuthbert

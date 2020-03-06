@@ -6,7 +6,8 @@ import play.api.libs.json._
 import akka.actor._
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, Unsubscribe}
-import org.maproulette.models.{Task, TaskWithReview, TaskReview, Challenge}
+import org.maproulette.framework.model.{Challenge, TaskReview, TaskWithReview}
+import org.maproulette.models.Task
 
 /**
   * WebSocketActors are responsible for bi-directional communication with client
@@ -44,7 +45,7 @@ class WebSocketActor(out: ActorRef) extends Actor {
   implicit val reviewDataWrites                   = WebSocketMessages.reviewDataWrites
   implicit val reviewMessageWrites                = WebSocketMessages.reviewMessageWrites
   implicit val taskWithReviewWrites               = TaskWithReview.taskWithReviewWrites
-  implicit val taskReviewWrites                   = TaskReview.reviewWrites
+  implicit val taskReviewWrites                   = TaskReview.writes
   implicit val taskWrites: Writes[Task]           = Task.TaskFormat
   implicit val challengeWrites: Writes[Challenge] = Challenge.writes.challengeWrites
 
