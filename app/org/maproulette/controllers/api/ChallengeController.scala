@@ -590,7 +590,7 @@ class ChallengeController @Inject() (
     }
     comments.map(comment =>
       s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
-        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}""".stripMargin
+        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}challenge/$challengeId/task/${comment.taskId}""".stripMargin
     )
   }
 
