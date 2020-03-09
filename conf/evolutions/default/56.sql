@@ -21,6 +21,12 @@ SELECT add_drop_column('user_metrics_history', 'tasks_with_time', 'INT DEFAULT 0
 SELECT add_drop_column('user_metrics_history', 'total_review_time', 'FLOAT DEFAULT 0');;
 SELECT add_drop_column('user_metrics_history', 'tasks_with_review_time', 'INT DEFAULT 0');;
 
+-- Populate completed_by with review_requested_by
+UPDATE tasks SET completed_by = tr.review_requested_by
+FROM task_review tr
+WHERE tr.task_id = tasks.id AND tasks.completed_by IS NULL;
+
+
 # --- !Downs
 SELECT add_drop_column('tasks', 'completed_time_spent', '', false);;
 SELECT add_drop_column('tasks', 'completed_by', '', false);;
