@@ -620,6 +620,28 @@ class ChallengeController @Inject() (
       }
   }
 
+  private def extractComments(
+      challengeId: Long,
+      limit: Int,
+      page: Int,
+      host: String
+  ): Seq[String] = {
+    val comments = this.serviceManager.comment.find(
+      List.empty,
+      List(challengeId),
+      List.empty,
+      Paging(limit, page)
+    )
+    val urlPrefix = config.getPublicOrigin match {
+      case Some(origin) => s"${origin}/"
+      case None         => s"http://$host/"
+    }
+    comments.map(comment =>
+      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
+        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}challenge/$challengeId/task/${comment.taskId}""".stripMargin
+    )
+  }
+
   /**
     * Extracts all the tasks belonging to the challenges in the project and
     * returns them in a nice format like csv.
@@ -1087,28 +1109,6 @@ class ChallengeController @Inject() (
           }
       }
     }
-  }
-
-  private def extractComments(
-      challengeId: Long,
-      limit: Int,
-      page: Int,
-      host: String
-  ): Seq[String] = {
-    val comments = this.serviceManager.comment.find(
-      List.empty,
-      List(challengeId),
-      List.empty,
-      Paging(limit, page)
-    )
-    val urlPrefix = config.getPublicOrigin match {
-      case Some(origin) => s"${origin}/"
-      case None         => s"http://$host/"
-    }
-    comments.map(comment =>
-      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
-        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}""".stripMargin
-    )
   }
 
   /**
