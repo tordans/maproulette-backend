@@ -29,7 +29,8 @@ case class SearchChallengeParameters(
     challengeSearch: Option[String] = None,
     challengeEnabled: Option[Boolean] = None,
     challengeDifficulty: Option[Int] = None,
-    challengeStatus: Option[List[Int]] = None
+    challengeStatus: Option[List[Int]] = None,
+    requiresLocal: Int = SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE
 )
 
 case class SearchParameters(
@@ -101,6 +102,10 @@ object SearchParameters {
   val TASK_PROP_OPERATION_TYPE_AND = "and"
   val TASK_PROP_OPERATION_TYPE_OR  = "or"
 
+  val CHALLENGE_REQUIRES_LOCAL_EXCLUDE = 0
+  val CHALLENGE_REQUIRES_LOCAL_INCLUDE = 1
+  val CHALLENGE_REQUIRES_LOCAL_ONLY    = 2
+
   implicit val locationWrites = Json.writes[SearchLocation]
   implicit val locationReads  = Json.reads[SearchLocation]
   implicit val taskPropertySearchWrites: Writes[TaskPropertySearch] =
@@ -147,6 +152,8 @@ object SearchParameters {
         case Some(r) => Utils.insertIntoJson(updated, "challengeStatus", r, true)
         case None    => updated
       }
+      updated =
+        Utils.insertIntoJson(updated, "requiresLocal", o.challengeParams.requiresLocal, true)
 
       updated = updated.as[JsObject] - "challengeParams"
       updated
@@ -189,6 +196,11 @@ object SearchParameters {
 
       (json \ "challengeStatus").toOption match {
         case Some(v) => challengeParams = challengeParams + ("challengeStatus" -> v)
+        case None    => // do nothing
+      }
+
+      (json \ "requiresLocal").toOption match {
+        case Some(v) => challengeParams = challengeParams + ("requiresLocal" -> v)
         case None    => // do nothing
       }
 
@@ -292,7 +304,11 @@ object SearchParameters {
         request.getQueryString("cStatus") match {
           case Some(v) => Utils.toIntList(v)
           case None => params.challengeParams.challengeStatus
-        }),
+        },
+        //requiresLocal
+        this.getIntParameter(request.getQueryString("cLocal"),
+          Some(params.challengeParams.requiresLocal)).getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)
+      ),
       //taskTags
       request.getQueryString("tt") match {
         case Some(v) => Some(v.split(",").toList)
