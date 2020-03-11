@@ -52,6 +52,7 @@ case class SearchParameters(
     bounding: Option[SearchLocation] = None,
     boundingGeometries: Option[List[JsObject]] = None,
     fuzzySearch: Option[Int] = None,
+    mapper: Option[String] = None,
     owner: Option[String] = None,
     reviewer: Option[String] = None
 ) {
@@ -89,6 +90,8 @@ object SearchParameters {
   val TASK_PROP_SEARCH_TYPE_EQUALS       = "equals"
   val TASK_PROP_SEARCH_TYPE_NOT_EQUAL    = "not_equal"
   val TASK_PROP_SEARCH_TYPE_CONTAINS     = "contains"
+  val TASK_PROP_SEARCH_TYPE_EXISTS       = "exists"
+  val TASK_PROP_SEARCH_TYPE_MISSING      = "missing"
   val TASK_PROP_SEARCH_TYPE_LESS_THAN    = "less_than"
   val TASK_PROP_SEARCH_TYPE_GREATER_THAN = "greater_than"
 
@@ -350,6 +353,8 @@ object SearchParameters {
       None,
       //FuzzySearch
       this.getIntParameter(request.getQueryString("fuzzy"), params.fuzzySearch),
+      //CompletedBy
+      this.getStringParameter(request.getQueryString("m"), params.mapper),
       //Owner
       this.getStringParameter(request.getQueryString("o"), params.owner),
       //Reviewer

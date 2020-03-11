@@ -17,7 +17,8 @@ case class TaskReviewFields(
     reviewedBy: Option[Long] = None,
     reviewedAt: Option[DateTime] = None,
     reviewStartedAt: Option[DateTime] = None,
-    reviewClaimedBy: Option[Long] = None
+    reviewClaimedBy: Option[Long] = None,
+    reviewClaimedAt: Option[DateTime] = None
 ) extends DefaultWrites
 
 /**
@@ -51,6 +52,8 @@ case class Task(
     suggestedFix: Option[String] = None,
     status: Option[Int] = None,
     mappedOn: Option[DateTime] = None,
+    completedTimeSpent: Option[Long] = None,
+    completedBy: Option[Long] = None,
     review: TaskReviewFields = TaskReviewFields(),
     priority: Int = Challenge.PRIORITY_HIGH,
     changesetId: Option[Long] = None,

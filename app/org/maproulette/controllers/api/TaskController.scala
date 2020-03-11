@@ -81,6 +81,8 @@ class TaskController @Inject() (
   implicit val tagChangeReads           = ChangeObjects.tagChangeReads
   implicit val tagChangeResultWrites    = ChangeObjects.tagChangeResultWrites
   implicit val tagChangeSubmissionReads = ChangeObjects.tagChangeSubmissionReads
+  implicit val changeReads              = ChangeObjects.changeReads
+  implicit val changeSubmissionReads    = ChangeObjects.changeSubmissionReads
 
   implicit val taskBundleWrites: Writes[TaskBundle] = TaskBundle.taskBundleWrites
 
@@ -529,6 +531,32 @@ class TaskController @Inject() (
   }
 
   /**
+    * Changes the status on tasks that meet the search criteria (SearchParameters)
+    *
+    * @param newStatus The status to change all the tasks to
+    * @return The number of tasks changed.
+    */
+  def bulkStatusChange(newStatus: Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      SearchParameters.withSearch { p =>
+        var params = p
+        params.location match {
+          case Some(l) => // do nothing, already have bounding box
+          case None    =>
+            // No bounding box, so search everything
+            params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
+        }
+        val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
+        tasks.foreach(task => {
+          val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
+          this.dal.update(taskJson, user)(task.id)
+        })
+        Ok(Json.toJson(tasks.length))
+      }
+    }
+  }
+
+  /**
     * Matches the task to a OSM Changeset, this will only
     *
     * @param taskId the id for the task
@@ -603,6 +631,17 @@ class TaskController @Inject() (
               case None    => None
             }
 
+            // Convert tag changes to OSMChange object
+            val updates = element.changes.map(tagChange => {
+              ElementUpdate(
+                tagChange.osmId,
+                tagChange.osmType,
+                tagChange.version,
+                ElementTagChange(tagChange.updates, tagChange.deletes)
+              )
+            })
+            val change = OSMChange(None, Some(updates))
+
             config.skipOSMChangesetSubmission match {
               // If we are skipping the OSM submission then we don't actually do the tag change on OSM
               case true =>
@@ -617,8 +656,8 @@ class TaskController @Inject() (
                 p success Ok(Json.toJson(true))
               case _ =>
                 None
-                changeService.submitTagChange(
-                  element.changes,
+                changeService.submitOsmChange(
+                  change,
                   element.comment,
                   user.osmProfile.requestToken,
                   Some(taskId)
@@ -643,6 +682,67 @@ class TaskController @Inject() (
       }
     }
 
+  def applySuggestedFix(
+      taskId: Long,
+      comment: String = "",
+      tags: String = ""
+  ): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+    this.sessionManager.authenticatedFutureRequest { implicit user =>
+      val result = request.body.validate[OSMChangeSubmission]
+      result.fold(
+        errors => {
+          Future {
+            BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+          }
+        },
+        element => {
+          val p = Promise[Result]
+
+          val requestReview = request.getQueryString("requestReview") match {
+            case Some(v) => Some(v.toBoolean)
+            case None    => None
+          }
+
+          config.skipOSMChangesetSubmission match {
+            // If we are skipping the OSM submission then we don't actually do the tag change on OSM
+            case true =>
+              this.customTaskStatus(
+                taskId,
+                TaskStatusSet(Task.STATUS_FIXED),
+                user,
+                comment,
+                tags,
+                requestReview
+              )
+              p success Ok(Json.toJson(true))
+            case _ =>
+              None
+              changeService.submitOsmChange(
+                element.changes,
+                element.comment,
+                user.osmProfile.requestToken,
+                Some(taskId)
+              ) onComplete {
+                case Success(res) => {
+                  this.customTaskStatus(
+                    taskId,
+                    TaskStatusSet(Task.STATUS_FIXED),
+                    user,
+                    comment,
+                    tags,
+                    requestReview
+                  )
+                  p success Ok(res)
+                }
+                case Failure(f) => p failure f
+              }
+          }
+          p.future
+        }
+      )
+    }
+  }
+
   /**
     * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into
     * the ClusteredPoint.pointReview
@@ -655,6 +755,13 @@ class TaskController @Inject() (
       Json.toJson(List[JsValue]())
     } else {
       val mappers = Some(
+        this.dalManager.user
+          .retrieveListById(-1, 0)(tasks.map(t => t.completedBy.getOrElse(0L)))
+          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
+          .toMap
+      )
+
+      val reviewRequesters = Some(
         this.dalManager.user
           .retrieveListById(-1, 0)(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
@@ -680,11 +787,16 @@ class TaskController @Inject() (
         var updated         = Json.toJson(task)
         var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
 
+        if (task.completedBy.getOrElse(0) != 0) {
+          val mappersJson = Json.toJson(mappers.get(task.completedBy.get)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "completedBy", mappersJson, true)
+        }
+
         if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
-          val mapperJson =
-            Json.toJson(mappers.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
+          val reviewRequestersJson =
+            Json.toJson(reviewRequesters.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
           reviewPointJson = Utils
-            .insertIntoJson(reviewPointJson, "reviewRequestedBy", mapperJson, true)
+            .insertIntoJson(reviewPointJson, "reviewRequestedBy", reviewRequestersJson, true)
             .as[JsObject]
           updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
         }

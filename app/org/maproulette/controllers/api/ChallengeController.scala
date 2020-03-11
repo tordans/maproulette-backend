@@ -590,7 +590,7 @@ class ChallengeController @Inject() (
     }
     comments.map(comment =>
       s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
-        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}map/$challengeId/${comment.taskId}""".stripMargin
+        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}challenge/$challengeId/task/${comment.taskId}""".stripMargin
     )
   }
 
@@ -613,7 +613,7 @@ class ChallengeController @Inject() (
         case None    => throw new NotFoundException(s"Project with id $projectId not found")
       }
     }
-    this._extractTaskSummaries(challengeIds, -1, 0, "", "", "", s"project_${projectId}_tasks.csv")
+    this._extractTaskSummaries(challengeIds, -1, 0, "-1", "", "", s"project_${projectId}_tasks.csv")
   }
 
   /**
@@ -732,7 +732,7 @@ class ChallengeController @Inject() (
         }
 
         val seqString = tasks.map(task => {
-          var mapper = task.reviewRequestedBy.getOrElse("")
+          var mapper = task.completedBy.getOrElse("")
           if (mapper == "") {
             mapper = task.username.getOrElse("")
           }
@@ -794,7 +794,8 @@ class ChallengeController @Inject() (
             .get}",""" +
             s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn
               .getOrElse("")},""" +
-            s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},"${mapper}",""" +
+            s"""${task.completedTimeSpent.getOrElse("")},"${mapper}",""" +
+            s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},""" +
             s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt
               .getOrElse("")},"${reviewTimeSeconds}",""" +
             s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary
@@ -811,7 +812,7 @@ class ChallengeController @Inject() (
             ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")),
           body = HttpEntity.Strict(
             ByteString(
-              s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,ReviewStatus,Mapper,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
+              s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,CompletionTime,Mapper,ReviewStatus,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )

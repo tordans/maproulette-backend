@@ -468,11 +468,13 @@ class VirtualChallengeDAL @Inject() (
       }
       val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~
         int("status") ~ get[Option[String]]("suggested_fix") ~ get[Option[DateTime]]("mapped_on") ~
+        get[Option[Long]]("completed_time_spent") ~ get[Option[Long]]("completed_by") ~
         get[Option[Int]]("review_status") ~ get[Option[Long]]("review_requested_by") ~
         get[Option[Long]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
         get[Option[DateTime]]("review_started_at") ~ int("priority") ~
         get[Option[Long]]("bundle_id") ~ get[Option[Boolean]]("is_bundle_primary") map {
-        case id ~ name ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~
+        case id ~ name ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~ completedTimeSpent ~
+              completedBy ~ reviewStatus ~ reviewRequestedBy ~
               reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
           val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
@@ -495,6 +497,8 @@ class VirtualChallengeDAL @Inject() (
             status,
             suggestedFix,
             mappedOn,
+            completedTimeSpent,
+            completedBy,
             pointReview,
             priority,
             bundleId,
@@ -502,7 +506,7 @@ class VirtualChallengeDAL @Inject() (
           )
       }
       SQL"""SELECT tasks.id, name, instruction, status, suggestedfix_geojson::TEXT as suggested_fix,
-                   mapped_on, review_status, review_requested_by,
+                   mapped_on, completed_time_spent, completed_by, review_status, review_requested_by,
                    reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority,
                    bundle_id, is_bundle_primary
               FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id

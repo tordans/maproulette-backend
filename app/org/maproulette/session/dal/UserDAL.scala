@@ -1098,9 +1098,11 @@ class UserDAL @Inject() (
     */
   def updateUserScore(
       taskStatus: Option[Int],
+      taskTimeSpent: Option[Long] = None,
       taskReviewStatus: Option[Int],
       isReviewRevision: Boolean = false,
       asReviewer: Boolean = false,
+      reviewTime: Option[Long] = None,
       userId: Long
   )(implicit c: Connection = null) = {
     // We need to invalidate the user in the cache.
@@ -1138,21 +1140,27 @@ class UserDAL @Inject() (
 
         taskReviewStatus match {
           case Some(Task.REVIEW_STATUS_REJECTED) => {
-            statusBump = ", total_rejected=(total_rejected + 1)"
-            if (!isReviewRevision) {
-              statusBump += ", initial_rejected=(initial_rejected + 1)"
+            if (!asReviewer) {
+              statusBump = ", total_rejected=(total_rejected + 1)"
+              if (!isReviewRevision) {
+                statusBump += ", initial_rejected=(initial_rejected + 1)"
+              }
             }
           }
           case Some(Task.REVIEW_STATUS_APPROVED) => {
-            statusBump = ", total_approved=(total_approved + 1)"
-            if (!isReviewRevision) {
-              statusBump += ", initial_approved=(initial_approved + 1)"
+            if (!asReviewer) {
+              statusBump = ", total_approved=(total_approved + 1)"
+              if (!isReviewRevision) {
+                statusBump += ", initial_approved=(initial_approved + 1)"
+              }
             }
           }
           case Some(Task.REVIEW_STATUS_ASSISTED) => {
-            statusBump = ", total_assisted=(total_assisted + 1)"
-            if (!isReviewRevision) {
-              statusBump += ", initial_assisted=(initial_assisted + 1)"
+            if (!asReviewer) {
+              statusBump = ", total_assisted=(total_assisted + 1)"
+              if (!isReviewRevision) {
+                statusBump += ", initial_assisted=(initial_assisted + 1)"
+              }
             }
           }
           case Some(Task.REVIEW_STATUS_DISPUTED) => {
@@ -1166,6 +1174,22 @@ class UserDAL @Inject() (
             }
           }
           case default => None
+        }
+
+        if (asReviewer) {
+          reviewTime match {
+            case Some(rTime) =>
+              statusBump += ", tasks_with_review_time=(tasks_with_review_time + 1)"
+              statusBump += s", total_review_time=(total_review_time + ${rTime})"
+            case None => // not a review
+          }
+        } else {
+          taskTimeSpent match {
+            case Some(time) =>
+              statusBump += ", tasks_with_time=(tasks_with_time + 1)"
+              statusBump += s", total_time_spent=(total_time_spent + ${time})"
+            case None => // not updating time
+          }
         }
 
         // We need to make sure the user is in the database first.
@@ -1268,15 +1292,19 @@ class UserDAL @Inject() (
           get[Int]("total_false_positive") ~
           get[Int]("total_already_fixed") ~
           get[Int]("total_too_hard") ~
-          get[Int]("total_skipped") map {
-          case total ~ fixed ~ falsePositive ~ alreadyFixed ~ tooHard ~ skipped => {
+          get[Int]("total_skipped") ~
+          get[Double]("total_time_spent") ~
+          get[Int]("tasks_with_time") map {
+          case total ~ fixed ~ falsePositive ~ alreadyFixed ~ tooHard ~ skipped ~
+                totalTimeSpent ~ tasksWithTime => {
             Map(
               "total"         -> total,
               "fixed"         -> fixed,
               "falsePositive" -> falsePositive,
               "alreadyFixed"  -> alreadyFixed,
               "tooHard"       -> tooHard,
-              "skipped"       -> skipped
+              "skipped"       -> skipped,
+              "avgTimeSpent"  -> (if (tasksWithTime > 0) (totalTimeSpent / tasksWithTime) else 0).toInt
             )
           }
         }
@@ -1288,7 +1316,14 @@ class UserDAL @Inject() (
              COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_FALSE_POSITIVE} then 1 else 0 end), 0) total_false_positive,
              COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_ALREADY_FIXED} then 1 else 0 end), 0) total_already_fixed,
              COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_TOO_HARD} then 1 else 0 end), 0) total_too_hard,
-             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_SKIPPED} then 1 else 0 end), 0) total_skipped
+             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_SKIPPED} then 1 else 0 end), 0) total_skipped,
+             COALESCE(SUM(CASE WHEN (sa1.created IS NOT NULL AND
+                                     sa1.started_at IS NOT NULL)
+                      THEN (EXTRACT(EPOCH FROM (sa1.created - sa1.started_at)) * 1000)
+                      ELSE 0 END), 0) as total_time_spent,
+             COALESCE(SUM(CASE WHEN (sa1.created IS NOT NULL AND
+                                     sa1.started_at IS NOT NULL)
+                      THEN 1 ELSE 0 END), 0) as tasks_with_time
            FROM tasks
            INNER JOIN status_actions sa1 ON sa1.task_id = tasks.id AND sa1.status = tasks.status
            INNER JOIN users ON users.osm_id = sa1.osm_user_id AND users.id=${userId}
@@ -1328,15 +1363,21 @@ class UserDAL @Inject() (
           get[Int]("rejectedCount") ~
           get[Int]("assistedCount") ~
           get[Int]("disputedCount") ~
-          get[Int]("requestedCount") map {
-          case total ~ approvedCount ~ rejectedCount ~ assistedCount ~ disputedCount ~ requestedCount => {
+          get[Int]("requestedCount") ~
+          get[Double]("total_review_time") ~
+          get[Int]("tasks_with_review_time") map {
+          case total ~ approvedCount ~ rejectedCount ~ assistedCount ~ disputedCount ~
+                requestedCount ~ totalReviewTime ~ tasksWithReviewTime => {
             Map(
               "total"     -> total,
               "approved"  -> approvedCount,
               "rejected"  -> rejectedCount,
               "assisted"  -> assistedCount,
               "disputed"  -> disputedCount,
-              "requested" -> requestedCount
+              "requested" -> requestedCount,
+              "avgReviewTime" -> (if (tasksWithReviewTime > 0)
+                                    (totalReviewTime / tasksWithReviewTime).toInt
+                                  else 0)
             )
           }
         }
@@ -1349,7 +1390,14 @@ class UserDAL @Inject() (
             |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) rejectedCount,
             |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
             |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
-            |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount
+            |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount,
+            |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
+            |                        reviewed_at IS NOT NULL)
+            |                  THEN (EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000)
+            |                  ELSE 0 END), 0) total_review_time,
+            |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
+            |                        reviewed_at IS NOT NULL)
+            |                  THEN 1 ELSE 0 END), 0) tasks_with_review_time
             |FROM task_review
             |WHERE task_review.review_requested_by = $userId AND (${reviewTimeClause} OR task_review.reviewed_at IS NULL)
         """.stripMargin
@@ -1388,7 +1436,14 @@ class UserDAL @Inject() (
                |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) rejectedCount,
                |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
                |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
-               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount
+               |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount,
+               |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
+               |                        reviewed_at IS NOT NULL)
+               |                  THEN (EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000)
+               |                  ELSE 0 END), 0) total_review_time,
+               |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
+               |                        reviewed_at IS NOT NULL)
+               |                  THEN 1 ELSE 0 END), 0) tasks_with_review_time
                |FROM task_review
                |WHERE task_review.reviewed_by = $userId AND ${reviewerTimeClause}
            """.stripMargin

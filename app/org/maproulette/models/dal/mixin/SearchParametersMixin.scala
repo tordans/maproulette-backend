@@ -33,6 +33,7 @@ trait SearchParametersMixin extends DALHelper {
     this.paramsTaskReviewStatus(params, whereClause, joinClause)
     this.paramsOwner(params, whereClause, joinClause)
     this.paramsReviewer(params, whereClause, joinClause)
+    this.paramsMapper(params, whereClause, joinClause)
     this.paramsTaskPriorities(params, whereClause)
     this.paramsPriority(params, whereClause)
     this.paramsChallengeDifficulty(params, whereClause)
@@ -84,7 +85,10 @@ trait SearchParametersMixin extends DALHelper {
   def paramsTaskStatus(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskStatus match {
       case Some(sl) if sl.nonEmpty =>
-        this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
+        // If list contains -1 then ignore filtering by status
+        if (!sl.contains(-1)) {
+          this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
+        }
       case Some(sl) if sl.isEmpty => //ignore this scenario
       case _                      => this.appendInWhereClause(whereClause, "tasks.status IN (0,3,6)")
     }
@@ -256,6 +260,10 @@ trait SearchParametersMixin extends DALHelper {
                     query ++= s" AND features->'properties'->>'${k}' != '${v}' "
                   } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
                     query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
+                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EXISTS) {
+                    query ++= s" AND features->'properties'->>'${k}' IS NOT NULL "
+                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_MISSING) {
+                    query ++= s" AND features->'properties'->>'${k}' IS NULL "
                   }
                 }
                 query ++= "))"
@@ -289,6 +297,19 @@ trait SearchParametersMixin extends DALHelper {
       case Some(r) if r.nonEmpty =>
         joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "
         this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
+      case _ => // ignore
+    }
+  }
+
+  def paramsMapper(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
+    params.mapper match {
+      case Some(o) if o.nonEmpty =>
+        joinClause ++= "INNER JOIN users u ON u.id = tasks.completed_by "
+        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
       case _ => // ignore
     }
   }

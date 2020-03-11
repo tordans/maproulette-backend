@@ -69,7 +69,7 @@ class TaskDAL @Inject() (
   val retrieveColumnsWithReview: String = this.retrieveColumns +
     ", task_review.review_status, task_review.review_requested_by, " +
     "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
-    "task_review.review_claimed_by "
+    "task_review.review_claimed_by, task_review.review_claimed_at "
 
   /**
     * Retrieves the object based on the name, this function is somewhat weak as there could be
@@ -109,21 +109,24 @@ class TaskDAL @Inject() (
       get[Option[String]]("geo_json") ~
       get[Option[String]]("suggested_fix") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
+      get[Option[Long]]("tasks.completed_time_spent") ~
+      get[Option[Long]]("tasks.completed_by") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
+      get[Option[DateTime]]("task_review.review_claimed_at") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[String]]("responses") ~
       get[Option[Long]]("tasks.bundle_id") ~
       get[Option[Boolean]]("tasks.is_bundle_primary") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            suggested_fix ~ mappedOn ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~
-            reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ priority ~ changesetId ~ responses ~
-            bundleId ~ isBundlePrimary =>
+            suggested_fix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
+            reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
+            reviewClaimedAt ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
         val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
         Task(
           id,
@@ -137,13 +140,16 @@ class TaskDAL @Inject() (
           values._3,
           status,
           mappedOn,
+          completedTimeSpent,
+          completedBy,
           TaskReviewFields(
             reviewStatus,
             reviewRequestedBy,
             reviewedBy,
             reviewedAt,
             reviewStartedAt,
-            reviewClaimedBy
+            reviewClaimedBy,
+            reviewClaimedAt
           ),
           priority,
           changesetId,
@@ -373,7 +379,7 @@ class TaskDAL @Inject() (
           ),
           NamedParameter(
             "status",
-            ToParameterValue.apply[Int].apply(element.status.getOrElse(Task.STATUS_CREATED))
+            ToParameterValue.apply[Option[Int]].apply(element.status)
           ),
           NamedParameter("geojson", ToParameterValue.apply[String].apply(geometries)),
           NamedParameter(
@@ -426,7 +432,9 @@ class TaskDAL @Inject() (
         case None => // ignore
       }
 
-      Some(element.copy(id = updatedTaskId))
+      this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+        Some(element.copy(id = updatedTaskId))
+      }(updatedTaskId, true, true)
     }
   }
 
@@ -616,7 +624,8 @@ class TaskDAL @Inject() (
 
         if (!skipStatusUpdate) {
           updatedRows =
-            SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB  #$bundleUpdate
+            SQL"""UPDATE tasks t SET status = $status, mapped_on = NOW(), completion_responses = ${responses}::JSONB,
+                                 completed_by = ${user.id}  #$bundleUpdate
                                  WHERE t.id = (
                                     SELECT t2.id FROM tasks t2
                                     LEFT JOIN locked l on l.item_id = t2.id AND l.item_type = ${task.itemType.typeId}
@@ -633,6 +642,17 @@ class TaskDAL @Inject() (
         val startedLock = (SQL"""SELECT locked_time FROM locked l WHERE l.item_id = ${task.id} AND
                                        l.item_type = ${task.itemType.typeId} AND l.user_id = ${user.id}
                              """).as(SqlParser.scalar[DateTime].singleOpt)
+
+        var completedTimeSpent: Option[Long] = None
+        if (!skipStatusUpdate) {
+          startedLock match {
+            case Some(l) =>
+              completedTimeSpent = Some(new DateTime().getMillis() - l.getMillis())
+              SQL"""UPDATE tasks SET completed_time_spent = ${completedTimeSpent.get}
+                    WHERE id = ${task.id}""".executeUpdate()
+            case _ => // do nothing
+          }
+        }
 
         this.manager.statusAction.setStatusAction(user, task, status, startedLock)
 
@@ -718,7 +738,15 @@ class TaskDAL @Inject() (
 
           // let's give the user credit for doing this task.
           if (oldStatus.getOrElse(Task.STATUS_CREATED) != status) {
-            this.manager.user.updateUserScore(Option(status), None, false, false, user.id)
+            this.manager.user.updateUserScore(
+              Option(status),
+              completedTimeSpent,
+              None,
+              false,
+              false,
+              None,
+              user.id
+            )
           }
 
           // Get the latest task data and notify clients of the update
@@ -1220,23 +1248,25 @@ class TaskDAL @Inject() (
   ): (List[TaskSummary], Map[Long, String]) =
     db.withConnection { implicit c =>
       val parser = for {
-        taskId            <- long("tasks.id")
-        parentId          <- long("tasks.parent_id")
-        name              <- str("tasks.name")
-        status            <- int("tasks.status")
-        priority          <- int("tasks.priority")
-        geojson           <- get[Option[String]]("geo_json")
-        username          <- get[Option[String]]("users.username")
-        mappedOn          <- get[Option[DateTime]]("mapped_on")
-        reviewStatus      <- get[Option[Int]]("task_review.review_status")
-        reviewRequestedBy <- get[Option[String]]("reviewRequestedBy")
-        reviewedBy        <- get[Option[String]]("reviewedBy")
-        reviewedAt        <- get[Option[DateTime]]("task_review.reviewed_at")
-        reviewStartedAt   <- get[Option[DateTime]]("task_review.review_started_at")
-        tags              <- get[Option[String]]("tags")
-        responses         <- get[Option[String]]("responses")
-        bundleId          <- get[Option[Long]]("bundle_id")
-        isBundlePrimary   <- get[Option[Boolean]]("is_bundle_primary")
+        taskId             <- long("tasks.id")
+        parentId           <- long("tasks.parent_id")
+        name               <- str("tasks.name")
+        status             <- int("tasks.status")
+        priority           <- int("tasks.priority")
+        geojson            <- get[Option[String]]("geo_json")
+        username           <- get[Option[String]]("users.username")
+        mappedOn           <- get[Option[DateTime]]("mapped_on")
+        completedTimeSpent <- get[Option[Long]]("completed_time_spent")
+        completedBy        <- get[Option[String]]("completedBy")
+        reviewStatus       <- get[Option[Int]]("task_review.review_status")
+        reviewRequestedBy  <- get[Option[String]]("reviewRequestedBy")
+        reviewedBy         <- get[Option[String]]("reviewedBy")
+        reviewedAt         <- get[Option[DateTime]]("task_review.reviewed_at")
+        reviewStartedAt    <- get[Option[DateTime]]("task_review.review_started_at")
+        tags               <- get[Option[String]]("tags")
+        responses          <- get[Option[String]]("responses")
+        bundleId           <- get[Option[Long]]("bundle_id")
+        isBundlePrimary    <- get[Option[Boolean]]("is_bundle_primary")
       } yield TaskSummary(
         taskId,
         parentId,
@@ -1245,6 +1275,8 @@ class TaskDAL @Inject() (
         priority,
         username,
         mappedOn,
+        completedTimeSpent,
+        completedBy,
         reviewStatus,
         reviewRequestedBy,
         reviewedBy,
@@ -1276,6 +1308,8 @@ class TaskDAL @Inject() (
 
       val query =
         SQL"""SELECT tasks.id, tasks.parent_id, tasks.name, tasks.status, tasks.priority, sa_outer.username, tasks.mapped_on,
+                   tasks.completed_time_spent,
+                   (SELECT name as completedBy FROM users WHERE users.id = tasks.completed_by),
                    task_review.review_status, tasks.is_bundle_primary, tasks.bundle_id, tasks.geojson::TEXT AS geo_json,
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
@@ -1375,6 +1409,8 @@ class TaskDAL @Inject() (
       priority: Int,
       username: Option[String],
       mappedOn: Option[DateTime],
+      completedTimeSpent: Option[Long],
+      completedBy: Option[String],
       reviewStatus: Option[Int],
       reviewRequestedBy: Option[String],
       reviewedBy: Option[String],
