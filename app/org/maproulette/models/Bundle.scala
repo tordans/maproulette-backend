@@ -4,7 +4,6 @@ package org.maproulette.models
 
 import org.joda.time.DateTime
 import org.maproulette.data.{BundleType, ItemType}
-import org.maproulette.framework.model.BaseObject
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._

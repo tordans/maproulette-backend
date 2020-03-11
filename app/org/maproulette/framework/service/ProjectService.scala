@@ -32,7 +32,7 @@ class ProjectService @Inject() (
   val cacheManager     = new CacheManager[Long, Project](config, Config.CACHE_ID_PROJECTS)
   protected val logger = LoggerFactory.getLogger(this.getClass)
 
-  def listChildren(
+  def children(
       id: Long,
       searchString: String = "",
       onlyEnabled: Boolean = false,
@@ -52,11 +52,11 @@ class ProjectService @Inject() (
           AND(),
           FilterGroup(
             OR(),
-            BaseFilterParameter(s"challenges.${Challenge.FIELD_PARENT_ID}", id),
+            BaseParameter(s"challenges.${Challenge.FIELD_PARENT_ID}", id),
             SubQueryFilter(
               s"challenges.${Challenge.FIELD_ID}",
               Query.simple(
-                List(BaseFilterParameter(s"vp2.${VirtualProject.FIELD_PROJECT_ID}", id)),
+                List(BaseParameter(s"vp2.${VirtualProject.FIELD_PROJECT_ID}", id)),
                 "SELECT vp2.challenge_id FROM virtual_project_challenges vp2"
               )
             )
@@ -68,7 +68,7 @@ class ProjectService @Inject() (
             FilterParameter.conditional(
               Challenge.FIELD_NAME,
               SQLUtils.search(searchString),
-              FilterOperator.ILIKE,
+              Operator.ILIKE,
               includeOnlyIfTrue = searchString.nonEmpty
             )
           )
@@ -89,19 +89,20 @@ class ProjectService @Inject() (
     * @param user The user that is trying to create the project
     * @return The new project with the new project ID
     */
-  def insert(project: Project, user: User): Project = {
+  def create(project: Project, user: User): Project = {
     //permissions don't need to be checked, anyone can create a project
     //this.permission.hasObjectWriteAccess(project, user)
     this.cacheManager.withOptionCaching { () =>
       // only super users can feature a project
       val featured = project.featured && user.isSuperUser
       // first create the project
-      val newProject = this.repository.insert(project.copy(featured = featured))
+      val newProject = this.repository.create(project.copy(featured = featured))
 
-      this.groupService.insert(newProject.id, Group.TYPE_ADMIN, User.superUser)
-      this.groupService.insert(newProject.id, Group.TYPE_WRITE_ACCESS, User.superUser)
-      this.groupService.insert(newProject.id, Group.TYPE_READ_ONLY, User.superUser)
-      Some(newProject)
+      val adminGroup = this.groupService.create(newProject.id, Group.TYPE_ADMIN, User.superUser)
+      val writeGroup =
+        this.groupService.create(newProject.id, Group.TYPE_WRITE_ACCESS, User.superUser)
+      val readGroup = this.groupService.create(newProject.id, Group.TYPE_READ_ONLY, User.superUser)
+      Some(newProject.copy(groups = List(adminGroup, writeGroup, readGroup)))
     }.head
   }
 
@@ -137,30 +138,29 @@ class ProjectService @Inject() (
         val permissionFilterGroup =
           FilterGroup(
             OR(),
-            BaseFilterParameter(s"p.${Project.FIELD_OWNER}", user.osmProfile.id),
+            BaseParameter(s"p.${Project.FIELD_OWNER}", user.osmProfile.id),
             FilterParameter.conditional(
               s"g.${Group.FIELD_ID}",
               user.groups.map(_.id),
-              FilterOperator.IN,
+              Operator.IN,
               includeOnlyIfTrue = !onlyOwned
             )
           )
         val baseFilterGroup = FilterGroup(
           AND(),
-          BaseFilterParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString)),
+          BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString)),
           FilterParameter.conditional(
             Project.FIELD_ENABLED,
             onlyEnabled,
             includeOnlyIfTrue = onlyEnabled
           )
         )
-        this.repository.query(
+        this.query(
           Query(
             Filter(AND(), permissionFilterGroup, baseFilterGroup),
             customQuery,
             paging,
-            order,
-            forceBase = true
+            order
           )
         )
       }
@@ -186,33 +186,31 @@ class ProjectService @Inject() (
         AND(),
         FilterGroup(
           OR(),
-          BaseFilterParameter(
+          BaseParameter(
             Project.FIELD_NAME,
             search,
-            FilterOperator.ILIKE
+            Operator.ILIKE
           ),
-          BaseFilterParameter(
+          BaseParameter(
             Project.FIELD_DISPLAY_NAME,
             search,
-            FilterOperator.ILIKE
+            Operator.ILIKE
           ),
-          FuzzySearchFilterParameter(
+          FuzzySearchParameter(
             Project.FIELD_DISPLAY_NAME,
             value = search
           )
         ),
         FilterGroup(
           AND(),
-          BaseFilterParameter(Project.FIELD_ENABLED, true)
+          BaseParameter(Project.FIELD_ENABLED, true)
         )
       ),
       paging = paging,
       order = order
     )
-    this.repository.query(query)
+    this.query(query)
   }
-
-  def query(query: Query): List[Project] = this.repository.query(query)
 
   /**
     * Gets the featured projects
@@ -225,10 +223,10 @@ class ProjectService @Inject() (
       onlyEnabled: Boolean = true,
       paging: Paging = Paging()
   ): List[Project] = {
-    this.repository.query(
+    this.query(
       Query.simple(
         List(
-          BaseFilterParameter(Project.FIELD_FEATURED, true),
+          BaseParameter(Project.FIELD_FEATURED, true),
           FilterParameter.conditional(
             Project.FIELD_ENABLED,
             onlyEnabled,
@@ -278,7 +276,7 @@ class ProjectService @Inject() (
         }
 
         Some(
-          this.repository.insert(
+          this.repository.create(
             Project(
               id = id,
               owner = owner,
@@ -303,7 +301,7 @@ class ProjectService @Inject() (
   def retrieve(id: Long): Option[Project] = {
     this.cacheManager.withCaching { () =>
       this.repository
-        .query(Query.simple(List(BaseFilterParameter(Project.FIELD_ID, id))))
+        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
         .headOption
     }(id = id)
   }
@@ -332,19 +330,21 @@ class ProjectService @Inject() (
     * @return An optional Project, None if not found.
     */
   def retrieveByName(name: String): Option[Project] = {
-    this.repository
-      .query(Query.simple(List(BaseFilterParameter(Project.FIELD_NAME, name))))
+    this
+      .query(Query.simple(List(BaseParameter(Project.FIELD_NAME, name))))
       .headOption
   }
 
-  def retrieveList(
+  def query(query: Query): List[Project] = this.repository.query(query)
+
+  def list(
       ids: List[Long],
       paging: Paging = Paging()
   ): List[Project] = {
-    this.repository.query(
+    this.query(
       Query.simple(
         List(
-          BaseFilterParameter(Project.FIELD_ID, ids, FilterOperator.IN)
+          BaseParameter(Project.FIELD_ID, ids, Operator.IN)
         ),
         paging = paging
       )

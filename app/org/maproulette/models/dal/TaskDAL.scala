@@ -17,7 +17,7 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.framework.model.{Challenge, Project, StatusActions, User}
-import org.maproulette.framework.psql.filter.{BaseFilterParameter, SubQueryFilter}
+import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.ProjectRepository
 import org.maproulette.framework.service.ServiceManager
@@ -174,7 +174,7 @@ class TaskDAL @Inject() (
     * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj: Either[Long, Task], user: User)(
+  def retrieveRootObject(obj: Either[Long, Task], user: User)(
       implicit c: Option[Connection] = None
   ): Option[Project] = {
     val projectParser = ProjectRepository.parser(projectId =>
@@ -324,9 +324,9 @@ class TaskDAL @Inject() (
         case None => // ignore
       }
 
-      this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-        Some(element.copy(id = updatedTaskId))
-      }(updatedTaskId, true, true)
+      val updatedElement = element.copy(id = updatedTaskId)
+      this.cacheManager.cache.add(updatedTaskId, updatedElement)
+      Some(updatedElement)
     }
   }
 
@@ -1240,7 +1240,7 @@ class TaskDAL @Inject() (
           SubQueryFilter(
             User.FIELD_OSM_ID,
             Query.simple(
-              List(BaseFilterParameter(StatusActions.FIELD_TASK_ID, id)),
+              List(BaseParameter(StatusActions.FIELD_TASK_ID, id)),
               "SELECT osm_user_id FROM status_action",
               order = Order.simple("created"),
               paging = Paging(limit)

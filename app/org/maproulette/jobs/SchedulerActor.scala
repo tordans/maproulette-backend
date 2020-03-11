@@ -4,20 +4,20 @@ package org.maproulette.jobs
 
 import akka.actor.{Actor, Props}
 import anorm.JodaParameterMetaData._
-import anorm._
 import anorm.SqlParser._
+import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.jobs.SchedulerActor.RunJob
-import org.maproulette.jobs.utils.LeaderboardHelper
-import org.maproulette.metrics.Metrics
-import org.maproulette.models.{Task, UserNotification, UserNotificationEmail, UserNotificationEmailDigest}
-import org.maproulette.models.Task.STATUS_CREATED
-import org.maproulette.models.dal.DALManager
 import org.maproulette.data.SnapshotManager
 import org.maproulette.framework.model.User
 import org.maproulette.framework.service.ServiceManager
+import org.maproulette.jobs.SchedulerActor.RunJob
+import org.maproulette.jobs.utils.LeaderboardHelper
+import org.maproulette.metrics.Metrics
+import org.maproulette.models.Task.STATUS_CREATED
+import org.maproulette.models.dal.DALManager
+import org.maproulette.models.{Task, UserNotification, UserNotificationEmailDigest}
 import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
@@ -249,7 +249,7 @@ class SchedulerActor @Inject() (
         values(0) match {
           case "p" =>
             this.serviceManager.project
-              .listChildren(-1)
+              .children(-1)
               .foreach(c => {
                 dALManager.challenge
                   .listChildren(-1)(c.id)
@@ -528,32 +528,6 @@ class SchedulerActor @Inject() (
   }
 
   /**
-    * We essentially create this recursive function, so that we don't take down the KeepRight servers
-    * by bombarding it with tons of API requests.
-    *
-    * @param head The head of the list, which is a tuple containing a KeepRightError and a KeepRightBox
-    * @param tail The tail list of box objects
-    */
-  private def integrateKeepRight(
-      head: (List[KeepRightError], KeepRightBox),
-      tail: List[(List[KeepRightError], KeepRightBox)]
-  ): Unit = {
-    keepRightProvider.integrate(head._1.map(_.id), head._2) onComplete {
-      case Success(x) =>
-        if (!x) {
-          logger.warn(s"KeepRight challenge failed, but continuing to next one")
-        }
-        tail.headOption match {
-          case Some(head) => this.integrateKeepRight(head, tail.tail)
-          case None       => // just do nothing because we are finished
-        }
-      case Failure(f) =>
-        // something went wrong, we should bail out immediately
-        logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
-    }
-  }
-
-  /**
     * Snapshots the user_metrics table and stores in in user_metrics_history
     *
     * @param action - action string
@@ -624,6 +598,32 @@ class SchedulerActor @Inject() (
         this.snapshotManager.recordChallengeSnapshot(id, false)
       })
       logger.info(s"Succesfully created snapshots of challenges.")
+    }
+  }
+
+  /**
+    * We essentially create this recursive function, so that we don't take down the KeepRight servers
+    * by bombarding it with tons of API requests.
+    *
+    * @param head The head of the list, which is a tuple containing a KeepRightError and a KeepRightBox
+    * @param tail The tail list of box objects
+    */
+  private def integrateKeepRight(
+      head: (List[KeepRightError], KeepRightBox),
+      tail: List[(List[KeepRightError], KeepRightBox)]
+  ): Unit = {
+    keepRightProvider.integrate(head._1.map(_.id), head._2) onComplete {
+      case Success(x) =>
+        if (!x) {
+          logger.warn(s"KeepRight challenge failed, but continuing to next one")
+        }
+        tail.headOption match {
+          case Some(head) => this.integrateKeepRight(head, tail.tail)
+          case None       => // just do nothing because we are finished
+        }
+      case Failure(f) =>
+        // something went wrong, we should bail out immediately
+        logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
     }
   }
 }

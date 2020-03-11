@@ -471,7 +471,7 @@ class TaskController @Inject() (
         case Some(a) => Some(a.id)
         case None    => None
       }
-      this.serviceManager.comment.add(user, task.id, comment, actionId)
+      this.serviceManager.comment.create(user, task.id, comment, actionId)
     }
 
     val tagList = tags.split(",").toList
@@ -771,7 +771,7 @@ class TaskController @Inject() (
         includeGeometries match {
           case true =>
             val taskDetails = this.dalManager.task.retrieveListById()(tasks.map(t => t.id))
-            taskDetails.map(t => (t.id -> t)).toMap
+            taskDetails.map(t => t.id -> t).toMap
           case false => null
         }
 

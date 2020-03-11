@@ -13,7 +13,7 @@ import org.maproulette.data.UserType
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql._
-import org.maproulette.framework.psql.filter.{BaseFilterParameter, Filter, FilterGroup, FilterOperator}
+import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{UserRepository, UserSavedObjectsRepository}
 import org.maproulette.models.Task
 import org.maproulette.models.dal.TaskDAL
@@ -39,8 +39,6 @@ class UserService @Inject() (
   // The cache manager for the users
   val cacheManager = new CacheManager[Long, User](config, Config.CACHE_ID_USERS)
 
-  def query(query: Query, user: User): List[User] = this.repository.query(query)
-
   /**
     * Find the User based on an API key, the API key is unique in the database.
     *
@@ -52,10 +50,10 @@ class UserService @Inject() (
     this.cacheManager.withOptionCaching { () =>
       val idFilterGroup = FilterGroup(
         OR(),
-        BaseFilterParameter(User.FIELD_ID, id),
-        BaseFilterParameter(User.FIELD_OSM_ID, id)
+        BaseParameter(User.FIELD_ID, id),
+        BaseParameter(User.FIELD_OSM_ID, id)
       )
-      val apiFilterGroup = FilterGroup(AND(), BaseFilterParameter(User.FIELD_API_KEY, apiKey))
+      val apiFilterGroup = FilterGroup(AND(), BaseParameter(User.FIELD_API_KEY, apiKey))
       val query          = Query(Filter(AND(), idFilterGroup, apiFilterGroup))
 
       this.repository.query(query).headOption match {
@@ -72,8 +70,8 @@ class UserService @Inject() (
         .query(
           Query.simple(
             List(
-              BaseFilterParameter(User.FIELD_NAME, username),
-              BaseFilterParameter(User.FIELD_API_KEY, apiKey)
+              BaseParameter(User.FIELD_NAME, username),
+              BaseParameter(User.FIELD_API_KEY, apiKey)
             )
           )
         )
@@ -92,12 +90,13 @@ class UserService @Inject() (
     this.cacheManager.withOptionCaching { () =>
       // only execute this kind of request if the user is a super user
       if (user.isSuperUser) {
-        this.repository
+        this
           .query(
             Query
               .simple(
-                List(BaseFilterParameter(User.FIELD_NAME, username, FilterOperator.ILIKE))
-              )
+                List(BaseParameter(User.FIELD_NAME, username, Operator.ILIKE))
+              ),
+            user
           )
           .headOption
       } else {
@@ -124,7 +123,9 @@ class UserService @Inject() (
     this.repository
       .query(
         Query.simple(
-          List(BaseFilterParameter(User.FIELD_NAME, username, FilterOperator.ILIKE)),
+          List(
+            BaseParameter(User.FIELD_NAME, SQLUtils.search(username), Operator.ILIKE)
+          ),
           paging = paging,
           order = Order(List(User.FIELD_NAME))
         )
@@ -141,17 +142,18 @@ class UserService @Inject() (
     * @param requestToken The request token containing the access token and secret
     * @return The matched user, None if User not found
     */
-  def matchByRequestTokenAndId(id: Long, requestToken: RequestToken, user: User): Option[User] = {
+  def matchByRequestToken(id: Long, requestToken: RequestToken, user: User): Option[User] = {
     val requestedUser = this.cacheManager.withCaching { () =>
-      this.repository
+      this
         .query(
           Query.simple(
             List(
-              BaseFilterParameter(User.FIELD_ID, id),
-              BaseFilterParameter(User.FIELD_OAUTH_TOKEN, requestToken.token),
-              BaseFilterParameter(User.FIELD_OAUTH_SECRET, requestToken.secret)
+              FilterParameter.conditional(User.FIELD_ID, id, includeOnlyIfTrue = id > 0),
+              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken.token),
+              BaseParameter(User.FIELD_OAUTH_SECRET, requestToken.secret)
             )
-          )
+          ),
+          user
         )
         .headOption
     }(id = id)
@@ -170,25 +172,6 @@ class UserService @Inject() (
   }
 
   /**
-    * Match the user based on the token and secret for the user.
-    *
-    * @param requestToken The request token containing the access token and secret
-    * @return The matched user, None if User not found
-    */
-  def matchByRequestToken(requestToken: RequestToken, user: User): Option[User] = {
-    this.repository
-      .query(
-        Query.simple(
-          List(
-            BaseFilterParameter(User.FIELD_OAUTH_TOKEN, requestToken.token),
-            BaseFilterParameter(User.FIELD_OAUTH_SECRET, requestToken.secret)
-          )
-        )
-      )
-      .headOption
-  }
-
-  /**
     * "Upsert" function that will insert a new user into the database, if the user already exists in
     * the database it will simply update the user with new information. A user is considered to exist
     * in the database if the id or osm_id is found in the users table. During an insert any groups
@@ -199,7 +182,7 @@ class UserService @Inject() (
     * @param user The user to update
     * @return None if failed to update or create.
     */
-  def insert(item: User, user: User): User = {
+  def create(item: User, user: User): User = {
     this.cacheManager.withOptionCaching { () =>
       this.permission.hasObjectAdminAccess(item, user)
       val newAPIKey = crypto.encrypt(this.generateAPIKey)
@@ -214,7 +197,7 @@ class UserService @Inject() (
       this.repository.upsert(item, newAPIKey, ewkt)
 
       // just in case expire the osm ID
-      this.groupService.clearUserCache(item.osmProfile.id)
+      this.groupService.clearCache(osmId = item.osmProfile.id)
 
       // We do this separately from the transaction because if we don't the user_group mappings
       // wont be accessible just yet.
@@ -227,6 +210,24 @@ class UserService @Inject() (
       Some(retUser.copy(groups = newGroups))
     }.get
   }
+
+  private def generateAPIKey: String = UUID.randomUUID().toString
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMId(id: Long): Option[User] =
+    this.cacheManager.withOptionCaching { () =>
+      this
+        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
+        .headOption
+    }
+
+  def query(query: Query, user: User): List[User] = this.repository.query(query)
 
   /**
     * Generates a new API key for the user
@@ -243,22 +244,6 @@ class UserService @Inject() (
       }(id = apiKeyUser.id)
   }
 
-  private def generateAPIKey: String = UUID.randomUUID().toString
-
-  /**
-    * Find the User based on the id.
-    *
-    * @param id The id of the object to be retrieved
-    * @return The object, None if not found
-    */
-  def retrieveById(id: Long): Option[User] = {
-    this.cacheManager.withCaching { () =>
-      this.repository
-        .query(Query.simple(List(BaseFilterParameter(User.FIELD_ID, id))))
-        .headOption
-    }(id = id)
-  }
-
   /**
     * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
     * in the cache and those that aren't will be retrieved from the database
@@ -272,11 +257,12 @@ class UserService @Inject() (
       List.empty
     } else {
       this.cacheManager.withIDListCaching { implicit uncachedIDs =>
-        this.repository.query(
+        this.query(
           Query.simple(
-            List(BaseFilterParameter(User.FIELD_ID, uncachedIDs, FilterOperator.IN)),
+            List(BaseParameter(User.FIELD_ID, uncachedIDs, Operator.IN)),
             paging = paging
-          )
+          ),
+          User.superUser
         )
       }(ids = ids)
     }
@@ -318,7 +304,7 @@ class UserService @Inject() (
     * @return The user that was updated, None if no user was found with the id
     */
   def update(id: Long, value: JsValue, user: User): Option[User] = {
-    this.cacheManager.withUpdatingCache(retrieveById) { implicit cachedItem =>
+    this.cacheManager.withUpdatingCache(this.retrieveById) { implicit cachedItem =>
       this.permission.hasObjectAdminAccess(cachedItem, user)
       val displayName = (value \ "osmProfile" \ "displayName")
         .asOpt[String]
@@ -387,7 +373,7 @@ class UserService @Inject() (
         }
       }
 
-      this.groupService.clearUserCache(cachedItem.osmProfile.id)
+      this.groupService.clearCache(osmId = cachedItem.osmProfile.id)
       Some(
         this.repository.update(
           User(
@@ -426,6 +412,18 @@ class UserService @Inject() (
   }
 
   /**
+    * Find the User based on the id.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  def retrieveById(id: Long): Option[User] = {
+    this.cacheManager.withCaching { () =>
+      this.query(Query.simple(List(BaseParameter(User.FIELD_ID, id))), User.superUser).headOption
+    }(id = id)
+  }
+
+  /**
     * Deletes a user from the database based on a specific user id
     *
     * @param id The user to delete
@@ -434,7 +432,7 @@ class UserService @Inject() (
   def delete(id: Long, user: User): Boolean = {
     this.permission.hasSuperAccess(user)
     retrieveById(id) match {
-      case Some(u) => this.groupService.clearUserCache(u.osmProfile.id)
+      case Some(u) => this.groupService.clearCache(osmId = u.osmProfile.id)
       case None    => //no user, so can just ignore
     }
     this.repository.delete(id)
@@ -450,7 +448,7 @@ class UserService @Inject() (
   def deleteByOsmID(osmId: Long, user: User): Boolean = {
     this.permission.hasSuperAccess(user)
     // expire the user group cache
-    this.groupService.clearUserCache(osmId)
+    this.groupService.clearCache(osmId = osmId)
     this.cacheManager.withCacheIDDeletion { () =>
       this.repository.deleteByOSMID(osmId)
     }(ids = List(osmId))
@@ -470,21 +468,21 @@ class UserService @Inject() (
   /**
     * Removes a user from a project
     *
-    * @param osmID     The OSM ID of the user
+    * @param osmId     The OSM ID of the user
     * @param projectId The id of the project to remove the user from
     * @param groupType The type of group to remove -1 - all, 1 - Admin, 2 - Write, 3 - Read
     * @param user      The user making the request
     */
-  def removeUserFromProject(osmID: Long, projectId: Long, groupType: Int, user: User): Unit = {
+  def removeUserFromProject(osmId: Long, projectId: Long, groupType: Int, user: User): Unit = {
     this.permission.hasProjectAccess(this.projectService.retrieve(projectId), user)
-    this.groupService.clearUserCache(osmID)
+    this.groupService.clearCache(osmId = osmId)
     this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
-        this.groupService.removeUserFromProjectGroups(osmID, projectId, groupType, User.superUser)
+        this.groupService.removeUserFromProjectGroups(osmId, projectId, groupType, User.superUser)
         Some(
-          cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmID, User.superUser))
+          cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmId, User.superUser))
         )
-      }(id = osmID)
+      }(id = osmId)
       .get
   }
 
@@ -500,7 +498,7 @@ class UserService @Inject() (
       case Some(project) => project.id
       case None =>
         this.projectService
-          .insert(
+          .create(
             Project(
               id = -1,
               owner = user.osmProfile.id,
@@ -525,13 +523,13 @@ class UserService @Inject() (
   /**
     * Adds a user to a project
     *
-    * @param osmID     The OSM ID of the user to add to the project
+    * @param osmId     The OSM ID of the user to add to the project
     * @param projectId The project that user is being added too
     * @param groupType The type of group to add 1 - Admin, 2 - Write, 3 - Read
     * @param user      The user that is adding the user to the project
     */
   def addUserToProject(
-      osmID: Long,
+      osmId: Long,
       projectId: Long,
       groupType: Int,
       user: User,
@@ -539,32 +537,18 @@ class UserService @Inject() (
   ): User = {
     this.permission.hasProjectAccess(this.projectService.retrieve(projectId), user)
     // expire the user group cache
-    this.groupService.clearUserCache(osmID)
+    this.groupService.clearCache(osmId = osmId)
     this.verifyProjectGroups(projectId)
     this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
         if (clear) {
-          this.groupService.removeUserFromProjectGroups(osmID, projectId, -1, user)
+          this.groupService.removeUserFromProjectGroups(osmId, projectId, -1, user)
         }
-        this.groupService.addUserToProject(osmID, groupType, projectId, User.superUser)
-        Some(cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmID, User.superUser)))
-      }(id = osmID)
+        this.groupService.addUserToProject(osmId, groupType, projectId, User.superUser)
+        Some(cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmId, User.superUser)))
+      }(id = osmId)
       .get
   }
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMId(id: Long): Option[User] =
-    this.cacheManager.withOptionCaching { () =>
-      this.repository
-        .query(Query.simple(List(BaseFilterParameter(User.FIELD_OSM_ID, id))))
-        .headOption
-    }
 
   /**
     * This function will quickly verify that the project groups have been created correctly and if not,
@@ -579,13 +563,13 @@ class UserService @Inject() (
         val groups = p.groups
         // must contain at least 1 admin group, 1 write group and 1 read group
         if (groups.count(_.groupType == Group.TYPE_ADMIN) < 1) {
-          this.groupService.insert(projectId, Group.TYPE_ADMIN, User.superUser)
+          this.groupService.create(projectId, Group.TYPE_ADMIN, User.superUser)
         }
         if (groups.count(_.groupType == Group.TYPE_WRITE_ACCESS) < 1) {
-          this.groupService.insert(projectId, Group.TYPE_WRITE_ACCESS, User.superUser)
+          this.groupService.create(projectId, Group.TYPE_WRITE_ACCESS, User.superUser)
         }
         if (groups.count(_.groupType == Group.TYPE_READ_ONLY) < 1) {
-          this.groupService.insert(projectId, Group.TYPE_READ_ONLY, User.superUser)
+          this.groupService.create(projectId, Group.TYPE_READ_ONLY, User.superUser)
         }
       case None => throw new NotFoundException(s"No project found with id $projectId")
     }

@@ -291,7 +291,7 @@ class UserController @Inject() (
       groupType: Int,
       user: User
   ): Unit = {
-    val addUser = this.retrieveUser(userId, isOSMUserId)
+    val addUser = this.retrieveUser(userId, isOSMUserId, user)
 
     if (addUser.groups.exists(g => g.projectId == projectId && g.groupType == groupType)) {
       throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
@@ -304,7 +304,7 @@ class UserController @Inject() (
     this.serviceManager.user.addUserToProject(addUser.osmProfile.id, projectId, groupType, user)
   }
 
-  private def retrieveUser(userId: Long, isOSMUserId: Boolean): User = {
+  private def retrieveUser(userId: Long, isOSMUserId: Boolean, user:User): User = {
     isOSMUserId match {
       case true =>
         this.serviceManager.user.retrieveByOSMId(userId) match {
@@ -360,7 +360,7 @@ class UserController @Inject() (
       isOSMUserId: Boolean
   ): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val addUser = retrieveUser(userId, isOSMUserId)
+      val addUser = retrieveUser(userId, isOSMUserId, user)
       this.serviceManager.user
         .addUserToProject(addUser.osmProfile.id, projectId, groupType, user, clear = true)
       // clear group caches
@@ -401,7 +401,7 @@ class UserController @Inject() (
       groupType: Int,
       user: User
   ): Unit = {
-    val addUser = this.retrieveUser(userId, isOSMUserId)
+    val addUser = this.retrieveUser(userId, isOSMUserId, user)
     // just check to make sure that the project exists
     this.serviceManager.project.retrieve(projectId) match {
       case Some(_) => // just ignore

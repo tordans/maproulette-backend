@@ -7,7 +7,8 @@ import java.sql.Connection
 import anorm._
 import org.maproulette.Config
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.{BaseObject, User}
+import org.maproulette.framework.model.User
+import org.maproulette.models.BaseObject
 import org.maproulette.models.utils.DALHelper
 
 /**

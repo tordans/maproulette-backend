@@ -149,9 +149,6 @@ trait TestSpec extends MockitoSugar {
       .when(taskDAL.asInstanceOf[BaseDAL[Long, Task]])
       .retrieveById(1L, None)
     when(taskDAL.retrieveRootObject(eqM(Right(task1)), any())(any())).thenReturn(Some(project1))
-    doAnswer(_ => Some(project1))
-      .when(taskDAL.asInstanceOf[BaseDAL[Long, Task]])
-      .retrieveRootObject(eqM(Right(task1)), any())(any())
 
     // Mocks for Challenges
     when(challengeDAL.retrieveById(0L, None)).thenReturn(None)

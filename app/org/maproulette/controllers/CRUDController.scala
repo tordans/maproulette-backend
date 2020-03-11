@@ -7,8 +7,9 @@ import org.joda.time.DateTime
 import org.maproulette.data.{Created => ActionCreated, _}
 import org.maproulette.exception.{MPExceptionUtil, NotFoundException, StatusMessage}
 import org.maproulette.framework.controller.SessionController
-import org.maproulette.framework.model.{BaseObject, User}
+import org.maproulette.framework.model.User
 import org.maproulette.metrics.Metrics
+import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.BaseDAL
 import org.maproulette.utils.Utils
 import play.api.libs.json._

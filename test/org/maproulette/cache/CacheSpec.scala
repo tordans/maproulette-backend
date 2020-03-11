@@ -3,7 +3,7 @@ package org.maproulette.cache
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data.{ItemType, ProjectType}
-import org.maproulette.framework.model.BaseObject
+import org.maproulette.models.BaseObject
 import org.scalatestplus.play.PlaySpec
 import play.api.Configuration
 import play.api.libs.json.{DefaultWrites, JodaReads, JodaWrites, Json, Reads, Writes}

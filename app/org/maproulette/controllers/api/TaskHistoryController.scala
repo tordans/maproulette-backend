@@ -48,7 +48,7 @@ class TaskHistoryController @Inject() (
       components,
       changeService,
       bodyParsers
-) {
+    ) {
 
   /**
     * Gets the history for a task. This includes commments, status_actions, and review_actions.

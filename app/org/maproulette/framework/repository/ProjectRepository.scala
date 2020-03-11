@@ -40,6 +40,26 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
   }
 
   /**
+    * For a given id returns the project
+    *
+    * @param id The id of the project you are looking for
+    * @param c An implicit connection, defaults to none and one will be created automatically
+    * @return None if not found, otherwise the Project
+    */
+  def retrieve(id: Long)(implicit c: Option[Connection] = None): Option[Project] = {
+    this.withMRTransaction { implicit c =>
+      Query
+        .simple(List(BaseParameter(Project.FIELD_ID, id)))
+        .build("SELECT * FROM projects")
+        .as(this.parser.*)
+        .headOption
+    }
+  }
+
+  private def parser: RowParser[Project] =
+    ProjectRepository.parser(id => this.groupService.retrieveProjectGroups(id, User.superUser))
+
+  /**
     * Inserts a project into the database
     *
     * @param project The project to insert into the database. The project will failed to be inserted
@@ -48,11 +68,11 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
     * @param c An implicit connection, that defaults to None
     * @return The project that was inserted now with the generated id
     */
-  def insert(project: Project)(implicit c: Option[Connection] = None): Project = {
+  def create(project: Project)(implicit c: Option[Connection] = None): Project = {
     this.withMRTransaction { implicit c =>
-      SQL"""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual, featured)
+      SQL("""INSERT INTO projects (name, owner_id, display_name, description, enabled, is_virtual, featured)
               VALUES ({name}, {ownerId}, {displayName}, {description}, {enabled}, {virtual}, {featured})
-              RETURNING *"""
+              RETURNING *""")
         .on(
           Symbol("name")        -> project.name,
           Symbol("ownerId")     -> project.owner,
@@ -76,7 +96,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
     */
   def update(project: Project)(implicit c: Option[Connection] = None): Project = {
     this.withMRTransaction { implicit c =>
-      SQL"""UPDATE projects SET
+      SQL("""UPDATE projects SET
            name = {name},
            owner_id = {ownerId},
            display_name = {displayName},
@@ -86,24 +106,21 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
            featured = {featured}
            WHERE id = {id}
            RETURNING *
-        """
+        """)
         .on(
-          Symbol("name")         -> project.name,
-          Symbol("ownerId")      -> project.owner,
-          Symbol("displayName")  -> project.displayName,
-          Symbol("descriptionn") -> project.description,
-          Symbol("enabled")      -> project.enabled,
-          Symbol("virtual")      -> project.isVirtual,
-          Symbol("featured")     -> project.featured,
-          Symbol("id")           -> project.id
+          Symbol("name")        -> project.name,
+          Symbol("ownerId")     -> project.owner,
+          Symbol("displayName") -> project.displayName,
+          Symbol("description") -> project.description,
+          Symbol("enabled")     -> project.enabled,
+          Symbol("virtual")     -> project.isVirtual,
+          Symbol("featured")    -> project.featured,
+          Symbol("id")          -> project.id
         )
         .as(this.parser.*)
         .head
     }
   }
-
-  private def parser: RowParser[Project] =
-    ProjectRepository.parser(id => this.groupService.retrieveProjectGroups(id, User.superUser))
 
   /**
     * Deletes a project from the database, by default it simply sets the project to deleted.
@@ -119,11 +136,13 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
     this.withMRTransaction { implicit c =>
       if (immediate) {
         Query
-          .simple(List(BaseFilterParameter(Project.FIELD_ID, id)))
+          .simple(List(BaseParameter(Project.FIELD_ID, id)))
           .build("DELETE FROM projects")
           .execute()
       } else {
-        SQL"""UPDATE projects SET deleted = true WHERE id = {id}""".on(Symbol("id") -> id).execute()
+        SQL("""UPDATE projects SET deleted = true WHERE id = {id}""")
+          .on(Symbol("id") -> id)
+          .execute()
       }
     }
   }
@@ -156,32 +175,33 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
       Query
         .simple(
           List(
-            BaseFilterParameter("c.location", null, FilterOperator.NULL, negate = true),
+            BaseParameter("c.location", null, Operator.NULL, negate = true),
             SubQueryFilter(
               "",
               Query.simple(
                 List(
-                  BaseFilterParameter("parent_id", "c.id", useValueDirectly = true),
-                  BaseFilterParameter(
+                  BaseParameter("parent_id", "c.id", useValueDirectly = true),
+                  BaseParameter(
                     "status",
                     List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD),
-                    FilterOperator.IN
+                    Operator.IN
                   )
                 ),
                 "SELECT id FROM tasks",
                 paging = Paging(1)
-              )
+              ),
+              operator = Operator.EXISTS
             ),
             FilterParameter.conditional("c.featured", true, includeOnlyIfTrue = true),
-            BaseFilterParameter(
+            BaseParameter(
               "c.name",
               SQLUtils.search(params.challengeParams.challengeSearch.getOrElse("")),
-              FilterOperator.ILIKE
+              Operator.ILIKE
             ),
-            BaseFilterParameter(
-              "p.nanme",
+            BaseParameter(
+              "p.name",
               SQLUtils.search(params.projectSearch.getOrElse("")),
-              FilterOperator.ILIKE
+              Operator.ILIKE
             ),
             FilterParameter.conditional(
               "c.enabled",
@@ -193,15 +213,15 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
               params.enabledProject,
               includeOnlyIfTrue = params.enabledProject
             ),
-            BaseFilterParameter("c.deleted", false),
-            BaseFilterParameter("p.deleted", false),
+            BaseParameter("c.deleted", false),
+            BaseParameter("p.deleted", false),
             FilterParameter.conditional(
               "c.parent_id",
               params.projectIds.getOrElse(List.empty),
               includeOnlyIfTrue = params.projectIds.getOrElse(List.empty).nonEmpty
             ),
             ConditionalFilterParameter(
-              CustomFilterParameter(
+              CustomParameter(
                 s"c.location @ ST_MakeEnvelope(${params.location.get.left}, ${params.location.get.bottom}, ${params.location.get.right}, ${params.location.get.top}, 4326)"
               ),
               params.location.isDefined
@@ -209,7 +229,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
             FilterParameter.conditional(
               "t.name",
               tagFilterString,
-              FilterOperator.SIMILAR_TO,
+              Operator.SIMILAR_TO,
               includeOnlyIfTrue = tagsEnabled
             )
           ),
@@ -230,26 +250,27 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
       Query
         .simple(
           List(
-            BaseFilterParameter("c.location", null, FilterOperator.NULL, negate = true),
+            BaseParameter("c.location", null, Operator.NULL, negate = true),
             SubQueryFilter(
               "",
               Query.simple(
                 List(
-                  BaseFilterParameter("parent_id", "c.id", useValueDirectly = true),
-                  BaseFilterParameter(
+                  BaseParameter("parent_id", "c.id", useValueDirectly = true),
+                  BaseParameter(
                     "status",
                     List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD),
-                    FilterOperator.IN
+                    Operator.IN
                   )
                 ),
                 "SELECT id FROM tasks",
                 paging = Paging(1)
-              )
+              ),
+              operator = Operator.EXISTS
             ),
             FilterParameter.conditional("c.enabled", enabledOnly, includeOnlyIfTrue = enabledOnly),
             FilterParameter.conditional("p.enabled", enabledOnly, includeOnlyIfTrue = enabledOnly),
-            BaseFilterParameter("c.deleted", false),
-            BaseFilterParameter("p.deleted", false),
+            BaseParameter("c.deleted", false),
+            BaseParameter("p.deleted", false),
             FilterParameter.conditional(
               "c.parent_id",
               projectId.getOrElse(-1),
@@ -258,7 +279,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
             FilterParameter.conditional(
               "c.id",
               challengeIds,
-              FilterOperator.IN,
+              Operator.IN,
               includeOnlyIfTrue = challengeIds.nonEmpty
             )
           ),

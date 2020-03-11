@@ -456,7 +456,7 @@ class ChallengeController @Inject() (
       val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
       val projects = Some(
         this.serviceManager.project
-          .retrieveList(challenges.map(c => c.general.parent))
+          .list(challenges.map(c => c.general.parent))
           .map(p => p.id -> p)
           .toMap
       )
@@ -470,7 +470,7 @@ class ChallengeController @Inject() (
         }
       })
       val vpObjects =
-        this.serviceManager.project.retrieveList(vpIds.toList).map(p => p.id -> p).toMap
+        this.serviceManager.project.list(vpIds.toList).map(p => p.id -> p).toMap
 
       val jsonList = challenges.map { c =>
         var updated = Utils.insertIntoJson(
@@ -657,7 +657,7 @@ class ChallengeController @Inject() (
     }
     if (challengeIds.isEmpty) {
       challengeIds = this.serviceManager.project.retrieve(projectId) match {
-        case Some(p) => this.serviceManager.project.listChildren(projectId).map(c => c.id)
+        case Some(p) => this.serviceManager.project.children(projectId).map(c => c.id)
         case None    => throw new NotFoundException(s"Project with id $projectId not found")
       }
     }

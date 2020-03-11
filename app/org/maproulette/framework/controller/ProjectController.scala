@@ -6,7 +6,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.data.{Created => ActionCreated, _}
 import org.maproulette.exception.{MPExceptionUtil, StatusMessage}
 import org.maproulette.framework.model.{Challenge, Project, User}
-import org.maproulette.framework.psql._
+import org.maproulette.framework.psql.{Paging, _}
 import org.maproulette.framework.service.{CommentService, ProjectService}
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.session.{SearchParameters, SessionManager}
@@ -46,7 +46,7 @@ class ProjectController @Inject() (
   def listChildren(id: Long, limit: Int, offset: Int): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
-        Ok(Json.toJson(this.projectService.listChildren(id, paging = Paging(limit, offset))))
+        Ok(Json.toJson(this.projectService.children(id, paging = Paging(limit, offset))))
       }
   }
 
@@ -77,7 +77,7 @@ class ProjectController @Inject() (
           },
           element => {
             MPExceptionUtil.internalExceptionCatcher { () =>
-              val created = this.projectService.insert(element, user)
+              val created = this.projectService.create(element, user)
               this.actionManager
                 .setAction(Some(user), ProjectType().convertToItem(created.id), ActionCreated(), "")
               Created(Json.toJson(created))
@@ -129,7 +129,7 @@ class ProjectController @Inject() (
   def retrieveList(ids: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       Utils.toLongList(ids) match {
-        case Some(x) => Ok(Json.toJson(this.projectService.retrieveList(x)))
+        case Some(x) => Ok(Json.toJson(this.projectService.list(x)))
         case None    => BadRequest
       }
     }

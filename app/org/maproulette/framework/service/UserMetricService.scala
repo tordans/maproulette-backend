@@ -1,7 +1,5 @@
 package org.maproulette.framework.service
 
-import java.sql.Connection
-
 import javax.inject.{Inject, Singleton}
 import org.joda.time.{DateTime, Months}
 import org.maproulette.Config
@@ -80,11 +78,11 @@ class UserMetricService @Inject() (
       Query(
         Filter(
           AND(),
-          FilterGroup(AND(), BaseFilterParameter(TaskReview.FIELD_REVIEW_REQUESTED_BY, userId)),
+          FilterGroup(AND(), BaseParameter(TaskReview.FIELD_REVIEW_REQUESTED_BY, userId)),
           FilterGroup(
             OR(),
             reviewTimeClause,
-            BaseFilterParameter(TaskReview.FIELD_REVIEWED_AT, null, FilterOperator.NULL)
+            BaseParameter(TaskReview.FIELD_REVIEWED_AT, null, Operator.NULL)
           )
         )
       )
@@ -96,7 +94,7 @@ class UserMetricService @Inject() (
 
       val asReviewerCounts = this.taskReviewRepository.getTaskReviewCounts(
         Query.simple(
-          List(BaseFilterParameter(TaskReview.FIELD_REVIEWED_BY, userId), reviewerTimeClause)
+          List(BaseParameter(TaskReview.FIELD_REVIEWED_BY, userId), reviewerTimeClause)
         )
       )
       Map(
@@ -113,7 +111,7 @@ class UserMetricService @Inject() (
       duration: Int,
       startDate: String,
       endDate: String
-  ): DateFilterParameter = {
+  ): DateParameter = {
     val dates =
       try {
         (Some(DateTime.parse(startDate)), Some(DateTime.parse(endDate)))
@@ -124,25 +122,25 @@ class UserMetricService @Inject() (
 
     duration match {
       case _ if dates._1.isDefined =>
-        DateFilterParameter(
+        DateParameter(
           s"sa1.${StatusActions.FIELD_CREATED}",
           dates._1.get,
           dates._2.get,
-          FilterOperator.BETWEEN
+          Operator.BETWEEN
         )
       case 0 =>
-        DateFilterParameter(
+        DateParameter(
           s"sa1.${StatusActions.FIELD_CREATED}",
           DateTime.now.withDayOfMonth(1),
           DateTime.now,
-          FilterOperator.BETWEEN
+          Operator.BETWEEN
         )
       case _ =>
-        DateFilterParameter(
+        DateParameter(
           s"sa1.${StatusActions.FIELD_CREATED}",
           DateTime.now.minus(Months.ONE),
           DateTime.now,
-          FilterOperator.BETWEEN
+          Operator.BETWEEN
         )
     }
   }
@@ -167,9 +165,9 @@ class UserMetricService @Inject() (
       userId: Long
   ): Option[User] = {
     // We need to invalidate the user in the cache.
-    this.userService.cacheManager.withUpdatingCache(userService.retrieveById) {
+    this.userService.cacheManager.withUpdatingCache(id => userService.retrieveById(id)) {
       implicit cachedItem =>
-        val insertBuffer = mutable.ListBuffer[FilterParameter[_]]()
+        val insertBuffer = mutable.ListBuffer[Parameter[_]]()
         val stateTuple = taskStatus match {
           case Some(Task.STATUS_FIXED) => (config.taskScoreFixed, UserMetrics.FIELD_TOTAL_FIXED)
           case Some(Task.STATUS_FALSE_POSITIVE) =>
@@ -251,6 +249,6 @@ class UserMetricService @Inject() (
       key: String,
       sign: String = "+",
       value: Long = 1
-  ): FilterParameter[String] =
-    BaseFilterParameter(key, s"=($key$sign$value)", FilterOperator.CUSTOM)
+  ): Parameter[String] =
+    BaseParameter(key, s"=($key$sign$value)", Operator.CUSTOM)
 }

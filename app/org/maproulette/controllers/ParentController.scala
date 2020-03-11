@@ -5,7 +5,8 @@ package org.maproulette.controllers
 import java.sql.Connection
 
 import org.maproulette.exception.{NotFoundException, StatusMessage}
-import org.maproulette.framework.model.{BaseObject, User}
+import org.maproulette.framework.model.User
+import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.ParentDAL
 import play.api.libs.json._
 import play.api.mvc.{AbstractController, Action, AnyContent}

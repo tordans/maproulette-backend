@@ -1,11 +1,11 @@
 package org.maproulette.framework.service
 
-import java.sql.Connection
-
 import javax.inject.{Inject, Singleton}
 import org.maproulette.data.ProjectType
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{Challenge, User, VirtualProject}
+import org.maproulette.framework.psql.Query
+import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.repository.VirtualProjectRepository
 import org.maproulette.permissions.Permission
 
@@ -16,8 +16,32 @@ import org.maproulette.permissions.Permission
 class VirtualProjectService @Inject() (
     repository: VirtualProjectRepository,
     projectService: ProjectService,
+    challengeService: ChallengeService,
     permission: Permission
 ) {
+
+  /**
+    * Will list all the virtual challenge children of a project
+    *
+    * @param projectId The id of the project (Virtual)
+    * @param user The user making the request
+    * @return A list of challenges
+    */
+  def listVirtualChildren(projectId: Long, user: User): List[Challenge] = {
+    this.challengeService.query(
+      Query.simple(
+        List(
+          SubQueryFilter(
+            Challenge.FIELD_ID,
+            Query.simple(
+              List(BaseParameter(VirtualProject.FIELD_PROJECT_ID, projectId)),
+              "SELECT challenge_id FROM virtual_project_challenges"
+            )
+          )
+        )
+      )
+    )
+  }
 
   /**
     * Adds a challenge to a virtual project. You are required to have write access
@@ -25,11 +49,8 @@ class VirtualProjectService @Inject() (
     *
     * @param projectId   The id of the virtual parent project
     * @param challengeId The id of the challenge that you are moving
-    * @param c           an implicit connection
     */
-  def addChallenge(projectId: Long, challengeId: Long, user: User)(
-      implicit c: Option[Connection] = None
-  ): Boolean = {
+  def addChallenge(projectId: Long, challengeId: Long, user: User): Boolean = {
     this.permission.hasWriteAccess(ProjectType(), user)(projectId)
     this.projectService.retrieve(projectId) match {
       case Some(p) =>
@@ -47,11 +68,8 @@ class VirtualProjectService @Inject() (
     *
     * @param projectId   The id of the virtual parent project
     * @param challengeId The id of the challenge that you are moving
-    * @param c           an implicit connection
     */
-  def removeChallenge(projectId: Long, challengeId: Long, user: User)(
-      implicit c: Option[Connection] = None
-  ): Boolean = {
+  def removeChallenge(projectId: Long, challengeId: Long, user: User): Boolean = {
     this.permission.hasWriteAccess(ProjectType(), user)(projectId)
     this.projectService.retrieve(projectId) match {
       case Some(p) =>

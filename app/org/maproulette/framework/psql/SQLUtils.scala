@@ -3,7 +3,7 @@ package org.maproulette.framework.psql
 import java.sql.{PreparedStatement, SQLException}
 
 import anorm.JodaParameterMetaData.JodaDateTimeMetaData
-import anorm.{ParameterValue, ToParameterValue, ToStatement}
+import anorm.{NamedParameter, ParameterValue, ToParameterValue, ToStatement}
 import org.joda.time.DateTime
 
 /**
@@ -58,17 +58,30 @@ object SQLUtils {
     new ToStatement[Key] {
       def set(s: PreparedStatement, i: Int, identifier: Key) =
         identifier match {
-          case value: String                => ToStatement.stringToStatement.set(s, i, value)
-          case Some(value: String)          => ToStatement.stringToStatement.set(s, i, value)
-          case value: Long                  => ToStatement.longToStatement.set(s, i, value)
-          case Some(value: Long)            => ToStatement.longToStatement.set(s, i, value)
-          case value: Integer               => ToStatement.integerToStatement.set(s, i, value)
-          case value: Boolean               => ToStatement.booleanToStatement.set(s, i, value)
-          case value: DateTime              => ToStatement.jodaDateTimeToStatement.set(s, i, value)
-          case value: List[Long @unchecked] => ToStatement.listToStatement[Long].set(s, i, value)
-          case value: List[String @unchecked] =>
-            ToStatement.listToStatement[String].set(s, i, value)
+          case value: String       => ToStatement.stringToStatement.set(s, i, value)
+          case Some(value: String) => ToStatement.stringToStatement.set(s, i, value)
+          case value: Long         => ToStatement.longToStatement.set(s, i, value)
+          case Some(value: Long)   => ToStatement.longToStatement.set(s, i, value)
+          case value: Integer      => ToStatement.integerToStatement.set(s, i, value)
+          case value: Boolean      => ToStatement.booleanToStatement.set(s, i, value)
+          case value: DateTime     => ToStatement.jodaDateTimeToStatement.set(s, i, value)
+          case value: List[_] =>
+            value.head match {
+              case _: Int =>
+                ToStatement.listToStatement[Int].set(s, i, value.asInstanceOf[List[Int]])
+              case _: Long =>
+                ToStatement.listToStatement[Long].set(s, i, value.asInstanceOf[List[Long]])
+              case _: String =>
+                ToStatement.listToStatement[String].set(s, i, value.asInstanceOf[List[String]])
+              case _ =>
+                throw new UnsupportedOperationException(
+                  "Unsupported list type provided. Only support Int, Long and String."
+                )
+            }
         }
     }
   }
+
+  def buildNamedParameter[T](key: String, value: T): NamedParameter =
+    Symbol(key) -> ToParameterValue.apply[T](p = SQLUtils.toStatement).apply(value)
 }

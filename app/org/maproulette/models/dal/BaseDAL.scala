@@ -10,10 +10,10 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.{BaseObject, User}
+import org.maproulette.framework.model.User
 import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.utils.DALHelper
-import org.maproulette.models.Lock
+import org.maproulette.models.{BaseObject, Lock}
 import org.maproulette.permissions.Permission
 import org.maproulette.utils.{Readers, Writers}
 import org.slf4j.LoggerFactory
@@ -178,24 +178,6 @@ trait BaseDAL[Key, T <: BaseObject[Key]]
     deletedItem match {
       case Some(item) => item
       case None       => throw new NotFoundException(s"No object with id $id found to delete")
-    }
-  }
-
-  /**
-    * This will retrieve the root object in the hierarchy of the object, by default the root
-    * object is itself.
-    *
-    * @param obj This is either the id of the object, or the object itself
-    * @param user
-    * @param c   The connection if any
-    * @return The object that it is retrieving
-    */
-  def retrieveRootObject(obj: Either[Key, T], user: User)(
-      implicit c: Option[Connection] = None
-  ): Option[_ <: BaseObject[Key]] = {
-    obj match {
-      case Left(id)     => this.retrieveById(id, c)
-      case Right(value) => Some(value)
     }
   }
 

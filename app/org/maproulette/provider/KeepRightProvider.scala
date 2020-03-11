@@ -70,7 +70,7 @@ class KeepRightProvider @Inject() (
     case Some(p) => p.id
     case None =>
       this.projectService
-        .insert(
+        .create(
           Project(
             id = -1,
             owner = User.DEFAULT_SUPER_USER_ID,

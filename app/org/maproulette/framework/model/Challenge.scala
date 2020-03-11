@@ -7,6 +7,7 @@ import org.joda.time.DateTime
 import org.maproulette.data.{ChallengeType, ItemType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.psql.CommonField
+import org.maproulette.models.BaseObject
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
 

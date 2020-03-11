@@ -2,12 +2,9 @@
 // Licensed under the Apache License, Version 2.0 (see LICENSE).
 package org.maproulette.framework.model
 
-import org.joda.time.DateTime
-import org.maproulette.data.{GroupType, ItemType}
+import org.maproulette.cache.CacheObject
 import org.maproulette.framework.psql.CommonField
 import play.api.libs.json.{Json, Reads, Writes}
-import play.api.libs.json.JodaWrites._
-import play.api.libs.json.JodaReads._
 
 /**
   * @author cuthbertm
@@ -16,12 +13,8 @@ case class Group(
     override val id: Long,
     override val name: String,
     projectId: Long,
-    groupType: Int,
-    override val created: DateTime = DateTime.now(),
-    override val modified: DateTime = DateTime.now()
-) extends BaseObject[Long] {
-  override val itemType: ItemType = GroupType()
-}
+    groupType: Int
+) extends CacheObject[Long]
 
 object Group extends CommonField {
   implicit val writes: Writes[Group] = Json.writes[Group]

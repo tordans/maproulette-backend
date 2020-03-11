@@ -1,4 +1,4 @@
-package org.maproulette.framework.model
+package org.maproulette.models
 
 import org.joda.time.DateTime
 import org.maproulette.cache.CacheObject

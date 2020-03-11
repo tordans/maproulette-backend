@@ -10,9 +10,9 @@ import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.filter.{BaseFilterParameter, DateFilterParameter, FilterOperator, FilterParameter}
-import org.maproulette.framework.psql.{Grouping, Query}
-import org.maproulette.framework.service.{GroupService, UserService}
+import org.maproulette.framework.psql.filter.{BaseParameter, DateParameter, Operator, Parameter}
+import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
+import org.maproulette.framework.service.GroupService
 import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
@@ -48,18 +48,18 @@ class UserRepository @Inject() (
       Query
         .simple(
           List(
-            BaseFilterParameter(
+            BaseParameter(
               s"ug.${Group.FIELD_UG_GROUP_ID}",
               s"g.${Group.FIELD_ID}",
               useValueDirectly = true
             ),
-            BaseFilterParameter(
+            BaseParameter(
               s"ug.${Group.FIELD_UG_OSM_USER_ID}",
               s"u.${User.FIELD_OSM_ID}",
               useValueDirectly = true
             ),
-            BaseFilterParameter(s"g.${Group.FIELD_PROJECT_ID}", projectId),
-            BaseFilterParameter(s"u.${User.FIELD_OSM_ID}", osmIdFilter, FilterOperator.IN)
+            BaseParameter(s"g.${Group.FIELD_PROJECT_ID}", projectId),
+            BaseParameter(s"u.${User.FIELD_OSM_ID}", osmIdFilter, Operator.IN)
           ),
           s"""SELECT ${projectId} AS project_id, u.*, array_agg(g.group_type) AS group_types
         FROM users u, groups g, user_groups ug""",
@@ -98,7 +98,7 @@ class UserRepository @Inject() (
         )
         .executeUpdate()
     }
-    this.query(Query.simple(List(BaseFilterParameter(User.FIELD_OSM_ID, user.osmProfile.id)))).head
+    this.query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, user.osmProfile.id)))).head
   }
 
   /**
@@ -117,6 +117,12 @@ class UserRepository @Inject() (
     }
   }
 
+  private def parser(): RowParser[User] =
+    UserRepository.parser(
+      this.config.defaultNeedsReview,
+      id => this.groupService.retrieveUserGroups(id, User.superUser)
+    )
+
   def update(
       user: User,
       ewkt: String
@@ -134,7 +140,7 @@ class UserRepository @Inject() (
       SQL(query)
         .on(
           Symbol("name")              -> user.osmProfile.displayName,
-          Symbol("description")       -> user.description,
+          Symbol("description")       -> user.osmProfile.description,
           Symbol("avatarURL")         -> user.osmProfile.avatarURL,
           Symbol("token")             -> user.osmProfile.requestToken.token,
           Symbol("secret")            -> user.osmProfile.requestToken.secret,
@@ -180,12 +186,6 @@ class UserRepository @Inject() (
     }
   }
 
-  private def parser(): RowParser[User] =
-    UserRepository.parser(
-      this.config.defaultNeedsReview,
-      id => this.groupService.retrieveUserGroups(id, User.superUser)
-    )
-
   def delete(id: Long)(implicit c: Option[Connection] = None): Boolean = {
     this.withMRTransaction { implicit c =>
       SQL("DELETE FROM users WHERE id = {id}").on(Symbol("id") -> id).execute()
@@ -212,7 +212,7 @@ class UserRepository @Inject() (
     }
   }
 
-  def updateUserScore(userId: Long, updates: List[FilterParameter[_]])(
+  def updateUserScore(userId: Long, updates: List[Parameter[_]])(
       implicit c: Option[Connection] = None
   ): Boolean = {
     if (updates.isEmpty) {
@@ -233,7 +233,7 @@ class UserRepository @Inject() (
     }
   }
 
-  def getUserTaskCounts(userId: Long, dateFilter: DateFilterParameter)(
+  def getUserTaskCounts(userId: Long, dateFilter: DateParameter)(
       implicit c: Option[Connection] = None
   ): Map[String, Int] = {
     this.withMRTransaction { implicit c =>
@@ -281,7 +281,7 @@ class UserRepository @Inject() (
            INNER JOIN users ON users.osm_id = sa1.osm_user_id AND users.id={uid}"""
         )
       SQL(taskCountsQuery.sql())
-        .on(FilterParameter.buildNamedParameter("uid", userId) :: taskCountsQuery.parameters(): _*)
+        .on(SQLUtils.buildNamedParameter("uid", userId) :: taskCountsQuery.parameters(): _*)
         .as(taskCountsParser.single)
     }
   }

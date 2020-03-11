@@ -2,12 +2,13 @@ package org.maproulette.framework.repository
 
 import java.sql.Connection
 
+import anorm.SqlParser.{get, long}
 import anorm._
 import javax.inject.Inject
+import org.joda.time.DateTime
 import org.maproulette.framework.model.{Comment, User}
 import org.maproulette.framework.psql.Query
-import org.maproulette.framework.psql.filter.BaseFilterParameter
-import org.maproulette.framework.service.GroupService
+import org.maproulette.framework.psql.filter.BaseParameter
 import play.api.db.Database
 
 /**
@@ -15,8 +16,7 @@ import play.api.db.Database
   *
   * @author mcuthbert
   */
-class CommentRepository @Inject() (override val db: Database)
-    extends RepositoryMixin {
+class CommentRepository @Inject() (override val db: Database) extends RepositoryMixin {
 
   /**
     * Query function that allows a user to build their own query against the Comment table
@@ -28,28 +28,52 @@ class CommentRepository @Inject() (override val db: Database)
   def query(query: Query)(implicit c: Option[Connection] = None): List[Comment] = {
     withMRConnection { implicit c =>
       query
-        .build(s"""SELECT * FROM task_comments tc
-          INNER JOIN users u ON u.osm_id = tc.osm_id""")
+        .build(s"""SELECT * FROM task_comments
+          INNER JOIN users ON users.osm_id = task_comments.osm_id""")
         .as(CommentRepository.parser.*)
     }
   }
 
   /**
-    * Updates a comment that a user previously set
+    * Add comment to a task
     *
-    * @param id      The id for the original comment
-    * @param updatedComment The new comment
-    * @param c              Implicit provided optional connection
-    * @return The updated comment
+    * @param user     The user adding the comment
+    * @param taskId     Id of the task that is having the comment added too
+    * @param comment  The actual comment
+    * @param actionId the id for the action if any action associated
+    * @param c        Implicit provided optional connection
     */
-  def update(id: Long, updatedComment: String)(
+  def create(user: User, taskId: Long, comment: String, actionId: Option[Long])(
       implicit c: Option[Connection] = None
   ): Comment = {
-    withMRTransaction { implicit c =>
-      SQL("UPDATE task_comments SET comment = {comment} WHERE id = {id} RETURNING *")
-        .on(Symbol("comment") -> updatedComment, Symbol("id") -> id)
-        .as(CommentRepository.parser.*)
-        .head
+    this.withMRTransaction { implicit c =>
+      val query =
+        s"""
+           |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
+           |VALUES ({osm_id}, {task_id}, {comment}, {action_id})
+           |RETURNING id, challenge_id, project_id, created
+         """.stripMargin
+      SQL(query)
+        .on(
+          Symbol("osm_id")    -> user.osmProfile.id,
+          Symbol("task_id")   -> taskId,
+          Symbol("comment")   -> comment,
+          Symbol("action_id") -> actionId
+        )
+        .as((long("id") ~ long("project_id") ~ long("challenge_id") ~ get[DateTime]("created") map {
+          case id ~ challengeId ~ projectId ~ created =>
+            Comment(
+              id,
+              user.osmProfile.id,
+              user.osmProfile.displayName,
+              taskId,
+              challengeId,
+              projectId,
+              created,
+              comment,
+              actionId
+            )
+        }).single)
     }
   }
 
@@ -63,11 +87,29 @@ class CommentRepository @Inject() (override val db: Database)
   def retrieve(id: Long)(implicit c: Option[Connection] = None): Option[Comment] = {
     this.withMRConnection { implicit c =>
       Query
-        .simple(List(BaseFilterParameter("tc.id", id)))
+        .simple(List(BaseParameter("tc.id", id)))
         .build("""SELECT * FROM task_comments tc
               INNER JOIN users u ON u.osm_id = tc.osm_id""")
         .as(CommentRepository.parser.*)
         .headOption
+    }
+  }
+
+  /**
+    * Updates a comment that a user previously set
+    *
+    * @param id      The id for the original comment
+    * @param updatedComment The new comment
+    * @param c              Implicit provided optional connection
+    * @return The updated comment
+    */
+  def update(id: Long, updatedComment: String)(
+      implicit c: Option[Connection] = None
+  ): Boolean = {
+    withMRTransaction { implicit c =>
+      SQL("UPDATE task_comments SET comment = {comment} WHERE id = {id} RETURNING *")
+        .on(Symbol("comment") -> updatedComment, Symbol("id") -> id)
+        .execute()
     }
   }
 
@@ -82,55 +124,9 @@ class CommentRepository @Inject() (override val db: Database)
   ): Boolean = {
     withMRConnection { implicit c =>
       Query
-        .simple(List(BaseFilterParameter("id", commentId)))
+        .simple(List(BaseParameter("id", commentId)))
         .build("DELETE FROM task_comments")
         .execute()
-    }
-  }
-
-  /**
-    * Retrieves all the comments for a task, challenge or project
-    *
-    * @param query The query to match against to retrieve the comments
-    * @param c               Implicit provided optional connection
-    * @return The list of comments for the task
-    */
-  def find(query: Query)(implicit c: Option[Connection] = None): List[Comment] = {
-    withMRConnection { implicit c =>
-      query.build("""
-              SELECT * FROM task_comments tc
-              INNER JOIN users u ON u.osm_id = tc.osm_id""").as(CommentRepository.parser.*)
-    }
-  }
-
-  /**
-    * Add comment to a task
-    *
-    * @param user     The user adding the comment
-    * @param taskId     Id of the task that is having the comment added too
-    * @param comment  The actual comment
-    * @param actionId the id for the action if any action associated
-    * @param c        Implicit provided optional connection
-    */
-  def add(user: User, taskId: Long, comment: String, actionId: Option[Long])(
-      implicit c: Option[Connection] = None
-  ): Comment = {
-    this.withMRTransaction { implicit c =>
-      val query =
-        s"""
-           |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
-           |VALUES ({osm_id}, {task_id}, {comment}, {action_id})
-           |RETURNING *
-         """.stripMargin
-      SQL(query)
-        .on(
-          Symbol("osm_id")    -> user.osmProfile.id,
-          Symbol("task_id")   -> taskId,
-          Symbol("comment")   -> comment,
-          Symbol("action_id") -> actionId
-        )
-        .as(CommentRepository.parser.*)
-        .head
     }
   }
 }

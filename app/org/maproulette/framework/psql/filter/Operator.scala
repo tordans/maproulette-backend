@@ -6,13 +6,13 @@ import org.maproulette.framework.psql.SQLUtils
 /**
   * @author mcuthbert
   */
-object FilterOperator extends Enumeration {
-  type FilterOperator = Value
+object Operator extends Enumeration {
+  type Operator = Value
   val EQ, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS = Value
 
   def format(
       key: String,
-      operator: FilterOperator,
+      operator: Operator,
       negate: Boolean = false,
       value: Option[String] = None
   )(implicit parameterKey: String): String = {

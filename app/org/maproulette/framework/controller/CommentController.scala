@@ -65,7 +65,7 @@ class CommentController @Inject() (
       this.sessionManager.authenticatedRequest { implicit user =>
         Created(
           Json.toJson(
-            this.commentService.add(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)
+            this.commentService.create(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)
           )
         )
       }

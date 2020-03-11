@@ -29,8 +29,6 @@ class CommentService @Inject() (
     taskBundleDAL: TaskBundleDAL
 ) extends ServiceMixin[Comment] {
 
-  override def query(query: Query): List[Comment] = this.repository.find(query)
-
   /**
     * Updates the comment
     *
@@ -52,6 +50,7 @@ class CommentService @Inject() (
           )
         }
         this.repository.update(id, updatedComment)
+        original.copy(comment = updatedComment)
       case None => throw new NotFoundException("Original comment does not exist")
     }
   }
@@ -62,7 +61,13 @@ class CommentService @Inject() (
     * @param id The id for the comment
     */
   def retrieve(id: Long): Option[Comment] = {
-    this.repository.retrieve(id)
+    this.repository
+      .query(
+        Query.simple(
+          List(BaseParameter(s"task_comments.${Comment.FIELD_ID}", id))
+        )
+      )
+      .headOption
   }
 
   /**
@@ -104,7 +109,7 @@ class CommentService @Inject() (
     }
 
     for (task <- tasks) {
-      this.add(user, task.id, URLDecoder.decode(comment, "UTF-8"), actionId)
+      this.create(user, task.id, URLDecoder.decode(comment, "UTF-8"), actionId)
     }
     bundle
   }
@@ -118,7 +123,7 @@ class CommentService @Inject() (
     * @param actionId If there is any actions associated with this add
     * @return The newly created comment object
     */
-  def add(user: User, taskId: Long, comment: String, actionId: Option[Long]): Comment = {
+  def create(user: User, taskId: Long, comment: String, actionId: Option[Long]): Comment = {
     val task = this.taskDAL.retrieveById(taskId) match {
       case Some(t) => t
       case None =>
@@ -127,7 +132,7 @@ class CommentService @Inject() (
     if (StringUtils.isEmpty(comment)) {
       throw new InvalidException("Invalid empty string supplied. Comment could not be created.")
     }
-    val newComment = this.repository.add(user, task.id, comment, actionId)
+    val newComment = this.repository.create(user, task.id, comment, actionId)
     this.notificationDAL.createMentionNotifications(user, newComment, task)
     newComment
   }
@@ -152,30 +157,33 @@ class CommentService @Inject() (
         FilterParameter.conditional(
           Comment.FIELD_PROJECT_ID,
           projectIdList,
-          FilterOperator.IN,
+          Operator.IN,
           includeOnlyIfTrue = projectIdList.nonEmpty
         ),
-        CustomFilterParameter(
-          s"""OR 1 IN (SELECT 1 FROM unnest(ARRAY[${projectIdList.mkString(",")}]) AS pIds
+        ConditionalFilterParameter(
+          CustomParameter(
+            s"""1 IN (SELECT 1 FROM unnest(ARRAY[${projectIdList.mkString(",")}]) AS pIds
                          WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
-                                        WHERE vp.challenge_id = tc.challenge_id))"""
+                                        WHERE vp.challenge_id = task_comments.challenge_id))"""
+          ),
+          projectIdList.nonEmpty
         ),
         FilterParameter.conditional(
           Comment.FIELD_PROJECT_ID,
           projectIdList,
-          FilterOperator.IN,
+          Operator.IN,
           includeOnlyIfTrue = projectIdList.nonEmpty
         ),
         FilterParameter.conditional(
           Comment.FIELD_CHALLENGE_ID,
           challengeIdList,
-          FilterOperator.IN,
+          Operator.IN,
           includeOnlyIfTrue = challengeIdList.nonEmpty
         ),
         FilterParameter.conditional(
           Comment.FIELD_TASK_ID,
           taskIdList,
-          FilterOperator.IN,
+          Operator.IN,
           includeOnlyIfTrue = taskIdList.nonEmpty
         )
       ),
@@ -186,10 +194,16 @@ class CommentService @Inject() (
       filter,
       paging = paging,
       order = Order(
-        List(Comment.FIELD_PROJECT_ID, Comment.FIELD_CHALLENGE_ID, Comment.FIELD_CREATED),
+        List(
+          Comment.FIELD_PROJECT_ID,
+          Comment.FIELD_CHALLENGE_ID,
+          s"task_comments.${Comment.FIELD_CREATED}"
+        ),
         Order.DESC
       )
     )
-    this.repository.find(query)
+    this.query(query)
   }
+
+  override def query(query: Query): List[Comment] = this.repository.query(query)
 }

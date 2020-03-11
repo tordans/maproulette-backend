@@ -1,7 +1,7 @@
 package org.maproulette.framework.psql
 
 import anorm._
-import org.maproulette.framework.psql.filter.{Filter, FilterGroup, FilterParameter, SQLClause}
+import org.maproulette.framework.psql.filter.{Filter, FilterGroup, Parameter, SQLClause}
 import org.slf4j.{Logger, LoggerFactory}
 
 /**
@@ -20,15 +20,14 @@ object Query {
   def devMode(): Boolean = true //config.isDebugMode || config.isDevMode
 
   def simple(
-      parameters: List[FilterParameter[_]],
+      parameters: List[Parameter[_]],
       base: String = "",
       key: SQLKey = AND(),
       paging: Paging = Paging(),
       order: Order = Order(),
-      grouping: Grouping = Grouping(),
-      forceBase: Boolean = false
+      grouping: Grouping = Grouping()
   ): Query =
-    Query(Filter(key, FilterGroup(key, parameters: _*)), base, paging, order, grouping, forceBase)
+    Query(Filter(key, FilterGroup(key, parameters: _*)), base, paging, order, grouping)
 }
 
 case class Query(
@@ -36,17 +35,13 @@ case class Query(
     base: String = "",
     paging: Paging = Paging(),
     order: Order = Order(),
-    grouping: Grouping = Grouping(),
-    forceBase: Boolean = false
+    grouping: Grouping = Grouping()
 ) extends SQLClause {
   def build(
       baseQuery: String = ""
   )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): SimpleSql[Row] = {
     val parameters = this.parameters()
     val sql        = this.sqlWithBaseQuery(baseQuery)
-    if (Query.devMode()) {
-      Query.logger.debug(sql)
-    }
     if (parameters.nonEmpty) {
       SQL(sql).on(parameters: _*)
     } else {
@@ -58,6 +53,9 @@ case class Query(
       implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
   ): List[NamedParameter] = filter.parameters() ++ paging.parameters()
 
+  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
+    this.sqlWithBaseQuery()
+
   def sqlWithBaseQuery(
       baseQuery: String = ""
   )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
@@ -66,28 +64,19 @@ case class Query(
       case x               => x
     }
     val pagingQuery = paging.sql()
-    val start = if (forceBase || baseQuery.isEmpty) {
-      base
-    } else {
-      baseQuery
+    val start = base match {
+      case "" => baseQuery
+      case _  => base
     }
+
     val query =
       s"$start${this.format(filterQuery)}${this.format(grouping.sql())}${this.format(order.sql())}${this
         .format(pagingQuery)}"
+    if (Query.devMode()) {
+      Query.logger.debug(query)
+    }
     query
   }
-
-  // Simple function that makes sure I don't have a bunch of empty spaces at the end of the query.
-  // It doesn't really matter, but makes it easier to look at.
-  private def format(value: String): String =
-    if (value.isEmpty) {
-      ""
-    } else {
-      s" $value"
-    }
-
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
-    this.sqlWithBaseQuery()
-
-  def baseEmpty(): Boolean = base.isEmpty
 }
+
+trait Base extends SQLClause

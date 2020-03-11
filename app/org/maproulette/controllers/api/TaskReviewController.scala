@@ -232,7 +232,7 @@ class TaskReviewController @Inject() (
 
       val projects = Some(
         this.serviceManager.project
-          .retrieveList(fetchedChallenges.map(c => c.general.parent))
+          .list(fetchedChallenges.map(c => c.general.parent))
           .map(p => p.id -> Json.obj("id" -> p.id, "name" -> p.name, "displayName" -> p.displayName)
           )
           .toMap
@@ -254,7 +254,7 @@ class TaskReviewController @Inject() (
 
       val mappers = Some(
         this.serviceManager.user
-          .retrieveListById((tasks.map(t => t.review.reviewRequestedBy.getOrElse(0L))))
+          .retrieveListById(tasks.map(t => t.review.reviewRequestedBy.getOrElse(0L)))
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )

@@ -8,15 +8,20 @@ import org.maproulette.cache.{BasicCache, CacheManager, ListCacheObject}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.model.{Group, User}
 import org.maproulette.framework.psql.Query
-import org.maproulette.framework.psql.filter.{BaseFilterParameter, FilterOperator}
-import org.maproulette.framework.repository.GroupRepository
+import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
+import org.maproulette.framework.repository.{GroupRepository, UserGroupRepository}
 import org.maproulette.permissions.Permission
 
 /**
   * @author mcuthbert
   */
 @Singleton
-class GroupService @Inject() (repository: GroupRepository, config: Config, permission: Permission) {
+class GroupService @Inject() (
+    repository: GroupRepository,
+    userGroupRepository: UserGroupRepository,
+    config: Config,
+    permission: Permission
+) {
   // The cachemanager for groups
   val cache = new CacheManager[Long, Group](config, Config.CACHE_ID_USERGROUPS)
   // The cache manager containing project to list of group ID's
@@ -29,17 +34,20 @@ class GroupService @Inject() (repository: GroupRepository, config: Config, permi
     this.repository.query(query)
   }
 
-  def insert(projectId: Long, groupType: Int, user: User): Group = {
+  def create(projectId: Long, groupType: Int, user: User, groupName: String = ""): Group = {
     this.hasAccess(user)
-    val groupPostfix: String = groupType match {
-      case Group.TYPE_ADMIN        => "Admin"
-      case Group.TYPE_WRITE_ACCESS => "Write"
-      case Group.TYPE_READ_ONLY    => "Read"
-      case _                       => throw new InvalidException("Invalid group type supplied to create group")
+    val name = groupName match {
+      case "" =>
+        groupType match {
+          case Group.TYPE_ADMIN        => s"${projectId}_Admin"
+          case Group.TYPE_WRITE_ACCESS => s"${projectId}_Write"
+          case Group.TYPE_READ_ONLY    => s"${projectId}_Read"
+          case _                       => throw new InvalidException("Invalid group type supplied to create group")
+        }
+      case n => n
     }
-    val groupName: String = s"${projectId}_$groupPostfix"
     this.cache.withOptionCaching { () =>
-      Some(this.repository.insert(Group(-1, groupName, projectId, groupType)))
+      Some(this.repository.create(Group(-1, name, projectId, groupType)))
     } match {
       case Some(v) =>
         // add to project cache
@@ -79,12 +87,26 @@ class GroupService @Inject() (repository: GroupRepository, config: Config, permi
 
   def retrieve(id: Long): Option[Group] = {
     this.cache.withCaching { () =>
-      this.repository.retrieve(id)
+      this.repository.query(Query.simple(List(BaseParameter(Group.FIELD_ID, id)))).headOption
     }(id = id)
   }
 
   def retrieveUserGroups(osmUserId: Long, user: User): List[Group] =
-    this.getGroups(osmUserId, this.userCache, this.repository.getUserGroups, user)
+    this.getGroups(osmUserId, this.userCache, this.userGroupRepository.get, user)
+
+  def retrieveProjectGroups(projectId: Long, user: User): List[Group] =
+    this.getGroups(
+      projectId,
+      this.projectCache,
+      id => {
+        this.repository.query(
+          Query.simple(
+            List(BaseParameter("project_id", id, Operator.EQ))
+          )
+        )
+      },
+      user
+    )
 
   /**
     * Uses the cache to retrieve groups from the Project and User group caches
@@ -125,47 +147,81 @@ class GroupService @Inject() (repository: GroupRepository, config: Config, permi
     }
   }
 
-  def retrieveProjectGroups(projectId: Long, user: User): List[Group] =
-    this.getGroups(
-      projectId,
-      this.projectCache,
-      id => {
-        this.repository.query(
-          Query.simple(
-            List(BaseFilterParameter("project_id", Symbol("project_id") -> id, FilterOperator.EQ))
-          )
-        )
-      },
-      user
-    )
-
   /**
     * Add a user to a group
     *
-    * @param osmID The OSM ID of the user to add to the project
+    * @param osmId The OSM ID of the user to add to the project
     * @param group The group that user is being added too
     * @param user  The user that is adding the user to the project
     */
-  def addUserToGroup(osmID: Long, group: Group, user: User): Unit = {
+  def addUserToGroup(osmId: Long, group: Group, user: User): Unit = {
     this.permission.hasSuperAccess(user)
-    this.clearUserCache(osmID)
-    this.repository.addUserToGroup(osmID, group.id)
+    this.clearCache(osmId = osmId)
+    this.userGroupRepository.addUserToGroup(osmId, group.id)
+  }
+
+  def removeUserFromProjectGroups(
+      osmID: Long,
+      projectId: Long,
+      groupType: Int,
+      user: User
+  ): Unit = {
+    this.permission.hasSuperAccess(user)
+    this.clearCache(projectId)
+    this.userGroupRepository.removeUserFromProjectGroups(osmID, projectId, groupType)
   }
 
   /**
-    * Clears the user cache
+    * Removes a user from a group
     *
-    * @param osmId If osmId is supplied will only remove the user with that osmId
+    * @param osmId The OSM ID of the user
+    * @param group The group that you are removing from the user
+    * @param user  The user executing the request
     */
-  def clearUserCache(osmId: Long = -1, groupId: Long = -1): Unit = {
+  def removeUserFromGroup(osmId: Long, group: Group, user: User): Unit = {
+    this.permission.hasSuperAccess(user)
+    this.clearCache(osmId = osmId)
+    this.userGroupRepository.removeUserFromGroup(osmId, group.id)
+  }
+
+  def addUserToProject(osmID: Long, groupType: Int, projectId: Long, user: User): Unit = {
+    this.permission.hasSuperAccess(user)
+    this.clearCache(projectId)
+    this.userGroupRepository.addUserToProject(osmID, groupType, projectId)
+  }
+
+  /**
+    * Deletes a group from the database
+    *
+    * @param id The id of the group
+    * @param user The user trying to delete the group
+    * @return true if successful
+    */
+  def delete(id: Long, user: User): Boolean = {
+    this.hasAccess(user)
+    this.cache.withCacheIDDeletion { () =>
+      this.clearCache(-1, -1, id)
+      this.repository.delete(id)
+    }(ids = List(id))
+  }
+
+  /**
+    * Clears both the project and user cache
+    *
+    * @param projectId The id of the project to clear in the project cache
+    * @param osmId The osmId of the user in the cache to clear
+    * @param groupId The id of the group to clear in the project and user cache
+    */
+  def clearCache(projectId: Long = -1, osmId: Long = -1, groupId: Long = -1): Unit = {
+    this.clearCacheType(projectId, groupId, this.projectCache)
     this.clearCacheType(osmId, groupId, this.userCache)
   }
 
   private def clearCacheType(
-      id: Long = -1,
-      groupId: Long = -1,
-      cache: BasicCache[Long, ListCacheObject[Long]]
-  ): Unit = {
+                              id: Long = -1,
+                              groupId: Long = -1,
+                              cache: BasicCache[Long, ListCacheObject[Long]]
+                            ): Unit = {
     if (id > -1) {
       if (groupId > -1) {
         cache.get(id) match {
@@ -185,70 +241,5 @@ class GroupService @Inject() (repository: GroupRepository, config: Config, permi
         cache.clear()
       }
     }
-  }
-
-  def removeUserFromProjectGroups(
-      osmID: Long,
-      projectId: Long,
-      groupType: Int,
-      user: User
-  ): Unit = {
-    this.permission.hasSuperAccess(user)
-    this.clearCache(projectId)
-    this.repository.removeUserFromProjectGroups(osmID, projectId, groupType)
-  }
-
-  /**
-    * Clears both the project and user cache
-    *
-    * @param id The id of the project to clear in the project cache
-    * @param groupId The id of the group to clear in the project and user cache
-    */
-  def clearCache(id: Long = -1, groupId: Long = -1): Unit = {
-    this.clearProjectCache(id, groupId)
-    this.clearUserCache(id, groupId)
-  }
-
-  /**
-    * Clears the project cache
-    *
-    * @param id If id is supplied will only remove the project with that id
-    */
-  def clearProjectCache(id: Long = -1, groupId: Long = -1): Unit = {
-    this.clearCacheType(id, groupId, this.projectCache)
-  }
-
-  /**
-    * Removes a user from a group
-    *
-    * @param osmID The OSM ID of the user
-    * @param group The group that you are removing from the user
-    * @param user  The user executing the request
-    */
-  def removeUserFromGroup(osmID: Long, group: Group, user: User): Unit = {
-    this.permission.hasSuperAccess(user)
-    this.clearUserCache(osmID)
-    this.repository.deleteUserFromGroup(osmID, group.id)
-  }
-
-  def addUserToProject(osmID: Long, groupType: Int, projectId: Long, user: User): Unit = {
-    this.permission.hasSuperAccess(user)
-    this.clearUserCache(osmID)
-    this.repository.addUserToProject(osmID, groupType, projectId)
-  }
-
-  /**
-    * Deletes a group from the database
-    *
-    * @param id The id of the group
-    * @param user The user trying to delete the group
-    * @return true if successful
-    */
-  def delete(id: Long, user: User): Boolean = {
-    this.hasAccess(user)
-    this.cache.withCacheIDDeletion { () =>
-      this.clearCache(-1, id)
-      this.repository.delete(id)
-    }(ids = List(id))
   }
 }

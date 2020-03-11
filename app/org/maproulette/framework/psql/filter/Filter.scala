@@ -13,12 +13,30 @@ import org.maproulette.framework.psql.{AND, Query, SQLKey}
   */
 trait SQLClause {
   def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String
-  def parameters()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): List[NamedParameter]
+  def parameters()(
+      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
+  ): List[NamedParameter] = List.empty
+
+  // Simple function that makes sure I don't have a bunch of empty spaces at the end of the query.
+  // It doesn't really matter, but makes it easier to look at.
+  protected def format(value: String): String =
+    if (value.isEmpty) {
+      ""
+    } else {
+      s" $value"
+    }
 }
 
-case class FilterGroup(key: SQLKey, params: FilterParameter[_]*) extends SQLClause {
+case class FilterGroup(key: SQLKey, params: Parameter[_]*) extends SQLClause {
   override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
-    params.map(param => param.sql()).mkString(s" ${key.getSQLKey()} ")
+    params
+      .flatMap(param =>
+        param.sql() match {
+          case ""  => None
+          case sql => Some(sql)
+        }
+      )
+      .mkString(s" ${key.getSQLKey()} ")
 
   override def parameters()(
       implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
@@ -34,15 +52,22 @@ case class Filter(key: SQLKey, groups: FilterGroup*) extends SQLClause {
       ("(", ")")
     }
     groups
-      .map(group => s"${groupSeparator._1}${group.sql()}${groupSeparator._2}")
+      .flatMap(group =>
+        group.sql() match {
+          case ""  => None
+          case sql => Some(s"${groupSeparator._1}$sql${groupSeparator._2}")
+        }
+      )
       .mkString(s" ${key.getSQLKey()} ")
   }
 
-  def parameters()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): List[NamedParameter] =
+  override def parameters()(
+      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
+  ): List[NamedParameter] =
     groups.flatMap(param => param.parameters()).toList
 }
 
 object Filter {
-  def simple(parameters: List[FilterParameter[_]], key: SQLKey = AND()): Filter =
+  def simple(parameters: List[Parameter[_]], key: SQLKey = AND()): Filter =
     Filter(key, FilterGroup(key, parameters: _*))
 }

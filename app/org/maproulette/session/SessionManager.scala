@@ -222,8 +222,8 @@ class SessionManager @Inject() (
     val storedUser = userId match {
       case Some(sessionId) if StringUtils.isNotEmpty(sessionId) =>
         this.serviceManager.user
-          .matchByRequestTokenAndId(sessionId.toLong, accessToken, User.superUser)
-      case None => this.serviceManager.user.matchByRequestToken(accessToken, User.superUser)
+          .matchByRequestToken(sessionId.toLong, accessToken, User.superUser)
+      case None => this.serviceManager.user.matchByRequestToken(-1, accessToken, User.superUser)
     }
     storedUser match {
       case Some(u) =>
@@ -263,7 +263,7 @@ class SessionManager @Inject() (
       case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
         try {
           val newUser = User.generate(detailsResponse.body, accessToken, config)
-          val osmUser = this.serviceManager.user.insert(newUser, user)
+          val osmUser = this.serviceManager.user.create(newUser, user)
           p success Some(this.serviceManager.user.initializeHomeProject(osmUser))
         } catch {
           case e: Exception => p failure e

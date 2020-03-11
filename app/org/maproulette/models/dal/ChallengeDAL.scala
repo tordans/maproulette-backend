@@ -360,7 +360,7 @@ class ChallengeDAL @Inject() (
     * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj: Either[Long, Challenge], user: User)(
+  def retrieveRootObject(obj: Either[Long, Challenge], user: User)(
       implicit c: Option[Connection] = None
   ): Option[Project] = {
     val projectParser = ProjectRepository.parser(id =>

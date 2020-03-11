@@ -5,8 +5,8 @@ import java.sql.Connection
 import anorm.SQL
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.model.{Challenge, SavedTasks}
-import org.maproulette.framework.psql.filter.{BaseFilterParameter, FilterOperator, FilterParameter, SubQueryFilter}
-import org.maproulette.framework.psql.{Order, Paging, Query}
+import org.maproulette.framework.psql.filter.{BaseParameter, FilterParameter, Operator, SubQueryFilter}
+import org.maproulette.framework.psql.{Order, Paging, Query, SQLUtils}
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import play.api.db.Database
@@ -50,7 +50,7 @@ class UserSavedObjectsRepository @Inject() (
            |)
        """.stripMargin
       SQL(query)
-        .on(FilterParameter.buildNamedParameter("id", userId) :: paging.parameters(): _*)
+        .on(SQLUtils.buildNamedParameter("id", userId) :: paging.parameters(): _*)
         .as(challengeDAL.parser.*)
     }
   }
@@ -116,11 +116,11 @@ class UserSavedObjectsRepository @Inject() (
               Query
                 .simple(
                   List(
-                    BaseFilterParameter(SavedTasks.FIELD_TASK_ID, userId),
+                    BaseParameter(SavedTasks.FIELD_TASK_ID, userId),
                     FilterParameter.conditional(
                       SavedTasks.FIELD_CHALLENGE_ID,
                       challengeIds,
-                      FilterOperator.IN,
+                      Operator.IN,
                       includeOnlyIfTrue = challengeIds.nonEmpty
                     )
                   ),
@@ -131,7 +131,7 @@ class UserSavedObjectsRepository @Inject() (
             )
           )
         )
-        .build("""
+        .build(s"""
           |SELECT ${taskDAL.retrieveColumnsWithReview} FROM tasks
           |LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
           |""".stripMargin)
@@ -174,7 +174,7 @@ class UserSavedObjectsRepository @Inject() (
     this.withMRTransaction { implicit c =>
       Query
         .simple(
-          List(BaseFilterParameter("user_id", userId), BaseFilterParameter("task_id", taskId))
+          List(BaseParameter("user_id", userId), BaseParameter("task_id", taskId))
         )
         .build("DELETE FROM saved_tasks")
         .execute()

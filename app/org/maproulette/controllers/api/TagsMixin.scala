@@ -6,10 +6,10 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.data._
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.framework.controller.SessionController
-import org.maproulette.framework.model.{BaseObject, User}
+import org.maproulette.framework.model.User
 import org.maproulette.models.dal.TagDAL
 import org.maproulette.models.dal.mixin.TagDALMixin
-import org.maproulette.models.Tag
+import org.maproulette.models.{BaseObject, Tag}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent}

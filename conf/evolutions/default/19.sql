@@ -7,4 +7,5 @@ SELECT create_index_if_not_exists('groups', 'project_id_group_type', '(project_i
 
 # --- !Downs
 DROP INDEX IF EXISTS idx_groups_project_id_group_type;;
-SELECT create_index_if_not_exists('groups', 'name', '(lower(name))', true);;
+-- previously the index was a unique index, but due to changes the database would be invalid and we wouldn't be able to create a unique index at this point
+SELECT create_index_if_not_exists('groups', 'name', '(lower(name))');;

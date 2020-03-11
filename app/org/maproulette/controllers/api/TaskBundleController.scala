@@ -88,7 +88,7 @@ class TaskBundleController @Inject() (
             case Some(a) => Some(a.id)
             case None    => None
           }
-          this.commentService.add(user, task.id, comment, actionId)
+          this.commentService.create(user, task.id, comment, actionId)
         }
 
         // Add tags to each task

@@ -3,7 +3,7 @@
 package org.maproulette.framework.model
 
 import org.joda.time.DateTime
-import org.maproulette.data.{ItemType, ProjectType}
+import org.maproulette.cache.CacheObject
 import org.maproulette.framework.psql.CommonField
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
@@ -20,19 +20,16 @@ case class Project(
     override val id: Long,
     owner: Long,
     override val name: String,
-    override val created: DateTime = DateTime.now(),
-    override val modified: DateTime = DateTime.now(),
-    override val description: Option[String] = None,
+    created: DateTime = DateTime.now(),
+    modified: DateTime = DateTime.now(),
+    description: Option[String] = None,
     groups: List[Group] = List.empty,
     enabled: Boolean = false,
     displayName: Option[String] = None,
     deleted: Boolean = false,
     isVirtual: Option[Boolean] = Some(false),
     featured: Boolean = false
-) extends BaseObject[Long] {
-
-  override val itemType: ItemType = ProjectType()
-}
+) extends CacheObject[Long]
 
 object Project extends CommonField {
   implicit val groupWrites: Writes[Group] = Group.writes

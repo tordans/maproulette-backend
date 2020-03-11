@@ -8,7 +8,7 @@ import javax.crypto.{BadPaddingException, IllegalBlockSizeException}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.maproulette.Config
-import org.maproulette.data.{ItemType, UserType}
+import org.maproulette.cache.CacheObject
 import org.maproulette.framework.psql.CommonField
 import org.maproulette.utils.{Crypto, Utils}
 import org.slf4j.LoggerFactory
@@ -149,8 +149,8 @@ case class UserSettings(
   */
 case class User(
     override val id: Long,
-    override val created: DateTime,
-    override val modified: DateTime,
+    created: DateTime,
+    modified: DateTime,
     osmProfile: OSMProfile,
     groups: List[Group] = List(),
     apiKey: Option[String] = None,
@@ -158,11 +158,9 @@ case class User(
     settings: UserSettings = UserSettings(),
     properties: Option[String] = None,
     score: Option[Int] = None
-) extends BaseObject[Long] {
+) extends CacheObject[Long] {
   // for users the display name is always retrieved from OSM
   override def name: String = osmProfile.displayName
-
-  override val itemType: ItemType = UserType()
 
   def homeLocation: String = osmProfile.homeLocation.name match {
     case Some(name) => name
