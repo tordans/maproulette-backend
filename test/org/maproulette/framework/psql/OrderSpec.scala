@@ -8,8 +8,8 @@ package org.maproulette.framework.psql
 import org.scalatestplus.play.PlaySpec
 
 /**
- * @author mcuthbert
- */
+  * @author mcuthbert
+  */
 class OrderSpec extends PlaySpec {
   private val FIELD = "field"
 
@@ -27,7 +27,7 @@ class OrderSpec extends PlaySpec {
     }
 
     "Set ordering for multiple order fields" in {
-      Order(List(s"${FIELD}1",s"${FIELD}2")).sql() mustEqual s"ORDER BY ${FIELD}1,${FIELD}2 DESC"
+      Order(List(s"${FIELD}1", s"${FIELD}2")).sql() mustEqual s"ORDER BY ${FIELD}1,${FIELD}2 DESC"
     }
   }
 }

@@ -121,11 +121,10 @@ class CommentController @Inject() (
     * @param commentId The id of the comment that is being deleted
     * @return Ok if successful,
     */
-  def delete(taskId: Long, commentId: Long): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.authenticatedRequest { implicit user =>
-        this.commentService.delete(taskId, commentId, user)
-        Ok
-      }
+  def delete(taskId: Long, commentId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.commentService.delete(taskId, commentId, user)
+      Ok
+    }
   }
 }

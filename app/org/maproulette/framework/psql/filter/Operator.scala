@@ -29,7 +29,7 @@ object Operator extends Enumeration {
     }
     val rightValue = value match {
       case Some(v) => v
-      case None => s"{$parameterKey$key}"
+      case None    => s"{$parameterKey$key}"
     }
     operator match {
       case EQ         => s"$negation$key = $rightValue"

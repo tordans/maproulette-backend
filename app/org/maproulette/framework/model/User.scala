@@ -206,16 +206,16 @@ object User extends CommonField {
   implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
   implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
 
-  val FIELD_OSM_ID = "osm_id"
-  val FIELD_OSM_CREATED = "osm_created"
-  val FIELD_API_KEY = "api_key"
-  val FIELD_OAUTH_TOKEN = "oauth_token"
-  val FIELD_OAUTH_SECRET = "oauth_secret"
-  val FIELD_HOME_LOCATION = "home_location"
-  val FIELD_EMAIL_OPT_IN = "email_opt_in"
+  val FIELD_OSM_ID              = "osm_id"
+  val FIELD_OSM_CREATED         = "osm_created"
+  val FIELD_API_KEY             = "api_key"
+  val FIELD_OAUTH_TOKEN         = "oauth_token"
+  val FIELD_OAUTH_SECRET        = "oauth_secret"
+  val FIELD_HOME_LOCATION       = "home_location"
+  val FIELD_EMAIL_OPT_IN        = "email_opt_in"
   val FIELD_LEADERBOARD_OPT_OUT = "leaderboard_opt_out"
-  val FIELD_NEEDS_REVIEW = "needs_review"
-  val FIELD_IS_REVIEWER = "is_reviewer"
+  val FIELD_NEEDS_REVIEW        = "needs_review"
+  val FIELD_IS_REVIEWER         = "is_reviewer"
 
   implicit object UserFormat extends Format[User] {
     override def writes(o: User): JsValue = {

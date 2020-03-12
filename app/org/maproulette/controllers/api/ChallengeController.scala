@@ -15,7 +15,12 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.controllers.ParentController
 import org.maproulette.data._
-import org.maproulette.exception.{InvalidException, MPExceptionUtil, NotFoundException, StatusMessage}
+import org.maproulette.exception.{
+  InvalidException,
+  MPExceptionUtil,
+  NotFoundException,
+  StatusMessage
+}
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.ServiceManager

@@ -222,7 +222,7 @@ object Challenge extends CommonField {
 
   // CHALLENGE FIELDS
   val FIELD_PARENT_ID = "parent_id"
-  val FIELD_ENABLED = "enabled"
+  val FIELD_ENABLED   = "enabled"
 
   /**
     * This will check to make sure that the rule string is fully valid.

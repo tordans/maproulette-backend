@@ -24,7 +24,7 @@ class TaskBundleController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val bodyParsers: PlayBodyParsers,
-    commentService:CommentService,
+    commentService: CommentService,
     dalManager: DALManager,
     components: ControllerComponents
 ) extends AbstractController(components)

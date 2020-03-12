@@ -29,14 +29,14 @@ object TaskReview {
   implicit val writes: Writes[TaskReview] = Json.writes[TaskReview]
   implicit val reads: Reads[TaskReview]   = Json.reads[TaskReview]
 
-  val FIELD_TASK_ID = "task_id"
-  val FIELD_REVIEW_STATUS = "review_status"
+  val FIELD_TASK_ID             = "task_id"
+  val FIELD_REVIEW_STATUS       = "review_status"
   val FIELD_REVIEW_REQUESTED_BY = "review_requested_by"
-  val FIELD_REVIEWED_BY = "reviewed_by"
-  val FIELD_REVIEWED_AT = "reviewed_at"
-  val FIELD_REVIEW_CLAIMED_AT = "review_claimed_at"
-  val FIELD_REVIEW_CLAIMED_BY = "review_claimed_by"
-  val FIELD_REVIEW_STARTED_AT = "review_started_at"
+  val FIELD_REVIEWED_BY         = "reviewed_by"
+  val FIELD_REVIEWED_AT         = "reviewed_at"
+  val FIELD_REVIEW_CLAIMED_AT   = "review_claimed_at"
+  val FIELD_REVIEW_CLAIMED_BY   = "review_claimed_by"
+  val FIELD_REVIEW_STARTED_AT   = "review_started_at"
 }
 
 case class TaskWithReview(task: Task, review: TaskReview)

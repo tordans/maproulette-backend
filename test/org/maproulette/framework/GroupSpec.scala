@@ -138,7 +138,7 @@ class GroupSpec extends TestDatabase {
     }
 
     "create a new group" in {
-      val group          = this.service.create(this.defaultProject.id, Group.TYPE_ADMIN, User.superUser)
+      val group = this.service.create(this.defaultProject.id, Group.TYPE_ADMIN, User.superUser)
       group.projectId mustEqual this.defaultProject.id
       group.groupType mustEqual Group.TYPE_ADMIN
       group.name mustEqual s"${this.defaultProject.id}_Admin"

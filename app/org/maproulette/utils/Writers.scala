@@ -5,7 +5,17 @@
 
 package org.maproulette.utils
 
-import org.maproulette.framework.model.{Comment, Group, Location, OSMProfile, Project, TaskReview, TaskWithReview, User, UserSettings}
+import org.maproulette.framework.model.{
+  Comment,
+  Group,
+  Location,
+  OSMProfile,
+  Project,
+  TaskReview,
+  TaskWithReview,
+  User,
+  UserSettings
+}
 import org.maproulette.models._
 import org.maproulette.models.utils.ChallengeWrites
 import org.maproulette.session._

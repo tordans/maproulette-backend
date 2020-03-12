@@ -130,10 +130,14 @@ class FilterParameterSpec extends PlaySpec {
         KEY,
         Query.simple(List(BaseParameter("Key2", "value2")), "SELECT * FROM table")
       )
-      filter.sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE Key2 = {${Query.SECONDARY_QUERY_KEY}Key2})"
+      filter
+        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE Key2 = {${Query.SECONDARY_QUERY_KEY}Key2})"
       val params = filter.parameters()
       params.size mustEqual 1
-      params.head mustEqual SQLUtils.buildNamedParameter(s"${Query.SECONDARY_QUERY_KEY}Key2", "value2")
+      params.head mustEqual SQLUtils.buildNamedParameter(
+        s"${Query.SECONDARY_QUERY_KEY}Key2",
+        "value2"
+      )
     }
 
     "Set standard subquery filter with two parameters" in {
@@ -148,11 +152,18 @@ class FilterParameterSpec extends PlaySpec {
           OR()
         )
       )
-      filter.sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}key2} OR key3 <= {${Query.SECONDARY_QUERY_KEY}key3})"
+      filter
+        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}key2} OR key3 <= {${Query.SECONDARY_QUERY_KEY}key3})"
       val params = filter.parameters()
       params.size mustEqual 2
-      params.head mustEqual SQLUtils.buildNamedParameter(s"${Query.SECONDARY_QUERY_KEY}key2", "value2")
-      params.tail.head mustEqual SQLUtils.buildNamedParameter(s"${Query.SECONDARY_QUERY_KEY}key3", "value3")
+      params.head mustEqual SQLUtils.buildNamedParameter(
+        s"${Query.SECONDARY_QUERY_KEY}key2",
+        "value2"
+      )
+      params.tail.head mustEqual SQLUtils.buildNamedParameter(
+        s"${Query.SECONDARY_QUERY_KEY}key3",
+        "value3"
+      )
     }
 
     "Set exists subquery filter" in {
@@ -161,7 +172,8 @@ class FilterParameterSpec extends PlaySpec {
         Query.simple(List(BaseParameter("key2", "value2")), "SELECT * FROM table"),
         operator = Operator.EXISTS
       )
-      filter.sql() mustEqual s"EXISTS (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}key2})"
+      filter
+        .sql() mustEqual s"EXISTS (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}key2})"
     }
 
     "Set equals subquery filter" in {
@@ -170,11 +182,13 @@ class FilterParameterSpec extends PlaySpec {
         Query.simple(List(BaseParameter("key2", "value2")), "SELECT * FROM table"),
         operator = Operator.EQ
       )
-      filter.sql() mustEqual s"$KEY = (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}key2})"
+      filter
+        .sql() mustEqual s"$KEY = (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}key2})"
     }
 
     "set custom parameterKey correctly" in {
-      val filter = SubQueryFilter(KEY, Query.simple(List(BaseParameter(KEY, VALUE)), "SELECT * FROM table"))
+      val filter =
+        SubQueryFilter(KEY, Query.simple(List(BaseParameter(KEY, VALUE)), "SELECT * FROM table"))
       filter.sql()("custom") mustEqual s"$KEY IN (SELECT * FROM table WHERE KEY = {custom$KEY})"
     }
 
@@ -230,10 +244,10 @@ class FilterParameterSpec extends PlaySpec {
 
 object FilterParameterSpec {
   def DEFAULT_FUZZY_SQL(
-                         key: String,
-                         parameterKey:String = Query.PRIMARY_QUERY_KEY,
-                         score: Int = FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE,
-                         size: Int = FilterParameter.DEFAULT_METAPHONE_SIZE
+      key: String,
+      parameterKey: String = Query.PRIMARY_QUERY_KEY,
+      score: Int = FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE,
+      size: Int = FilterParameter.DEFAULT_METAPHONE_SIZE
   ) = s"""($key <> '' AND
       (LEVENSHTEIN(LOWER($key), LOWER({$key})) < $score OR
       METAPHONE(LOWER($key), 4) = METAPHONE(LOWER({$key}), $size) OR

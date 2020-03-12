@@ -138,10 +138,10 @@ case class DateParameter(
   * @param value The sub query to check against, the subQuery needs a base query included
   */
 case class SubQueryFilter(
-                           override val key: String,
-                           override val value: Query,
-                           override val negate: Boolean = false,
-                           override val operator: Operator = Operator.IN
+    override val key: String,
+    override val value: Query,
+    override val negate: Boolean = false,
+    override val operator: Operator = Operator.IN
 ) extends Parameter[Query] {
   override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
     val filterValue = if (operator == Operator.IN || operator == Operator.EXISTS) {

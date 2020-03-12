@@ -223,10 +223,10 @@ class GroupService @Inject() (
   }
 
   private def clearCacheType(
-                              id: Long = -1,
-                              groupId: Long = -1,
-                              cache: BasicCache[Long, ListCacheObject[Long]]
-                            ): Unit = {
+      id: Long = -1,
+      groupId: Long = -1,
+      cache: BasicCache[Long, ListCacheObject[Long]]
+  ): Unit = {
     if (id > -1) {
       if (groupId > -1) {
         cache.get(id) match {

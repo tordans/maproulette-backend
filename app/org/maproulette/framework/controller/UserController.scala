@@ -306,7 +306,7 @@ class UserController @Inject() (
     this.serviceManager.user.addUserToProject(addUser.osmProfile.id, projectId, groupType, user)
   }
 
-  private def retrieveUser(userId: Long, isOSMUserId: Boolean, user:User): User = {
+  private def retrieveUser(userId: Long, isOSMUserId: Boolean, user: User): User = {
     isOSMUserId match {
       case true =>
         this.serviceManager.user.retrieveByOSMId(userId) match {

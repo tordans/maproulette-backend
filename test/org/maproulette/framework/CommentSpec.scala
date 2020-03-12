@@ -73,7 +73,12 @@ class CommentSpec extends TestDatabase {
     "find a specific comment" in {
       this.commentRepository.create(User.superUser, defaultTask.id, "find a specific comment", None)
       val comment =
-        this.commentRepository.create(User.superUser, defaultTask.id, "find a specific comment 2", None)
+        this.commentRepository.create(
+          User.superUser,
+          defaultTask.id,
+          "find a specific comment 2",
+          None
+        )
       val comments = this.commentRepository
         .query(Query.simple(List(BaseParameter("comment", "%2", Operator.LIKE))))
       comments.size mustEqual 1
@@ -137,7 +142,8 @@ class CommentSpec extends TestDatabase {
     }
 
     "Find comments for a specific project, challenge and task" in {
-      val comment = this.commentService.create(User.superUser, defaultTask.id, "Default Comment", None)
+      val comment =
+        this.commentService.create(User.superUser, defaultTask.id, "Default Comment", None)
       val projectComments =
         this.commentService.find(List(comment.projectId), List.empty, List.empty)
       projectComments.head mustEqual comment

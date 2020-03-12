@@ -108,10 +108,10 @@ class Permission @Inject() (
   )(implicit c: Option[Connection] = None): Unit =
     if (!user.isSuperUser) {
       obj match {
-        case u:User => this.hasObjectReadAccess(u, user)
-        case p:Project =>
+        case u: User => this.hasObjectReadAccess(u, user)
+        case p: Project =>
           this.hasProjectAccess(Some(p), user, groupType)
-        case c:Challenge =>
+        case c: Challenge =>
           if (c.general.owner != user.osmProfile.id) {
             this.hasProjectAccess(
               dalManager
@@ -122,23 +122,23 @@ class Permission @Inject() (
               groupType
             )
           }
-        case vc:VirtualChallenge =>
+        case vc: VirtualChallenge =>
           if (vc.ownerId != user.osmProfile.id) {
             throw new IllegalAccessException(
               s"Only super users or the owner of the Virtual Challenge can write to it."
             )
           }
-        case t:Task =>
+        case t: Task =>
           this.hasProjectAccess(
             dalManager.get().task.retrieveRootObject(Right(t), user),
             user,
             groupType
           )
-        case tag:Tag =>
+        case tag: Tag =>
           this.hasReadAccess(TagType(), user)(tag.id)
-        case g:Group =>
+        case g: Group =>
           this.hasProjectTypeAccess(user, Group.TYPE_ADMIN)(g.projectId)
-        case b:Bundle =>
+        case b: Bundle =>
           if (b.owner != user.osmProfile.id) {
             throw new IllegalAccessException(
               s"Only super users or the owner of the bundle can write to it."
@@ -162,12 +162,11 @@ class Permission @Inject() (
       implicit c: Option[Connection] = None
   ): Unit = if (!user.isSuperUser) {
     obj match {
-      case u:User
-          if u.id != user.id & u.osmProfile.id != user.osmProfile.id =>
+      case u: User if u.id != user.id & u.osmProfile.id != user.osmProfile.id =>
         throw new IllegalAccessException(
           s"User does not have read access to requested user object [${u.id}]"
         )
-      case g:Group =>
+      case g: Group =>
         this.hasProjectTypeAccess(user)(g.projectId)
       case _ => // don't do anything, they have access
     }

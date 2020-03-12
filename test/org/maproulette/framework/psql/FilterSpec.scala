@@ -92,14 +92,16 @@ class FilterSpec extends PlaySpec {
 
     "generate filter groups for OR/AND/OR parameters" in {
       val filter = this.genericFilter(AND(), OR(), OR())
-      filter.sql() mustEqual "(KEY = {KEY} OR KEY_1 = {KEY_1}) AND (KEY2 = {KEY2} OR KEY2_2 = {KEY2_2})"
+      filter
+        .sql() mustEqual "(KEY = {KEY} OR KEY_1 = {KEY_1}) AND (KEY2 = {KEY2} OR KEY2_2 = {KEY2_2})"
       val params = filter.parameters()
       params.size mustEqual 4
     }
 
     "generate filter groups for OR/OR/AND parameters" in {
       val filter = this.genericFilter(OR(), OR(), AND())
-      filter.sql() mustEqual "(KEY = {KEY} OR KEY_1 = {KEY_1}) OR (KEY2 = {KEY2} AND KEY2_2 = {KEY2_2})"
+      filter
+        .sql() mustEqual "(KEY = {KEY} OR KEY_1 = {KEY_1}) OR (KEY2 = {KEY2} AND KEY2_2 = {KEY2_2})"
       val params = filter.parameters()
       params.size mustEqual 4
     }

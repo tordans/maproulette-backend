@@ -9,7 +9,13 @@ import org.joda.time.DateTime
 /**
   * @author cuthbertm
   */
-case class Lock(lockedTime: Option[DateTime], itemType: Int, itemId: Long, userId: Long, changesetId: Long)
+case class Lock(
+    lockedTime: Option[DateTime],
+    itemType: Int,
+    itemId: Long,
+    userId: Long,
+    changesetId: Long
+)
 
 object Lock {
   def emptyLock: Lock = Lock(None, -1, -1, -1, -1)

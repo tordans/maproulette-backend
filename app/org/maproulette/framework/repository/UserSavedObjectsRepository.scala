@@ -10,7 +10,12 @@ import java.sql.Connection
 import anorm.SQL
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.model.{Challenge, SavedTasks}
-import org.maproulette.framework.psql.filter.{BaseParameter, FilterParameter, Operator, SubQueryFilter}
+import org.maproulette.framework.psql.filter.{
+  BaseParameter,
+  FilterParameter,
+  Operator,
+  SubQueryFilter
+}
 import org.maproulette.framework.psql.{Order, Paging, Query, SQLUtils}
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}

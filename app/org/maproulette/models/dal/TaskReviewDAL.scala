@@ -1082,7 +1082,8 @@ class TaskReviewDAL @Inject() (
       )
 
       val comment = commentContent.nonEmpty match {
-        case true  => Some(this.serviceManager.comment.create(user, task.id, commentContent, actionId))
+        case true =>
+          Some(this.serviceManager.comment.create(user, task.id, commentContent, actionId))
         case false => None
       }
 

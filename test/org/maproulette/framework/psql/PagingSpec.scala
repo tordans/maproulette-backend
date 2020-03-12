@@ -9,8 +9,8 @@ import anorm.NamedParameter
 import org.scalatestplus.play.PlaySpec
 
 /**
- * @author mcuthbert
- */
+  * @author mcuthbert
+  */
 class PagingSpec extends PlaySpec {
   "Paging" should {
     "not be set if limit set to zero" in {

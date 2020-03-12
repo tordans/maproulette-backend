@@ -9,10 +9,10 @@ import org.maproulette.framework.service.UserMetricService
 import org.maproulette.utils.TestDatabase
 
 /**
- * @author mcuthbert
- */
+  * @author mcuthbert
+  */
 class UserMetricsSpec extends TestDatabase {
-  val service:UserMetricService = this.application.injector.instanceOf(classOf[UserMetricService])
+  val service: UserMetricService = this.application.injector.instanceOf(classOf[UserMetricService])
 
   "UserMetricService" should {
     "get metrics for a user" in {

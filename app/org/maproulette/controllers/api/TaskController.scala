@@ -13,11 +13,21 @@ import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
 import org.maproulette.models.dal.{DALManager, TagDAL, TaskDAL}
 import org.maproulette.models._
-import org.maproulette.exception.{InvalidException, LockedException, NotFoundException, StatusMessage}
+import org.maproulette.exception.{
+  InvalidException,
+  LockedException,
+  NotFoundException,
+  StatusMessage
+}
 import org.maproulette.framework.model.{Challenge, Comment, User}
 import org.maproulette.framework.service.{CommentService, ServiceManager, UserService}
 import org.maproulette.models.dal.mixin.TagDALMixin
-import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters, SessionManager}
+import org.maproulette.session.{
+  SearchChallengeParameters,
+  SearchLocation,
+  SearchParameters,
+  SessionManager
+}
 import org.maproulette.utils.Utils
 import org.maproulette.services.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
@@ -43,7 +53,7 @@ class TaskController @Inject() (
     override val actionManager: ActionManager,
     override val dal: TaskDAL,
     override val tagDAL: TagDAL,
-    serviceManager:ServiceManager,
+    serviceManager: ServiceManager,
     dalManager: DALManager,
     wsClient: WSClient,
     webSocketProvider: WebSocketProvider,

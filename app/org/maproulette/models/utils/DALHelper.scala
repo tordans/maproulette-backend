@@ -77,7 +77,7 @@ trait DALHelper {
     * @return
     */
   @Deprecated
-  def   order(
+  def order(
       orderColumn: Option[String] = None,
       orderDirection: String = "ASC",
       tablePrefix: String = "",

@@ -5,7 +5,13 @@
 package org.maproulette.models.utils
 
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{Challenge, ChallengeCreation, ChallengeExtra, ChallengeGeneral, ChallengePriority}
+import org.maproulette.framework.model.{
+  Challenge,
+  ChallengeCreation,
+  ChallengeExtra,
+  ChallengeGeneral,
+  ChallengePriority
+}
 import org.maproulette.models._
 import org.maproulette.utils.Utils
 import org.maproulette.utils.Utils.{jsonReads, jsonWrites}

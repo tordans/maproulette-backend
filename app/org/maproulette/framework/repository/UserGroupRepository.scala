@@ -19,6 +19,7 @@ import play.api.db.Database
   */
 @Singleton
 class UserGroupRepository @Inject() (override val db: Database) extends RepositoryMixin {
+
   /**
     * Gets all the groups that a user belongs too
     *

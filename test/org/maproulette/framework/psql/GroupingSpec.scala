@@ -10,12 +10,12 @@ import java.sql.SQLException
 import org.scalatestplus.play.PlaySpec
 
 /**
- * @author mcuthbert
- */
+  * @author mcuthbert
+  */
 class GroupingSpec extends PlaySpec {
   "Grouping" should {
     "not generate sql if no strings provided" in {
-        Grouping().sql() mustEqual ""
+      Grouping().sql() mustEqual ""
     }
 
     "generate the correct group by value" in {

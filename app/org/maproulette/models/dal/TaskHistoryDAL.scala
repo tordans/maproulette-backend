@@ -40,7 +40,7 @@ class TaskHistoryDAL @Inject() (
       dalManager,
       webSocketProvider,
       ws
-) {
+    ) {
 
   private val commentEntryParser: RowParser[TaskLogEntry] = {
     get[Long]("task_comments.task_id") ~
