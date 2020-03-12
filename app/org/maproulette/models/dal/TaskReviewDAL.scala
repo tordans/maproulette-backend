@@ -182,7 +182,7 @@ class TaskReviewDAL @Inject() (
     val updatedTask =
       primaryTask.copy(review = primaryTask.review.copy(reviewClaimedBy = Option(user.id.toInt)))
 
-    this.cacheManager.withOptionCaching { () =>
+    this.manager.task.cacheManager.withOptionCaching { () =>
       Some(updatedTask)
     }
     Option(updatedTask)
@@ -1111,7 +1111,7 @@ class TaskReviewDAL @Inject() (
         }
       }
 
-      this.cacheManager.withOptionCaching { () =>
+      this.manager.task.cacheManager.withOptionCaching { () =>
         Some(
           task.copy(review = task.review.copy(
             reviewStatus = Some(reviewStatus),
