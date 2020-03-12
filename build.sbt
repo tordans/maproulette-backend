@@ -10,11 +10,11 @@ lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (scalastyleConfig in Compile) := baseDirectory.value / "conf/scalastyle-config.xml"
-//(compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
 lazy val `MapRouletteV2` = (project in file(".")).enablePlugins(PlayScala, SbtWeb, SwaggerPlugin)
 
 swaggerDomainNameSpaces := Seq(
+  "org.maproulette.framework.model",
   "org.maproulette.models",
   "org.maproulette.exception",
   "org.maproulette.session",

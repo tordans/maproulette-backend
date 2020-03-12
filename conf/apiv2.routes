@@ -196,6 +196,7 @@ DELETE  /project/:id                                @org.maproulette.framework.c
 #   - name: onlyEnabled
 #     in: query
 #     description: Flag to set if only wanting enabled projects returned. Default value is true.
+# deprecated: true
 ###
 GET     /projects/find                              @org.maproulette.framework.controller.ProjectController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 ###
@@ -247,7 +248,6 @@ GET     /projects/featured                          @org.maproulette.framework.c
 #   - name: onlyEnabled
 #     in: query
 #     description: Flag to set if only wanting enabled projects returned. Default value is true.
-# depreacted: true
 ###
 GET     /projects                                   @org.maproulette.framework.controller.ProjectController.find(search:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
 ###
@@ -316,6 +316,7 @@ GET     /projects/managed                           @org.maproulette.framework.c
 #   - name: page
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+# deprecated: true
 ###
 GET     /project/:id/challenges                     @org.maproulette.framework.controller.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
 ###
@@ -743,6 +744,7 @@ POST    /challenge                                  @org.maproulette.controllers
 #       items:
 #         type: object
 #         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
+# deprecated: true
 ###
 POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost
 ###
@@ -813,6 +815,7 @@ PUT     /challenge/:id                              @org.maproulette.controllers
 #       items:
 #         type: object
 #         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
+# deprecated: true
 ###
 PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
 ###
@@ -904,6 +907,7 @@ DELETE  /challenge/:id                              @org.maproulette.controllers
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
+# deprecated : true
 ###
 PUT  /challenge/:id/undelete                         @org.maproulette.controllers.api.ChallengeController.undelete(id:Long)
 ###

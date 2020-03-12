@@ -17,8 +17,8 @@ GET     /ws                                                             @org.map
 # Swagger route
 GET     /docs/swagger-ui/*file                                          @controllers.Assets.at(path:String="/public/lib/swagger-ui", file:String)
 ### NoDocs ###
-GET   /assets/*file                                                     @controllers.Assets.versioned(path="/public", file: Asset)
+GET     /assets/*file                                                   @controllers.Assets.versioned(path="/public", file: Asset)
 
-->  /api/v2     apiv2.Routes
+->      /api/v2                                                         apiv2.Routes
 
 GET     /*path/                                                         @controllers.Application.untrail(path:String)
