@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
+
 package org.maproulette.utils
 
 import org.maproulette.framework.model.{Comment, Group, Location, OSMProfile, Project, TaskReview, TaskWithReview, User, UserSettings}

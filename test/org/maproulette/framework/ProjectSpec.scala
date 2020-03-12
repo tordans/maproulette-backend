@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
+
 package org.maproulette.framework
 
 import org.joda.time.{DateTime, Months}
@@ -117,6 +122,24 @@ class ProjectSpec extends TestDatabase {
     }
   }
 
-  "ProjectService" should {}
+  "ProjectService" should {
+    "get all the children of a project" in {
+      val challenges = this.service.children(this.defaultProject.id)
+      challenges.size mustEqual 1
+      challenges.head.id mustEqual this.defaultChallenge.id
+    }
 
+    "create a new project" in {
+      val createdProject = this.service.create(Project(-1, User.superUser.osmProfile.id, "ServiceCreateProject"), User.superUser)
+      val retrievedProject = this.service.retrieve(createdProject.id)
+      retrievedProject.get mustEqual createdProject
+      // make sure that the groups were created as well for the project
+      val createdGroups = retrievedProject.get.groups
+      createdGroups.size mustEqual 3
+    }
+
+    "get the projects managed by a specific user" in {
+
+    }
+  }
 }
