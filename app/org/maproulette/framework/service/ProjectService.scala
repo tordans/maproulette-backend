@@ -243,6 +243,8 @@ class ProjectService @Inject() (
     )
   }
 
+  def query(query: Query): List[Project] = this.repository.query(query)
+
   /**
     * Updates a project with the given input JSON
     *
@@ -281,7 +283,7 @@ class ProjectService @Inject() (
         }
 
         Some(
-          this.repository.create(
+          this.repository.update(
             Project(
               id = id,
               owner = owner,
@@ -295,20 +297,6 @@ class ProjectService @Inject() (
         )
       }(id = id)
       .head
-  }
-
-  /**
-    * Retrieves a Project based on the given id
-    *
-    * @param id The id of the project
-    * @return An optional Project, None if not found.
-    */
-  def retrieve(id: Long): Option[Project] = {
-    this.cacheManager.withCaching { () =>
-      this.repository
-        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
-        .headOption
-    }(id = id)
   }
 
   /**
@@ -329,6 +317,20 @@ class ProjectService @Inject() (
   }
 
   /**
+    * Retrieves a Project based on the given id
+    *
+    * @param id The id of the project
+    * @return An optional Project, None if not found.
+    */
+  def retrieve(id: Long): Option[Project] = {
+    this.cacheManager.withCaching { () =>
+      this.repository
+        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
+        .headOption
+    }(id = id)
+  }
+
+  /**
     * Retrieves a Project based on the name
     *
     * @param name The name of the Project
@@ -339,8 +341,6 @@ class ProjectService @Inject() (
       .query(Query.simple(List(BaseParameter(Project.FIELD_NAME, name))))
       .headOption
   }
-
-  def query(query: Query): List[Project] = this.repository.query(query)
 
   def list(
       ids: List[Long],

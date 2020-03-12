@@ -65,7 +65,7 @@ class UserSpec extends TestDatabase {
 
     "update API key" in {
       val insertedUser =
-        this.userRepository.upsert(this.getDummyUser(3, "APITest"), "TestAPIKey", "POINT (20 40)")
+        this.userRepository.upsert(this.getTestUser(3, "APITest"), "TestAPIKey", "POINT (20 40)")
       this.userRepository.updateAPIKey(insertedUser.id, "NEW_updated_key")
       val retrievedUser = this.repositoryGet(insertedUser.id)
       retrievedUser.get.apiKey.get mustEqual "NEW_updated_key"
@@ -73,7 +73,7 @@ class UserSpec extends TestDatabase {
 
     "delete user" in {
       val insertedUser = this.userRepository
-        .upsert(this.getDummyUser(4, "DeleteTest"), "TestAPIKey", "POINT (20 40)")
+        .upsert(this.getTestUser(4, "DeleteTest"), "TestAPIKey", "POINT (20 40)")
       this.userRepository.delete(insertedUser.id)
       val retrievedUser = this.repositoryGet(insertedUser.id)
       retrievedUser.isEmpty mustEqual true
@@ -81,7 +81,7 @@ class UserSpec extends TestDatabase {
 
     "delete user by OSMID" in {
       val insertedUser = this.userRepository
-        .upsert(this.getDummyUser(5, "DeleteByOSMidTest"), "TestAPIKey", "POINT (20 40)")
+        .upsert(this.getTestUser(5, "DeleteByOSMidTest"), "TestAPIKey", "POINT (20 40)")
       this.userRepository.deleteByOSMID(5)
       val retrievedUser = this.repositoryGet(insertedUser.id)
       retrievedUser.isEmpty mustEqual true
@@ -91,9 +91,9 @@ class UserSpec extends TestDatabase {
   "UserService" should {
     "not allow retrieval of user by API key if not actual user" in {
       val firstUser =
-        this.userService.create(this.getDummyUser(6, "FailedUserTest"), User.superUser)
+        this.userService.create(this.getTestUser(6, "FailedUserTest"), User.superUser)
       val secondUser =
-        this.userService.create(this.getDummyUser(7, "FailedUserTest2"), User.superUser)
+        this.userService.create(this.getTestUser(7, "FailedUserTest2"), User.superUser)
       intercept[IllegalAccessException] {
         this.userService.retrieveByAPIKey(firstUser.id, firstUser.apiKey.get, secondUser)
       }
@@ -101,7 +101,7 @@ class UserSpec extends TestDatabase {
 
     "retrieve Users" in {
       val insertedUser =
-        this.userService.create(this.getDummyUser(8, "InsertUserServiceTest"), User.superUser)
+        this.userService.create(this.getTestUser(8, "InsertUserServiceTest"), User.superUser)
       // get the user by their API Key and id
       val retrievedUser1 =
         this.userService.retrieveByAPIKey(insertedUser.id, insertedUser.apiKey.get, User.superUser)
@@ -135,9 +135,9 @@ class UserSpec extends TestDatabase {
 
     "not allow retrieval of user by OSM username if not super user" in {
       val firstUser =
-        this.userService.create(this.getDummyUser(9, "FailedOSMRetrievalUser1"), User.superUser)
+        this.userService.create(this.getTestUser(9, "FailedOSMRetrievalUser1"), User.superUser)
       val secondUser =
-        this.userService.create(this.getDummyUser(10, "FailedOSMRetrievalUser2"), User.superUser)
+        this.userService.create(this.getTestUser(10, "FailedOSMRetrievalUser2"), User.superUser)
       intercept[IllegalAccessException] {
         this.userService.retrieveByOSMUsername(firstUser.osmProfile.displayName, secondUser)
       }
@@ -145,7 +145,7 @@ class UserSpec extends TestDatabase {
 
     "generate new API key" in {
       val insertedUser =
-        this.userService.create(this.getDummyUser(11, "APIGenerationTestUser"), User.superUser)
+        this.userService.create(this.getTestUser(11, "APIGenerationTestUser"), User.superUser)
       val newAPIUser = this.userService.generateAPIKey(insertedUser, User.superUser)
       newAPIUser.get.apiKey must not be insertedUser.apiKey
     }
@@ -153,9 +153,9 @@ class UserSpec extends TestDatabase {
 
   "retrieve list of users" in {
     val user1 =
-      this.userService.create(this.getDummyUser(12, "ListRetrievalTestUser1"), User.superUser)
+      this.userService.create(this.getTestUser(12, "ListRetrievalTestUser1"), User.superUser)
     val user2 =
-      this.userService.create(this.getDummyUser(13, "ListRetrievalTestUser2"), User.superUser)
+      this.userService.create(this.getTestUser(13, "ListRetrievalTestUser2"), User.superUser)
     val userList = this.userService.retrieveListById(List(user1.id, user2.id))
     userList.size mustEqual 2
     List(user1, user2).contains(userList.head) mustEqual true
@@ -164,25 +164,25 @@ class UserSpec extends TestDatabase {
 
   "delete user" in {
     val user =
-      this.userService.create(this.getDummyUser(14, "DeleteTest"), User.superUser)
+      this.userService.create(this.getTestUser(14, "DeleteTest"), User.superUser)
     this.userService.delete(user.id, User.superUser)
     this.repositoryGet(user.id).isEmpty mustEqual true
   }
 
   "delete user by OSM id" in {
     val user =
-      this.userService.create(this.getDummyUser(15, "DeleteByOSMidTest"), User.superUser)
+      this.userService.create(this.getTestUser(15, "DeleteByOSMidTest"), User.superUser)
     this.userService.deleteByOsmID(user.osmProfile.id, User.superUser)
     this.repositoryGet(user.id).isEmpty mustEqual true
   }
 
   "Search by OSM Username" in {
     val user1 =
-      this.userService.create(this.getDummyUser(16, "OSMUsernameSearch1"), User.superUser)
+      this.userService.create(this.getTestUser(16, "OSMUsernameSearch1"), User.superUser)
     val user2 =
-      this.userService.create(this.getDummyUser(17, "OSMUsernameSearch2"), User.superUser)
+      this.userService.create(this.getTestUser(17, "OSMUsernameSearch2"), User.superUser)
     val user3 =
-      this.userService.create(this.getDummyUser(18, "OSMUsernameNotRelated"), User.superUser)
+      this.userService.create(this.getTestUser(18, "OSMUsernameNotRelated"), User.superUser)
 
     val searchResultUser1 = UserSearchResult(
       user1.osmProfile.id,
@@ -241,5 +241,5 @@ class UserSpec extends TestDatabase {
   }
 
   private def insertBaseUser(osmId: Long, osmName: String): User =
-    this.userService.create(this.getDummyUser(osmId, osmName), User.superUser)
+    this.userService.create(this.getTestUser(osmId, osmName), User.superUser)
 }

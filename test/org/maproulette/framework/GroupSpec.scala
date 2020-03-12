@@ -218,7 +218,7 @@ class GroupSpec extends TestDatabase {
     super.beforeAll()
     defaultGroup = this.service.create(this.defaultProject.id, Group.TYPE_ADMIN, User.superUser)
     randomUser = this.serviceManager.user.create(
-      this.getDummyUser(12345, "RandomOSMUser"),
+      this.getTestUser(12345, "RandomOSMUser"),
       User.superUser
     )
   }

@@ -5,11 +5,12 @@
 
 package org.maproulette.utils
 
+import java.util.UUID
+
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter
-import org.maproulette.framework.repository.ProjectRepository
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
@@ -42,6 +43,7 @@ trait TestDatabase extends PlaySpec with BeforeAndAfterAll with MockitoSugar {
   val challengeDAL: ChallengeDAL     = this.application.injector.instanceOf(classOf[ChallengeDAL])
   val taskDAL: TaskDAL               = this.application.injector.instanceOf(classOf[TaskDAL])
 
+  val DEFAULT_PROJECT_NAME   = "TestProject"
   val DEFAULT_CHALLENGE_NAME = "TestChallenge"
   val DEFAULT_TASK_NAME      = "TestTask"
 
@@ -56,16 +58,16 @@ trait TestDatabase extends PlaySpec with BeforeAndAfterAll with MockitoSugar {
 
   private def insertTestData(): Unit = {
     defaultProject = this.serviceManager.project
-      .create(Project(-1, User.superUser.osmProfile.id, "TestProject"), User.superUser)
+      .create(Project(-1, User.superUser.osmProfile.id, DEFAULT_PROJECT_NAME), User.superUser)
     val challenge = challengeDAL.insert(
-      this.getDummyChallenge("TestChallenge"),
+      this.getTestChallenge(DEFAULT_CHALLENGE_NAME),
       User.superUser
     )
     defaultChallenge = this.serviceManager.challenge
       .query(Query.simple(List(BaseParameter(Challenge.FIELD_ID, challenge.id))))
       .head
     val task = taskDAL.insert(
-      this.getDummyTask(DEFAULT_TASK_NAME),
+      this.getTestTask(DEFAULT_TASK_NAME),
       User.superUser
     )
     // TODO there is currently a bug in the TaskDAL that after insert will insert the incorrect version of the Task into the cache. This will need to be fixed.
@@ -73,7 +75,7 @@ trait TestDatabase extends PlaySpec with BeforeAndAfterAll with MockitoSugar {
     defaultTask = this.taskDAL.retrieveById(task.id).head
   }
 
-  protected def getDummyChallenge(name: String, parentId:Long = defaultProject.id): Challenge = {
+  protected def getTestChallenge(name: String, parentId: Long = defaultProject.id): Challenge = {
     Challenge(
       -1,
       name,
@@ -90,7 +92,7 @@ trait TestDatabase extends PlaySpec with BeforeAndAfterAll with MockitoSugar {
     )
   }
 
-  protected def getDummyTask(name: String, parentId:Long = defaultChallenge.id): Task = {
+  protected def getTestTask(name: String, parentId: Long = defaultChallenge.id): Task = {
     Task(
       -1,
       name,
@@ -102,7 +104,39 @@ trait TestDatabase extends PlaySpec with BeforeAndAfterAll with MockitoSugar {
     )
   }
 
-  protected def getDummyUser(osmId: Long, osmName: String): User = {
+  protected def createProjectStructure(
+      projectName: String,
+      challengePrefix: String,
+      numberOfChallenges: Int = 10,
+      numberOfTasksPerChallenge: Int = 50
+  ): Long = {
+    val createdProject = this.serviceManager.project
+      .create(Project(-1, User.superUser.osmProfile.id, projectName), User.superUser)
+    1 to numberOfChallenges foreach { cid =>
+      this.createChallengeStructure(s"${challengePrefix}_$cid", createdProject.id)
+    }
+    createdProject.id
+  }
+
+  protected def createChallengeStructure(
+      challengeName: String,
+      projectId: Long,
+      numberOfTasks: Int = 50
+  ): Long = {
+    val createdChallenge = this.challengeDAL
+      .insert(this.getTestChallenge(challengeName, projectId), User.superUser)
+    this.createTasks(createdChallenge.id, numberOfTasks)
+    createdChallenge.id
+  }
+
+  protected def createTasks(challengeId: Long, numberOfTasks: Int = 50): Unit = {
+    1 to numberOfTasks foreach { _ =>
+      this.taskDAL
+        .insert(this.getTestTask(UUID.randomUUID().toString, challengeId), User.superUser)
+    }
+  }
+
+  protected def getTestUser(osmId: Long, osmName: String): User = {
     User(
       -1,
       null,
@@ -117,7 +151,7 @@ trait TestDatabase extends PlaySpec with BeforeAndAfterAll with MockitoSugar {
         RequestToken("token", "secret")
       ),
       List.empty,
-      Some("apiKeyTEst")
+      Some(UUID.randomUUID().toString)
     )
   }
 

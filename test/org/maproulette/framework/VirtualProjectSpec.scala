@@ -29,7 +29,7 @@ class VirtualProjectSpec extends TestDatabase {
     "add challenges to virtual project" in {
       val challenge =
         this.challengeDAL
-          .insert(this.getDummyChallenge("VP_Challenge"), User.superUser)
+          .insert(this.getTestChallenge("VP_Challenge"), User.superUser)
 
       this.repository.addChallenge(this.virtualProject.id, challenge.id)
       val challenges = this.service.listVirtualChildren(this.virtualProject.id, User.superUser)
@@ -48,7 +48,7 @@ class VirtualProjectSpec extends TestDatabase {
   "VirtualService" should {
     "add challenges to virtual project" in {
       val challenge =
-        this.challengeDAL.insert(this.getDummyChallenge("VP_Challenge"), User.superUser)
+        this.challengeDAL.insert(this.getTestChallenge("VP_Challenge"), User.superUser)
 
       this.service.addChallenge(this.virtualProject.id, challenge.id, User.superUser)
       val challenges = this.service.listVirtualChildren(this.virtualProject.id, User.superUser)
@@ -68,7 +68,7 @@ class VirtualProjectSpec extends TestDatabase {
         .create(Project(-1, User.superUser.id, "VirtualProject2Test"), User.superUser)
       val challenge =
         this.challengeDAL
-          .insert(this.getDummyChallenge("VP_Challenge"), User.superUser)
+          .insert(this.getTestChallenge("VP_Challenge"), User.superUser)
       intercept[InvalidException] {
         this.service.addChallenge(project.id, challenge.id, User.superUser)
       }

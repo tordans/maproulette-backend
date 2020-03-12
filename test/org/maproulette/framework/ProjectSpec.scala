@@ -13,6 +13,7 @@ import org.maproulette.framework.repository.ProjectRepository
 import org.maproulette.framework.service.ProjectService
 import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters}
 import org.maproulette.utils.TestDatabase
+import play.api.libs.json.Json
 
 /**
   * @author mcuthbert
@@ -49,7 +50,7 @@ class ProjectSpec extends TestDatabase {
 
       // create a new user for the ownership of the project
       val randomUser = this.serviceManager.user
-        .create(this.getDummyUser(456677, "DummyProjectUser"), User.superUser)
+        .create(this.getTestUser(456677, "DummyProjectUser"), User.superUser)
       val randomDateTime = DateTime.now.minus(Months.ONE)
       // update everything, including things actually not expected to be updated like created, modified, groups and deleted
       val updatedProject = Project(
@@ -130,7 +131,8 @@ class ProjectSpec extends TestDatabase {
     }
 
     "create a new project" in {
-      val createdProject = this.service.create(Project(-1, User.superUser.osmProfile.id, "ServiceCreateProject"), User.superUser)
+      val createdProject = this.service
+        .create(Project(-1, User.superUser.osmProfile.id, "ServiceCreateProject"), User.superUser)
       val retrievedProject = this.service.retrieve(createdProject.id)
       retrievedProject.get mustEqual createdProject
       // make sure that the groups were created as well for the project
@@ -138,8 +140,117 @@ class ProjectSpec extends TestDatabase {
       createdGroups.size mustEqual 3
     }
 
-    "get the projects managed by a specific user" in {
-
+    "get featured projects" in {
+      val featuredProject = this.service.create(
+        Project(-1, User.superUser.osmProfile.id, "FeaturedProject", featured = true),
+        User.superUser
+      )
+      val projects1 = this.service.getFeaturedProjects(false)
+      projects1.head mustEqual featuredProject
+      val projects2 = this.service.getFeaturedProjects()
+      projects2.size mustEqual 0
+      this.service.update(featuredProject.id, Json.obj("enabled" -> true), User.superUser)
+      val projects3 = this.service.getFeaturedProjects()
+      projects3.head.id mustEqual featuredProject.id
+      projects3.head.featured mustEqual true
+      projects3.head.enabled mustEqual true
     }
+
+    "only update featured if super user" in {
+      val randomUser = this.serviceManager.user
+        .create(this.getTestUser(575438, "RandomFeatureUser"), User.superUser)
+      val project = this.service.create(
+        Project(-1, randomUser.osmProfile.id, "ServiceFeaturedUpdateProject"),
+        User.superUser
+      )
+      project.featured mustEqual false
+      val updatedProject =
+        this.service.update(project.id, Json.obj("featured" -> true), User.superUser)
+      updatedProject.featured mustEqual true
+      val notUpdatedProject =
+        this.service.update(project.id, Json.obj("featured" -> false), randomUser)
+      notUpdatedProject.featured mustEqual true
+    }
+
+    "update a project" in {
+      val randomUser =
+        this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
+      val updateProject = this.service
+        .create(Project(-1, User.superUser.osmProfile.id, "UpdateProject"), User.superUser)
+      val updates = Json.obj(
+        "name"        -> "UPDATE_NAME",
+        "displayName" -> "UPDATE_DISPLAY_NAME",
+        "ownerId"     -> randomUser.osmProfile.id,
+        "description" -> "UPDATE_DESCRIPTION",
+        "enabled"     -> true,
+        "featured"    -> true
+      )
+      this.service.update(updateProject.id, updates, User.superUser)
+      val updated = this.service.retrieve(updateProject.id)
+      updated.get.name mustEqual "UPDATE_NAME"
+      updated.get.displayName.get mustEqual "UPDATE_DISPLAY_NAME"
+      updated.get.owner mustEqual randomUser.osmProfile.id
+      updated.get.description.get mustEqual "UPDATE_DESCRIPTION"
+      updated.get.enabled mustEqual true
+      updated.get.featured mustEqual true
+    }
+
+    "update cannot change enabled or feature unless SuperUser" in {
+      val randomUser =
+        this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
+      val updateProject = this.service
+        .create(Project(-1, randomUser.osmProfile.id, "EnabledFeaturedProject"), User.superUser)
+      val update1 =
+        this.service.update(updateProject.id, Json.obj("featured" -> true), User.superUser)
+      update1.featured mustEqual true
+      val update2 = this.service.update(updateProject.id, Json.obj("featured" -> false), randomUser)
+      update2.featured mustEqual true
+      val update3 =
+        this.service.update(updateProject.id, Json.obj("enabled" -> true), User.superUser)
+      update3.enabled mustEqual true
+      val update4 = this.service.update(updateProject.id, Json.obj("enabled" -> false), randomUser)
+      update4.enabled mustEqual true
+    }
+
+    "delete a project" in {
+      val createdProject = this.service
+        .create(Project(-1, User.superUser.osmProfile.id, "DeleteTestProject"), User.superUser)
+      val retrievedProject = this.service.retrieve(createdProject.id)
+      retrievedProject.get mustEqual createdProject
+
+      this.service.delete(createdProject.id, User.superUser)
+      val retrievedProject2 = this.service.retrieve(createdProject.id)
+      retrievedProject2.get.id mustEqual createdProject.id
+      retrievedProject2.get.deleted mustEqual true
+
+      this.service.delete(createdProject.id, User.superUser, true)
+      val retrievedProject3 = this.service.retrieve(createdProject.id)
+      retrievedProject3.isEmpty mustEqual true
+    }
+  }
+
+  "retrieve a project by it's name" in {
+    val createdProject = this.service
+      .create(Project(-1, User.superUser.osmProfile.id, "RetrieveByNameTest"), User.superUser)
+    val retrievedProject = this.service.retrieveByName("RetrieveByNameTest")
+    retrievedProject.get mustEqual createdProject
+    val retrievedProject2 = this.service.retrieveByName("RetrieveByNameTes")
+    retrievedProject2.isEmpty mustEqual true
+  }
+
+  "list projects by id's" in {
+    val createdProject = this.service
+      .create(Project(-1, User.superUser.osmProfile.id, "ListingProject"), User.superUser)
+    val projects = this.service.list(List(createdProject.id, this.defaultProject.id))
+    projects.size mustEqual 2
+    projects.foreach(project => {
+      if (project.id == createdProject.id) {
+        project mustEqual createdProject
+      } else if (project.id == this.defaultProject.id) {
+        project mustEqual this.defaultProject
+      } else {
+        throw new RuntimeException("Invalid project returned")
+      }
+    })
   }
 }

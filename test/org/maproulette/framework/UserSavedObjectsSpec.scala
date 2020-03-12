@@ -18,7 +18,7 @@ class UserSavedObjectsSpec extends TestDatabase {
     this.application.injector.instanceOf(classOf[UserSavedObjectsRepository])
   val userService: UserService = this.serviceManager.user
   val insertedUser =
-    this.userService.create(this.getDummyUser(1, "SaveChallengeOSMUser"), User.superUser)
+    this.userService.create(this.getTestUser(1, "SaveChallengeOSMUser"), User.superUser)
 
   "UserSavedObjectsRepository" should {
     "save challenge(s) to user profile" in {
@@ -47,9 +47,9 @@ class UserSavedObjectsSpec extends TestDatabase {
       this.repository.saveTask(this.insertedUser.id, this.defaultTask.id, this.defaultTask.parent)
       // create a new challenge and task
       val challenge =
-        this.challengeDAL.insert(this.getDummyChallenge("DUMMY_CHALLENGE_2"), User.superUser)
+        this.challengeDAL.insert(this.getTestChallenge("DUMMY_CHALLENGE_2"), User.superUser)
       val task = this.taskDAL
-        .insert(this.getDummyTask("DUMMY_TASK_2").copy(parent = challenge.id), User.superUser)
+        .insert(this.getTestTask("DUMMY_TASK_2").copy(parent = challenge.id), User.superUser)
       this.repository.saveTask(this.insertedUser.id, task.id, task.parent)
 
       val allTasks = this.repository.getSavedTasks(this.insertedUser.id)
@@ -96,9 +96,9 @@ class UserSavedObjectsSpec extends TestDatabase {
     "save task(s) to user profile for specific challenges" in {
       // create a new challenge and task
       val challenge =
-        this.challengeDAL.insert(this.getDummyChallenge("DUMMY_CHALLENGE_3"), User.superUser)
+        this.challengeDAL.insert(this.getTestChallenge("DUMMY_CHALLENGE_3"), User.superUser)
       val task = this.taskDAL
-        .insert(this.getDummyTask("DUMMY_TASK_3").copy(parent = challenge.id), User.superUser)
+        .insert(this.getTestTask("DUMMY_TASK_3").copy(parent = challenge.id), User.superUser)
       this.userService.saveTask(this.insertedUser.id, this.defaultTask.id, User.superUser)
       this.userService.saveTask(this.insertedUser.id, task.id, User.superUser)
 
