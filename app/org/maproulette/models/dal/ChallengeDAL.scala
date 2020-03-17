@@ -106,13 +106,14 @@ class ChallengeDAL @Inject() (
       get[Option[DateTime]]("challenges.data_origin_date") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
+      get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ location ~ bounding ~ deleted =>
+            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -146,7 +147,8 @@ class ChallengeDAL @Inject() (
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
-            None
+            None,
+            requiresLocal
           ),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
@@ -219,6 +221,7 @@ class ChallengeDAL @Inject() (
       get[Option[DateTime]]("challenges.data_origin_date") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
+      get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") ~
       get[Option[Array[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
@@ -227,7 +230,7 @@ class ChallengeDAL @Inject() (
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
             exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~
-            location ~ bounding ~ deleted ~ virtualParents =>
+            location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -261,7 +264,8 @@ class ChallengeDAL @Inject() (
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
-            virtualParents
+            virtualParents,
+            requiresLocal
           ),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
@@ -445,7 +449,7 @@ class ChallengeDAL @Inject() (
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
-                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, task_styles)
+                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, task_styles, requires_local)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
@@ -456,7 +460,7 @@ class ChallengeDAL @Inject() (
                       ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty},
                       ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
-                      ${challenge.extra.preferredTags}, ${challenge.extra.taskStyles})
+                      ${challenge.extra.preferredTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}"""
           .as(this.parser.*)
           .headOption
@@ -588,6 +592,9 @@ class ChallengeDAL @Inject() (
             case Some(ts) => ts.toString()
             case _        => cachedItem.extra.taskStyles.getOrElse(null)
           }
+          val requiresLocal = (updates \ "requiresLocal")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.general.requiresLocal)
 
           SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
@@ -611,7 +618,8 @@ class ChallengeDAL @Inject() (
           }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                osm_id_property = $osmIdProperty, challenge_type = $challengeType, preferred_tags = $preferredTags, task_styles = ${taskStyles}
+                osm_id_property = $osmIdProperty, challenge_type = $challengeType, preferred_tags = $preferredTags, task_styles = $taskStyles,
+                requires_local = $requiresLocal
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
         }
     }
@@ -911,6 +919,7 @@ class ChallengeDAL @Inject() (
                            c.status <> ${Challenge.STATUS_DELETING_TASKS} AND
                            c.status <> ${Challenge.STATUS_FAILED} AND
                            c.status <> ${Challenge.STATUS_FINISHED})
+                      AND c.requires_local = false
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -939,6 +948,7 @@ class ChallengeDAL @Inject() (
                            c.status <> ${Challenge.STATUS_DELETING_TASKS} AND
                            c.status <> ${Challenge.STATUS_FAILED} AND
                            c.status <> ${Challenge.STATUS_FINISHED})
+                      AND c.requires_local = false
                       AND 0 < (SELECT COUNT(*) FROM tasks WHERE parent_id = c.id)
                       ORDER BY popularity DESC LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -967,6 +977,7 @@ class ChallengeDAL @Inject() (
                            c.status <> ${Challenge.STATUS_DELETING_TASKS} AND
                            c.status <> ${Challenge.STATUS_FAILED} AND
                            c.status <> ${Challenge.STATUS_FINISHED})
+                      AND c.requires_local = false
                       ${this.order(Some("created"), "DESC", "c", true)}
                       LIMIT ${this.sqlLimit(limit)} OFFSET $offset"""
       SQL(query).as(this.parser.*)
@@ -1572,6 +1583,14 @@ class ChallengeDAL @Inject() (
           this.appendInWhereClause(whereClause, statusClause.toString())
         case Some(sl) if sl.isEmpty => //ignore this scenario
         case _                      =>
+      }
+
+      searchParameters.challengeParams.requiresLocal match {
+        case SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE =>
+          this.appendInWhereClause(whereClause, s"c.requires_local = false")
+        case SearchParameters.CHALLENGE_REQUIRES_LOCAL_ONLY =>
+          this.appendInWhereClause(whereClause, s"c.requires_local = true")
+        case _ =>
       }
 
       sort match {
