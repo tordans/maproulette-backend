@@ -41,6 +41,7 @@ trait SearchParametersMixin extends DALHelper {
     this.paramsPriority(params, whereClause)
     this.paramsChallengeDifficulty(params, whereClause)
     this.paramsChallengeStatus(params, whereClause, joinClause)
+    this.paramsChallengeRequiresLocal(params, whereClause, joinClause)
     this.paramsBoundingGeometries(params, whereClause)
 
     // For efficiency can only query on task properties with a parent challenge id
@@ -167,6 +168,27 @@ trait SearchParametersMixin extends DALHelper {
         this.appendInWhereClause(whereClause, statusClause.toString())
       case Some(sl) if sl.isEmpty => //ignore this scenario
       case _                      =>
+    }
+  }
+
+  def paramsChallengeRequiresLocal(
+      params: SearchParameters,
+      whereClause: StringBuilder,
+      joinClause: StringBuilder
+  ): Unit = {
+    params.challengeParams.challengeIds match {
+      case Some(ids) if ids.nonEmpty =>
+      // do nothing, we don't want to restrict to requiresLocal if we have
+      // specific challenge ids
+      case _ =>
+        params.challengeParams.requiresLocal match {
+          case SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE =>
+            this.appendInWhereClause(whereClause, s"c.requires_local = false")
+          case SearchParameters.CHALLENGE_REQUIRES_LOCAL_ONLY =>
+            this.appendInWhereClause(whereClause, s"c.requires_local = true")
+          case _ =>
+          // allow everything
+        }
     }
   }
 
