@@ -368,7 +368,6 @@ class TaskDAL @Inject() (
                     {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
                     {reset}, {mappedOn}, {reviewStatus}, CAST({reviewRequestedBy} AS INTEGER),
                     CAST({reviewedBy} AS INTEGER), {reviewedAt})"""
-
       val updatedTaskId = SQL(query)
         .on(
           NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
@@ -647,8 +646,8 @@ class TaskDAL @Inject() (
         if (!skipStatusUpdate) {
           startedLock match {
             case Some(l) =>
-              completedTimeSpent = Some(new DateTime().getMillis() - l.getMillis())
-              SQL"""UPDATE tasks SET completed_time_spent = ${completedTimeSpent.get}
+              SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
+                .getMillis()}))
                     WHERE id = ${task.id}""".executeUpdate()
             case _ => // do nothing
           }

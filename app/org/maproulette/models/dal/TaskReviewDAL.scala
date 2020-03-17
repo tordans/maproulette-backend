@@ -1124,10 +1124,10 @@ class TaskReviewDAL @Inject() (
       }
 
       if (!needsReReview) {
-        var reviewTime: Long = 0
+        var reviewStartTime: Option[Long] = None
         task.review.reviewClaimedAt match {
           case Some(t) =>
-            reviewTime = new DateTime().getMillis() - t.getMillis()
+            reviewStartTime = Some(t.getMillis())
           case None => // do nothing
         }
 
@@ -1146,7 +1146,7 @@ class TaskReviewDAL @Inject() (
           Option(reviewStatus),
           false,
           true,
-          Some(reviewTime),
+          reviewStartTime,
           user.id
         )
       } else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
