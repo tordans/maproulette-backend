@@ -1102,7 +1102,7 @@ class UserDAL @Inject() (
       taskReviewStatus: Option[Int],
       isReviewRevision: Boolean = false,
       asReviewer: Boolean = false,
-      reviewTime: Option[Long] = None,
+      reviewStartTime: Option[Long] = None,
       userId: Long
   )(implicit c: Connection = null) = {
     // We need to invalidate the user in the cache.
@@ -1177,10 +1177,10 @@ class UserDAL @Inject() (
         }
 
         if (asReviewer) {
-          reviewTime match {
+          reviewStartTime match {
             case Some(rTime) =>
               statusBump += ", tasks_with_review_time=(tasks_with_review_time + 1)"
-              statusBump += s", total_review_time=(total_review_time + ${rTime})"
+              statusBump += s", total_review_time=(total_review_time + (SELECT EXTRACT(EPOCH FROM NOW())) * 1000 - ${rTime})"
             case None => // not a review
           }
         } else {
