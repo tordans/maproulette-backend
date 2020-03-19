@@ -588,7 +588,7 @@ class ChallengeDAL @Inject() (
           }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                osm_id_property = $osmIdProperty, challenge_type = $challengeType, preferred_tags = $preferredTags, task_styles = $taskStyles,
+                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, task_styles = $taskStyles,
                 requires_local = $requiresLocal
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
         }

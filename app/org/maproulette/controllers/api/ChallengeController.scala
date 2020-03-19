@@ -742,6 +742,12 @@ class ChallengeController @Inject() (
         // Setup all exportable properties
         var propsToExportHeaders = Set[String]()
 
+        // For setting up challenge and task links
+        val urlPrefix = config.getPublicOrigin match {
+          case Some(origin) => s"${origin}/"
+          case None         => s"http://${request.host}/"
+        }
+
         challengeIds.foreach(cId => {
           val challenge = this.dal.retrieveById(cId) match {
             case Some(c) => c
@@ -842,9 +848,12 @@ class ChallengeController @Inject() (
               }
           }
 
-          var comments = allComments(task.taskId).replaceAll("\"", "\"\"")
+          var comments      = allComments(task.taskId).replaceAll("\"", "\"\"")
+          var challengeLink = s"[[hyperlink URL link=${urlPrefix}browse/challenges/${task.parent}]]"
+          var taskLink =
+            s"[[hyperlink URL link=${urlPrefix}challenge/${task.parent}/task/${task.taskId}]]"
 
-          s"""${task.taskId},${task.parent},"${task.name}","${Task.statusMap
+          s"""${task.taskId},${taskLink},${task.parent},${challengeLink},"${task.name}","${Task.statusMap
             .get(task.status)
             .get}",""" +
             s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn
@@ -867,7 +876,7 @@ class ChallengeController @Inject() (
             ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")),
           body = HttpEntity.Strict(
             ByteString(
-              s"""TaskID,ChallengeID,TaskName,TaskStatus,TaskPriority,MappedOn,CompletionTime,Mapper,ReviewStatus,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
+              s"""TaskID,TaskLink,ChallengeID,ChallengeLink,TaskName,TaskStatus,TaskPriority,MappedOn,CompletionTime,Mapper,ReviewStatus,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )
@@ -1048,6 +1057,7 @@ class ChallengeController @Inject() (
     jsonBody = Utils.insertIntoJson(jsonBody, "hasSuggestedFixes", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "requiresLocal", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", Challenge.PRIORITY_HIGH)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "defaultZoom", Challenge.DEFAULT_ZOOM)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "minZoom", Challenge.MIN_ZOOM)(IntWrites)

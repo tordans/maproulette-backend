@@ -166,7 +166,7 @@ class UserMetricService @Inject() (
       taskReviewStatus: Option[Int],
       isReviewRevision: Boolean = false,
       asReviewer: Boolean = false,
-      reviewTime: Option[Long] = None,
+      reviewStartTime: Option[Long] = None,
       userId: Long
   ): Option[User] = {
     // We need to invalidate the user in the cache.
@@ -227,11 +227,15 @@ class UserMetricService @Inject() (
         }
 
         if (asReviewer) {
-          reviewTime match {
+          reviewStartTime match {
             case Some(rTime) =>
               insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_TASKS_WITH_REVIEW_TIME))
               insertBuffer.addOne(
-                this.customFilter(UserMetrics.FIELD_TOTAL_REVIEW_TIME, value = rTime)
+                BaseParameter(
+                  UserMetrics.FIELD_TOTAL_REVIEW_TIME,
+                  s"=(${UserMetrics.FIELD_TOTAL_REVIEW_TIME} + (SELECT EXTRACT(EPOCH FROM NOW())) * 1000 - $rTime)",
+                  Operator.CUSTOM
+                )
               )
             case None => // not a review
           }

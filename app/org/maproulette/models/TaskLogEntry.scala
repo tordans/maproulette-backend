@@ -35,4 +35,5 @@ object TaskLogEntry {
   val ACTION_COMMENT       = 0
   val ACTION_STATUS_CHANGE = 1
   val ACTION_REVIEW        = 2
+  val ACTION_UPDATE        = 3
 }
