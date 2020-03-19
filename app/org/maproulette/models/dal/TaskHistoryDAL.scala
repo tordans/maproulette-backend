@@ -83,7 +83,7 @@ class TaskHistoryDAL @Inject() (
   private val statusActionEntryParser: RowParser[TaskLogEntry] = {
     get[Long]("status_actions.task_id") ~
       get[DateTime]("status_actions.created") ~
-      get[Int]("users.id") ~
+      get[Option[Int]]("users.id") ~
       get[Int]("status_actions.old_status") ~
       get[Int]("status_actions.status") ~
       get[Option[DateTime]]("status_actions.started_at") map {
@@ -93,10 +93,31 @@ class TaskHistoryDAL @Inject() (
           taskId,
           created,
           TaskLogEntry.ACTION_STATUS_CHANGE,
-          Some(userId),
+          userId,
           Some(oldStatus),
           Some(status),
           startedAt,
+          None,
+          None,
+          None,
+          None
+        )
+    }
+  }
+
+  private val actionEntryParser: RowParser[TaskLogEntry] = {
+    get[Long]("actions.item_id") ~
+      get[DateTime]("actions.created") ~
+      get[Option[Int]]("users.id") map {
+      case taskId ~ created ~ userId =>
+        new TaskLogEntry(
+          taskId,
+          created,
+          TaskLogEntry.ACTION_UPDATE,
+          userId,
+          None,
+          None,
+          None,
           None,
           None,
           None,
@@ -130,10 +151,17 @@ class TaskHistoryDAL @Inject() (
       val statusActions =
         SQL"""SELECT sa.task_id, sa.created, users.id, sa.old_status, sa.status, sa.started_at
               FROM status_actions sa
-              INNER JOIN users on users.osm_id=sa.osm_user_id
+              LEFT OUTER JOIN users on users.osm_id=sa.osm_user_id
               WHERE task_id = $taskId""".as(this.statusActionEntryParser.*)
 
-      ((comments ++ reviews ++ statusActions).sortWith(sortByDate)).reverse
+      val actions =
+        SQL"""SELECT actions.item_id, actions.created, users.id
+              FROM actions
+              LEFT OUTER JOIN users on users.osm_id=actions.osm_user_id
+              WHERE actions.item_id = $taskId AND actions.action = ${Actions.ACTION_TYPE_UPDATED}
+           """.as(this.actionEntryParser.*)
+
+      ((comments ++ reviews ++ statusActions ++ actions).sortWith(sortByDate)).reverse
     }
   }
 }
