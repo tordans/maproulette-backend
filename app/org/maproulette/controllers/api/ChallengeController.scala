@@ -1055,6 +1055,7 @@ class ChallengeController @Inject() (
     jsonBody = Utils.insertIntoJson(jsonBody, "hasSuggestedFixes", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
+    jsonBody = Utils.insertIntoJson(jsonBody, "requiresLocal", false)(BooleanWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "defaultPriority", Challenge.PRIORITY_HIGH)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "defaultZoom", Challenge.DEFAULT_ZOOM)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "minZoom", Challenge.MIN_ZOOM)(IntWrites)
