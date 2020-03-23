@@ -36,6 +36,10 @@ class FilterParameterSpec extends PlaySpec {
       BaseParameter(KEY, VALUE, negate = true).sql() mustEqual s"NOT $KEY = {$KEY}"
     }
 
+    "set negation correctly on Custom operator" in {
+      BaseParameter(KEY, VALUE, Operator.CUSTOM, true).sql() mustEqual s"NOT $KEY$VALUE"
+    }
+
     "set value directly correctly" in {
       BaseParameter(KEY, s"'$VALUE'", useValueDirectly = true)
         .sql() mustEqual s"$KEY = '$VALUE'"
@@ -45,6 +49,16 @@ class FilterParameterSpec extends PlaySpec {
       intercept[SQLException] {
         BaseParameter(s"&$KEY", VALUE).sql()
       }
+    }
+
+    "set list correctly using IN operator" in {
+      BaseParameter(KEY, List(1, 2, 3), Operator.IN).sql() mustEqual s"$KEY IN ({$KEY})"
+    }
+
+    "do not set empty list" in {
+      val parameter = BaseParameter(KEY, List.empty, Operator.IN)
+      parameter.sql() mustEqual ""
+      parameter.parameters().size mustEqual 0
     }
   }
 

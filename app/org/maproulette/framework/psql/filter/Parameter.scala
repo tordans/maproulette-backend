@@ -25,9 +25,12 @@ trait Parameter[T] extends SQLClause {
   val useValueDirectly: Boolean = false
 
   def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
-    if (operator == Operator.CUSTOM) {
+    if (value.isInstanceOf[Iterable[_]] && value.asInstanceOf[Iterable[_]].isEmpty) {
+      ""
+    } else if (operator == Operator.CUSTOM) {
       SQLUtils.testColumnName(key)
-      s"$negate$key$value"
+      val negation = if (negate) { "NOT " } else { "" }
+      s"$negation$key$value"
     } else {
       val directValue = if (useValueDirectly) {
         // if we are using the value directly, then we must at least try to convert to a string
@@ -42,7 +45,9 @@ trait Parameter[T] extends SQLClause {
   override def parameters()(
       implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
   ): List[NamedParameter] = {
-    if (operator == Operator.CUSTOM || operator == Operator.NULL || useValueDirectly) {
+    if ((value.isInstanceOf[Iterable[_]] && value
+          .asInstanceOf[Iterable[_]]
+          .isEmpty) || operator == Operator.CUSTOM || operator == Operator.NULL || useValueDirectly) {
       List.empty
     } else {
       List(SQLUtils.buildNamedParameter(s"$parameterKey$key", value))
@@ -152,6 +157,10 @@ case class SubQueryFilter(
     Operator.format(key, operator, negate, filterValue)
   }
 
+  override def parameters()(
+      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
+  ): List[NamedParameter] = value.parameters()(this.getParameterKey)
+
   // This may work for a single subquery, but there may be issues if you have more than one subquery
   // as it will always choose "SECONDARY" as it parameterKey which might not make the keys unique
   // for the parameter
@@ -163,10 +172,6 @@ case class SubQueryFilter(
     }
 
   }
-
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = value.parameters()(this.getParameterKey)
 }
 
 /**

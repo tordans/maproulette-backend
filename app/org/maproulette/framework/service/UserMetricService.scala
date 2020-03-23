@@ -73,12 +73,22 @@ class UserMetricService @Inject() (
     }
 
     // Fetch task metrics
-    val timeClause = this.getMetricsTimeClause(taskMonthDuration, startDate, endDate)
+    val timeClause = this.getMetricsTimeClause(
+      taskMonthDuration,
+      startDate,
+      endDate,
+      s"sa1.${StatusActions.FIELD_CREATED}"
+    )
     val taskCounts = this.repository.getUserTaskCounts(userId, timeClause)
 
     // Now fetch Review Metrics
     val reviewTimeClause =
-      this.getMetricsTimeClause(reviewMonthDuration, reviewStartDate, reviewEndDate)
+      this.getMetricsTimeClause(
+        reviewMonthDuration,
+        reviewStartDate,
+        reviewEndDate,
+        TaskReview.FIELD_REVIEWED_AT
+      )
     val reviewCounts = this.taskReviewRepository.getTaskReviewCounts(
       Query(
         Filter(
@@ -95,7 +105,12 @@ class UserMetricService @Inject() (
 
     if (isReviewer) {
       val reviewerTimeClause =
-        this.getMetricsTimeClause(reviewerMonthDuration, reviewerStartDate, reviewerEndDate)
+        this.getMetricsTimeClause(
+          reviewerMonthDuration,
+          reviewerStartDate,
+          reviewerEndDate,
+          TaskReview.FIELD_REVIEWED_AT
+        )
 
       val asReviewerCounts = this.taskReviewRepository.getTaskReviewCounts(
         Query.simple(
@@ -115,7 +130,8 @@ class UserMetricService @Inject() (
   private def getMetricsTimeClause(
       duration: Int,
       startDate: String,
-      endDate: String
+      endDate: String,
+      field: String
   ): DateParameter = {
     val dates =
       try {
@@ -128,21 +144,21 @@ class UserMetricService @Inject() (
     duration match {
       case _ if dates._1.isDefined =>
         DateParameter(
-          s"sa1.${StatusActions.FIELD_CREATED}",
+          s"$field",
           dates._1.get,
           dates._2.get,
           Operator.BETWEEN
         )
       case 0 =>
         DateParameter(
-          s"sa1.${StatusActions.FIELD_CREATED}",
+          s"$field",
           DateTime.now.withDayOfMonth(1),
           DateTime.now,
           Operator.BETWEEN
         )
       case _ =>
         DateParameter(
-          s"sa1.${StatusActions.FIELD_CREATED}",
+          s"$field",
           DateTime.now.minus(Months.ONE),
           DateTime.now,
           Operator.BETWEEN

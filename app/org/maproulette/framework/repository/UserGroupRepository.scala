@@ -46,7 +46,10 @@ class UserGroupRepository @Inject() (override val db: Database) extends Reposito
     */
   def addUserToGroup(osmId: Long, groupId: Long)(implicit c: Option[Connection] = None): Boolean = {
     this.withMRTransaction { implicit c =>
-      SQL("INSERT INTO user_groups (osm_user_id, group_id) VALUES ({osmId}, {groupId})")
+      SQL(
+        """INSERT INTO user_groups (osm_user_id, group_id)
+          |VALUES ({osmId}, {groupId})
+          |ON CONFLICT DO NOTHING""".stripMargin)
         .on(Symbol("osmId") -> osmId, Symbol("groupId") -> groupId)
         .execute()
     }
@@ -59,6 +62,7 @@ class UserGroupRepository @Inject() (override val db: Database) extends Reposito
       SQL("""INSERT INTO user_groups (osm_user_id, group_id)
             SELECT {id}, id FROM groups
             WHERE group_type = {type} AND project_id = {pid}
+            ON CONFLICT DO NOTHING
          """)
         .on(Symbol("id") -> osmID, Symbol("type") -> groupType, Symbol("pid") -> projectId)
         .execute()

@@ -8,7 +8,7 @@ package org.maproulette.framework
 import java.util.UUID
 
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.filter.BaseParameter
+import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.psql.{Paging, Query}
 import org.maproulette.framework.repository.UserRepository
 import org.maproulette.framework.service.UserService
@@ -85,6 +85,26 @@ class UserSpec extends TestDatabase {
       this.userRepository.deleteByOSMID(5)
       val retrievedUser = this.repositoryGet(insertedUser.id)
       retrievedUser.isEmpty mustEqual true
+    }
+
+    "update user score" in {
+      val insertedUser = this.userRepository
+        .upsert(this.getTestUser(61, "UpdateUserOSM"), "TestAPIKey", "POINT (20 40)")
+      val updatedUser = this.userRepository.updateUserScore(
+        insertedUser.id,
+        List(
+          BaseParameter(
+            UserMetrics.FIELD_SCORE,
+            s"=(${UserMetrics.FIELD_SCORE}+1000)",
+            Operator.CUSTOM
+          ),
+          BaseParameter(
+            UserMetrics.FIELD_TOTAL_REJECTED,
+            s"=(${UserMetrics.FIELD_TOTAL_REJECTED}+1)",
+            Operator.CUSTOM
+          )
+        )
+      )
     }
   }
 

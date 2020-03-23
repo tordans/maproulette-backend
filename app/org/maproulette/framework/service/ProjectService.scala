@@ -153,7 +153,7 @@ class ProjectService @Inject() (
           )
         val baseFilterGroup = FilterGroup(
           AND(),
-          BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString)),
+          BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString), Operator.LIKE),
           FilterParameter.conditional(
             Project.FIELD_ENABLED,
             onlyEnabled,

@@ -8,7 +8,7 @@ package org.maproulette.framework.psql
 import java.sql.{PreparedStatement, SQLException}
 
 import anorm.JodaParameterMetaData.JodaDateTimeMetaData
-import anorm.{NamedParameter, ParameterValue, ToParameterValue, ToStatement}
+import anorm.{NamedParameter, ParameterValue, ToParameterValue, ToSql, ToStatement}
 import org.joda.time.DateTime
 
 /**
@@ -53,10 +53,9 @@ object SQLUtils {
     ToParameterValue.apply[T](p = toStatement).apply(value)
 
   /**
-    * Our key for our objects are current Long, but can support String if need be. This function
-    * handles transforming java objects to SQL for a specific set related to the object key
+    * Handles setting the value in a SQL prepared statement
     *
-    * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
+    * @tparam Key The type of object that is being set
     * @return
     */
   def toStatement[Key]: ToStatement[Key] = {
@@ -70,14 +69,14 @@ object SQLUtils {
           case value: Integer      => ToStatement.integerToStatement.set(s, i, value)
           case value: Boolean      => ToStatement.booleanToStatement.set(s, i, value)
           case value: DateTime     => ToStatement.jodaDateTimeToStatement.set(s, i, value)
-          case value: List[_] =>
+          case value: Set[_] =>
             value.head match {
               case _: Int =>
-                ToStatement.listToStatement[Int].set(s, i, value.asInstanceOf[List[Int]])
+                ToStatement.setToStatement[Int].set(s, i, value.asInstanceOf[Set[Int]])
               case _: Long =>
-                ToStatement.listToStatement[Long].set(s, i, value.asInstanceOf[List[Long]])
+                ToStatement.setToStatement[Long].set(s, i, value.asInstanceOf[Set[Long]])
               case _: String =>
-                ToStatement.listToStatement[String].set(s, i, value.asInstanceOf[List[String]])
+                ToStatement.setToStatement[String].set(s, i, value.asInstanceOf[Set[String]])
               case _ =>
                 throw new UnsupportedOperationException(
                   "Unsupported list type provided. Only support Int, Long and String."
@@ -87,6 +86,24 @@ object SQLUtils {
     }
   }
 
-  def buildNamedParameter[T](key: String, value: T): NamedParameter =
-    Symbol(key) -> ToParameterValue.apply[T](p = SQLUtils.toStatement).apply(value)
+  def buildNamedParameter[T](key: String, value: T): NamedParameter = {
+    val sequenceValue = value match {
+      case value: List[_] => value.toSet
+      case value: Seq[_]  => value.toSet
+      case value          => value
+    }
+
+    val toSql = sequenceValue match {
+      case value: Set[_] =>
+        value.head match {
+          case _: Int    => ToSql.setToSql[Int]
+          case _: Long   => ToSql.setToSql[Long]
+          case _: String => ToSql.setToSql[String]
+        }
+      case _ => ToSql.missing
+    }
+    NamedParameter.namedWithString(key, sequenceValue)(
+      ToParameterValue(toSql.asInstanceOf[ToSql[Any]], toStatement[Any])
+    )
+  }
 }

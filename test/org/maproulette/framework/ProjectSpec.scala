@@ -8,7 +8,7 @@ package org.maproulette.framework
 import org.joda.time.{DateTime, Months}
 import org.maproulette.framework.model.{Group, Project, User}
 import org.maproulette.framework.psql.Query
-import org.maproulette.framework.psql.filter.BaseParameter
+import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.repository.ProjectRepository
 import org.maproulette.framework.service.ProjectService
 import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters}
@@ -252,5 +252,25 @@ class ProjectSpec extends TestDatabase {
         throw new RuntimeException("Invalid project returned")
       }
     })
+  }
+
+  "list projects using a custom query" in {
+    val results = this.service
+      .query(Query.simple(List(BaseParameter("id", List(1259, 3898, 217, 217, 217), Operator.IN))))
+    results.size mustEqual 0
+  }
+
+  "list managed projects" in {
+    val createdUser = this.serviceManager.user.create(this.getTestUser(678, "ManagedListingUser"), User.superUser)
+    // make sure the home project is created for the user
+    this.serviceManager.user.initializeHomeProject(createdUser)
+    val randomUser = this.serviceManager.user.retrieveByOSMId(678).get
+    // get all the managed projects, for this user should just be their initialized project
+    val projects = this.service.getManagedProjects(randomUser)
+    projects.size mustEqual 1
+    val projects2 = this.service.getManagedProjects(randomUser, searchString = "Home_")
+    projects2.size mustEqual 1
+    val projects3 = this.service.getManagedProjects(randomUser, searchString = "DUMMY")
+    projects3.size mustEqual 0
   }
 }
