@@ -182,7 +182,7 @@ class TaskReviewDAL @Inject() (
     val updatedTask =
       primaryTask.copy(review = primaryTask.review.copy(reviewClaimedBy = Option(user.id.toInt)))
 
-    this.cacheManager.withOptionCaching { () =>
+    this.manager.task.cacheManager.withOptionCaching { () =>
       Some(updatedTask)
     }
     Option(updatedTask)
@@ -1111,7 +1111,7 @@ class TaskReviewDAL @Inject() (
         }
       }
 
-      this.cacheManager.withOptionCaching { () =>
+      this.manager.task.cacheManager.withOptionCaching { () =>
         Some(
           task.copy(review = task.review.copy(
             reviewStatus = Some(reviewStatus),
@@ -1124,10 +1124,10 @@ class TaskReviewDAL @Inject() (
       }
 
       if (!needsReReview) {
-        var reviewTime: Long = 0
+        var reviewStartTime: Option[Long] = None
         task.review.reviewClaimedAt match {
           case Some(t) =>
-            reviewTime = new DateTime().getMillis() - t.getMillis()
+            reviewStartTime = Some(t.getMillis())
           case None => // do nothing
         }
 
@@ -1146,7 +1146,7 @@ class TaskReviewDAL @Inject() (
           Option(reviewStatus),
           false,
           true,
-          Some(reviewTime),
+          reviewStartTime,
           user.id
         )
       } else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {

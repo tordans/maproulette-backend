@@ -368,7 +368,6 @@ class TaskDAL @Inject() (
                     {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
                     {reset}, {mappedOn}, {reviewStatus}, CAST({reviewRequestedBy} AS INTEGER),
                     CAST({reviewedBy} AS INTEGER), {reviewedAt})"""
-
       val updatedTaskId = SQL(query)
         .on(
           NamedParameter("name", ToParameterValue.apply[String].apply(element.name)),
@@ -647,8 +646,8 @@ class TaskDAL @Inject() (
         if (!skipStatusUpdate) {
           startedLock match {
             case Some(l) =>
-              completedTimeSpent = Some(new DateTime().getMillis() - l.getMillis())
-              SQL"""UPDATE tasks SET completed_time_spent = ${completedTimeSpent.get}
+              SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
+                .getMillis()}))
                     WHERE id = ${task.id}""".executeUpdate()
             case _ => // do nothing
           }
@@ -663,6 +662,20 @@ class TaskDAL @Inject() (
                       SET review_status = ${Task.REVIEW_STATUS_REQUESTED}, review_requested_by = ${user.id}
                       WHERE tr.task_id = ${task.id}
                  """.executeUpdate()
+
+              // Let's note in the task_review_history table that this task needs review again
+              SQL"""INSERT INTO task_review_history
+                                 (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
+                     VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
+                             ${Task.REVIEW_STATUS_REQUESTED}, ${Instant.now()},
+                             ${task.review.reviewStartedAt})""".executeUpdate()
+              this.manager.notification.createReviewNotification(
+                user,
+                task.review.reviewedBy.getOrElse(-1),
+                Task.REVIEW_STATUS_REQUESTED,
+                task,
+                None
+              )
             case None =>
               SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
                       VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})"""
