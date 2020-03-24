@@ -261,7 +261,8 @@ class ProjectSpec extends TestDatabase {
   }
 
   "list managed projects" in {
-    val createdUser = this.serviceManager.user.create(this.getTestUser(678, "ManagedListingUser"), User.superUser)
+    val createdUser =
+      this.serviceManager.user.create(this.getTestUser(678, "ManagedListingUser"), User.superUser)
     // make sure the home project is created for the user
     this.serviceManager.user.initializeHomeProject(createdUser)
     val randomUser = this.serviceManager.user.retrieveByOSMId(678).get

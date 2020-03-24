@@ -29,7 +29,11 @@ trait Parameter[T] extends SQLClause {
       ""
     } else if (operator == Operator.CUSTOM) {
       SQLUtils.testColumnName(key)
-      val negation = if (negate) { "NOT " } else { "" }
+      val negation = if (negate) {
+        "NOT "
+      } else {
+        ""
+      }
       s"$negation$key$value"
     } else {
       val directValue = if (useValueDirectly) {
