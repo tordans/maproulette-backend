@@ -431,9 +431,13 @@ class TaskDAL @Inject() (
         case None => // ignore
       }
 
+      val newItem = Some(element.copy(id = updatedTaskId))
+
       this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-        Some(element.copy(id = updatedTaskId))
+        newItem
       }(updatedTaskId, true, true)
+
+      newItem
     }
   }
 
