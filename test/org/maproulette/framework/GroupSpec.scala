@@ -10,12 +10,13 @@ import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter
 import org.maproulette.framework.repository.{GroupRepository, UserGroupRepository}
 import org.maproulette.framework.service.GroupService
-import org.maproulette.utils.TestDatabase
+import org.maproulette.framework.util.{FrameworkHelper, GroupTag, UserGroupTag}
+import play.api.Application
 
 /**
   * @author mcuthbert
   */
-class GroupSpec extends TestDatabase {
+class GroupSpec(implicit val application: Application) extends FrameworkHelper {
   val repository: GroupRepository = this.application.injector.instanceOf(classOf[GroupRepository])
   val userGroupRepository: UserGroupRepository =
     this.application.injector.instanceOf(classOf[UserGroupRepository])
@@ -25,28 +26,28 @@ class GroupSpec extends TestDatabase {
   var randomUser: User    = null
 
   "GroupRepository" should {
-    "perform a basic query" in {
+    "perform a basic query" taggedAs (GroupTag) in {
       val groups = this.repository
         .query(Query.simple(List(BaseParameter(Group.FIELD_ID, this.defaultGroup.id))))
       groups.size mustEqual 1
       groups.head.id mustEqual this.defaultGroup.id
     }
 
-    "retrieve a group" in {
+    "retrieve a group" taggedAs (GroupTag) in {
       val group = this.repository.retrieve(this.defaultGroup.id)
       group.get mustEqual this.defaultGroup
       val nonGroup = this.repository.retrieve(2345L)
       nonGroup.isEmpty mustEqual true
     }
 
-    "create a group" in {
+    "create a group" taggedAs (GroupTag) in {
       val createdGroup = this.repository
         .create(Group(-1, "RandomCreateGroup", this.defaultProject.id, Group.TYPE_ADMIN))
       val retrievedGroup = this.repository.retrieve(createdGroup.id)
       retrievedGroup.get mustEqual createdGroup
     }
 
-    "update a group" in {
+    "update a group" taggedAs (GroupTag) in {
       val randomGroup = this.repository
         .create(Group(-1, "RandomGroup", this.defaultProject.id, Group.TYPE_WRITE_ACCESS))
       // the project_id and type fields should be ignored, as you can only update the name
@@ -57,7 +58,7 @@ class GroupSpec extends TestDatabase {
       group.get.groupType mustEqual randomGroup.groupType
     }
 
-    "delete a group" in {
+    "delete a group" taggedAs (GroupTag) in {
       val group =
         this.repository.create(Group(-1, "RANDOM_GROUP", this.defaultProject.id, Group.TYPE_ADMIN))
       this.repository.delete(group.id)
@@ -65,7 +66,7 @@ class GroupSpec extends TestDatabase {
   }
 
   "UserGroupRepository" should {
-    "handle user groups based on OSM id" in {
+    "handle user groups based on OSM id" taggedAs (UserGroupTag) in {
       this.userGroupRepository.addUserToGroup(this.randomUser.osmProfile.id, defaultGroup.id)
       val groups = this.userGroupRepository.get(this.randomUser.osmProfile.id)
       groups.size mustEqual 1
@@ -76,7 +77,7 @@ class GroupSpec extends TestDatabase {
       groups2.size mustEqual 0
     }
 
-    "handle user project groups based on OSM id" in {
+    "handle user project groups based on OSM id" taggedAs (UserGroupTag) in {
       val project = this.serviceManager.project
         .create(Project(-1, User.superUser.id, "GroupTestingProject"), User.superUser)
       val projectReadGroup = project.groups.filter(_.groupType == Group.TYPE_READ_ONLY).head
@@ -107,37 +108,37 @@ class GroupSpec extends TestDatabase {
   }
 
   "GroupService" should {
-    "not allow non super user to create groups" in {
+    "not allow non super user to create groups" taggedAs (GroupTag) in {
       intercept[IllegalAccessException] {
         this.service.create(1, 1, User.guestUser)
       }
     }
 
-    "not allow non super user to update groups" in {
+    "not allow non super user to update groups" taggedAs (GroupTag) in {
       intercept[IllegalAccessException] {
         this.service.update(1, "NewName", User.guestUser)
       }
     }
 
-    "not allow non super user to delete groups" in {
+    "not allow non super user to delete groups" taggedAs (GroupTag) in {
       intercept[IllegalAccessException] {
         this.service.delete(1, User.guestUser)
       }
     }
 
-    "not allow non super user to retrieve user groups" in {
+    "not allow non super user to retrieve user groups" taggedAs (GroupTag) in {
       intercept[IllegalAccessException] {
         this.service.retrieveUserGroups(1, User.guestUser)
       }
     }
 
-    "not allow non super user to retrieve project groups" in {
+    "not allow non super user to retrieve project groups" taggedAs (GroupTag) in {
       intercept[IllegalAccessException] {
         this.service.retrieveProjectGroups(1, User.guestUser)
       }
     }
 
-    "create a new group" in {
+    "create a new group" taggedAs (GroupTag) in {
       val group = this.service.create(this.defaultProject.id, Group.TYPE_ADMIN, User.superUser)
       group.projectId mustEqual this.defaultProject.id
       group.groupType mustEqual Group.TYPE_ADMIN
@@ -146,7 +147,7 @@ class GroupSpec extends TestDatabase {
       retrievedGroup.get mustEqual group
     }
 
-    "update a group" in {
+    "update a group" taggedAs (GroupTag) in {
       val group = this.service.create(this.defaultProject.id, Group.TYPE_READ_ONLY, User.superUser)
       this.service.update(group.id, "UpdatedNewNameForGroup", User.superUser)
       val retrievedGroup = this.service.retrieve(group.id)
@@ -154,7 +155,7 @@ class GroupSpec extends TestDatabase {
       retrievedGroup.get.name mustEqual "UpdatedNewNameForGroup"
     }
 
-    "handle user groups for OSM user" in {
+    "handle user groups for OSM user" taggedAs (GroupTag) in {
       this.service.addUserToGroup(this.randomUser.osmProfile.id, defaultGroup, User.superUser)
       val groups = this.service.retrieveUserGroups(this.randomUser.osmProfile.id, User.superUser)
       groups.size mustEqual 1
@@ -165,7 +166,7 @@ class GroupSpec extends TestDatabase {
       groups2.size mustEqual 0
     }
 
-    "handle user project groups based on OSM id" in {
+    "handle user project groups based on OSM id" taggedAs (GroupTag) in {
       val project = this.serviceManager.project
         .create(Project(-1, User.superUser.id, "GroupTestingProject2"), User.superUser)
       val projectReadGroup = project.groups.filter(_.groupType == Group.TYPE_READ_ONLY).head
@@ -203,7 +204,7 @@ class GroupSpec extends TestDatabase {
       groups3.size mustEqual 0
     }
 
-    "retrieve project groups" in {
+    "retrieve project groups" taggedAs (GroupTag) in {
       val project = this.serviceManager.project
         .create(Project(-1, User.superUser.id, "GroupTestingProject3"), User.superUser)
       val projectGroups = this.service.retrieveProjectGroups(project.id, User.superUser)
@@ -214,11 +215,13 @@ class GroupSpec extends TestDatabase {
     }
   }
 
+  override implicit val projectTestName: String = "GroupSpecProject"
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     defaultGroup = this.service.create(this.defaultProject.id, Group.TYPE_ADMIN, User.superUser)
     randomUser = this.serviceManager.user.create(
-      this.getTestUser(12345, "RandomOSMUser"),
+      this.getTestUser(12345, "RandomOUser"),
       User.superUser
     )
   }

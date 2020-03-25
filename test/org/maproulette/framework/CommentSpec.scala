@@ -11,19 +11,20 @@ import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.repository.CommentRepository
 import org.maproulette.framework.service.CommentService
-import org.maproulette.utils.TestDatabase
+import org.maproulette.framework.util.{CommentTag, FrameworkHelper}
+import play.api.Application
 
 /**
   * @author mcuthbert
   */
-class CommentSpec extends TestDatabase {
+class CommentSpec(implicit val application: Application) extends FrameworkHelper {
 
   val commentRepository: CommentRepository =
     this.application.injector.instanceOf(classOf[CommentRepository])
   val commentService: CommentService = this.application.injector.instanceOf(classOf[CommentService])
 
   "CommentRepository" should {
-    "add comment into database" in {
+    "add comment into database" taggedAs (CommentTag) in {
       val comment =
         this.commentRepository.create(
           User.superUser,
@@ -42,7 +43,7 @@ class CommentSpec extends TestDatabase {
       comment mustEqual retrievedComment
     }
 
-    "update comment in the database" in {
+    "update comment in the database" taggedAs (CommentTag) in {
       val comment = this.commentRepository.create(
         User.superUser,
         defaultTask.id,
@@ -56,7 +57,7 @@ class CommentSpec extends TestDatabase {
       updatedComment.comment mustEqual "Test Update"
     }
 
-    "delete a comment in the database" in {
+    "delete a comment in the database" taggedAs (CommentTag) in {
       val comment = this.commentRepository.create(
         User.superUser,
         defaultTask.id,
@@ -70,7 +71,7 @@ class CommentSpec extends TestDatabase {
       deletedComment.isEmpty mustEqual true
     }
 
-    "find a specific comment" in {
+    "find a specific comment" taggedAs (CommentTag) in {
       this.commentRepository.create(User.superUser, defaultTask.id, "find a specific comment", None)
       val comment =
         this.commentRepository.create(
@@ -88,26 +89,26 @@ class CommentSpec extends TestDatabase {
   }
 
   "CommentService" should {
-    "add comment into database" in {
+    "add comment into database" taggedAs (CommentTag) in {
       val comment          = this.commentService.create(User.superUser, defaultTask.id, "GP Add", None)
       val retrievedComment = this.commentService.retrieve(comment.id)
       retrievedComment.get mustEqual comment
     }
 
-    "update a comment in the database" in {
+    "update a comment in the database" taggedAs (CommentTag) in {
       val comment = this.commentService.create(User.superUser, defaultTask.id, "GP update", None)
       this.commentService.update(comment.id, "GP update Test", User.superUser)
       val retrievedComment = this.commentService.retrieve(comment.id)
       retrievedComment.get.comment mustEqual "GP update Test"
     }
 
-    "delete a comment in the database" in {
+    "delete a comment in the database" taggedAs (CommentTag) in {
       val comment = this.commentService.create(User.superUser, defaultTask.id, "GP delete", None)
       this.commentService.delete(comment.id, comment.taskId, User.superUser)
       this.commentService.retrieve(comment.id).isEmpty mustEqual true
     }
 
-    "Fail on trying to delete a comment with no associated task" in {
+    "Fail on trying to delete a comment with no associated task" taggedAs (CommentTag) in {
       intercept[NotFoundException] {
         val comment =
           this.commentService.create(User.superUser, defaultTask.id, "GP delete attempt", None)
@@ -115,25 +116,25 @@ class CommentSpec extends TestDatabase {
       }
     }
 
-    "Fail on trying to update a comment that doesn't exist" in {
+    "Fail on trying to update a comment that doesn't exist" taggedAs (CommentTag) in {
       intercept[NotFoundException] {
         this.commentService.update(894, "UpdateTest", User.superUser)
       }
     }
 
-    "Fail on update when empty string provided" in {
+    "Fail on update when empty string provided" taggedAs (CommentTag) in {
       intercept[InvalidException] {
         this.commentService.update(-1, "", User.superUser)
       }
     }
 
-    "Fail on update when null string provided" in {
+    "Fail on update when null string provided" taggedAs (CommentTag) in {
       intercept[InvalidException] {
         this.commentService.update(-1, null, User.superUser)
       }
     }
 
-    "Only super user or original user can update comment" in {
+    "Only super user or original user can update comment" taggedAs (CommentTag) in {
       intercept[IllegalAccessException] {
         val comment =
           this.commentService.create(User.superUser, defaultTask.id, "Default comment", None)
@@ -141,7 +142,7 @@ class CommentSpec extends TestDatabase {
       }
     }
 
-    "Find comments for a specific project, challenge and task" in {
+    "Find comments for a specific project, challenge and task" taggedAs (CommentTag) in {
       val comment =
         this.commentService.create(User.superUser, defaultTask.id, "Default Comment", None)
       val projectComments =
@@ -157,6 +158,8 @@ class CommentSpec extends TestDatabase {
       all.head mustEqual comment
     }
   }
+
+  override implicit val projectTestName: String = "CommentSpecProject"
 
   private def repositoryGet(id: Long): Option[Comment] = {
     this.commentRepository

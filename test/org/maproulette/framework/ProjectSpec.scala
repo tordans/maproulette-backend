@@ -11,38 +11,39 @@ import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.repository.ProjectRepository
 import org.maproulette.framework.service.ProjectService
+import org.maproulette.framework.util.{FrameworkHelper, ProjectTag}
 import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters}
-import org.maproulette.utils.TestDatabase
+import play.api.Application
 import play.api.libs.json.Json
 
 /**
   * @author mcuthbert
   */
-class ProjectSpec extends TestDatabase {
+class ProjectSpec(implicit val application: Application) extends FrameworkHelper {
   val repository: ProjectRepository =
     this.application.injector.instanceOf(classOf[ProjectRepository])
   val service: ProjectService = this.application.injector.instanceOf(classOf[ProjectService])
 
   "ProjectRepository" should {
-    "perform a basic query correctly" in {
+    "perform a basic query correctly" taggedAs (ProjectTag) in {
       val project = this.repository
         .query(Query.simple(List(BaseParameter(Project.FIELD_ID, this.defaultProject.id))))
       project.head mustEqual this.defaultProject
     }
 
-    "create a new project" in {
+    "create a new project" taggedAs (ProjectTag) in {
       val createdProject =
         this.repository.create(Project(-1, User.superUser.osmProfile.id, "CreateProjectTest"))
       val retrievedProject = this.repository.retrieve(createdProject.id)
       retrievedProject.get mustEqual createdProject
     }
 
-    "retrieve a project" in {
+    "retrieve a project" taggedAs (ProjectTag) in {
       val retrievedProject = this.repository.retrieve(this.defaultProject.id)
       retrievedProject.get mustEqual this.defaultProject
     }
 
-    "update a project" in {
+    "update a project" taggedAs (ProjectTag) in {
       val newCreatedProject =
         this.repository.create(Project(-1, User.superUser.osmProfile.id, "UpdateProjectTest"))
       val retrievedProject = this.repository.retrieve(newCreatedProject.id)
@@ -59,9 +60,9 @@ class ProjectSpec extends TestDatabase {
         "UPDATE_NAME",
         description = Some("UPDATE_DESCRIPTION"),
         displayName = Some("UPDATE_DISPLAYNAME"),
-        enabled = true,
+        enabled = false,
         isVirtual = Some(true),
-        featured = true,
+        featured = false,
         deleted = true,
         created = randomDateTime,
         modified = randomDateTime,
@@ -74,16 +75,16 @@ class ProjectSpec extends TestDatabase {
       dbUpdatedProject.get.name mustEqual "UPDATE_NAME"
       dbUpdatedProject.get.description mustEqual Some("UPDATE_DESCRIPTION")
       dbUpdatedProject.get.displayName mustEqual Some("UPDATE_DISPLAYNAME")
-      dbUpdatedProject.get.enabled mustEqual true
+      dbUpdatedProject.get.enabled mustEqual false
       dbUpdatedProject.get.isVirtual mustEqual Some(true)
-      dbUpdatedProject.get.featured mustEqual true
+      dbUpdatedProject.get.featured mustEqual false
       dbUpdatedProject.get.deleted mustEqual false
       dbUpdatedProject.get.created mustEqual newCreatedProject.created
       dbUpdatedProject.get.modified.isAfter(randomDateTime)
       dbUpdatedProject.get.groups.size mustEqual 0
     }
 
-    "delete a project" in {
+    "delete a project" taggedAs (ProjectTag) in {
       val newCreatedProject =
         this.repository.create(Project(-1, User.superUser.osmProfile.id, "DeleteProjectTest"))
       val retrievedProject = this.repository.retrieve(newCreatedProject.id)
@@ -97,7 +98,7 @@ class ProjectSpec extends TestDatabase {
       reallyDeletedProject mustEqual None
     }
 
-    "get searched clustered points" in {
+    "get searched clustered points" taggedAs (ProjectTag) in {
       // this is really just testing the validation of the process, as there is only 1 task as part of the test data
       val clusteredPoints = this.repository.getSearchedClusteredPoints(
         SearchParameters(
@@ -115,7 +116,7 @@ class ProjectSpec extends TestDatabase {
       clusteredPoints.isEmpty mustEqual true
     }
 
-    "get clustered points" in {
+    "get clustered points" taggedAs (ProjectTag) in {
       // this is really just testing the validation of the process, as there is only 1 task as part of the test data
       val clusteredPoints = this.repository
         .getClusteredPoints(Some(this.defaultProject.id), List(this.defaultChallenge.id), true)
@@ -124,13 +125,13 @@ class ProjectSpec extends TestDatabase {
   }
 
   "ProjectService" should {
-    "get all the children of a project" in {
+    "get all the children of a project" taggedAs (ProjectTag) in {
       val challenges = this.service.children(this.defaultProject.id)
-      challenges.size mustEqual 1
-      challenges.head.id mustEqual this.defaultChallenge.id
+      // by default tests get setup with 10 children challenges in the project
+      challenges.size mustEqual 10
     }
 
-    "create a new project" in {
+    "create a new project" taggedAs (ProjectTag) in {
       val createdProject = this.service
         .create(Project(-1, User.superUser.osmProfile.id, "ServiceCreateProject"), User.superUser)
       val retrievedProject = this.service.retrieve(createdProject.id)
@@ -140,7 +141,8 @@ class ProjectSpec extends TestDatabase {
       createdGroups.size mustEqual 3
     }
 
-    "get featured projects" in {
+    // This
+    "get featured projects" taggedAs (ProjectTag) in {
       val featuredProject = this.service.create(
         Project(-1, User.superUser.osmProfile.id, "FeaturedProject", featured = true),
         User.superUser
@@ -156,7 +158,7 @@ class ProjectSpec extends TestDatabase {
       projects3.head.enabled mustEqual true
     }
 
-    "only update featured if super user" in {
+    "only update featured if super user" taggedAs (ProjectTag) in {
       val randomUser = this.serviceManager.user
         .create(this.getTestUser(575438, "RandomFeatureUser"), User.superUser)
       val project = this.service.create(
@@ -172,30 +174,30 @@ class ProjectSpec extends TestDatabase {
       notUpdatedProject.featured mustEqual true
     }
 
-    "update a project" in {
+    "update a project" taggedAs (ProjectTag) in {
       val randomUser =
         this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
       val updateProject = this.service
         .create(Project(-1, User.superUser.osmProfile.id, "UpdateProject"), User.superUser)
       val updates = Json.obj(
-        "name"        -> "UPDATE_NAME",
+        "name"        -> "SERVICE_UPDATE_NAME",
         "displayName" -> "UPDATE_DISPLAY_NAME",
         "ownerId"     -> randomUser.osmProfile.id,
         "description" -> "UPDATE_DESCRIPTION",
-        "enabled"     -> true,
-        "featured"    -> true
+        "enabled"     -> false,
+        "featured"    -> false
       )
       this.service.update(updateProject.id, updates, User.superUser)
       val updated = this.service.retrieve(updateProject.id)
-      updated.get.name mustEqual "UPDATE_NAME"
+      updated.get.name mustEqual "SERVICE_UPDATE_NAME"
       updated.get.displayName.get mustEqual "UPDATE_DISPLAY_NAME"
       updated.get.owner mustEqual randomUser.osmProfile.id
       updated.get.description.get mustEqual "UPDATE_DESCRIPTION"
-      updated.get.enabled mustEqual true
-      updated.get.featured mustEqual true
+      updated.get.enabled mustEqual false
+      updated.get.featured mustEqual false
     }
 
-    "update cannot change enabled or feature unless SuperUser" in {
+    "update cannot change enabled or feature unless SuperUser" taggedAs (ProjectTag) in {
       val randomUser =
         this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
       val updateProject = this.service
@@ -212,7 +214,7 @@ class ProjectSpec extends TestDatabase {
       update4.enabled mustEqual true
     }
 
-    "delete a project" in {
+    "delete a project" taggedAs (ProjectTag) in {
       val createdProject = this.service
         .create(Project(-1, User.superUser.osmProfile.id, "DeleteTestProject"), User.superUser)
       val retrievedProject = this.service.retrieve(createdProject.id)
@@ -229,7 +231,7 @@ class ProjectSpec extends TestDatabase {
     }
   }
 
-  "retrieve a project by it's name" in {
+  "retrieve a project by it's name" taggedAs (ProjectTag) in {
     val createdProject = this.service
       .create(Project(-1, User.superUser.osmProfile.id, "RetrieveByNameTest"), User.superUser)
     val retrievedProject = this.service.retrieveByName("RetrieveByNameTest")
@@ -238,7 +240,7 @@ class ProjectSpec extends TestDatabase {
     retrievedProject2.isEmpty mustEqual true
   }
 
-  "list projects by id's" in {
+  "list projects by id's" taggedAs (ProjectTag) in {
     val createdProject = this.service
       .create(Project(-1, User.superUser.osmProfile.id, "ListingProject"), User.superUser)
     val projects = this.service.list(List(createdProject.id, this.defaultProject.id))
@@ -254,13 +256,13 @@ class ProjectSpec extends TestDatabase {
     })
   }
 
-  "list projects using a custom query" in {
+  "list projects using a custom query" taggedAs (ProjectTag) in {
     val results = this.service
       .query(Query.simple(List(BaseParameter("id", List(1259, 3898, 217, 217, 217), Operator.IN))))
     results.size mustEqual 0
   }
 
-  "list managed projects" in {
+  "list managed projects" taggedAs (ProjectTag) in {
     val createdUser =
       this.serviceManager.user.create(this.getTestUser(678, "ManagedListingUser"), User.superUser)
     // make sure the home project is created for the user
@@ -274,4 +276,5 @@ class ProjectSpec extends TestDatabase {
     val projects3 = this.service.getManagedProjects(randomUser, searchString = "DUMMY")
     projects3.size mustEqual 0
   }
+  override implicit val projectTestName: String = "ProjectSpecProject"
 }

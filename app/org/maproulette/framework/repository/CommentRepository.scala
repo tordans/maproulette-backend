@@ -56,7 +56,7 @@ class CommentRepository @Inject() (override val db: Database) extends Repository
         s"""
            |INSERT INTO task_comments (osm_id, task_id, comment, action_id)
            |VALUES ({osm_id}, {task_id}, {comment}, {action_id})
-           |RETURNING id, challenge_id, project_id, created
+           |RETURNING id, project_id, challenge_id, created
          """.stripMargin
       SQL(query)
         .on(
@@ -66,7 +66,7 @@ class CommentRepository @Inject() (override val db: Database) extends Repository
           Symbol("action_id") -> actionId
         )
         .as((long("id") ~ long("project_id") ~ long("challenge_id") ~ get[DateTime]("created") map {
-          case id ~ challengeId ~ projectId ~ created =>
+          case id ~ projectId ~ challengeId ~ created =>
             Comment(
               id,
               user.osmProfile.id,

@@ -126,7 +126,7 @@ class UserSavedObjectsRepository @Inject() (
               Query
                 .simple(
                   List(
-                    BaseParameter(SavedTasks.FIELD_TASK_ID, userId),
+                    BaseParameter(SavedTasks.FIELD_USER_ID, userId),
                     FilterParameter.conditional(
                       SavedTasks.FIELD_CHALLENGE_ID,
                       challengeIds,

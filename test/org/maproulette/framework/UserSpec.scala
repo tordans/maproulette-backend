@@ -12,25 +12,26 @@ import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.psql.{Paging, Query}
 import org.maproulette.framework.repository.UserRepository
 import org.maproulette.framework.service.UserService
-import org.maproulette.utils.TestDatabase
+import org.maproulette.framework.util.{FrameworkHelper, UserTag}
 import org.scalatest.Matchers._
+import play.api.Application
 import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert
   */
-class UserSpec extends TestDatabase {
+class UserSpec(implicit val application: Application) extends FrameworkHelper {
   val userRepository: UserRepository = this.application.injector.instanceOf(classOf[UserRepository])
   val userService: UserService       = this.serviceManager.user
 
   "UserRepository" should {
-    "upsert user" in {
+    "upsert user" taggedAs (UserTag) in {
       val insertedUser  = this.insertBaseUser(1, "name1")
       val retrievedUser = this.repositoryGet(insertedUser.id)
       retrievedUser.get mustEqual insertedUser
     }
 
-    "update user" in {
+    "update user" taggedAs (UserTag) in {
       val insertedUser  = this.insertBaseUser(2, "name2")
       val updatedApiKey = UUID.randomUUID().toString
       val updateUser = insertedUser.copy(
@@ -63,7 +64,7 @@ class UserSpec extends TestDatabase {
       updatedUser.settings mustEqual updateUser.settings
     }
 
-    "update API key" in {
+    "update API key" taggedAs (UserTag) in {
       val insertedUser =
         this.userRepository.upsert(this.getTestUser(3, "APITest"), "TestAPIKey", "POINT (20 40)")
       this.userRepository.updateAPIKey(insertedUser.id, "NEW_updated_key")
@@ -71,7 +72,7 @@ class UserSpec extends TestDatabase {
       retrievedUser.get.apiKey.get mustEqual "NEW_updated_key"
     }
 
-    "delete user" in {
+    "delete user" taggedAs (UserTag) in {
       val insertedUser = this.userRepository
         .upsert(this.getTestUser(4, "DeleteTest"), "TestAPIKey", "POINT (20 40)")
       this.userRepository.delete(insertedUser.id)
@@ -79,17 +80,17 @@ class UserSpec extends TestDatabase {
       retrievedUser.isEmpty mustEqual true
     }
 
-    "delete user by OSMID" in {
+    "delete user by OSMID" taggedAs (UserTag) in {
       val insertedUser = this.userRepository
-        .upsert(this.getTestUser(5, "DeleteByOSMidTest"), "TestAPIKey", "POINT (20 40)")
+        .upsert(this.getTestUser(5, "DeleteByOidTest"), "TestAPIKey", "POINT (20 40)")
       this.userRepository.deleteByOSMID(5)
       val retrievedUser = this.repositoryGet(insertedUser.id)
       retrievedUser.isEmpty mustEqual true
     }
 
-    "update user score" in {
+    "update user score" taggedAs (UserTag) in {
       val insertedUser = this.userRepository
-        .upsert(this.getTestUser(61, "UpdateUserOSM"), "TestAPIKey", "POINT (20 40)")
+        .upsert(this.getTestUser(61, "UpdateUserO"), "TestAPIKey", "POINT (20 40)")
       val updatedUser = this.userRepository.updateUserScore(
         insertedUser.id,
         List(
@@ -109,7 +110,7 @@ class UserSpec extends TestDatabase {
   }
 
   "UserService" should {
-    "not allow retrieval of user by API key if not actual user" in {
+    "not allow retrieval of user by API key if not actual user" taggedAs (UserTag) in {
       val firstUser =
         this.userService.create(this.getTestUser(6, "FailedUserTest"), User.superUser)
       val secondUser =
@@ -119,7 +120,7 @@ class UserSpec extends TestDatabase {
       }
     }
 
-    "retrieve Users" in {
+    "retrieve Users" taggedAs (UserTag) in {
       val insertedUser =
         this.userService.create(this.getTestUser(8, "InsertUserServiceTest"), User.superUser)
       // get the user by their API Key and id
@@ -153,17 +154,17 @@ class UserSpec extends TestDatabase {
       retrievedUser7
     }
 
-    "not allow retrieval of user by OSM username if not super user" in {
+    "not allow retrieval of user by OSM username if not super user" taggedAs (UserTag) in {
       val firstUser =
-        this.userService.create(this.getTestUser(9, "FailedOSMRetrievalUser1"), User.superUser)
+        this.userService.create(this.getTestUser(9, "FailedORetrievalUser1"), User.superUser)
       val secondUser =
-        this.userService.create(this.getTestUser(10, "FailedOSMRetrievalUser2"), User.superUser)
+        this.userService.create(this.getTestUser(10, "FailedORetrievalUser2"), User.superUser)
       intercept[IllegalAccessException] {
         this.userService.retrieveByOSMUsername(firstUser.osmProfile.displayName, secondUser)
       }
     }
 
-    "generate new API key" in {
+    "generate new API key" taggedAs (UserTag) in {
       val insertedUser =
         this.userService.create(this.getTestUser(11, "APIGenerationTestUser"), User.superUser)
       val newAPIUser = this.userService.generateAPIKey(insertedUser, User.superUser)
@@ -171,7 +172,7 @@ class UserSpec extends TestDatabase {
     }
   }
 
-  "retrieve list of users" in {
+  "retrieve list of users" taggedAs (UserTag) in {
     val user1 =
       this.userService.create(this.getTestUser(12, "ListRetrievalTestUser1"), User.superUser)
     val user2 =
@@ -182,21 +183,21 @@ class UserSpec extends TestDatabase {
     List(user1, user2).contains(userList(1)) mustEqual true
   }
 
-  "delete user" in {
+  "delete user" taggedAs (UserTag) in {
     val user =
       this.userService.create(this.getTestUser(14, "DeleteTest"), User.superUser)
     this.userService.delete(user.id, User.superUser)
     this.repositoryGet(user.id).isEmpty mustEqual true
   }
 
-  "delete user by OSM id" in {
+  "delete user by OSM id" taggedAs (UserTag) in {
     val user =
-      this.userService.create(this.getTestUser(15, "DeleteByOSMidTest"), User.superUser)
+      this.userService.create(this.getTestUser(15, "DeleteByOidTest"), User.superUser)
     this.userService.deleteByOsmID(user.osmProfile.id, User.superUser)
     this.repositoryGet(user.id).isEmpty mustEqual true
   }
 
-  "Search by OSM Username" in {
+  "Search by OSM Username" taggedAs (UserTag) in {
     val user1 =
       this.userService.create(this.getTestUser(16, "OSMUsernameSearch1"), User.superUser)
     val user2 =
@@ -237,6 +238,7 @@ class UserSpec extends TestDatabase {
     users4.size mustEqual 1
     val firstUser = users4.head
     searchResultsList.contains(firstUser) mustEqual true
+
     val users5 = this.userService.searchByOSMUsername("OSM", Paging(1, 1))
     users5.size mustEqual 1
     val secondUser = users5.head
@@ -249,6 +251,8 @@ class UserSpec extends TestDatabase {
     thirdUser should not be firstUser
     thirdUser should not be secondUser
   }
+
+  override implicit val projectTestName: String = "UserSpecProject"
 
   private def repositoryGet(id: Long): Option[User] = {
     this.userRepository
