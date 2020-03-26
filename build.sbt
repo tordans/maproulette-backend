@@ -1,6 +1,10 @@
+import java.io.{BufferedWriter, FileWriter}
+
+import scala.io.Source
+
 name := "MapRouletteAPI"
 
-version := "3.7.0"
+version := "4.0.0"
 
 scalaVersion := "2.13.1"
 
@@ -24,7 +28,7 @@ swaggerDomainNameSpaces := Seq(
 
 swaggerOutputTransformers := Seq(envOutputTransformer)
 
-swaggerRoutesFile := "apiv2.routes"
+swaggerRoutesFile := "generated.routes"
 
 pipelineStages := Seq(gzip)
 
@@ -78,3 +82,36 @@ javaOptions in Compile ++= Seq(
   // Increase stack size for compilation
   "-Xss4M"
 )
+
+lazy val buildRoutesFile = taskKey[Unit]("Builds the API V2 Routes File")
+buildRoutesFile := {
+  // delete the generated routes file first
+  val generatedFile = baseDirectory.value / "conf/generated.routes"
+  if (generatedFile.exists()) {
+    generatedFile.delete()
+  }
+  generatedFile.createNewFile()
+
+  // The apiv2.routes file should always be last as it contains the catch all routes
+  val routeFiles = Seq(
+    "project.api",
+    "virtualproject.api",
+    "challenge.api",
+    "virtualchallenge.api",
+    "task.api",
+    "comment.api",
+    "user.api",
+    "v2.api"
+  )
+  println(s"Generating Routes File from ${routeFiles.mkString(",")}")
+  val writer = new BufferedWriter(new FileWriter(generatedFile))
+  routeFiles.foreach(file => {
+    val currentFile = Source.fromFile(baseDirectory.value / "conf/route" / file).getLines()
+    for (line <- currentFile) {
+      writer.write(s"$line\n")
+    }
+  })
+  writer.close()
+}
+
+(compile in Compile) := ((compile in Compile) dependsOn buildRoutesFile).value

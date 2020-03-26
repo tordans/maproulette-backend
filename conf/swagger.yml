@@ -19,7 +19,6 @@
     - name: "Project"
     - name: "Challenge"
     - name: "Virtual Challenge"
-    - name: "Survey"
     - name: "Task"
     - name: "Keyword"
     - name: "Tag (Deprecated)"
