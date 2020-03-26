@@ -1,10 +1,13 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.models
 
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.data.{ItemType, TaskType}
+import org.maproulette.framework.model.Challenge
 import org.maproulette.utils.Utils
 import play.api.data.format.Formats
 import play.api.libs.json._
@@ -295,7 +298,7 @@ object Task {
   /**
     * Gets the string name of the review status based on a status id
     *
-    * @param reivewStatus The review status id
+    * @param reviewStatus The review status id
     * @return None if review status id is invalid, otherwise the name of the status
     */
   def getReviewStatusName(reviewStatus: Int): Option[String] = reviewStatusMap.get(reviewStatus)

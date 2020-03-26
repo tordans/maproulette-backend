@@ -1,5 +1,7 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.data
 
 import java.sql.Connection
@@ -9,12 +11,13 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.models.{Task, Challenge}
-import org.maproulette.models.utils.{AND, DALHelper, WHERE}
+import org.maproulette.models.Task
+import org.maproulette.models.utils.WHERE
 import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
 import org.maproulette.exception.NotFoundException
+import org.maproulette.framework.model.Challenge
 import play.api.Application
 import play.api.db.Database
 

@@ -1,5 +1,7 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -11,10 +13,12 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data.Actions
 import org.maproulette.exception.InvalidException
+import org.maproulette.framework.model.User
+import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.dal.mixin.SearchParametersMixin
-import org.maproulette.models.utils.{DALHelper, TransactionManager}
+import org.maproulette.models.utils.DALHelper
 import org.maproulette.models.{ClusteredPoint, Point, PointReview, TaskCluster}
-import org.maproulette.session.{SearchParameters, User}
+import org.maproulette.session.SearchParameters
 import play.api.db.Database
 import play.api.libs.json.{JsString, Json}
 

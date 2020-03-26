@@ -1,4 +1,8 @@
-# MapRoulette Back-end
+# MapRoulette API
+[![Build Status](https://travis-ci.org/maproulette/maproulette2.svg?branch=dev)](https://travis-ci.org/maproulette/maproulette2)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=maproulette_maproulette2&metric=alert_status)](https://sonarcloud.io/dashboard?id=maproulette_maproulette2)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/maproulette/maproulette2)
+
 Welcome to the repository for the MapRoulette back-end server code. The MapRoulette back-end exposes the MapRoulette API, which the MapRoulette front-end web application depends on. The source code for the web application is in [a separate repository](https://github.com/osmlab/maproulette3).
 
 **If you just want to deploy the MapRoulette back-end, [we have a 🚢 Docker image 🚢 for that](https://github.com/maproulette/maproulette2-docker)**. This is especially useful if you want to contribute to the MapRoulette front-end and don't intend to touch the back-end.
