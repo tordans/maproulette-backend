@@ -10,7 +10,7 @@
       name: "Apache License version 2.0"
       url: "http://www.apache.org/licenses/"
   basePath: "/api/v2"
-  host: ${API_HOST}
+  host: "localhost"
   consumes:
     - application/json
   produces:
@@ -19,7 +19,6 @@
     - name: "Project"
     - name: "Challenge"
     - name: "Virtual Challenge"
-    - name: "Survey"
     - name: "Task"
     - name: "Keyword"
     - name: "Tag (Deprecated)"

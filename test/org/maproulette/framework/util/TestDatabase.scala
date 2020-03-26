@@ -17,7 +17,7 @@ import play.api.inject.guice.GuiceApplicationBuilder
 trait TestDatabase {
   implicit val application = GuiceApplicationBuilder()
     .configure(
-      "db.default.url"                 -> "jdbc:postgresql://localhost:5432/mr_test",
+      "db.default.url"                 -> "jdbc:postgresql://localhost:5433/mr_test",
       "db.default.username"            -> "osm",
       "db.default.password"            -> "osm",
       "db.default.logSql"              -> false,
