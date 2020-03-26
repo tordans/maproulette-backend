@@ -40,7 +40,8 @@ class UserService @Inject() (
     config: Config,
     permission: Permission,
     crypto: Crypto
-) extends Writers {
+) extends ServiceMixin[User]
+    with Writers {
   // The cache manager for the users
   val cacheManager = new CacheManager[Long, User](config, Config.CACHE_ID_USERS)
 
@@ -110,6 +111,8 @@ class UserService @Inject() (
         )
       }
     }
+
+  def query(query: Query, user: User): List[User] = this.repository.query(query)
 
   /**
     * Allow users to search for other users by OSM username.
@@ -216,24 +219,6 @@ class UserService @Inject() (
     }.get
   }
 
-  private def generateAPIKey: String = UUID.randomUUID().toString
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMId(id: Long): Option[User] =
-    this.cacheManager.withOptionCaching { () =>
-      this
-        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
-        .headOption
-    }
-
-  def query(query: Query, user: User): List[User] = this.repository.query(query)
-
   /**
     * Generates a new API key for the user
     *
@@ -243,11 +228,21 @@ class UserService @Inject() (
   def generateAPIKey(apiKeyUser: User, user: User): Option[User] = {
     this.permission.hasAdminAccess(UserType(), user)(apiKeyUser.id)
     this.cacheManager
-      .withUpdatingCache(this.retrieveById) { implicit cachedItem =>
+      .withUpdatingCache(this.retrieve) { implicit cachedItem =>
         val newAPIKey = crypto.encrypt(this.generateAPIKey)
         Some(this.repository.updateAPIKey(apiKeyUser.id, newAPIKey))
       }(id = apiKeyUser.id)
   }
+
+  private def generateAPIKey: String = UUID.randomUUID().toString
+
+  /**
+    * Retrieves an object of that type
+    *
+    * @param id The identifier for the object
+    * @return An optional object, None if not found
+    */
+  override def retrieve(id: Long): Option[User] = this.retrieveListById(List(id)).headOption
 
   /**
     * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
@@ -272,6 +267,14 @@ class UserService @Inject() (
       }(ids = ids)
     }
   }
+
+  /**
+    * Retrieves all the objects based on the search criteria
+    *
+    * @param query The query to match against to retrieve the objects
+    * @return The list of objects
+    */
+  override def query(query: Query): List[User] = ???
 
   /**
     * This is a specialized update that is accessed via the API that allows users to update only the
@@ -309,7 +312,7 @@ class UserService @Inject() (
     * @return The user that was updated, None if no user was found with the id
     */
   def update(id: Long, value: JsValue, user: User): Option[User] = {
-    this.cacheManager.withUpdatingCache(this.retrieveById) { implicit cachedItem =>
+    this.cacheManager.withUpdatingCache(this.retrieve) { implicit cachedItem =>
       this.permission.hasObjectAdminAccess(cachedItem, user)
       val displayName = (value \ "osmProfile" \ "displayName")
         .asOpt[String]
@@ -417,18 +420,6 @@ class UserService @Inject() (
   }
 
   /**
-    * Find the User based on the id.
-    *
-    * @param id The id of the object to be retrieved
-    * @return The object, None if not found
-    */
-  def retrieveById(id: Long): Option[User] = {
-    this.cacheManager.withCaching { () =>
-      this.query(Query.simple(List(BaseParameter(User.FIELD_ID, id))), User.superUser).headOption
-    }(id = id)
-  }
-
-  /**
     * Deletes a user from the database based on a specific user id
     *
     * @param id The user to delete
@@ -436,7 +427,7 @@ class UserService @Inject() (
     */
   def delete(id: Long, user: User): Boolean = {
     this.permission.hasSuperAccess(user)
-    retrieveById(id) match {
+    retrieve(id) match {
       case Some(u) => this.groupService.clearCache(osmId = u.osmProfile.id)
       case None    => //no user, so can just ignore
     }
@@ -490,6 +481,20 @@ class UserService @Inject() (
       }(id = osmId)
       .get
   }
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMId(id: Long): Option[User] =
+    this.cacheManager.withOptionCaching { () =>
+      this
+        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
+        .headOption
+    }
 
   /**
     * Initializes the home project for the user. If the project already exists, then we are

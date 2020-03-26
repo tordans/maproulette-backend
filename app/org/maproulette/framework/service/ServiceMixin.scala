@@ -19,4 +19,12 @@ trait ServiceMixin[T] {
     * @return The list of objects
     */
   def query(query: Query): List[T]
+
+  /**
+    * Retrieves an object of that type
+    *
+    * @param id The identifier for the object
+    * @return An optional object, None if not found
+    */
+  def retrieve(id: Long): Option[T]
 }

@@ -32,7 +32,7 @@ class ProjectService @Inject() (
     groupService: GroupService,
     challengeService: ChallengeService,
     permission: Permission
-) {
+) extends ServiceMixin[Project] {
   // manager for the cache of the projects
   val cacheManager     = new CacheManager[Long, Project](config, Config.CACHE_ID_PROJECTS)
   protected val logger = LoggerFactory.getLogger(this.getClass)

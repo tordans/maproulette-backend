@@ -26,13 +26,21 @@ class GroupService @Inject() (
     userGroupRepository: UserGroupRepository,
     config: Config,
     permission: Permission
-) {
+) extends ServiceMixin[Group] {
   // The cachemanager for groups
   val cache = new CacheManager[Long, Group](config, Config.CACHE_ID_USERGROUPS)
   // The cache manager containing project to list of group ID's
   val projectCache = new BasicCache[Long, ListCacheObject[Long]](config)
   // The cache manager containing user to list of group ID's
   val userCache = new BasicCache[Long, ListCacheObject[Long]](config)
+
+  /**
+    * Using this function would always fail, as it requires super user access
+    *
+    * @param query The query to match against to retrieve the objects
+    * @return The list of objects
+    */
+  override def query(query: Query): List[Group] = this.query(query, User.guestUser)
 
   def query(query: Query, user: User): List[Group] = {
     this.hasAccess(user)
@@ -70,17 +78,6 @@ class GroupService @Inject() (
     }
   }
 
-  /**
-    * Access for user functions are limited to super users
-    *
-    * @param user A super user
-    */
-  private def hasAccess(user: User): Unit = {
-    if (!user.isSuperUser) {
-      throw new IllegalAccessException("Only super users have access to group objects.")
-    }
-  }
-
   def update(id: Long, newName: String, user: User): Group = {
     this.hasAccess(user)
     this.cache
@@ -98,20 +95,6 @@ class GroupService @Inject() (
 
   def retrieveUserGroups(osmUserId: Long, user: User): List[Group] =
     this.getGroups(osmUserId, this.userCache, this.userGroupRepository.get, user)
-
-  def retrieveProjectGroups(projectId: Long, user: User): List[Group] =
-    this.getGroups(
-      projectId,
-      this.projectCache,
-      id => {
-        this.repository.query(
-          Query.simple(
-            List(BaseParameter("project_id", id, Operator.EQ))
-          )
-        )
-      },
-      user
-    )
 
   /**
     * Uses the cache to retrieve groups from the Project and User group caches
@@ -153,6 +136,31 @@ class GroupService @Inject() (
   }
 
   /**
+    * Access for user functions are limited to super users
+    *
+    * @param user A super user
+    */
+  private def hasAccess(user: User): Unit = {
+    if (!user.isSuperUser) {
+      throw new IllegalAccessException("Only super users have access to group objects.")
+    }
+  }
+
+  def retrieveProjectGroups(projectId: Long, user: User): List[Group] =
+    this.getGroups(
+      projectId,
+      this.projectCache,
+      id => {
+        this.repository.query(
+          Query.simple(
+            List(BaseParameter("project_id", id, Operator.EQ))
+          )
+        )
+      },
+      user
+    )
+
+  /**
     * Add a user to a group
     *
     * @param osmId The OSM ID of the user to add to the project
@@ -174,40 +182,6 @@ class GroupService @Inject() (
     this.permission.hasSuperAccess(user)
     this.clearCache(projectId)
     this.userGroupRepository.removeUserFromProjectGroups(osmID, projectId, groupType)
-  }
-
-  /**
-    * Removes a user from a group
-    *
-    * @param osmId The OSM ID of the user
-    * @param group The group that you are removing from the user
-    * @param user  The user executing the request
-    */
-  def removeUserFromGroup(osmId: Long, group: Group, user: User): Unit = {
-    this.permission.hasSuperAccess(user)
-    this.clearCache(osmId = osmId)
-    this.userGroupRepository.removeUserFromGroup(osmId, group.id)
-  }
-
-  def addUserToProject(osmID: Long, groupType: Int, projectId: Long, user: User): Unit = {
-    this.permission.hasSuperAccess(user)
-    this.clearCache(projectId)
-    this.userGroupRepository.addUserToProject(osmID, groupType, projectId)
-  }
-
-  /**
-    * Deletes a group from the database
-    *
-    * @param id The id of the group
-    * @param user The user trying to delete the group
-    * @return true if successful
-    */
-  def delete(id: Long, user: User): Boolean = {
-    this.hasAccess(user)
-    this.cache.withCacheIDDeletion { () =>
-      this.clearCache(-1, -1, id)
-      this.repository.delete(id)
-    }(ids = List(id))
   }
 
   /**
@@ -246,5 +220,39 @@ class GroupService @Inject() (
         cache.clear()
       }
     }
+  }
+
+  /**
+    * Removes a user from a group
+    *
+    * @param osmId The OSM ID of the user
+    * @param group The group that you are removing from the user
+    * @param user  The user executing the request
+    */
+  def removeUserFromGroup(osmId: Long, group: Group, user: User): Unit = {
+    this.permission.hasSuperAccess(user)
+    this.clearCache(osmId = osmId)
+    this.userGroupRepository.removeUserFromGroup(osmId, group.id)
+  }
+
+  def addUserToProject(osmID: Long, groupType: Int, projectId: Long, user: User): Unit = {
+    this.permission.hasSuperAccess(user)
+    this.clearCache(projectId)
+    this.userGroupRepository.addUserToProject(osmID, groupType, projectId)
+  }
+
+  /**
+    * Deletes a group from the database
+    *
+    * @param id The id of the group
+    * @param user The user trying to delete the group
+    * @return true if successful
+    */
+  def delete(id: Long, user: User): Boolean = {
+    this.hasAccess(user)
+    this.cache.withCacheIDDeletion { () =>
+      this.clearCache(-1, -1, id)
+      this.repository.delete(id)
+    }(ids = List(id))
   }
 }

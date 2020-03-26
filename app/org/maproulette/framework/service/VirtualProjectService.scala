@@ -8,7 +8,7 @@ package org.maproulette.framework.service
 import javax.inject.{Inject, Singleton}
 import org.maproulette.data.ProjectType
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Challenge, User, VirtualProject}
+import org.maproulette.framework.model.{Challenge, Project, User, VirtualProject}
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.repository.VirtualProjectRepository
@@ -23,7 +23,31 @@ class VirtualProjectService @Inject() (
     projectService: ProjectService,
     challengeService: ChallengeService,
     permission: Permission
-) {
+) extends ServiceMixin[Project] {
+
+  /**
+    * Not Supported, use ProjectService.query instead
+    *
+    * @param query The query to match against to retrieve the objects
+    * @return The list of objects
+    */
+  override def query(query: Query): List[Project] =
+    throw new Exception("Function not supported, use ProjectService.query instead")
+
+  /**
+    * Retrieves an object of that type
+    *
+    * @param id The identifier for the object
+    * @return An optional object, None if not found
+    */
+  override def retrieve(id: Long): Option[Project] =
+    this.projectService
+      .query(
+        Query.simple(
+          List(BaseParameter(Project.FIELD_VIRTUAL, true), BaseParameter(Project.FIELD_ID, id))
+        )
+      )
+      .headOption
 
   /**
     * Will list all the virtual challenge children of a project

@@ -469,7 +469,7 @@ class SchedulerActor @Inject() (
         .foreach(notification => {
           // Send email if user has an email address on file
           try {
-            this.serviceManager.user.retrieveById(notification.userId) match {
+            this.serviceManager.user.retrieve(notification.userId) match {
               case Some(user) =>
                 user.settings.email match {
                   case Some(address) if (!address.isEmpty) =>
@@ -514,7 +514,7 @@ class SchedulerActor @Inject() (
     // Email each digest if recipient has an email address on file
     digests.foreach(digest => {
       try {
-        this.serviceManager.user.retrieveById(digest.userId) match {
+        this.serviceManager.user.retrieve(digest.userId) match {
           case Some(user) =>
             user.settings.email match {
               case Some(address) if (!address.isEmpty) =>

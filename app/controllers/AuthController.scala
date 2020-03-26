@@ -175,7 +175,7 @@ class AuthController @Inject() (
   def generateAPIKey(userId: Long = -1): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val newAPIUser = if (user.isSuperUser && userId != -1) {
-        this.userService.retrieveById(userId) match {
+        this.userService.retrieve(userId) match {
           case Some(u) => u
           case None =>
             throw new NotFoundException(
@@ -223,7 +223,7 @@ class AuthController @Inject() (
     implicit request =>
       implicit val requireSuperUser: Boolean = true
       sessionManager.authenticatedRequest { implicit user =>
-        this.userService.retrieveById(userId) match {
+        this.userService.retrieve(userId) match {
           case Some(addUser) =>
             if (addUser.groups.exists(_.projectId == projectId)) {
               throw new InvalidException(

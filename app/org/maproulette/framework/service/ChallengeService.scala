@@ -8,6 +8,7 @@ package org.maproulette.framework.service
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.model.Challenge
 import org.maproulette.framework.psql.Query
+import org.maproulette.framework.psql.filter.BaseParameter
 import org.maproulette.framework.repository.ChallengeRepository
 
 /**
@@ -17,6 +18,9 @@ import org.maproulette.framework.repository.ChallengeRepository
   */
 @Singleton
 class ChallengeService @Inject() (repository: ChallengeRepository) extends ServiceMixin[Challenge] {
+
+  def retrieve(id: Long): Option[Challenge] =
+    this.query(Query.simple(List(BaseParameter(Challenge.FIELD_ID, id)))).headOption
 
   def query(query: Query): List[Challenge] = this.repository.query(query)
 }

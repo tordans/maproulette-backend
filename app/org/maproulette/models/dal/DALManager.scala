@@ -6,6 +6,7 @@ package org.maproulette.models.dal
 
 import javax.inject.{Inject, Singleton}
 import org.maproulette.data._
+import org.maproulette.exception.NotFoundException
 
 /**
   * Factory that contains references to all the DAL's in the system
@@ -54,6 +55,7 @@ class DALManager @Inject() (
       case VirtualChallengeType() => virtualChallengeDAL
       case TaskType()             => taskDAL
       case TagType()              => tagDAL
+      case _                      => throw new NotFoundException("No manager of that type found.")
     }
   }
 }

@@ -60,7 +60,7 @@ class UserMetricService @Inject() (
       reviewerEndDate: String
   ): Map[String, Map[String, Int]] = {
 
-    val targetUser = this.userService.retrieveById(userId)
+    val targetUser = this.userService.retrieve(userId)
     var isReviewer = false
     targetUser match {
       case Some(u) =>
@@ -186,7 +186,7 @@ class UserMetricService @Inject() (
       userId: Long
   ): Option[User] = {
     // We need to invalidate the user in the cache.
-    this.userService.cacheManager.withUpdatingCache(id => userService.retrieveById(id)) {
+    this.userService.cacheManager.withUpdatingCache(id => userService.retrieve(id)) {
       implicit cachedItem =>
         val insertBuffer = mutable.ListBuffer[Parameter[_]]()
         val stateTuple = taskStatus match {
@@ -266,7 +266,7 @@ class UserMetricService @Inject() (
           }
         }
         this.repository.updateUserScore(userId, insertBuffer.toList)
-        this.userService.retrieveById(userId)
+        this.userService.retrieve(userId)
     }(id = userId)
   }
 

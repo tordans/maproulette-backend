@@ -77,7 +77,7 @@ class UserController @Inject() (
         this.serviceManager.user.retrieveByOSMId(userId) match {
           case Some(u) => Ok(Json.toJson(User.withDecryptedAPIKey(u)(crypto)))
           case None =>
-            this.serviceManager.user.retrieveById(userId) match {
+            this.serviceManager.user.retrieve(userId) match {
               case Some(u) => Ok(Json.toJson(User.withDecryptedAPIKey(u)(crypto)))
               case None    => throw new NotFoundException(s"No user found with id '$userId'")
             }
@@ -111,7 +111,7 @@ class UserController @Inject() (
       val target = this.serviceManager.user.retrieveByOSMId(userId) match {
         case Some(u) => u
         case None =>
-          this.serviceManager.user.retrieveById(userId) match {
+          this.serviceManager.user.retrieve(userId) match {
             case Some(u) => u
             case None    => throw new NotFoundException(s"No user found with id '$userId'")
           }
@@ -314,7 +314,7 @@ class UserController @Inject() (
           case None    => throw new NotFoundException(s"Could not find user with OSM ID $userId")
         }
       case false =>
-        this.serviceManager.user.retrieveById(userId) match {
+        this.serviceManager.user.retrieve(userId) match {
           case Some(u) => u
           case None    => throw new NotFoundException(s"Could not find user with ID $userId")
         }
@@ -452,7 +452,7 @@ class UserController @Inject() (
   def generateAPIKey(userId: Long = -1): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val newAPIUser = if (user.isSuperUser && userId != -1) {
-        this.serviceManager.user.retrieveById(userId) match {
+        this.serviceManager.user.retrieve(userId) match {
           case Some(u) => u
           case None => // look for the user under the OSM_ID
             this.serviceManager.user.retrieveByOSMId(userId) match {

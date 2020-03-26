@@ -8,6 +8,7 @@ import java.sql.Connection
 
 import com.google.inject.Singleton
 import javax.inject.{Inject, Provider}
+import org.maproulette.cache.CacheObject
 import org.maproulette.data._
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model._
@@ -37,14 +38,9 @@ class Permission @Inject() (
       itemType: ItemType,
       user: User
   )(implicit id: Long, c: Option[Connection] = None): Unit = {
-    val retrieveFunction = itemType match {
-      case UserType()  => this.serviceManager.user.retrieveById(id)
-      case GroupType() => this.serviceManager.group.retrieve(id)
-      case _           => dalManager.get().getManager(itemType).retrieveById
-    }
-    retrieveFunction match {
+    this.getItem(itemType) match {
       case Some(obj) => this.hasObjectReadAccess(obj, user)
-      case None =>
+      case _ =>
         throw new NotFoundException(
           s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check read access"
         )
@@ -65,17 +61,17 @@ class Permission @Inject() (
         case GroupType() =>
           this.serviceManager.group.retrieve(id) match {
             case Some(obj) =>
-              this.hasObjectWriteAccess(obj.asInstanceOf[BaseObject[Long]], user, groupType)
-            case None =>
+              this.hasObjectWriteAccess(obj.asInstanceOf[CacheObject[Long]], user, groupType)
+            case _ =>
               throw new NotFoundException(
                 s"No Group found using id [$id] to check write access"
               )
           }
         case _ =>
-          dalManager.get().getManager(itemType).retrieveById match {
+          this.getItem(itemType)(id, c) match {
             case Some(obj) =>
-              this.hasObjectWriteAccess(obj.asInstanceOf[BaseObject[Long]], user, groupType)
-            case None =>
+              this.hasObjectWriteAccess(obj.asInstanceOf[CacheObject[Long]], user, groupType)
+            case _ =>
               throw new NotFoundException(
                 s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check write access"
               )
@@ -215,5 +211,18 @@ class Permission @Inject() (
     */
   def hasSuperAccess(user: User): Unit = if (!user.isSuperUser) {
     throw new IllegalAccessException(s"Only super users can perform this action.")
+  }
+
+  private def getItem(
+      itemType: ItemType
+  )(implicit id: Long, c: Option[Connection] = None): Option[_] = {
+    try {
+      dalManager.get().getManager(itemType).retrieveById
+    } catch {
+      case _: NotFoundException =>
+        // if the dal manager doesn't have it then maybe the ServiceManager does
+        serviceManager.getService(itemType).retrieve(id)
+      case e: Throwable => throw e
+    }
   }
 }

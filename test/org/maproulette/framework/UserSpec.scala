@@ -147,7 +147,7 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       )
       retrievedUser5.get mustEqual insertedUser
       // get the user simply based off their id
-      val retrievedUser6 = this.userService.retrieveById(insertedUser.id)
+      val retrievedUser6 = this.userService.retrieve(insertedUser.id)
       retrievedUser6.get mustEqual insertedUser
       // get the user by their OSM user id
       val retrievedUser7 = this.userService.retrieveByOSMId(insertedUser.osmProfile.id)

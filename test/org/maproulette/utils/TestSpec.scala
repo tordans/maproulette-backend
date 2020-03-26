@@ -17,13 +17,14 @@ import org.maproulette.session._
 import org.mockito.ArgumentMatchers.{eq => eqM, _}
 import org.mockito.Mockito._
 import org.scalatestplus.mockito.MockitoSugar
+import org.scalatestplus.play.PlaySpec
 import play.api.db.Databases
 import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert
   */
-trait TestSpec extends MockitoSugar {
+trait TestSpec extends PlaySpec with MockitoSugar {
 
   val testDb = Databases.inMemory()
 
@@ -155,7 +156,7 @@ trait TestSpec extends MockitoSugar {
       .retrieveById(1L, None)
     when(taskDAL.retrieveRootObject(eqM(Right(task1)), any())(any())).thenReturn(Some(project1))
 
-    // Mocks for Challenges
+    // Mocks for Challenge DAL
     when(challengeDAL.retrieveById(0L, None)).thenReturn(None)
     doAnswer(_ => None)
       .when(challengeDAL.asInstanceOf[BaseDAL[Long, Challenge]])
@@ -166,6 +167,9 @@ trait TestSpec extends MockitoSugar {
       .retrieveById(1L, None)
     when(challengeDAL.retrieveRootObject(eqM(Right(challenge1)), any())(any()))
       .thenReturn(Some(project1))
+    // Mocks for Challenge Service
+    when(challengeService.retrieve(0L)).thenReturn(None)
+    when(challengeService.retrieve(1L)).thenReturn(Some(challenge1))
 
     // Mocks for Virtual Challenges
     when(virtualChallengeDAL.retrieveById(0, None)).thenReturn(None)
@@ -182,20 +186,20 @@ trait TestSpec extends MockitoSugar {
     when(this.projectService.retrieve(1)).thenReturn(Some(project1))
 
     // Mocks for users
-    when(this.userService.retrieveById(-999L)).thenReturn(Some(User.superUser))
-    doAnswer(_ => Some(User.superUser)).when(this.userService).retrieveById(-999L)
-    when(this.userService.retrieveById(-1L)).thenReturn(Some(User.guestUser))
-    doAnswer(_ => Some(User.guestUser)).when(this.userService).retrieveById(-1L)
-    when(this.userService.retrieveById(0L)).thenReturn(None)
-    doAnswer(_ => None).when(this.userService).retrieveById(0L)
-    when(this.userService.retrieveById(1L)).thenReturn(Some(adminUser))
-    doAnswer(_ => Some(adminUser)).when(this.userService).retrieveById(1L)
-    when(this.userService.retrieveById(2L)).thenReturn(Some(writeUser))
-    doAnswer(_ => Some(writeUser)).when(this.userService).retrieveById(2L)
-    when(this.userService.retrieveById(3L)).thenReturn(Some(readUser))
-    doAnswer(_ => Some(readUser)).when(this.userService).retrieveById(3L)
-    when(this.userService.retrieveById(100L)).thenReturn(Some(owner))
-    doAnswer(_ => Some(owner)).when(this.userService).retrieveById(100L)
+    when(this.userService.retrieve(-999L)).thenReturn(Some(User.superUser))
+    doAnswer(_ => Some(User.superUser)).when(this.userService).retrieve(-999L)
+    when(this.userService.retrieve(-1L)).thenReturn(Some(User.guestUser))
+    doAnswer(_ => Some(User.guestUser)).when(this.userService).retrieve(-1L)
+    when(this.userService.retrieve(0L)).thenReturn(None)
+    doAnswer(_ => None).when(this.userService).retrieve(0L)
+    when(this.userService.retrieve(1L)).thenReturn(Some(adminUser))
+    doAnswer(_ => Some(adminUser)).when(this.userService).retrieve(1L)
+    when(this.userService.retrieve(2L)).thenReturn(Some(writeUser))
+    doAnswer(_ => Some(writeUser)).when(this.userService).retrieve(2L)
+    when(this.userService.retrieve(3L)).thenReturn(Some(readUser))
+    doAnswer(_ => Some(readUser)).when(this.userService).retrieve(3L)
+    when(this.userService.retrieve(100L)).thenReturn(Some(owner))
+    doAnswer(_ => Some(owner)).when(this.userService).retrieve(100L)
 
     // Mocks for User Groups
     when(this.groupService.retrieve(0)).thenReturn(None)
