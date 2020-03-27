@@ -273,7 +273,7 @@ class TagDAL @Inject() (
             // Look for each tag in the database by name/tagType. (Sanitize by removing any ' characters)
             appendInWhereClause(
               fetchWhere,
-              s"(name = '${t.name.replaceAll("'", "")}' AND tag_type = '${t.tagType}')"
+              s"(name = '${t.name.toLowerCase.replaceAll("'", "")}' AND tag_type = '${t.tagType}')"
             )(Some(OR()))
           })
           SQL("SELECT * from tags WHERE " + fetchWhere.toString).as(this.parser.*)
