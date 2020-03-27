@@ -101,6 +101,7 @@ buildRoutesFile := {
     "task.api",
     "comment.api",
     "user.api",
+    "data.api",
     "v2.api"
   )
   println(s"Generating Routes File from ${routeFiles.mkString(",")}")
