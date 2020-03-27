@@ -22,7 +22,8 @@ trait TestDatabase {
       "db.default.password"            -> "osm",
       "db.default.logSql"              -> false,
       "maproulette.osm.consumerKey"    -> "test",
-      "maproulette.osm.consumerSecret" -> "test"
+      "maproulette.osm.consumerSecret" -> "test",
+      "maproulette.bootstrap"          -> true
     )
     .build()
   implicit val database = this.application.injector.instanceOf(classOf[Database])

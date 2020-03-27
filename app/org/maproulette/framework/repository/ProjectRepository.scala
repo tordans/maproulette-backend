@@ -11,6 +11,7 @@ import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
+import org.maproulette.data.Actions
 import org.maproulette.framework.model.{Group, Project, User}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
@@ -163,7 +164,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
       val baseQuery = s"""
           SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
                   ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
-                  c.difficulty, c.challenge_type, c.last_updated
+                  c.difficulty, c.last_updated
           FROM challenges c
           INNER JOIN projects p ON p.id = c.parent_id
           INNER JOIN users u ON u.osm_id = c.owner_id
@@ -290,7 +291,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
           ),
           """SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
                     ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
-                    c.difficulty, c.challenge_type, c.last_updated
+                    c.difficulty, c.last_updated
               FROM challenges c
               INNER JOIN projects p ON p.id = c.parent_id
               INNER JOIN users u ON u.osm_id = c.owner_id"""
@@ -313,9 +314,8 @@ object ProjectRepository extends Readers {
       str("location") ~
       str("bounding") ~
       get[DateTime]("challenges.last_updated") ~
-      int("challenges.difficulty") ~
-      int("challenges.challenge_type") map {
-      case id ~ osm_id ~ username ~ name ~ parentId ~ parentName ~ blurb ~ location ~ bounding ~ modified ~ difficulty ~ challengeType =>
+      int("challenges.difficulty") map {
+      case id ~ osm_id ~ username ~ name ~ parentId ~ parentName ~ blurb ~ location ~ bounding ~ modified ~ difficulty =>
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
@@ -333,8 +333,8 @@ object ProjectRepository extends Readers {
           blurb.getOrElse(""),
           modified,
           difficulty,
-          challengeType,
           -1,
+          Actions.ITEM_TYPE_CHALLENGE,
           None,
           None,
           None,

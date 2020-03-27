@@ -80,7 +80,6 @@ class ChallengeDAL @Inject() (
       get[Int]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
-      get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
       get[Boolean]("challenges.has_suggested_fixes") ~
       get[Option[Int]]("challenges.popularity") ~
@@ -112,7 +111,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-            difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
+            difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
@@ -782,7 +781,7 @@ class ChallengeDAL @Inject() (
       val query =
         s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
-                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
+                      WHERE c.deleted = false AND p.deleted = false
                       ${this.searchField("c.name")}
                       ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                       ${this.parentFilter(parentId)}
@@ -812,7 +811,7 @@ class ChallengeDAL @Inject() (
         s"""SELECT c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
                       LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
+                      WHERE c.deleted = false AND p.deleted = false
                       ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                       ${projectFilter}
                       GROUP BY c.id
@@ -829,21 +828,6 @@ class ChallengeDAL @Inject() (
       searchString: String = "",
       orderColumn: String = "id",
       orderDirection: String = "ASC"
-  )(implicit parentId: Long = -1, c: Option[Connection] = None): List[Challenge] =
-    this.listByType(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection)
-
-  /**
-    * This is a dangerous function as it will return all the objects available, so it could take up
-    * a lot of memory
-    */
-  def listByType(
-      limit: Int = Config.DEFAULT_LIST_SIZE,
-      offset: Int = 0,
-      onlyEnabled: Boolean = false,
-      searchString: String = "",
-      orderColumn: String = "id",
-      orderDirection: String = "ASC",
-      challengeType: Int = Actions.ITEM_TYPE_CHALLENGE
   )(implicit parentId: Long = -1, c: Option[Connection] = None): List[Challenge] = {
     implicit val ids = List.empty
     this.cacheManager.withIDListCaching { implicit uncachedIDs =>
@@ -851,7 +835,7 @@ class ChallengeDAL @Inject() (
         val query =
           s"""SELECT $retrieveColumns FROM challenges c
                         INNER JOIN projects p ON p.id = c.parent_id
-                        WHERE challenge_type = $challengeType
+                        WHERE 1=1
                         ${this.searchField("c.name")}
                         ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                         ${this.parentFilter(parentId)}
