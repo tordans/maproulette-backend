@@ -15,7 +15,7 @@ import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.filter.{BaseParameter, DateParameter, Operator, Parameter}
+import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
 import org.maproulette.framework.service.GroupService
 import org.maproulette.models.Task
@@ -50,7 +50,7 @@ class UserRepository @Inject() (
       osmIdFilter: Option[List[Long]] = None
   )(implicit c: Option[Connection] = None): List[ProjectManager] = {
     this.withMRTransaction { implicit c =>
-      Query
+      val query = Query
         .simple(
           List(
             BaseParameter(
@@ -64,14 +64,20 @@ class UserRepository @Inject() (
               useValueDirectly = true
             ),
             BaseParameter(s"g.${Group.FIELD_PROJECT_ID}", projectId),
-            BaseParameter(s"u.${User.FIELD_OSM_ID}", osmIdFilter, Operator.IN)
+            FilterParameter.conditional(
+              s"u.${User.FIELD_OSM_ID}",
+              osmIdFilter.getOrElse(List.empty),
+              Operator.IN,
+              includeOnlyIfTrue = osmIdFilter.isDefined && osmIdFilter
+                .getOrElse(List.empty)
+                .nonEmpty
+            )
           ),
           s"""SELECT ${projectId} AS project_id, u.*, array_agg(g.group_type) AS group_types
         FROM users u, groups g, user_groups ug""",
           grouping = Grouping("u.id")
         )
-        .build()
-        .as(UserRepository.projectManagerParser.*)
+      query.build().as(UserRepository.projectManagerParser.*)
     }
   }
 
@@ -122,12 +128,6 @@ class UserRepository @Inject() (
     }
   }
 
-  private def parser(): RowParser[User] =
-    UserRepository.parser(
-      this.config.defaultNeedsReview,
-      id => this.groupService.retrieveUserGroups(id, User.superUser)
-    )
-
   def update(
       user: User,
       ewkt: String
@@ -169,6 +169,12 @@ class UserRepository @Inject() (
     }
 
   }
+
+  private def parser(): RowParser[User] =
+    UserRepository.parser(
+      this.config.defaultNeedsReview,
+      id => this.groupService.retrieveUserGroups(id, User.superUser)
+    )
 
   /**
     * Updates a users api key

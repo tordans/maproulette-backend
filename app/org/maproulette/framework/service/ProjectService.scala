@@ -107,6 +107,7 @@ class ProjectService @Inject() (
       val writeGroup =
         this.groupService.create(newProject.id, Group.TYPE_WRITE_ACCESS, User.superUser)
       val readGroup = this.groupService.create(newProject.id, Group.TYPE_READ_ONLY, User.superUser)
+      this.groupService.addUserToGroup(project.owner, adminGroup, User.superUser)
       Some(newProject.copy(groups = List(adminGroup, writeGroup, readGroup)))
     }.head
   }

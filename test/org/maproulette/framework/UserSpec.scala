@@ -107,6 +107,23 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
         )
       )
     }
+
+    "get users managing projects" taggedAs (UserTag) in {
+      val managers = this.userRepository.getUsersManagingProject(this.defaultProject.id)
+      managers.size mustEqual 1
+      managers.head.osmId mustEqual this.defaultUser.osmProfile.id
+      val managers2 =
+        this.userRepository.getUsersManagingProject(this.defaultProject.id, Some(List.empty))
+      managers2.size mustEqual 1
+      managers2.head.osmId mustEqual this.defaultUser.osmProfile.id
+      val managers3 = this.userRepository
+        .getUsersManagingProject(this.defaultProject.id, Some(List(this.defaultUser.id)))
+      managers3.size mustEqual 0
+      val managers4 = this.userRepository
+        .getUsersManagingProject(this.defaultProject.id, Some(List(this.defaultUser.osmProfile.id)))
+      managers4.size mustEqual 1
+      managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
+    }
   }
 
   "UserService" should {
@@ -170,86 +187,113 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       val newAPIUser = this.userService.generateAPIKey(insertedUser, User.superUser)
       newAPIUser.get.apiKey must not be insertedUser.apiKey
     }
-  }
 
-  "retrieve list of users" taggedAs (UserTag) in {
-    val user1 =
-      this.userService.create(this.getTestUser(12, "ListRetrievalTestUser1"), User.superUser)
-    val user2 =
-      this.userService.create(this.getTestUser(13, "ListRetrievalTestUser2"), User.superUser)
-    val userList = this.userService.retrieveListById(List(user1.id, user2.id))
-    userList.size mustEqual 2
-    List(user1, user2).contains(userList.head) mustEqual true
-    List(user1, user2).contains(userList(1)) mustEqual true
-  }
+    "retrieve list of users" taggedAs (UserTag) in {
+      val user1 =
+        this.userService.create(this.getTestUser(12, "ListRetrievalTestUser1"), User.superUser)
+      val user2 =
+        this.userService.create(this.getTestUser(13, "ListRetrievalTestUser2"), User.superUser)
+      val userList = this.userService.retrieveListById(List(user1.id, user2.id))
+      userList.size mustEqual 2
+      List(user1, user2).contains(userList.head) mustEqual true
+      List(user1, user2).contains(userList(1)) mustEqual true
+    }
 
-  "delete user" taggedAs (UserTag) in {
-    val user =
-      this.userService.create(this.getTestUser(14, "DeleteTest"), User.superUser)
-    this.userService.delete(user.id, User.superUser)
-    this.repositoryGet(user.id).isEmpty mustEqual true
-  }
+    "delete user" taggedAs (UserTag) in {
+      val user =
+        this.userService.create(this.getTestUser(14, "DeleteTest"), User.superUser)
+      this.userService.delete(user.id, User.superUser)
+      this.repositoryGet(user.id).isEmpty mustEqual true
+    }
 
-  "delete user by OSM id" taggedAs (UserTag) in {
-    val user =
-      this.userService.create(this.getTestUser(15, "DeleteByOidTest"), User.superUser)
-    this.userService.deleteByOsmID(user.osmProfile.id, User.superUser)
-    this.repositoryGet(user.id).isEmpty mustEqual true
-  }
+    "delete user by OSM id" taggedAs (UserTag) in {
+      val user =
+        this.userService.create(this.getTestUser(15, "DeleteByOidTest"), User.superUser)
+      this.userService.deleteByOsmID(user.osmProfile.id, User.superUser)
+      this.repositoryGet(user.id).isEmpty mustEqual true
+    }
 
-  "Search by OSM Username" taggedAs (UserTag) in {
-    val user1 =
-      this.userService.create(this.getTestUser(16, "OSMUsernameSearch1"), User.superUser)
-    val user2 =
-      this.userService.create(this.getTestUser(17, "OSMUsernameSearch2"), User.superUser)
-    val user3 =
-      this.userService.create(this.getTestUser(18, "OSMUsernameNotRelated"), User.superUser)
+    "Search by OSM Username" taggedAs (UserTag) in {
+      val user1 =
+        this.userService.create(this.getTestUser(16, "OSMUsernameSearch1"), User.superUser)
+      val user2 =
+        this.userService.create(this.getTestUser(17, "OSMUsernameSearch2"), User.superUser)
+      val user3 =
+        this.userService.create(this.getTestUser(18, "OSMUsernameNotRelated"), User.superUser)
 
-    val searchResultUser1 = UserSearchResult(
-      user1.osmProfile.id,
-      user1.osmProfile.displayName,
-      user1.osmProfile.avatarURL
-    )
-    val searchResultUser2 = UserSearchResult(
-      user2.osmProfile.id,
-      user2.osmProfile.displayName,
-      user2.osmProfile.avatarURL
-    )
-    val searchResultUser3 = UserSearchResult(
-      user3.osmProfile.id,
-      user3.osmProfile.displayName,
-      user3.osmProfile.avatarURL
-    )
+      val searchResultUser1 = UserSearchResult(
+        user1.osmProfile.id,
+        user1.osmProfile.displayName,
+        user1.osmProfile.avatarURL
+      )
+      val searchResultUser2 = UserSearchResult(
+        user2.osmProfile.id,
+        user2.osmProfile.displayName,
+        user2.osmProfile.avatarURL
+      )
+      val searchResultUser3 = UserSearchResult(
+        user3.osmProfile.id,
+        user3.osmProfile.displayName,
+        user3.osmProfile.avatarURL
+      )
 
-    val users1 = this.userService.searchByOSMUsername("Search")
-    users1.size mustEqual 2
-    List(searchResultUser1, searchResultUser2).contains(users1.head) mustEqual true
-    List(searchResultUser1, searchResultUser2).contains(users1(1)) mustEqual true
+      val users1 = this.userService.searchByOSMUsername("Search")
+      users1.size mustEqual 2
+      List(searchResultUser1, searchResultUser2).contains(users1.head) mustEqual true
+      List(searchResultUser1, searchResultUser2).contains(users1(1)) mustEqual true
 
-    val users2 = this.userService.searchByOSMUsername("Not")
-    users2.size mustEqual 1
-    users2.head mustEqual searchResultUser3
+      val users2 = this.userService.searchByOSMUsername("Not")
+      users2.size mustEqual 1
+      users2.head mustEqual searchResultUser3
 
-    val users3 = this.userService.searchByOSMUsername("NONE")
-    users3.size mustEqual 0
+      val users3 = this.userService.searchByOSMUsername("NONE")
+      users3.size mustEqual 0
 
-    val searchResultsList = List(searchResultUser1, searchResultUser2, searchResultUser3)
-    val users4            = this.userService.searchByOSMUsername("OSM", Paging(1))
-    users4.size mustEqual 1
-    val firstUser = users4.head
-    searchResultsList.contains(firstUser) mustEqual true
+      val searchResultsList = List(searchResultUser1, searchResultUser2, searchResultUser3)
+      val users4            = this.userService.searchByOSMUsername("OSM", Paging(1))
+      users4.size mustEqual 1
+      val firstUser = users4.head
+      searchResultsList.contains(firstUser) mustEqual true
 
-    val users5 = this.userService.searchByOSMUsername("OSM", Paging(1, 1))
-    users5.size mustEqual 1
-    val secondUser = users5.head
-    searchResultsList.contains(secondUser) mustEqual true
-    secondUser should not be firstUser
-    val users6 = this.userService.searchByOSMUsername("OSM", Paging(1, 2))
-    users6.size mustEqual 1
-    val thirdUser = users6.head
-    searchResultsList.contains(thirdUser) mustEqual true
-    thirdUser should not be firstUser
-    thirdUser should not be secondUser
+      val users5 = this.userService.searchByOSMUsername("OSM", Paging(1, 1))
+      users5.size mustEqual 1
+      val secondUser = users5.head
+      searchResultsList.contains(secondUser) mustEqual true
+      secondUser should not be firstUser
+      val users6 = this.userService.searchByOSMUsername("OSM", Paging(1, 2))
+      users6.size mustEqual 1
+      val thirdUser = users6.head
+      searchResultsList.contains(thirdUser) mustEqual true
+      thirdUser should not be firstUser
+      thirdUser should not be secondUser
+    }
+
+    "get users managing projects" taggedAs (UserTag) in {
+      val managers =
+        this.userService.getUsersManagingProject(this.defaultProject.id, user = User.superUser)
+      managers.size mustEqual 1
+      managers.head.osmId mustEqual this.defaultUser.osmProfile.id
+      val managers2 =
+        this.userService
+          .getUsersManagingProject(this.defaultProject.id, Some(List.empty), User.superUser)
+      managers2.size mustEqual 1
+      managers2.head.osmId mustEqual this.defaultUser.osmProfile.id
+      val managers3 = this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          Some(List(this.defaultUser.id)),
+          User.superUser
+        )
+      managers3.size mustEqual 0
+      val managers4 = this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          Some(List(this.defaultUser.osmProfile.id)),
+          User.superUser
+        )
+      managers4.size mustEqual 1
+      managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
+    }
   }
 
   override implicit val projectTestName: String = "UserSpecProject"
