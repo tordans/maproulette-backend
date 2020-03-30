@@ -552,7 +552,7 @@ class UserService @Inject() (
     this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
         if (clear) {
-          this.groupService.removeUserFromProjectGroups(osmId, projectId, -1, user)
+          this.groupService.removeUserFromProjectGroups(osmId, projectId, -1, User.superUser)
         }
         this.groupService.addUserToProject(osmId, groupType, projectId, User.superUser)
         Some(cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmId, User.superUser)))
