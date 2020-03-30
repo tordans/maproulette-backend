@@ -36,19 +36,20 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
   def defaultUser: User       = this.serviceManager.user.retrieveByOSMId(134567788).get
 
   override protected def beforeAll(): Unit = {
-    this.createProjectStructure(projectTestName, "default")
     this.serviceManager.user
       .create(this.getTestUser(134567788, s"User_$projectTestName"), User.superUser)
+    this.createProjectStructure(projectTestName, "default")
   }
 
   protected def createProjectStructure(
       projectName: String,
       challengePrefix: String,
       numberOfChallenges: Int = 10,
-      numberOfTasksPerChallenge: Int = 50
+      numberOfTasksPerChallenge: Int = 50,
+      ownerId: Long = this.defaultUser.osmProfile.id
   ): Project = {
     val createdProject = this.serviceManager.project
-      .create(Project(-1, User.superUser.osmProfile.id, projectName), User.superUser)
+      .create(Project(-1, ownerId, projectName), User.superUser)
     1 to numberOfChallenges foreach { cid =>
       {
         val challenge = this.createChallengeStructure(s"${challengePrefix}_$cid", createdProject.id)
