@@ -18,6 +18,7 @@ import org.maproulette.framework.model
 import org.maproulette.framework.model.{ReviewMetrics, TaskReview, TaskWithReview, User}
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models._
+import org.maproulette.data.ChallengeType
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.SearchParameters
@@ -868,6 +869,7 @@ class TaskReviewDAL @Inject() (
      ${joinClause}
      WHERE
      ${whereClause}
+     AND task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY}
     """
     val reviewMetricsParser: RowParser[ReviewMetrics] = {
       get[Int]("total") ~
@@ -992,7 +994,7 @@ class TaskReviewDAL @Inject() (
         whereClause.toString
       } else {
         "WHERE " + whereClause.toString
-      }
+      } + s" AND task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY}"
 
       val query =
         this.manager.taskCluster.getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
@@ -1024,8 +1026,15 @@ class TaskReviewDAL @Inject() (
       commentContent: String = ""
   )(implicit c: Connection = null): Int = {
     if (!user.isSuperUser && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
-        reviewStatus != Task.REVIEW_STATUS_DISPUTED) {
+        reviewStatus != Task.REVIEW_STATUS_DISPUTED && reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
       throw new IllegalAccessException("User must be a reviewer to edit task review status.")
+    } else if (reviewStatus == Task.REVIEW_STATUS_UNNECESSARY) {
+      if (task.review.reviewStatus.getOrElse(0) != Task.REVIEW_STATUS_REQUESTED) {
+        // We should not update review status to Unnecessary unless the review status is requested
+        return 0
+      }
+
+      this.permission.hasWriteAccess(ChallengeType(), user)(task.parent)
     }
 
     val now = Instant.now()
@@ -1110,13 +1119,15 @@ class TaskReviewDAL @Inject() (
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
                           $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
-            this.manager.notification.createReviewNotification(
-              user,
-              task.review.reviewRequestedBy.getOrElse(-1),
-              reviewStatus,
-              task,
-              comment
-            )
+            if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
+              this.manager.notification.createReviewNotification(
+                user,
+                task.review.reviewRequestedBy.getOrElse(-1),
+                reviewStatus,
+                task,
+                comment
+              )
+            }
           }
         } else {
           // For disputed tasks.
@@ -1139,53 +1150,56 @@ class TaskReviewDAL @Inject() (
         )
       }
 
-      if (!needsReReview) {
-        var reviewStartTime: Option[Long] = None
-        task.review.reviewClaimedAt match {
-          case Some(t) =>
-            reviewStartTime = Some(t.getMillis())
-          case None => // do nothing
+      if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
+        if (!needsReReview) {
+          var reviewStartTime: Option[Long] = None
+          task.review.reviewClaimedAt match {
+            case Some(t) =>
+              reviewStartTime = Some(t.getMillis())
+            case None => // do nothing
+          }
+
+          this.serviceManager.userMetrics.updateUserScore(
+            None,
+            None,
+            Option(reviewStatus),
+            task.review.reviewedBy != None,
+            false,
+            None,
+            task.review.reviewRequestedBy.get
+          )
+          this.serviceManager.userMetrics.updateUserScore(
+            None,
+            None,
+            Option(reviewStatus),
+            false,
+            true,
+            reviewStartTime,
+            user.id
+          )
+        } else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
+          this.serviceManager.userMetrics.updateUserScore(
+            None,
+            None,
+            Option(reviewStatus),
+            true,
+            true,
+            None,
+            task.review.reviewedBy.get
+          )
+          this.serviceManager.userMetrics.updateUserScore(
+            None,
+            None,
+            Option(reviewStatus),
+            true,
+            false,
+            None,
+            task.review.reviewRequestedBy.get
+          )
         }
 
-        this.serviceManager.userMetrics.updateUserScore(
-          None,
-          None,
-          Option(reviewStatus),
-          task.review.reviewedBy != None,
-          false,
-          None,
-          task.review.reviewRequestedBy.get
-        )
-        this.serviceManager.userMetrics.updateUserScore(
-          None,
-          None,
-          Option(reviewStatus),
-          false,
-          true,
-          reviewStartTime,
-          user.id
-        )
-      } else if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
-        this.serviceManager.userMetrics.updateUserScore(
-          None,
-          None,
-          Option(reviewStatus),
-          true,
-          true,
-          None,
-          task.review.reviewedBy.get
-        )
-        this.serviceManager.userMetrics.updateUserScore(
-          None,
-          None,
-          Option(reviewStatus),
-          true,
-          false,
-          None,
-          task.review.reviewRequestedBy.get
-        )
+        updatedRows
       }
-
       updatedRows
     }
 

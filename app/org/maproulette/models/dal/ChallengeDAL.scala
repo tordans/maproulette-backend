@@ -1066,6 +1066,7 @@ class ChallengeDAL @Inject() (
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_REJECTED} THEN ${Task.REVIEW_STATUS_REJECTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_ASSISTED} THEN ${Task.REVIEW_STATUS_ASSISTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_DISPUTED} THEN ${Task.REVIEW_STATUS_DISPUTED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_UNNECESSARY} THEN ${Task.REVIEW_STATUS_UNNECESSARY_NAME}
                                            END)) ||
                                         hstore('mr_reviewer', (select name from users where id=t.reviewed_by)::text) ||
                                         hstore('mr_reviewedAt', t.reviewed_at::text) ||

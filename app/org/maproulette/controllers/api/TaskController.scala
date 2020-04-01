@@ -539,6 +539,51 @@ class TaskController @Inject() (
   }
 
   /**
+    * This function will set the review status to "Unnecessary", essentially removing the
+    * review request.
+    *
+    * User must have write access to parent challenge(s).
+    *
+    * @param ids The ids of the tasks to update
+    * @return The number of tasks updated.
+    */
+  def removeReviewRequest(ids: String): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      SearchParameters.withSearch { p =>
+        var params = p
+        var taskIds = Utils.toLongList(ids) match {
+          case Some(l) => l
+          case None    => null
+        }
+
+        if (taskIds == null || taskIds.isEmpty) {
+          params.location match {
+            case Some(l) => // do nothing, already have bounding box
+            case None    =>
+              // No bounding box, so search everything
+              params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
+          }
+          val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
+          taskIds = tasks.map(task => task.id)
+        }
+
+        var updatedTasks = 0
+
+        taskIds.foreach(id => {
+          this.dal.retrieveById(id) match {
+            case Some(t) =>
+              updatedTasks = updatedTasks + this.dalManager.taskReview
+                .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+            case None => throw new NotFoundException("Task not found with id: " + id)
+          }
+        })
+
+        Ok(Json.toJson(updatedTasks))
+      }
+    }
+  }
+
+  /**
     * Changes the status on tasks that meet the search criteria (SearchParameters)
     *
     * @param newStatus The status to change all the tasks to
