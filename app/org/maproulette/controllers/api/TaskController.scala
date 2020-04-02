@@ -550,33 +550,27 @@ class TaskController @Inject() (
   def removeReviewRequest(ids: String): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { p =>
-        var params = p
-        var taskIds = Utils.toLongList(ids) match {
-          case Some(l) => l
-          case None    => null
+        implicit val taskIds = Utils.toLongList(ids) match {
+          case Some(l) if !l.isEmpty => l
+          case None => {
+            val params = p.location match {
+              case Some(l) => p
+              case None    =>
+                // No bounding box, so search everything
+                p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
+            }
+            val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
+            tasks.map(task => task.id)
+          }
         }
 
-        if (taskIds == null || taskIds.isEmpty) {
-          params.location match {
-            case Some(l) => // do nothing, already have bounding box
-            case None    =>
-              // No bounding box, so search everything
-              params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
-          }
-          val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
-          taskIds = tasks.map(task => task.id)
-        }
-
-        var updatedTasks = 0
-
-        taskIds.foreach(id => {
-          this.dal.retrieveById(id) match {
-            case Some(t) =>
-              updatedTasks = updatedTasks + this.dalManager.taskReview
-                .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
-            case None => throw new NotFoundException("Task not found with id: " + id)
-          }
-        })
+        // set the taskIds variable to `implicit` above
+        val updatedTasks = this.dal
+          .retrieveListById()
+          .foldLeft(0)((updatedCount, t) =>
+            updatedCount + this.dalManager.taskReview
+              .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+          )
 
         Ok(Json.toJson(updatedTasks))
       }
