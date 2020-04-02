@@ -199,26 +199,27 @@ class UserRepository @Inject() (
 
   def delete(id: Long)(implicit c: Option[Connection] = None): Boolean = {
     this.withMRTransaction { implicit c =>
-      SQL("DELETE FROM users WHERE id = {id}").on(Symbol("id") -> id).execute()
+      Query.simple(List(BaseParameter(User.FIELD_ID, id))).build("DELETE FROM users").execute()
     }
   }
 
   def deleteByOSMID(id: Long)(implicit c: Option[Connection] = None): Boolean = {
     this.withMRTransaction { implicit c =>
-      SQL("DELETE FROM users WHERE osm_id = {id}").on(Symbol("id") -> id).execute()
+      Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))).build("DELETE FROM users").execute()
     }
   }
 
   def anonymizeUser(osmId: Long)(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
       // anonymize all status actions set
-      SQL("UPDATE status_actions SET osm_user_id = -1 WHERE osm_user_id = {id}}")
-        .on(Symbol("id") -> osmId)
+      Query
+        .simple(List(BaseParameter(StatusActions.FIELD_OSM_USER_ID, osmId)))
+        .build("UPDATE status_actions SET osm_user_id = -1")
         .executeUpdate()
       // set all comments made to "COMMENT_DELETED"
-      SQL(
-        "UPDATE task_comments SET comment = '*COMMENT DELETED*', osm_id = -1 WHERE osm_id = {id}}"
-      ).on(Symbol("id") -> osmId)
+      Query
+        .simple(List(BaseParameter("osm_id", osmId)))
+        .build("UPDATE task_comments SET comment = '*COMMENT DELETED*', osm_id = -1")
         .executeUpdate()
     }
   }

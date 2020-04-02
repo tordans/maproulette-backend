@@ -93,6 +93,120 @@ class SessionManager @Inject() (
     p.future
   }
 
+  def retrieveUser(username: String, apiKey: String): Option[User] = {
+    val apiSplit        = apiKey.split("\\|")
+    val encryptedApiKey = crypto.encrypt(apiSplit(1))
+    this.serviceManager.user.retrieveByUsernameAndAPIKey(username, encryptedApiKey)
+  }
+
+  /**
+    * Retrieves the request token and then makes a callback to the MapRoulette auth URL
+    *
+    * @param callback The callback after the request is made to retrieve the request token
+    * @return Either OAuthException (ie. NotAuthorized) or the request token
+    */
+  def retrieveRequestToken(callback: String): Either[OAuthException, RequestToken] =
+    this.oauth.retrieveRequestToken(callback)
+
+  /**
+    * The URL where the user needs to be redirected to grant authorization to your application.
+    *
+    * @param token request token
+    */
+  def redirectUrl(token: String): String = this.oauth.redirectUrl(token)
+
+  /**
+    * For a user aware request we are simply checking to see if we can find a user that can be
+    * associated with the current session. So if a session token is available we will try to authenticate
+    * the user and optionally return a User object.
+    *
+    * @param block   The block of code that is executed after user has been checked
+    * @param request The incoming http request
+    * @return The result from the block of code
+    */
+  def userAwareRequest(
+      block: Option[User] => Result
+  )(implicit request: Request[Any]): Future[Result] = {
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      this.userAware(block)
+    }
+  }
+
+  protected def userAware(
+      block: Option[User] => Result
+  )(implicit request: Request[Any]): Future[Result] = {
+    val p = Promise[Result]
+    this.sessionUser(sessionTokenPair) onComplete {
+      case Success(result) =>
+        Try(block(result)) match {
+          case Success(res) => p success res
+          case Failure(f)   => p failure f
+        }
+      case Failure(error) => p failure error
+    }
+    p.future
+  }
+
+  /**
+    * For an authenticated request we expect there to currently be a valid session. If no session
+    * is available an OAuthNotAuthorizedException will be thrown.
+    *
+    * @param block            The block of code to execute after a valid session has been found
+    * @param request          The incoming http request
+    * @param requireSuperUser Whether a super user is required for this request
+    * @return The result from the block of code
+    */
+  def authenticatedRequest(
+      block: User => Result
+  )(implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      this.authenticated(Left(block))
+    }
+  }
+
+  protected def authenticated(
+      execute: Either[User => Result, User => Future[Result]]
+  )(implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
+    val p = Promise[Result]
+    try {
+      this.sessionUser(sessionTokenPair) onComplete {
+        case Success(result) =>
+          result match {
+            case Some(user) =>
+              try {
+                if (requireSuperUser && !user.isSuperUser) {
+                  p failure new IllegalAccessException("Only a super user can make this request")
+                } else {
+                  execute match {
+                    case Left(block) =>
+                      Try(block(user)) match {
+                        case Success(s) => p success s
+                        case Failure(f) => p failure f
+                      }
+                    case Right(block) =>
+                      Try(block(user)) match {
+                        case Success(s) =>
+                          s onComplete {
+                            case Success(s) => p success s
+                            case Failure(f) => p failure f
+                          }
+                        case Failure(f) => p failure f
+                      }
+                  }
+                }
+              } catch {
+                case e: Exception => p failure e
+              }
+            case None => p failure new OAuthNotAuthorizedException()
+          }
+        case Failure(e) => p failure e
+      }
+    } catch {
+      case e: Exception => p failure e
+    }
+    p.future
+  }
+
   /**
     * Retrieves the session token pair that is stored in the users session cookie. This is the token
     * and secret that a user uses to authorize various requests to OSM. This needs to be stored in
@@ -146,38 +260,7 @@ class SessionManager @Inject() (
           }
         }
       case false =>
-        val apiUser = request.headers.get(SessionManager.KEY_API) match {
-          case Some(apiKey) =>
-            // The super key gives complete access to everything. By default the super key is not
-            // enabled, but if it is anybody with that key can do anything in the system. This is
-            // generally not a good idea to have it enabled, but useful for internal systems or
-            // dev testing.
-            if (this.config.superKey.nonEmpty && StringUtils.equals(
-                  this.config.superKey.get,
-                  apiKey
-                )) {
-              Some(User.superUser)
-            } else {
-              try {
-                val apiSplit        = apiKey.split("\\|")
-                val encryptedApiKey = crypto.encrypt(apiSplit(1))
-                this.serviceManager.user
-                  .retrieveByAPIKey(apiSplit(0).toLong, encryptedApiKey, User.superUser) match {
-                  case Some(user) => Some(user)
-                  case None       => None
-                }
-              } catch {
-                case _: NumberFormatException =>
-                  logger.warn("Could not decrypt user key, generally this is not an issue")
-                  None
-                case e: Exception =>
-                  logger.error(e.getMessage, e)
-                  None
-              }
-            }
-          case None => None
-        }
-        apiUser match {
+        this.getSessionByApiKey(request.headers.get(SessionManager.KEY_API)) match {
           case Some(user) => p success Some(user)
           case None =>
             tokenPair match {
@@ -202,6 +285,40 @@ class SessionManager @Inject() (
         }
     }
     p.future
+  }
+
+  def getSessionByApiKey(apiKey: Option[String]): Option[User] = {
+    apiKey match {
+      case Some(apiKey) =>
+        // The super key gives complete access to everything. By default the super key is not
+        // enabled, but if it is anybody with that key can do anything in the system. This is
+        // generally not a good idea to have it enabled, but useful for internal systems or
+        // dev testing.
+        if (this.config.superKey.nonEmpty && StringUtils.equals(
+              this.config.superKey.get,
+              apiKey
+            )) {
+          Some(User.superUser)
+        } else {
+          try {
+            val apiSplit        = apiKey.split("\\|")
+            val encryptedApiKey = crypto.encrypt(apiSplit(1))
+            this.serviceManager.user
+              .retrieveByAPIKey(apiSplit(0).toLong, encryptedApiKey, User.superUser) match {
+              case Some(user) => Some(user)
+              case None       => None
+            }
+          } catch {
+            case _: NumberFormatException =>
+              logger.warn("Could not decrypt user key, generally this is not an issue")
+              None
+            case e: Exception =>
+              logger.error(e.getMessage, e)
+              None
+          }
+        }
+      case None => None
+    }
   }
 
   /**
@@ -279,77 +396,6 @@ class SessionManager @Inject() (
     p.future
   }
 
-  def retrieveUser(username: String, apiKey: String): Option[User] = {
-    val apiSplit        = apiKey.split("\\|")
-    val encryptedApiKey = crypto.encrypt(apiSplit(1))
-    this.serviceManager.user.retrieveByUsernameAndAPIKey(username, encryptedApiKey)
-  }
-
-  /**
-    * Retrieves the request token and then makes a callback to the MapRoulette auth URL
-    *
-    * @param callback The callback after the request is made to retrieve the request token
-    * @return Either OAuthException (ie. NotAuthorized) or the request token
-    */
-  def retrieveRequestToken(callback: String): Either[OAuthException, RequestToken] =
-    this.oauth.retrieveRequestToken(callback)
-
-  /**
-    * The URL where the user needs to be redirected to grant authorization to your application.
-    *
-    * @param token request token
-    */
-  def redirectUrl(token: String): String = this.oauth.redirectUrl(token)
-
-  /**
-    * For a user aware request we are simply checking to see if we can find a user that can be
-    * associated with the current session. So if a session token is available we will try to authenticate
-    * the user and optionally return a User object.
-    *
-    * @param block   The block of code that is executed after user has been checked
-    * @param request The incoming http request
-    * @return The result from the block of code
-    */
-  def userAwareRequest(
-      block: Option[User] => Result
-  )(implicit request: Request[Any]): Future[Result] = {
-    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      this.userAware(block)
-    }
-  }
-
-  protected def userAware(
-      block: Option[User] => Result
-  )(implicit request: Request[Any]): Future[Result] = {
-    val p = Promise[Result]
-    this.sessionUser(sessionTokenPair) onComplete {
-      case Success(result) =>
-        Try(block(result)) match {
-          case Success(res) => p success res
-          case Failure(f)   => p failure f
-        }
-      case Failure(error) => p failure error
-    }
-    p.future
-  }
-
-  /**
-    * For an authenticated request we expect there to currently be a valid session. If no session
-    * is available an OAuthNotAuthorizedException will be thrown.
-    *
-    * @param block            The block of code to execute after a valid session has been found
-    * @param request          The incoming http request
-    * @param requireSuperUser Whether a super user is required for this request
-    * @return The result from the block of code
-    */
-  def authenticatedRequest(
-      block: User => Result
-  )(implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
-    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      this.authenticated(Left(block))
-    }
-  }
-
   /**
     * For an authenticated request we expect there to currently be a valid session. If no session is
     * available an OAuthNotAuthorizedException will be thrown. This function differs from the
@@ -366,49 +412,6 @@ class SessionManager @Inject() (
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       this.authenticated(Right(block))
     }
-  }
-
-  protected def authenticated(
-      execute: Either[User => Result, User => Future[Result]]
-  )(implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
-    val p = Promise[Result]
-    try {
-      this.sessionUser(sessionTokenPair) onComplete {
-        case Success(result) =>
-          result match {
-            case Some(user) =>
-              try {
-                if (requireSuperUser && !user.isSuperUser) {
-                  p failure new IllegalAccessException("Only a super user can make this request")
-                } else {
-                  execute match {
-                    case Left(block) =>
-                      Try(block(user)) match {
-                        case Success(s) => p success s
-                        case Failure(f) => p failure f
-                      }
-                    case Right(block) =>
-                      Try(block(user)) match {
-                        case Success(s) =>
-                          s onComplete {
-                            case Success(s) => p success s
-                            case Failure(f) => p failure f
-                          }
-                        case Failure(f) => p failure f
-                      }
-                  }
-                }
-              } catch {
-                case e: Exception => p failure e
-              }
-            case None => p failure new OAuthNotAuthorizedException()
-          }
-        case Failure(e) => p failure e
-      }
-    } catch {
-      case e: Exception => p failure e
-    }
-    p.future
   }
 }
 

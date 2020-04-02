@@ -77,7 +77,7 @@ case class ChallengeGeneral(
     popularity: Option[Int] = None,
     checkinComment: String = "",
     checkinSource: String = "",
-    virtualParents: Option[Array[Long]] = None,
+    virtualParents: Option[List[Long]] = None,
     requiresLocal: Boolean = false
 ) extends DefaultWrites
 

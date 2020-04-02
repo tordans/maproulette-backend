@@ -43,6 +43,8 @@ libraryDependencies ++= Seq(
   specs2 % Test,
   filters,
   guice,
+  "org.sangria-graphql"     %% "sangria-play-json"  % "2.0.1",
+  "org.sangria-graphql"     %% "sangria"            % "2.0.0-M1",
   "com.typesafe.play"       %% "play-json-joda"     % "2.8.1",
   "com.typesafe.play"       %% "play-json"          % "2.8.1",
   "org.scalatestplus.play"  %% "scalatestplus-play" % "5.0.0" % Test,
@@ -80,7 +82,7 @@ javaOptions in Test ++= Option(System.getProperty("config.file")).map("-Dconfig.
 javaOptions in Compile ++= Seq(
   "-Xmx2G",
   // Increase stack size for compilation
-  "-Xss4M"
+  "-Xss16M"
 )
 
 lazy val buildRoutesFile = taskKey[Unit]("Builds the API V2 Routes File")

@@ -5,7 +5,6 @@
 package org.maproulette.exception
 
 import org.slf4j.LoggerFactory
-import play.api.Logger
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.Result
 import play.api.mvc.Results._
@@ -21,9 +20,6 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 object MPExceptionUtil {
-
-  import play.api.http.Status._
-
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   /**
@@ -94,11 +90,5 @@ object MPExceptionUtil {
         logger.error(e.getMessage, e)
         InternalServerError(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
     }
-  }
-
-  private def manageUIException(e: Throwable): Result = {
-    logger.debug(e.getMessage, e)
-    Redirect(s"/mr3/error", Map("errormsg" -> Seq(e.getMessage)), PERMANENT_REDIRECT)
-      .withHeaders(("Cache-Control", "no-cache"))
   }
 }
