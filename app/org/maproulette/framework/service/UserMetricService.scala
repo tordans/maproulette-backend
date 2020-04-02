@@ -95,6 +95,15 @@ class UserMetricService @Inject() (
           AND(),
           FilterGroup(AND(), BaseParameter(TaskReview.FIELD_REVIEW_REQUESTED_BY, userId)),
           FilterGroup(
+            AND(),
+            BaseParameter(
+              TaskReview.FIELD_REVIEW_STATUS,
+              Task.REVIEW_STATUS_UNNECESSARY,
+              Operator.EQ,
+              true
+            )
+          ),
+          FilterGroup(
             OR(),
             reviewTimeClause,
             BaseParameter(TaskReview.FIELD_REVIEWED_AT, null, Operator.NULL)
@@ -114,7 +123,16 @@ class UserMetricService @Inject() (
 
       val asReviewerCounts = this.taskReviewRepository.getTaskReviewCounts(
         Query.simple(
-          List(BaseParameter(TaskReview.FIELD_REVIEWED_BY, userId), reviewerTimeClause)
+          List(
+            BaseParameter(TaskReview.FIELD_REVIEWED_BY, userId),
+            reviewerTimeClause,
+            BaseParameter(
+              TaskReview.FIELD_REVIEW_STATUS,
+              Task.REVIEW_STATUS_UNNECESSARY,
+              Operator.EQ,
+              true
+            )
+          )
         )
       )
       Map(

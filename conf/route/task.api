@@ -665,6 +665,27 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 ###
 PUT     /task/:id/review/:status                           @org.maproulette.controllers.api.TaskController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
+# summary: Changes review status to "Unnecessary" on tasks matching criteria
+# consumes: [ application/json ]
+# produces: [ application/json ]
+# description: Will change review status on tasks that match the given search parameters
+#              indicating the tasks do not need a review.
+# responses:
+#   '200':
+#     description: A simple OK status message with number of tasks updated.
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: task ids
+#     description: Task ids to change (OR search parameters can be used instead)
+###
+PUT     /tasks/review/remove                               @org.maproulette.controllers.api.TaskController.removeReviewRequest(ids:String?="")
+###
 # tags: [ Task ]
 # summary: Update Task Review Status for a Bundle
 # produces: [ application/json ]
