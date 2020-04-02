@@ -1242,6 +1242,16 @@ class ChallengeDAL @Inject() (
       implicit c: Option[Connection] = None
   ): Option[Challenge] = {
     this.permission.hasAdminAccess(ProjectType(), user)(newParent)
+    this.serviceManager.project.retrieve(newParent) match {
+      case Some(p) =>
+        if (p.isVirtual.getOrElse(false)) {
+          throw new InvalidException(s"Cannot move challenge into a virtual project ($newParent).")
+        }
+      case None =>
+        // This shouldn't happen since we already did a permission check.
+        throw new NotFoundException(s"No project with id $newParent found.")
+    }
+
     implicit val id = challengeId
     this.retrieveById match {
       case Some(c) => this.permission.hasObjectAdminAccess(c, user)
