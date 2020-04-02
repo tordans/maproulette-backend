@@ -187,6 +187,9 @@ case class User(
     groups.exists(g => g.groupType == Group.TYPE_ADMIN && g.projectId == projectId)
 
   def getUserLocale: Locale = new Locale(this.settings.locale.getOrElse("en"))
+
+  def toSearchResult: UserSearchResult =
+    UserSearchResult(this.osmProfile.id, this.osmProfile.displayName, this.osmProfile.avatarURL)
 }
 
 /**

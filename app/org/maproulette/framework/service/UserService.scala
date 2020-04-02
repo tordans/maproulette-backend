@@ -124,7 +124,7 @@ class UserService @Inject() (
   def searchByOSMUsername(
       username: String,
       paging: Paging = Paging()
-  ): List[UserSearchResult] = {
+  ): List[User] = {
     // ordering previously was done like "ORDER BY (users.name ILIKE '${username}') DESC, users.name"
     // which is somewhat strange and not currently supported by the Query system, so leaving out and
     // seeing what will be the result of that.
@@ -137,9 +137,6 @@ class UserService @Inject() (
           paging = paging,
           order = Order(List(User.FIELD_NAME))
         )
-      )
-      .map(user =>
-        UserSearchResult(user.osmProfile.id, user.osmProfile.displayName, user.osmProfile.avatarURL)
       )
   }
 
@@ -552,7 +549,7 @@ class UserService @Inject() (
     this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
         if (clear) {
-          this.groupService.removeUserFromProjectGroups(osmId, projectId, -1, user)
+          this.groupService.removeUserFromProjectGroups(osmId, projectId, -1, User.superUser)
         }
         this.groupService.addUserToProject(osmId, groupType, projectId, User.superUser)
         Some(cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmId, User.superUser)))

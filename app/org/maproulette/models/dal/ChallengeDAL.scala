@@ -223,7 +223,7 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") ~
-      get[Option[Array[Long]]]("virtual_parent_ids") map {
+      get[Option[List[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~

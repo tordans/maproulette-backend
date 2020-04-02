@@ -215,6 +215,7 @@ class Config @Inject() (implicit val configuration: Configuration) {
   def withFiniteDuration(key: String)(block: (FiniteDuration) => Unit): Unit = {
     configuration
       .getOptional[String](key)
+      .filter(_.nonEmpty)
       .map(Duration(_))
       .filter(_.isFinite)
       .map(duration => FiniteDuration(duration._1, duration._2))

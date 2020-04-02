@@ -148,6 +148,15 @@ If you want to connect to the dev servers you can simply replace all instances o
 
 See also the Swagger API documentation. You can view the documentation by going to the URL ```docs/swagger-ui/index.html?url=/assets/swagger.json``` on any MapRoulette instance.
 
+## Dev Docs
+
+- [Creating Challenges](docs/challenge_api.md)
+- [Deployment](docs/deployment.md)
+- [Github Example](docs/github_example.md)
+- [GraphQL](docs/graphql.md)
+- [Tag Changes](docs/tag_changes.md)
+- [Testing](docs/testing.md)
+
 ## Contributing
 
 Please fork the project and submit a pull request. See [Postman Docs](postman/README.md) for information on API Testing. The project is integrated with Travis-CI, so PR's will only be accepted once the build compiles successfully. MapRoulette also uses Scalafmt as it's code formatter. This is too keep the code style consistent across all developers. The check will be run first in Travis for the build, so if there are any code style issues it will fail the build immediately. IntelliJ should pick up the formatter and use Scalafmt automatically, however you can also use `sbt scalafmt` to format any and all code for you.

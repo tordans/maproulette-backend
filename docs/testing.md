@@ -3,7 +3,7 @@
 MapRoulette testing is split into 3 different types:
 - Unit Testing
 - Integration Testing
-- Postman Testing
+- [Postman Testing](../postman/README.md)
 
 Unit testing is obviously the simplest of the three and uses a lot of mock objects to accomplish it's goal of testing specific functionality of different objects.
 

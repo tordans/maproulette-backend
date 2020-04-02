@@ -152,7 +152,13 @@ class UserController @Inject() (
         if (StringUtils.isEmpty(username)) {
           Ok(Json.toJson(List[JsValue]()))
         } else {
-          Ok(Json.toJson(this.serviceManager.user.searchByOSMUsername(username, Paging(limit))))
+          Ok(
+            Json.toJson(
+              this.serviceManager.user
+                .searchByOSMUsername(username, Paging(limit))
+                .map(_.toSearchResult)
+            )
+          )
         }
       }
   }

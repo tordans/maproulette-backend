@@ -239,12 +239,12 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
 
       val users1 = this.userService.searchByOSMUsername("Search")
       users1.size mustEqual 2
-      List(searchResultUser1, searchResultUser2).contains(users1.head) mustEqual true
-      List(searchResultUser1, searchResultUser2).contains(users1(1)) mustEqual true
+      List(searchResultUser1, searchResultUser2).contains(users1.head.toSearchResult) mustEqual true
+      List(searchResultUser1, searchResultUser2).contains(users1(1).toSearchResult) mustEqual true
 
       val users2 = this.userService.searchByOSMUsername("Not")
       users2.size mustEqual 1
-      users2.head mustEqual searchResultUser3
+      users2.head.toSearchResult mustEqual searchResultUser3
 
       val users3 = this.userService.searchByOSMUsername("NONE")
       users3.size mustEqual 0
@@ -252,17 +252,17 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       val searchResultsList = List(searchResultUser1, searchResultUser2, searchResultUser3)
       val users4            = this.userService.searchByOSMUsername("OSM", Paging(1))
       users4.size mustEqual 1
-      val firstUser = users4.head
+      val firstUser = users4.head.toSearchResult
       searchResultsList.contains(firstUser) mustEqual true
 
       val users5 = this.userService.searchByOSMUsername("OSM", Paging(1, 1))
       users5.size mustEqual 1
-      val secondUser = users5.head
+      val secondUser = users5.head.toSearchResult
       searchResultsList.contains(secondUser) mustEqual true
       secondUser should not be firstUser
       val users6 = this.userService.searchByOSMUsername("OSM", Paging(1, 2))
       users6.size mustEqual 1
-      val thirdUser = users6.head
+      val thirdUser = users6.head.toSearchResult
       searchResultsList.contains(thirdUser) mustEqual true
       thirdUser should not be firstUser
       thirdUser should not be secondUser
