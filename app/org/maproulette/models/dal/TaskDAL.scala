@@ -326,7 +326,7 @@ class TaskDAL @Inject() (
       }
 
       val updatedElement = element.copy(id = updatedTaskId)
-      this.cacheManager.cache.add(updatedTaskId, updatedElement)
+      this.cacheManager.cache.remove(updatedTaskId)
       Some(updatedElement)
     }
   }
