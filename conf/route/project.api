@@ -3,17 +3,14 @@
 # summary: Create a Project
 # consumes: [ application/json ]
 # produces: [ application/json ]
-# description: Will create a new project from the supplied JSON in the body.
-#               When creating a Project object you can within the same json body include Challenge
-#               children under the "children" key, and within each Challenge Task children can be
-#               created using another "children" key under the parent Challenge. When creating the
+# description: Will create a new project from the supplied JSON in the body. When creating the
 #               the Project, leave the ID field out of the body json, if updating (generally use the
-#               PUT method) include the ID field.
+#               PUT method) and include the ID field.
 # responses:
 #   '200':
 #     description: The newly created Project with a unique id
 #     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Project'
+#       $ref: '#/definitions/Project'
 #   '304':
 #     description: Not updated responding with empty payload if Project already exists and nothing to update
 #   '400':
@@ -28,10 +25,10 @@
 #     type: string
 #   - name: body
 #     in: body
-#     description: The JSON structure for the project body, include the key "children" to create Challenge children objects.
+#     description: The JSON structure for the project body.
 #     required: true
 #     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Project'
+#       $ref: '#/definitions/Project'
 ###
 POST    /project                                    @org.maproulette.framework.controller.ProjectController.insert
 ###
@@ -40,20 +37,19 @@ POST    /project                                    @org.maproulette.framework.c
 # consumes: [ application/json ]
 # produces: [ application/json ]
 # description: Will update an already existing project from the supplied JSON in the body.
-#               When updating the Project object you can within the same json body include Challenge
-#               children under the "children" key, and within each Challenge Task children can be
-#               created or updated using another "children" key under the parent Challenge.
 # responses:
 #   '200':
 #     description: The updated JSON Project
 #     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Project'
+#       $ref: '#/definitions/Project'
 #   '304':
 #     description: Not updated responding with empty payload if Project already exists and nothing to update
 #   '400':
 #     description: Invalid json payload for Project
 #   '401':
 #     description: The user is not authorized to make this request
+#   '404':
+#     description: ID field supplied but no object found matching the id
 # parameters:
 #   - name: id
 #     description: The ID of the project that is being updated
@@ -64,10 +60,10 @@ POST    /project                                    @org.maproulette.framework.c
 #     type: string
 #   - name: body
 #     in: body
-#     description: The JSON structure for the project body, include the key "children" to create or update Challenge children objects.
+#     description: The JSON structure for the project body.
 #     required: true
 #     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Project'
+#       $ref: '#/definitions/Project'
 ###
 PUT     /project/:id                                @org.maproulette.framework.controller.ProjectController.update(id:Long)
 ###
@@ -80,7 +76,7 @@ PUT     /project/:id                                @org.maproulette.framework.c
 #   '200':
 #     description: The retrieved Project
 #     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Project'
+#       $ref: '#/definitions/Project'
 #   '404':
 #     description: ID field supplied but no object found matching the id
 # parameters:
@@ -97,14 +93,12 @@ GET     /project/:id                                @org.maproulette.framework.c
 # description: Retrieves already existing projects based on the supplied IDs
 # responses:
 #   '200':
-#     description: A list of projects
+#     description: A list of projects, empty list if none found
 #     schema:
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Project'
-#   '404':
-#     description: No projects found matching the ids given
+#         $ref: '#/definitions/Project'
 # parameters:
 #   - name: projectIds
 #     in: query
@@ -121,13 +115,10 @@ GET     /projectsById                               @org.maproulette.framework.c
 #   '200':
 #     description: The retrieved Project with a unique id
 #     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Project'
+#       $ref: '#/definitions/Project'
 #   '404':
 #     description: No project found matching the provided name
 # parameters:
-#   - name: id
-#     in: query
-#     description: Ignore this field, it is not used
 #   - name: name
 #     in: path
 #     description: The name of the project being retrieved
@@ -154,7 +145,7 @@ GET     /projectByName/:name                        @org.maproulette.framework.c
 #     description: The id of the project being deleted
 #   - name: immediate
 #     in: query
-#     description: If set to true, will delete the virtual challenge immediately instead of delayed
+#     description: If set to true, will delete the project immediately instead of delayed and deleted through a scheduled job on the backend
 #     default: false
 #     type: boolean
 #   - name: apiKey
@@ -164,41 +155,6 @@ GET     /projectByName/:name                        @org.maproulette.framework.c
 #     type: string
 ###
 DELETE  /project/:id                                @org.maproulette.framework.controller.ProjectController.delete(id:Long, immediate:Boolean ?= false)
-###
-# tags: [ Project ]
-# summary: Find project matching search criteria
-# consumes: [ application/json ]
-# produces: [ application/json ]
-# description: Finds a list of projects that match a specific search criteria. The search criteria is simply a string that is contained in the project name. String case sensitivity is ignored.
-# responses:
-#   '200':
-#     description: A list of projects found
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Project'
-#   '404':
-#     description: No project found matching the match the provided search string
-# parameters:
-#   - name: q
-#     in: query
-#     description: The search string used to match the project names. Default value is empty string, ie. will match everything.
-#   - name: parentId
-#     in: query
-#     description: This field will be ignored for this request
-#   - name: limit
-#     in: query
-#     description: Limit the number of results returned in the response. Default value is 10.
-#   - name: page
-#     in: query
-#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
-#   - name: onlyEnabled
-#     in: query
-#     description: Flag to set if only wanting enabled projects returned. Default value is true.
-# deprecated: true
-###
-GET     /projects/find                              @org.maproulette.framework.controller.ProjectController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)
 ###
 # tags: [ Project ]
 # summary: Retrieve featured projects
@@ -211,7 +167,7 @@ GET     /projects/find                              @org.maproulette.framework.c
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Project'
+#         $ref: '#/definitions/Project'
 # parameters:
 #   - name: onlyEnabled
 #     in: query
@@ -237,7 +193,7 @@ GET     /projects/featured                          @org.maproulette.framework.c
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Project'
+#         $ref: '#/definitions/Project'
 # parameters:
 #   - name: limit
 #     in: query
@@ -263,7 +219,7 @@ GET     /projects                                   @org.maproulette.framework.c
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Project'
+#         $ref: '#/definitions/Project'
 # parameters:
 #   - name: apiKey
 #     in: header
@@ -293,32 +249,6 @@ GET     /projects                                   @org.maproulette.framework.c
 #     description: The column to sort by. Default column is "display_name"
 ###
 GET     /projects/managed                           @org.maproulette.framework.controller.ProjectController.listManagedProjects(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false, onlyOwned:Boolean ?= false, searchString:String ?= "", sort:String ?= "display_name")
-###
-# tags: [ Project ]
-# summary: List all the projects challenges.
-# produces: [ application/json ]
-# description: Lists all the challenges that are children of the supplied project.
-# responses:
-#   '200':
-#     description: A list of all the challenges
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
-# parameters:
-#   - name: id
-#     in: path
-#     description: The project ID.
-#   - name: limit
-#     in: query
-#     description: Limit the number of results returned in the response. Default value is 10.
-#   - name: page
-#     in: query
-#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
-# deprecated: true
-###
-GET     /project/:id/challenges                     @org.maproulette.framework.controller.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Project ]
 # summary: Retrieves clustered challenge points
@@ -355,6 +285,31 @@ GET     /project/clustered/:id                      @org.maproulette.framework.c
 #     description: The challenge search parameters. This is a URL encoded JSON object containing multiple different search parameters.
 ###
 GET     /project/search/clustered                   @org.maproulette.framework.controller.ProjectController.getSearchedClusteredPoints(search ?= "")
+###
+# tags: [ Project ]
+# summary: List all the projects challenges.
+# produces: [ application/json ]
+# description: Lists all the challenges that are children of the supplied project.
+# responses:
+#   '200':
+#     description: A list of all the challenges
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The project ID.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /project/:id/challenges                     @org.maproulette.framework.controller.ProjectController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Project ]
 # summary: Retrieve all comments for Project
@@ -399,3 +354,34 @@ GET     /project/:id/comments                     @org.maproulette.framework.con
 #     required: optional
 ###
 GET     /project/:projectId/tasks/extract             @org.maproulette.controllers.api.ChallengeController.extractAllTaskSummaries(projectId:Long, cId:Option[String])
+###
+# tags: [ Project ]
+# summary: Retrieves random Task
+# produces: [ application/json ]
+# description: Retrieves a random Task based on the search criteria and contained within the current project
+# responses:
+#   '200':
+#     description: The list of tasks that match the search criteria
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the parent project limiting the tasks to only a descendent of that project.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 1.
+#   - name: proximity
+#     in: query
+#     description: Id of task that you wish to find the next task based on the proximity of that task
+###
+GET     /project/:id/tasks                          @org.maproulette.framework.controller.ProjectController.getRandomTasks(id:Long, limit:Int ?= 1, proximity:Long ?= -1)
+###
+# tags: [ Project ]
+# summary: Find project matching search criteria. Use GET /projects to find instead.
+# deprecated: true
+###
+GET     /projects/find                              @org.maproulette.framework.controller.ProjectController.find(q:String ?= "", limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= true)

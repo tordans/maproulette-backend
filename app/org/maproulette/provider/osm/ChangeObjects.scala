@@ -2,9 +2,9 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.services.osm
+package org.maproulette.provider.osm
 
-import org.maproulette.services.osm.OSMType.OSMType
+import org.maproulette.provider.osm.OSMType.OSMType
 import org.maproulette.utils.Utils
 import org.maproulette.exception.InvalidException
 import play.api.libs.json.{Json, Reads, Writes}

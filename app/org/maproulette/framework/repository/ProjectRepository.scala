@@ -100,7 +100,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
     * @param c An implicit connection, that defaults to None
     * @return The project that was updated
     */
-  def update(project: Project)(implicit c: Option[Connection] = None): Project = {
+  def update(project: Project)(implicit c: Option[Connection] = None): Option[Project] = {
     this.withMRTransaction { implicit c =>
       SQL("""UPDATE projects SET
            name = {name},
@@ -124,7 +124,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
           Symbol("id")          -> project.id
         )
         .as(this.parser.*)
-        .head
+        .headOption
     }
   }
 

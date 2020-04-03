@@ -156,6 +156,7 @@ See also the Swagger API documentation. You can view the documentation by going 
 - [GraphQL](docs/graphql.md)
 - [Tag Changes](docs/tag_changes.md)
 - [Testing](docs/testing.md)
+- [Routes](conf/route/readme.md)
 
 ## Contributing
 

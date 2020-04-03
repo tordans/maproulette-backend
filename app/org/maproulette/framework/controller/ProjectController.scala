@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.data.{Created => ActionCreated, _}
-import org.maproulette.exception.{MPExceptionUtil, StatusMessage}
+import org.maproulette.exception.{MPExceptionUtil, NotFoundException, StatusMessage}
 import org.maproulette.framework.model.{Challenge, Project, User}
 import org.maproulette.framework.psql.{Paging, _}
 import org.maproulette.framework.service.{CommentService, ProjectService}
@@ -104,10 +104,13 @@ class ProjectController @Inject() (
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
         try {
-          val updatedProject = this.projectService.update(id, request.body, user)
-          this.actionManager
-            .setAction(Some(user), ProjectType().convertToItem(updatedProject.id), Updated(), "")
-          Ok(Json.toJson(updatedProject))
+          this.projectService.update(id, request.body, user) match {
+            case Some(project) =>
+              this.actionManager
+                .setAction(Some(user), ProjectType().convertToItem(project.id), Updated(), "")
+              Ok(Json.toJson(project))
+            case None => throw new NotFoundException(s"No project with id $id found.")
+          }
         } catch {
           case e: JsonMappingException =>
             logger.error(e.getMessage, e)
@@ -132,7 +135,7 @@ class ProjectController @Inject() (
   }
 
   def retrieveList(ids: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
+    this.sessionManager.userAwareRequest { implicit user =>
       Utils.toLongList(ids) match {
         case Some(x) => Ok(Json.toJson(this.projectService.list(x)))
         case None    => BadRequest

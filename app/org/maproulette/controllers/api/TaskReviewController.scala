@@ -13,7 +13,7 @@ import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.provider.websockets.WebSocketProvider
-import org.maproulette.services.osm.ChangesetProvider
+import org.maproulette.provider.osm.ChangesetProvider
 import org.maproulette.session.{SearchParameters, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
