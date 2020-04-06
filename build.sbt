@@ -98,6 +98,7 @@ generateRoutesFile := {
       "comment.api",
       "data.api",
       "keyword.api",
+      "notification.api",
       "project.api",
       "review.api",
       "task.api",
@@ -109,7 +110,7 @@ generateRoutesFile := {
     println(s"Generating Routes File from ${routeFiles.mkString(",")}")
     val writer = new BufferedWriter(new FileWriter(generatedFile))
     routeFiles.foreach(file => {
-      val currentFile = Source.fromFile(baseDirectory.value / "conf/route" / file).getLines()
+      val currentFile = Source.fromFile(baseDirectory.value / "conf/v2_route" / file).getLines()
       for (line <- currentFile) {
         writer.write(s"$line\n")
       }

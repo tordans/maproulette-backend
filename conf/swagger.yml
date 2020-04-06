@@ -24,6 +24,7 @@ tags:
   - name: "Keyword"
   - name: "Tag"
   - name: "User"
+  - name: "Notification"
   - name: "Comment"
   - name: "Review"
   - name: "Changes"
@@ -264,6 +265,41 @@ definitions:
         description: "The type of object that the keyword is associated with"
     required:
       - name
-
+  PublicOSMUser:
+    properties:
+      id:
+        type: integer
+        format: int64
+        description: "The OSM identifier for the user"
+      avatarURL:
+        type: string
+        description: "The URL that links to an avatar pic that can be displayed"
+      displayName:
+        type: string
+        description: "The OSM User name"
+  PublicUserSettings:
+    properties:
+      leaderboardOptOut:
+        type: boolean
+        description: "Whether the user has opted out of being displayed on the MapRoulette leaderboard"
+  PublicUser:
+    properties:
+      id:
+        type: integer
+        format: int64
+        description: "The identifier for the user"
+      osmProfile:
+        $ref: "#/definitions/PublicOSMUser"
+        description: "Public OSM user information"
+      name:
+        type: string
+        description: "The OSM User name"
+      created:
+        type: integer
+        format: epoch
+        description: "The date that the user was created in MapRoulette"
+      settings:
+        $ref: "#/definitions/PublicUserSettings"
+        description: "Extra public user settings"
 
 

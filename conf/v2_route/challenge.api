@@ -3,9 +3,7 @@
 # summary: Create a Challenge
 # consumes: [ application/json ]
 # produces: [ application/json ]
-# description: Will create a new challenge from the supplied JSON in the body.
-#               When creating a Challenge object you can within the same json body include Task
-#               children under the "children" key. When creating the Challenge, leave the ID field
+# description: Will create a new challenge from the supplied JSON in the body. When creating the Challenge, leave the ID field
 #               out of the body json, if updating (generally use the PUT method) include the ID field.
 # responses:
 #   '200':
@@ -36,41 +34,6 @@
 #       $ref: '#/definitions/org.maproulette.framework.model.Challenge'
 ###
 POST    /challenge                                  @org.maproulette.controllers.api.ChallengeController.create
-###
-# tags: [ Challenge ]
-# summary: Create a batch of Challenges
-# consumes: [ application/json ]
-# produces: [ application/json ]
-# description: Will create multiple new challenges from the JSONArray supplied in the body. Each JSON object
-#               is basically a challenges object that is processed similarly to the singular /challenge POST. If
-#               challenges already exist with the name, they will simply be skipped, ie. not updated.
-# responses:
-#   '200':
-#     description: A simple OK status message
-#   '304':
-#     description: Not updated responding with empty payload if Challenge already exists and nothing to update
-#   '400':
-#     description: Invalid json payload for Challenge
-#   '401':
-#     description: The user is not authorized to make this request
-# parameters:
-#   - name: apiKey
-#     in: header
-#     description: The user's apiKey to authorize the request
-#     required: true
-#     type: string
-#   - name: body
-#     in: body
-#     description: The JSON structure for the challenge body, include the key "children" a Challenge JSON object within the array to create Task children objects.
-#     required: true
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
-# deprecated: true
-###
-POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost
 ###
 # tags: [ Challenge ]
 # summary: Updates a Challenge
@@ -107,41 +70,6 @@ POST    /challenges                                 @org.maproulette.controllers
 #       $ref: '#/definitions/org.maproulette.framework.model.Challenge'
 ###
 PUT     /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.update(id:Long)
-###
-# tags: [ Challenge ]
-# summary: Update a batch of Challenges
-# consumes: [ application/json ]
-# produces: [ application/json ]
-# description: Will update multiple already existing Challenges from the JSONArray supplied in the body. Each JSON object
-#               is basically a Challenge object that is processed similarly to the singular /challenge POST. If a project
-#               does not exist it will be created from scratch
-# responses:
-#   '200':
-#     description: A simple OK status message
-#   '304':
-#     description: Not updated responding with empty payload if Challenge already exists and nothing to update
-#   '400':
-#     description: Invalid json payload for Challenge
-#   '401':
-#     description: The user is not authorized to make this request
-# parameters:
-#   - name: apiKey
-#     in: header
-#     description: The user's apiKey to authorize the request
-#     required: true
-#     type: string
-#   - name: body
-#     in: body
-#     description: The JSON structure for the Challenge body, include the key "children" in a Challenge JSON object within the array to create Task children objects.
-#     required: true
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
-# deprecated: true
-###
-PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
 ###
 # tags: [ Challenge ]
 # summary: Retrieves an already existing Challenge
@@ -209,31 +137,6 @@ GET     /project/:id/challenge/:name                @org.maproulette.controllers
 #     type: string
 ###
 DELETE  /challenge/:id                              @org.maproulette.controllers.api.ChallengeController.delete(id:Long, immediate:Boolean ?= false)
-###
-# tags: [ Challenge ]
-# summary: Undeletes a Challenge
-# description: If a Challenge has been setup for deletion and not removed from the database we can undelete it and make it so that it does not get deleted anymore.
-# responses:
-#   '200':
-#     description: The Challenge that was undeleted.
-#     schema:
-#       $ref: '#/definitions/org.maproulette.framework.model.Challenge'
-#   '401':
-#     description: The user is not authorized to make this request
-#   '404':
-#     description: No Challenge found matching the provided id
-# parameters:
-#   - name: id
-#     in: path
-#     description: The id of the Project being deleted
-#   - name: apiKey
-#     in: header
-#     description: The user's apiKey to authorize the request
-#     required: true
-#     type: string
-# deprecated : true
-###
-PUT  /challenge/:id/undelete                         @org.maproulette.controllers.api.ChallengeController.undelete(id:Long)
 ###
 # tags: [ Challenge ]
 # summary: Deletes all Challenge Tasks
@@ -1285,27 +1188,7 @@ POST     /project/:projectId/challenge/:username/:repo/:name   @org.maproulette.
 #     required: true
 ###
 GET     /challenge/:id/extract                      @org.maproulette.controllers.api.ChallengeController.extractPackage(id:Long)
-###
-# tags: [ Challenge ]
-# summary: Retrieves task clusters. USE PUT METHOD
-# produces: [ application/json ]
-# description: Retrieves task clusters that contain the centroid location for a group of tasks
-# responses:
-#   '200':
-#     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list.
-#                  To specify a json body of a taskPropertySearch, use the PUT method.
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
-# parameters:
-#   - name: points
-#     in: query
-#     description: The number of clusters that you want returned
-# deprecated: true
-###
-GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+
 ###
 # tags: [ Challenge ]
 # summary: Retrieves task clusters.
@@ -1350,3 +1233,27 @@ PUT     /taskCluster                                @org.maproulette.controllers
 #     description: The number of clusters that you want returned
 ###
 GET     /tasksInCluster/:clusterId                  @org.maproulette.controllers.api.TaskController.getTasksInCluster(clusterId:Int, points:Int ?= 100)
+###
+# tags: [ Challenge ]
+# summary: Create a batch of Challenges
+# deprecated: true
+###
+POST    /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPost
+###
+# tags: [ Challenge ]
+# summary: Update a batch of Challenges
+# deprecated: true
+###
+PUT     /challenges                                 @org.maproulette.controllers.api.ChallengeController.batchUploadPut
+###
+# tags: [ Challenge ]
+# summary: Undeletes a Challenge
+# deprecated : true
+###
+PUT  /challenge/:id/undelete                         @org.maproulette.controllers.api.ChallengeController.undelete(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Retrieves task clusters. USE PUT METHOD
+# deprecated: true
+###
+GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
