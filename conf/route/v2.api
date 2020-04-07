@@ -557,37 +557,6 @@ POST    /change/test                        @org.maproulette.controllers.OSMChan
 ###
 POST    /task/:taskId/fix/apply                     @org.maproulette.controllers.api.TaskController.applyTagFix(taskId:Long, comment:String ?= "", tags:String ?= "")
 ###
-# tags: [ Changes ]
-# summary: Apply suggested fix for task
-# description: Submit a group of changes to OSM. Will return a standard OSMChange XML that has been applied to the OSM servers
-# responses:
-#   '200':
-#     description: Ok with a standard message
-#   '401':
-#     description: The user is not authorized to make this request
-# parameters:
-#   - name: taskId
-#     in: query
-#     description: The task id that should be marked as fixed after this tag change has been applied.
-#   - name: comment
-#     in: query
-#     description: A task comment to be stored in map roulette with this change.
-#   - name: requestReview
-#     in: query
-#     description: Boolean indicating if a review is requested on this task. (Will override user settings if provided)
-#   - name: tags
-#     in: query
-#     description: A list of mrTags to be stored with the task
-#   - name: body
-#     in: body
-#     description: The OSMChangeSubmission
-#     required: true
-#     schema:
-#       type: object
-#       $ref: '#/definitions/org.maproulette.services.osm.ChangeObjects.OSMChangeSubmission'
-###
-POST    /task/:taskId/suggestedFix/apply                     @org.maproulette.controllers.api.TaskController.applySuggestedFix(taskId:Long, comment:String ?= "", tags:String ?= "")
-###
 # tags: [ Bundle ]
 # summary: Create a task bundle
 # consumes: [ application/json ]
