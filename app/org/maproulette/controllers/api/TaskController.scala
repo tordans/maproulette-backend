@@ -568,8 +568,13 @@ class TaskController @Inject() (
         val updatedTasks = this.dal
           .retrieveListById()
           .foldLeft(0)((updatedCount, t) =>
-            updatedCount + this.dalManager.taskReview
-              .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+            t.review.reviewStatus match {
+              case Some(r) =>
+                updatedCount +
+                  this.dalManager.taskReview
+                    .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+              case None => updatedCount
+            }
           )
 
         Ok(Json.toJson(updatedTasks))
