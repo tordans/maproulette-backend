@@ -568,8 +568,13 @@ class TaskController @Inject() (
         val updatedTasks = this.dal
           .retrieveListById()
           .foldLeft(0)((updatedCount, t) =>
-            updatedCount + this.dalManager.taskReview
-              .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+            t.review.reviewStatus match {
+              case Some(r) =>
+                updatedCount +
+                  this.dalManager.taskReview
+                    .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+              case None => updatedCount
+            }
           )
 
         Ok(Json.toJson(updatedTasks))
@@ -728,67 +733,6 @@ class TaskController @Inject() (
         )
       }
     }
-
-  def applySuggestedFix(
-      taskId: Long,
-      comment: String = "",
-      tags: String = ""
-  ): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
-    this.sessionManager.authenticatedFutureRequest { implicit user =>
-      val result = request.body.validate[OSMChangeSubmission]
-      result.fold(
-        errors => {
-          Future {
-            BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
-          }
-        },
-        element => {
-          val p = Promise[Result]
-
-          val requestReview = request.getQueryString("requestReview") match {
-            case Some(v) => Some(v.toBoolean)
-            case None    => None
-          }
-
-          config.skipOSMChangesetSubmission match {
-            // If we are skipping the OSM submission then we don't actually do the tag change on OSM
-            case true =>
-              this.customTaskStatus(
-                taskId,
-                TaskStatusSet(Task.STATUS_FIXED),
-                user,
-                comment,
-                tags,
-                requestReview
-              )
-              p success Ok(Json.toJson(true))
-            case _ =>
-              None
-              changeService.submitOsmChange(
-                element.changes,
-                element.comment,
-                user.osmProfile.requestToken,
-                Some(taskId)
-              ) onComplete {
-                case Success(res) => {
-                  this.customTaskStatus(
-                    taskId,
-                    TaskStatusSet(Task.STATUS_FIXED),
-                    user,
-                    comment,
-                    tags,
-                    requestReview
-                  )
-                  p success Ok(res)
-                }
-                case Failure(f) => p failure f
-              }
-          }
-          p.future
-        }
-      )
-    }
-  }
 
   /**
     * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into

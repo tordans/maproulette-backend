@@ -105,6 +105,7 @@ generateRoutesFile := {
       "user.api",
       "virtualchallenge.api",
       "virtualproject.api",
+      "bundle.api",
       "v2.api"
     )
     println(s"Generating Routes File from ${routeFiles.mkString(",")}")

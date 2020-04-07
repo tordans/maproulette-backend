@@ -2,8 +2,8 @@
 # tags: [ Changes ]
 # summary: Test Changes
 # description: Takes in a group of changes and instead of submitting them to OSM will return a standard OSMChange XML that would have been submitted to the OSM servers
-# produces:
-#   - application/xml
+# consumes: [ application/json ]
+# produces: [ application/xml ]
 # responses:
 #   '200':
 #     description: A OsmChange XML definition that would be sent to the OpenStreetMap servers. For more information see https://wiki.openstreetmap.org/wiki/OsmChange
@@ -33,8 +33,8 @@ POST    /change/tag/test                            @org.maproulette.controllers
 # tags: [ Changes ]
 # summary: Test OSM changes (currently only node creation or tag changes)
 # description: Takes in a set of changes and, instead of submitting them to OSM, will return a standard OSMChange XML that would have been submitted to the OSM servers
-# produces:
-#   - application/xml
+# consumes: [ application/json ]
+# produces: [ application/xml ]
 # responses:
 #   '200':
 #     description: A OsmChange XML definition that would be sent to the OpenStreetMap servers. For more information see https://wiki.openstreetmap.org/wiki/OsmChange
@@ -61,8 +61,8 @@ POST    /change/test                        @org.maproulette.controllers.OSMChan
 # tags: [ Changes ]
 # summary: Apply Tag Changes for task
 # description: Submit a group of changes to OSM. Will return a standard OSMChange XML that has been applied to the OSM servers standard OSMChange XML that would have been submitted to the OSM servers
-# produces:
-#   - application/xml
+# consumes: [ application/json ]
+# produces: [ application/xml ]
 # responses:
 #   '200':
 #     description: A OsmChange XML definition that would be sent to the OpenStreetMap servers. For more information see https://wiki.openstreetmap.org/wiki/OsmChange
@@ -95,41 +95,3 @@ POST    /change/test                        @org.maproulette.controllers.OSMChan
 #       $ref: '#/definitions/TagChangeSubmission'
 ###
 POST    /task/:taskId/fix/apply                     @org.maproulette.controllers.api.TaskController.applyTagFix(taskId:Long, comment:String ?= "", tags:String ?= "")
-###
-# tags: [ Changes ]
-# summary: Apply suggested fix for task
-# description: Submit a group of changes to OSM. Will return a standard OSMChange XML that has been applied to the OSM servers standard OSMChange XML that would have been submitted to the OSM servers
-# produces:
-#   - application/xml
-# responses:
-#   '200':
-#     description: A OsmChange XML definition that would be sent to the OpenStreetMap servers. For more information see https://wiki.openstreetmap.org/wiki/OsmChange
-#   '401':
-#     description: The user is not authorized to make this request
-# parameters:
-#   - name: apiKey
-#     in: header
-#     description: The user's apiKey to authorize the request
-#     required: true
-#     type: string
-#   - name: taskId
-#     in: query
-#     description: The task id that should be marked as fixed after this tag change has been applied.
-#   - name: comment
-#     in: query
-#     description: A task comment to be stored in map roulette with this change.
-#   - name: requestReview
-#     in: query
-#     description: Boolean indicating if a review is requested on this task. (Will override user settings if provided)
-#   - name: tags
-#     in: query
-#     description: A list of mrTags to be stored with the task
-#   - name: body
-#     in: body
-#     description: The OSMChangeSubmission
-#     required: true
-#     schema:
-#       type: object
-#       $ref: '#/definitions/OSMChangeSubmission'
-###
-POST    /task/:taskId/suggestedFix/apply                     @org.maproulette.controllers.api.TaskController.applySuggestedFix(taskId:Long, comment:String ?= "", tags:String ?= "")
