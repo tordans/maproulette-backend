@@ -680,7 +680,32 @@ PUT     /tasks/review/remove                               @org.maproulette.cont
 PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Task ]
+# summary: Retrieves task clusters.
+# produces: [ application/json ]
+# description: Retrieves task clusters that contain the centroid location for a group of tasks
+# responses:
+#   '200':
+#     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list.
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
+# parameters:
+#   - name: points
+#     in: query
+#     description: The number of clusters that you want returned
+###
+PUT     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+###
+# tags: [ Task ]
 # summary: Retrieves Tasks within a bounding box
 # deprecated: true
 ###
 GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
+###
+# tags: [ Task ]
+# summary: Retrieves task clusters. USE PUT METHOD
+# deprecated: true
+###
+GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)

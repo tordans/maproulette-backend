@@ -480,77 +480,6 @@ GET     /challenges                                 @org.maproulette.controllers
 GET     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.listChildren(id:Long, limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Challenge ]
-# summary: Create Tasks for Challenge
-# consumes: [ application/json ]
-# description: Creates one or more Tasks as child objects under the supplied Challenge. For any Tasks
-#               that contain the "id" field, it will attempt to look for the existing Task and
-#               update it. If no Task found with provided ID in Task json object, then the
-#               field will be ignored and a new Task will be created.
-# responses:
-#   '304':
-#     description: No Content, just a successful creation when getting this message
-#   '400':
-#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
-#   '401':
-#     description: The user is not authorized to make this request
-# parameters:
-#   - name: id
-#     in: path
-#     description: The id of the parent Challenge where all the children are being created.
-#   - name: apiKey
-#     in: header
-#     description: The user's apiKey to authorize the request
-#     required: true
-#     type: string
-#   - name: body
-#     in: body
-#     description: The JSON array with Tasks.
-#     required: true
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
-###
-POST    /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.createChildren(id:Long)
-###
-# tags: [ Challenge ]
-# summary: Create Tasks for Challenge
-# consumes: [ application/json ]
-# description: Creates one or more Tasks as child objects under the supplied Challenge. For any Tasks
-#               that contain the "id" field, it will attempt to look for the existing Task and
-#               update it. If no Task found with provided ID in Task json object, then the
-#               field will be ignored and a new Task will be created.
-#               *NOTE* This PUT request works exactly the same as the equivalent POST request
-# responses:
-#   '304':
-#     description: No Content, just a successful creation when getting this message
-#   '400':
-#     description: Invalid json payload for Task children. It is required that the body is a JSON array.
-#   '401':
-#     description: The user is not authorized to make this request
-# parameters:
-#   - name: id
-#     in: path
-#     description: The id of the parent Challenge where all the children are being created.
-#   - name: apiKey
-#     in: header
-#     description: The user's apiKey to authorize the request
-#     required: true
-#     type: string
-#   - name: body
-#     in: body
-#     description: The JSON array with Tasks.
-#     required: true
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
-###
-PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
-###
-# tags: [ Challenge ]
 # summary: Add tasks to a challenge
 # consumes: [ application/json ]
 # description: This will create tasks within a challenge based on the provided geojson in the body of the PUT request
@@ -1188,26 +1117,6 @@ POST     /project/:projectId/challenge/:username/:repo/:name   @org.maproulette.
 #     required: true
 ###
 GET     /challenge/:id/extract                      @org.maproulette.controllers.api.ChallengeController.extractPackage(id:Long)
-
-###
-# tags: [ Challenge ]
-# summary: Retrieves task clusters.
-# produces: [ application/json ]
-# description: Retrieves task clusters that contain the centroid location for a group of tasks
-# responses:
-#   '200':
-#     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list.
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
-# parameters:
-#   - name: points
-#     in: query
-#     description: The number of clusters that you want returned
-###
-PUT     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
 ###
 # tags: [ Challenge ]
 # summary: Retrieves tasks in a cluster
@@ -1253,7 +1162,13 @@ PUT     /challenges                                 @org.maproulette.controllers
 PUT  /challenge/:id/undelete                         @org.maproulette.controllers.api.ChallengeController.undelete(id:Long)
 ###
 # tags: [ Challenge ]
-# summary: Retrieves task clusters. USE PUT METHOD
+# summary: Create Tasks for Challenge
 # deprecated: true
 ###
-GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+POST    /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.createChildren(id:Long)
+###
+# tags: [ Challenge ]
+# summary: Create Tasks for Challenge
+# deprecated: true
+###
+PUT     /challenge/:id/tasks                        @org.maproulette.controllers.api.ChallengeController.updateChildren(id:Long)
