@@ -189,10 +189,7 @@ GET     /virtualchallenge/:id/tasks                     @org.maproulette.control
 #   '200':
 #     description: The task if any is found
 #     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.models.Task'
 # parameters:
 #   - name: cid
 #     in: path

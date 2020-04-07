@@ -194,12 +194,12 @@ class ProjectService @Inject() (
           OR(),
           BaseParameter(
             Project.FIELD_NAME,
-            search,
+            SQLUtils.search(search),
             Operator.ILIKE
           ),
           BaseParameter(
             Project.FIELD_DISPLAY_NAME,
-            search,
+            SQLUtils.search(search),
             Operator.ILIKE
           ),
           FuzzySearchParameter(
@@ -244,8 +244,6 @@ class ProjectService @Inject() (
     )
   }
 
-  def query(query: Query): List[Project] = this.repository.query(query)
-
   /**
     * Updates a project with the given input JSON
     *
@@ -254,7 +252,7 @@ class ProjectService @Inject() (
     * @param user The user that is updating the project
     * @return The newly updated project object
     */
-  def update(id: Long, updates: JsValue, user: User): Project = {
+  def update(id: Long, updates: JsValue, user: User): Option[Project] = {
     this.cacheManager
       .withUpdatingCache(id => retrieve(id)) { implicit cachedItem =>
         this.permission.hasObjectWriteAccess(cachedItem, user)
@@ -283,21 +281,18 @@ class ProjectService @Inject() (
           case None    => cachedItem.featured
         }
 
-        Some(
-          this.repository.update(
-            Project(
-              id = id,
-              owner = owner,
-              name = name,
-              displayName = Some(displayName),
-              description = Some(description),
-              enabled = enabled,
-              featured = featured
-            )
+        this.repository.update(
+          Project(
+            id = id,
+            owner = owner,
+            name = name,
+            displayName = Some(displayName),
+            description = Some(description),
+            enabled = enabled,
+            featured = featured
           )
         )
       }(id = id)
-      .head
   }
 
   /**
@@ -339,7 +334,15 @@ class ProjectService @Inject() (
     */
   def retrieveByName(name: String): Option[Project] = {
     this
-      .query(Query.simple(List(BaseParameter(Project.FIELD_NAME, name))))
+      .query(
+        Query.simple(
+          List(
+            BaseParameter(Project.FIELD_NAME, name),
+            BaseParameter(Project.FIELD_DISPLAY_NAME, name)
+          ),
+          key = OR()
+        )
+      )
       .headOption
   }
 
@@ -356,6 +359,8 @@ class ProjectService @Inject() (
       )
     )
   }
+
+  def query(query: Query): List[Project] = this.repository.query(query)
 
   /**
     * Clears the project cache

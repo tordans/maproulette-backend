@@ -465,45 +465,6 @@ GET     /tasks/random                               @org.maproulette.controllers
 # responses:
 #   '200':
 #     description: The list of clusteredPoints representing Tasks that match the search criteria within the bounding box.
-#                  To specify a json body of a taskPropertySearch, use the PUT method.
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
-# parameters:
-#   - name: left
-#     in: path
-#     description: The minimum latitude for the bounding box.
-#   - name: bottom
-#     in: path
-#     description: The minimum longitude for the bounding box.
-#   - name: right
-#     in: path
-#     description: The maximum latitude for the bounding box.
-#   - name: top
-#     in: path
-#     description: The maximum longitude for the bounding box.
-#   - name: limit
-#     in: query
-#     description: Limit the number of results returned in the response. Default value is 1.
-#   - name: page
-#     in: query
-#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
-#   - name: includeGeometries
-#     in: query
-#     description: Optional flag to have geometries data returned for each task.
-# deprecated: true
-###
-GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
-###
-# tags: [ Task ]
-# summary: Retrieves Tasks within a bounding box
-# produces: [ application/json ]
-# description: Retrieves tasks within a given bounding box.
-# responses:
-#   '200':
-#     description: The list of clusteredPoints representing Tasks that match the search criteria within the bounding box.
 #     schema:
 #       type: array
 #       items:
@@ -665,6 +626,7 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 ###
 PUT     /task/:id/review/:status                           @org.maproulette.controllers.api.TaskController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
+# tags: [ Task ]
 # summary: Changes review status to "Unnecessary" on tasks matching criteria
 # consumes: [ application/json ]
 # produces: [ application/json ]
@@ -716,3 +678,34 @@ PUT     /tasks/review/remove                               @org.maproulette.cont
 #     description: Optional tags to associate with this task
 ###
 PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
+###
+# tags: [ Task ]
+# summary: Retrieves task clusters.
+# produces: [ application/json ]
+# description: Retrieves task clusters that contain the centroid location for a group of tasks
+# responses:
+#   '200':
+#     description: An array of task clusters that represents clusters of tasks for a challenge. If none found will return an empty list.
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
+# parameters:
+#   - name: points
+#     in: query
+#     description: The number of clusters that you want returned
+###
+PUT     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+###
+# tags: [ Task ]
+# summary: Retrieves Tasks within a bounding box
+# deprecated: true
+###
+GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
+###
+# tags: [ Task ]
+# summary: Retrieves task clusters. USE PUT METHOD
+# deprecated: true
+###
+GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)

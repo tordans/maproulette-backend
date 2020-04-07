@@ -168,10 +168,10 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
       project.featured mustEqual false
       val updatedProject =
         this.service.update(project.id, Json.obj("featured" -> true), User.superUser)
-      updatedProject.featured mustEqual true
+      updatedProject.get.featured mustEqual true
       val notUpdatedProject =
         this.service.update(project.id, Json.obj("featured" -> false), randomUser)
-      notUpdatedProject.featured mustEqual true
+      notUpdatedProject.get.featured mustEqual true
     }
 
     "update a project" taggedAs (ProjectTag) in {
@@ -204,14 +204,14 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
         .create(Project(-1, randomUser.osmProfile.id, "EnabledFeaturedProject"), User.superUser)
       val update1 =
         this.service.update(updateProject.id, Json.obj("featured" -> true), User.superUser)
-      update1.featured mustEqual true
+      update1.get.featured mustEqual true
       val update2 = this.service.update(updateProject.id, Json.obj("featured" -> false), randomUser)
-      update2.featured mustEqual true
+      update2.get.featured mustEqual true
       val update3 =
         this.service.update(updateProject.id, Json.obj("enabled" -> true), User.superUser)
-      update3.enabled mustEqual true
+      update3.get.enabled mustEqual true
       val update4 = this.service.update(updateProject.id, Json.obj("enabled" -> false), randomUser)
-      update4.enabled mustEqual true
+      update4.get.enabled mustEqual true
     }
 
     "delete a project" taggedAs (ProjectTag) in {

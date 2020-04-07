@@ -2,7 +2,7 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.services.osm
+package org.maproulette.provider.osm
 
 import java.sql.Connection
 
@@ -12,7 +12,7 @@ import org.maproulette.exception.ChangeConflictException
 import org.maproulette.framework.model.User
 import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.dal.DALManager
-import org.maproulette.services.osm.objects._
+import org.maproulette.provider.osm.objects._
 import play.api.db.Database
 import play.api.libs.oauth.{OAuthCalculator, RequestToken}
 import play.api.libs.ws.{WSClient, WSResponse}

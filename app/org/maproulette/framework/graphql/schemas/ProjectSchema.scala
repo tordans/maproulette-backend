@@ -69,7 +69,7 @@ class ProjectSchema @Inject() (override val service: ProjectService)
     Field(
       name = "updateProject",
       description = Some("Updates a project"),
-      fieldType = ProjectType,
+      fieldType = OptionType(ProjectType),
       arguments = MRSchema.idArg :: ProjectSchema.projectArg :: Nil,
       resolve = context => {
         val user      = context.ctx.user

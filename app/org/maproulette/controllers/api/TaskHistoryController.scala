@@ -11,7 +11,7 @@ import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.TaskLogEntry
 import org.maproulette.models.dal._
 import org.maproulette.provider.websockets.WebSocketProvider
-import org.maproulette.services.osm.ChangesetProvider
+import org.maproulette.provider.osm.ChangesetProvider
 import org.maproulette.session.SessionManager
 import org.maproulette.utils.Utils
 import play.api.libs.json._

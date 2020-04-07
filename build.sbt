@@ -82,39 +82,54 @@ javaOptions in Test ++= Option(System.getProperty("config.file")).map("-Dconfig.
 javaOptions in Compile ++= Seq(
   "-Xmx2G",
   // Increase stack size for compilation
-  "-Xss16M"
+  "-Xss32M"
 )
 
-lazy val buildRoutesFile = taskKey[Unit]("Builds the API V2 Routes File")
-buildRoutesFile := {
-  // delete the generated routes file first
+lazy val generateRoutesFile = taskKey[Unit]("Builds the API V2 Routes File")
+generateRoutesFile := {
   val generatedFile = baseDirectory.value / "conf/generated.routes"
-  if (generatedFile.exists()) {
-    generatedFile.delete()
-  }
-  generatedFile.createNewFile()
+  if (!generatedFile.exists()) {
+    generatedFile.createNewFile()
 
-  // The apiv2.routes file should always be last as it contains the catch all routes
-  val routeFiles = Seq(
-    "project.api",
-    "virtualproject.api",
-    "challenge.api",
-    "virtualchallenge.api",
-    "task.api",
-    "comment.api",
-    "user.api",
-    "data.api",
-    "v2.api"
-  )
-  println(s"Generating Routes File from ${routeFiles.mkString(",")}")
-  val writer = new BufferedWriter(new FileWriter(generatedFile))
-  routeFiles.foreach(file => {
-    val currentFile = Source.fromFile(baseDirectory.value / "conf/route" / file).getLines()
-    for (line <- currentFile) {
-      writer.write(s"$line\n")
-    }
-  })
-  writer.close()
+    // The apiv2.routes file should always be last as it contains the catch all routes
+    val routeFiles = Seq(
+      "challenge.api",
+      "changes.api",
+      "comment.api",
+      "data.api",
+      "keyword.api",
+      "notification.api",
+      "project.api",
+      "review.api",
+      "task.api",
+      "user.api",
+      "virtualchallenge.api",
+      "virtualproject.api",
+      "bundle.api",
+      "v2.api"
+    )
+    println(s"Generating Routes File from ${routeFiles.mkString(",")}")
+    val writer = new BufferedWriter(new FileWriter(generatedFile))
+    routeFiles.foreach(file => {
+      val currentFile = Source.fromFile(baseDirectory.value / "conf/v2_route" / file).getLines()
+      for (line <- currentFile) {
+        writer.write(s"$line\n")
+      }
+    })
+    writer.close()
+  }
 }
 
-(compile in Compile) := ((compile in Compile) dependsOn buildRoutesFile).value
+(compile in Compile) := ((compile in Compile) dependsOn generateRoutesFile).value
+
+lazy val deleteRoutesFile = taskKey[Unit]("Deletes the generated Routes File")
+deleteRoutesFile := {
+  val generatedFile = baseDirectory.value / "conf/generated.routes"
+  if (generatedFile.exists()) {
+    println(s"Deleting the Routes file ${generatedFile.getAbsolutePath}")
+    generatedFile.delete()
+  }
+}
+
+lazy val regenerateRoutesFile = taskKey[Unit]("Regenerates the routes file")
+regenerateRoutesFile := Def.sequential(deleteRoutesFile, generateRoutesFile).value
