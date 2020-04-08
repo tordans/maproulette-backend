@@ -1,5 +1,7 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -13,15 +15,16 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, ChallengeType, ProjectType, TaskType}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
+import org.maproulette.framework.model._
+import org.maproulette.framework.repository.ProjectRepository
+import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models._
-import org.maproulette.permissions.Permission
-import org.maproulette.session.{SearchParameters, User}
-import play.api.db.Database
-import play.api.libs.json.{JsArray, JsString, JsValue, Json}
-import play.api.libs.json.JodaReads._
-import java.sql.Timestamp
-
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
+import org.maproulette.permissions.Permission
+import org.maproulette.session.SearchParameters
+import play.api.db.Database
+import play.api.libs.json.JodaReads._
+import play.api.libs.json.{JsString, JsValue, Json}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
@@ -36,9 +39,9 @@ import scala.concurrent.Future
 @Singleton
 class ChallengeDAL @Inject() (
     override val db: Database,
+    serviceManager: ServiceManager,
     taskDAL: TaskDAL,
     override val tagDAL: TagDAL,
-    projectDAL: Provider[ProjectDAL],
     notificationDAL: Provider[NotificationDAL],
     override val permission: Permission,
     config: Config
@@ -77,7 +80,6 @@ class ChallengeDAL @Inject() (
       get[Int]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
-      get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
       get[Boolean]("challenges.has_suggested_fixes") ~
       get[Option[Int]]("challenges.popularity") ~
@@ -109,7 +111,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-            difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
+            difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
@@ -141,7 +143,6 @@ class ChallengeDAL @Inject() (
             difficulty,
             blurb,
             enabled,
-            challenge_type,
             featured,
             hasSuggestedFixes,
             popularity,
@@ -192,7 +193,6 @@ class ChallengeDAL @Inject() (
       get[Int]("challenges.difficulty") ~
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
-      get[Int]("challenges.challenge_type") ~
       get[Boolean]("challenges.featured") ~
       get[Boolean]("challenges.has_suggested_fixes") ~
       get[Option[Int]]("challenges.popularity") ~
@@ -223,9 +223,9 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") ~
-      get[Option[Array[Long]]]("virtual_parent_ids") map {
+      get[Option[List[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-            difficulty ~ blurb ~ enabled ~ challenge_type ~ featured ~ hasSuggestedFixes ~ popularity ~
+            difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
@@ -258,7 +258,6 @@ class ChallengeDAL @Inject() (
             difficulty,
             blurb,
             enabled,
-            challenge_type,
             featured,
             hasSuggestedFixes,
             popularity,
@@ -359,37 +358,6 @@ class ChallengeDAL @Inject() (
   private val DEFAULT_NUM_CHILDREN_LIST = 1000
 
   /**
-    * A basic retrieval of the object based on the id. With caching, so if it finds
-    * the object in the cache it will return that object without checking the database, otherwise
-    * will hit the database directly.
-    *
-    * @param id The id of the object to be retrieved
-    * @return The object, None if not found
-    */
-  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
-    this._retrieveById()
-  }
-
-  def _retrieveById(
-      caching: Boolean = true
-  )(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
-    this.cacheManager.withCaching { () =>
-      this.withMRConnection { implicit c =>
-        val query =
-          s"""
-            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
-            |FROM challenges c
-            |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-            |WHERE c.id = {id}
-            |GROUP BY c.id
-           """.stripMargin
-
-        SQL(query).on(Symbol("id") -> id).as(this.withVirtualParentParser.singleOpt)
-      }
-    }(id, caching)
-  }
-
-  /**
     * This will retrieve the root object in the hierarchy of the object, by default the root
     * object is itself.
     *
@@ -397,26 +365,29 @@ class ChallengeDAL @Inject() (
     * @param c   The connection if any
     * @return The object that it is retrieving
     */
-  override def retrieveRootObject(obj: Either[Long, Challenge], user: User)(
+  def retrieveRootObject(obj: Either[Long, Challenge], user: User)(
       implicit c: Option[Connection] = None
   ): Option[Project] = {
+    val projectParser = ProjectRepository.parser(id =>
+      this.serviceManager.group.retrieveProjectGroups(id, User.superUser)
+    )
     obj match {
       case Left(id) =>
         this.permission.hasReadAccess(ChallengeType(), user)(id)
-        this.projectDAL.get().cacheManager.withOptionCaching { () =>
+        this.serviceManager.project.cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT p.* FROM projects p
              INNER JOIN challenges c ON c.parent_id = p.id
              WHERE c.id = $id
-           """.as(projectDAL.get().parser.*).headOption
+           """.as(projectParser.*).headOption
           }
         }
       case Right(challenge) =>
         this.permission.hasObjectReadAccess(challenge, user)
-        this.projectDAL.get().cacheManager.withOptionCaching { () =>
+        this.serviceManager.project.cacheManager.withOptionCaching { () =>
           this.withMRConnection { implicit c =>
             SQL"""SELECT * FROM projects WHERE id = ${challenge.general.parent}"""
-              .as(projectDAL.get().parser.*)
+              .as(projectParser.*)
               .headOption
           }
         }
@@ -433,7 +404,7 @@ class ChallengeDAL @Inject() (
   override def insert(challenge: Challenge, user: User)(
       implicit c: Option[Connection] = None
   ): Challenge = {
-    this.projectDAL.get().retrieveById(challenge.general.parent) match {
+    this.serviceManager.project.retrieve(challenge.general.parent) match {
       case Some(project) =>
         if (project.isVirtual.getOrElse(false)) {
           throw new InvalidException(s"Challenge cannot be created in a virtual project.")
@@ -445,14 +416,14 @@ class ChallengeDAL @Inject() (
     this.cacheManager.withOptionCaching { () =>
       this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
-                                      instruction, enabled, challenge_type, featured, checkin_comment, checkin_source,
+                                      instruction, enabled, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
                                       osm_id_property, last_task_refresh, data_origin_date, preferred_tags, task_styles, requires_local)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
-                      ${challenge.general.enabled}, ${challenge.general.challengeType}, ${challenge.general.featured},
+                      ${challenge.general.enabled}, ${challenge.general.featured},
                       ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
@@ -518,8 +489,6 @@ class ChallengeDAL @Inject() (
             (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
           val infoLink =
             (updates \ "infoLink").asOpt[String].getOrElse(cachedItem.infoLink.getOrElse(""))
-          val challengeType =
-            (updates \ "challengeType").asOpt[Int].getOrElse(cachedItem.general.challengeType)
           val blurb =
             (updates \ "blurb").asOpt[String].getOrElse(cachedItem.general.blurb.getOrElse(""))
           val instruction =
@@ -618,7 +587,7 @@ class ChallengeDAL @Inject() (
           }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                osm_id_property = $osmIdProperty, challenge_type = $challengeType, preferred_tags = $preferredTags, task_styles = $taskStyles,
+                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, task_styles = $taskStyles,
                 requires_local = $requiresLocal
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
         }
@@ -812,7 +781,7 @@ class ChallengeDAL @Inject() (
       val query =
         s"""SELECT ${this.retrieveColumns} FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
-                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
+                      WHERE c.deleted = false AND p.deleted = false
                       ${this.searchField("c.name")}
                       ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                       ${this.parentFilter(parentId)}
@@ -842,7 +811,7 @@ class ChallengeDAL @Inject() (
         s"""SELECT c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
                       LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-                      WHERE challenge_type = $challengeType AND c.deleted = false AND p.deleted = false
+                      WHERE c.deleted = false AND p.deleted = false
                       ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                       ${projectFilter}
                       GROUP BY c.id
@@ -859,21 +828,6 @@ class ChallengeDAL @Inject() (
       searchString: String = "",
       orderColumn: String = "id",
       orderDirection: String = "ASC"
-  )(implicit parentId: Long = -1, c: Option[Connection] = None): List[Challenge] =
-    this.listByType(limit, offset, onlyEnabled, searchString, orderColumn, orderDirection)
-
-  /**
-    * This is a dangerous function as it will return all the objects available, so it could take up
-    * a lot of memory
-    */
-  def listByType(
-      limit: Int = Config.DEFAULT_LIST_SIZE,
-      offset: Int = 0,
-      onlyEnabled: Boolean = false,
-      searchString: String = "",
-      orderColumn: String = "id",
-      orderDirection: String = "ASC",
-      challengeType: Int = Actions.ITEM_TYPE_CHALLENGE
   )(implicit parentId: Long = -1, c: Option[Connection] = None): List[Challenge] = {
     implicit val ids = List.empty
     this.cacheManager.withIDListCaching { implicit uncachedIDs =>
@@ -881,7 +835,7 @@ class ChallengeDAL @Inject() (
         val query =
           s"""SELECT $retrieveColumns FROM challenges c
                         INNER JOIN projects p ON p.id = c.parent_id
-                        WHERE challenge_type = $challengeType
+                        WHERE 1=1
                         ${this.searchField("c.name")}
                         ${this.enabled(onlyEnabled, "p")} ${this.enabled(onlyEnabled, "c")}
                         ${this.parentFilter(parentId)}
@@ -1112,6 +1066,7 @@ class ChallengeDAL @Inject() (
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_REJECTED} THEN ${Task.REVIEW_STATUS_REJECTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_ASSISTED} THEN ${Task.REVIEW_STATUS_ASSISTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_DISPUTED} THEN ${Task.REVIEW_STATUS_DISPUTED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_UNNECESSARY} THEN ${Task.REVIEW_STATUS_UNNECESSARY_NAME}
                                            END)) ||
                                         hstore('mr_reviewer', (select name from users where id=t.reviewed_by)::text) ||
                                         hstore('mr_reviewedAt', t.reviewed_at::text) ||
@@ -1288,6 +1243,16 @@ class ChallengeDAL @Inject() (
       implicit c: Option[Connection] = None
   ): Option[Challenge] = {
     this.permission.hasAdminAccess(ProjectType(), user)(newParent)
+    this.serviceManager.project.retrieve(newParent) match {
+      case Some(p) =>
+        if (p.isVirtual.getOrElse(false)) {
+          throw new InvalidException(s"Cannot move challenge into a virtual project ($newParent).")
+        }
+      case None =>
+        // This shouldn't happen since we already did a permission check.
+        throw new NotFoundException(s"No project with id $newParent found.")
+    }
+
     implicit val id = challengeId
     this.retrieveById match {
       case Some(c) => this.permission.hasObjectAdminAccess(c, user)
@@ -1459,6 +1424,37 @@ class ChallengeDAL @Inject() (
           throw new NotFoundException(s"No challenge found with id $challengeId")
       }
     }
+  }
+
+  /**
+    * A basic retrieval of the object based on the id. With caching, so if it finds
+    * the object in the cache it will return that object without checking the database, otherwise
+    * will hit the database directly.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+    this._retrieveById()
+  }
+
+  def _retrieveById(
+      caching: Boolean = true
+  )(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query =
+          s"""
+            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
+            |FROM challenges c
+            |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
+            |WHERE c.id = {id}
+            |GROUP BY c.id
+           """.stripMargin
+
+        SQL(query).on(Symbol("id") -> id).as(this.withVirtualParentParser.singleOpt)
+      }
+    }(id, caching)
   }
 
   /**

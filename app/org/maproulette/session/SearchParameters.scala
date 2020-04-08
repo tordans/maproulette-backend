@@ -1,5 +1,7 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.session
 
 import java.net.URLDecoder
@@ -37,7 +39,7 @@ case class SearchParameters(
     projectIds: Option[List[Long]] = None,
     projectSearch: Option[String] = None,
     projectEnabled: Option[Boolean] = None,
-    challengeParams: SearchChallengeParameters = new SearchChallengeParameters(),
+    challengeParams: SearchChallengeParameters = SearchChallengeParameters(),
     taskTags: Option[List[String]] = None,
     taskTagConjunction: Option[Boolean] = None,
     taskSearch: Option[String] = None,

@@ -1,5 +1,7 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -7,14 +9,12 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Provider, Singleton}
-import org.joda.time.{DateTime, DateTimeZone}
-import org.maproulette.exception.InvalidException
-import org.maproulette.models._
-import org.maproulette.data._
+import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.data.Actions
+import org.maproulette.framework.service.ServiceManager
+import org.maproulette.models._
 import org.maproulette.permissions.Permission
-import org.maproulette.session.User
-import org.maproulette.session.dal.UserDAL
 import org.maproulette.provider.websockets.WebSocketProvider
 import play.api.db.Database
 import play.api.libs.ws.WSClient
@@ -26,12 +26,22 @@ import play.api.libs.ws.WSClient
 class TaskHistoryDAL @Inject() (
     override val db: Database,
     override val tagDAL: TagDAL,
+    serviceManager: ServiceManager,
     config: Config,
     override val permission: Permission,
     dalManager: Provider[DALManager],
     webSocketProvider: WebSocketProvider,
     ws: WSClient
-) extends TaskDAL(db, tagDAL, permission, config, dalManager, webSocketProvider, ws) {
+) extends TaskDAL(
+      db,
+      tagDAL,
+      permission,
+      serviceManager,
+      config,
+      dalManager,
+      webSocketProvider,
+      ws
+    ) {
 
   private val commentEntryParser: RowParser[TaskLogEntry] = {
     get[Long]("task_comments.task_id") ~
@@ -126,10 +136,6 @@ class TaskHistoryDAL @Inject() (
     }
   }
 
-  private def sortByDate(entry1: TaskLogEntry, entry2: TaskLogEntry) = {
-    entry1.timestamp.getMillis() < entry2.timestamp.getMillis()
-  }
-
   /**
     * Returns a history log for the task -- includes comments, status actions,
     * review actions
@@ -163,5 +169,9 @@ class TaskHistoryDAL @Inject() (
 
       ((comments ++ reviews ++ statusActions ++ actions).sortWith(sortByDate)).reverse
     }
+  }
+
+  private def sortByDate(entry1: TaskLogEntry, entry2: TaskLogEntry) = {
+    entry1.timestamp.getMillis() < entry2.timestamp.getMillis()
   }
 }

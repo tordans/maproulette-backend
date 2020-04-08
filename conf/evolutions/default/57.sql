@@ -2,7 +2,7 @@
 
 # --- !Ups
 -- We should never have a null review_status in the task_review table.
-DELETE FROM task_review WHERE review_status IS NULL;
+DELETE FROM task_review WHERE review_status IS NULL;;
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change makes sure not to reset the task status if a task is disabled or declared a false positive

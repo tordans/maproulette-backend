@@ -1,28 +1,26 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.jobs
 
 import akka.actor.{Actor, Props}
 import anorm.JodaParameterMetaData._
-import anorm._
 import anorm.SqlParser._
+import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.data.SnapshotManager
+import org.maproulette.framework.model.User
+import org.maproulette.framework.service.ServiceManager
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
-import org.maproulette.models.{
-  Task,
-  UserNotification,
-  UserNotificationEmail,
-  UserNotificationEmailDigest
-}
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.data.SnapshotManager
-import org.maproulette.provider.{KeepRightBox, KeepRightError, KeepRightProvider, EmailProvider}
-import org.maproulette.session.User
+import org.maproulette.models.{Task, UserNotification, UserNotificationEmailDigest}
+import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
 import play.api.Application
@@ -42,6 +40,7 @@ class SchedulerActor @Inject() (
     application: Application,
     db: Database,
     dALManager: DALManager,
+    serviceManager: ServiceManager,
     keepRightProvider: KeepRightProvider,
     boundingBoxFinder: BoundingBoxFinder,
     emailProvider: EmailProvider,
@@ -251,8 +250,8 @@ class SchedulerActor @Inject() (
         implicit val id = values(1).toLong
         values(0) match {
           case "p" =>
-            dALManager.project
-              .listChildren(-1)
+            this.serviceManager.project
+              .children(-1)
               .foreach(c => {
                 dALManager.challenge
                   .listChildren(-1)(c.id)
@@ -470,7 +469,7 @@ class SchedulerActor @Inject() (
         .foreach(notification => {
           // Send email if user has an email address on file
           try {
-            dALManager.user.retrieveById(notification.userId) match {
+            this.serviceManager.user.retrieve(notification.userId) match {
               case Some(user) =>
                 user.settings.email match {
                   case Some(address) if (!address.isEmpty) =>
@@ -515,7 +514,7 @@ class SchedulerActor @Inject() (
     // Email each digest if recipient has an email address on file
     digests.foreach(digest => {
       try {
-        dALManager.user.retrieveById(digest.userId) match {
+        this.serviceManager.user.retrieve(digest.userId) match {
           case Some(user) =>
             user.settings.email match {
               case Some(address) if (!address.isEmpty) =>
@@ -528,32 +527,6 @@ class SchedulerActor @Inject() (
         case e: Exception => logger.error("Failed to send digest email: " + e)
       }
     })
-  }
-
-  /**
-    * We essentially create this recursive function, so that we don't take down the KeepRight servers
-    * by bombarding it with tons of API requests.
-    *
-    * @param head The head of the list, which is a tuple containing a KeepRightError and a KeepRightBox
-    * @param tail The tail list of box objects
-    */
-  private def integrateKeepRight(
-      head: (List[KeepRightError], KeepRightBox),
-      tail: List[(List[KeepRightError], KeepRightBox)]
-  ): Unit = {
-    keepRightProvider.integrate(head._1.map(_.id), head._2) onComplete {
-      case Success(x) =>
-        if (!x) {
-          logger.warn(s"KeepRight challenge failed, but continuing to next one")
-        }
-        tail.headOption match {
-          case Some(head) => this.integrateKeepRight(head, tail.tail)
-          case None       => // just do nothing because we are finished
-        }
-      case Failure(f) =>
-        // something went wrong, we should bail out immediately
-        logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
-    }
   }
 
   /**
@@ -627,6 +600,32 @@ class SchedulerActor @Inject() (
         this.snapshotManager.recordChallengeSnapshot(id, false)
       })
       logger.info(s"Succesfully created snapshots of challenges.")
+    }
+  }
+
+  /**
+    * We essentially create this recursive function, so that we don't take down the KeepRight servers
+    * by bombarding it with tons of API requests.
+    *
+    * @param head The head of the list, which is a tuple containing a KeepRightError and a KeepRightBox
+    * @param tail The tail list of box objects
+    */
+  private def integrateKeepRight(
+      head: (List[KeepRightError], KeepRightBox),
+      tail: List[(List[KeepRightError], KeepRightBox)]
+  ): Unit = {
+    keepRightProvider.integrate(head._1.map(_.id), head._2) onComplete {
+      case Success(x) =>
+        if (!x) {
+          logger.warn(s"KeepRight challenge failed, but continuing to next one")
+        }
+        tail.headOption match {
+          case Some(head) => this.integrateKeepRight(head, tail.tail)
+          case None       => // just do nothing because we are finished
+        }
+      case Failure(f) =>
+        // something went wrong, we should bail out immediately
+        logger.warn(s"The KeepRight challenge creation failed. ${f.getMessage}")
     }
   }
 }

@@ -1,5 +1,7 @@
-// Copyright (C) 2019 MapRoulette contributors (see CONTRIBUTORS.md).
-// Licensed under the Apache License, Version 2.0 (see LICENSE).
+/*
+ * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
+ */
 package org.maproulette.models.dal
 
 import java.sql.Connection
@@ -12,11 +14,12 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.exception.InvalidException
+import org.maproulette.framework.model.User
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.Locking
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
-import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters, User}
+import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters}
 import play.api.db.Database
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.{JsString, JsValue, Json}
