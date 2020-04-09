@@ -1019,7 +1019,7 @@ class ChallengeController @Inject() (
   ): Option[Challenge] = {
     var created = super.internalCreate(requestBody, element, user)
     // Fetch challenge fresh from database. There are some fields that are set after creating
-    // children (ie. hasSuggestedFixes) and our cached copy does not reflect those changes
+    // children (ie. cooperativeType) and our cached copy does not reflect those changes
     created match {
       case Some(value) => this.dal._retrieveById(false)(value.id)
       case None        => created
@@ -1054,7 +1054,8 @@ class ChallengeController @Inject() (
       Utils.insertIntoJson(jsonBody, "challengeType", Actions.ITEM_TYPE_CHALLENGE)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "difficulty", Challenge.DIFFICULTY_NORMAL)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)
-    jsonBody = Utils.insertIntoJson(jsonBody, "hasSuggestedFixes", false)(BooleanWrites)
+    jsonBody =
+      Utils.insertIntoJson(jsonBody, "cooperativeType", Challenge.COOPERATIVE_NONE)(IntWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinComment", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "checkinSource", "")(StringWrites)
     jsonBody = Utils.insertIntoJson(jsonBody, "requiresLocal", false)(BooleanWrites)

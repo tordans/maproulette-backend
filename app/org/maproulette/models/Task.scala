@@ -52,7 +52,7 @@ case class Task(
     instruction: Option[String] = None,
     location: Option[String] = None,
     geometries: String,
-    suggestedFix: Option[String] = None,
+    cooperativeWork: Option[String] = None,
     status: Option[Int] = None,
     mappedOn: Option[DateTime] = None,
     completedTimeSpent: Option[Long] = None,
@@ -123,8 +123,8 @@ object Task {
       }
 
       original = Utils.insertIntoJson(updatedLocation, "geometries", Json.parse(o.geometries), true)
-      var updated = o.suggestedFix match {
-        case Some(sf) => Utils.insertIntoJson(original, "suggestedFix", Json.parse(sf), true)
+      var updated = o.cooperativeWork match {
+        case Some(cw) => Utils.insertIntoJson(original, "cooperativeWork", Json.parse(cw), true)
         case None     => original
       }
 

@@ -81,7 +81,7 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
       get[Boolean]("challenges.featured") ~
-      get[Boolean]("challenges.has_suggested_fixes") ~
+      get[Int]("challenges.cooperative_type") ~
       get[Option[Int]]("challenges.popularity") ~
       get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.checkin_source") ~
@@ -111,7 +111,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-            difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
+            difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
@@ -144,7 +144,7 @@ class ChallengeDAL @Inject() (
             blurb,
             enabled,
             featured,
-            hasSuggestedFixes,
+            cooperativeType,
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
@@ -194,7 +194,7 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
       get[Boolean]("challenges.featured") ~
-      get[Boolean]("challenges.has_suggested_fixes") ~
+      get[Int]("challenges.cooperative_type") ~
       get[Option[Int]]("challenges.popularity") ~
       get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.checkin_source") ~
@@ -225,7 +225,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("deleted") ~
       get[Option[List[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-            difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~
+            difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
@@ -259,7 +259,7 @@ class ChallengeDAL @Inject() (
             blurb,
             enabled,
             featured,
-            hasSuggestedFixes,
+            cooperativeType,
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
@@ -304,7 +304,7 @@ class ChallengeDAL @Inject() (
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.bundle_id") ~
       get[Option[Boolean]]("tasks.is_bundle_primary") ~
-      get[Option[String]]("suggested_fix") ~
+      get[Option[String]]("cooperative_work") ~
       get[Option[Int]]("task_review.review_status") ~
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
@@ -312,7 +312,7 @@ class ChallengeDAL @Inject() (
       get[Option[DateTime]]("task_review.review_started_at") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
             mappedOn ~ completedTimeSpent ~ completedBy ~ priority ~ bundleId ~
-            isBundlePrimary ~ suggestedFix ~ reviewStatus ~ reviewRequestedBy ~
+            isBundlePrimary ~ cooperativeWork ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ reviewStartedAt =>
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
@@ -333,7 +333,7 @@ class ChallengeDAL @Inject() (
           -1,
           Actions.ITEM_TYPE_TASK,
           status,
-          suggestedFix,
+          cooperativeWork,
           mappedOn,
           completedTimeSpent,
           completedBy,
@@ -690,7 +690,7 @@ class ChallengeDAL @Inject() (
           get[Option[String]]("tasks.instruction") ~
           get[Option[String]]("geo_location") ~
           get[Option[String]]("geo_json") ~
-          get[Option[String]]("suggested_fix") ~
+          get[Option[String]]("cooperative_work") ~
           get[Option[Int]]("tasks.status") ~
           get[Option[DateTime]]("tasks.mapped_on") ~
           get[Option[Long]]("tasks.completed_time_spent") ~
@@ -704,10 +704,10 @@ class ChallengeDAL @Inject() (
           get[Option[DateTime]]("task_review.review_claimed_at") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
-                geometry ~ suggestedFix ~ status ~ mappedOn ~ completedTimeSpent ~
+                geometry ~ cooperativeWork ~ status ~ mappedOn ~ completedTimeSpent ~
                 completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
                 reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority =>
-            val values = taskDAL.updateAndRetrieve(id, geometry, location, suggestedFix)
+            val values = taskDAL.updateAndRetrieve(id, geometry, location, cooperativeWork)
             Task(
               id,
               name,
@@ -1169,7 +1169,7 @@ class ChallengeDAL @Inject() (
                    t.parent_id, t.bundle_id, t.is_bundle_primary,
                    tr.review_status, tr.review_requested_by,
                    tr.reviewed_by, tr.reviewed_at, tr.review_started_at,
-                   t.suggestedfix_geojson::TEXT as suggested_fix, c.name,
+                   t.cooperative_work_json::TEXT as cooperative_work, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
             #${joinClause.toString()}

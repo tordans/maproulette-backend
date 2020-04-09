@@ -8,6 +8,8 @@ import java.sql.Connection
 
 import javax.inject.Inject
 import org.locationtech.jts.geom.Envelope
+import akka.util.ByteString
+import play.api.http.HttpEntity
 import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
@@ -152,12 +154,12 @@ class TaskController @Inject() (
           case None => updatedBody
         }
     }
-    (updatedBody \ "suggestedFix").asOpt[String] match {
+    (updatedBody \ "cooperativeWork").asOpt[String] match {
       case Some(value) => updatedBody
       case None =>
-        (updatedBody \ "suggestedFix").asOpt[JsValue] match {
+        (updatedBody \ "cooperativeWork").asOpt[JsValue] match {
           case Some(value) =>
-            Utils.insertIntoJson(updatedBody, "suggestedFix", value.toString(), true)
+            Utils.insertIntoJson(updatedBody, "cooperativeWork", value.toString(), true)
           case None => updatedBody
         }
     }
@@ -216,6 +218,45 @@ class TaskController @Inject() (
       )
       Ok(Json.toJson(task))
     }
+  }
+
+  /**
+    * Retrieve cooperative change XML for task
+    *
+    * @param taskId     Id of task that you wish to start
+    * @return
+    */
+  def cooperativeWorkChangeXML(taskId: Long): Action[AnyContent] = Action.async {
+    implicit request =>
+      val task = this.dal.retrieveById(taskId) match {
+        case Some(t) => t
+        case None    => throw new NotFoundException(s"Task with $taskId not found.")
+      }
+
+      val xml = task.cooperativeWork match {
+        case Some(cw) =>
+          val cooperativeWork = Json.parse(cw)
+          (cooperativeWork \ "file" \ "content").asOpt[String] match {
+            case Some(base64EncodedXML) =>
+              new String(java.util.Base64.getDecoder.decode(base64EncodedXML))
+            case None => throw new NotFoundException(s"Task $taskId does not offer change XML.")
+          }
+
+        case None => throw new NotFoundException(s"Task $taskId does not offer cooperative work.")
+      }
+
+      Future {
+        Result(
+          header = ResponseHeader(
+            OK,
+            Map(CONTENT_DISPOSITION -> s"attachment; filename=task_${taskId}_proposed_change.xml")
+          ),
+          body = HttpEntity.Strict(
+            ByteString.fromString(xml),
+            Some("text/xml")
+          )
+        )
+      }
   }
 
   /**

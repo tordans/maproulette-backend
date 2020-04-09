@@ -205,6 +205,29 @@ GET     /task/:id                                   @org.maproulette.controllers
 #     description: The id of the Task to retrieve
 ###
 GET     /task/:id/start                               @org.maproulette.controllers.api.TaskController.startOnTask(id:Long)
+
+###
+# tags: [ Task ]
+# summary: Retrieve any change XML that is part of this task's cooperative work
+# produces: [ application/json ]
+# description: Retrieve change XML that is part of this task's cooperative work.
+#              The cooperative work on the task should be consulted to determine
+#              if any change exists for the task, and which change format was
+#              used (i.e. JOSM, OSMChange, etc).
+#
+# responses:
+#   '200':
+#     description: The change XML data
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '404':
+#     description: No Task found matching the id, or no change data found on the task
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the Task for which change XML is desired
+###
+GET     /task/:id/cooperative/change                  @org.maproulette.controllers.api.TaskController.cooperativeWorkChangeXML(id:Long)
 ###
 # tags: [ Task ]
 # summary: Release a Task (unlocks it)
