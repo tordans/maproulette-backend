@@ -226,8 +226,13 @@ GET     /task/:id/start                               @org.maproulette.controlle
 #   - name: id
 #     in: path
 #     description: The id of the Task for which change XML is desired
+#   - name: filename
+#     in: path
+#     description: A filename to use. Some editors will use this as a hint as
+#                  to the change format of the XML. Must be alphanumeric with optional
+#                  underscores, dashes, and dots.
 ###
-GET     /task/:id/cooperative/change                  @org.maproulette.controllers.api.TaskController.cooperativeWorkChangeXML(id:Long)
+GET     /task/:id/cooperative/change/$filename<\w[\w\d-_\.]*>            @org.maproulette.controllers.api.TaskController.cooperativeWorkChangeXML(id:Long, filename:String)
 ###
 # tags: [ Task ]
 # summary: Release a Task (unlocks it)

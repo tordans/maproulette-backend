@@ -226,7 +226,7 @@ class TaskController @Inject() (
     * @param taskId     Id of task that you wish to start
     * @return
     */
-  def cooperativeWorkChangeXML(taskId: Long): Action[AnyContent] = Action.async {
+  def cooperativeWorkChangeXML(taskId: Long, filename: String): Action[AnyContent] = Action.async {
     implicit request =>
       val task = this.dal.retrieveById(taskId) match {
         case Some(t) => t
@@ -249,7 +249,7 @@ class TaskController @Inject() (
         Result(
           header = ResponseHeader(
             OK,
-            Map(CONTENT_DISPOSITION -> s"attachment; filename=task_${taskId}_proposed_change.xml")
+            Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")
           ),
           body = HttpEntity.Strict(
             ByteString.fromString(xml),
