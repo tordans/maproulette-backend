@@ -32,7 +32,7 @@ object SQLUtils {
   // The set of characters that are allowed for column names, so that we can sanitize in unknown input
   // for protection against SQL injection
   private val ordinary =
-    (('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ Seq('_') ++ Seq('.')).toSet
+    (('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ Seq('_') ++ Seq('.') ++ Seq('-')).toSet
 
   def testColumnName(columnName: String): Unit = {
     if (!columnName.forall(this.ordinary.contains)) {

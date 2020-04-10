@@ -55,12 +55,11 @@ class UserService @Inject() (
   def retrieveByAPIKey(id: Long, apiKey: String, user: User): Option[User] =
     this.cacheManager.withOptionCaching { () =>
       val idFilterGroup = FilterGroup(
-        OR(),
-        BaseParameter(User.FIELD_ID, id),
-        BaseParameter(User.FIELD_OSM_ID, id)
+        List(BaseParameter(User.FIELD_ID, id), BaseParameter(User.FIELD_OSM_ID, id)),
+        OR()
       )
-      val apiFilterGroup = FilterGroup(AND(), BaseParameter(User.FIELD_API_KEY, apiKey))
-      val query          = Query(Filter(AND(), idFilterGroup, apiFilterGroup))
+      val apiFilterGroup = FilterGroup(List(BaseParameter(User.FIELD_API_KEY, apiKey)))
+      val query          = Query(Filter(List(idFilterGroup, apiFilterGroup)))
 
       this.repository.query(query).headOption match {
         case Some(u) =>
@@ -111,8 +110,6 @@ class UserService @Inject() (
         )
       }
     }
-
-  def query(query: Query, user: User): List[User] = this.repository.query(query)
 
   /**
     * Allow users to search for other users by OSM username.
@@ -232,38 +229,6 @@ class UserService @Inject() (
   }
 
   private def generateAPIKey: String = UUID.randomUUID().toString
-
-  /**
-    * Retrieves an object of that type
-    *
-    * @param id The identifier for the object
-    * @return An optional object, None if not found
-    */
-  override def retrieve(id: Long): Option[User] = this.retrieveListById(List(id)).headOption
-
-  /**
-    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
-    * in the cache and those that aren't will be retrieved from the database
-    *
-    * @param ids The list of ids to be retrieved
-    * @param paging paging object to handle paging in response
-    * @return A list of objects, empty list if none found
-    */
-  def retrieveListById(ids: List[Long], paging: Paging = Paging()): List[User] = {
-    if (ids.isEmpty) {
-      List.empty
-    } else {
-      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
-        this.query(
-          Query.simple(
-            List(BaseParameter(User.FIELD_ID, uncachedIDs, Operator.IN)),
-            paging = paging
-          ),
-          User.superUser
-        )
-      }(ids = ids)
-    }
-  }
 
   /**
     * Retrieves all the objects based on the search criteria
@@ -430,6 +395,40 @@ class UserService @Inject() (
     }
     this.repository.delete(id)
   }
+
+  /**
+    * Retrieves an object of that type
+    *
+    * @param id The identifier for the object
+    * @return An optional object, None if not found
+    */
+  override def retrieve(id: Long): Option[User] = this.retrieveListById(List(id)).headOption
+
+  /**
+    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
+    * in the cache and those that aren't will be retrieved from the database
+    *
+    * @param ids The list of ids to be retrieved
+    * @param paging paging object to handle paging in response
+    * @return A list of objects, empty list if none found
+    */
+  def retrieveListById(ids: List[Long], paging: Paging = Paging()): List[User] = {
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
+        this.query(
+          Query.simple(
+            List(BaseParameter(User.FIELD_ID, uncachedIDs, Operator.IN)),
+            paging = paging
+          ),
+          User.superUser
+        )
+      }(ids = ids)
+    }
+  }
+
+  def query(query: Query, user: User): List[User] = this.repository.query(query)
 
   /**
     * Delete a user based on their OSM ID

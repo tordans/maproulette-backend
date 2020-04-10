@@ -22,7 +22,7 @@ object Query {
   val SECONDARY_QUERY_KEY = "secondary"
 
   //val config:Config
-  def devMode(): Boolean = false //config.isDebugMode || config.isDevMode
+  def devMode(): Boolean = true //config.isDebugMode || config.isDevMode
 
   def simple(
       parameters: List[Parameter[_]],
@@ -32,7 +32,7 @@ object Query {
       order: Order = Order(),
       grouping: Grouping = Grouping()
   ): Query =
-    Query(Filter(key, FilterGroup(key, parameters: _*)), base, paging, order, grouping)
+    Query(Filter(List(FilterGroup(parameters, key)), key), base, paging, order, grouping)
 }
 
 case class Query(

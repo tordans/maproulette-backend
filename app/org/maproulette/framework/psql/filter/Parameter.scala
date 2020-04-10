@@ -10,6 +10,8 @@ import org.joda.time.DateTime
 import org.maproulette.framework.psql.filter.Operator.Operator
 import org.maproulette.framework.psql.{Query, SQLUtils}
 
+import scala.util.Random
+
 /**
   * Filter Parameters are generally be used for filter select queries using some basic filtering. It
   * also can be used for updating objects, as the SET clause using a very similar structure to the
@@ -23,6 +25,7 @@ trait Parameter[T] extends SQLClause {
   val operator: Operator        = Operator.EQ
   val negate: Boolean           = false
   val useValueDirectly: Boolean = false
+  val randomPrefix: String      = Random.nextInt(1000).toString
 
   def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
     if (value.isInstanceOf[Iterable[_]] && value.asInstanceOf[Iterable[_]].isEmpty) {
@@ -42,7 +45,7 @@ trait Parameter[T] extends SQLClause {
       } else {
         None
       }
-      Operator.format(key, operator, negate, directValue)
+      Operator.format(key, operator, negate, directValue)(getKeyPrefix)
     }
   }
 
@@ -51,12 +54,16 @@ trait Parameter[T] extends SQLClause {
   ): List[NamedParameter] = {
     if ((value.isInstanceOf[Iterable[_]] && value
           .asInstanceOf[Iterable[_]]
-          .isEmpty) || operator == Operator.CUSTOM || operator == Operator.NULL || useValueDirectly) {
+          .isEmpty) || operator == Operator.CUSTOM || operator == Operator.NULL || operator == Operator.BOOL || useValueDirectly) {
       List.empty
     } else {
-      List(SQLUtils.buildNamedParameter(s"$parameterKey$key", value))
+      List(SQLUtils.buildNamedParameter(s"$getKey", value))
     }
   }
+
+  def getKey(implicit parameterKey: String): String = s"$getKeyPrefix$key"
+
+  protected def getKeyPrefix(implicit parameterKey: String): String = s"$parameterKey$randomPrefix"
 }
 
 /**
@@ -116,7 +123,7 @@ case class DateParameter(
       } else {
         ""
       }
-      s"$key::DATE ${negation}BETWEEN {$parameterKey${key}_date1} AND {$parameterKey${key}_date2}"
+      s"$key::DATE ${negation}BETWEEN {${getKey}_date1} AND {${getKey}_date2}"
     } else {
       super.sql()
     }
@@ -127,10 +134,10 @@ case class DateParameter(
   ): List[NamedParameter] = {
     if (operator == Operator.BETWEEN) {
       List(
-        Symbol(s"$parameterKey${key}_date1") -> ToParameterValue
+        Symbol(s"${getKey}_date1") -> ToParameterValue
           .apply[DateTime](p = SQLUtils.toStatement)
           .apply(value),
-        Symbol(s"$parameterKey${key}_date2") -> ToParameterValue
+        Symbol(s"${getKey}_date2") -> ToParameterValue
           .apply[DateTime](p = SQLUtils.toStatement)
           .apply(value2)
       )
@@ -158,16 +165,12 @@ case class SubQueryFilter(
     } else {
       Some(s"(${value.sql()(this.getParameterKey)})")
     }
-    Operator.format(key, operator, negate, filterValue)
+    Operator.format(key, operator, negate, filterValue)(getKeyPrefix)
   }
-
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = value.parameters()(this.getParameterKey)
 
   // This may work for a single subquery, but there may be issues if you have more than one subquery
   // as it will always choose "SECONDARY" as it parameterKey which might not make the keys unique
-  // for the parameter
+  // for the parameter, also we add a
   def getParameterKey(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
     if (parameterKey.equals(Query.PRIMARY_QUERY_KEY)) {
       Query.SECONDARY_QUERY_KEY
@@ -176,6 +179,10 @@ case class SubQueryFilter(
     }
 
   }
+
+  override def parameters()(
+      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
+  ): List[NamedParameter] = value.parameters()(this.getParameterKey)
 }
 
 /**
@@ -206,16 +213,16 @@ case class FuzzySearchParameter(
       FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE
     }
     s"""($key <> '' AND
-      (LEVENSHTEIN(LOWER($key), LOWER({$parameterKey$key})) < $score OR
-      METAPHONE(LOWER($key), 4) = METAPHONE(LOWER({$parameterKey$key}), $metaphoneSize) OR
-      SOUNDEX(LOWER($key)) = SOUNDEX(LOWER({$parameterKey$key})))
+      (LEVENSHTEIN(LOWER($key), LOWER({$getKey})) < $score OR
+      METAPHONE(LOWER($key), 4) = METAPHONE(LOWER({$getKey}), $metaphoneSize) OR
+      SOUNDEX(LOWER($key)) = SOUNDEX(LOWER({$getKey})))
       )"""
   }
 
   override def parameters()(
       implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
   ): List[NamedParameter] =
-    List(Symbol(s"$parameterKey${key}") -> value)
+    List(Symbol(getKey) -> value)
 }
 
 object FilterParameter {
