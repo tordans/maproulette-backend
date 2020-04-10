@@ -7,8 +7,7 @@ package org.maproulette.framework.psql
 
 import anorm.NamedParameter
 import org.maproulette.framework.psql.filter.SQLClause
-
-import scala.util.Random
+import org.maproulette.utils.Utils
 
 /**
   * Basic class that handles all the paging for a query
@@ -16,7 +15,7 @@ import scala.util.Random
   * @author mcuthbert
   */
 case class Paging(limit: Int = 0, page: Int = 0) extends SQLClause {
-  val randomPrefix: String = Random.nextInt(1000).toString
+  val randomPrefix: String = Utils.randomStringFromCharList(5)
 
   override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
     if (limit > 0) {

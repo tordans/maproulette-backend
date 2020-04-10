@@ -9,6 +9,7 @@ import anorm.{NamedParameter, ToParameterValue}
 import org.joda.time.DateTime
 import org.maproulette.framework.psql.filter.Operator.Operator
 import org.maproulette.framework.psql.{Query, SQLUtils}
+import org.maproulette.utils.Utils
 
 import scala.util.Random
 
@@ -25,7 +26,7 @@ trait Parameter[T] extends SQLClause {
   val operator: Operator        = Operator.EQ
   val negate: Boolean           = false
   val useValueDirectly: Boolean = false
-  val randomPrefix: String      = Random.nextInt(1000).toString
+  val randomPrefix: String      = Utils.randomStringFromCharList(5)
 
   def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
     if (value.isInstanceOf[Iterable[_]] && value.asInstanceOf[Iterable[_]].isEmpty) {

@@ -15,7 +15,7 @@ import play.api.mvc.Results._
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 /**
   * Some random utliity helper functions
@@ -23,6 +23,15 @@ import scala.util.{Failure, Success, Try}
   * @author cuthbertm
   */
 object Utils extends DefaultWrites {
+
+  def randomStringFromCharList(
+      length: Int,
+      chars: Seq[Char] = ('a' to 'z') ++ ('A' to 'Z')
+                              ): String =
+    (1 to length).foldLeft("")((previous, _) => {
+      val randomNum = Random.nextInt(chars.length)
+      previous + chars(randomNum)
+    })
 
   def getProperties(value: JsValue, key: String): JsValue = {
     (value \ key).asOpt[JsObject] match {
