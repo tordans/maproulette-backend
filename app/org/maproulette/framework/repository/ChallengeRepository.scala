@@ -62,7 +62,7 @@ object ChallengeRepository {
       get[Option[String]]("challenges.blurb") ~
       get[Boolean]("challenges.enabled") ~
       get[Boolean]("challenges.featured") ~
-      get[Boolean]("challenges.has_suggested_fixes") ~
+      get[Int]("challenges.cooperative_type") ~
       get[Option[Int]]("challenges.popularity") ~
       get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.checkin_source") ~
@@ -91,7 +91,7 @@ object ChallengeRepository {
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
-            difficulty ~ blurb ~ enabled ~ featured ~ hasSuggestedFixes ~ popularity ~ checkin_comment ~
+            difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
@@ -124,7 +124,7 @@ object ChallengeRepository {
             blurb,
             enabled,
             featured,
-            hasSuggestedFixes,
+            cooperativeType,
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),

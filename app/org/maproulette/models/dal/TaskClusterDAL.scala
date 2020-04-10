@@ -155,7 +155,7 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
       }
 
       val query =
-        s"""SELECT *, suggestedfix_geojson::TEXT as suggested_fix,
+        s"""SELECT *, cooperative_work_json::TEXT as cooperative_work,
                      ST_AsGeoJSON(tasks.location) AS location, tasks.priority
                      FROM (
                       SELECT ST_ClusterKMeans(tasks.location,
@@ -265,7 +265,7 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
         s"""
           SELECT tasks.id, tasks.name, tasks.parent_id, c.name, tasks.instruction, tasks.status, tasks.mapped_on,
                  tasks.completed_time_spent, tasks.completed_by,
-                 tasks.bundle_id, tasks.is_bundle_primary, tasks.suggestedfix_geojson::TEXT as suggested_fix,
+                 tasks.bundle_id, tasks.is_bundle_primary, tasks.cooperative_work_json::TEXT as cooperative_work,
                  task_review.review_status, task_review.review_requested_by, task_review.reviewed_by, task_review.reviewed_at,
                  task_review.review_started_at,
                  ST_AsGeoJSON(tasks.location) AS location, priority,
@@ -287,7 +287,7 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
         str("tasks.instruction") ~
         str("location") ~
         int("tasks.status") ~
-        get[Option[String]]("suggested_fix") ~
+        get[Option[String]]("cooperative_work") ~
         get[Option[DateTime]]("tasks.mapped_on") ~
         get[Option[Long]]("tasks.completed_time_spent") ~
         get[Option[Long]]("tasks.completed_by") ~
@@ -299,7 +299,7 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
         int("tasks.priority") ~
         get[Option[Long]]("tasks.bundle_id") ~
         get[Option[Boolean]]("tasks.is_bundle_primary") map {
-        case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~
+        case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ cooperativeWork ~ mappedOn ~
               completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
               reviewStartedAt ~ priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
@@ -321,7 +321,7 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
             -1,
             Actions.ITEM_TYPE_TASK,
             status,
-            suggestedFix,
+            cooperativeWork,
             mappedOn,
             completedTimeSpent,
             completedBy,

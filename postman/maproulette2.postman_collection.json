@@ -5812,7 +5812,7 @@
 			"protocolProfileBehavior": {}
 		},
 		{
-			"name": "SuggestedFixes",
+			"name": "CooperativeWork",
 			"item": [
 				{
 					"name": "testChange Delta",
@@ -5882,7 +5882,7 @@
 								}
 							]
 						},
-						"description": "testing a sample suggested fix change"
+						"description": "testing a sample cooperative change"
 					},
 					"response": []
 				},
@@ -5968,7 +5968,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\":\"SFChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFChallenge description\",\n    \"instruction\":\"SFChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SF Task 1\",\n\t        \"suggestedFix\":  {\n        \t\t\"osmId\": 243499890,\n    \t\t\t\"osmType\": \"way\",\n        \t\t\"update\": {\n            \t\t\"tags\": {\n                \t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t}\n    \t\t\t}\n    \t\t},\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\"\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
+							"raw": "{\n    \"name\":\"SFChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFChallenge description\",\n    \"instruction\":\"SFChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SF Task 1\",\n\t        \"cooperativeWork\":  {\n        \t\t\"osmId\": 243499890,\n    \t\t\t\"osmType\": \"way\",\n        \t\t\"update\": {\n            \t\t\"tags\": {\n                \t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t}\n    \t\t\t}\n    \t\t},\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\"\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/challenge",
@@ -6019,7 +6019,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\":\"SFEChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFEChallenge description\",\n    \"instruction\":\"SFEChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SFE Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\",\n            \t\"maproulette\": {\n            \t\t\"suggestedFix\":  {\n        \t\t\t\t\"update\": {\n            \t\t\t\t\"tags\": {\n                \t\t\t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t\t\t}\n        \t\t\t\t}\n    \t\t\t\t}\n            \t}\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
+							"raw": "{\n    \"name\":\"SFEChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFEChallenge description\",\n    \"instruction\":\"SFEChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SFE Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\",\n            \t\"maproulette\": {\n            \t\t\"cooperativeWork\":  {\n        \t\t\t\t\"update\": {\n            \t\t\t\t\"tags\": {\n                \t\t\t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t\t\t}\n        \t\t\t\t}\n    \t\t\t\t}\n            \t}\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/challenge",
@@ -6159,7 +6159,7 @@
 								}
 							]
 						},
-						"description": "testing a sample suggested fix change"
+						"description": "testing a sample cooperative change"
 					},
 					"response": []
 				},
