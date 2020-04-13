@@ -161,12 +161,16 @@ case class SubQueryFilter(
     override val operator: Operator = Operator.IN
 ) extends Parameter[Query] {
   override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
-    val filterValue = if (operator == Operator.IN || operator == Operator.EXISTS) {
-      Some(value.sql()(this.getParameterKey))
+    if (operator == Operator.CUSTOM) {
+      s"(${value.sql()(this.getParameterKey)})"
     } else {
-      Some(s"(${value.sql()(this.getParameterKey)})")
+      val filterValue = if (operator == Operator.IN || operator == Operator.EXISTS) {
+        Some(value.sql()(this.getParameterKey))
+      } else {
+        Some(s"(${value.sql()(this.getParameterKey)})")
+      }
+      Operator.format(key, operator, negate, filterValue)(getKeyPrefix)
     }
-    Operator.format(key, operator, negate, filterValue)(getKeyPrefix)
   }
 
   // This may work for a single subquery, but there may be issues if you have more than one subquery
