@@ -30,9 +30,17 @@ object Query {
       key: SQLKey = AND(),
       paging: Paging = Paging(),
       order: Order = Order(),
-      grouping: Grouping = Grouping()
+      grouping: Grouping = Grouping(),
+      includeWhere: Boolean = true
   ): Query =
-    Query(Filter(List(FilterGroup(parameters, key)), key), base, paging, order, grouping)
+    Query(
+      Filter(List(FilterGroup(parameters, key)), key),
+      base,
+      paging,
+      order,
+      grouping,
+      includeWhere
+    )
 }
 
 case class Query(
@@ -40,7 +48,8 @@ case class Query(
     base: String = "",
     paging: Paging = Paging(),
     order: Order = Order(),
-    grouping: Grouping = Grouping()
+    grouping: Grouping = Grouping(),
+    includeWhere: Boolean = true
 ) extends SQLClause {
   def build(
       baseQuery: String = ""
@@ -65,8 +74,8 @@ case class Query(
       baseQuery: String = ""
   )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
     val filterQuery = filter.sql() match {
-      case x if x.nonEmpty => s"WHERE $x"
-      case x               => x
+      case x if x.nonEmpty & includeWhere => s"WHERE $x"
+      case x                              => x
     }
     val pagingQuery = paging.sql()
     val start = base match {
