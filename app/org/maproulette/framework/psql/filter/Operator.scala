@@ -13,7 +13,7 @@ import org.maproulette.framework.psql.SQLUtils
   */
 object Operator extends Enumeration {
   type Operator = Value
-  val EQ, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS = Value
+  val EQ, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS, BOOL = Value
 
   def format(
       key: String,
@@ -32,17 +32,18 @@ object Operator extends Enumeration {
       case None    => s"{$parameterKey$key}"
     }
     operator match {
-      case EQ         => s"$negation$key = $rightValue"
-      case GT         => s"$negation$key > $rightValue"
-      case GTE        => s"$negation$key >= $rightValue"
-      case LT         => s"$negation$key < $rightValue"
-      case LTE        => s"$negation$key <= $rightValue"
-      case IN         => s"$negation$key IN ($rightValue)"
-      case LIKE       => s"$negation$key LIKE $rightValue"
-      case ILIKE      => s"$negation$key ILIKE $rightValue"
-      case NULL       => s"$key IS ${negation}NULL"
-      case SIMILAR_TO => s"$negation$key SIMILAR TO $rightValue"
-      case EXISTS     => s"${negation}EXISTS ($rightValue)"
+      case EQ            => s"$negation$key = $rightValue"
+      case GT            => s"$negation$key > $rightValue"
+      case GTE           => s"$negation$key >= $rightValue"
+      case LT            => s"$negation$key < $rightValue"
+      case LTE           => s"$negation$key <= $rightValue"
+      case IN            => s"$negation$key IN ($rightValue)"
+      case LIKE          => s"$negation$key LIKE $rightValue"
+      case ILIKE         => s"$negation$key ILIKE $rightValue"
+      case NULL          => s"$key IS ${negation}NULL"
+      case SIMILAR_TO    => s"$negation$key SIMILAR TO $rightValue"
+      case EXISTS        => s"${negation}EXISTS ($rightValue)"
+      case BOOL | CUSTOM => s"${negation}$key"
       case BETWEEN =>
         throw new InvalidException("Between operator not supported by standard filter")
     }

@@ -54,27 +54,35 @@ class ProjectService @Inject() (
     this.challengeService.query(
       Query(
         Filter(
-          AND(),
-          FilterGroup(
-            OR(),
-            BaseParameter(s"challenges.${Challenge.FIELD_PARENT_ID}", id),
-            SubQueryFilter(
-              s"challenges.${Challenge.FIELD_ID}",
-              Query.simple(
-                List(BaseParameter(s"vp2.${VirtualProject.FIELD_PROJECT_ID}", id)),
-                "SELECT vp2.challenge_id FROM virtual_project_challenges vp2"
+          List(
+            FilterGroup(
+              List(
+                BaseParameter(s"challenges.${Challenge.FIELD_PARENT_ID}", id),
+                SubQueryFilter(
+                  s"challenges.${Challenge.FIELD_ID}",
+                  Query.simple(
+                    List(BaseParameter(s"vp2.${VirtualProject.FIELD_PROJECT_ID}", id)),
+                    "SELECT vp2.challenge_id FROM virtual_project_challenges vp2"
+                  )
+                )
+              ),
+              OR()
+            ),
+            FilterGroup(
+              List(
+                FilterParameter
+                  .conditional(
+                    Challenge.FIELD_ENABLED,
+                    onlyEnabled,
+                    includeOnlyIfTrue = onlyEnabled
+                  ),
+                FilterParameter.conditional(
+                  Challenge.FIELD_NAME,
+                  SQLUtils.search(searchString),
+                  Operator.ILIKE,
+                  includeOnlyIfTrue = searchString.nonEmpty
+                )
               )
-            )
-          ),
-          FilterGroup(
-            AND(),
-            FilterParameter
-              .conditional(Challenge.FIELD_ENABLED, onlyEnabled, includeOnlyIfTrue = onlyEnabled),
-            FilterParameter.conditional(
-              Challenge.FIELD_NAME,
-              SQLUtils.search(searchString),
-              Operator.ILIKE,
-              includeOnlyIfTrue = searchString.nonEmpty
             )
           )
         ),
@@ -143,27 +151,30 @@ class ProjectService @Inject() (
                 INNER JOIN groups g on g.project_id = p.id"""
         val permissionFilterGroup =
           FilterGroup(
-            OR(),
-            BaseParameter(s"p.${Project.FIELD_OWNER}", user.osmProfile.id),
-            FilterParameter.conditional(
-              s"g.${Group.FIELD_ID}",
-              user.groups.map(_.id),
-              Operator.IN,
-              includeOnlyIfTrue = !onlyOwned
-            )
+            List(
+              BaseParameter(s"p.${Project.FIELD_OWNER}", user.osmProfile.id),
+              FilterParameter.conditional(
+                s"g.${Group.FIELD_ID}",
+                user.groups.map(_.id),
+                Operator.IN,
+                includeOnlyIfTrue = !onlyOwned
+              )
+            ),
+            OR()
           )
         val baseFilterGroup = FilterGroup(
-          AND(),
-          BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString), Operator.LIKE),
-          FilterParameter.conditional(
-            Project.FIELD_ENABLED,
-            onlyEnabled,
-            includeOnlyIfTrue = onlyEnabled
+          List(
+            BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString), Operator.LIKE),
+            FilterParameter.conditional(
+              Project.FIELD_ENABLED,
+              onlyEnabled,
+              includeOnlyIfTrue = onlyEnabled
+            )
           )
         )
         this.query(
           Query(
-            Filter(AND(), permissionFilterGroup, baseFilterGroup),
+            Filter(List(permissionFilterGroup, baseFilterGroup)),
             customQuery,
             paging,
             order
@@ -189,27 +200,27 @@ class ProjectService @Inject() (
   ): List[Project] = {
     val query = Query(
       Filter(
-        AND(),
-        FilterGroup(
-          OR(),
-          BaseParameter(
-            Project.FIELD_NAME,
-            SQLUtils.search(search),
-            Operator.ILIKE
+        List(
+          FilterGroup(
+            List(
+              BaseParameter(
+                Project.FIELD_NAME,
+                SQLUtils.search(search),
+                Operator.ILIKE
+              ),
+              BaseParameter(
+                Project.FIELD_DISPLAY_NAME,
+                SQLUtils.search(search),
+                Operator.ILIKE
+              ),
+              FuzzySearchParameter(
+                Project.FIELD_DISPLAY_NAME,
+                value = search
+              )
+            ),
+            OR()
           ),
-          BaseParameter(
-            Project.FIELD_DISPLAY_NAME,
-            SQLUtils.search(search),
-            Operator.ILIKE
-          ),
-          FuzzySearchParameter(
-            Project.FIELD_DISPLAY_NAME,
-            value = search
-          )
-        ),
-        FilterGroup(
-          AND(),
-          BaseParameter(Project.FIELD_ENABLED, true)
+          FilterGroup(List(BaseParameter(Project.FIELD_ENABLED, true)))
         )
       ),
       paging = paging,
@@ -346,6 +357,8 @@ class ProjectService @Inject() (
       .headOption
   }
 
+  def query(query: Query): List[Project] = this.repository.query(query)
+
   def list(
       ids: List[Long],
       paging: Paging = Paging()
@@ -359,8 +372,6 @@ class ProjectService @Inject() (
       )
     )
   }
-
-  def query(query: Query): List[Project] = this.repository.query(query)
 
   /**
     * Clears the project cache

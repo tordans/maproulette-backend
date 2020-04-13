@@ -97,6 +97,10 @@ class FilterOperatorSpec extends PlaySpec {
       Operator.format(KEY, Operator.EXISTS, negate = true) mustEqual s"NOT EXISTS ({$parameterKey$KEY})"
     }
 
+    "format BOOL operator correctly" in {
+      Operator.format(KEY, Operator.BOOL) mustEqual s"key"
+    }
+
     "format rightValue correctly if set" in {
       Operator.format(KEY, Operator.EQ, value = Some("test.key")) mustEqual s"$KEY = test.key"
     }

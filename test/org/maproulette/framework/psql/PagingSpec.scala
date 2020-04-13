@@ -21,20 +21,22 @@ class PagingSpec extends PlaySpec {
 
     "set to limit greater than zero" in {
       val paging = Paging(10000)
-      paging.sql() mustEqual "LIMIT {limit} OFFSET {offset}"
+      paging
+        .sql() mustEqual s"LIMIT {${paging.randomPrefix}limit} OFFSET {${paging.randomPrefix}offset}"
       val params = paging.parameters()
       params.size mustEqual 2
-      params.head mustEqual NamedParameter("limit", 10000)
-      params.tail.head mustEqual NamedParameter("offset", 0)
+      params.head mustEqual NamedParameter(s"${paging.randomPrefix}limit", 10000)
+      params.tail.head mustEqual NamedParameter(s"${paging.randomPrefix}offset", 0)
     }
 
     "set to limit and offset multiplied by limit" in {
       val paging = Paging(100, 5)
-      paging.sql() mustEqual "LIMIT {limit} OFFSET {offset}"
+      paging
+        .sql() mustEqual s"LIMIT {${paging.randomPrefix}limit} OFFSET {${paging.randomPrefix}offset}"
       val params = paging.parameters()
       params.size mustEqual 2
-      params.head mustEqual NamedParameter("limit", 100)
-      params.tail.head mustEqual NamedParameter("offset", 500)
+      params.head mustEqual NamedParameter(s"${paging.randomPrefix}limit", 100)
+      params.tail.head mustEqual NamedParameter(s"${paging.randomPrefix}offset", 500)
     }
   }
 }
