@@ -27,7 +27,7 @@ object Utils extends DefaultWrites {
   def randomStringFromCharList(
       length: Int,
       chars: Seq[Char] = ('a' to 'z') ++ ('A' to 'Z')
-                              ): String =
+  ): String =
     (1 to length).foldLeft("")((previous, _) => {
       val randomNum = Random.nextInt(chars.length)
       previous + chars(randomNum)
