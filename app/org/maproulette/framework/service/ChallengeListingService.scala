@@ -45,6 +45,11 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
       excludeOtherReviewers: Boolean = false,
       paging: Paging = Paging()
   ): List[ChallengeListing] = {
+
+    val reviewedBy        = "task_review.reviewed_by"
+    val reviewRequestedBy = "task_review.review_requested_by"
+    val reviewStatus      = "task_review.review_status"
+
     val filter =
       Filter(
         List(
@@ -62,26 +67,26 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
               // review_requested_by != user.id unless a super user
               // to be reviewed tasks (review type = 1)
               FilterParameter.conditional(
-                "task_review.review_requested_by",
+                reviewRequestedBy,
                 user.id,
                 negate = true,
                 includeOnlyIfTrue = (reviewTasksType == 1) && !user.isSuperUser
               ),
               // reviewed_by == user.id for 'tasks reviewed by me' (review type = 3)
               FilterParameter.conditional(
-                "task_review.reviewed_by",
+                reviewedBy,
                 user.id,
                 includeOnlyIfTrue = (reviewTasksType == 2)
               ),
               // reviewed_by == user.id for 'my reviewed tasks' (review type = 2)
               FilterParameter.conditional(
-                "task_review.review_requested_by",
+                reviewRequestedBy,
                 user.id,
                 includeOnlyIfTrue = (reviewTasksType == 3)
               ),
               // review status = requested or disputed if reviewTasksType = 1
               FilterParameter.conditional(
-                "task_review.review_status",
+                reviewStatus,
                 List(Task.REVIEW_STATUS_REQUESTED, Task.REVIEW_STATUS_DISPUTED),
                 Operator.IN,
                 includeOnlyIfTrue = (reviewTasksType == 1)
@@ -93,8 +98,8 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
           // reviewed_by is empty or user.id if excludeOtherReviewers
           FilterGroup(
             List(
-              BaseParameter("task_review.reviewed_by", "", Operator.NULL),
-              BaseParameter("task_review.reviewed_by", user.id)
+              BaseParameter(reviewedBy, "", Operator.NULL),
+              BaseParameter(reviewedBy, user.id)
             ),
             OR(),
             (excludeOtherReviewers && reviewTasksType == 1)
