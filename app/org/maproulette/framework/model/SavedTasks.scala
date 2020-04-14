@@ -16,4 +16,5 @@ object SavedTasks extends CommonField {
   val FIELD_USER_ID      = "user_id"
   val FIELD_TASK_ID      = "task_id"
   val FIELD_CHALLENGE_ID = "challenge_id"
+  val FIELD_STATUS       = "status"
 }

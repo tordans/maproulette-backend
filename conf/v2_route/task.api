@@ -645,7 +645,7 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 #     description: The ID of the task
 #   - name: status
 #     in: path
-#     description: The status to update the Task to. Following status Integers can be used. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+#     description: Will update a Tasks review status to one of the following. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted, 4 - Disputed, 5 - Unnecessary
 #   - name: comment
 #     in: query
 #     description: Any comment that is provided by the user when setting the review status
