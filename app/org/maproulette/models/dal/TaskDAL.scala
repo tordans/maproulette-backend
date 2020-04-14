@@ -22,7 +22,7 @@ import org.maproulette.framework.model.{Challenge, Project, StatusActions, User}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.ProjectRepository
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{Locking, SearchParametersMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
@@ -50,7 +50,7 @@ import scala.xml.XML
 @Singleton
 class TaskDAL @Inject() (
     override val db: Database,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     override val permission: Permission,
     serviceManager: ServiceManager,
     config: Config,
@@ -218,6 +218,121 @@ class TaskDAL @Inject() (
     this.mergeUpdate(task, user)(-1) match {
       case Some(t) => t
       case None    => throw new Exception("Unknown failure occurred while creating new task.")
+    }
+  }
+
+  /**
+    * Updates a task object in the database.
+    *
+    * @param value A json object containing fields to be updated for the task
+    * @param user  The user executing the task
+    * @param id    The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  override def update(
+      value: JsValue,
+      user: User
+  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+      val instruction =
+        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+      // status should probably not be allowed to be set through the update function, and rather
+      // it should be forced to use the setTaskStatus function
+      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
+        throw new InvalidException(
+          s"Could not set status for task [$id], " +
+            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
+        )
+      }
+      val priority                  = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
+      val geometries                = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
+      val cooperativeWorkGeometries = (value \ "cooperativeWork").asOpt[String].getOrElse("")
+      val changesetId =
+        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
+
+      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
+        case m: JsUndefined => cachedItem.mappedOn
+        case m              => m.asOpt[DateTime]
+      }
+
+      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
+        case r: JsUndefined => cachedItem.review.reviewStatus
+        case r              => r.asOpt[Int]
+      }
+
+      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
+        case r: JsUndefined => cachedItem.review.reviewRequestedBy
+        case r              => r.asOpt[Long]
+      }
+
+      val reviewedBy = (value \ "reviewedBy") match {
+        case r: JsUndefined => cachedItem.review.reviewedBy
+        case r              => r.asOpt[Long]
+      }
+
+      val reviewedAt = (value \ "reviewedAt") match {
+        case r: JsUndefined => cachedItem.review.reviewedAt
+        case r              => r.asOpt[DateTime]
+      }
+
+      val task = this.mergeUpdate(
+        cachedItem.copy(
+          name = name,
+          parent = parentId,
+          instruction = Some(instruction),
+          status = Some(status),
+          mappedOn = mappedOn,
+          review = cachedItem.review.copy(
+            reviewStatus = reviewStatus,
+            reviewRequestedBy = reviewRequestedBy,
+            reviewedBy = reviewedBy,
+            reviewedAt = reviewedAt
+          ),
+          geometries = geometries,
+          cooperativeWork = if (StringUtils.isEmpty(cooperativeWorkGeometries)) {
+            None
+          } else {
+            Some(cooperativeWorkGeometries)
+          },
+          priority = priority,
+          changesetId = Some(changesetId)
+        ),
+        user
+      )
+
+      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
+        this.manager.challenge.updateReadyStatus()(parentId)
+      } else {
+        this.manager.challenge.updateFinishedStatus()(parentId)
+      }
+
+      task match {
+        case Some(t) =>
+          // If the status is changing and if we have a bundle id, then we need
+          // to clear it out along with any other tasks that also have that
+          // bundle id -- essentially breaking up the bundle. Otherwise this
+          // task could end up with a different status than other tasks
+          // in that bundle.
+          if (cachedItem.status != t.status && t.bundleId != None) {
+            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
+          }
+
+          // Get the latest task data and notify clients of the update
+          this.retrieveById(t.id) match {
+            case Some(latestTask) =>
+              webSocketProvider.sendMessage(
+                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
+              )
+            case None =>
+          }
+        case None => // do NOTHING
+      }
+
+      task
     }
   }
 
@@ -422,121 +537,6 @@ class TaskDAL @Inject() (
   }
 
   def manager: DALManager = dalManager.get()
-
-  /**
-    * Updates a task object in the database.
-    *
-    * @param value A json object containing fields to be updated for the task
-    * @param user  The user executing the task
-    * @param id    The id of the object that you are updating
-    * @return An optional object, it will return None if no object found with a matching id that was supplied
-    */
-  override def update(
-      value: JsValue,
-      user: User
-  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
-      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-      val instruction =
-        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-      // status should probably not be allowed to be set through the update function, and rather
-      // it should be forced to use the setTaskStatus function
-      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
-          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
-        throw new InvalidException(
-          s"Could not set status for task [$id], " +
-            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
-        )
-      }
-      val priority                  = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
-      val geometries                = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
-      val cooperativeWorkGeometries = (value \ "cooperativeWork").asOpt[String].getOrElse("")
-      val changesetId =
-        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
-
-      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
-        case m: JsUndefined => cachedItem.mappedOn
-        case m              => m.asOpt[DateTime]
-      }
-
-      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
-        case r: JsUndefined => cachedItem.review.reviewStatus
-        case r              => r.asOpt[Int]
-      }
-
-      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
-        case r: JsUndefined => cachedItem.review.reviewRequestedBy
-        case r              => r.asOpt[Long]
-      }
-
-      val reviewedBy = (value \ "reviewedBy") match {
-        case r: JsUndefined => cachedItem.review.reviewedBy
-        case r              => r.asOpt[Long]
-      }
-
-      val reviewedAt = (value \ "reviewedAt") match {
-        case r: JsUndefined => cachedItem.review.reviewedAt
-        case r              => r.asOpt[DateTime]
-      }
-
-      val task = this.mergeUpdate(
-        cachedItem.copy(
-          name = name,
-          parent = parentId,
-          instruction = Some(instruction),
-          status = Some(status),
-          mappedOn = mappedOn,
-          review = cachedItem.review.copy(
-            reviewStatus = reviewStatus,
-            reviewRequestedBy = reviewRequestedBy,
-            reviewedBy = reviewedBy,
-            reviewedAt = reviewedAt
-          ),
-          geometries = geometries,
-          cooperativeWork = if (StringUtils.isEmpty(cooperativeWorkGeometries)) {
-            None
-          } else {
-            Some(cooperativeWorkGeometries)
-          },
-          priority = priority,
-          changesetId = Some(changesetId)
-        ),
-        user
-      )
-
-      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
-        this.manager.challenge.updateReadyStatus()(parentId)
-      } else {
-        this.manager.challenge.updateFinishedStatus()(parentId)
-      }
-
-      task match {
-        case Some(t) =>
-          // If the status is changing and if we have a bundle id, then we need
-          // to clear it out along with any other tasks that also have that
-          // bundle id -- essentially breaking up the bundle. Otherwise this
-          // task could end up with a different status than other tasks
-          // in that bundle.
-          if (cachedItem.status != t.status && t.bundleId != None) {
-            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
-          }
-
-          // Get the latest task data and notify clients of the update
-          this.retrieveById(t.id) match {
-            case Some(latestTask) =>
-              webSocketProvider.sendMessage(
-                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
-              )
-            case None =>
-          }
-        case None => // do NOTHING
-      }
-
-      task
-    }
-  }
 
   /**
     * Sets the task for a given user. The user cannot set the status of a task unless the object has
@@ -1055,7 +1055,7 @@ class TaskDAL @Inject() (
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
-          this.tagDAL.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
+          this.tagService.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
         } else {
           List.empty
         }
@@ -1251,7 +1251,7 @@ class TaskDAL @Inject() (
             Query.simple(
               List(BaseParameter(StatusActions.FIELD_TASK_ID, id)),
               "SELECT osm_user_id FROM status_action",
-              order = Order.simple("created"),
+              order = Order > ("created"),
               paging = Paging(limit)
             )
           )

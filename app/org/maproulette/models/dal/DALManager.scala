@@ -15,7 +15,6 @@ import org.maproulette.exception.NotFoundException
   */
 @Singleton
 class DALManager @Inject() (
-    tagDAL: TagDAL,
     taskDAL: TaskDAL,
     challengeDAL: ChallengeDAL,
     virtualChallengeDAL: VirtualChallengeDAL,
@@ -27,8 +26,6 @@ class DALManager @Inject() (
     taskClusterDAL: TaskClusterDAL,
     statusActionManager: StatusActionManager
 ) {
-  def tag: TagDAL = tagDAL
-
   def task: TaskDAL = taskDAL
 
   def challenge: ChallengeDAL = challengeDAL
@@ -54,7 +51,6 @@ class DALManager @Inject() (
       case ChallengeType()        => challengeDAL
       case VirtualChallengeType() => virtualChallengeDAL
       case TaskType()             => taskDAL
-      case TagType()              => tagDAL
       case _                      => throw new NotFoundException("No manager of that type found.")
     }
   }

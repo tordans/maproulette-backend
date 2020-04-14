@@ -23,7 +23,7 @@ import org.maproulette.exception.{
 }
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal._
 import org.maproulette.models.dal.mixin.TagDALMixin
@@ -56,7 +56,7 @@ class ChallengeController @Inject() (
     override val actionManager: ActionManager,
     override val dal: ChallengeDAL,
     dalManager: DALManager,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     challengeProvider: ChallengeProvider,
     serviceManager: ServiceManager,
     wsClient: WSClient,
@@ -452,57 +452,6 @@ class ChallengeController @Inject() (
     Future(Ok(Json.toJson(all)))
   }
 
-  /**
-    * Fetches the matching parent object and inserts it into the JSON data returned.
-    *
-    */
-  private def _insertProjectJSON(challenges: List[Challenge]): JsValue = {
-    if (challenges.isEmpty) {
-      Json.toJson(List[JsValue]())
-    } else {
-      val tags = this.tagDAL.listByChallenges(challenges.map(c => c.id))
-      val projects = Some(
-        this.serviceManager.project
-          .list(challenges.map(c => c.general.parent))
-          .map(p => p.id -> p)
-          .toMap
-      )
-
-      var vpIds = scala.collection.mutable.Set[Long]()
-      challenges.map(c => {
-        c.general.virtualParents match {
-          case Some(vps) =>
-            vps.map(vp => vpIds += vp)
-          case _ => // do nothing
-        }
-      })
-      val vpObjects =
-        this.serviceManager.project.list(vpIds.toList).map(p => p.id -> p).toMap
-
-      val jsonList = challenges.map { c =>
-        var updated = Utils.insertIntoJson(
-          Json.toJson(c),
-          Tag.KEY,
-          Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name))
-        )
-        val projectJson = Json
-          .toJson(projects.get(c.general.parent))
-          .as[JsObject] - Project.KEY_GROUPS
-        updated = Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
-
-        c.general.virtualParents match {
-          case Some(vps) =>
-            val vpJson =
-              Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GROUPS))
-            updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
-          case _ => // do nothing
-        }
-        updated
-      }
-      Json.toJson(jsonList)
-    }
-  }
-
   def updateTaskPriorities(challengeId: Long): Action[AnyContent] = Action.async {
     implicit request =>
       implicit val requireSuperUser = true
@@ -625,28 +574,6 @@ class ChallengeController @Inject() (
           )
         )
       }
-  }
-
-  private def extractComments(
-      challengeId: Long,
-      limit: Int,
-      page: Int,
-      host: String
-  ): Seq[String] = {
-    val comments = this.serviceManager.comment.find(
-      List.empty,
-      List(challengeId),
-      List.empty,
-      Paging(limit, page)
-    )
-    val urlPrefix = config.getPublicOrigin match {
-      case Some(origin) => s"${origin}/"
-      case None         => s"http://$host/"
-    }
-    comments.map(comment =>
-      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
-        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}challenge/$challengeId/task/${comment.taskId}""".stripMargin
-    )
   }
 
   /**
@@ -903,6 +830,57 @@ class ChallengeController @Inject() (
     }
 
   /**
+    * Fetches the matching parent object and inserts it into the JSON data returned.
+    *
+    */
+  private def _insertProjectJSON(challenges: List[Challenge]): JsValue = {
+    if (challenges.isEmpty) {
+      Json.toJson(List[JsValue]())
+    } else {
+      val tags = this.tagService.listByChallenges(challenges.map(c => c.id))
+      val projects = Some(
+        this.serviceManager.project
+          .list(challenges.map(c => c.general.parent))
+          .map(p => p.id -> p)
+          .toMap
+      )
+
+      var vpIds = scala.collection.mutable.Set[Long]()
+      challenges.map(c => {
+        c.general.virtualParents match {
+          case Some(vps) =>
+            vps.map(vp => vpIds += vp)
+          case _ => // do nothing
+        }
+      })
+      val vpObjects =
+        this.serviceManager.project.list(vpIds.toList).map(p => p.id -> p).toMap
+
+      val jsonList = challenges.map { c =>
+        var updated = Utils.insertIntoJson(
+          Json.toJson(c),
+          Tag.KEY,
+          Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name))
+        )
+        val projectJson = Json
+          .toJson(projects.get(c.general.parent))
+          .as[JsObject] - Project.KEY_GROUPS
+        updated = Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
+
+        c.general.virtualParents match {
+          case Some(vps) =>
+            val vpJson =
+              Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GROUPS))
+            updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
+          case _ => // do nothing
+        }
+        updated
+      }
+      Json.toJson(jsonList)
+    }
+  }
+
+  /**
     * Retrieves a lightweight listing of the challenges in the given project(s).
     *
     * @param projectIds  comma-separated list of projects
@@ -1034,7 +1012,7 @@ class ChallengeController @Inject() (
     * @return A Json representation of the object
     */
   override def inject(obj: Challenge)(implicit request: Request[Any]): JsValue = {
-    val tags = tagDAL.listByChallenge(obj.id)
+    val tags = this.tagService.listByChallenge(obj.id)
     Utils.insertIntoJson(Json.toJson(obj), Tag.KEY, Json.toJson(tags.map(_.name)))
   }
 
@@ -1127,6 +1105,28 @@ class ChallengeController @Inject() (
           }
       }
     }
+  }
+
+  private def extractComments(
+      challengeId: Long,
+      limit: Int,
+      page: Int,
+      host: String
+  ): Seq[String] = {
+    val comments = this.serviceManager.comment.find(
+      List.empty,
+      List(challengeId),
+      List.empty,
+      Paging(limit, page)
+    )
+    val urlPrefix = config.getPublicOrigin match {
+      case Some(origin) => s"${origin}/"
+      case None         => s"http://$host/"
+    }
+    comments.map(comment =>
+      s"""${comment.projectId},$challengeId,${comment.taskId},${comment.osm_id},""" +
+        s"""${comment.osm_username},"${comment.comment}",${urlPrefix}challenge/$challengeId/task/${comment.taskId}""".stripMargin
+    )
   }
 
   /**

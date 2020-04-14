@@ -9,11 +9,11 @@ import org.maproulette.Config
 import org.maproulette.data.ActionManager
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model.{Challenge, User}
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models.Task
 import org.maproulette.models.dal._
-import org.maproulette.provider.websockets.WebSocketProvider
 import org.maproulette.provider.osm.ChangesetProvider
+import org.maproulette.provider.websockets.WebSocketProvider
 import org.maproulette.session.{SearchParameters, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -30,7 +30,7 @@ class TaskReviewController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val dal: TaskDAL,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     taskReviewDAL: TaskReviewDAL,
     serviceManager: ServiceManager,
     dalManager: DALManager,
@@ -44,7 +44,7 @@ class TaskReviewController @Inject() (
       sessionManager,
       actionManager,
       dal,
-      tagDAL,
+      tagService,
       serviceManager,
       dalManager,
       wsClient,

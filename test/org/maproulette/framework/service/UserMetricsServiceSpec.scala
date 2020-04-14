@@ -3,10 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 
-package org.maproulette.framework
+package org.maproulette.framework.service
 
 import org.maproulette.framework.model.User
-import org.maproulette.framework.service.{UserMetricService, UserService}
 import org.maproulette.framework.util.{FrameworkHelper, UserMetricsTag}
 import org.maproulette.models.Task
 import play.api.Application
@@ -14,16 +13,16 @@ import play.api.Application
 /**
   * @author mcuthbert
   */
-class UserMetricsSpec(implicit val application: Application) extends FrameworkHelper {
+class UserMetricsServiceSpec(implicit val application: Application) extends FrameworkHelper {
   val service: UserMetricService = this.serviceManager.userMetrics
   val userService: UserService   = this.serviceManager.user
 
   "UserMetricService" should {
-    "get metrics for a user" taggedAs (UserMetricsTag) in {
+    "get metrics for a user" taggedAs UserMetricsTag in {
       //TODO
     }
 
-    "updates the users score" taggedAs (UserMetricsTag) in {
+    "updates the users score" taggedAs UserMetricsTag in {
       val insertedUser =
         this.userService.create(this.getTestUser(19, "UpdateUserService"), User.superUser)
       val updatedUser = this.service.updateUserScore(

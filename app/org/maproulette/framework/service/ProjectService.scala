@@ -42,7 +42,7 @@ class ProjectService @Inject() (
       searchString: String = "",
       onlyEnabled: Boolean = false,
       paging: Paging = Paging(Config.DEFAULT_LIST_SIZE),
-      order: Order = Order.simple(s"challenges.${Challenge.FIELD_ID}")
+      order: Order = Order > s"challenges.${Challenge.FIELD_ID}"
   ): List[Challenge] = {
     // I am in two minds about handling it this way. Firstly one of the tenants of splitting up the
     // work between service and repository layer is that we limit the SQL code to the repository and
@@ -137,7 +137,7 @@ class ProjectService @Inject() (
       onlyEnabled: Boolean = false,
       onlyOwned: Boolean = false,
       searchString: String = "",
-      order: Order = Order(List("display_name"), Order.ASC)
+      order: Order = Order > ("display_name", Order.ASC)
   )(implicit c: Option[Connection] = None): List[Project] = {
     if (user.isSuperUser && !onlyOwned) {
       this.find(searchString, paging, onlyEnabled, order)

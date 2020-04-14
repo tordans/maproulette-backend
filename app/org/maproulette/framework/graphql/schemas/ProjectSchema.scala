@@ -9,7 +9,7 @@ import javax.inject.Inject
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.graphql.UserContext
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.{Order, Paging}
+import org.maproulette.framework.psql.{Order, OrderField, Paging}
 import org.maproulette.framework.service.ProjectService
 import play.api.libs.json.Json
 import sangria.macros.derive._
@@ -39,7 +39,7 @@ class ProjectSchema @Inject() (override val service: ProjectService)
           context.arg(ProjectSchema.searchArg),
           Paging(context.arg(MRSchema.pagingLimitArg), context.arg(MRSchema.pagingOffsetArg)),
           context.arg(ProjectSchema.onlyEnabledArg).getOrElse(true),
-          Order(context.arg(MRSchema.orderArg).getOrElse(Seq.empty).toList)
+          Order(context.arg(MRSchema.orderArg).getOrElse(Seq.empty).toList.map(OrderField(_)))
         )
     ),
     Field(

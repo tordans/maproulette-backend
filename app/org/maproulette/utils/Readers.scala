@@ -5,20 +5,9 @@
 
 package org.maproulette.utils
 
-import org.maproulette.framework.model.{
-  Comment,
-  Group,
-  Location,
-  OSMProfile,
-  Project,
-  TaskReview,
-  TaskWithReview,
-  User,
-  UserSettings
-}
+import org.maproulette.framework.model._
 import org.maproulette.models._
 import org.maproulette.models.utils.ChallengeReads
-import org.maproulette.session._
 import play.api.libs.json.Reads
 import play.api.libs.oauth.RequestToken
 

@@ -2,37 +2,37 @@
 # tags: [ Tag ]
 # deprecated: true
 ###
-POST    /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPost
+POST    /tags                                       @org.maproulette.framework.controller.TagController.batchUploadPost
 ###
 # tags: [ Tag ]
 # deprecated: true
 ###
-POST    /tag                                        @org.maproulette.controllers.api.TagController.create
+POST    /tag                                        @org.maproulette.framework.controller.TagController.insert
 ###
 # tags: [ Tag ]
 # deprecated: true
 ###
-PUT     /tag/:id                                    @org.maproulette.controllers.api.TagController.update(id:Long)
+PUT     /tag/:id                                    @org.maproulette.framework.controller.TagController.update(id:Long)
 ###
 # tags: [ Tag ]
 # deprecated: true
 ###
-PUT     /tags                                       @org.maproulette.controllers.api.TagController.batchUploadPut
+PUT     /tags                                       @org.maproulette.framework.controller.TagController.batchUploadPut
 ###
 # tags: [ Tag ]
 # deprecated: true
 ###
-GET     /tag/:id                                    @org.maproulette.controllers.api.TagController.read(id:Long)
+GET     /tag/:id                                    @org.maproulette.framework.controller.TagController.retrieve(id:Long)
 ###
 # tags: [ Tag ]
 # deprecated: true
 ###
-DELETE  /tag/:id                                    @org.maproulette.controllers.api.TagController.delete(id:Long, immediate:Boolean ?= true)
+DELETE  /tag/:id                                    @org.maproulette.framework.controller.TagController.delete(id:Long)
 ###
 # tags: [ Tag ]
 # deprecated: true
 ###
-GET     /tags                                       @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", tagType: String ?= "", limit: Int ?= 10, page: Int ?= 0)
+GET     /tags                                       @org.maproulette.framework.controller.TagController.getTags(prefix: String ?= "", tagType: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 ###
 # tags: [ Keyword ]
 # summary: Create a Keyword
@@ -64,7 +64,7 @@ GET     /tags                                       @org.maproulette.controllers
 #     schema:
 #       $ref: '#/definitions/Keyword'
 ###
-POST    /keyword                                    @org.maproulette.controllers.api.TagController.create
+POST    /keyword                                    @org.maproulette.framework.controller.TagController.insert
 ###
 # tags: [ Keyword ]
 # summary: Create a batch of Keywords
@@ -98,7 +98,7 @@ POST    /keyword                                    @org.maproulette.controllers
 #         type: object
 #         $ref: '#/definitions/Keyword'
 ###
-POST    /keywords                                   @org.maproulette.controllers.api.TagController.batchUploadPost
+POST    /keywords                                   @org.maproulette.framework.controller.TagController.batchUploadPost
 ###
 # tags: [ Keyword ]
 # summary: Updates a Keyword
@@ -132,7 +132,7 @@ POST    /keywords                                   @org.maproulette.controllers
 #     schema:
 #       $ref: '#/definitions/Keyword'
 ###
-PUT     /keyword/:id                                @org.maproulette.controllers.api.TagController.update(id:Long)
+PUT     /keyword/:id                                @org.maproulette.framework.controller.TagController.update(id:Long)
 ###
 # tags: [ Keyword ]
 # summary: Update a batch of Keywords
@@ -166,7 +166,7 @@ PUT     /keyword/:id                                @org.maproulette.controllers
 #         type: object
 #         $ref: '#/definitions/Keyword'
 ###
-PUT     /keywords                                   @org.maproulette.controllers.api.TagController.batchUploadPut
+PUT     /keywords                                   @org.maproulette.framework.controller.TagController.batchUploadPut
 ###
 # tags: [ Keyword ]
 # summary: Retrieves an already existing Keyword
@@ -184,7 +184,7 @@ PUT     /keywords                                   @org.maproulette.controllers
 #     in: path
 #     description: The id of the Keyword to retrieve
 ###
-GET     /keyword/:id                                @org.maproulette.controllers.api.TagController.read(id:Long)
+GET     /keyword/:id                                @org.maproulette.framework.controller.TagController.retrieve(id:Long)
 ###
 # tags: [ Keyword ]
 # summary: Deletes an existing Keyword
@@ -208,7 +208,7 @@ GET     /keyword/:id                                @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-DELETE  /keyword/:id                                @org.maproulette.controllers.api.TagController.delete(id:Long, immediate:Boolean ?= true)
+DELETE  /keyword/:id                                @org.maproulette.framework.controller.TagController.delete(id:Long)
 ###
 # tags: [ Keyword ]
 # summary: Finds Keywords
@@ -236,5 +236,5 @@ DELETE  /keyword/:id                                @org.maproulette.controllers
 #     in: query
 #     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
-GET     /keywords                                   @org.maproulette.controllers.api.TagController.getTags(prefix: String ?= "", tagType: String ?= "", limit: Int ?= 10, page: Int ?= 0)
+GET     /keywords                                   @org.maproulette.framework.controller.TagController.getTags(prefix: String ?= "", tagType: String ?= "", limit: Int ?= 10, page: Int ?= 0)
 

@@ -61,7 +61,6 @@ trait TestSpec extends PlaySpec with MockitoSugar {
 
   //tasks
   val task1               = Task(1, "Task1", DateTime.now(), DateTime.now(), 1, None, None, "")
-  val tagDAL              = mock[TagDAL]
   val taskDAL             = mock[TaskDAL]
   val challengeDAL        = mock[ChallengeDAL]
   val virtualChallengeDAL = mock[VirtualChallengeDAL]
@@ -92,7 +91,6 @@ trait TestSpec extends PlaySpec with MockitoSugar {
   val taskReviewDAL       = mock[TaskReviewDAL]
   val taskClusterDAL      = mock[TaskClusterDAL]
   val dalManager = new DALManager(
-    tagDAL,
     taskDAL,
     challengeDAL,
     virtualChallengeDAL,
@@ -109,11 +107,13 @@ trait TestSpec extends PlaySpec with MockitoSugar {
   val challengeService      = mock[ChallengeService]
   val userMetricService     = mock[UserMetricService]
   val virtualProjectService = mock[VirtualProjectService]
+  val tagService            = mock[TagService]
   val serviceManager = new ServiceManager(
     Providers.of[ProjectService](projectService),
     Providers.of[GroupService](groupService),
     Providers.of[UserService](userService),
     Providers.of[CommentService](commentService),
+    Providers.of[TagService](tagService),
     Providers.of[ChallengeService](challengeService),
     Providers.of[UserMetricService](userMetricService),
     Providers.of[VirtualProjectService](virtualProjectService)
@@ -144,8 +144,8 @@ trait TestSpec extends PlaySpec with MockitoSugar {
 
   def setupMocks(): Unit = {
     // Mocks for Tags
-    when(tagDAL.retrieveById(0, None)).thenReturn(None)
-    when(tagDAL.retrieveById(1, None)).thenReturn(Some(Tag(1, "Tag")))
+    when(this.tagService.retrieve(0)).thenReturn(None)
+    when(this.tagService.retrieve(1)).thenReturn(Some(Tag(1, "Tag")))
 
     // Mocks for Tasks
     when(taskDAL.retrieveById(0L, None)).thenReturn(None)

@@ -12,7 +12,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.framework.model.{Comment, User}
 import org.maproulette.framework.psql.filter._
-import org.maproulette.framework.psql.{OR, Order, Paging, Query}
+import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
 import org.maproulette.models.TaskBundle
 import org.maproulette.models.dal.{NotificationDAL, TaskBundleDAL, TaskDAL}
@@ -200,11 +200,10 @@ class CommentService @Inject() (
       paging = paging,
       order = Order(
         List(
-          Comment.FIELD_PROJECT_ID,
-          Comment.FIELD_CHALLENGE_ID,
-          s"task_comments.${Comment.FIELD_CREATED}"
-        ),
-        Order.DESC
+          OrderField(Comment.FIELD_PROJECT_ID),
+          OrderField(Comment.FIELD_CHALLENGE_ID),
+          OrderField(s"task_comments.${Comment.FIELD_CREATED}")
+        )
       )
     )
     this.query(query)

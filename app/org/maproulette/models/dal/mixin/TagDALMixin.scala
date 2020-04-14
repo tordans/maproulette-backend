@@ -10,9 +10,10 @@ import java.sql.Connection
 import anorm._
 import org.maproulette.data.{ChallengeType, ItemType, TaskType}
 import org.maproulette.exception.InvalidException
-import org.maproulette.framework.model.User
-import org.maproulette.models.dal.{BaseDAL, TagDAL}
-import org.maproulette.models.{BaseObject, Tag}
+import org.maproulette.framework.model.{Tag, User}
+import org.maproulette.framework.service.TagService
+import org.maproulette.models.BaseObject
+import org.maproulette.models.dal.BaseDAL
 
 /**
   * @author cuthbertm
@@ -23,7 +24,7 @@ trait TagDALMixin[T <: BaseObject[Long]] {
   // This is basically the table name, but removing the 's' for the column foreign key
   private lazy val name = tableName.substring(0, tableName.length - 1)
 
-  def tagDAL: TagDAL
+  def tagService: TagService
 
   /**
     * Deletes tags from a item. This will not delete any items or tags, it will simply sever the
@@ -42,13 +43,6 @@ trait TagDALMixin[T <: BaseObject[Long]] {
         SQL"""DELETE FROM tags_on_${this.tableName} WHERE ${this.name}_id = {$id} AND tag_id IN ($tags)"""
           .execute()
       }
-    }
-  }
-
-  private def getItemTypeBasedOnTableName: ItemType = {
-    this.tableName match {
-      case "challenges" => ChallengeType()
-      case "tasks"      => TaskType()
     }
   }
 
@@ -76,6 +70,13 @@ trait TagDALMixin[T <: BaseObject[Long]] {
     }
   }
 
+  private def getItemTypeBasedOnTableName: ItemType = {
+    this.tableName match {
+      case "challenges" => ChallengeType()
+      case "tasks"      => TaskType()
+    }
+  }
+
   /**
     * Links tags to a specific item. If the tags in the provided list do not exist then it will
     * create the new tags.
@@ -89,9 +90,9 @@ trait TagDALMixin[T <: BaseObject[Long]] {
   ): Unit = {
     val tagIds = tags.filter(_.nonEmpty).flatMap { tag =>
       {
-        this.tagDAL.retrieveByName(tag) match {
+        this.tagService.retrieveByName(tag) match {
           case Some(t) => Some(t.id)
-          case None    => Some(this.tagDAL.insert(Tag(-1, tag), user).id)
+          case None    => Some(this.tagService.create(Tag(-1, tag), user).id)
         }
       }
     }

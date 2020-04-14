@@ -8,10 +8,10 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.data._
 import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.framework.controller.SessionController
-import org.maproulette.framework.model.User
-import org.maproulette.models.dal.TagDAL
+import org.maproulette.framework.model.{Tag, User}
+import org.maproulette.framework.service.TagService
+import org.maproulette.models.BaseObject
 import org.maproulette.models.dal.mixin.TagDALMixin
-import org.maproulette.models.{BaseObject, Tag}
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{Action, AnyContent}
@@ -27,7 +27,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
   // The default writes that allows the class to write the object as json to a response body
   implicit val tWrites: Writes[T]
 
-  def tagDAL: TagDAL
+  def tagService: TagService
   def dalWithTags: TagDALMixin[T]
 
   // the type of object that the controller is executing against
@@ -92,7 +92,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
       this.sessionManager.authenticatedRequest { implicit user =>
         val tagList    = tags.split(",").toList
         val tagObjects = tagList.map((tag) => new Tag(-1, tag.trim, tagType = this.tableName))
-        val tagIds     = this.tagDAL.updateTagList(tagObjects, user).map(_.id)
+        val tagIds     = this.tagService.updateTagList(tagObjects, user).map(_.id)
 
         // now we have the ids for the supplied tags, then lets map them to the item created
         this.dalWithTags.updateItemTags(id, tagIds, user, true)
@@ -111,8 +111,8 @@ trait TagsMixin[T <: BaseObject[Long]] {
     */
   def getTags(id: Long): List[Tag] = {
     this.itemType match {
-      case ChallengeType() => this.tagDAL.listByChallenge(id)
-      case TaskType()      => this.tagDAL.listByTask(id)
+      case ChallengeType() => this.tagService.listByChallenge(id)
+      case TaskType()      => this.tagService.listByTask(id)
       case _               => List.empty
     }
   }
@@ -126,7 +126,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
     * @param user the user executing the request
     */
   def addTagstoItem(id: Long, tags: List[Tag], user: User): Unit = {
-    val tagIds = this.tagDAL.updateTagList(tags, user).map(_.id)
+    val tagIds = this.tagService.updateTagList(tags, user).map(_.id)
 
     if (tagIds.nonEmpty) {
       // now we have the ids for the supplied tags, then lets map them to the item created
@@ -175,7 +175,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
                 case e: NumberFormatException =>
                   // this is the case where a name is supplied, so we will either search for a tag with
                   // the same name or create a new tag with the current name
-                  this.tagDAL.retrieveByName(tag) match {
+                  this.tagService.retrieveByName(tag) match {
                     case Some(t) => t.asInstanceOf[Tag]
                     case None =>
                       Tag(-1, tag, tagType = this.tableName)
@@ -205,7 +205,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
 
     tags match {
       case Some(tagList) =>
-        val tagIds = this.tagDAL.updateTagList(tagList, user).map(_.id)
+        val tagIds = this.tagService.updateTagList(tagList, user).map(_.id)
 
         if (tagIds.nonEmpty || completeList) {
           // now we have the ids for the supplied tags, then lets map them to the item created

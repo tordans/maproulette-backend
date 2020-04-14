@@ -132,7 +132,7 @@ class UserService @Inject() (
             BaseParameter(User.FIELD_NAME, SQLUtils.search(username), Operator.ILIKE)
           ),
           paging = paging,
-          order = Order(List(User.FIELD_NAME))
+          order = Order > (User.FIELD_NAME)
         )
       )
   }
@@ -393,7 +393,9 @@ class UserService @Inject() (
       case Some(u) => this.groupService.clearCache(osmId = u.osmProfile.id)
       case None    => //no user, so can just ignore
     }
-    this.repository.delete(id)
+    this.cacheManager.withCacheIDDeletion { () =>
+      this.repository.delete(id)
+    }(ids = List(id))
   }
 
   /**
@@ -428,8 +430,6 @@ class UserService @Inject() (
     }
   }
 
-  def query(query: Query, user: User): List[User] = this.repository.query(query)
-
   /**
     * Delete a user based on their OSM ID
     *
@@ -441,9 +441,14 @@ class UserService @Inject() (
     this.permission.hasSuperAccess(user)
     // expire the user group cache
     this.groupService.clearCache(osmId = osmId)
+    val item = this.retrieveByOSMId(osmId) match {
+      case Some(i) => i
+      case None    => throw new NotFoundException(s"No user with OSM ID $osmId found")
+    }
     this.cacheManager.withCacheIDDeletion { () =>
       this.repository.deleteByOSMID(osmId)
-    }(ids = List(osmId))
+    }(ids = List(item.id))
+    true
   }
 
   /**
@@ -477,20 +482,6 @@ class UserService @Inject() (
       }(id = osmId)
       .get
   }
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMId(id: Long): Option[User] =
-    this.cacheManager.withOptionCaching { () =>
-      this
-        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
-        .headOption
-    }
 
   /**
     * Initializes the home project for the user. If the project already exists, then we are
@@ -555,6 +546,22 @@ class UserService @Inject() (
       }(id = osmId)
       .get
   }
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMId(id: Long): Option[User] =
+    this.cacheManager.withOptionCaching { () =>
+      this
+        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
+        .headOption
+    }
+
+  def query(query: Query, user: User): List[User] = this.repository.query(query)
 
   /**
     * This function will quickly verify that the project groups have been created correctly and if not,

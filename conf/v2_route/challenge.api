@@ -286,7 +286,7 @@ GET     /challenges/listing                         @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Tag'
+#         $ref: '#/definitions/org.maproulette.framework.model.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -308,7 +308,7 @@ POST     /challenge/:id/project/:projectId           @org.maproulette.controller
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Tag'
+#         $ref: '#/definitions/org.maproulette.framework.model.Tag'
 # parameters:
 #   - name: id
 #     in: path

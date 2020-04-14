@@ -44,7 +44,7 @@ class QuerySpec extends PlaySpec {
       val query = Query.simple(
         List(parameter),
         "SELECT * FROM table",
-        order = Order.simple("test", Order.ASC)
+        order = Order > ("test", Order.ASC)
       )
       query.sql() mustEqual s"SELECT * FROM table WHERE KEY = {$setKey} ORDER BY test ASC"
       query.parameters().size mustEqual 1
@@ -69,7 +69,7 @@ class QuerySpec extends PlaySpec {
       "SELECT * FROM table",
       AND(),
       paging,
-      Order.simple("order"),
+      Order > "order",
       Grouping("test1")
     )
     query
@@ -114,7 +114,7 @@ class QuerySpec extends PlaySpec {
       ),
       "SELECT * FROM table",
       paging = paging2,
-      order = Order.simple("oField")
+      order = Order > "oField"
     )
 
     query

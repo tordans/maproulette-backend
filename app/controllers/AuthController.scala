@@ -205,7 +205,7 @@ class AuthController @Inject() (
     implicit val requireSuperUser: Boolean = true
     sessionManager.authenticatedRequest { implicit user =>
       this.userService
-        .query(Query.simple(List.empty, order = Order.simple(User.FIELD_ID)), user)
+        .query(Query.simple(List.empty, order = Order > User.FIELD_ID), user)
         .foreach { apiUser =>
           this.userService.generateAPIKey(apiUser, user)
         }
