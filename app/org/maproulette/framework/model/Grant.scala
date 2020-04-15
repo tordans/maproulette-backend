@@ -5,7 +5,7 @@
 package org.maproulette.framework.model
 
 import org.maproulette.cache.CacheObject
-import org.maproulette.data.{ItemType, UserType, ProjectType, Actions}
+import org.maproulette.data.{ItemType, UserType, ProjectType, GroupType, Actions}
 import org.maproulette.framework.psql.CommonField
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -42,7 +42,8 @@ object Grantee {
       (JsPath \ "granteeId").read[Long]
   )(Grantee.withItemType _)
 
-  def user(userId: Long) = Grantee(UserType(), userId)
+  def user(userId: Long)   = Grantee(UserType(), userId)
+  def group(groupId: Long) = Grantee(GroupType(), groupId)
 }
 
 /**
@@ -74,7 +75,9 @@ object GrantTarget {
       (JsPath \ "objectId").read[Long]
   )(GrantTarget.withItemType _)
 
+  // Convenience methods for generating GrantTarget instances for common types
   def project(projectId: Long) = GrantTarget(ProjectType(), projectId)
+  def group(groupId: Long)     = GrantTarget(GroupType(), groupId)
 }
 
 case class Grant(
@@ -118,4 +121,10 @@ object Grant extends CommonField {
     ROLE_WRITE_ACCESS -> ROLE_WRITE_ACCESS_NAME,
     ROLE_READ_ONLY    -> ROLE_READ_ONLY_NAME
   )
+
+  def hasLesserPrivilege(proposedRole: Int, benchmarkRole: Int) =
+    proposedRole > benchmarkRole
+
+  def hasGreaterPrivilege(proposedRole: Int, benchmarkRole: Int) =
+    proposedRole < benchmarkRole
 }

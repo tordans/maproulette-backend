@@ -140,10 +140,13 @@ trait TestSpec extends PlaySpec with MockitoSugar {
   val tagService               = mock[TagService]
   val taskReviewService        = mock[TaskReviewService]
   val taskService              = mock[TaskService]
+  val groupService             = mock[GroupService]
+  val teamService              = mock[TeamService]
   val serviceManager = new ServiceManager(
     Providers.of[ProjectService](projectService),
     Providers.of[GrantService](grantService),
     Providers.of[UserService](userService),
+    Providers.of[GroupService](groupService),
     Providers.of[CommentService](commentService),
     Providers.of[TagService](tagService),
     Providers.of[ChallengeService](challengeService),
@@ -152,7 +155,8 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     Providers.of[UserMetricService](userMetricService),
     Providers.of[VirtualProjectService](virtualProjectService),
     Providers.of[TaskReviewService](taskReviewService),
-    Providers.of[TaskService](taskService)
+    Providers.of[TaskService](taskService),
+    Providers.of[TeamService](teamService)
   )
   val permission =
     new Permission(Providers.of[DALManager](dalManager), serviceManager, new Config())

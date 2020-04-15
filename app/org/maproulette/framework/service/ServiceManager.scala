@@ -19,6 +19,7 @@ class ServiceManager @Inject() (
     projectService: Provider[ProjectService],
     grantService: Provider[GrantService],
     userService: Provider[UserService],
+    groupService: Provider[GroupService],
     commentService: Provider[CommentService],
     tagService: Provider[TagService],
     challengeService: Provider[ChallengeService],
@@ -27,7 +28,8 @@ class ServiceManager @Inject() (
     userMetricService: Provider[UserMetricService],
     virtualProjectService: Provider[VirtualProjectService],
     taskReviewService: Provider[TaskReviewService],
-    taskService: Provider[TaskService]
+    taskService: Provider[TaskService],
+    teamService: Provider[TeamService]
 ) {
   def comment: CommentService = commentService.get()
 
@@ -40,6 +42,7 @@ class ServiceManager @Inject() (
   def getService(itemType: ItemType): ServiceMixin[_] = itemType match {
     case ProjectType()   => this.project
     case UserType()      => this.user
+    case GroupType()     => this.group
     case ChallengeType() => this.challenge
     case TagType()       => this.tag
     case GrantType()     => this.grant
@@ -52,6 +55,8 @@ class ServiceManager @Inject() (
 
   def user: UserService = userService.get()
 
+  def group: GroupService = groupService.get()
+
   def challenge: ChallengeService = challengeService.get()
 
   def challengeListing: ChallengeListingService = challengeListingService.get()
@@ -61,4 +66,6 @@ class ServiceManager @Inject() (
   def taskReview: TaskReviewService = taskReviewService.get()
 
   def task: TaskService = taskService.get()
+
+  def team: TeamService = teamService.get()
 }

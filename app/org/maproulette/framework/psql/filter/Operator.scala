@@ -13,7 +13,8 @@ import org.maproulette.framework.psql.SQLUtils
   */
 object Operator extends Enumeration {
   type Operator = Value
-  val EQ, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS, BOOL = Value
+  val EQ, NE, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS, BOOL =
+    Value
 
   def format(
       key: String,
@@ -34,6 +35,7 @@ object Operator extends Enumeration {
     }
     operator match {
       case EQ         => s"$negation$key = $rightValue"
+      case NE         => s"$negation$key <> $rightValue"
       case GT         => s"$negation$key > $rightValue"
       case GTE        => s"$negation$key >= $rightValue"
       case LT         => s"$negation$key < $rightValue"

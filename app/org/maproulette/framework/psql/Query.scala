@@ -41,6 +41,8 @@ object Query {
       includeWhere,
       appendBase
     )
+
+  def empty = Query.simple(List())
 }
 
 case class Query(
@@ -63,6 +65,17 @@ case class Query(
     } else {
       SQL(sql).asSimple[Row]()
     }
+  }
+
+  def addFilterGroup(group: FilterGroup) = {
+    Query(
+      Filter(group :: filter.groups),
+      base,
+      paging,
+      order,
+      grouping,
+      includeWhere
+    )
   }
 
   override def parameters(): List[NamedParameter] = filter.parameters() ++ paging.parameters()

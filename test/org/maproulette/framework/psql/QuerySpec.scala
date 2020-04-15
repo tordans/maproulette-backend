@@ -160,4 +160,24 @@ class QuerySpec extends PlaySpec {
       .simple(List(parameter), "SELECT * FROM projects")
       .sqlWithBaseQuery("SELECT * FROM challenges") mustEqual s"SELECT * FROM projects WHERE $KEY = {$setKey}"
   }
+
+  "allows filter groups to be added" in {
+    val parameter2     = BaseParameter("key2", "value2")
+    val query          = Query.simple(List(parameter))
+    val augmentedQuery = query.addFilterGroup(FilterGroup(List(parameter2)))
+
+    // Original query remains untouched
+    query.parameters().size mustEqual 1
+
+    // Augmented query gets additional parameters
+    val params = augmentedQuery.parameters()
+    params.size mustEqual 2
+    params.head mustEqual SQLUtils.buildNamedParameter(parameter2.getKey, "value2")
+    params(1) mustEqual SQLUtils.buildNamedParameter(setKey, VALUE)
+  }
+
+  "supports creation of empty query" in {
+    val query = Query.empty
+    query.parameters().size mustEqual 0
+  }
 }

@@ -1,0 +1,315 @@
+###
+# tags: [ Team ]
+# summary: Create a new team
+# description: Creates a new team
+# responses:
+#   '201':
+#     description: The new team with unique id
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.Group'
+# parameters:
+#   - name: body
+#     in: body
+#     description: The JSON structure for the team (a group) body
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.Group'
+###
+POST    /team                                       @org.maproulette.framework.controller.TeamController.createTeam()
+###
+# tags: [ Team ]
+# summary: Update a team
+# description: Updates the team info (name, description, avatar URL)
+# responses:
+#   '200':
+#     description: The updated team
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.Group'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+#   - name: body
+#     in: body
+#     description: The JSON structure for the team (a group) body
+#     required: true
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.Group'
+###
+PUT    /team/:id                                    @org.maproulette.framework.controller.TeamController.updateTeam(id: Long)
+###
+# tags: [ Team ]
+# summary: Retrieves a team
+# produces: [ application/json ]
+# description: Retrieves a team based on a specific ID.
+# responses:
+#   '200':
+#     description: The team
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.Group'
+#   '404':
+#     description: If the team is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+###
+GET     /team/:id                                   @org.maproulette.framework.controller.TeamController.retrieve(id:Long)
+###
+# tags: [ Team ]
+# summary: Find teams by name
+# produces: [ application/json ]
+# description: Search for teams by name
+# responses:
+#   '200':
+#     description: a list of matching teams
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.Group'
+#   '404':
+#     description: If the team is not found
+# parameters:
+#   - name: name
+#     in: query
+#     description: Name fragment to match
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default is 10 results
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /teams/find                                 @org.maproulette.framework.controller.TeamController.find(name:String, limit:Int ?= 10, page:Int ?= 0)
+###
+# tags: [ Team ]
+# summary: Retrieves users who are members of a team
+# produces: [ application/json ]
+# description: Retrieves all the user members of a team
+# responses:
+#   '200':
+#     description: The users
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.TeamUser'
+#   '404':
+#     description: If the team is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+###
+GET     /team/:id/userMembers                       @org.maproulette.framework.controller.TeamController.teamUsers(id:Long)
+###
+# tags: [ Team ]
+# summary: Retrieves all team memberships for a user
+# produces: [ application/json ]
+# description: Retrieves all the given user's team memberships
+# responses:
+#   '200':
+#     description: The memberships
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.TeamUser'
+#   '404':
+#     description: If the team is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+###
+GET     /team/all/user/:userId/memberships          @org.maproulette.framework.controller.TeamController.userTeamMemberships(userId:Long)
+###
+# tags: [ Team ]
+# summary: Invites a user to join a team
+# description: Invites a user to join a team with the given role
+# responses:
+#   '200':
+#     description: team user
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.TeamUser'
+#   '404':
+#     description: If the team or user is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+#   - name: userId
+#     in: path
+#     description: The ID for the user to invite
+#   - name: role
+#     in: path
+#     description: Either 1 - Admin, 2 - Write, 3 - Read
+###
+POST    /team/:id/user/:userId/invite/:role         @org.maproulette.framework.controller.TeamController.inviteUser(id:Long, userId:Long, role:Int)
+###
+# tags: [ Team ]
+# summary: Accept an invitation to join a team
+# description: Accepts the logged-in user's invitation to join a team
+# responses:
+#   '200':
+#     description: Updated team user
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.TeamUser'
+#   '404':
+#     description: If the team is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+###
+PUT    /team/:id/invite/accept                      @org.maproulette.framework.controller.TeamController.acceptInvite(id:Long)
+###
+# tags: [ Team ]
+# summary: Decline an invitation to join a team
+# description: Decline the logged-in user's invitation to join a team
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '404':
+#     description: If the team is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+###
+DELETE /team/:id/invite                             @org.maproulette.framework.controller.TeamController.declineInvite(id:Long)
+###
+# tags: [ Team ]
+# summary: Update a team member's role
+# description: Update a team member's granted role on the team
+# responses:
+#   '200':
+#     description: Updated team user
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.TeamUser'
+#   '404':
+#     description: If the team or user is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+#   - name: userId
+#     in: path
+#     description: The ID for the user to invite
+#   - name: role
+#     in: path
+#     description: Either 1 - Admin, 2 - Write, 3 - Read
+###
+PUT    /team/:id/user/:userId/role/:role            @org.maproulette.framework.controller.TeamController.updateMemberRole(id:Long, userId:Long, role:Int)
+###
+# tags: [ Team ]
+# summary: Remove a member from a team
+# description: Remove a team member from a team
+# responses:
+#   '200':
+#     description: A simple OK status message
+#   '404':
+#     description: If the team or user is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+#   - name: userId
+#     in: path
+#     description: The ID for the user to remove
+###
+DELETE /team/:id/user/:userId/                      @org.maproulette.framework.controller.TeamController.removeTeamMember(id:Long, userId:Long)
+###
+# tags: [ Team ]
+# summary: Grant role to team on project
+# description: Grant a team an Admin, Write or Read role on the project
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: teamId
+#     in: path
+#     description: The id of the team to be granted the role
+#   - name: projectId
+#     in: path
+#     description: The id of the project on which the role is to be granted
+#   - name: role
+#     in: path
+#     description: Either 1 - Admin, 2 - Write, 3 - Read
+###
+POST     /team/:teamId/project/:projectId/:role  @org.maproulette.framework.controller.TeamController.addTeamToProject(teamId:Long, projectId:Long, role:Int)
+###
+# tags: [ Team ]
+# summary: Set granted role of team on project
+# description: Grant a team an Admin, Write or Read role on the project, clearing any prior roles
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: teamId
+#     in: path
+#     description: The id of the team to be granted the role
+#   - name: projectId
+#     in: path
+#     description: The id of the project on which the role is to be granted
+#   - name: role
+#     in: path
+#     description: Either 1 - Admin, 2 - Write, 3 - Read
+###
+PUT      /team/:teamId/project/:projectId/:role  @org.maproulette.framework.controller.TeamController.setTeamProjectRole(teamId:Long, projectId:Long, role:Int)
+###
+# tags: [ Team ]
+# summary: Remove granted roles on project from team
+# description: Remove roles on a project from a team
+# responses:
+#   '200':
+#     description: Ok with a standard message
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: teamId
+#     in: path
+#     description: The id of the team to be granted the role
+#   - name: projectId
+#     in: path
+#     description: The id of the project on which the role is to be granted
+###
+DELETE   /team/:teamId/project/:projectId        @org.maproulette.framework.controller.TeamController.removeTeamFromProject(teamId:Long, projectId:Long)
+###
+# tags: [ Team ]
+# summary: Get teams granted a role on a project
+# description: Get teams granted an Admin, Write or Read role on a project
+# responses:
+#   '200':
+#     description: a list of teams
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.Group'
+#   '401':
+#     description: The user is not authorized to make this request
+# parameters:
+#   - name: projectId
+#     in: path
+#     description: The id of the project for which teams are desired
+###
+GET      /teams/projectManagers/:projectId        @org.maproulette.framework.controller.TeamController.getTeamsManagingProject(projectId:Long)
+###
+# tags: [ Team ]
+# summary: Delete a team
+# description: Deletes a team with ID
+# responses:
+#   '200':
+#     description: A simple OK status message
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the team
+###
+DELETE /team/:id                                    @org.maproulette.framework.controller.TeamController.deleteTeam(id: Long)

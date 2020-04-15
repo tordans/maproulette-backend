@@ -100,6 +100,32 @@ class GrantServiceSpec(implicit val application: Application) extends FrameworkH
       }
     }
 
+    "retrieve all grants to multiple grantees of same type" taggedAs GrantTag in {
+      val anotherProject =
+        this.createProjectStructure(
+          "retrieveMultipleGranteesProject",
+          "retrieveMultipleGranteesProject"
+        )
+      val anotherGrant = this.repository
+        .create(this.setupProjectGrant(this.randomUser, Grant.ROLE_WRITE_ACCESS, anotherProject))
+
+      val grants = this.service.retrieveGrantsTo(
+        UserType(),
+        List(this.randomUser.id, this.defaultUser.id),
+        User.superUser
+      )
+
+      // We should get at least one grant for each user
+      val randomUserGrants  = grants.filter(_.grantee.granteeId == this.randomUser.id)
+      val defaultUserGrants = grants.filter(_.grantee.granteeId == this.defaultUser.id)
+
+      randomUserGrants.isEmpty mustEqual false
+      defaultUserGrants.isEmpty mustEqual false
+
+      val nonGrants = this.service.retrieveGrantsTo(UserType(), List(2345L), User.superUser)
+      nonGrants.isEmpty mustEqual true
+    }
+
     "retrieve all grants on a grant target" taggedAs GrantTag in {
       val anotherProject =
         this.createProjectStructure("retrieveGrantsOnProject", "retrieveGrantsOnProject")
@@ -132,7 +158,7 @@ class GrantServiceSpec(implicit val application: Application) extends FrameworkH
 
       val onGrantee =
         service.retrieveMatchingGrants(
-          grantee = Some(Grantee.user(randomUser.id)),
+          grantee = Some(List(Grantee.user(randomUser.id))),
           user = User.superUser
         )
       onGrantee.isEmpty mustEqual false
@@ -159,7 +185,7 @@ class GrantServiceSpec(implicit val application: Application) extends FrameworkH
       } mustEqual true
 
       val onGranteeAndTarget = service.retrieveMatchingGrants(
-        grantee = Some(Grantee.user(randomUser.id)),
+        grantee = Some(List(Grantee.user(randomUser.id))),
         target = Some(GrantTarget.project(anotherProject.id)),
         user = User.superUser
       )
@@ -169,7 +195,7 @@ class GrantServiceSpec(implicit val application: Application) extends FrameworkH
       } mustEqual true
 
       val onGranteeAndRoleAndTarget = service.retrieveMatchingGrants(
-        grantee = Some(Grantee.user(randomUser.id)),
+        grantee = Some(List(Grantee.user(randomUser.id))),
         role = Some(Grant.ROLE_WRITE_ACCESS),
         target = Some(GrantTarget.project(anotherProject.id)),
         user = User.superUser
@@ -278,7 +304,7 @@ class GrantServiceSpec(implicit val application: Application) extends FrameworkH
 
       this.service
         .retrieveMatchingGrants(
-          grantee = Some(Grantee.user(randomUser.id)),
+          grantee = Some(List(Grantee.user(randomUser.id))),
           role = Some(Grant.ROLE_WRITE_ACCESS),
           user = User.superUser
         )

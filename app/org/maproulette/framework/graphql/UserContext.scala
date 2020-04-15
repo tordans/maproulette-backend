@@ -6,12 +6,13 @@
 package org.maproulette.framework.graphql
 
 import org.maproulette.framework.model.User
+import org.maproulette.framework.service.ServiceManager
 import org.maproulette.session.SessionManager
 
 /**
   * @author mcuthbert
   */
-case class UserContext(sessionManager: SessionManager, user: User) {
+case class UserContext(sessionManager: SessionManager, user: User, services: ServiceManager) {
   def getUser(apiKey: String): User =
     sessionManager.getSessionByApiKey(Some(apiKey)).getOrElse(User.guestUser)
 }

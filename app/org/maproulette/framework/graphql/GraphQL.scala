@@ -7,7 +7,9 @@ package org.maproulette.framework.graphql
 
 import javax.inject.Inject
 import org.maproulette.framework.graphql.schemas._
+import org.maproulette.framework.graphql.fetchers._
 import sangria.schema.{ObjectType, fields}
+import sangria.execution.deferred.{Fetcher, DeferredResolver}
 
 /**
   * @author mcuthbert
@@ -18,7 +20,8 @@ class GraphQL @Inject() (
     commentSchema: CommentSchema,
     grantSchema: GrantSchema,
     userSchema: UserSchema,
-    tagSchema: TagSchema
+    tagSchema: TagSchema,
+    teamSchema: TeamSchema
 ) {
   private val queries =
     MRSchema.baseQueries ++
@@ -27,7 +30,8 @@ class GraphQL @Inject() (
       commentSchema.queries ++
       grantSchema.queries ++
       userSchema.queries ++
-      tagSchema.queries
+      tagSchema.queries ++
+      teamSchema.queries
 
   private val mutations =
     MRSchema.baseMutations ++
@@ -36,10 +40,16 @@ class GraphQL @Inject() (
       commentSchema.mutations ++
       grantSchema.mutations ++
       userSchema.mutations ++
-      tagSchema.mutations
+      tagSchema.mutations ++
+      teamSchema.mutations
+
+  private val fetchers =
+    TeamFetchers.fetchers
 
   val schema: sangria.schema.Schema[UserContext, Unit] = sangria.schema.Schema[UserContext, Unit](
     query = ObjectType("Query", fields(queries: _*)),
     mutation = Some(ObjectType("Mutation", fields(mutations: _*)))
   )
+
+  val resolver = DeferredResolver.fetchers(fetchers: _*)
 }

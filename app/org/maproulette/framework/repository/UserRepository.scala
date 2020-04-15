@@ -16,7 +16,7 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data._
 import org.maproulette.framework.model._
-import org.maproulette.framework.service.GrantService
+import org.maproulette.framework.service.{ServiceManager, GrantService}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
 import org.maproulette.models.Task
@@ -33,6 +33,7 @@ import play.api.libs.oauth.RequestToken
 @Singleton
 class UserRepository @Inject() (
     override val db: Database,
+    serviceManager: ServiceManager,
     grantService: GrantService,
     challengeDAL: ChallengeDAL,
     config: Config
@@ -40,50 +41,6 @@ class UserRepository @Inject() (
   import org.maproulette.utils.AnormExtension._
 
   implicit val baseTable: String = User.TABLE
-
-  /**
-    * Retrieve list of all users possessing a role for the project.
-    *
-    * @param projectId   The project
-    * @param osmIdFilter : A filter for manager OSM ids
-    * @return A list of ProjectManager objects.
-    */
-  def getUsersManagingProject(
-      projectId: Long,
-      osmIdFilter: Option[List[Long]] = None
-  )(implicit c: Option[Connection] = None): List[ProjectManager] = {
-    this.withMRTransaction { implicit c =>
-      Query
-        .simple(
-          List(
-            BaseParameter(Grant.FIELD_OBJECT_TYPE, ProjectType().typeId, table = Some(Grant.TABLE)),
-            BaseParameter(Grant.FIELD_OBJECT_ID, projectId, table = Some(Grant.TABLE)),
-            BaseParameter(Grant.FIELD_GRANTEE_TYPE, UserType().typeId, table = Some(Grant.TABLE)),
-            BaseParameter(
-              Grant.FIELD_GRANTEE_ID,
-              s"users.${User.FIELD_ID}",
-              table = Some(Grant.TABLE),
-              useValueDirectly = true
-            ),
-            FilterParameter.conditional(
-              User.FIELD_OSM_ID,
-              osmIdFilter.getOrElse(List.empty),
-              Operator.IN,
-              includeOnlyIfTrue = osmIdFilter.isDefined && osmIdFilter
-                .getOrElse(List.empty)
-                .nonEmpty
-            )
-          ),
-          s"""
-          SELECT ${projectId} AS project_id, users.*, array_agg(grants.role) AS roles
-          FROM users, grants
-          """,
-          grouping = Grouping > ("id")
-        )
-        .build()
-        .as(UserRepository.projectManagerParser.*)
-    }
-  }
 
   def upsert(user: User, apiKey: String, ewkt: String)(
       implicit c: Option[Connection] = None
@@ -132,10 +89,12 @@ class UserRepository @Inject() (
     }
   }
 
-  private def parser(): RowParser[User] =
+  def parser(): RowParser[User] =
     UserRepository.parser(
       this.config.defaultNeedsReview,
-      id => this.grantService.retrieveGrantsTo(Grantee.user(id), User.superUser)
+      id =>
+        this.grantService.retrieveGrantsTo(Grantee.user(id), User.superUser) ++
+          this.serviceManager.team.projectGrantsForUser(id, User.superUser)
     )
 
   def update(

@@ -39,6 +39,7 @@ class ItemType(id: Int) {
       case t: TaskType              => new TaskItem(itemId)
       case ta: TagType              => new TagItem(itemId)
       case u: UserType              => new UserItem(itemId)
+      case group: GroupType         => new GroupItem(itemId)
       case vc: VirtualChallengeType => new VirtualChallengeItem(itemId)
       case b: BundleType            => new BundleItem(itemId)
     }
@@ -59,6 +60,8 @@ case class TagType() extends ItemType(Actions.ITEM_TYPE_TAG)
 
 case class UserType() extends ItemType(Actions.ITEM_TYPE_USER)
 
+case class GroupType() extends ItemType(Actions.ITEM_TYPE_GROUP)
+
 case class VirtualChallengeType() extends ItemType(Actions.ITEM_TYPE_VIRTUAL_CHALLENGE)
 
 case class BundleType() extends ItemType(Actions.ITEM_TYPE_BUNDLE)
@@ -72,6 +75,8 @@ class TaskItem(override val itemId: Long) extends TaskType with Item
 class TagItem(override val itemId: Long) extends TagType with Item
 
 class UserItem(override val itemId: Long) extends UserType with Item
+
+class GroupItem(override val itemId: Long) extends GroupType with Item
 
 class VirtualChallengeItem(override val itemId: Long) extends VirtualChallengeType with Item
 
@@ -117,6 +122,8 @@ object Actions {
   val ITEM_TYPE_SURVEY_NAME            = "Survey"
   val ITEM_TYPE_USER                   = 5
   val ITEM_TYPE_USER_NAME              = "User"
+  val ITEM_TYPE_GROUP                  = 6
+  val ITEM_TYPE_GROUP_NAME             = "Group"
   val ITEM_TYPE_VIRTUAL_CHALLENGE      = 7
   val ITEM_TYPE_VIRTUAL_CHALLENGE_NAME = "VirtualChallenge"
   val ITEM_TYPE_BUNDLE                 = 8
@@ -129,6 +136,7 @@ object Actions {
     ITEM_TYPE_TASK              -> (ITEM_TYPE_TASK_NAME, TaskType()),
     ITEM_TYPE_TAG               -> (ITEM_TYPE_TAG_NAME, TagType()),
     ITEM_TYPE_USER              -> (ITEM_TYPE_USER_NAME, UserType()),
+    ITEM_TYPE_GROUP             -> (ITEM_TYPE_GROUP_NAME, GroupType()),
     ITEM_TYPE_VIRTUAL_CHALLENGE -> (ITEM_TYPE_VIRTUAL_CHALLENGE_NAME, VirtualChallengeType()),
     ITEM_TYPE_BUNDLE            -> (ITEM_TYPE_BUNDLE_NAME, BundleType()),
     ITEM_TYPE_GRANT             -> (ITEM_TYPE_GRANT_NAME, GrantType())

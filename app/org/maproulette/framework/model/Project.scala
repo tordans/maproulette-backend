@@ -6,6 +6,7 @@ package org.maproulette.framework.model
 
 import org.joda.time.DateTime
 import org.maproulette.cache.CacheObject
+import org.maproulette.data.{ItemType}
 import org.maproulette.framework.psql.CommonField
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
@@ -31,7 +32,10 @@ case class Project(
     deleted: Boolean = false,
     isVirtual: Option[Boolean] = Some(false),
     featured: Boolean = false
-) extends CacheObject[Long]
+) extends CacheObject[Long] {
+  def grantsToType(granteeType: ItemType) =
+    this.grants.filter(_.grantee.granteeType == granteeType)
+}
 
 object Project extends CommonField {
   implicit val grantWrites: Writes[Grant] = Grant.writes

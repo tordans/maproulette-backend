@@ -14,7 +14,7 @@ import org.locationtech.jts.geom.{Coordinate, GeometryFactory}
 import org.locationtech.jts.io.WKTWriter
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
-import org.maproulette.data.UserType
+import org.maproulette.data.{UserType, GroupType}
 import org.maproulette.exception.{NotFoundException, InvalidException}
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql._
@@ -34,6 +34,7 @@ import play.api.libs.oauth.RequestToken
 class UserService @Inject() (
     repository: UserRepository,
     savedObjectsRepository: UserSavedObjectsRepository,
+    serviceManager: ServiceManager,
     grantService: GrantService,
     projectService: ProjectService,
     taskDAL: TaskDAL,
@@ -470,10 +471,10 @@ class UserService @Inject() (
                 user = User.superUser
               )
               .exists { g =>
-                g.grantee != Grantee.user(cachedUser.id)
+                g.grantee.granteeType == UserType() && g.grantee != Grantee.user(cachedUser.id)
               }) {
           throw new InvalidException(
-            "Cannot remove user from project: projects must have at least one an administrator"
+            "Cannot remove user from project: projects must have at least one administrator"
           )
         }
 
@@ -490,6 +491,8 @@ class UserService @Inject() (
         )
       }(id = osmId)
       .get
+
+    this.projectService.clearCache(projectId)
   }
 
   /**
@@ -547,7 +550,7 @@ class UserService @Inject() (
       clear: Boolean = false
   ): User = {
     this.permission.hasProjectAccess(this.projectService.retrieve(projectId), user)
-    this.cacheManager
+    val addedUser = this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
         if (clear) {
           this.grantService.deleteMatchingGrants(
@@ -567,6 +570,9 @@ class UserService @Inject() (
         )
       }(id = osmId)
       .get
+
+    this.projectService.clearCache(projectId)
+    addedUser
   }
 
   /**
@@ -693,25 +699,67 @@ class UserService @Inject() (
   /**
     * Retrieve list of all users possessing a granted role on the project
     *
-    * @param projectId   The project
-    * @param osmIdFilter : A filter for manager OSM ids
-    * @param user        The user making the request
+    * @param projectId    The project
+    * @param osmIdFilter  A filter for manager OSM ids
+    * @param user         The user making the request
+    * @param includeTeams If true, also include indirect managers via teams
     * @return A list of ProjectManager objects.
     */
   def getUsersManagingProject(
       projectId: Long,
       osmIdFilter: Option[List[Long]] = None,
-      user: User
+      user: User,
+      includeTeams: Boolean = true
   ): List[ProjectManager] = {
-    this.permission
-      .hasProjectAccess(this.projectService.retrieve(projectId), user, Grant.ROLE_READ_ONLY)
-    this.repository.getUsersManagingProject(projectId, osmIdFilter)
+    val project = this.projectService.retrieve(projectId) match {
+      case Some(p) => p
+      case None    => throw new NotFoundException(s"No project found with id $projectId")
+    }
+    this.permission.hasProjectAccess(Some(project), user, Grant.ROLE_READ_ONLY)
+
+    // Get users directly granted a role on the project
+    val userIds = project.grantsToType(UserType()).map(_.grantee.granteeId)
+
+    if (!includeTeams) {
+      return this.retrieveListById(userIds.distinct).map(u => ProjectManager.fromUser(u, projectId))
+    }
+
+    // Get users indirectly granted a role on the project via their teams
+    val teamGrants = project.grantsToType(GroupType())
+    val teamUsers = this.serviceManager.team.teamUsersByTeamIds(
+      teamGrants.map(_.grantee.granteeId),
+      User.superUser
+    )
+
+    // Fetch both types of users, filter, and convert to project managers. If a
+    // user is in both types (or on multiple teams), consolidate all relevant
+    // granted roles
+    val users = this.serviceManager.user.retrieveListById(
+      (userIds ++ teamUsers.map(_.userId)).distinct
+    )
+    val matchingUsers = osmIdFilter match {
+      case Some(osmIds) if !osmIds.isEmpty => users.filter(u => osmIds.contains(u.osmProfile.id))
+      case _                               => users
+    }
+
+    matchingUsers.map(u => {
+      val teamIds = teamUsers.filter(_.userId == u.id).map(_.teamId)
+      val grants  = teamGrants.filter(g => teamIds.contains(g.grantee.granteeId))
+      ProjectManager(
+        projectId,
+        u.id,
+        u.osmProfile.id,
+        u.osmProfile.displayName,
+        u.osmProfile.avatarURL,
+        (u.grantsForProject(projectId) ++ grants).map(_.role).distinct
+      )
+    })
   }
 
   /**
     * Clears the users cache
     *
-    * @param id If id is supplied will only remove the project with that id
+    * @param id If id is supplied will only remove the user with that id
     */
   def clearCache(id: Long = -1): Unit = {
     if (id > -1) {

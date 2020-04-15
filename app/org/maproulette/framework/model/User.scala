@@ -67,7 +67,7 @@ case class OSMProfile(
   * @param displayName The display name for the osm user
   * @param avatarURL   The avatar URL to enabling displaying of their avatar
   */
-case class UserSearchResult(osmId: Long, displayName: String, avatarURL: String)
+case class UserSearchResult(id: Long, osmId: Long, displayName: String, avatarURL: String)
 
 /**
   * Information specific to a user managing a project. Includes the project id,
@@ -88,6 +88,17 @@ case class ProjectManager(
     avatarURL: String,
     roles: List[Int] = List()
 )
+object ProjectManager {
+  def fromUser(user: User, projectId: Long) =
+    ProjectManager(
+      projectId,
+      user.id,
+      user.osmProfile.id,
+      user.osmProfile.displayName,
+      user.osmProfile.avatarURL,
+      user.grantsForProject(projectId).map(_.role)
+    )
+}
 
 /**
   * Settings that are not defined by the OSM user profile, but specific to MapRoulette
@@ -183,6 +194,9 @@ case class User(
     }
   }
 
+  def managedProjectIds(): List[Long] =
+    grants.filter(_.target.objectType == ProjectType()).map(_.target.objectId)
+
   def adminForProject(projectId: Long): Boolean =
     this.grantsForProject(projectId).exists { g =>
       g.role == Grant.ROLE_ADMIN
@@ -191,7 +205,12 @@ case class User(
   def getUserLocale: Locale = new Locale(this.settings.locale.getOrElse("en"))
 
   def toSearchResult: UserSearchResult =
-    UserSearchResult(this.osmProfile.id, this.osmProfile.displayName, this.osmProfile.avatarURL)
+    UserSearchResult(
+      this.id,
+      this.osmProfile.id,
+      this.osmProfile.displayName,
+      this.osmProfile.avatarURL
+    )
 }
 
 /**

@@ -11,6 +11,7 @@ import javax.inject.{Inject, Singleton}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.graphql.{GraphQL, UserContext}
 import org.maproulette.framework.model.User
+import org.maproulette.framework.service.ServiceManager
 import org.maproulette.session.SessionManager
 import org.slf4j.LoggerFactory
 import play.api.libs.json._
@@ -32,6 +33,7 @@ class GraphQLController @Inject() (
     graphQL: GraphQL,
     sessionManager: SessionManager,
     components: ControllerComponents,
+    services: ServiceManager,
     implicit val executionContext: ExecutionContext
 ) extends AbstractController(components) {
   val exceptionHandler = ExceptionHandler {
@@ -89,9 +91,10 @@ class GraphQLController @Inject() (
       Executor
         .execute(
           schema = graphQL.schema,
+          deferredResolver = graphQL.resolver,
           queryAst = queryAst,
           variables = variables.getOrElse(Json.obj()),
-          userContext = UserContext(sessionManager, user),
+          userContext = UserContext(sessionManager, user, services),
           exceptionHandler = exceptionHandler
         )
         .map(Ok(_))
