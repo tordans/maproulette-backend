@@ -17,6 +17,8 @@ class FrameworkMasterSuite extends Suites with BeforeAndAfterAll with TestDataba
   private val suites = IndexedSeq(
     new ChallengeServiceSpec,
     new ChallengeRepositorySpec,
+    new ChallengeListingSpec,
+    new ChallengeRepositorySpec,
     new CommentServiceSpec,
     new CommentRepositorySpec,
     new GroupServiceSpec,

@@ -144,6 +144,8 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
 // Test tags so that you only have to run specific tests
 object ChallengeTag            extends Tag("challenge")
 object ChallengeRepoTag        extends Tag("challengerepo")
+object ChallengeListingTag     extends Tag("challengelisting")
+object ChallengeListingRepoTag extends Tag("challengelistingrepo")
 object ProjectTag              extends Tag("project")
 object ProjectRepoTag          extends Tag("projectrepo")
 object CommentTag              extends Tag("comment")

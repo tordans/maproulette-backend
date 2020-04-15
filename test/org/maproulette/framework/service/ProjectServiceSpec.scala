@@ -108,6 +108,29 @@ class ProjectServiceSpec(implicit val application: Application) extends Framewor
       update4.get.enabled mustEqual true
     }
 
+    "update cannot change virtual status" taggedAs ProjectTag in {
+      val randomUser =
+        this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
+      val updateProject = this.service
+        .create(
+          Project(
+            -1,
+            randomUser.osmProfile.id,
+            "ChangeVirtualStatusProject",
+            isVirtual = Some(true)
+          ),
+          User.superUser
+        )
+      // Update that omits isVirtual
+      val update1 =
+        this.service.update(updateProject.id, Json.obj("featured" -> true), randomUser)
+      update1.get.isVirtual.get mustEqual true
+      // Update that explicitly tries to change isVirtual
+      val update2 = this.service
+        .update(updateProject.id, Json.obj("featured" -> false, "isVirtual" -> false), randomUser)
+      update2.get.isVirtual.get mustEqual true
+    }
+
     "delete a project" taggedAs ProjectTag in {
       val createdProject = this.service
         .create(Project(-1, User.superUser.osmProfile.id, "DeleteTestProject"), User.superUser)

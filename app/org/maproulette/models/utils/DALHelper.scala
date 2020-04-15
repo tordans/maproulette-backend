@@ -208,7 +208,7 @@ trait DALHelper {
     if (!projectSearch) {
       params.getProjectIds match {
         case Some(p) if p.nonEmpty =>
-          whereClause ++= s"$challengePrefix.parent_id IN (${p.mkString(",")})"
+          appendInWhereClause(whereClause, s"$challengePrefix.parent_id IN (${p.mkString(",")})")
         case _ =>
           params.projectSearch match {
             case Some(ps) if ps.nonEmpty =>

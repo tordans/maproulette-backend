@@ -135,16 +135,21 @@ object TagSchema {
   val searchStringArg: Argument[String] =
     Argument("searchString", StringType, "A search string used to find keywords")
   val tagTypeArg: Argument[String] =
-    Argument("tagType", StringType, "The type of keyword", defaultValue = "challenges")
+    Argument(
+      "tagType",
+      OptionInputType(StringType),
+      "The type of keyword",
+      defaultValue = "challenges"
+    )
   val usePrefixArg: Argument[Boolean] = Argument(
     "usePrefix",
-    BooleanType,
+    OptionInputType(BooleanType),
     "Whether to set the search string as the prefix of the keyword, or just general search",
     defaultValue = false
   )
   val parentArg: Argument[Long] = Argument(
     "parentId",
-    LongType,
+    OptionInputType(LongType),
     "The parent identifier to limit the results, defaults to -1 which is all",
     defaultValue = -1
   )

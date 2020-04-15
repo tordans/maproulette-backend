@@ -17,7 +17,8 @@ class GraphQL @Inject() (
     challengeSchema: ChallengeSchema,
     commentSchema: CommentSchema,
     groupSchema: GroupSchema,
-    userSchema: UserSchema
+    userSchema: UserSchema,
+    tagSchema: TagSchema
 ) {
   private val queries =
     MRSchema.baseQueries ++
@@ -25,7 +26,8 @@ class GraphQL @Inject() (
       challengeSchema.queries ++
       commentSchema.queries ++
       groupSchema.queries ++
-      userSchema.queries
+      userSchema.queries ++
+      tagSchema.queries
 
   private val mutations =
     MRSchema.baseMutations ++
@@ -33,7 +35,8 @@ class GraphQL @Inject() (
       challengeSchema.mutations ++
       commentSchema.mutations ++
       groupSchema.mutations ++
-      userSchema.mutations
+      userSchema.mutations ++
+      tagSchema.mutations
 
   val schema: sangria.schema.Schema[UserContext, Unit] = sangria.schema.Schema[UserContext, Unit](
     query = ObjectType("Query", fields(queries: _*)),
