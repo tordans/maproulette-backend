@@ -8,8 +8,9 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data.ActionManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.{Challenge, User}
+import org.maproulette.framework.model.{Challenge, User, Project}
 import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.psql.Paging
 import org.maproulette.models.Task
 import org.maproulette.models.dal._
 import org.maproulette.provider.websockets.WebSocketProvider
@@ -424,5 +425,4 @@ class TaskReviewController @Inject() (
       }
     }
   }
-
 }
