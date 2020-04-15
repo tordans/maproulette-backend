@@ -291,6 +291,7 @@ class ProjectService @Inject() (
           case Some(f) => f
           case None    => cachedItem.featured
         }
+        val isVirtual = cachedItem.isVirtual // Don't allow updates to virtual status
 
         this.repository.update(
           Project(
@@ -300,6 +301,7 @@ class ProjectService @Inject() (
             displayName = Some(displayName),
             description = Some(description),
             enabled = enabled,
+            isVirtual = isVirtual,
             featured = featured
           )
         )
