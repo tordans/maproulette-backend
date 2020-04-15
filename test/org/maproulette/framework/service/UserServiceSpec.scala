@@ -3,131 +3,24 @@
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 
-package org.maproulette.framework
-
-import java.util.UUID
+package org.maproulette.framework.service
 
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
-import org.maproulette.framework.psql.{Paging, Query}
-import org.maproulette.framework.repository.UserRepository
-import org.maproulette.framework.service.UserService
+import org.maproulette.framework.psql.filter._
+import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.util.{FrameworkHelper, UserTag}
+import org.maproulette.models.Task
 import org.scalatest.Matchers._
 import play.api.Application
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert
   */
-class UserSpec(implicit val application: Application) extends FrameworkHelper {
-  val userRepository: UserRepository = this.application.injector.instanceOf(classOf[UserRepository])
-  val userService: UserService       = this.serviceManager.user
-
-  "UserRepository" should {
-    "upsert user" taggedAs (UserTag) in {
-      val insertedUser  = this.insertBaseUser(1, "name1")
-      val retrievedUser = this.repositoryGet(insertedUser.id)
-      retrievedUser.get mustEqual insertedUser
-    }
-
-    "update user" taggedAs (UserTag) in {
-      val insertedUser  = this.insertBaseUser(2, "name2")
-      val updatedApiKey = UUID.randomUUID().toString
-      val updateUser = insertedUser.copy(
-        osmProfile = insertedUser.osmProfile.copy(
-          displayName = "name3",
-          avatarURL = "UPDATE_avatarURL",
-          requestToken = RequestToken("UPDATED_TOKEN", "UPDATED_SECRET")
-        ),
-        apiKey = Some(updatedApiKey),
-        settings = UserSettings(
-          Some(1),
-          Some(2),
-          Some("id"),
-          Some("basemap"),
-          Some("en-US"),
-          Some("email_address"),
-          Some(true),
-          Some(false),
-          Some(5),
-          Some(true)
-        )
-      )
-      this.userRepository.update(updateUser, "POINT (14.0 22.0)")
-      val updatedUser = this.repositoryGet(insertedUser.id).get
-      updatedUser.osmProfile.displayName mustEqual updateUser.osmProfile.displayName
-      updatedUser.osmProfile.avatarURL mustEqual updateUser.osmProfile.avatarURL
-      updatedUser.osmProfile.requestToken mustEqual updateUser.osmProfile.requestToken
-      // API Key should not be allowed to updated here
-      updatedUser.apiKey mustEqual insertedUser.apiKey
-      updatedUser.settings mustEqual updateUser.settings
-    }
-
-    "update API key" taggedAs (UserTag) in {
-      val insertedUser =
-        this.userRepository.upsert(this.getTestUser(3, "APITest"), "TestAPIKey", "POINT (20 40)")
-      this.userRepository.updateAPIKey(insertedUser.id, "NEW_updated_key")
-      val retrievedUser = this.repositoryGet(insertedUser.id)
-      retrievedUser.get.apiKey.get mustEqual "NEW_updated_key"
-    }
-
-    "delete user" taggedAs (UserTag) in {
-      val insertedUser = this.userRepository
-        .upsert(this.getTestUser(4, "DeleteTest"), "TestAPIKey", "POINT (20 40)")
-      this.userRepository.delete(insertedUser.id)
-      val retrievedUser = this.repositoryGet(insertedUser.id)
-      retrievedUser.isEmpty mustEqual true
-    }
-
-    "delete user by OSMID" taggedAs (UserTag) in {
-      val insertedUser = this.userRepository
-        .upsert(this.getTestUser(5, "DeleteByOidTest"), "TestAPIKey", "POINT (20 40)")
-      this.userRepository.deleteByOSMID(5)
-      val retrievedUser = this.repositoryGet(insertedUser.id)
-      retrievedUser.isEmpty mustEqual true
-    }
-
-    "update user score" taggedAs (UserTag) in {
-      val insertedUser = this.userRepository
-        .upsert(this.getTestUser(61, "UpdateUserO"), "TestAPIKey", "POINT (20 40)")
-      val updatedUser = this.userRepository.updateUserScore(
-        insertedUser.id,
-        List(
-          BaseParameter(
-            UserMetrics.FIELD_SCORE,
-            s"=(${UserMetrics.FIELD_SCORE}+1000)",
-            Operator.CUSTOM
-          ),
-          BaseParameter(
-            UserMetrics.FIELD_TOTAL_REJECTED,
-            s"=(${UserMetrics.FIELD_TOTAL_REJECTED}+1)",
-            Operator.CUSTOM
-          )
-        )
-      )
-    }
-
-    "get users managing projects" taggedAs (UserTag) in {
-      val managers = this.userRepository.getUsersManagingProject(this.defaultProject.id)
-      managers.size mustEqual 1
-      managers.head.osmId mustEqual this.defaultUser.osmProfile.id
-      val managers2 =
-        this.userRepository.getUsersManagingProject(this.defaultProject.id, Some(List.empty))
-      managers2.size mustEqual 1
-      managers2.head.osmId mustEqual this.defaultUser.osmProfile.id
-      val managers3 = this.userRepository
-        .getUsersManagingProject(this.defaultProject.id, Some(List(this.defaultUser.id)))
-      managers3.size mustEqual 0
-      val managers4 = this.userRepository
-        .getUsersManagingProject(this.defaultProject.id, Some(List(this.defaultUser.osmProfile.id)))
-      managers4.size mustEqual 1
-      managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
-    }
-  }
+class UserServiceSpec(implicit val application: Application) extends FrameworkHelper {
+  val userService: UserService = this.serviceManager.user
 
   "UserService" should {
-    "not allow retrieval of user by API key if not actual user" taggedAs (UserTag) in {
+    "not allow retrieval of user by API key if not actual user" taggedAs UserTag in {
       val firstUser =
         this.userService.create(this.getTestUser(6, "FailedUserTest"), User.superUser)
       val secondUser =
@@ -137,7 +30,7 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       }
     }
 
-    "retrieve Users" taggedAs (UserTag) in {
+    "retrieve Users" taggedAs UserTag in {
       val insertedUser =
         this.userService.create(this.getTestUser(8, "InsertUserServiceTest"), User.superUser)
       // get the user by their API Key and id
@@ -171,7 +64,7 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       retrievedUser7
     }
 
-    "not allow retrieval of user by OSM username if not super user" taggedAs (UserTag) in {
+    "not allow retrieval of user by OSM username if not super user" taggedAs UserTag in {
       val firstUser =
         this.userService.create(this.getTestUser(9, "FailedORetrievalUser1"), User.superUser)
       val secondUser =
@@ -181,14 +74,14 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       }
     }
 
-    "generate new API key" taggedAs (UserTag) in {
+    "generate new API key" taggedAs UserTag in {
       val insertedUser =
         this.userService.create(this.getTestUser(11, "APIGenerationTestUser"), User.superUser)
       val newAPIUser = this.userService.generateAPIKey(insertedUser, User.superUser)
       newAPIUser.get.apiKey must not be insertedUser.apiKey
     }
 
-    "retrieve list of users" taggedAs (UserTag) in {
+    "retrieve list of users" taggedAs UserTag in {
       val user1 =
         this.userService.create(this.getTestUser(12, "ListRetrievalTestUser1"), User.superUser)
       val user2 =
@@ -199,21 +92,21 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       List(user1, user2).contains(userList(1)) mustEqual true
     }
 
-    "delete user" taggedAs (UserTag) in {
+    "delete user" taggedAs UserTag in {
       val user =
         this.userService.create(this.getTestUser(14, "DeleteTest"), User.superUser)
       this.userService.delete(user.id, User.superUser)
-      this.repositoryGet(user.id).isEmpty mustEqual true
+      this.userService.retrieve(user.id).isEmpty mustEqual true
     }
 
-    "delete user by OSM id" taggedAs (UserTag) in {
+    "delete user by OSM id" taggedAs UserTag in {
       val user =
         this.userService.create(this.getTestUser(15, "DeleteByOidTest"), User.superUser)
       this.userService.deleteByOsmID(user.osmProfile.id, User.superUser)
-      this.repositoryGet(user.id).isEmpty mustEqual true
+      this.userService.retrieve(user.id).isEmpty mustEqual true
     }
 
-    "Search by OSM Username" taggedAs (UserTag) in {
+    "Search by OSM Username" taggedAs UserTag in {
       val user1 =
         this.userService.create(this.getTestUser(16, "OSMUsernameSearch1"), User.superUser)
       val user2 =
@@ -268,7 +161,7 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       thirdUser should not be secondUser
     }
 
-    "get users managing projects" taggedAs (UserTag) in {
+    "get users managing projects" taggedAs UserTag in {
       val managers =
         this.userService.getUsersManagingProject(this.defaultProject.id, user = User.superUser)
       managers.size mustEqual 1
@@ -294,20 +187,81 @@ class UserSpec(implicit val application: Application) extends FrameworkHelper {
       managers4.size mustEqual 1
       managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
     }
-  }
 
-  override implicit val projectTestName: String = "UserSpecProject"
+    "complex query" in {
+      val user                          = User.superUser
+      val excludeOtherReviewers         = true
+      val taskStatus: Option[List[Int]] = None
 
-  private def repositoryGet(id: Long): Option[User] = {
-    this.userRepository
-      .query(
-        Query.simple(
-          List(BaseParameter(User.FIELD_ID, id))
+      val reviewTasksType = 1
+      val fetchBy =
+        if (reviewTasksType == 2) "task_review.reviewed_by" else "task_review.review_requested_by"
+
+      val filter1 = Filter(
+        List(
+          FilterGroup(
+            List(
+              BaseParameter(fetchBy, user.id),
+              FilterParameter.conditional(
+                "t.status",
+                taskStatus.getOrElse(List.empty),
+                Operator.IN,
+                taskStatus.nonEmpty
+              ),
+              FilterParameter.conditional(
+                "task_review.review_requested_by",
+                user.id,
+                negate = true,
+                includeOnlyIfTrue = user.isSuperUser
+              ),
+              FilterParameter.conditional(
+                "task_review.review_status",
+                List(Task.REVIEW_STATUS_REQUESTED, Task.REVIEW_STATUS_DISPUTED),
+                Operator.IN,
+                includeOnlyIfTrue = reviewTasksType == 1
+              )
+            )
+          ),
+          FilterGroup(
+            List(
+              SubQueryFilter(
+                "",
+                Query.simple(
+                  List(
+                    BaseParameter("p.enabled", "", Operator.BOOL),
+                    BaseParameter("c.enabled", "", Operator.BOOL)
+                  ),
+                  includeWhere = false
+                ),
+                operator = Operator.CUSTOM
+              ),
+              BaseParameter("p.owner_id", user.osmProfile.id),
+              SubQueryFilter(
+                user.osmProfile.id.toString,
+                Query.simple(
+                  List(
+                    BaseParameter("ug.group_id", "g.id", useValueDirectly = true),
+                    BaseParameter("g.project_id", "p.id")
+                  )
+                )
+              )
+            ),
+            OR(),
+            user.isSuperUser
+          ),
+          FilterGroup(
+            List(
+              BaseParameter("task_review.reviewed_by", "", Operator.NULL),
+              BaseParameter("task_review.reviewed_by", user.id)
+            ),
+            OR()
+          )
         )
       )
-      .headOption
+
+      filter1.sql()
+    }
   }
 
-  private def insertBaseUser(osmId: Long, osmName: String): User =
-    this.userService.create(this.getTestUser(osmId, osmName), User.superUser)
+  override implicit val projectTestName: String = "UserServiceSpecProject"
 }

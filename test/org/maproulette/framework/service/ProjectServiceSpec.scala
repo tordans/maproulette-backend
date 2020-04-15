@@ -3,135 +3,29 @@
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 
-package org.maproulette.framework
+package org.maproulette.framework.service
 
-import org.joda.time.{DateTime, Months}
-import org.maproulette.framework.model.{Group, Project, User}
+import org.maproulette.framework.model.{Project, User}
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
-import org.maproulette.framework.repository.ProjectRepository
-import org.maproulette.framework.service.ProjectService
 import org.maproulette.framework.util.{FrameworkHelper, ProjectTag}
-import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters}
 import play.api.Application
 import play.api.libs.json.Json
 
 /**
   * @author mcuthbert
   */
-class ProjectSpec(implicit val application: Application) extends FrameworkHelper {
-  val repository: ProjectRepository =
-    this.application.injector.instanceOf(classOf[ProjectRepository])
+class ProjectServiceSpec(implicit val application: Application) extends FrameworkHelper {
   val service: ProjectService = this.application.injector.instanceOf(classOf[ProjectService])
 
-  "ProjectRepository" should {
-    "perform a basic query correctly" taggedAs (ProjectTag) in {
-      val project = this.repository
-        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, this.defaultProject.id))))
-      project.head mustEqual this.defaultProject
-    }
-
-    "create a new project" taggedAs (ProjectTag) in {
-      val createdProject =
-        this.repository.create(Project(-1, User.superUser.osmProfile.id, "CreateProjectTest"))
-      val retrievedProject = this.repository.retrieve(createdProject.id)
-      retrievedProject.get mustEqual createdProject
-    }
-
-    "retrieve a project" taggedAs (ProjectTag) in {
-      val retrievedProject = this.repository.retrieve(this.defaultProject.id)
-      retrievedProject.get mustEqual this.defaultProject
-    }
-
-    "update a project" taggedAs (ProjectTag) in {
-      val newCreatedProject =
-        this.repository.create(Project(-1, User.superUser.osmProfile.id, "UpdateProjectTest"))
-      val retrievedProject = this.repository.retrieve(newCreatedProject.id)
-      retrievedProject.get mustEqual newCreatedProject
-
-      // create a new user for the ownership of the project
-      val randomUser = this.serviceManager.user
-        .create(this.getTestUser(456677, "DummyProjectUser"), User.superUser)
-      val randomDateTime = DateTime.now.minus(Months.ONE)
-      // update everything, including things actually not expected to be updated like created, modified, groups and deleted
-      val updatedProject = Project(
-        newCreatedProject.id,
-        randomUser.osmProfile.id,
-        "UPDATE_NAME",
-        description = Some("UPDATE_DESCRIPTION"),
-        displayName = Some("UPDATE_DISPLAYNAME"),
-        enabled = false,
-        isVirtual = Some(true),
-        featured = false,
-        deleted = true,
-        created = randomDateTime,
-        modified = randomDateTime,
-        groups = List(Group(-1, "RANDOM", newCreatedProject.id, Group.TYPE_ADMIN))
-      )
-      this.repository.update(updatedProject)
-      val dbUpdatedProject = this.repository.retrieve(newCreatedProject.id)
-      dbUpdatedProject.get.id mustEqual newCreatedProject.id
-      dbUpdatedProject.get.owner mustEqual randomUser.osmProfile.id
-      dbUpdatedProject.get.name mustEqual "UPDATE_NAME"
-      dbUpdatedProject.get.description mustEqual Some("UPDATE_DESCRIPTION")
-      dbUpdatedProject.get.displayName mustEqual Some("UPDATE_DISPLAYNAME")
-      dbUpdatedProject.get.enabled mustEqual false
-      dbUpdatedProject.get.isVirtual mustEqual Some(true)
-      dbUpdatedProject.get.featured mustEqual false
-      dbUpdatedProject.get.deleted mustEqual false
-      dbUpdatedProject.get.created mustEqual newCreatedProject.created
-      dbUpdatedProject.get.modified.isAfter(randomDateTime)
-      dbUpdatedProject.get.groups.size mustEqual 0
-    }
-
-    "delete a project" taggedAs (ProjectTag) in {
-      val newCreatedProject =
-        this.repository.create(Project(-1, User.superUser.osmProfile.id, "DeleteProjectTest"))
-      val retrievedProject = this.repository.retrieve(newCreatedProject.id)
-      retrievedProject.get mustEqual newCreatedProject
-      this.repository.delete(newCreatedProject.id, false)
-      val deletedProject = this.repository.retrieve(newCreatedProject.id)
-      // it should still exist in the database because only the flag has been set
-      deletedProject.get.deleted mustEqual true
-      this.repository.delete(newCreatedProject.id, true)
-      val reallyDeletedProject = this.repository.retrieve(newCreatedProject.id)
-      reallyDeletedProject mustEqual None
-    }
-
-    "get searched clustered points" taggedAs (ProjectTag) in {
-      // this is really just testing the validation of the process, as there is only 1 task as part of the test data
-      val clusteredPoints = this.repository.getSearchedClusteredPoints(
-        SearchParameters(
-          challengeParams = SearchChallengeParameters(
-            challengeTags = Some(List("test")),
-            challengeSearch = Some("test"),
-            challengeEnabled = Some(true)
-          ),
-          projectSearch = Some("test"),
-          projectEnabled = Some(true),
-          projectIds = Some(List(this.defaultProject.id)),
-          location = Some(SearchLocation(1.5, 2.5, 3.5, 4.5))
-        )
-      )
-      clusteredPoints.isEmpty mustEqual true
-    }
-
-    "get clustered points" taggedAs (ProjectTag) in {
-      // this is really just testing the validation of the process, as there is only 1 task as part of the test data
-      val clusteredPoints = this.repository
-        .getClusteredPoints(Some(this.defaultProject.id), List(this.defaultChallenge.id), true)
-      clusteredPoints.isEmpty mustEqual true
-    }
-  }
-
   "ProjectService" should {
-    "get all the children of a project" taggedAs (ProjectTag) in {
+    "get all the children of a project" taggedAs ProjectTag in {
       val challenges = this.service.children(this.defaultProject.id)
       // by default tests get setup with 10 children challenges in the project
       challenges.size mustEqual 10
     }
 
-    "create a new project" taggedAs (ProjectTag) in {
+    "create a new project" taggedAs ProjectTag in {
       val createdProject = this.service
         .create(Project(-1, User.superUser.osmProfile.id, "ServiceCreateProject"), User.superUser)
       val retrievedProject = this.service.retrieve(createdProject.id)
@@ -142,7 +36,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
     }
 
     // This
-    "get featured projects" taggedAs (ProjectTag) in {
+    "get featured projects" taggedAs ProjectTag in {
       val featuredProject = this.service.create(
         Project(-1, User.superUser.osmProfile.id, "FeaturedProject", featured = true),
         User.superUser
@@ -158,7 +52,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
       projects3.head.enabled mustEqual true
     }
 
-    "only update featured if super user" taggedAs (ProjectTag) in {
+    "only update featured if super user" taggedAs ProjectTag in {
       val randomUser = this.serviceManager.user
         .create(this.getTestUser(575438, "RandomFeatureUser"), User.superUser)
       val project = this.service.create(
@@ -174,7 +68,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
       notUpdatedProject.get.featured mustEqual true
     }
 
-    "update a project" taggedAs (ProjectTag) in {
+    "update a project" taggedAs ProjectTag in {
       val randomUser =
         this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
       val updateProject = this.service
@@ -197,7 +91,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
       updated.get.featured mustEqual false
     }
 
-    "update cannot change enabled or feature unless SuperUser" taggedAs (ProjectTag) in {
+    "update cannot change enabled or feature unless SuperUser" taggedAs ProjectTag in {
       val randomUser =
         this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
       val updateProject = this.service
@@ -214,7 +108,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
       update4.get.enabled mustEqual true
     }
 
-    "update cannot change virtual status" taggedAs (ProjectTag) in {
+    "update cannot change virtual status" taggedAs ProjectTag in {
       val randomUser =
         this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
       val updateProject = this.service
@@ -237,7 +131,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
       update2.get.isVirtual.get mustEqual true
     }
 
-    "delete a project" taggedAs (ProjectTag) in {
+    "delete a project" taggedAs ProjectTag in {
       val createdProject = this.service
         .create(Project(-1, User.superUser.osmProfile.id, "DeleteTestProject"), User.superUser)
       val retrievedProject = this.service.retrieve(createdProject.id)
@@ -254,7 +148,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
     }
   }
 
-  "retrieve a project by it's name" taggedAs (ProjectTag) in {
+  "retrieve a project by it's name" taggedAs ProjectTag in {
     val createdProject = this.service
       .create(Project(-1, User.superUser.osmProfile.id, "RetrieveByNameTest"), User.superUser)
     val retrievedProject = this.service.retrieveByName("RetrieveByNameTest")
@@ -263,7 +157,7 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
     retrievedProject2.isEmpty mustEqual true
   }
 
-  "list projects by id's" taggedAs (ProjectTag) in {
+  "list projects by id's" taggedAs ProjectTag in {
     val createdProject = this.service
       .create(Project(-1, User.superUser.osmProfile.id, "ListingProject"), User.superUser)
     val projects = this.service.list(List(createdProject.id, this.defaultProject.id))
@@ -279,13 +173,13 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
     })
   }
 
-  "list projects using a custom query" taggedAs (ProjectTag) in {
+  "list projects using a custom query" taggedAs ProjectTag in {
     val results = this.service
       .query(Query.simple(List(BaseParameter("id", List(1259, 3898, 217, 217, 217), Operator.IN))))
     results.size mustEqual 0
   }
 
-  "list managed projects" taggedAs (ProjectTag) in {
+  "list managed projects" taggedAs ProjectTag in {
     val createdUser =
       this.serviceManager.user.create(this.getTestUser(678, "ManagedListingUser"), User.superUser)
     // make sure the home project is created for the user
@@ -299,5 +193,6 @@ class ProjectSpec(implicit val application: Application) extends FrameworkHelper
     val projects3 = this.service.getManagedProjects(randomUser, searchString = "DUMMY")
     projects3.size mustEqual 0
   }
-  override implicit val projectTestName: String = "ProjectSpecProject"
+
+  override implicit val projectTestName: String = "ProjectServiceSpecProject"
 }

@@ -35,9 +35,9 @@ class Application @Inject() (
     sessionManager.authenticatedRequest { implicit user =>
       this.serviceManager.user.clearCache()
       this.serviceManager.project.clearCache()
+      this.serviceManager.tag.clearCache()
       this.dalManager.challenge.clearCaches
       this.dalManager.task.clearCaches
-      this.dalManager.tag.clearCaches
       Ok(Json.toJson(StatusMessage("OK", JsString("All caches cleared."))))
     }
   }

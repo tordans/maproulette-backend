@@ -12,7 +12,7 @@ import javax.inject.{Inject, Provider, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data.Actions
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.WebSocketProvider
@@ -25,7 +25,7 @@ import play.api.libs.ws.WSClient
 @Singleton
 class TaskHistoryDAL @Inject() (
     override val db: Database,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     serviceManager: ServiceManager,
     config: Config,
     override val permission: Permission,
@@ -34,7 +34,7 @@ class TaskHistoryDAL @Inject() (
     ws: WSClient
 ) extends TaskDAL(
       db,
-      tagDAL,
+      tagService,
       permission,
       serviceManager,
       config,

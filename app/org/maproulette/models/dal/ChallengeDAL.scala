@@ -17,7 +17,7 @@ import org.maproulette.data.{Actions, ChallengeType, ProjectType, TaskType}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.framework.model._
 import org.maproulette.framework.repository.ProjectRepository
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
@@ -41,7 +41,7 @@ class ChallengeDAL @Inject() (
     override val db: Database,
     serviceManager: ServiceManager,
     taskDAL: TaskDAL,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     notificationDAL: Provider[NotificationDAL],
     override val permission: Permission,
     config: Config
@@ -1099,6 +1099,16 @@ class ChallengeDAL @Inject() (
     }
   }
 
+  def updateGeometry(challengeId: Long)(implicit c: Option[Connection] = None): Future[Boolean] = {
+    Future {
+      logger.info(s"Updating geometry for challenge $challengeId")
+      this.db.withTransaction { implicit c =>
+        val query = "SELECT update_challenge_geometry({id})"
+        SQL(query).on(Symbol("id") -> challengeId).execute()
+      }
+    }
+  }
+
   /**
     * This retrieves all the tasks geojson as line by line. When using this format it is a lot easier to
     * rebuild a challenge correctly.
@@ -1182,16 +1192,6 @@ class ChallengeDAL @Inject() (
         this.updateGeometry(challengeId)
       }
       clusteredList
-    }
-  }
-
-  def updateGeometry(challengeId: Long)(implicit c: Option[Connection] = None): Future[Boolean] = {
-    Future {
-      logger.info(s"Updating geometry for challenge $challengeId")
-      this.db.withTransaction { implicit c =>
-        val query = "SELECT update_challenge_geometry({id})"
-        SQL(query).on(Symbol("id") -> challengeId).execute()
-      }
     }
   }
 
@@ -1335,6 +1335,37 @@ class ChallengeDAL @Inject() (
   }
 
   /**
+    * A basic retrieval of the object based on the id. With caching, so if it finds
+    * the object in the cache it will return that object without checking the database, otherwise
+    * will hit the database directly.
+    *
+    * @param id The id of the object to be retrieved
+    * @return The object, None if not found
+    */
+  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+    this._retrieveById()
+  }
+
+  def _retrieveById(
+      caching: Boolean = true
+  )(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
+    this.cacheManager.withCaching { () =>
+      this.withMRConnection { implicit c =>
+        val query =
+          s"""
+            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
+            |FROM challenges c
+            |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
+            |WHERE c.id = {id}
+            |GROUP BY c.id
+           """.stripMargin
+
+        SQL(query).on(Symbol("id") -> id).as(this.withVirtualParentParser.singleOpt)
+      }
+    }(id, caching)
+  }
+
+  /**
     * Updates the challenge to a STATUS_READY if there are incomplete tasks left.
     *
     * @param id The id of the challenge
@@ -1424,37 +1455,6 @@ class ChallengeDAL @Inject() (
           throw new NotFoundException(s"No challenge found with id $challengeId")
       }
     }
-  }
-
-  /**
-    * A basic retrieval of the object based on the id. With caching, so if it finds
-    * the object in the cache it will return that object without checking the database, otherwise
-    * will hit the database directly.
-    *
-    * @param id The id of the object to be retrieved
-    * @return The object, None if not found
-    */
-  override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
-    this._retrieveById()
-  }
-
-  def _retrieveById(
-      caching: Boolean = true
-  )(implicit id: Long, c: Option[Connection] = None): Option[Challenge] = {
-    this.cacheManager.withCaching { () =>
-      this.withMRConnection { implicit c =>
-        val query =
-          s"""
-            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
-            |FROM challenges c
-            |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-            |WHERE c.id = {id}
-            |GROUP BY c.id
-           """.stripMargin
-
-        SQL(query).on(Symbol("id") -> id).as(this.withVirtualParentParser.singleOpt)
-      }
-    }(id, caching)
   }
 
   /**

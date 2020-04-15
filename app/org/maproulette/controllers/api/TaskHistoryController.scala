@@ -7,11 +7,11 @@ package org.maproulette.controllers.api
 import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data.ActionManager
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models.TaskLogEntry
 import org.maproulette.models.dal._
-import org.maproulette.provider.websockets.WebSocketProvider
 import org.maproulette.provider.osm.ChangesetProvider
+import org.maproulette.provider.websockets.WebSocketProvider
 import org.maproulette.session.SessionManager
 import org.maproulette.utils.Utils
 import play.api.libs.json._
@@ -27,7 +27,7 @@ class TaskHistoryController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val dal: TaskDAL,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     taskHistoryDAL: TaskHistoryDAL,
     serviceManager: ServiceManager,
     dalManager: DALManager,
@@ -41,7 +41,7 @@ class TaskHistoryController @Inject() (
       sessionManager,
       actionManager,
       dal,
-      tagDAL,
+      tagService,
       serviceManager,
       dalManager,
       wsClient,

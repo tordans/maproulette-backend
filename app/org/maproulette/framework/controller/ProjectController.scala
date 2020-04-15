@@ -56,13 +56,7 @@ class ProjectController @Inject() (
   }
 
   /**
-    * The base create function that most controllers will run through to create the object. The
-    * actual work will be passed on to the internalCreate function. This is so that if you want
-    * to create your object differently you can keep the standard http functionality around and
-    * not have to reproduce a lot of the work done in this function. If the id is supplied in the
-    * json body it will pass off the workload to the update function. If no id is supplied then it
-    * will check the name to see if it can find any items in the database that match the name.
-    * Must be authenticated to perform operation
+    * API function call to create a project
     *
     * @return 201 Created with the json body of the created object
     */
@@ -208,7 +202,7 @@ class ProjectController @Inject() (
             search,
             Paging(limit, offset),
             onlyEnabled,
-            Order.simple(orderColumn, orderDirection)
+            Order > (orderColumn, orderDirection)
           )
         )
       )
@@ -244,7 +238,7 @@ class ProjectController @Inject() (
               onlyEnabled,
               onlyOwned,
               searchString,
-              Order.simple(sort)
+              Order > sort
             )
         )
       )

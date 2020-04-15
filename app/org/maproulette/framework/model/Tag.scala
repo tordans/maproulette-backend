@@ -2,10 +2,11 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.joda.time.DateTime
-import org.maproulette.data.{ItemType, TagType}
+import org.maproulette.cache.CacheObject
+import org.maproulette.framework.psql.CommonField
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
@@ -20,17 +21,20 @@ import play.api.libs.json.JodaReads._
 case class Tag(
     override val id: Long,
     override val name: String,
-    override val description: Option[String] = None,
-    override val created: DateTime = DateTime.now(),
-    override val modified: DateTime = DateTime.now(),
+    description: Option[String] = None,
+    created: DateTime = DateTime.now(),
+    modified: DateTime = DateTime.now(),
     tagType: String = "challenges"
-) extends BaseObject[Long] {
-  override val itemType: ItemType = TagType()
-}
+) extends CacheObject[Long]
 
-object Tag {
+object Tag extends CommonField {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]
   implicit val tagReads: Reads[Tag]   = Json.reads[Tag]
 
-  val KEY = "tags"
+  val KEY                = "tags"
+  val FIELD_TAG_TYPE     = "tag_type"
+  val FIELD_PARENT_ID    = "parent_id"
+  val FIELD_ENABLED      = "enabled"
+  val FIELD_TASK_ID      = "task_id"
+  val FIELD_CHALLENGE_ID = "challenge_id"
 }

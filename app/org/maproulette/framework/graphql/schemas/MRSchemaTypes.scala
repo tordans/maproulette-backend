@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.models.{MapillaryImage, Task, TaskBundle, TaskReviewFields}
 import play.api.libs.oauth.RequestToken
-import sangria.ast.{ListValue, StringValue}
+import sangria.ast.StringValue
 import sangria.macros.derive.{ObjectTypeName, deriveObjectType}
 import sangria.schema.{ObjectType, ScalarType}
 
@@ -73,4 +73,7 @@ trait MRSchemaTypes {
   // Task Bundle Types
   implicit val TaskBundleType: ObjectType[Unit, TaskBundle] =
     deriveObjectType[Unit, TaskBundle](ObjectTypeName("TaskBundle"))
+  // Tag Types
+  implicit val TagType: ObjectType[Unit, Tag] =
+    deriveObjectType[Unit, Tag](ObjectTypeName("Keyword"))
 }

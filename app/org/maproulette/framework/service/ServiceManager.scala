@@ -20,12 +20,15 @@ class ServiceManager @Inject() (
     groupService: Provider[GroupService],
     userService: Provider[UserService],
     commentService: Provider[CommentService],
+    tagService: Provider[TagService],
     challengeService: Provider[ChallengeService],
     challengeListingService: Provider[ChallengeListingService],
     userMetricService: Provider[UserMetricService],
     virtualProjectService: Provider[VirtualProjectService]
 ) {
   def comment: CommentService = commentService.get()
+
+  def tag: TagService = tagService.get()
 
   def userMetrics: UserMetricService = userMetricService.get()
 
@@ -36,6 +39,7 @@ class ServiceManager @Inject() (
     case GroupType()     => this.group
     case UserType()      => this.user
     case ChallengeType() => this.challenge
+    case TagType()       => this.tag
     case _               => throw new NotFoundException(s"Service not found for type $itemType")
   }
 

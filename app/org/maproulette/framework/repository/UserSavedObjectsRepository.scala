@@ -16,7 +16,7 @@ import org.maproulette.framework.psql.filter.{
   Operator,
   SubQueryFilter
 }
-import org.maproulette.framework.psql.{Order, Paging, Query, SQLUtils}
+import org.maproulette.framework.psql._
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import play.api.db.Database
@@ -46,7 +46,7 @@ class UserSavedObjectsRepository @Inject() (
   def getSavedChallenges(
       userId: Long,
       paging: Paging = Paging(),
-      order: Order = Order(List("created"))
+      order: Order = Order > ("created")
   )(implicit c: Option[Connection] = None): List[Challenge] = {
     this.withMRTransaction { implicit c =>
       val query =
@@ -115,7 +115,7 @@ class UserSavedObjectsRepository @Inject() (
       userId: Long,
       challengeIds: Seq[Long] = Seq.empty,
       paging: Paging = Paging(),
-      order: Order = Order(List("created"))
+      order: Order = Order > ("created")
   )(implicit c: Option[Connection] = None): List[Task] = {
     this.withMRTransaction { implicit c =>
       Query

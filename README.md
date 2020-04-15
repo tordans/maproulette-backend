@@ -9,26 +9,19 @@ Welcome to the repository for the MapRoulette back-end server code. The MapRoule
 
 The MapRoulette back-end is built on these core technologies:
 
-* Postgres 9.5 with PostGIS 2.2.1
-* Play Framework 2.7.1 with Scala 2.12.8
+* Postgres 10.1 with PostGIS 2.2.1
+* Play Framework 2.8.0 with Scala 2.13.2
 
 ## Requirements
 
-* A Java 8 SDK 
-* PostgreSQL 9.5
+* A Java 11 SDK 
+* PostgreSQL 10.1
 * PostGIS 2.2.1
-* [Scala Build Tool](https://www.scala-sbt.org/download.html) 1.2.8 
+* [Scala Build Tool](https://www.scala-sbt.org/download.html) 1.3.8 
 
 Newer versions may work but are untested.
 
 ## Setup
-
-### Requirements
-
-* A Java 8 SDK 
-* PostgreSQL 9.5
-* PostGIS 2.2.1
-* [Scala Build Tool](https://www.scala-sbt.org/download.html) 1.2.8 
 
 ### Register an OAuth app with OSM
 
