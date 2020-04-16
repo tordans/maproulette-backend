@@ -54,6 +54,14 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
                 negate = true,
                 table = Some(TaskReview.TABLE)
               ),
+              // Exclude unnecessary review status
+              BaseParameter(
+                "review_status",
+                Task.REVIEW_STATUS_UNNECESSARY,
+                Operator.EQ,
+                negate = true,
+                table = Some(TaskReview.TABLE)
+              ),
               // Task Status in list if given a list of task statuses
               FilterParameter.conditional(
                 "status",

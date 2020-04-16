@@ -25,6 +25,7 @@ import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
 import play.api.Application
 import play.api.db.Database
+import java.time.Instant
 
 import scala.util.{Failure, Success}
 
@@ -66,6 +67,7 @@ class SchedulerActor @Inject() (
     case RunJob("runChallengeSchedules", action)        => this.runChallengeSchedules(action)
     case RunJob("updateLocations", action)              => this.updateLocations(action)
     case RunJob("cleanOldTasks", action)                => this.cleanOldTasks(action)
+    case RunJob("expireTaskReviews", action)            => this.expireTaskReviews(action)
     case RunJob("cleanExpiredVirtualChallenges", action) =>
       this.cleanExpiredVirtualChallenges(action)
     case RunJob("FindChangeSets", action)      => this.findChangeSets(action)
@@ -192,6 +194,63 @@ class SchedulerActor @Inject() (
             this.dALManager.task.cacheManager.clearCaches
           }
         }
+      }
+    }
+  }
+
+  /**
+    * This job moves expired task reviews to 'unnecessary'. To enable, set:
+    *    osm.scheduler.expireTaskReviews.interval=FiniteDuration
+    *    osm.scheduler.expireTaskReviews.olderThan=FiniteDuration
+    */
+  def expireTaskReviews(str: String): Unit = {
+    config.withFiniteDuration(Config.KEY_SCHEDULER_EXPIRE_TASK_REVIEWS_OLDER_THAN) { duration =>
+      db.withConnection { implicit c =>
+        logger.info(
+          s"Expiring task reviews older than $duration ..."
+        )
+
+        // Note in task review history we are moving these tasks to unnecessary
+        SQL(s"""INSERT INTO task_review_history
+                          (task_id, requested_by, reviewed_by,
+                           review_status, reviewed_at, review_started_at)
+                  SELECT tr.task_id, tr.review_requested_by, NULL,
+                        ${Task.REVIEW_STATUS_UNNECESSARY}, NOW(), NULL
+                  FROM task_review tr
+                  WHERE tr.review_status = ${Task.REVIEW_STATUS_REQUESTED}
+                    AND tr.task_id IN (
+                      SELECT t.id FROM tasks t
+                      WHERE AGE(NOW(), t.modified) > {duration}::INTERVAL
+                    )
+              """)
+          .on(
+            Symbol("duration") -> ToParameterValue
+              .apply[String]
+              .apply(String.valueOf(duration))
+          )
+          .executeUpdate()
+
+        // Update task review status on old task reviews to "unecessary"
+        val reviewsExpired =
+          SQL(s"""UPDATE task_review tr
+                  SET review_status = ${Task.REVIEW_STATUS_UNNECESSARY},
+                      reviewed_at = NOW(),
+                      review_started_at = NULL,
+                      review_claimed_at = NULL,
+                      review_claimed_by = NULL
+                  WHERE tr.review_status = ${Task.REVIEW_STATUS_REQUESTED}
+                    AND tr.task_id IN (
+                      SELECT t.id FROM tasks t
+                      WHERE AGE(NOW(), t.modified) > {duration}::INTERVAL
+                    )""")
+            .on(
+              Symbol("duration") -> ToParameterValue
+                .apply[String]
+                .apply(String.valueOf(duration))
+            )
+            .executeUpdate()
+
+        logger.info(s"$reviewsExpired old task reviews were moved to uneccessary.")
       }
     }
   }
