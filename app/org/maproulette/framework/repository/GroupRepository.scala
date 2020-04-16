@@ -12,7 +12,7 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.model.Group
 import org.maproulette.framework.psql.Query
-import org.maproulette.framework.psql.filter.{BaseParameter, FilterParameter, SubQueryFilter}
+import org.maproulette.framework.psql.filter.BaseParameter
 import play.api.db.Database
 
 /**
@@ -20,6 +20,7 @@ import play.api.db.Database
   */
 @Singleton
 class GroupRepository @Inject() (val db: Database) extends RepositoryMixin {
+  implicit val baseTable: String = Group.TABLE
 
   /**
     * Retrieves a single Group matching the given id

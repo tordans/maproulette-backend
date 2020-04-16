@@ -23,6 +23,7 @@ import play.api.db.Database
   */
 @Singleton
 class ChallengeRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable:String = Challenge.TABLE
 
   /**
     * Query function that allows a user to build their own query against the Challenge table

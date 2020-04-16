@@ -91,7 +91,7 @@ class CommentRepositorySpec(implicit val application: Application) extends Frame
     this.commentRepository
       .query(
         Query.simple(
-          List(BaseParameter(s"task_comments.${Comment.FIELD_ID}", id))
+          List(BaseParameter(Comment.FIELD_ID, id))
         )
       )
       .headOption

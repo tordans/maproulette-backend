@@ -55,7 +55,7 @@ class QuerySpec extends PlaySpec {
     val query = Query.simple(
       List(parameter),
       "SELECT * FROM table",
-      grouping = Grouping("test1", "test2")
+      grouping = Grouping > ("test1", "test2")
     )
     query.sql() mustEqual s"SELECT * FROM table WHERE KEY = {$setKey} GROUP BY test1,test2"
     query.parameters().size mustEqual 1
@@ -70,7 +70,7 @@ class QuerySpec extends PlaySpec {
       AND(),
       paging,
       Order > "order",
-      Grouping("test1")
+      Grouping > "test1"
     )
     query
       .sql() mustEqual s"SELECT * FROM table WHERE KEY = {$setKey} GROUP BY test1 ORDER BY order DESC LIMIT {${pagingPrefix}limit} OFFSET {${pagingPrefix}offset}"
@@ -118,8 +118,10 @@ class QuerySpec extends PlaySpec {
     )
 
     query
-      .sql() mustEqual s"SELECT * FROM table WHERE (KEY = {$setKey} OR key2 = {${parameter2.getKey}}) AND (a.g = g.a OR dateField::DATE BETWEEN {${parameter4.getKey}_date1} AND {${parameter4.getKey}_date2}) AND (${FilterParameterSpec
-      .DEFAULT_FUZZY_SQL("fuzzy", keyPrefix = parameter5.randomPrefix)} AND subQueryKey IN (SELECT * FROM subTable WHERE subsubKey = {secondary${parameter6.getKey}} LIMIT {secondary${paging1.randomPrefix}limit} OFFSET {secondary${paging1.randomPrefix}offset})) ORDER BY oField DESC LIMIT {${paging2.randomPrefix}limit} OFFSET {${paging2.randomPrefix}offset}"
+      .sql() mustEqual s"""SELECT * FROM table WHERE (KEY = {$setKey} OR key2 = {${parameter2.getKey}}) AND (a.g = g.a OR dateField::DATE BETWEEN {${parameter4.getKey}_date1} AND {${parameter4.getKey}_date2}) AND (${FilterParameterSpec.DEFAULT_FUZZY_SQL(
+      "fuzzy",
+      keyPrefix = parameter5.randomPrefix
+    )} AND subQueryKey IN (SELECT * FROM subTable WHERE subsubKey = {${parameter6.getKey}} LIMIT {${paging1.randomPrefix}limit} OFFSET {${paging1.randomPrefix}offset})) ORDER BY oField DESC LIMIT {${paging2.randomPrefix}limit} OFFSET {${paging2.randomPrefix}offset}"""
     val params = query.parameters()
     params.size mustEqual 10
     params.head mustEqual SQLUtils.buildNamedParameter(setKey, VALUE)
@@ -131,11 +133,11 @@ class QuerySpec extends PlaySpec {
       "fuzzyValue"
     )
     params(5) mustEqual SQLUtils.buildNamedParameter(
-      s"secondary${parameter6.getKey}",
+      s"${parameter6.getKey}",
       "subsubValue"
     )
-    params(6) mustEqual SQLUtils.buildNamedParameter(s"secondary${paging1.randomPrefix}limit", 10)
-    params(7) mustEqual SQLUtils.buildNamedParameter(s"secondary${paging1.randomPrefix}offset", 0)
+    params(6) mustEqual SQLUtils.buildNamedParameter(s"${paging1.randomPrefix}limit", 10)
+    params(7) mustEqual SQLUtils.buildNamedParameter(s"${paging1.randomPrefix}offset", 0)
     params(8) mustEqual SQLUtils.buildNamedParameter(s"${paging2.randomPrefix}limit", 35)
     params(9) mustEqual SQLUtils.buildNamedParameter(s"${paging2.randomPrefix}offset", 525)
   }

@@ -17,9 +17,7 @@ import org.slf4j.{Logger, LoggerFactory}
   * @author mcuthbert
   */
 object Query {
-  val logger: Logger      = LoggerFactory.getLogger(Query.getClass)
-  val PRIMARY_QUERY_KEY   = ""
-  val SECONDARY_QUERY_KEY = "secondary"
+  val logger: Logger = LoggerFactory.getLogger(Query.getClass)
 
   //val config:Config
   def devMode(): Boolean = true //config.isDebugMode || config.isDevMode
@@ -51,9 +49,7 @@ case class Query(
     grouping: Grouping = Grouping(),
     includeWhere: Boolean = true
 ) extends SQLClause {
-  def build(
-      baseQuery: String = ""
-  )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): SimpleSql[Row] = {
+  def build(baseQuery: String = "")(implicit baseTable: String = ""): SimpleSql[Row] = {
     val parameters = this.parameters()
     val sql        = this.sqlWithBaseQuery(baseQuery)
     if (parameters.nonEmpty) {
@@ -63,16 +59,11 @@ case class Query(
     }
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = filter.parameters() ++ paging.parameters()
+  override def parameters(): List[NamedParameter] = filter.parameters() ++ paging.parameters()
 
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
-    this.sqlWithBaseQuery()
+  override def sql()(implicit table: String = ""): String = this.sqlWithBaseQuery()
 
-  def sqlWithBaseQuery(
-      baseQuery: String = ""
-  )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+  def sqlWithBaseQuery(baseQuery: String = "")(implicit baseTable: String = ""): String = {
     val filterQuery = filter.sql() match {
       case x if x.nonEmpty & includeWhere => s"WHERE $x"
       case x                              => x

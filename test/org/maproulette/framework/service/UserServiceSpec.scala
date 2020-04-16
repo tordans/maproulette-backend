@@ -243,7 +243,8 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
                     BaseParameter("ug.group_id", "g.id", useValueDirectly = true),
                     BaseParameter("g.project_id", "p.id")
                   )
-                )
+                ),
+                table = Some("")
               )
             ),
             OR(),

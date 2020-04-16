@@ -227,6 +227,7 @@ object Challenge extends CommonField {
   val COOPERATIVE_CHANGEFILE = 2
 
   // CHALLENGE FIELDS
+  val TABLE           = "challenges"
   val FIELD_PARENT_ID = "parent_id"
   val FIELD_ENABLED   = "enabled"
 

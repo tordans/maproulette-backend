@@ -6,7 +6,7 @@ package org.maproulette.framework.service
 
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.filter._
-import org.maproulette.framework.psql.{Query, OR}
+import org.maproulette.framework.psql.{OR, Query}
 
 /**
   * Helper functions for services
@@ -36,23 +36,39 @@ trait ServiceHelper {
           "",
           Query.simple(
             List(
-              BaseParameter("p.enabled", "", Operator.BOOL),
-              BaseParameter("c.enabled", "", Operator.BOOL)
+              BaseParameter(Project.FIELD_ENABLED, "", Operator.BOOL, table = Some(Project.TABLE)),
+              BaseParameter(
+                Challenge.FIELD_ENABLED,
+                "",
+                Operator.BOOL,
+                table = Some(Challenge.TABLE)
+              )
             ),
             includeWhere = false
           ),
           operator = Operator.CUSTOM
         ),
-        BaseParameter("p.owner_id", user.osmProfile.id),
+        BaseParameter(Project.FIELD_OWNER, user.osmProfile.id, table = Some(Project.TABLE)),
         SubQueryFilter(
           user.osmProfile.id.toString,
           Query.simple(
             List(
-              BaseParameter("ug.group_id", "g.id", useValueDirectly = true),
-              BaseParameter("g.project_id", "p.id", useValueDirectly = true)
+              BaseParameter(
+                Group.FIELD_UG_GROUP_ID,
+                "groups.id",
+                useValueDirectly = true,
+                table = Some(Group.TABLE_USER_GROUP)
+              ),
+              BaseParameter(
+                Group.FIELD_PROJECT_ID,
+                "projects.id",
+                useValueDirectly = true,
+                table = Some(Group.TABLE)
+              )
             ),
-            base = "SELECT ug.osm_user_id FROM user_groups ug, groups g "
-          )
+            base = "SELECT ug.osm_user_id FROM user_groups, groups "
+          ),
+          table = Some("")
         )
       ),
       OR(),

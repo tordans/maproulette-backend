@@ -22,6 +22,7 @@ import play.api.db.Database
   * @author mcuthbert
   */
 class CommentRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable: String = Comment.TABLE
 
   /**
     * Query function that allows a user to build their own query against the Comment table
@@ -92,9 +93,9 @@ class CommentRepository @Inject() (override val db: Database) extends Repository
   def retrieve(id: Long)(implicit c: Option[Connection] = None): Option[Comment] = {
     this.withMRConnection { implicit c =>
       Query
-        .simple(List(BaseParameter("tc.id", id)))
-        .build("""SELECT * FROM task_comments tc
-              INNER JOIN users u ON u.osm_id = tc.osm_id""")
+        .simple(List(BaseParameter("id", id)))
+        .build("""SELECT * FROM task_comments
+              INNER JOIN users ON users.osm_id = task_comments.osm_id""")
         .as(CommentRepository.parser.*)
         .headOption
     }

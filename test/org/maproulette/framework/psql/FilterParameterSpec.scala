@@ -9,18 +9,15 @@ import java.sql.SQLException
 
 import anorm.NamedParameter
 import org.joda.time.{DateTime, Months}
-import org.maproulette.framework.model.User
 import org.maproulette.framework.psql.filter._
-import org.maproulette.models.Task
 import org.scalatestplus.play.PlaySpec
 
 /**
   * @author mcuthbert
   */
 class FilterParameterSpec extends PlaySpec {
-  val KEY                           = "KEY"
-  val VALUE                         = "VALUE"
-  implicit val parameterKey: String = ""
+  val KEY   = "KEY"
+  val VALUE = "VALUE"
 
   "BaseParameter" should {
     "set correctly" in {
@@ -65,6 +62,11 @@ class FilterParameterSpec extends PlaySpec {
       val parameter = BaseParameter(KEY, List.empty, Operator.IN)
       parameter.sql() mustEqual ""
       parameter.parameters().size mustEqual 0
+    }
+
+    "set implicit table" in {
+      val parameter = BaseParameter(KEY, VALUE, table = Some("TEST"))
+      parameter.sql() mustEqual s"TEST.$KEY = {${parameter.getKey}}"
     }
   }
 
@@ -154,11 +156,11 @@ class FilterParameterSpec extends PlaySpec {
         Query.simple(List(parameter), "SELECT * FROM table")
       )
       filter
-        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE Key2 = {${Query.SECONDARY_QUERY_KEY}${parameter.getKey}})"
+        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE Key2 = {${parameter.getKey}})"
       val params = filter.parameters()
       params.size mustEqual 1
       params.head mustEqual SQLUtils.buildNamedParameter(
-        s"${Query.SECONDARY_QUERY_KEY}${parameter.getKey}",
+        s"${parameter.getKey}",
         "value2"
       )
     }
@@ -169,15 +171,15 @@ class FilterParameterSpec extends PlaySpec {
       val filter =
         SubQueryFilter(KEY, Query.simple(List(parameter1, parameter2), "SELECT * FROM table", OR()))
       filter
-        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}${parameter1.getKey}} OR key3 <= {${Query.SECONDARY_QUERY_KEY}${parameter2.getKey}})"
+        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE key2 = {${parameter1.getKey}} OR key3 <= {${parameter2.getKey}})"
       val params = filter.parameters()
       params.size mustEqual 2
       params.head mustEqual SQLUtils.buildNamedParameter(
-        s"${Query.SECONDARY_QUERY_KEY}${parameter1.getKey}",
+        s"${parameter1.getKey}",
         "value2"
       )
       params.tail.head mustEqual SQLUtils.buildNamedParameter(
-        s"${Query.SECONDARY_QUERY_KEY}${parameter2.getKey}",
+        s"${parameter2.getKey}",
         "value3"
       )
     }
@@ -190,7 +192,7 @@ class FilterParameterSpec extends PlaySpec {
         operator = Operator.EXISTS
       )
       filter
-        .sql() mustEqual s"EXISTS (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}${parameter.getKey}})"
+        .sql() mustEqual s"EXISTS (SELECT * FROM table WHERE key2 = {${parameter.getKey}})"
     }
 
     "Set equals subquery filter" in {
@@ -201,14 +203,7 @@ class FilterParameterSpec extends PlaySpec {
         operator = Operator.EQ
       )
       filter
-        .sql() mustEqual s"$KEY = (SELECT * FROM table WHERE key2 = {${Query.SECONDARY_QUERY_KEY}${parameter.getKey}})"
-    }
-
-    "set custom parameterKey correctly" in {
-      val parameter = BaseParameter(KEY, VALUE)
-      val filter =
-        SubQueryFilter(KEY, Query.simple(List(parameter), "SELECT * FROM table"))
-      filter.sql()("custom") mustEqual s"$KEY IN (SELECT * FROM table WHERE KEY = {${parameter.getKey("custom")}})"
+        .sql() mustEqual s"$KEY = (SELECT * FROM table WHERE key2 = {${parameter.getKey}})"
     }
 
     "fail on invalid provided column" in {
@@ -218,6 +213,18 @@ class FilterParameterSpec extends PlaySpec {
           Query.simple(List(BaseParameter("$%Key2", "value2")), "SELECT * FROM table")
         ).sql()
       }
+    }
+
+    "set different base tables" in {
+      val parameter = BaseParameter("key2", "value2")
+      val filter = SubQueryFilter(
+        KEY,
+        Query.simple(List(parameter), "SELECT * FROM table"),
+        table = Some("outerTable"),
+        subQueryTable = Some("innerTable")
+      )
+      filter
+        .sql() mustEqual s"outerTable.$KEY IN (SELECT * FROM table WHERE innerTable.key2 = {${parameter.getKey()}})"
     }
   }
 
@@ -274,7 +281,6 @@ class FilterParameterSpec extends PlaySpec {
 object FilterParameterSpec {
   def DEFAULT_FUZZY_SQL(
       key: String,
-      parameterKey: String = Query.PRIMARY_QUERY_KEY,
       score: Int = FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE,
       size: Int = FilterParameter.DEFAULT_METAPHONE_SIZE,
       keyPrefix: String = ""

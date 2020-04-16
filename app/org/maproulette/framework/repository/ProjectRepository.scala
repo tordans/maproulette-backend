@@ -12,7 +12,7 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.data.Actions
-import org.maproulette.framework.model.{Group, Project, User}
+import org.maproulette.framework.model.{Challenge, Group, Project, Tag, User}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.service.GroupService
@@ -31,6 +31,7 @@ import play.api.libs.json.Json
 @Singleton
 class ProjectRepository @Inject() (override val db: Database, groupService: GroupService)
     extends RepositoryMixin {
+  implicit val baseTable:String = Project.TABLE
 
   /**
     * Finds 0 or more projects that match the filter criteria
@@ -161,32 +162,40 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
     this.withMRTransaction { implicit c =>
       val tagsEnabled = params.challengeParams.challengeTags.isDefined && params.challengeParams.challengeTags.get.nonEmpty
 
-      val baseQuery = s"""
-          SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
-                  ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
-                  c.difficulty, c.last_updated
-          FROM challenges c
-          INNER JOIN projects p ON p.id = c.parent_id
-          INNER JOIN users u ON u.osm_id = c.owner_id
+      val baseQuery =
+        s"""
+          SELECT challenges.id, users.osm_id, users.name, challenges.name, challenges.parent_id, 
+                  |projects.name, challenges.blurb, ST_AsGeoJSON(challenges.location) AS location, 
+                  |ST_AsGeoJSON(challenges.bounding) AS bounding, challenges.difficulty, 
+                  |challenges.last_updated 
+          |FROM challenges
+          |INNER JOIN projects ON projects.id = challenges.parent_id
+          |INNER JOIN users ON users.osm_id = challenges.owner_id
         ${if (tagsEnabled) {
-        """
-          |INNER JOIN tags_on_challenges tc ON tc.challenge_id = c.id
-          |INNER JOIN tags t ON t.id = tc.tag_id
+             """
+          |INNER JOIN tags_on_challenges ON tags_on_challenges.challenge_id = challenges.id
+          |INNER JOIN tags ON tags.id = tags_on_challenges.tag_id
           """.stripMargin
-      }}
-          """
+           }}
+          """.stripMargin
       val tagFilterString =
         params.challengeParams.challengeTags.getOrElse(List.empty).mkString("%(", "|", ")%")
 
       Query
         .simple(
           List(
-            BaseParameter("c.location", null, Operator.NULL, negate = true),
+            BaseParameter(
+              "location",
+              null,
+              Operator.NULL,
+              negate = true,
+              table = Some(Challenge.TABLE)
+            ),
             SubQueryFilter(
               "",
               Query.simple(
                 List(
-                  BaseParameter("parent_id", "c.id", useValueDirectly = true),
+                  BaseParameter("parent_id", "challenges.id", useValueDirectly = true),
                   BaseParameter(
                     "status",
                     List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD),
@@ -198,45 +207,54 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
               ),
               operator = Operator.EXISTS
             ),
-            FilterParameter.conditional("c.featured", true, includeOnlyIfTrue = true),
-            BaseParameter(
-              "c.name",
-              SQLUtils.search(params.challengeParams.challengeSearch.getOrElse("")),
-              Operator.ILIKE
+            FilterParameter.conditional(
+              "featured",
+              true,
+              includeOnlyIfTrue = featured,
+              table = Some(Challenge.TABLE)
             ),
             BaseParameter(
-              "p.name",
+              "name",
+              SQLUtils.search(params.challengeParams.challengeSearch.getOrElse("")),
+              Operator.ILIKE,
+              table = Some(Challenge.TABLE)
+            ),
+            BaseParameter(
+              "name",
               SQLUtils.search(params.projectSearch.getOrElse("")),
               Operator.ILIKE
             ),
             FilterParameter.conditional(
-              "c.enabled",
+              "enabled",
               params.enabledChallenge,
-              includeOnlyIfTrue = params.enabledChallenge
+              includeOnlyIfTrue = params.enabledChallenge,
+              table = Some(Challenge.TABLE)
             ),
             FilterParameter.conditional(
-              "p.enabled",
+              "enabled",
               params.enabledProject,
               includeOnlyIfTrue = params.enabledProject
             ),
-            BaseParameter("c.deleted", false),
-            BaseParameter("p.deleted", false),
+            BaseParameter("deleted", false, table = Some(Challenge.TABLE)),
+            BaseParameter("deleted", false),
             FilterParameter.conditional(
-              "c.parent_id",
+              "parent_id",
               params.projectIds.getOrElse(List.empty),
-              includeOnlyIfTrue = params.projectIds.getOrElse(List.empty).nonEmpty
+              includeOnlyIfTrue = params.projectIds.getOrElse(List.empty).nonEmpty,
+              table = Some(Challenge.TABLE)
             ),
             ConditionalFilterParameter(
               CustomParameter(
-                s"c.location @ ST_MakeEnvelope(${params.location.get.left}, ${params.location.get.bottom}, ${params.location.get.right}, ${params.location.get.top}, 4326)"
+                s"challenges.location @ ST_MakeEnvelope(${params.location.get.left}, ${params.location.get.bottom}, ${params.location.get.right}, ${params.location.get.top}, 4326)"
               ),
               params.location.isDefined
             ),
             FilterParameter.conditional(
-              "t.name",
+              "name",
               tagFilterString,
               Operator.SIMILAR_TO,
-              includeOnlyIfTrue = tagsEnabled
+              includeOnlyIfTrue = tagsEnabled,
+              table = Some(Tag.TABLE)
             )
           ),
           baseQuery,
@@ -256,12 +274,12 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
       Query
         .simple(
           List(
-            BaseParameter("c.location", null, Operator.NULL, negate = true),
+            BaseParameter("location", null, Operator.NULL, negate = true, table = Some(Challenge.TABLE)),
             SubQueryFilter(
               "",
               Query.simple(
                 List(
-                  BaseParameter("parent_id", "c.id", useValueDirectly = true),
+                  BaseParameter("parent_id", "challenges.id", useValueDirectly = true),
                   BaseParameter(
                     "status",
                     List(Task.STATUS_CREATED, Task.STATUS_SKIPPED, Task.STATUS_TOO_HARD),
@@ -273,28 +291,31 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
               ),
               operator = Operator.EXISTS
             ),
-            FilterParameter.conditional("c.enabled", enabledOnly, includeOnlyIfTrue = enabledOnly),
-            FilterParameter.conditional("p.enabled", enabledOnly, includeOnlyIfTrue = enabledOnly),
-            BaseParameter("c.deleted", false),
-            BaseParameter("p.deleted", false),
+            FilterParameter.conditional("enabled", enabledOnly, includeOnlyIfTrue = enabledOnly, table = Some(Challenge.TABLE)),
+            FilterParameter.conditional("enabled", enabledOnly, includeOnlyIfTrue = enabledOnly),
+            BaseParameter("deleted", false, table = Some(Challenge.TABLE)),
+            BaseParameter("deleted", false),
             FilterParameter.conditional(
-              "c.parent_id",
+              "parent_id",
               projectId.getOrElse(-1),
-              includeOnlyIfTrue = projectId.isDefined
+              includeOnlyIfTrue = projectId.isDefined,
+              table = Some(Challenge.TABLE)
             ),
             FilterParameter.conditional(
-              "c.id",
+              "id",
               challengeIds,
               Operator.IN,
-              includeOnlyIfTrue = challengeIds.nonEmpty
+              includeOnlyIfTrue = challengeIds.nonEmpty,
+              table = Some(Challenge.TABLE)
             )
           ),
-          """SELECT c.id, u.osm_id, u.name, c.name, c.parent_id, p.name, c.blurb,
-                    ST_AsGeoJSON(c.location) AS location, ST_AsGeoJSON(c.bounding) AS bounding,
-                    c.difficulty, c.last_updated
-              FROM challenges c
-              INNER JOIN projects p ON p.id = c.parent_id
-              INNER JOIN users u ON u.osm_id = c.owner_id"""
+          """SELECT challenges.id, users.osm_id, users.name, challenges.name,
+                    |challenges.parent_id, projects.name, challenges.blurb,
+                    |ST_AsGeoJSON(challenges.location) AS location, ST_AsGeoJSON(challenges.bounding) AS bounding,
+                    |challenges.difficulty, challenges.last_updated
+              |FROM challenges
+              |INNER JOIN projects ON projects.id = challenges.parent_id
+              |INNER JOIN users ON users.osm_id = challenges.owner_id""".stripMargin
         )
         .build()
         .as(ProjectRepository.pointParser.*)

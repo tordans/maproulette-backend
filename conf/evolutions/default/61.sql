@@ -8,6 +8,8 @@ ALTER TABLE challenges ALTER cooperative_type DROP DEFAULT;;
 ALTER TABLE challenges ALTER cooperative_type TYPE INTEGER USING CASE WHEN cooperative_type=TRUE THEN 1 ELSE 0 END;;
 ALTER TABLE challenges ALTER cooperative_type SET DEFAULT 0;;
 
+SELECT add_drop_column('locked', 'changeset_id', 'integer not null default(-1)');;
+
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change makes sure not to reset the task status if a task is disabled or declared a false positive
 DROP FUNCTION IF EXISTS update_task(text,bigint,text,integer,jsonb,jsonb,bigint,integer,bigint,text,timestamp without time zone,integer,integer,integer,timestamp without time zone);;
@@ -156,6 +158,8 @@ ALTER TABLE challenges RENAME COLUMN cooperative_type to has_suggested_fixes;;
 ALTER TABLE challenges ALTER has_suggested_fixes DROP DEFAULT;;
 ALTER TABLE challenges ALTER has_suggested_fixes TYPE BOOLEAN USING CASE WHEN has_suggested_fixes > 0 then TRUE ELSE FALSE END;;
 ALTER TABLE challenges ALTER has_suggested_fixes SET DEFAULT FALSE;;
+
+SELECT add_drop_column('locked', 'changeset_id', '', false);;
 
 -- Creates or updates and task. Will also check if task status needs to be updated
 -- This change makes sure not to reset the task status if a task is disabled or declared a false positive

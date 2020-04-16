@@ -18,96 +18,96 @@ class FilterOperatorSpec extends PlaySpec {
 
   "FilterOperator" should {
     "format EQ operator correctly" in {
-      Operator.format(KEY, Operator.EQ) mustEqual s"$KEY = {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.EQ) mustEqual s"$KEY = {$parameterKey}"
     }
 
     "format NOT EQ operator correctly" in {
-      Operator.format(KEY, Operator.EQ, true) mustEqual s"NOT $KEY = {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.EQ, true) mustEqual s"NOT $KEY = {$parameterKey}"
     }
 
     "format GT operator correctly" in {
-      Operator.format(KEY, Operator.GT) mustEqual s"$KEY > {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.GT) mustEqual s"$KEY > {$parameterKey}"
     }
 
     "format NOT GT operator correctly" in {
-      Operator.format(KEY, Operator.GT, true) mustEqual s"NOT $KEY > {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.GT, true) mustEqual s"NOT $KEY > {$parameterKey}"
     }
 
     "format GTE operator correctly" in {
-      Operator.format(KEY, Operator.GTE) mustEqual s"$KEY >= {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.GTE) mustEqual s"$KEY >= {$parameterKey}"
     }
 
     "format NOT GTE operator correctly" in {
-      Operator.format(KEY, Operator.GTE, true) mustEqual s"NOT $KEY >= {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.GTE, true) mustEqual s"NOT $KEY >= {$parameterKey}"
     }
 
     "format LT operator correctly" in {
-      Operator.format(KEY, Operator.LT) mustEqual s"$KEY < {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.LT) mustEqual s"$KEY < {$parameterKey}"
     }
 
     "format NOT LT operator correctly" in {
-      Operator.format(KEY, Operator.LT, true) mustEqual s"NOT $KEY < {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.LT, true) mustEqual s"NOT $KEY < {$parameterKey}"
     }
 
     "format LTE operator correctly" in {
-      Operator.format(KEY, Operator.LTE) mustEqual s"$KEY <= {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.LTE) mustEqual s"$KEY <= {$parameterKey}"
     }
 
     "format NOT LTE operator correctly" in {
-      Operator.format(KEY, Operator.LTE, negate = true) mustEqual s"NOT $KEY <= {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.LTE, negate = true) mustEqual s"NOT $KEY <= {$parameterKey}"
     }
 
     "format IN operator correctly" in {
-      Operator.format(KEY, Operator.IN) mustEqual s"$KEY IN ({$parameterKey$KEY})"
+      Operator.format(KEY, parameterKey, Operator.IN) mustEqual s"$KEY IN ({$parameterKey})"
     }
 
     "format NOT IN operator correctly" in {
-      Operator.format(KEY, Operator.IN, negate = true) mustEqual s"NOT $KEY IN ({$parameterKey$KEY})"
+      Operator.format(KEY, parameterKey, Operator.IN, negate = true) mustEqual s"NOT $KEY IN ({$parameterKey})"
     }
 
     "format LIKE operator correctly" in {
-      Operator.format(KEY, Operator.LIKE) mustEqual s"$KEY LIKE {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.LIKE) mustEqual s"$KEY LIKE {$parameterKey}"
     }
 
     "format NOT LIKE operator correctly" in {
-      Operator.format(KEY, Operator.LIKE, negate = true) mustEqual s"NOT $KEY LIKE {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.LIKE, negate = true) mustEqual s"NOT $KEY LIKE {$parameterKey}"
     }
 
     "format ILIKE operator correctly" in {
-      Operator.format(KEY, Operator.ILIKE) mustEqual s"$KEY ILIKE {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.ILIKE) mustEqual s"$KEY ILIKE {$parameterKey}"
     }
 
     "format NOT ILIKE operator correctly" in {
-      Operator.format(KEY, Operator.ILIKE, negate = true) mustEqual s"NOT $KEY ILIKE {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.ILIKE, negate = true) mustEqual s"NOT $KEY ILIKE {$parameterKey}"
     }
 
     "format SIMILAR TO operator correctly" in {
-      Operator.format(KEY, Operator.SIMILAR_TO) mustEqual s"$KEY SIMILAR TO {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.SIMILAR_TO) mustEqual s"$KEY SIMILAR TO {$parameterKey}"
     }
 
     "format NOT SIMILAR TO operator correctly" in {
-      Operator.format(KEY, Operator.SIMILAR_TO, negate = true) mustEqual s"NOT $KEY SIMILAR TO {$parameterKey$KEY}"
+      Operator.format(KEY, parameterKey, Operator.SIMILAR_TO, negate = true) mustEqual s"NOT $KEY SIMILAR TO {$parameterKey}"
     }
 
     "format EXISTS operator correctly" in {
-      Operator.format(KEY, Operator.EXISTS) mustEqual s"EXISTS ({$parameterKey$KEY})"
+      Operator.format(KEY, parameterKey, Operator.EXISTS) mustEqual s"EXISTS ({$parameterKey})"
     }
 
     "format NOT EXISTS operator correctly" in {
-      Operator.format(KEY, Operator.EXISTS, negate = true) mustEqual s"NOT EXISTS ({$parameterKey$KEY})"
+      Operator.format(KEY, parameterKey, Operator.EXISTS, negate = true) mustEqual s"NOT EXISTS ({$parameterKey})"
     }
 
     "format BOOL operator correctly" in {
-      Operator.format(KEY, Operator.BOOL) mustEqual s"key"
+      Operator.format(KEY, parameterKey, Operator.BOOL) mustEqual s"key"
     }
 
     "format rightValue correctly if set" in {
-      Operator.format(KEY, Operator.EQ, value = Some("test.key")) mustEqual s"$KEY = test.key"
+      Operator.format(KEY, parameterKey, Operator.EQ, value = Some("test.key")) mustEqual s"$KEY = test.key"
     }
 
     "between should throw invalidException" in {
       intercept[InvalidException] {
-        Operator.format(KEY, Operator.BETWEEN)
+        Operator.format(KEY, parameterKey, Operator.BETWEEN)
       }
     }
   }

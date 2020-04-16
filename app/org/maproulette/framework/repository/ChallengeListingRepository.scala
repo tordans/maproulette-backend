@@ -10,10 +10,8 @@ import java.sql.Connection
 import anorm.SqlParser.get
 import anorm.{RowParser, ~}
 import javax.inject.{Inject, Singleton}
-import org.apache.commons.lang3.StringUtils
-import org.joda.time.DateTime
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.{Paging, Query}
+import org.maproulette.framework.psql.Query
 import play.api.db.Database
 
 /**
@@ -24,6 +22,7 @@ import play.api.db.Database
   */
 @Singleton
 class ChallengeListingRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable:String = Challenge.TABLE
 
   /**
     * Query function that allows a user to build their own query against the Challenge table
@@ -35,12 +34,14 @@ class ChallengeListingRepository @Inject() (override val db: Database) extends R
   def query(query: Query)(implicit c: Option[Connection] = None): List[ChallengeListing] = {
     withMRConnection { implicit c =>
       query
-        .build(s"""SELECT ${ChallengeListingRepository.standardColumns} FROM challenges c
-          INNER JOIN projects p ON p.id = c.parent_id
-          INNER JOIN tasks t ON t.parent_id = c.id
-          LEFT OUTER JOIN task_review ON task_review.task_id = t.id
-          LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
-          """)
+        .build(
+          s"""SELECT ${ChallengeListingRepository.standardColumns} FROM challenges
+              |INNER JOIN projects ON projects.id = challenges.parent_id
+              |INNER JOIN tasks ON tasks.parent_id = challenges.id
+              |LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+              |LEFT OUTER JOIN virtual_project_challenges ON challenges.id = virtual_project_challenges.challenge_id
+            """.stripMargin
+        )
         .as(ChallengeListingRepository.parser.*)
     }
   }
@@ -48,7 +49,11 @@ class ChallengeListingRepository @Inject() (override val db: Database) extends R
 
 object ChallengeListingRepository {
   val standardColumns: String =
-    "c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids"
+    """challenges.id, 
+      |challenges.parent_id, 
+      |challenges.name, 
+      |challenges.enabled, 
+      |array_remove(array_agg(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids""".stripMargin
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly

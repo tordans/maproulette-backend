@@ -10,6 +10,7 @@ import java.sql.Connection
 import anorm.SqlParser.get
 import anorm.{RowParser, ~}
 import javax.inject.{Inject, Singleton}
+import org.maproulette.framework.model.TaskReview
 import org.maproulette.framework.psql.Query
 import org.maproulette.models.Task
 import play.api.db.Database
@@ -19,6 +20,8 @@ import play.api.db.Database
   */
 @Singleton
 class TaskReviewRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable:String = TaskReview.TABLE
+
   def getTaskReviewCounts(query: Query)(implicit c: Option[Connection] = None): Map[String, Int] = {
     this.withMRTransaction { implicit c =>
       val reviewCountsParser: RowParser[Map[String, Int]] = {
