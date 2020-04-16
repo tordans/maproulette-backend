@@ -21,7 +21,7 @@ import play.api.db.Database
   */
 @Singleton
 class VirtualProjectRepository @Inject() (override val db: Database) extends RepositoryMixin {
-  implicit val baseTable:String = VirtualProject.TABLE
+  implicit val baseTable: String = VirtualProject.TABLE
 
   def addChallenge(projectId: Long, challengeId: Long)(
       implicit c: Option[Connection] = None

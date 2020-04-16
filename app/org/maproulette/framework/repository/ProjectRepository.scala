@@ -31,7 +31,7 @@ import play.api.libs.json.Json
 @Singleton
 class ProjectRepository @Inject() (override val db: Database, groupService: GroupService)
     extends RepositoryMixin {
-  implicit val baseTable:String = Project.TABLE
+  implicit val baseTable: String = Project.TABLE
 
   /**
     * Finds 0 or more projects that match the filter criteria
@@ -161,6 +161,20 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
   )(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRTransaction { implicit c =>
       val tagsEnabled = params.challengeParams.challengeTags.isDefined && params.challengeParams.challengeTags.get.nonEmpty
+      val bounds = params.location match {
+        case Some(location) =>
+          s"challenges.location @ ST_MakeEnvelope(${location.left}, ${location.bottom}, ${location.right}, ${location.top}, 4326)"
+        case None => ""
+      }
+
+      val tagQuery = if (tagsEnabled) {
+        """
+          |INNER JOIN tags_on_challenges ON tags_on_challenges.challenge_id = challenges.id
+          |INNER JOIN tags ON tags.id = tags_on_challenges.tag_id
+          """.stripMargin
+      } else {
+        ""
+      }
 
       val baseQuery =
         s"""
@@ -171,13 +185,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
           |FROM challenges
           |INNER JOIN projects ON projects.id = challenges.parent_id
           |INNER JOIN users ON users.osm_id = challenges.owner_id
-        ${if (tagsEnabled) {
-             """
-          |INNER JOIN tags_on_challenges ON tags_on_challenges.challenge_id = challenges.id
-          |INNER JOIN tags ON tags.id = tags_on_challenges.tag_id
-          """.stripMargin
-           }}
-          """.stripMargin
+          |$tagQuery""".stripMargin
       val tagFilterString =
         params.challengeParams.challengeTags.getOrElse(List.empty).mkString("%(", "|", ")%")
 
@@ -243,12 +251,7 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
               includeOnlyIfTrue = params.projectIds.getOrElse(List.empty).nonEmpty,
               table = Some(Challenge.TABLE)
             ),
-            ConditionalFilterParameter(
-              CustomParameter(
-                s"challenges.location @ ST_MakeEnvelope(${params.location.get.left}, ${params.location.get.bottom}, ${params.location.get.right}, ${params.location.get.top}, 4326)"
-              ),
-              params.location.isDefined
-            ),
+            ConditionalFilterParameter(CustomParameter(bounds), params.location.isDefined),
             FilterParameter.conditional(
               "name",
               tagFilterString,
@@ -268,13 +271,20 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
   def getClusteredPoints(
       projectId: Option[Long] = None,
       challengeIds: List[Long] = List.empty,
-      enabledOnly: Boolean = true
+      enabledOnly: Boolean = true,
+      paging: Paging = Paging()
   )(implicit c: Option[Connection] = None): List[ClusteredPoint] = {
     this.withMRTransaction { implicit c =>
       Query
         .simple(
           List(
-            BaseParameter("location", null, Operator.NULL, negate = true, table = Some(Challenge.TABLE)),
+            BaseParameter(
+              "location",
+              null,
+              Operator.NULL,
+              negate = true,
+              table = Some(Challenge.TABLE)
+            ),
             SubQueryFilter(
               "",
               Query.simple(
@@ -291,7 +301,12 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
               ),
               operator = Operator.EXISTS
             ),
-            FilterParameter.conditional("enabled", enabledOnly, includeOnlyIfTrue = enabledOnly, table = Some(Challenge.TABLE)),
+            FilterParameter.conditional(
+              "enabled",
+              enabledOnly,
+              includeOnlyIfTrue = enabledOnly,
+              table = Some(Challenge.TABLE)
+            ),
             FilterParameter.conditional("enabled", enabledOnly, includeOnlyIfTrue = enabledOnly),
             BaseParameter("deleted", false, table = Some(Challenge.TABLE)),
             BaseParameter("deleted", false),
@@ -315,7 +330,8 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
                     |challenges.difficulty, challenges.last_updated
               |FROM challenges
               |INNER JOIN projects ON projects.id = challenges.parent_id
-              |INNER JOIN users ON users.osm_id = challenges.owner_id""".stripMargin
+              |INNER JOIN users ON users.osm_id = challenges.owner_id""".stripMargin,
+          paging = paging
         )
         .build()
         .as(ProjectRepository.pointParser.*)

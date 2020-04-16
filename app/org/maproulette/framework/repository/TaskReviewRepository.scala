@@ -20,7 +20,7 @@ import play.api.db.Database
   */
 @Singleton
 class TaskReviewRepository @Inject() (override val db: Database) extends RepositoryMixin {
-  implicit val baseTable:String = TaskReview.TABLE
+  implicit val baseTable: String = TaskReview.TABLE
 
   def getTaskReviewCounts(query: Query)(implicit c: Option[Connection] = None): Map[String, Int] = {
     this.withMRTransaction { implicit c =>

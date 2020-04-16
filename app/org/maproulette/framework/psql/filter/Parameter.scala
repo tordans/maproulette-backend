@@ -52,9 +52,11 @@ trait Parameter[T] extends SQLClause {
   protected def getColumnKey(tableKey: String): String = {
     this.table.getOrElse(tableKey) match {
       case "" => key
-      case v => s"$v.$key"
+      case v  => s"$v.$key"
     }
   }
+
+  def getKey(): String = s"$randomPrefix$key"
 
   override def parameters(): List[NamedParameter] = {
     if ((value.isInstanceOf[Iterable[_]] && value
@@ -65,8 +67,6 @@ trait Parameter[T] extends SQLClause {
       List(SQLUtils.buildNamedParameter(this.getKey(), value))
     }
   }
-
-  def getKey(): String = s"$randomPrefix$key"
 }
 
 /**
@@ -165,21 +165,20 @@ case class SubQueryFilter(
     subQueryTable: Option[String] = Some("")
 ) extends Parameter[Query] {
   override def sql()(implicit tableKey: String = ""): String = {
-    val innerKey = subQueryTable.getOrElse(tableKey)
+    val innerSQL = value.sql()(subQueryTable.getOrElse(tableKey)) match {
+      case ""                                                            => ""
+      case sql if operator == Operator.IN || operator == Operator.EXISTS => sql
+      case sql                                                           => s"($sql)"
+    }
     if (operator == Operator.CUSTOM) {
-      s"(${value.sql()(innerKey)})"
+      innerSQL
     } else {
-      val filterValue = if (operator == Operator.IN || operator == Operator.EXISTS) {
-        Some(value.sql()(innerKey))
-      } else {
-        Some(s"(${value.sql()(innerKey)})")
-      }
       Operator.format(
         this.getColumnKey(tableKey),
         this.getKey(),
         operator,
         negate,
-        filterValue
+        Some(innerSQL)
       )
     }
   }

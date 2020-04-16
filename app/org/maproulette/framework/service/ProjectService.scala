@@ -425,8 +425,9 @@ class ProjectService @Inject() (
   def getClusteredPoints(
       projectId: Option[Long] = None,
       challengeIds: List[Long] = List.empty,
-      enabledOnly: Boolean = true
+      enabledOnly: Boolean = true,
+      paging: Paging = Paging()
   ): List[ClusteredPoint] = {
-    this.repository.getClusteredPoints(projectId, challengeIds, enabledOnly)
+    this.repository.getClusteredPoints(projectId, challengeIds, enabledOnly, paging)
   }
 }

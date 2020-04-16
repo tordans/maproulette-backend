@@ -8,7 +8,7 @@ package org.maproulette.framework.psql
 import anorm.NamedParameter
 import org.maproulette.framework.psql.filter.SQLClause
 
-case class OrderField(name: String, direction: Int = Order.DESC, table:Option[String] = None)
+case class OrderField(name: String, direction: Int = Order.DESC, table: Option[String] = None)
 
 /**
   * Basic class to handle any ordering that needs to be added to the query
@@ -16,14 +16,14 @@ case class OrderField(name: String, direction: Int = Order.DESC, table:Option[St
   * @author mcuthbert
   */
 case class Order(fields: List[OrderField] = List.empty) extends SQLClause {
-  override def sql()(implicit table:String = ""): String = {
+  override def sql()(implicit table: String = ""): String = {
     val directions = fields.map(field => field.direction).distinct
     val orderFields = fields
       .map(field => {
         SQLUtils.testColumnName(field.name)
         val fieldDirection = if (directions.size > 1) Order.direction(field.direction) else ""
         val columnKey = field.table.getOrElse(table) match {
-          case "" => field.name
+          case ""    => field.name
           case value => s"$value.${field.name}"
         }
         s"$columnKey $fieldDirection".trim

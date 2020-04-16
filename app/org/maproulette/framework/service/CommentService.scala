@@ -78,12 +78,12 @@ class CommentService @Inject() (
   /**
     * Deletes a comment from the database
     *
-    * @param commentId The identifier of the comment
     * @param taskId The identifier of the task parent
+    * @param commentId The identifier of the comment
     * @param user The user deleting the comment
     * @return Boolean if delete was successful
     */
-  def delete(commentId: Long, taskId: Long, user: User): Boolean = {
+  def delete(taskId: Long, commentId: Long, user: User): Boolean = {
     this.taskDAL.retrieveById(taskId) match {
       case Some(task) =>
         this.permission.hasObjectAdminAccess(task, user)

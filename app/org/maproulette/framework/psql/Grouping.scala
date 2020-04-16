@@ -22,7 +22,7 @@ case class Grouping(groups: GroupField*) extends SQLClause {
         .map(group => {
           SQLUtils.testColumnName(group.name)
           group.table.getOrElse(table) match {
-            case "" => group.name
+            case ""    => group.name
             case value => s"$value.${group.name}"
           }
         })

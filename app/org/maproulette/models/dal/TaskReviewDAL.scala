@@ -445,7 +445,7 @@ class TaskReviewDAL @Inject() (
     }
 
     val parameters = new ListBuffer[NamedParameter]()
-    parameters ++= addSearchToQuery(searchParameters, whereClause)(false)
+    parameters ++= addSearchToQuery(searchParameters, whereClause)
 
     setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
 

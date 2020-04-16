@@ -10,7 +10,12 @@ import java.sql.Connection
 import anorm.SQL
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.model.{Challenge, SavedChallenge, SavedTasks}
-import org.maproulette.framework.psql.filter.{BaseParameter, FilterParameter, Operator, SubQueryFilter}
+import org.maproulette.framework.psql.filter.{
+  BaseParameter,
+  FilterParameter,
+  Operator,
+  SubQueryFilter
+}
 import org.maproulette.framework.psql._
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
@@ -28,7 +33,7 @@ class UserSavedObjectsRepository @Inject() (
     challengeDAL: ChallengeDAL,
     taskDAL: TaskDAL
 ) extends RepositoryMixin {
-  implicit val baseTable:String = SavedChallenge.TABLE
+  implicit val baseTable: String = SavedChallenge.TABLE
 
   /**
     * Retreives all the challenges saved to a user profile

@@ -17,7 +17,7 @@ import org.maproulette.framework.psql.{AND, Query, SQLKey}
   * @author mcuthbert
   */
 trait SQLClause {
-  def sql()(implicit tableKey:String = ""): String
+  def sql()(implicit tableKey: String = ""): String
   def parameters(): List[NamedParameter] = List.empty
 
   // Simple function that makes sure I don't have a bunch of empty spaces at the end of the query.
@@ -32,7 +32,7 @@ trait SQLClause {
 
 case class FilterGroup(params: List[Parameter[_]], key: SQLKey = AND(), condition: Boolean = true)
     extends SQLClause {
-  override def sql()(implicit tableKey:String = ""): String =
+  override def sql()(implicit tableKey: String = ""): String =
     if (condition) {
       params
         .flatMap(param =>
@@ -50,7 +50,7 @@ case class FilterGroup(params: List[Parameter[_]], key: SQLKey = AND(), conditio
 }
 
 case class Filter(groups: List[FilterGroup], key: SQLKey = AND()) extends SQLClause {
-  def sql()(implicit tableKey:String = ""): String = {
+  def sql()(implicit tableKey: String = ""): String = {
     val groupSeparator = if (groups.size == 1) {
       ("", "")
     } else {

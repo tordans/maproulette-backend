@@ -32,7 +32,7 @@ class CommentServiceSpec(implicit val application: Application) extends Framewor
 
     "delete a comment in the database" taggedAs CommentTag in {
       val comment = this.commentService.create(User.superUser, defaultTask.id, "GP delete", None)
-      this.commentService.delete(comment.id, comment.taskId, User.superUser)
+      this.commentService.delete(comment.taskId, comment.id, User.superUser)
       this.commentService.retrieve(comment.id).isEmpty mustEqual true
     }
 
@@ -40,7 +40,7 @@ class CommentServiceSpec(implicit val application: Application) extends Framewor
       intercept[NotFoundException] {
         val comment =
           this.commentService.create(User.superUser, defaultTask.id, "GP delete attempt", None)
-        this.commentService.delete(comment.id, 12355, User.superUser)
+        this.commentService.delete(12355, comment.id, User.superUser)
       }
     }
 

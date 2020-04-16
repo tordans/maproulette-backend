@@ -100,7 +100,12 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
           // reviewed_by is empty or user.id if excludeOtherReviewers
           FilterGroup(
             List(
-              BaseParameter(TaskReview.FIELD_REVIEWED_BY, "", Operator.NULL, table = Some(TaskReview.TABLE)),
+              BaseParameter(
+                TaskReview.FIELD_REVIEWED_BY,
+                "",
+                Operator.NULL,
+                table = Some(TaskReview.TABLE)
+              ),
               BaseParameter(TaskReview.FIELD_REVIEWED_BY, user.id, table = Some(TaskReview.TABLE))
             ),
             OR(),
