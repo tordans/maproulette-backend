@@ -24,7 +24,8 @@ class ServiceManager @Inject() (
     challengeService: Provider[ChallengeService],
     challengeListingService: Provider[ChallengeListingService],
     userMetricService: Provider[UserMetricService],
-    virtualProjectService: Provider[VirtualProjectService]
+    virtualProjectService: Provider[VirtualProjectService],
+    taskReviewService: Provider[TaskReviewService]
 ) {
   def comment: CommentService = commentService.get()
 
@@ -52,4 +53,6 @@ class ServiceManager @Inject() (
   def challenge: ChallengeService = challengeService.get()
 
   def challengeListing: ChallengeListingService = challengeListingService.get()
+
+  def taskReview: TaskReviewService = taskReviewService.get()
 }

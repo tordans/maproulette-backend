@@ -25,6 +25,7 @@ import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
 import play.api.Application
 import play.api.db.Database
+import java.time.Instant
 
 import scala.util.{Failure, Success}
 
@@ -66,6 +67,7 @@ class SchedulerActor @Inject() (
     case RunJob("runChallengeSchedules", action)        => this.runChallengeSchedules(action)
     case RunJob("updateLocations", action)              => this.updateLocations(action)
     case RunJob("cleanOldTasks", action)                => this.cleanOldTasks(action)
+    case RunJob("expireTaskReviews", action)            => this.expireTaskReviews(action)
     case RunJob("cleanExpiredVirtualChallenges", action) =>
       this.cleanExpiredVirtualChallenges(action)
     case RunJob("FindChangeSets", action)      => this.findChangeSets(action)
@@ -192,6 +194,24 @@ class SchedulerActor @Inject() (
             this.dALManager.task.cacheManager.clearCaches
           }
         }
+      }
+    }
+  }
+
+  /**
+    * This job moves expired task reviews to 'unnecessary'. To enable, set:
+    *    osm.scheduler.expireTaskReviews.interval=FiniteDuration
+    *    osm.scheduler.expireTaskReviews.olderThan=FiniteDuration
+    */
+  def expireTaskReviews(str: String): Unit = {
+    config.withFiniteDuration(Config.KEY_SCHEDULER_EXPIRE_TASK_REVIEWS_OLDER_THAN) { duration =>
+      db.withConnection { implicit c =>
+        logger.info(
+          s"Expiring task reviews older than $duration ..."
+        )
+
+        val reviewsExpired = this.serviceManager.taskReview.expireTaskReviews(duration)
+        logger.info(s"$reviewsExpired old task reviews were moved to uneccessary.")
       }
     }
   }

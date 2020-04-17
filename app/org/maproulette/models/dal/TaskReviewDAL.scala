@@ -5,7 +5,6 @@
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.JodaParameterMetaData._
 import anorm.SqlParser._
@@ -550,7 +549,8 @@ class TaskReviewDAL @Inject() (
   )(implicit c: Connection = null): (Int, List[Task]) = {
     var orderByClause = ""
     val whereClause = new StringBuilder(
-      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND "
+      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND " +
+        s"task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY} AND "
     )
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
@@ -1018,8 +1018,6 @@ class TaskReviewDAL @Inject() (
       this.permission.hasWriteAccess(ChallengeType(), user)(task.parent)
     }
 
-    val now = Instant.now()
-
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
@@ -1042,7 +1040,7 @@ class TaskReviewDAL @Inject() (
       val updatedRows =
         SQL"""UPDATE task_review SET review_status = $reviewStatus,
                                  #${fetchBy} = ${user.id},
-                                 reviewed_at = ${now},
+                                 reviewed_at = NOW(),
                                  review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
                                  review_claimed_by = NULL
@@ -1086,7 +1084,7 @@ class TaskReviewDAL @Inject() (
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                          $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
+                          $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
             this.manager.notification.createReviewNotification(
               user,
               task.review.reviewedBy.getOrElse(-1),
@@ -1099,7 +1097,7 @@ class TaskReviewDAL @Inject() (
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
-                          $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
+                          $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
             if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
               this.manager.notification.createReviewNotification(
                 user,
@@ -1115,7 +1113,7 @@ class TaskReviewDAL @Inject() (
           SQL"""INSERT INTO task_review_history
                             (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                 VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                        $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
+                        $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
         }
       }
 
