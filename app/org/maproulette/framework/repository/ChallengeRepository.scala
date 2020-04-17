@@ -13,7 +13,7 @@ import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.Query
+import org.maproulette.framework.psql.{Query, Grouping, GroupField}
 import play.api.db.Database
 
 /**
@@ -35,7 +35,15 @@ class ChallengeRepository @Inject() (override val db: Database) extends Reposito
   def query(query: Query)(implicit c: Option[Connection] = None): List[Challenge] = {
     withMRConnection { implicit c =>
       query
-        .build(s"SELECT ${ChallengeRepository.standardColumns} FROM challenges")
+        .build(
+          s"""
+          |SELECT ${ChallengeRepository.standardColumns}
+          |FROM challenges
+          |LEFT OUTER JOIN virtual_project_challenges
+          |ON challenges.id = virtual_project_challenges.challenge_id
+          """.stripMargin,
+          Grouping(GroupField(Challenge.FIELD_ID))
+        )
         .as(ChallengeRepository.parser.*)
     }
   }
@@ -43,7 +51,7 @@ class ChallengeRepository @Inject() (override val db: Database) extends Reposito
 
 object ChallengeRepository {
   val standardColumns: String =
-    "*, ST_AsGeoJSON(location) AS locationJSON, ST_AsGeoJSON(bounding) AS boundingJSON"
+    "challenges.*, ST_AsGeoJSON(location) AS locationJSON, ST_AsGeoJSON(bounding) AS boundingJSON, ARRAY_REMOVE(ARRAY_AGG(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids"
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -88,15 +96,17 @@ object ChallengeRepository {
       get[Option[String]]("challenges.task_styles") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
+      get[Boolean]("challenges.requires_local") ~
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
-      get[Boolean]("deleted") map {
+      get[Boolean]("deleted") ~
+      get[Option[List[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ location ~ bounding ~ deleted =>
+            dataOriginDate ~ requiresLocal ~ location ~ bounding ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -129,7 +139,8 @@ object ChallengeRepository {
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
-            None
+            virtualParents,
+            requiresLocal
           ),
           ChallengeCreation(overpassql, remoteGeoJson),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),

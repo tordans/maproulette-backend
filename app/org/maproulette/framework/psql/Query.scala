@@ -49,9 +49,12 @@ case class Query(
     grouping: Grouping = Grouping(),
     includeWhere: Boolean = true
 ) extends SQLClause {
-  def build(baseQuery: String = "")(implicit baseTable: String = ""): SimpleSql[Row] = {
+  def build(
+      baseQuery: String = "",
+      defaultGrouping: Grouping = Grouping()
+  )(implicit baseTable: String = ""): SimpleSql[Row] = {
     val parameters = this.parameters()
-    val sql        = this.sqlWithBaseQuery(baseQuery)
+    val sql        = this.sqlWithBaseQuery(baseQuery, defaultGrouping)
     if (parameters.nonEmpty) {
       SQL(sql).on(parameters: _*)
     } else {
@@ -63,7 +66,10 @@ case class Query(
 
   override def sql()(implicit table: String = ""): String = this.sqlWithBaseQuery()
 
-  def sqlWithBaseQuery(baseQuery: String = "")(implicit baseTable: String = ""): String = {
+  def sqlWithBaseQuery(
+      baseQuery: String = "",
+      defaultGrouping: Grouping = Grouping()
+  )(implicit baseTable: String = ""): String = {
     val filterQuery = filter.sql() match {
       case x if x.nonEmpty & includeWhere => s"WHERE $x"
       case x                              => x
@@ -74,8 +80,13 @@ case class Query(
       case _  => base
     }
 
+    val sqlGrouping = grouping.sql() match {
+      case "" => defaultGrouping.sql()
+      case _  => grouping.sql()
+    }
+
     val query =
-      s"$start${this.format(filterQuery)}${this.format(grouping.sql())}${this.format(order.sql())}${this
+      s"$start${this.format(filterQuery)}${this.format(sqlGrouping)}${this.format(order.sql())}${this
         .format(pagingQuery)}"
     if (Query.devMode()) {
       Query.logger.debug(query)
