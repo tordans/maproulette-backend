@@ -25,6 +25,7 @@ class FrameworkMasterSuite extends Suites with BeforeAndAfterAll with TestDataba
     new GroupRepositorySpec,
     new ProjectServiceSpec,
     new ProjectRepositorySpec,
+    new TaskReviewServiceSpec,
     new UserMetricsServiceSpec,
     new UserSavedObjectsServiceSpec,
     new UserSavedObjectsRepositorySpec,

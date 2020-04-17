@@ -210,46 +210,7 @@ class SchedulerActor @Inject() (
           s"Expiring task reviews older than $duration ..."
         )
 
-        // Note in task review history we are moving these tasks to unnecessary
-        SQL(s"""INSERT INTO task_review_history
-                          (task_id, requested_by, reviewed_by,
-                           review_status, reviewed_at, review_started_at)
-                  SELECT tr.task_id, tr.review_requested_by, NULL,
-                        ${Task.REVIEW_STATUS_UNNECESSARY}, NOW(), NULL
-                  FROM task_review tr
-                  WHERE tr.review_status = ${Task.REVIEW_STATUS_REQUESTED}
-                    AND tr.task_id IN (
-                      SELECT t.id FROM tasks t
-                      WHERE AGE(NOW(), t.modified) > {duration}::INTERVAL
-                    )
-              """)
-          .on(
-            Symbol("duration") -> ToParameterValue
-              .apply[String]
-              .apply(String.valueOf(duration))
-          )
-          .executeUpdate()
-
-        // Update task review status on old task reviews to "unecessary"
-        val reviewsExpired =
-          SQL(s"""UPDATE task_review tr
-                  SET review_status = ${Task.REVIEW_STATUS_UNNECESSARY},
-                      reviewed_at = NOW(),
-                      review_started_at = NULL,
-                      review_claimed_at = NULL,
-                      review_claimed_by = NULL
-                  WHERE tr.review_status = ${Task.REVIEW_STATUS_REQUESTED}
-                    AND tr.task_id IN (
-                      SELECT t.id FROM tasks t
-                      WHERE AGE(NOW(), t.modified) > {duration}::INTERVAL
-                    )""")
-            .on(
-              Symbol("duration") -> ToParameterValue
-                .apply[String]
-                .apply(String.valueOf(duration))
-            )
-            .executeUpdate()
-
+        val reviewsExpired = this.serviceManager.taskReview.expireTaskReviews(duration)
         logger.info(s"$reviewsExpired old task reviews were moved to uneccessary.")
       }
     }
