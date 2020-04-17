@@ -1523,7 +1523,7 @@ class ChallengeDAL @Inject() (
       val joinClause    = new StringBuilder()
       var orderByClause = ""
 
-      parameters ++= addSearchToQuery(searchParameters, whereClause)(false)
+      parameters ++= addSearchToQuery(searchParameters, whereClause)
 
       parameters ++= addChallengeTagMatchingToQuery(searchParameters, whereClause, joinClause)
 
@@ -1582,9 +1582,9 @@ class ChallengeDAL @Inject() (
       }
 
       searchParameters.challengeParams.requiresLocal match {
-        case SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE =>
+        case Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE) =>
           this.appendInWhereClause(whereClause, s"c.requires_local = false")
-        case SearchParameters.CHALLENGE_REQUIRES_LOCAL_ONLY =>
+        case Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_ONLY) =>
           this.appendInWhereClause(whereClause, s"c.requires_local = true")
         case _ =>
       }

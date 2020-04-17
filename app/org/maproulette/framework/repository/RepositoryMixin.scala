@@ -13,4 +13,6 @@ import org.maproulette.utils.{Readers, Writers}
   *
   * @author mcuthbert
   */
-trait RepositoryMixin extends TransactionManager with Readers with Writers {}
+trait RepositoryMixin extends TransactionManager with Readers with Writers {
+  implicit val baseTable: String
+}

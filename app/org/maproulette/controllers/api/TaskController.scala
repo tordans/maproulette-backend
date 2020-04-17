@@ -405,7 +405,7 @@ class TaskController @Inject() (
     }
 
     val tags = this.tagService.listByTask(taskToReturn.id)
-    Utils.insertIntoJson(Json.toJson(taskToReturn), Tag.KEY, Json.toJson(tags.map(_.name)))
+    Utils.insertIntoJson(Json.toJson(taskToReturn), Tag.TABLE, Json.toJson(tags.map(_.name)))
   }
 
   /**

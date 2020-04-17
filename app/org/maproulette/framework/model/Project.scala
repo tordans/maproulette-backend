@@ -39,6 +39,7 @@ object Project extends CommonField {
   implicit val writes: Writes[Project]    = Json.writes[Project]
   implicit val reads: Reads[Project]      = Json.reads[Project]
 
+  val TABLE              = "projects"
   val KEY_GROUPS         = "groups"
   val FIELD_OWNER        = "owner_id"
   val FIELD_ENABLED      = "enabled"

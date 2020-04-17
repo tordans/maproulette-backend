@@ -859,7 +859,7 @@ class ChallengeController @Inject() (
       val jsonList = challenges.map { c =>
         var updated = Utils.insertIntoJson(
           Json.toJson(c),
-          Tag.KEY,
+          Tag.TABLE,
           Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name))
         )
         val projectJson = Json
@@ -1013,7 +1013,7 @@ class ChallengeController @Inject() (
     */
   override def inject(obj: Challenge)(implicit request: Request[Any]): JsValue = {
     val tags = this.tagService.listByChallenge(obj.id)
-    Utils.insertIntoJson(Json.toJson(obj), Tag.KEY, Json.toJson(tags.map(_.name)))
+    Utils.insertIntoJson(Json.toJson(obj), Tag.TABLE, Json.toJson(tags.map(_.name)))
   }
 
   /**

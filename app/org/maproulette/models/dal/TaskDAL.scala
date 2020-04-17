@@ -1250,8 +1250,8 @@ class TaskDAL @Inject() (
             User.FIELD_OSM_ID,
             Query.simple(
               List(BaseParameter(StatusActions.FIELD_TASK_ID, id)),
-              "SELECT osm_user_id FROM status_action",
-              order = Order > ("created"),
+              "SELECT osm_user_id FROM status_actions",
+              order = Order > "created",
               paging = Paging(limit)
             )
           )

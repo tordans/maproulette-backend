@@ -8,7 +8,7 @@ package org.maproulette.framework.service
 import java.util.UUID
 
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.{Grouping, Query}
+import org.maproulette.framework.psql.{GroupField, Grouping, Query}
 import org.maproulette.framework.util.{ChallengeListingTag, FrameworkHelper}
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
@@ -24,7 +24,10 @@ class ChallengeListingSpec(implicit val application: Application) extends Framew
   "ChallengeListingService" should {
     "make a basic query" taggedAs (ChallengeListingTag) in {
       val challenges = this.service.query(
-        Query.simple(List(), grouping = Grouping("c.id"))
+        Query.simple(
+          List(),
+          grouping = Grouping(GroupField(Challenge.FIELD_ID, Some(Challenge.TABLE)))
+        )
       )
       challenges.size mustEqual 11
     }

@@ -17,10 +17,11 @@ object Operator extends Enumeration {
 
   def format(
       key: String,
+      parameterKey: String,
       operator: Operator,
       negate: Boolean = false,
       value: Option[String] = None
-  )(implicit parameterKey: String): String = {
+  ): String = {
     SQLUtils.testColumnName(key)
     val negation = if (negate) {
       "NOT "
@@ -29,7 +30,7 @@ object Operator extends Enumeration {
     }
     val rightValue = value match {
       case Some(v) => v
-      case None    => s"{$parameterKey$key}"
+      case None    => s"{$parameterKey}"
     }
     operator match {
       case EQ         => s"$negation$key = $rightValue"

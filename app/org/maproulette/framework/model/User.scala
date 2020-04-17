@@ -209,6 +209,7 @@ object User extends CommonField {
   implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
   implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
 
+  val TABLE                     = "users"
   val FIELD_OSM_ID              = "osm_id"
   val FIELD_OSM_CREATED         = "osm_created"
   val FIELD_API_KEY             = "api_key"

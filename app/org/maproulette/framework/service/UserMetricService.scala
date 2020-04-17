@@ -166,21 +166,21 @@ class UserMetricService @Inject() (
     duration match {
       case _ if dates._1.isDefined =>
         DateParameter(
-          s"$field",
+          field,
           dates._1.get,
           dates._2.get,
           Operator.BETWEEN
         )
       case 0 =>
         DateParameter(
-          s"$field",
+          field,
           DateTime.now.withDayOfMonth(1),
           DateTime.now,
           Operator.BETWEEN
         )
       case _ =>
         DateParameter(
-          s"$field",
+          field,
           DateTime.now.minus(Months.ONE),
           DateTime.now,
           Operator.BETWEEN

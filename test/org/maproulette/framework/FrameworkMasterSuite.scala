@@ -7,7 +7,7 @@ package org.maproulette.framework
 
 import org.maproulette.framework.repository._
 import org.maproulette.framework.service._
-import org.maproulette.framework.util.{TestDatabase, UserTag}
+import org.maproulette.framework.util._
 import org.scalatest.{BeforeAndAfterAll, Suite, Suites, Tag}
 
 /**

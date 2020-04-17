@@ -31,10 +31,12 @@ object Tag extends CommonField {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]
   implicit val tagReads: Reads[Tag]   = Json.reads[Tag]
 
-  val KEY                = "tags"
-  val FIELD_TAG_TYPE     = "tag_type"
-  val FIELD_PARENT_ID    = "parent_id"
-  val FIELD_ENABLED      = "enabled"
-  val FIELD_TASK_ID      = "task_id"
-  val FIELD_CHALLENGE_ID = "challenge_id"
+  val TABLE                    = "tags"
+  val TABLE_TAGS_ON_TASKS      = "tags_on_tasks"
+  val TABLE_TAGS_ON_CHALLENGES = "tags_on_challenges"
+  val FIELD_TAG_TYPE           = "tag_type"
+  val FIELD_PARENT_ID          = "parent_id"
+  val FIELD_ENABLED            = "enabled"
+  val FIELD_TASK_ID            = "task_id"
+  val FIELD_CHALLENGE_ID       = "challenge_id"
 }

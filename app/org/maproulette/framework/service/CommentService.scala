@@ -69,7 +69,7 @@ class CommentService @Inject() (
     this.repository
       .query(
         Query.simple(
-          List(BaseParameter(s"task_comments.${Comment.FIELD_ID}", id))
+          List(BaseParameter(Comment.FIELD_ID, id, table = Some(Comment.TABLE)))
         )
       )
       .headOption
@@ -78,12 +78,12 @@ class CommentService @Inject() (
   /**
     * Deletes a comment from the database
     *
-    * @param commentId The identifier of the comment
     * @param taskId The identifier of the task parent
+    * @param commentId The identifier of the comment
     * @param user The user deleting the comment
     * @return Boolean if delete was successful
     */
-  def delete(commentId: Long, taskId: Long, user: User): Boolean = {
+  def delete(taskId: Long, commentId: Long, user: User): Boolean = {
     this.taskDAL.retrieveById(taskId) match {
       case Some(task) =>
         this.permission.hasObjectAdminAccess(task, user)
@@ -168,8 +168,8 @@ class CommentService @Inject() (
         ConditionalFilterParameter(
           CustomParameter(
             s"""1 IN (SELECT 1 FROM unnest(ARRAY[${projectIdList.mkString(",")}]) AS pIds
-                         WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
-                                        WHERE vp.challenge_id = task_comments.challenge_id))"""
+                         WHERE pIds IN (SELECT virtual_project_challenges.project_id FROM virtual_project_challenges
+                                        WHERE virtual_project_challenges.challenge_id = task_comments.challenge_id))"""
           ),
           projectIdList.nonEmpty
         ),
@@ -202,7 +202,7 @@ class CommentService @Inject() (
         List(
           OrderField(Comment.FIELD_PROJECT_ID),
           OrderField(Comment.FIELD_CHALLENGE_ID),
-          OrderField(s"task_comments.${Comment.FIELD_CREATED}")
+          OrderField(Comment.FIELD_CREATED, table = Some(Comment.TABLE))
         )
       )
     )

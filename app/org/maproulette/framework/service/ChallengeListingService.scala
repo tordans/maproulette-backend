@@ -6,14 +6,11 @@
 package org.maproulette.framework.service
 
 import javax.inject.{Inject, Singleton}
-import org.maproulette.models.Task
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.Query
-import org.maproulette.framework.psql.filter.BaseParameter
+import org.maproulette.framework.psql.{Query, _}
+import org.maproulette.framework.psql.filter.{BaseParameter, _}
 import org.maproulette.framework.repository.ChallengeListingRepository
-import org.maproulette.framework.psql.filter._
-import org.maproulette.framework.psql._
-import org.maproulette.framework.service.ServiceHelper
+import org.maproulette.models.Task
 
 /**
   * Service layer for ChallengeListings to handle all the challenge listing business logic
@@ -26,8 +23,6 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
     with ServiceMixin[ChallengeListing] {
   def retrieve(parentId: Long): Option[ChallengeListing] =
     this.query(Query.simple(List(BaseParameter(Challenge.FIELD_PARENT_ID, parentId)))).headOption
-
-  def query(query: Query): List[ChallengeListing] = this.repository.query(query)
 
   /**
     * Returns a list of challenges that have reviews/review requests.
@@ -46,50 +41,57 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
       paging: Paging = Paging()
   ): List[ChallengeListing] = {
 
-    val reviewedBy        = "task_review.reviewed_by"
-    val reviewRequestedBy = "task_review.review_requested_by"
-    val reviewStatus      = "task_review.review_status"
-
     val filter =
       Filter(
         List(
           FilterGroup(
             List(
               // Has a task review
-              BaseParameter("task_review.id", "", Operator.NULL, negate = true),
+              BaseParameter(
+                TaskReview.FIELD_ID,
+                "",
+                Operator.NULL,
+                negate = true,
+                table = Some(TaskReview.TABLE)
+              ),
               // Task Status in list if given a list of task statuses
               FilterParameter.conditional(
-                "t.status",
+                "status",
                 taskStatus.getOrElse(List.empty),
                 Operator.IN,
-                includeOnlyIfTrue = taskStatus.nonEmpty
+                includeOnlyIfTrue = taskStatus.nonEmpty,
+                table = Some("tasks")
               ),
               // review_requested_by != user.id unless a super user
               // to be reviewed tasks (review type = 1)
               FilterParameter.conditional(
-                reviewRequestedBy,
+                TaskReview.FIELD_REVIEW_REQUESTED_BY,
                 user.id,
                 negate = true,
-                includeOnlyIfTrue = (reviewTasksType == 1) && !user.isSuperUser
+                includeOnlyIfTrue = (reviewTasksType == 1) && !user.isSuperUser,
+                table = Some(TaskReview.TABLE)
               ),
               // reviewed_by == user.id for 'tasks reviewed by me' (review type = 3)
               FilterParameter.conditional(
-                reviewedBy,
+                TaskReview.FIELD_REVIEWED_BY,
                 user.id,
-                includeOnlyIfTrue = (reviewTasksType == 2)
+                includeOnlyIfTrue = reviewTasksType == 2,
+                table = Some(TaskReview.TABLE)
               ),
               // reviewed_by == user.id for 'my reviewed tasks' (review type = 2)
               FilterParameter.conditional(
-                reviewRequestedBy,
+                TaskReview.FIELD_REVIEW_REQUESTED_BY,
                 user.id,
-                includeOnlyIfTrue = (reviewTasksType == 3)
+                includeOnlyIfTrue = reviewTasksType == 3,
+                table = Some(TaskReview.TABLE)
               ),
               // review status = requested or disputed if reviewTasksType = 1
               FilterParameter.conditional(
-                reviewStatus,
+                TaskReview.FIELD_REVIEW_STATUS,
                 List(Task.REVIEW_STATUS_REQUESTED, Task.REVIEW_STATUS_DISPUTED),
                 Operator.IN,
-                includeOnlyIfTrue = (reviewTasksType == 1)
+                includeOnlyIfTrue = reviewTasksType == 1,
+                table = Some(TaskReview.TABLE)
               )
             )
           ),
@@ -98,11 +100,16 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
           // reviewed_by is empty or user.id if excludeOtherReviewers
           FilterGroup(
             List(
-              BaseParameter(reviewedBy, "", Operator.NULL),
-              BaseParameter(reviewedBy, user.id)
+              BaseParameter(
+                TaskReview.FIELD_REVIEWED_BY,
+                "",
+                Operator.NULL,
+                table = Some(TaskReview.TABLE)
+              ),
+              BaseParameter(TaskReview.FIELD_REVIEWED_BY, user.id, table = Some(TaskReview.TABLE))
             ),
             OR(),
-            (excludeOtherReviewers && reviewTasksType == 1)
+            excludeOtherReviewers && reviewTasksType == 1
           )
         )
       )
@@ -110,8 +117,10 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
     val query = Query(
       filter,
       paging = paging,
-      grouping = Grouping("c.id")
+      grouping = Grouping > "id"
     )
     this.query(query)
   }
+
+  def query(query: Query): List[ChallengeListing] = this.repository.query(query)
 }

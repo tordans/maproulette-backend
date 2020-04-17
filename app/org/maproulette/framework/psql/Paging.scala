@@ -17,23 +17,19 @@ import org.maproulette.utils.Utils
 case class Paging(limit: Int = 0, page: Int = 0) extends SQLClause {
   val randomPrefix: String = Utils.randomStringFromCharList(5)
 
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+  override def sql()(implicit table: String = ""): String = {
     if (limit > 0) {
-      s"LIMIT {${keyPrefix}limit} OFFSET {${keyPrefix}offset}"
+      s"LIMIT {${randomPrefix}limit} OFFSET {${randomPrefix}offset}"
     } else {
       ""
     }
   }
 
-  private def keyPrefix(implicit parameterKey: String) = s"$parameterKey$randomPrefix"
-
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = {
+  override def parameters(): List[NamedParameter] = {
     if (limit > 0) {
       List(
-        Symbol(s"${keyPrefix}limit")  -> limit,
-        Symbol(s"${keyPrefix}offset") -> page * limit
+        Symbol(s"${randomPrefix}limit")  -> limit,
+        Symbol(s"${randomPrefix}offset") -> page * limit
       )
     } else {
       List.empty

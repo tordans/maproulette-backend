@@ -266,8 +266,14 @@ GET     /projects/managed                           @org.maproulette.framework.c
 #   - name: challenges
 #     in: query
 #     description: The challenge search string. Retrieve only challenge clustered points that have the search string contained within the challenge name. Match is case insensitive.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
-GET     /project/clustered/:id                      @org.maproulette.framework.controller.ProjectController.getClusteredPoints(id:Long, challenges:String ?= "")
+GET     /project/clustered/:id                      @org.maproulette.framework.controller.ProjectController.getClusteredPoints(id:Long, challenges:String ?= "", limit:Int ?= 0, page:Int ?= 0)
 ###
 # tags: [ Project ]
 # summary: Retrieves clustered challenge points
@@ -283,8 +289,14 @@ GET     /project/clustered/:id                      @org.maproulette.framework.c
 #   - name: search
 #     in: cookie
 #     description: The challenge search parameters. This is a URL encoded JSON object containing multiple different search parameters. See SearchParameter model.
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
 ###
-GET     /project/search/clustered                   @org.maproulette.framework.controller.ProjectController.getSearchedClusteredPoints(search ?= "")
+GET     /project/search/clustered                   @org.maproulette.framework.controller.ProjectController.getSearchedClusteredPoints(limit:Int ?= 0, page:Int ?= 0)
 ###
 # tags: [ Project ]
 # summary: List all the projects challenges.

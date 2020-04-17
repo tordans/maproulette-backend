@@ -158,20 +158,12 @@ class TagService @Inject() (
     this.cacheManager.withIDListCaching { implicit uncached =>
       this.query(
         Query.simple(
-          List(BaseParameter(s"tt.${Tag.FIELD_TASK_ID}", id)),
-          "SELECT * FROM tags AS t INNER JOIN tags_on_tasks AS tt ON t.id = tt.tag_id"
+          List(BaseParameter(Tag.FIELD_TASK_ID, id, table = Some(Tag.TABLE_TAGS_ON_TASKS))),
+          "SELECT * FROM tags INNER JOIN tags_on_tasks ON tags.id = tags_on_tasks.tag_id"
         )
       )
     }
   }
-
-  /**
-    * Retrieves all the objects based on the search criteria
-    *
-    * @param query The query to match against to retrieve the objects
-    * @return The list of objects
-    */
-  override def query(query: Query): List[Tag] = this.repository.query(query)
 
   /**
     * This is an "upsert" function that will try and insert tags into the database based on a list,
@@ -225,4 +217,12 @@ class TagService @Inject() (
       }(names.map(_.toLowerCase))
     }
   }
+
+  /**
+    * Retrieves all the objects based on the search criteria
+    *
+    * @param query The query to match against to retrieve the objects
+    * @return The list of objects
+    */
+  override def query(query: Query): List[Tag] = this.repository.query(query)
 }

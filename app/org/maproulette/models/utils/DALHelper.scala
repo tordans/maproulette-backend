@@ -205,7 +205,7 @@ trait DALHelper {
   )(implicit projectSearch: Boolean = true): ListBuffer[NamedParameter] = {
     val parameters = new ListBuffer[NamedParameter]()
 
-    if (!projectSearch) {
+    if (projectSearch) {
       params.getProjectIds match {
         case Some(p) if p.nonEmpty =>
           appendInWhereClause(whereClause, s"$challengePrefix.parent_id IN (${p.mkString(",")})")

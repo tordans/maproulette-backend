@@ -271,10 +271,9 @@ class ProjectController @Inject() (
     Action.async { implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
         SearchParameters.withSearch { params =>
-          params.copy(projectIds = Some(List(projectId)))
           val result = this.taskDAL.getRandomTasks(
             User.userOrMocked(user),
-            params,
+            params.copy(projectIds = Some(List(projectId))),
             limit,
             None,
             Utils.negativeToOption(proximityId)
@@ -288,30 +287,38 @@ class ProjectController @Inject() (
       }
     }
 
-  def getSearchedClusteredPoints(searchCookie: String): Action[AnyContent] = Action.async {
+  def getSearchedClusteredPoints(limit: Int, page: Int): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
         SearchParameters.withSearch { params =>
-          Ok(Json.toJson(this.projectService.getSearchedClusteredPoints(params)))
+          Ok(
+            Json.toJson(this.projectService.getSearchedClusteredPoints(params, Paging(limit, page)))
+          )
         }
       }
   }
 
-  def getClusteredPoints(projectId: Long, challengeIds: String): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.userAwareRequest { implicit user =>
-        val pid = if (projectId < 0) {
-          None
-        } else {
-          Some(projectId)
-        }
-        val cids = if (StringUtils.isEmpty(challengeIds)) {
-          List.empty
-        } else {
-          Utils.split(challengeIds).map(_.toLong)
-        }
-        Ok(Json.toJson(this.projectService.getClusteredPoints(pid, cids)))
+  def getClusteredPoints(
+      projectId: Long,
+      challengeIds: String,
+      limit: Int,
+      page: Int
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      val pid = if (projectId < 0) {
+        None
+      } else {
+        Some(projectId)
       }
+      val cids = if (StringUtils.isEmpty(challengeIds)) {
+        List.empty
+      } else {
+        Utils.split(challengeIds).map(_.toLong)
+      }
+      Ok(
+        Json.toJson(this.projectService.getClusteredPoints(pid, cids, paging = Paging(limit, page)))
+      )
+    }
   }
 
   /**

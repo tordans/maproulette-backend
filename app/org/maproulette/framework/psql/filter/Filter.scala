@@ -17,10 +17,8 @@ import org.maproulette.framework.psql.{AND, Query, SQLKey}
   * @author mcuthbert
   */
 trait SQLClause {
-  def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String
-  def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = List.empty
+  def sql()(implicit tableKey: String = ""): String
+  def parameters(): List[NamedParameter] = List.empty
 
   // Simple function that makes sure I don't have a bunch of empty spaces at the end of the query.
   // It doesn't really matter, but makes it easier to look at.
@@ -34,7 +32,7 @@ trait SQLClause {
 
 case class FilterGroup(params: List[Parameter[_]], key: SQLKey = AND(), condition: Boolean = true)
     extends SQLClause {
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
+  override def sql()(implicit tableKey: String = ""): String =
     if (condition) {
       params
         .flatMap(param =>
@@ -48,14 +46,11 @@ case class FilterGroup(params: List[Parameter[_]], key: SQLKey = AND(), conditio
       ""
     }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] =
-    params.flatMap(param => param.parameters()).toList
+  override def parameters(): List[NamedParameter] = params.flatMap(param => param.parameters())
 }
 
 case class Filter(groups: List[FilterGroup], key: SQLKey = AND()) extends SQLClause {
-  def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+  def sql()(implicit tableKey: String = ""): String = {
     val groupSeparator = if (groups.size == 1) {
       ("", "")
     } else {
@@ -71,10 +66,7 @@ case class Filter(groups: List[FilterGroup], key: SQLKey = AND()) extends SQLCla
       .mkString(s" ${key.getSQLKey()} ")
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] =
-    groups.flatMap(param => param.parameters()).toList
+  override def parameters(): List[NamedParameter] = groups.flatMap(param => param.parameters())
 }
 
 object Filter {

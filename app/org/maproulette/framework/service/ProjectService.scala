@@ -42,7 +42,7 @@ class ProjectService @Inject() (
       searchString: String = "",
       onlyEnabled: Boolean = false,
       paging: Paging = Paging(Config.DEFAULT_LIST_SIZE),
-      order: Order = Order > s"challenges.${Challenge.FIELD_ID}"
+      order: Order = Order(List(OrderField(Challenge.FIELD_ID, table = Some(Challenge.TABLE))))
   ): List[Challenge] = {
     // I am in two minds about handling it this way. Firstly one of the tenants of splitting up the
     // work between service and repository layer is that we limit the SQL code to the repository and
@@ -57,12 +57,12 @@ class ProjectService @Inject() (
           List(
             FilterGroup(
               List(
-                BaseParameter(s"challenges.${Challenge.FIELD_PARENT_ID}", id),
+                BaseParameter(Challenge.FIELD_PARENT_ID, id, table = Some(Challenge.TABLE)),
                 SubQueryFilter(
-                  s"challenges.${Challenge.FIELD_ID}",
+                  Challenge.FIELD_ID,
                   Query.simple(
-                    List(BaseParameter(s"vp2.${VirtualProject.FIELD_PROJECT_ID}", id)),
-                    "SELECT vp2.challenge_id FROM virtual_project_challenges vp2"
+                    List(BaseParameter(VirtualProject.FIELD_PROJECT_ID, id)),
+                    "SELECT challenge_id FROM virtual_project_challenges"
                   )
                 )
               ),
@@ -86,11 +86,13 @@ class ProjectService @Inject() (
             )
           )
         ),
-        s"""SELECT challenges.${ChallengeRepository.standardColumns}, ARRAY_REMOVE(ARRAY_AGG(vp.project_id), NULL) AS virtual_parent_ids FROM challenges
-          | LEFT OUTER JOIN virtual_project_challenges vp ON challenges.id = vp.challenge_id""".stripMargin,
+        s"""SELECT challenges.${ChallengeRepository.standardColumns},
+            |ARRAY_REMOVE(ARRAY_AGG(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids
+            |FROM challenges
+            |LEFT OUTER JOIN virtual_project_challenges ON challenges.id = virtual_project_challenges.challenge_id""".stripMargin,
         paging,
         order,
-        Grouping(s"challenges.${Challenge.FIELD_ID}")
+        Grouping > Challenge.FIELD_ID
       )
     )
   }
@@ -146,25 +148,26 @@ class ProjectService @Inject() (
         List.empty
       } else {
         // TODO No sql should exist in the service layer
-        val customQuery = s"""SELECT distinct p.*, LOWER(p.name), LOWER(p.display_name)
-                FROM projects p
-                INNER JOIN groups g on g.project_id = p.id"""
+        val customQuery =
+          s"""SELECT distinct projects.*, LOWER(projects.name), LOWER(projects.display_name)
+                              FROM projects INNER JOIN groups on groups.project_id = projects.id"""
         val permissionFilterGroup =
           FilterGroup(
             List(
-              BaseParameter(s"p.${Project.FIELD_OWNER}", user.osmProfile.id),
+              BaseParameter(Project.FIELD_OWNER, user.osmProfile.id),
               FilterParameter.conditional(
-                s"g.${Group.FIELD_ID}",
+                Group.FIELD_ID,
                 user.groups.map(_.id),
                 Operator.IN,
-                includeOnlyIfTrue = !onlyOwned
+                includeOnlyIfTrue = !onlyOwned,
+                table = Some(Group.TABLE)
               )
             ),
             OR()
           )
         val baseFilterGroup = FilterGroup(
           List(
-            BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString), Operator.LIKE),
+            BaseParameter(Project.FIELD_NAME, SQLUtils.search(searchString), Operator.LIKE),
             FilterParameter.conditional(
               Project.FIELD_ENABLED,
               onlyEnabled,
@@ -220,7 +223,16 @@ class ProjectService @Inject() (
             ),
             OR()
           ),
-          FilterGroup(List(BaseParameter(Project.FIELD_ENABLED, true)))
+          FilterGroup(
+            List(
+              FilterParameter.conditional(
+                Project.FIELD_ENABLED,
+                true,
+                Operator.BOOL,
+                includeOnlyIfTrue = onlyEnabled
+              )
+            )
+          )
         )
       ),
       paging = paging,
@@ -254,6 +266,8 @@ class ProjectService @Inject() (
       )
     )
   }
+
+  def query(query: Query): List[Project] = this.repository.query(query)
 
   /**
     * Updates a project with the given input JSON
@@ -309,6 +323,20 @@ class ProjectService @Inject() (
   }
 
   /**
+    * Retrieves a Project based on the given id
+    *
+    * @param id The id of the project
+    * @return An optional Project, None if not found.
+    */
+  def retrieve(id: Long): Option[Project] = {
+    this.cacheManager.withCaching { () =>
+      this.repository
+        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
+        .headOption
+    }(id = id)
+  }
+
+  /**
     * Deletes a project
     *
     * @param id The id of the project
@@ -323,20 +351,6 @@ class ProjectService @Inject() (
       Some(deletedItem)
     }(id = id)
     true
-  }
-
-  /**
-    * Retrieves a Project based on the given id
-    *
-    * @param id The id of the project
-    * @return An optional Project, None if not found.
-    */
-  def retrieve(id: Long): Option[Project] = {
-    this.cacheManager.withCaching { () =>
-      this.repository
-        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
-        .headOption
-    }(id = id)
   }
 
   /**
@@ -358,8 +372,6 @@ class ProjectService @Inject() (
       )
       .headOption
   }
-
-  def query(query: Query): List[Project] = this.repository.query(query)
 
   def list(
       ids: List[Long],
@@ -413,8 +425,9 @@ class ProjectService @Inject() (
   def getClusteredPoints(
       projectId: Option[Long] = None,
       challengeIds: List[Long] = List.empty,
-      enabledOnly: Boolean = true
+      enabledOnly: Boolean = true,
+      paging: Paging = Paging()
   ): List[ClusteredPoint] = {
-    this.repository.getClusteredPoints(projectId, challengeIds, enabledOnly)
+    this.repository.getClusteredPoints(projectId, challengeIds, enabledOnly, paging)
   }
 }

@@ -20,6 +20,7 @@ import play.api.db.Database
   * @author mcuthbert
   */
 class TagRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable: String = Tag.TABLE
 
   /**
     * Retrieves a specific tag
@@ -98,8 +99,15 @@ class TagRepository @Inject() (override val db: Database) extends RepositoryMixi
 
       Query
         .simple(
-          List(BaseParameter(s"tc.${Tag.FIELD_CHALLENGE_ID}", id, Operator.IN)),
-          "SELECT * FROM tags AS t INNER JOIN tags_on_challenges AS tc ON t.id = tc.tag_id"
+          List(
+            BaseParameter(
+              Tag.FIELD_CHALLENGE_ID,
+              id,
+              Operator.IN,
+              table = Some(Tag.TABLE_TAGS_ON_CHALLENGES)
+            )
+          ),
+          "SELECT * FROM tags INNER JOIN tags_on_challenges ON tags.id = tags_on_challenges.tag_id"
         )
         .build()
         .as(challengeTagParser.*)

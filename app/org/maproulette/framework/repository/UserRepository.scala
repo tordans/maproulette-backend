@@ -38,6 +38,8 @@ class UserRepository @Inject() (
 ) extends RepositoryMixin {
   import org.maproulette.utils.AnormExtension._
 
+  implicit val baseTable: String = User.TABLE
+
   /**
     * Retrieve list of all users possessing a group type for the project.
     *
@@ -54,18 +56,20 @@ class UserRepository @Inject() (
         .simple(
           List(
             BaseParameter(
-              s"ug.${Group.FIELD_UG_GROUP_ID}",
-              s"g.${Group.FIELD_ID}",
-              useValueDirectly = true
+              Group.FIELD_UG_GROUP_ID,
+              s"groups.${Group.FIELD_ID}",
+              useValueDirectly = true,
+              table = Some(Group.TABLE_USER_GROUP)
             ),
             BaseParameter(
-              s"ug.${Group.FIELD_UG_OSM_USER_ID}",
-              s"u.${User.FIELD_OSM_ID}",
-              useValueDirectly = true
+              Group.FIELD_UG_OSM_USER_ID,
+              s"users.${User.FIELD_OSM_ID}",
+              useValueDirectly = true,
+              table = Some(Group.TABLE_USER_GROUP)
             ),
-            BaseParameter(s"g.${Group.FIELD_PROJECT_ID}", projectId),
+            BaseParameter(Group.FIELD_PROJECT_ID, projectId, table = Some(Group.TABLE)),
             FilterParameter.conditional(
-              s"u.${User.FIELD_OSM_ID}",
+              User.FIELD_OSM_ID,
               osmIdFilter.getOrElse(List.empty),
               Operator.IN,
               includeOnlyIfTrue = osmIdFilter.isDefined && osmIdFilter
@@ -73,9 +77,9 @@ class UserRepository @Inject() (
                 .nonEmpty
             )
           ),
-          s"""SELECT ${projectId} AS project_id, u.*, array_agg(g.group_type) AS group_types
-        FROM users u, groups g, user_groups ug""",
-          grouping = Grouping("u.id")
+          s"""SELECT ${projectId} AS project_id, users.*, array_agg(groups.group_type) AS group_types
+        FROM users, groups, user_groups""",
+          grouping = Grouping > ("id")
         )
       query.build().as(UserRepository.projectManagerParser.*)
     }
@@ -128,6 +132,12 @@ class UserRepository @Inject() (
     }
   }
 
+  private def parser(): RowParser[User] =
+    UserRepository.parser(
+      this.config.defaultNeedsReview,
+      id => this.groupService.retrieveUserGroups(id, User.superUser)
+    )
+
   def update(
       user: User,
       ewkt: String
@@ -170,12 +180,6 @@ class UserRepository @Inject() (
 
   }
 
-  private def parser(): RowParser[User] =
-    UserRepository.parser(
-      this.config.defaultNeedsReview,
-      id => this.groupService.retrieveUserGroups(id, User.superUser)
-    )
-
   /**
     * Updates a users api key
     *
@@ -214,12 +218,14 @@ class UserRepository @Inject() (
       // anonymize all status actions set
       Query
         .simple(List(BaseParameter(StatusActions.FIELD_OSM_USER_ID, osmId)))
-        .build("UPDATE status_actions SET osm_user_id = -1")
+        .build("UPDATE status_actions SET osm_user_id = -1")(baseTable = StatusActions.TABLE)
         .executeUpdate()
       // set all comments made to "COMMENT_DELETED"
       Query
         .simple(List(BaseParameter("osm_id", osmId)))
-        .build("UPDATE task_comments SET comment = '*COMMENT DELETED*', osm_id = -1")
+        .build("UPDATE task_comments SET comment = '*COMMENT DELETED*', osm_id = -1")(baseTable =
+          Comment.TABLE
+        )
         .executeUpdate()
     }
   }
@@ -276,21 +282,21 @@ class UserRepository @Inject() (
         .simple(
           List(dateFilter),
           s"""SELECT COUNT(tasks.id) AS total,
-             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_FIXED} then 1 else 0 end), 0) total_fixed,
-             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_FALSE_POSITIVE} then 1 else 0 end), 0) total_false_positive,
-             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_ALREADY_FIXED} then 1 else 0 end), 0) total_already_fixed,
-             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_TOO_HARD} then 1 else 0 end), 0) total_too_hard,
-             COALESCE(SUM(CASE WHEN sa1.status = ${Task.STATUS_SKIPPED} then 1 else 0 end), 0) total_skipped,
-             COALESCE(SUM(CASE WHEN (sa1.created IS NOT NULL AND
-                                     sa1.started_at IS NOT NULL)
-                      THEN (EXTRACT(EPOCH FROM (sa1.created - sa1.started_at)) * 1000)
+             COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_FIXED} then 1 else 0 end), 0) total_fixed,
+             COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_FALSE_POSITIVE} then 1 else 0 end), 0) total_false_positive,
+             COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_ALREADY_FIXED} then 1 else 0 end), 0) total_already_fixed,
+             COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_TOO_HARD} then 1 else 0 end), 0) total_too_hard,
+             COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_SKIPPED} then 1 else 0 end), 0) total_skipped,
+             COALESCE(SUM(CASE WHEN (status_actions.created IS NOT NULL AND
+                                     status_actions.started_at IS NOT NULL)
+                      THEN (EXTRACT(EPOCH FROM (status_actions.created - status_actions.started_at)) * 1000)
                       ELSE 0 END), 0) as total_time_spent,
-             COALESCE(SUM(CASE WHEN (sa1.created IS NOT NULL AND
-                                     sa1.started_at IS NOT NULL)
+             COALESCE(SUM(CASE WHEN (status_actions.created IS NOT NULL AND
+                                     status_actions.started_at IS NOT NULL)
                       THEN 1 ELSE 0 END), 0) as tasks_with_time
            FROM tasks
-           INNER JOIN status_actions sa1 ON sa1.task_id = tasks.id AND sa1.status = tasks.status
-           INNER JOIN users ON users.osm_id = sa1.osm_user_id AND users.id={uid}"""
+           INNER JOIN status_actions ON status_actions.task_id = tasks.id AND status_actions.status = tasks.status
+           INNER JOIN users ON users.osm_id = status_actions.osm_user_id AND users.id={uid}"""
         )
       SQL(taskCountsQuery.sql())
         .on(SQLUtils.buildNamedParameter("uid", userId) :: taskCountsQuery.parameters(): _*)

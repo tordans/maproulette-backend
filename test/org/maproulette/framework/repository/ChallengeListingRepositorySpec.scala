@@ -22,7 +22,7 @@ class ChallengeListingRepositorySpec(implicit val application: Application)
 
   "ChallengeListingRepository" should {
     "make a basic query" taggedAs ChallengeListingRepoTag in {
-      val challenges = this.repository.query(Query.simple(List(), grouping = Grouping("c.id")))
+      val challenges = this.repository.query(Query.simple(List(), grouping = Grouping > "c.id"))
       challenges.size mustEqual 11
     }
   }
