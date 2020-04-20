@@ -29,7 +29,8 @@ object Query {
       paging: Paging = Paging(),
       order: Order = Order(),
       grouping: Grouping = Grouping(),
-      includeWhere: Boolean = true
+      includeWhere: Boolean = true,
+      appendBase: Boolean = false
   ): Query =
     Query(
       Filter(List(FilterGroup(parameters, key)), key),
@@ -37,7 +38,8 @@ object Query {
       paging,
       order,
       grouping,
-      includeWhere
+      includeWhere,
+      appendBase
     )
 }
 
@@ -47,14 +49,15 @@ case class Query(
     paging: Paging = Paging(),
     order: Order = Order(),
     grouping: Grouping = Grouping(),
-    includeWhere: Boolean = true
+    includeWhere: Boolean = true,
+    appendBase: Boolean = false
 ) extends SQLClause {
   def build(
       baseQuery: String = "",
       defaultGrouping: Grouping = Grouping()
   )(implicit baseTable: String = ""): SimpleSql[Row] = {
     val parameters = this.parameters()
-    val sql        = this.sqlWithBaseQuery(baseQuery, defaultGrouping)
+    val sql        = this.sqlWithBaseQuery(baseQuery, appendBase, defaultGrouping)
     if (parameters.nonEmpty) {
       SQL(sql).on(parameters: _*)
     } else {
@@ -68,6 +71,7 @@ case class Query(
 
   def sqlWithBaseQuery(
       baseQuery: String = "",
+      appendBase: Boolean = false,
       defaultGrouping: Grouping = Grouping()
   )(implicit baseTable: String = ""): String = {
     val filterQuery = filter.sql() match {
@@ -75,9 +79,13 @@ case class Query(
       case x                              => x
     }
     val pagingQuery = paging.sql()
-    val start = base match {
-      case "" => baseQuery
-      case _  => base
+    val start = if (appendBase) {
+      s"$baseQuery ${this.base}"
+    } else {
+      this.base match {
+        case "" => baseQuery
+        case _  => this.base
+      }
     }
 
     val sqlGrouping = grouping.sql() match {
