@@ -92,7 +92,7 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
                   WHERE tr.review_status = ${Task.REVIEW_STATUS_REQUESTED}
                     AND tr.task_id IN (
                       SELECT t.id FROM tasks t
-                      WHERE AGE(NOW(), t.modified) > {duration}::INTERVAL
+                      WHERE AGE(NOW(), t.mapped_on) > {duration}::INTERVAL
                     )
               """)
         .on(
@@ -113,7 +113,7 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
                 WHERE tr.review_status = ${Task.REVIEW_STATUS_REQUESTED}
                   AND tr.task_id IN (
                     SELECT t.id FROM tasks t
-                    WHERE AGE(NOW(), t.modified) > {duration}::INTERVAL
+                    WHERE AGE(NOW(), t.mapped_on) > {duration}::INTERVAL
                   )""")
         .on(
           Symbol("duration") -> ToParameterValue
