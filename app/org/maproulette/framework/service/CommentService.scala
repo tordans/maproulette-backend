@@ -10,7 +10,7 @@ import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Comment, User}
+import org.maproulette.framework.model.{Comment, User, VirtualProject}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
@@ -157,6 +157,12 @@ class CommentService @Inject() (
       taskIdList: List[Long],
       paging: Paging = Paging()
   ): List[Comment] = {
+    val appendBase = if (projectIdList.nonEmpty) {
+      "LEFT OUTER JOIN virtual_project_challenges ON virtual_project_challenges.challenge_id = task_comments.challenge_id"
+    } else {
+      ""
+    }
+
     val filter = Filter.simple(
       List(
         FilterParameter.conditional(
@@ -165,13 +171,12 @@ class CommentService @Inject() (
           Operator.IN,
           includeOnlyIfTrue = projectIdList.nonEmpty
         ),
-        ConditionalFilterParameter(
-          CustomParameter(
-            s"""1 IN (SELECT 1 FROM unnest(ARRAY[${projectIdList.mkString(",")}]) AS pIds
-                         WHERE pIds IN (SELECT virtual_project_challenges.project_id FROM virtual_project_challenges
-                                        WHERE virtual_project_challenges.challenge_id = task_comments.challenge_id))"""
-          ),
-          projectIdList.nonEmpty
+        FilterParameter.conditional(
+          VirtualProject.FIELD_PROJECT_ID,
+          projectIdList,
+          Operator.IN,
+          includeOnlyIfTrue = projectIdList.nonEmpty,
+          table = Some(VirtualProject.TABLE)
         ),
         FilterParameter.conditional(
           Comment.FIELD_PROJECT_ID,
@@ -204,7 +209,9 @@ class CommentService @Inject() (
           OrderField(Comment.FIELD_CHALLENGE_ID),
           OrderField(Comment.FIELD_CREATED, table = Some(Comment.TABLE))
         )
-      )
+      ),
+      base = appendBase,
+      appendBase = true
     )
     this.query(query)
   }
