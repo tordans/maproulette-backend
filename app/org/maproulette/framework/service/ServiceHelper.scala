@@ -66,7 +66,7 @@ trait ServiceHelper {
                 table = Some(Group.TABLE)
               )
             ),
-            base = "SELECT ug.osm_user_id FROM user_groups, groups "
+            base = s"SELECT ${Group.TABLE_USER_GROUP}.osm_user_id FROM user_groups, groups "
           ),
           table = Some("")
         )
