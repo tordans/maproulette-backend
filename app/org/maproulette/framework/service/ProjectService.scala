@@ -86,7 +86,7 @@ class ProjectService @Inject() (
             )
           )
         ),
-        s"""SELECT challenges.${ChallengeRepository.standardColumns},
+        s"""SELECT ${ChallengeRepository.standardColumns},
             |ARRAY_REMOVE(ARRAY_AGG(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids
             |FROM challenges
             |LEFT OUTER JOIN virtual_project_challenges ON challenges.id = virtual_project_challenges.challenge_id""".stripMargin,
