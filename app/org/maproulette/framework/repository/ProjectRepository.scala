@@ -12,10 +12,10 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.data.Actions
-import org.maproulette.framework.model.{Challenge, Group, Project, Tag, User}
+import org.maproulette.framework.model.{Challenge, Grant, GrantTarget, Project, Tag, User}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
-import org.maproulette.framework.service.GroupService
+import org.maproulette.framework.service.GrantService
 import org.maproulette.models.{ClusteredPoint, Point, PointReview, Task}
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.Readers
@@ -29,7 +29,7 @@ import play.api.libs.json.Json
   * @author mcuthbert
   */
 @Singleton
-class ProjectRepository @Inject() (override val db: Database, groupService: GroupService)
+class ProjectRepository @Inject() (override val db: Database, grantService: GrantService)
     extends RepositoryMixin {
   implicit val baseTable: String = Project.TABLE
 
@@ -64,7 +64,9 @@ class ProjectRepository @Inject() (override val db: Database, groupService: Grou
   }
 
   private def parser: RowParser[Project] =
-    ProjectRepository.parser(id => this.groupService.retrieveProjectGroups(id, User.superUser))
+    ProjectRepository.parser(id =>
+      this.grantService.retrieveGrantsOn(GrantTarget.project(id), User.superUser)
+    )
 
   /**
     * Inserts a project into the database
@@ -385,7 +387,7 @@ object ProjectRepository extends Readers {
   }
 
   // The anorm row parser for the Project to map database records directly to Project objects
-  def parser(groupFunc: (Long) => List[Group]): RowParser[Project] = {
+  def parser(grantFunc: (Long) => List[Grant]): RowParser[Project] = {
     get[Long]("projects.id") ~
       get[Long]("projects.owner_id") ~
       get[String]("projects.name") ~
@@ -405,7 +407,7 @@ object ProjectRepository extends Readers {
           created,
           modified,
           description,
-          groupFunc.apply(id),
+          grantFunc.apply(id),
           enabled,
           displayName,
           deleted,

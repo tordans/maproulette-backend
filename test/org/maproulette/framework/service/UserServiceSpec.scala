@@ -9,6 +9,7 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.util.{FrameworkHelper, UserTag}
+import org.maproulette.exception.{InvalidException}
 import org.maproulette.models.Task
 import org.scalatest.Matchers._
 import play.api.Application
@@ -135,7 +136,7 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       List(searchResultUser1, searchResultUser2).contains(users1.head.toSearchResult) mustEqual true
       List(searchResultUser1, searchResultUser2).contains(users1(1).toSearchResult) mustEqual true
 
-      val users2 = this.userService.searchByOSMUsername("Not")
+      val users2 = this.userService.searchByOSMUsername("NotRelated")
       users2.size mustEqual 1
       users2.head.toSearchResult mustEqual searchResultUser3
 
@@ -188,6 +189,78 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
     }
 
+    "add a user to a project" taggedAs UserTag in {
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 1
+
+      val user =
+        this.userService.create(this.getTestUser(19, "AddUserToProjectTest"), User.superUser)
+
+      this.userService.addUserToProject(
+        user.osmProfile.id,
+        this.defaultProject.id,
+        Grant.ROLE_WRITE_ACCESS,
+        User.superUser
+      )
+
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 2
+    }
+
+    "remove a user from a project" taggedAs UserTag in {
+      val user =
+        this.userService.create(this.getTestUser(20, "RemoveUserFromProjectTest"), User.superUser)
+
+      this.userService.addUserToProject(
+        user.osmProfile.id,
+        this.defaultProject.id,
+        Grant.ROLE_ADMIN,
+        User.superUser
+      )
+
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 3
+
+      this.userService.removeUserFromProject(
+        user.osmProfile.id,
+        this.defaultProject.id,
+        Some(Grant.ROLE_ADMIN),
+        User.superUser
+      )
+
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 2
+    }
+
+    "not remove last admin from project" taggedAs UserTag in {
+      an[InvalidException] should be thrownBy this.userService.removeUserFromProject(
+        this.defaultUser.osmProfile.id,
+        this.defaultProject.id,
+        Some(Grant.ROLE_ADMIN),
+        User.superUser
+      )
+    }
+
     "complex query" in {
       val user                          = User.superUser
       val excludeOtherReviewers         = true
@@ -212,7 +285,7 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
                 "task_review.review_requested_by",
                 user.id,
                 negate = true,
-                includeOnlyIfTrue = user.isSuperUser
+                includeOnlyIfTrue = true
               ),
               FilterParameter.conditional(
                 "task_review.review_status",
@@ -248,7 +321,7 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
               )
             ),
             OR(),
-            user.isSuperUser
+            true
           ),
           FilterGroup(
             List(

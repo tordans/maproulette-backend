@@ -12,6 +12,7 @@ import org.maproulette.exception.MPExceptionUtil
 import org.maproulette.framework.model.User
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.dal.DALManager
+import org.maproulette.permissions.Permission
 import org.maproulette.utils.Crypto
 import org.slf4j.LoggerFactory
 import play.api.db.Database
@@ -37,7 +38,8 @@ class SessionManager @Inject() (
     serviceManager: ServiceManager,
     config: Config,
     db: Database,
-    crypto: Crypto
+    crypto: Crypto,
+    permission: Permission
 ) {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -174,7 +176,7 @@ class SessionManager @Inject() (
           result match {
             case Some(user) =>
               try {
-                if (requireSuperUser && !user.isSuperUser) {
+                if (requireSuperUser && !permission.isSuperUser(user)) {
                   p failure new IllegalAccessException("Only a super user can make this request")
                 } else {
                   execute match {

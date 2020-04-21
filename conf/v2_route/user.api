@@ -442,7 +442,7 @@ PUT     /user/:userId/refresh                        @org.maproulette.framework.
 ###
 # tags: [ User ]
 # summary: Gets a list of users managing project
-# description: Gets list of users managing project along with their groupTypes (1 - Admin, 2 - Write, 3 - Read)
+# description: Gets list of users managing project along with their roles (1 - Admin, 2 - Write, 3 - Read)
 # responses:
 #   '200':
 #     description: The retrieved project managers
@@ -469,8 +469,8 @@ PUT     /user/:userId/refresh                        @org.maproulette.framework.
 GET     /user/project/:projectId                     @org.maproulette.framework.controller.UserController.getUsersManagingProject(projectId:Long, osmIds:String ?= "")
 ###
 # tags: [ User ]
-# summary: Add user to project group
-# description: Adds a user with the specific ids to a Admin, Write or Read project group
+# summary: Grant role to user on project
+# description: Grants a user an Admin, Write or Read role on the project
 # responses:
 #   '200':
 #     description: Ok with a standard message
@@ -479,12 +479,12 @@ GET     /user/project/:projectId                     @org.maproulette.framework.
 # parameters:
 #   - name: userId
 #     in: path
-#     description: The id of the user to add. If using an OSM user id, then
-#                  the isOSMUserId query parameter must be set to true
+#     description: The id of the user to be granted the role. If using an OSM user id,
+#                  then the isOSMUserId query parameter must be set to true
 #   - name: projectId
 #     in: path
-#     description: The id of the project to add the user too
-#   - name: groupType
+#     description: The id of the project
+#   - name: role
 #     in: path
 #     description: Either 1 - Admin, 2 - Write, 3 - Read
 #   - name: isOSMUserId
@@ -498,11 +498,11 @@ GET     /user/project/:projectId                     @org.maproulette.framework.
 #     required: true
 #     type: string
 ###
-POST     /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.controller.UserController.addUserToProject(userId:Long, projectId:Long, groupType:Int, isOSMUserId:Boolean ?= false)
+POST     /user/:userId/project/:projectId/:role  @org.maproulette.framework.controller.UserController.addUserToProject(userId:Long, projectId:Long, role:Int, isOSMUserId:Boolean ?= false)
 ###
 # tags: [ User ]
-# summary: Set project group for user, removing any prior groups
-# description: Sets a user with the specific ids to a Admin, Write or Read project group. This will also remove the user from any other project groups the they may belong too.
+# summary: Set project role for user, removing any prior roles on the project
+# description: Sets a user's role on the project to Admin, Write or Read. This will also remove any other roles on the project from the user.
 # responses:
 #   '200':
 #     description: Ok with a standard message
@@ -511,11 +511,11 @@ POST     /user/:userId/project/:projectId/:groupType  @org.maproulette.framework
 # parameters:
 #   - name: userId
 #     in: path
-#     description: The id of the user to add
+#     description: The id of the user to be granted the role
 #   - name: projectId
 #     in: path
-#     description: The id of the project to add the user too
-#   - name: groupType
+#     description: The id of the project
+#   - name: role
 #     in: path
 #     description: Either 1 - Admin, 2 - Write, 3 - Read
 #   - name: isOSMUserId
@@ -529,11 +529,11 @@ POST     /user/:userId/project/:projectId/:groupType  @org.maproulette.framework
 #     required: true
 #     type: string
 ###
-PUT     /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.controller.UserController.setUserProjectGroup(userId:Long, projectId:Long, groupType:Int, isOSMUserId:Boolean ?= false)
+PUT     /user/:userId/project/:projectId/:role  @org.maproulette.framework.controller.UserController.setUserProjectRole(userId:Long, projectId:Long, role:Int, isOSMUserId:Boolean ?= false)
 ###
 # tags: [ User ]
-# summary: Adds a list of user to project group
-# description: Adds a list of users with the specific ids to a Admin, Write or Read project group
+# summary: Grant role on project to a list of users
+# description: Grants Admin, Write, or Read role on project to list of users
 # responses:
 #   '200':
 #     description: Ok with a standard message
@@ -542,8 +542,8 @@ PUT     /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.
 # parameters:
 #   - name: projectId
 #     in: path
-#     description: The id of the project to add the user too
-#   - name: groupType
+#     description: The id of the project
+#   - name: role
 #     in: path
 #     description: Either 1 - Admin, 2 - Write, 3 - Read
 #   - name: body
@@ -566,11 +566,11 @@ PUT     /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.
 #     required: true
 #     type: string
 ###
-PUT     /user/project/:projectId/:groupType         @org.maproulette.framework.controller.UserController.addUsersToProject(projectId:Long, groupType:Int, isOSMUserId:Boolean ?= false)
+PUT     /user/project/:projectId/:role         @org.maproulette.framework.controller.UserController.addUsersToProject(projectId:Long, role:Int, isOSMUserId:Boolean ?= false)
 ###
 # tags: [ User ]
-# summary: Removes a user from a project group
-# description: Removes a user with the specific id from a Admin, Write or Read project group
+# summary: Remove granted role on project from user
+# description: Removes Admin, Write, or Read role on a project from a user
 # responses:
 #   '200':
 #     description: Ok with a standard message
@@ -579,12 +579,12 @@ PUT     /user/project/:projectId/:groupType         @org.maproulette.framework.c
 # parameters:
 #   - name: userId
 #     in: path
-#     description: The id of the user to remove. If using an OSM user id, then
-#                  the isOSMUserId query parameter must be set to true
+#     description: The id of the user who is to have role removed. If using an OSM user id,
+#                  then the isOSMUserId query parameter must be set to true
 #   - name: projectId
 #     in: path
-#     description: The id of the project to remove the user from
-#   - name: groupType
+#     description: The id of the project
+#   - name: role
 #     in: path
 #     description: Either -1 all, 1 - Admin, 2 - Write, 3 - Read
 #   - name: isOSMUserId
@@ -598,11 +598,11 @@ PUT     /user/project/:projectId/:groupType         @org.maproulette.framework.c
 #     required: true
 #     type: string
 ###
-DELETE  /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.controller.UserController.removeUserFromProject(userId:Long, projectId:Long, groupType:Int, isOSMUserId:Boolean ?= false)
+DELETE  /user/:userId/project/:projectId/:role  @org.maproulette.framework.controller.UserController.removeUserFromProject(userId:Long, projectId:Long, role:Int, isOSMUserId:Boolean ?= false)
 ###
 # tags: [ User ]
-# summary: Removes a list of users from a project group
-# description: Removes a list of users with the specific id from a Admin, Write or Read project group
+# summary: Removes granted role on project from a list of users
+# description: Removes Admin, Write, or Read role on project from a list of users
 # responses:
 #   '200':
 #     description: Ok with a standard message
@@ -611,8 +611,8 @@ DELETE  /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.
 # parameters:
 #   - name: projectId
 #     in: path
-#     description: The id of the project to remove the users from
-#   - name: groupType
+#     description: The id of the project
+#   - name: role
 #     in: path
 #     description: Either 1 - Admin, 2 - Write, 3 - Read
 #   - name: body
@@ -636,4 +636,4 @@ DELETE  /user/:userId/project/:projectId/:groupType  @org.maproulette.framework.
 #     required: true
 #     type: string
 ###
-DELETE  /user/project/:projectId/:groupType         @org.maproulette.framework.controller.UserController.removeUsersFromProject(projectId:Long, groupType:Int, isOSMUserId:Boolean ?= false)
+DELETE  /user/project/:projectId/:role         @org.maproulette.framework.controller.UserController.removeUsersFromProject(projectId:Long, role:Int, isOSMUserId:Boolean ?= false)

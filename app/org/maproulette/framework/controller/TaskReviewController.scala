@@ -84,7 +84,7 @@ class TaskReviewController @Inject() (
         val jsonList = challenges.map { c =>
           val projectJson = Json
             .toJson(projects.get(c.parent))
-            .as[JsObject] - Project.KEY_GROUPS
+            .as[JsObject] - Project.KEY_GRANTS
 
           var updated =
             Utils.insertIntoJson(Json.toJson(c), Challenge.KEY_PARENT, projectJson, true)
@@ -92,7 +92,7 @@ class TaskReviewController @Inject() (
             case Some(vps) =>
               val vpJson =
                 Some(
-                  vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GROUPS)
+                  vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GRANTS)
                 )
               updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
             case _ => // do nothing

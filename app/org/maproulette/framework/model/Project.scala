@@ -25,7 +25,7 @@ case class Project(
     created: DateTime = DateTime.now(),
     modified: DateTime = DateTime.now(),
     description: Option[String] = None,
-    groups: List[Group] = List.empty,
+    grants: List[Grant] = List.empty,
     enabled: Boolean = false,
     displayName: Option[String] = None,
     deleted: Boolean = false,
@@ -34,13 +34,13 @@ case class Project(
 ) extends CacheObject[Long]
 
 object Project extends CommonField {
-  implicit val groupWrites: Writes[Group] = Group.writes
-  implicit val groupReads: Reads[Group]   = Group.reads
+  implicit val grantWrites: Writes[Grant] = Grant.writes
+  implicit val grantReads: Reads[Grant]   = Grant.reads
   implicit val writes: Writes[Project]    = Json.writes[Project]
   implicit val reads: Reads[Project]      = Json.reads[Project]
 
   val TABLE              = "projects"
-  val KEY_GROUPS         = "groups"
+  val KEY_GRANTS         = "grants"
   val FIELD_OWNER        = "owner_id"
   val FIELD_ENABLED      = "enabled"
   val FIELD_DISPLAY_NAME = "display_name"

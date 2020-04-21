@@ -10,6 +10,7 @@ import org.maproulette.data._
 import org.maproulette.framework.model.Challenge
 import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.session.{SearchParameters, SessionManager}
+import org.maproulette.permissions.Permission
 import org.maproulette.utils.Utils
 import play.api.libs.json.Json.JsValueWrapper
 import play.api.libs.json._
@@ -28,7 +29,8 @@ class DataController @Inject() (
     config: Config,
     actionManager: ActionManager,
     components: ControllerComponents,
-    statusActionManager: StatusActionManager
+    statusActionManager: StatusActionManager,
+    permission: Permission
 ) extends AbstractController(components) {
 
   implicit val actionWrites               = actionManager.actionItemWrites
@@ -486,7 +488,7 @@ class DataController @Inject() (
       offset: Int
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      val users = if (user.isSuperUser) {
+      val users = if (permission.isSuperUser(user)) {
         Utils.toLongList(userIds).getOrElse(List.empty)
       } else {
         List(user.id)
@@ -545,7 +547,7 @@ class DataController @Inject() (
       offset: Int
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      val users = if (user.isSuperUser) {
+      val users = if (permission.isSuperUser(user)) {
         Utils.toLongList(userIds).getOrElse(List.empty)
       } else {
         List(user.id)

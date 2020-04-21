@@ -6,7 +6,7 @@
 package org.maproulette.framework.repository
 
 import org.joda.time.{DateTime, Months}
-import org.maproulette.framework.model.{Group, Project, User}
+import org.maproulette.framework.model.{Grant, Grantee, GrantTarget, Project, User}
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter
 import org.maproulette.framework.util.{FrameworkHelper, ProjectRepoTag}
@@ -49,7 +49,7 @@ class ProjectRepositorySpec(implicit val application: Application) extends Frame
       val randomUser = this.serviceManager.user
         .create(this.getTestUser(456677, "DummyProjectUser"), User.superUser)
       val randomDateTime = DateTime.now.minus(Months.ONE)
-      // update everything, including things actually not expected to be updated like created, modified, groups and deleted
+      // update everything, including things actually not expected to be updated like created, modified, grants and deleted
       val updatedProject = Project(
         newCreatedProject.id,
         randomUser.osmProfile.id,
@@ -62,7 +62,15 @@ class ProjectRepositorySpec(implicit val application: Application) extends Frame
         deleted = true,
         created = randomDateTime,
         modified = randomDateTime,
-        groups = List(Group(-1, "RANDOM", newCreatedProject.id, Group.TYPE_ADMIN))
+        grants = List(
+          Grant(
+            -1,
+            "RANDOM",
+            Grantee.user(randomUser.id),
+            Grant.ROLE_ADMIN,
+            GrantTarget.project(newCreatedProject.id)
+          )
+        )
       )
       this.repository.update(updatedProject)
       val dbUpdatedProject = this.repository.retrieve(newCreatedProject.id)
@@ -77,7 +85,7 @@ class ProjectRepositorySpec(implicit val application: Application) extends Frame
       dbUpdatedProject.get.deleted mustEqual false
       dbUpdatedProject.get.created mustEqual newCreatedProject.created
       dbUpdatedProject.get.modified.isAfter(randomDateTime)
-      dbUpdatedProject.get.groups.size mustEqual 0
+      dbUpdatedProject.get.grants.size mustEqual 0
     }
 
     "delete a project" taggedAs ProjectRepoTag in {

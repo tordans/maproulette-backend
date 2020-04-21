@@ -54,7 +54,7 @@ class VirtualProjectRepositorySpec(implicit val application: Application) extend
         "ActualVirtualProjectRepositorySpecProject",
         isVirtual = Some(true)
       ),
-      User.superUser
+      this.defaultUser
     )
   }
 }

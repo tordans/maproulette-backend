@@ -368,8 +368,8 @@ class ChallengeDAL @Inject() (
   def retrieveRootObject(obj: Either[Long, Challenge], user: User)(
       implicit c: Option[Connection] = None
   ): Option[Project] = {
-    val projectParser = ProjectRepository.parser(id =>
-      this.serviceManager.group.retrieveProjectGroups(id, User.superUser)
+    val projectParser = ProjectRepository.parser(projectId =>
+      this.serviceManager.grant.retrieveGrantsOn(GrantTarget.project(projectId), User.superUser)
     )
     obj match {
       case Left(id) =>

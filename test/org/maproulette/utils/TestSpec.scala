@@ -7,6 +7,7 @@ package org.maproulette.utils
 
 import com.google.inject.util.Providers
 import org.joda.time.DateTime
+import org.maproulette.Config
 import org.maproulette.data.{ActionManager, DataManager, StatusActionManager}
 import org.maproulette.framework.model._
 import org.maproulette.framework.service._
@@ -18,6 +19,7 @@ import org.mockito.ArgumentMatchers.{eq => eqM, _}
 import org.mockito.Mockito._
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
+import play.api.Configuration
 import play.api.db.Databases
 import play.api.libs.oauth.RequestToken
 
@@ -25,13 +27,11 @@ import play.api.libs.oauth.RequestToken
   * @author mcuthbert
   */
 trait TestSpec extends PlaySpec with MockitoSugar {
+  implicit val configuration = Configuration.from(
+    Map(Config.KEY_CACHING_CACHE_LIMIT -> 6, Config.KEY_CACHING_CACHE_EXPIRY -> 5)
+  )
 
   val testDb = Databases.inMemory()
-
-  // 3x Groups (Admin, Write, Read)
-  val adminGroup = Group(1, "Mocked_1_Admin", 1, Group.TYPE_ADMIN)
-  val writeGroup = Group(2, "Mocked_1_Write", 1, Group.TYPE_WRITE_ACCESS)
-  val readGroup  = Group(3, "Mocked_1_Read", 1, Group.TYPE_READ_ONLY)
 
   //projects
   val project1 = Project(
@@ -41,7 +41,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     DateTime.now(),
     DateTime.now(),
     None,
-    List(adminGroup, writeGroup, readGroup)
+    List(adminGrant(1, 1), writeGrant(1, 2), readGrant(1, 3))
   )
 
   //challenges
@@ -58,6 +58,34 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     ChallengePriority(),
     ChallengeExtra()
   )
+
+  // Grants (Admin, Write, Read)
+  def adminGrant(projectId: Long, userId: Long): Grant =
+    Grant(
+      projectId,
+      s"Mocked_${projectId}/${userId}_Admin",
+      Grantee.user(userId),
+      Grant.ROLE_ADMIN,
+      GrantTarget.project(1)
+    )
+
+  def writeGrant(projectId: Long, userId: Long): Grant =
+    Grant(
+      projectId,
+      s"Mocked_${projectId}/${userId}_Write",
+      Grantee.user(userId),
+      Grant.ROLE_WRITE_ACCESS,
+      GrantTarget.project(1)
+    )
+
+  def readGrant(projectId: Long, userId: Long): Grant =
+    Grant(
+      projectId,
+      s"Mocked_${projectId}/${userId}_Read",
+      Grantee.user(userId),
+      Grant.ROLE_READ_ONLY,
+      GrantTarget.project(1)
+    )
 
   //tasks
   val task1               = Task(1, "Task1", DateTime.now(), DateTime.now(), 1, None, None, "")
@@ -81,7 +109,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     DateTime.now(),
     DateTime.now(),
     OSMProfile(1, "AdminUser", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
-    List(adminGroup)
+    List(adminGrant(1, 1))
   )
   val actionManager = mock[ActionManager]
   val dataManager   = mock[DataManager]
@@ -102,7 +130,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     taskClusterDAL,
     statusActionManager
   )
-  val groupService            = mock[GroupService]
+  val grantService            = mock[GrantService]
   val commentService          = mock[CommentService]
   val challengeService        = mock[ChallengeService]
   val challengeListingService = mock[ChallengeListingService]
@@ -112,7 +140,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
   val taskReviewService       = mock[TaskReviewService]
   val serviceManager = new ServiceManager(
     Providers.of[ProjectService](projectService),
-    Providers.of[GroupService](groupService),
+    Providers.of[GrantService](grantService),
     Providers.of[UserService](userService),
     Providers.of[CommentService](commentService),
     Providers.of[TagService](tagService),
@@ -122,27 +150,28 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     Providers.of[VirtualProjectService](virtualProjectService),
     Providers.of[TaskReviewService](taskReviewService)
   )
-  val permission = new Permission(Providers.of[DALManager](dalManager), serviceManager)
+  val permission =
+    new Permission(Providers.of[DALManager](dalManager), serviceManager, new Config())
   var writeUser = User(
     2,
     DateTime.now(),
     DateTime.now(),
     OSMProfile(2, "WriteUser", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
-    List(writeGroup)
+    List(writeGrant(1, 2))
   )
   var readUser = User(
     3,
     DateTime.now(),
     DateTime.now(),
     OSMProfile(3, "ReadUser", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
-    List(readGroup)
+    List(readGrant(1, 3))
   )
   var owner = User(
     100,
     DateTime.now(),
     DateTime.now(),
     OSMProfile(101, "DefaultOwner", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
-    List.empty //generally an owner would have to be in an admin group, but here we are making sure the owner permissions are respective regardless or group or lack there of
+    List.empty // even an owner needs to be granted the proper role
   )
   var notificationDAL = mock[NotificationDAL]
 
@@ -191,6 +220,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
 
     // Mocks for users
     when(this.userService.retrieve(-999L)).thenReturn(Some(User.superUser))
+    when(this.userService.retrieve(-998L)).thenReturn(Some(User.guestUser))
     doAnswer(_ => Some(User.superUser)).when(this.userService).retrieve(-999L)
     when(this.userService.retrieve(-1L)).thenReturn(Some(User.guestUser))
     doAnswer(_ => Some(User.guestUser)).when(this.userService).retrieve(-1L)
@@ -205,10 +235,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     when(this.userService.retrieve(100L)).thenReturn(Some(owner))
     doAnswer(_ => Some(owner)).when(this.userService).retrieve(100L)
 
-    // Mocks for User Groups
-    when(this.groupService.retrieve(0)).thenReturn(None)
-    when(this.groupService.retrieve(1)).thenReturn(Some(adminGroup))
-    when(this.groupService.retrieve(2)).thenReturn(Some(writeGroup))
-    when(this.groupService.retrieve(3)).thenReturn(Some(readGroup))
+    // Mocks for Grants
+    when(this.grantService.retrieve(1)).thenReturn(Some(this.adminGrant(1, 1).copy(id = 1)))
   }
 }

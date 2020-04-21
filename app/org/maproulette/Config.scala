@@ -360,4 +360,5 @@ object Config {
   val CACHE_ID_TASKS              = "5";
   val CACHE_ID_USERGROUPS         = "6"
   val CACHE_ID_VIRTUAL_CHALLENGES = "7"
+  val CACHE_ID_GRANTS             = "8"
 }

@@ -17,6 +17,8 @@ import org.maproulette.framework.repository.{ChallengeRepository, ProjectReposit
 import org.maproulette.models.ClusteredPoint
 import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters
+import org.maproulette.exception.{InvalidException}
+import org.maproulette.data._
 import org.slf4j.LoggerFactory
 import play.api.libs.json.JsValue
 
@@ -29,8 +31,7 @@ import play.api.libs.json.JsValue
 class ProjectService @Inject() (
     repository: ProjectRepository,
     config: Config,
-    groupService: GroupService,
-    challengeService: ChallengeService,
+    serviceManager: ServiceManager,
     permission: Permission
 ) extends ServiceMixin[Project] {
   // manager for the cache of the projects
@@ -51,7 +52,7 @@ class ProjectService @Inject() (
     // to inject sql into the Query object. I think generally speaking we should move the code to
     // the repository and have a specialized function for what you are doing, but I am not sure in
     // this case.
-    this.challengeService.query(
+    this.serviceManager.challenge.query(
       Query(
         Filter(
           List(
@@ -105,21 +106,28 @@ class ProjectService @Inject() (
     * @return The new project with the new project ID
     */
   def create(project: Project, user: User): Project = {
-    //permissions don't need to be checked, anyone can create a project
-    //this.permission.hasObjectWriteAccess(project, user)
-    this.cacheManager.withOptionCaching { () =>
-      // only super users can feature a project
-      val featured = project.featured && user.isSuperUser
-      // first create the project
-      val newProject = this.repository.create(project.copy(featured = featured))
+    // only super users can feature a project
+    val featured = project.featured && permission.isSuperUser(user)
 
-      val adminGroup = this.groupService.create(newProject.id, Group.TYPE_ADMIN, User.superUser)
-      val writeGroup =
-        this.groupService.create(newProject.id, Group.TYPE_WRITE_ACCESS, User.superUser)
-      val readGroup = this.groupService.create(newProject.id, Group.TYPE_READ_ONLY, User.superUser)
-      this.groupService.addUserToGroup(project.owner, adminGroup, User.superUser)
-      Some(newProject.copy(groups = List(adminGroup, writeGroup, readGroup)))
-    }.head
+    // Permissions don't need to be checked, anyone can create a project
+    val newProject = this.repository.create(project.copy(featured = featured))
+
+    // Add the project owner as an admin
+    val updatedUser =
+      this.serviceManager.user
+        .addUserToProject(project.owner, newProject.id, Grant.ROLE_ADMIN, User.superUser)
+
+    // Refresh the project in cache with latest grants
+    this.cacheManager
+      .withUpdatingCache(id => Some(newProject)) { cachedProject =>
+        Some(
+          cachedProject.copy(
+            grants = this.serviceManager.grant
+              .retrieveGrantsOn(GrantTarget.project(cachedProject.id), User.superUser)
+          )
+        )
+      }(id = newProject.id)
+      .get
   }
 
   /**
@@ -141,43 +149,45 @@ class ProjectService @Inject() (
       searchString: String = "",
       order: Order = Order > ("display_name", Order.ASC)
   )(implicit c: Option[Connection] = None): List[Project] = {
-    if (user.isSuperUser && !onlyOwned) {
+    if (permission.isSuperUser(user) && !onlyOwned) {
       this.find(searchString, paging, onlyEnabled, order)
     } else {
-      if (user.groups.isEmpty && !user.isSuperUser) {
+      if (user.grants.isEmpty && !permission.isSuperUser(user)) {
         List.empty
       } else {
+        val managedProjectIds =
+          this.serviceManager.grant
+            .retrieveGrantsTo(Grantee.user(user.id), User.superUser)
+            .filter { g =>
+              g.target.objectType == ProjectType()
+            }
+            .map { g =>
+              g.target.objectId
+            }
+
         // TODO No sql should exist in the service layer
         val customQuery =
           s"""SELECT distinct projects.*, LOWER(projects.name), LOWER(projects.display_name)
-                              FROM projects INNER JOIN groups on groups.project_id = projects.id"""
-        val permissionFilterGroup =
-          FilterGroup(
-            List(
-              BaseParameter(Project.FIELD_OWNER, user.osmProfile.id),
-              FilterParameter.conditional(
-                Group.FIELD_ID,
-                user.groups.map(_.id),
-                Operator.IN,
-                includeOnlyIfTrue = !onlyOwned,
-                table = Some(Group.TABLE)
-              )
-            ),
-            OR()
-          )
+              FROM projects"""
         val baseFilterGroup = FilterGroup(
           List(
+            BaseParameter(Project.FIELD_ID, managedProjectIds, Operator.IN),
             BaseParameter(Project.FIELD_NAME, SQLUtils.search(searchString), Operator.LIKE),
             FilterParameter.conditional(
               Project.FIELD_ENABLED,
               onlyEnabled,
               includeOnlyIfTrue = onlyEnabled
+            ),
+            FilterParameter.conditional(
+              Project.FIELD_OWNER,
+              user.osmProfile.id,
+              includeOnlyIfTrue = onlyOwned
             )
           )
         )
         this.query(
           Query(
-            Filter(List(permissionFilterGroup, baseFilterGroup)),
+            Filter(List(baseFilterGroup)),
             customQuery,
             paging,
             order
@@ -288,7 +298,7 @@ class ProjectService @Inject() (
         val description =
           (updates \ "description").asOpt[String].getOrElse(cachedItem.description.getOrElse(""))
         val enabled = (updates \ "enabled").asOpt[Boolean] match {
-          case Some(_) if !user.isSuperUser && !user.adminForProject(id) =>
+          case Some(_) if !permission.isSuperUser(user) && !user.adminForProject(id) =>
             logger.warn(
               s"User [${user.name} - ${user.id}] is not a super user and cannot enable or disable projects"
             )
@@ -297,7 +307,7 @@ class ProjectService @Inject() (
           case None    => cachedItem.enabled
         }
         val featured = (updates \ "featured").asOpt[Boolean] match {
-          case Some(_) if !user.isSuperUser =>
+          case Some(_) if !permission.isSuperUser(user) =>
             logger.warn(
               s"User [${user.name} - ${user.id}] is not a super user and cannot feature projects"
             )

@@ -18,7 +18,7 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Challenge, Project, StatusActions, User}
+import org.maproulette.framework.model.{Challenge, Project, StatusActions, User, GrantTarget}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.ProjectRepository
@@ -180,7 +180,7 @@ class TaskDAL @Inject() (
       implicit c: Option[Connection] = None
   ): Option[Project] = {
     val projectParser = ProjectRepository.parser(projectId =>
-      this.serviceManager.group.retrieveProjectGroups(projectId, User.superUser)
+      this.serviceManager.grant.retrieveGrantsOn(GrantTarget.project(projectId), User.superUser)
     )
     obj match {
       case Left(id) =>
