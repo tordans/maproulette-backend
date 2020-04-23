@@ -11,7 +11,7 @@ import org.maproulette.Config
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.framework.model.{StatusActions, TaskReview, User, UserMetrics}
 import org.maproulette.framework.psql.filter._
-import org.maproulette.framework.psql.{AND, OR, Query}
+import org.maproulette.framework.psql.{OR, Query}
 import org.maproulette.framework.repository.{TaskReviewRepository, UserRepository}
 import org.maproulette.models.Task
 import org.maproulette.permissions.Permission
@@ -92,21 +92,25 @@ class UserMetricService @Inject() (
     val reviewCounts = this.taskReviewRepository.getTaskReviewCounts(
       Query(
         Filter(
-          AND(),
-          FilterGroup(AND(), BaseParameter(TaskReview.FIELD_REVIEW_REQUESTED_BY, userId)),
-          FilterGroup(
-            AND(),
-            BaseParameter(
-              TaskReview.FIELD_REVIEW_STATUS,
-              Task.REVIEW_STATUS_UNNECESSARY,
-              Operator.EQ,
-              true
+          List(
+            FilterGroup(List(BaseParameter(TaskReview.FIELD_REVIEW_REQUESTED_BY, userId))),
+            FilterGroup(
+              List(
+                BaseParameter(
+                  TaskReview.FIELD_REVIEW_STATUS,
+                  Task.REVIEW_STATUS_UNNECESSARY,
+                  Operator.EQ,
+                  true
+                )
+              )
+            ),
+            FilterGroup(
+              List(
+                reviewTimeClause,
+                BaseParameter(TaskReview.FIELD_REVIEWED_AT, null, Operator.NULL)
+              ),
+              OR()
             )
-          ),
-          FilterGroup(
-            OR(),
-            reviewTimeClause,
-            BaseParameter(TaskReview.FIELD_REVIEWED_AT, null, Operator.NULL)
           )
         )
       )
@@ -162,21 +166,21 @@ class UserMetricService @Inject() (
     duration match {
       case _ if dates._1.isDefined =>
         DateParameter(
-          s"$field",
+          field,
           dates._1.get,
           dates._2.get,
           Operator.BETWEEN
         )
       case 0 =>
         DateParameter(
-          s"$field",
+          field,
           DateTime.now.withDayOfMonth(1),
           DateTime.now,
           Operator.BETWEEN
         )
       case _ =>
         DateParameter(
-          s"$field",
+          field,
           DateTime.now.minus(Months.ONE),
           DateTime.now,
           Operator.BETWEEN

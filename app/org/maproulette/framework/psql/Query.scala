@@ -17,12 +17,10 @@ import org.slf4j.{Logger, LoggerFactory}
   * @author mcuthbert
   */
 object Query {
-  val logger: Logger      = LoggerFactory.getLogger(Query.getClass)
-  val PRIMARY_QUERY_KEY   = ""
-  val SECONDARY_QUERY_KEY = "secondary"
+  val logger: Logger = LoggerFactory.getLogger(Query.getClass)
 
   //val config:Config
-  def devMode(): Boolean = false //config.isDebugMode || config.isDevMode
+  def devMode(): Boolean = true //config.isDebugMode || config.isDevMode
 
   def simple(
       parameters: List[Parameter[_]],
@@ -30,9 +28,19 @@ object Query {
       key: SQLKey = AND(),
       paging: Paging = Paging(),
       order: Order = Order(),
-      grouping: Grouping = Grouping()
+      grouping: Grouping = Grouping(),
+      includeWhere: Boolean = true,
+      appendBase: Boolean = false
   ): Query =
-    Query(Filter(key, FilterGroup(key, parameters: _*)), base, paging, order, grouping)
+    Query(
+      Filter(List(FilterGroup(parameters, key)), key),
+      base,
+      paging,
+      order,
+      grouping,
+      includeWhere,
+      appendBase
+    )
 }
 
 case class Query(
@@ -40,13 +48,16 @@ case class Query(
     base: String = "",
     paging: Paging = Paging(),
     order: Order = Order(),
-    grouping: Grouping = Grouping()
+    grouping: Grouping = Grouping(),
+    includeWhere: Boolean = true,
+    appendBase: Boolean = false
 ) extends SQLClause {
   def build(
-      baseQuery: String = ""
-  )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): SimpleSql[Row] = {
+      baseQuery: String = "",
+      defaultGrouping: Grouping = Grouping()
+  )(implicit baseTable: String = ""): SimpleSql[Row] = {
     val parameters = this.parameters()
-    val sql        = this.sqlWithBaseQuery(baseQuery)
+    val sql        = this.sqlWithBaseQuery(baseQuery, appendBase, defaultGrouping)
     if (parameters.nonEmpty) {
       SQL(sql).on(parameters: _*)
     } else {
@@ -54,28 +65,36 @@ case class Query(
     }
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = filter.parameters() ++ paging.parameters()
+  override def parameters(): List[NamedParameter] = filter.parameters() ++ paging.parameters()
 
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
-    this.sqlWithBaseQuery()
+  override def sql()(implicit table: String = ""): String = this.sqlWithBaseQuery()
 
   def sqlWithBaseQuery(
-      baseQuery: String = ""
-  )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+      baseQuery: String = "",
+      appendBase: Boolean = false,
+      defaultGrouping: Grouping = Grouping()
+  )(implicit baseTable: String = ""): String = {
     val filterQuery = filter.sql() match {
-      case x if x.nonEmpty => s"WHERE $x"
-      case x               => x
+      case x if x.nonEmpty & includeWhere => s"WHERE $x"
+      case x                              => x
     }
     val pagingQuery = paging.sql()
-    val start = base match {
-      case "" => baseQuery
-      case _  => base
+    val start = if (appendBase) {
+      s"$baseQuery ${this.base}"
+    } else {
+      this.base match {
+        case "" => baseQuery
+        case _  => this.base
+      }
+    }
+
+    val sqlGrouping = grouping.sql() match {
+      case "" => defaultGrouping.sql()
+      case _  => grouping.sql()
     }
 
     val query =
-      s"$start${this.format(filterQuery)}${this.format(grouping.sql())}${this.format(order.sql())}${this
+      s"$start${this.format(filterQuery)}${this.format(sqlGrouping)}${this.format(order.sql())}${this
         .format(pagingQuery)}"
     if (Query.devMode()) {
       Query.logger.debug(query)

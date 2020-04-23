@@ -54,10 +54,16 @@ class Scheduler @Inject() (
     Config.KEY_SCHEDULER_CLEAN_TASKS_INTERVAL
   )
   schedule(
+    "expireTaskReviews",
+    "Moving old task reviews to unnecessary",
+    1.minute,
+    Config.KEY_SCHEDULER_EXPIRE_TASK_REVIEWS_INTERVAL
+  )
+  schedule(
     "cleanExpiredVirtualChallenges",
     "Cleaning up expired Virtual Challenges",
     1.minute,
-    Config.KEY_SCHEDULER_CLEAN_VC_INTEVAL
+    Config.KEY_SCHEDULER_CLEAN_VC_INTERVAL
   )
   schedule(
     "OSMChangesetMatcher",

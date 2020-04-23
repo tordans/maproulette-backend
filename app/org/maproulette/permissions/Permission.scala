@@ -131,7 +131,7 @@ class Permission @Inject() (
             groupType
           )
         case tag: Tag =>
-          this.hasReadAccess(TagType(), user)(tag.id)
+        //this.hasReadAccess(TagType(), user)(tag.id)
         case g: Group =>
           this.hasProjectTypeAccess(user, Group.TYPE_ADMIN)(g.projectId)
         case b: Bundle =>

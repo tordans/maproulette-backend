@@ -286,7 +286,7 @@ GET     /challenges/listing                         @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Tag'
+#         $ref: '#/definitions/org.maproulette.framework.model.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -308,7 +308,7 @@ POST     /challenge/:id/project/:projectId           @org.maproulette.controller
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Tag'
+#         $ref: '#/definitions/org.maproulette.framework.model.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -452,6 +452,37 @@ GET     /challenges/preferred                             @org.maproulette.contr
 #     description: Only retrieve challenges that are enabled, default is false.
 ###
 GET     /challenges                                 @org.maproulette.controllers.api.ChallengeController.list(limit:Int ?= 10, page:Int ?= 0, onlyEnabled:Boolean ?= false)
+###
+# tags: [ Challenge ]
+# summary: List all the Challenges with review tasks.
+# produces: [ application/json ]
+# description: Lists all the Challenges in the system with review tasks.
+# responses:
+#   '200':
+#     description: A list of all the Challenges with review tasks
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.Challenge'
+# parameters:
+#   - name: reviewTasksType
+#     in: query
+#     description: Limit challenges to reviews of type... 1/To Be Reviewed 2/User's reviewed Tasks 3/All reviewed by users
+#   - name: tStatus
+#     in: query
+#     description: Task statuses to include in search (default all statuses)
+#   - name: excludeOtherReviewers
+#     in: query
+#     description: Exclude reviews by completed by other reviewers (default true)
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 10.
+#   - name: page
+#     in: query
+#     description: Used in conjunction with the limit parameter to page through X number of responses. Default value is 0, ie. first page.
+###
+GET     /review/challenges                                 @org.maproulette.framework.controller.TaskReviewController.listChallenges(reviewTasksType:Int, tStatus:String ?= "", excludeOtherReviewers:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0)
 ###
 # tags: [ Challenge ]
 # summary: List all the Challenges Tasks.

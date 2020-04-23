@@ -73,7 +73,7 @@ case class ChallengeGeneral(
     blurb: Option[String] = None,
     enabled: Boolean = false,
     featured: Boolean = false,
-    hasSuggestedFixes: Boolean = false,
+    cooperativeType: Int = 0,
     popularity: Option[Int] = None,
     checkinComment: String = "",
     checkinSource: String = "",
@@ -221,7 +221,13 @@ object Challenge extends CommonField {
   val STATUS_FINISHED         = 5
   val STATUS_DELETING_TASKS   = 6
 
+  // COOPERATIVE TYPES
+  val COOPERATIVE_NONE       = 0
+  val COOPERATIVE_TAGS       = 1
+  val COOPERATIVE_CHANGEFILE = 2
+
   // CHALLENGE FIELDS
+  val TABLE           = "challenges"
   val FIELD_PARENT_ID = "parent_id"
   val FIELD_ENABLED   = "enabled"
 

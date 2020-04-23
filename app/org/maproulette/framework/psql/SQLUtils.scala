@@ -32,7 +32,7 @@ object SQLUtils {
   // The set of characters that are allowed for column names, so that we can sanitize in unknown input
   // for protection against SQL injection
   private val ordinary =
-    (('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ Seq('_') ++ Seq('.')).toSet
+    (('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ Seq('_') ++ Seq('.') ++ Seq('-')).toSet
 
   def testColumnName(columnName: String): Unit = {
     if (!columnName.forall(this.ordinary.contains)) {
@@ -47,10 +47,34 @@ object SQLUtils {
     * @param value The search string that you are using to match with
     * @return
     */
-  def search(value: String): String = if (value.nonEmpty) s"%$value%" else "%"
+  def search(value: String, usePrefix: Boolean = false): String = {
+    val firstChar = if (usePrefix) "" else "%"
+    if (value.nonEmpty) s"$firstChar$value%" else "%"
+  }
 
   def toParameterValue[T](value: T): ParameterValue =
     ToParameterValue.apply[T](p = toStatement).apply(value)
+
+  def buildNamedParameter[T](key: String, value: T): NamedParameter = {
+    val sequenceValue = value match {
+      case value: List[_] => value.toSet
+      case value: Seq[_]  => value.toSet
+      case value          => value
+    }
+
+    val toSql = sequenceValue match {
+      case value: Set[_] =>
+        value.head match {
+          case _: Int    => ToSql.setToSql[Int]
+          case _: Long   => ToSql.setToSql[Long]
+          case _: String => ToSql.setToSql[String]
+        }
+      case _ => ToSql.missing
+    }
+    NamedParameter.namedWithString(key, sequenceValue)(
+      ToParameterValue(toSql.asInstanceOf[ToSql[Any]], toStatement[Any])
+    )
+  }
 
   /**
     * Handles setting the value in a SQL prepared statement
@@ -84,26 +108,5 @@ object SQLUtils {
             }
         }
     }
-  }
-
-  def buildNamedParameter[T](key: String, value: T): NamedParameter = {
-    val sequenceValue = value match {
-      case value: List[_] => value.toSet
-      case value: Seq[_]  => value.toSet
-      case value          => value
-    }
-
-    val toSql = sequenceValue match {
-      case value: Set[_] =>
-        value.head match {
-          case _: Int    => ToSql.setToSql[Int]
-          case _: Long   => ToSql.setToSql[Long]
-          case _: String => ToSql.setToSql[String]
-        }
-      case _ => ToSql.missing
-    }
-    NamedParameter.namedWithString(key, sequenceValue)(
-      ToParameterValue(toSql.asInstanceOf[ToSql[Any]], toStatement[Any])
-    )
   }
 }

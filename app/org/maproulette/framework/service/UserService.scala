@@ -55,12 +55,11 @@ class UserService @Inject() (
   def retrieveByAPIKey(id: Long, apiKey: String, user: User): Option[User] =
     this.cacheManager.withOptionCaching { () =>
       val idFilterGroup = FilterGroup(
-        OR(),
-        BaseParameter(User.FIELD_ID, id),
-        BaseParameter(User.FIELD_OSM_ID, id)
+        List(BaseParameter(User.FIELD_ID, id), BaseParameter(User.FIELD_OSM_ID, id)),
+        OR()
       )
-      val apiFilterGroup = FilterGroup(AND(), BaseParameter(User.FIELD_API_KEY, apiKey))
-      val query          = Query(Filter(AND(), idFilterGroup, apiFilterGroup))
+      val apiFilterGroup = FilterGroup(List(BaseParameter(User.FIELD_API_KEY, apiKey)))
+      val query          = Query(Filter(List(idFilterGroup, apiFilterGroup)))
 
       this.repository.query(query).headOption match {
         case Some(u) =>
@@ -112,8 +111,6 @@ class UserService @Inject() (
       }
     }
 
-  def query(query: Query, user: User): List[User] = this.repository.query(query)
-
   /**
     * Allow users to search for other users by OSM username.
     *
@@ -135,7 +132,7 @@ class UserService @Inject() (
             BaseParameter(User.FIELD_NAME, SQLUtils.search(username), Operator.ILIKE)
           ),
           paging = paging,
-          order = Order(List(User.FIELD_NAME))
+          order = Order > (User.FIELD_NAME)
         )
       )
   }
@@ -232,38 +229,6 @@ class UserService @Inject() (
   }
 
   private def generateAPIKey: String = UUID.randomUUID().toString
-
-  /**
-    * Retrieves an object of that type
-    *
-    * @param id The identifier for the object
-    * @return An optional object, None if not found
-    */
-  override def retrieve(id: Long): Option[User] = this.retrieveListById(List(id)).headOption
-
-  /**
-    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
-    * in the cache and those that aren't will be retrieved from the database
-    *
-    * @param ids The list of ids to be retrieved
-    * @param paging paging object to handle paging in response
-    * @return A list of objects, empty list if none found
-    */
-  def retrieveListById(ids: List[Long], paging: Paging = Paging()): List[User] = {
-    if (ids.isEmpty) {
-      List.empty
-    } else {
-      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
-        this.query(
-          Query.simple(
-            List(BaseParameter(User.FIELD_ID, uncachedIDs, Operator.IN)),
-            paging = paging
-          ),
-          User.superUser
-        )
-      }(ids = ids)
-    }
-  }
 
   /**
     * Retrieves all the objects based on the search criteria
@@ -428,7 +393,41 @@ class UserService @Inject() (
       case Some(u) => this.groupService.clearCache(osmId = u.osmProfile.id)
       case None    => //no user, so can just ignore
     }
-    this.repository.delete(id)
+    this.cacheManager.withCacheIDDeletion { () =>
+      this.repository.delete(id)
+    }(ids = List(id))
+  }
+
+  /**
+    * Retrieves an object of that type
+    *
+    * @param id The identifier for the object
+    * @return An optional object, None if not found
+    */
+  override def retrieve(id: Long): Option[User] = this.retrieveListById(List(id)).headOption
+
+  /**
+    * Retrieves a list of objects from the supplied list of ids. Will check for any objects currently
+    * in the cache and those that aren't will be retrieved from the database
+    *
+    * @param ids The list of ids to be retrieved
+    * @param paging paging object to handle paging in response
+    * @return A list of objects, empty list if none found
+    */
+  def retrieveListById(ids: List[Long], paging: Paging = Paging()): List[User] = {
+    if (ids.isEmpty) {
+      List.empty
+    } else {
+      this.cacheManager.withIDListCaching { implicit uncachedIDs =>
+        this.query(
+          Query.simple(
+            List(BaseParameter(User.FIELD_ID, uncachedIDs, Operator.IN)),
+            paging = paging
+          ),
+          User.superUser
+        )
+      }(ids = ids)
+    }
   }
 
   /**
@@ -442,9 +441,14 @@ class UserService @Inject() (
     this.permission.hasSuperAccess(user)
     // expire the user group cache
     this.groupService.clearCache(osmId = osmId)
+    val item = this.retrieveByOSMId(osmId) match {
+      case Some(i) => i
+      case None    => throw new NotFoundException(s"No user with OSM ID $osmId found")
+    }
     this.cacheManager.withCacheIDDeletion { () =>
       this.repository.deleteByOSMID(osmId)
-    }(ids = List(osmId))
+    }(ids = List(item.id))
+    true
   }
 
   /**
@@ -478,20 +482,6 @@ class UserService @Inject() (
       }(id = osmId)
       .get
   }
-
-  /**
-    * Find the user based on the user's osm ID. If found on cache, will return cached object
-    * instead of hitting the database
-    *
-    * @param id   The user's osm ID
-    * @return The matched user, None if User not found
-    */
-  def retrieveByOSMId(id: Long): Option[User] =
-    this.cacheManager.withOptionCaching { () =>
-      this
-        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
-        .headOption
-    }
 
   /**
     * Initializes the home project for the user. If the project already exists, then we are
@@ -556,6 +546,22 @@ class UserService @Inject() (
       }(id = osmId)
       .get
   }
+
+  /**
+    * Find the user based on the user's osm ID. If found on cache, will return cached object
+    * instead of hitting the database
+    *
+    * @param id   The user's osm ID
+    * @return The matched user, None if User not found
+    */
+  def retrieveByOSMId(id: Long): Option[User] =
+    this.cacheManager.withOptionCaching { () =>
+      this
+        .query(Query.simple(List(BaseParameter(User.FIELD_OSM_ID, id))), User.superUser)
+        .headOption
+    }
+
+  def query(query: Query, user: User): List[User] = this.repository.query(query)
 
   /**
     * This function will quickly verify that the project groups have been created correctly and if not,

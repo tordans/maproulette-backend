@@ -5,6 +5,7 @@
 package org.maproulette.framework.model
 
 import org.joda.time.DateTime
+import org.maproulette.framework.psql.CommonField
 import org.maproulette.models.Task
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
@@ -25,10 +26,11 @@ case class TaskReview(
     reviewClaimedByUsername: Option[String],
     reviewClaimedAt: Option[DateTime]
 )
-object TaskReview {
+object TaskReview extends CommonField {
   implicit val writes: Writes[TaskReview] = Json.writes[TaskReview]
   implicit val reads: Reads[TaskReview]   = Json.reads[TaskReview]
 
+  val TABLE                     = "task_review"
   val FIELD_TASK_ID             = "task_id"
   val FIELD_REVIEW_STATUS       = "review_status"
   val FIELD_REVIEW_REQUESTED_BY = "review_requested_by"

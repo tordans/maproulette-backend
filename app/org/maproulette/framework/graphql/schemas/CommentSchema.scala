@@ -75,8 +75,8 @@ class CommentSchema @Inject() (override val service: CommentService)
       arguments = MRSchema.idArg :: CommentSchema.taskIdArg :: Nil,
       resolve = context =>
         this.service.delete(
-          context.arg(MRSchema.idArg),
           context.arg(CommentSchema.taskIdArg),
+          context.arg(MRSchema.idArg),
           context.ctx.user
         )
     ),

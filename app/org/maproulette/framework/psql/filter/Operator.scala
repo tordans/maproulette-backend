@@ -13,14 +13,15 @@ import org.maproulette.framework.psql.SQLUtils
   */
 object Operator extends Enumeration {
   type Operator = Value
-  val EQ, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS = Value
+  val EQ, GT, GTE, LT, LTE, IN, LIKE, ILIKE, CUSTOM, BETWEEN, NULL, SIMILAR_TO, EXISTS, BOOL = Value
 
   def format(
       key: String,
+      parameterKey: String,
       operator: Operator,
       negate: Boolean = false,
       value: Option[String] = None
-  )(implicit parameterKey: String): String = {
+  ): String = {
     SQLUtils.testColumnName(key)
     val negation = if (negate) {
       "NOT "
@@ -29,7 +30,7 @@ object Operator extends Enumeration {
     }
     val rightValue = value match {
       case Some(v) => v
-      case None    => s"{$parameterKey$key}"
+      case None    => s"{$parameterKey}"
     }
     operator match {
       case EQ         => s"$negation$key = $rightValue"
@@ -43,8 +44,9 @@ object Operator extends Enumeration {
       case NULL       => s"$key IS ${negation}NULL"
       case SIMILAR_TO => s"$negation$key SIMILAR TO $rightValue"
       case EXISTS     => s"${negation}EXISTS ($rightValue)"
-      case BETWEEN =>
-        throw new InvalidException("Between operator not supported by standard filter")
+      case BOOL       => s"${negation}$key"
+      case _ =>
+        throw new InvalidException("Operator not supported by standard filter")
     }
   }
 }

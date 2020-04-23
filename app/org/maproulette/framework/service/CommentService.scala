@@ -10,9 +10,9 @@ import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Comment, User}
+import org.maproulette.framework.model.{Comment, User, VirtualProject}
 import org.maproulette.framework.psql.filter._
-import org.maproulette.framework.psql.{OR, Order, Paging, Query}
+import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
 import org.maproulette.models.TaskBundle
 import org.maproulette.models.dal.{NotificationDAL, TaskBundleDAL, TaskDAL}
@@ -69,7 +69,7 @@ class CommentService @Inject() (
     this.repository
       .query(
         Query.simple(
-          List(BaseParameter(s"task_comments.${Comment.FIELD_ID}", id))
+          List(BaseParameter(Comment.FIELD_ID, id, table = Some(Comment.TABLE)))
         )
       )
       .headOption
@@ -78,12 +78,12 @@ class CommentService @Inject() (
   /**
     * Deletes a comment from the database
     *
-    * @param commentId The identifier of the comment
     * @param taskId The identifier of the task parent
+    * @param commentId The identifier of the comment
     * @param user The user deleting the comment
     * @return Boolean if delete was successful
     */
-  def delete(commentId: Long, taskId: Long, user: User): Boolean = {
+  def delete(taskId: Long, commentId: Long, user: User): Boolean = {
     this.taskDAL.retrieveById(taskId) match {
       case Some(task) =>
         this.permission.hasObjectAdminAccess(task, user)
@@ -157,6 +157,12 @@ class CommentService @Inject() (
       taskIdList: List[Long],
       paging: Paging = Paging()
   ): List[Comment] = {
+    val appendBase = if (projectIdList.nonEmpty) {
+      "LEFT OUTER JOIN virtual_project_challenges ON virtual_project_challenges.challenge_id = task_comments.challenge_id"
+    } else {
+      ""
+    }
+
     val filter = Filter.simple(
       List(
         FilterParameter.conditional(
@@ -165,13 +171,12 @@ class CommentService @Inject() (
           Operator.IN,
           includeOnlyIfTrue = projectIdList.nonEmpty
         ),
-        ConditionalFilterParameter(
-          CustomParameter(
-            s"""1 IN (SELECT 1 FROM unnest(ARRAY[${projectIdList.mkString(",")}]) AS pIds
-                         WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
-                                        WHERE vp.challenge_id = task_comments.challenge_id))"""
-          ),
-          projectIdList.nonEmpty
+        FilterParameter.conditional(
+          VirtualProject.FIELD_PROJECT_ID,
+          projectIdList,
+          Operator.IN,
+          includeOnlyIfTrue = projectIdList.nonEmpty,
+          table = Some(VirtualProject.TABLE)
         ),
         FilterParameter.conditional(
           Comment.FIELD_PROJECT_ID,
@@ -200,12 +205,13 @@ class CommentService @Inject() (
       paging = paging,
       order = Order(
         List(
-          Comment.FIELD_PROJECT_ID,
-          Comment.FIELD_CHALLENGE_ID,
-          s"task_comments.${Comment.FIELD_CREATED}"
-        ),
-        Order.DESC
-      )
+          OrderField(Comment.FIELD_PROJECT_ID),
+          OrderField(Comment.FIELD_CHALLENGE_ID),
+          OrderField(Comment.FIELD_CREATED, table = Some(Comment.TABLE))
+        )
+      ),
+      base = appendBase,
+      appendBase = true
     )
     this.query(query)
   }

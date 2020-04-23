@@ -205,6 +205,34 @@ GET     /task/:id                                   @org.maproulette.controllers
 #     description: The id of the Task to retrieve
 ###
 GET     /task/:id/start                               @org.maproulette.controllers.api.TaskController.startOnTask(id:Long)
+
+###
+# tags: [ Task ]
+# summary: Retrieve any change XML that is part of this task's cooperative work
+# produces: [ application/json ]
+# description: Retrieve change XML that is part of this task's cooperative work.
+#              The cooperative work on the task should be consulted to determine
+#              if any change exists for the task, and which change format was
+#              used (i.e. JOSM, OSMChange, etc).
+#
+# responses:
+#   '200':
+#     description: The change XML data
+#     schema:
+#       $ref: '#/definitions/org.maproulette.models.Task'
+#   '404':
+#     description: No Task found matching the id, or no change data found on the task
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the Task for which change XML is desired
+#   - name: filename
+#     in: path
+#     description: A filename to use. Some editors will use this as a hint as
+#                  to the change format of the XML. Must be alphanumeric with optional
+#                  underscores, dashes, and dots.
+###
+GET     /task/:id/cooperative/change/$filename<\w[\w\d-_\.]*>            @org.maproulette.controllers.api.TaskController.cooperativeWorkChangeXML(id:Long, filename:String)
 ###
 # tags: [ Task ]
 # summary: Release a Task (unlocks it)
@@ -334,7 +362,7 @@ GET     /tasks/find                                 @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Tag'
+#         $ref: '#/definitions/org.maproulette.framework.model.Tag'
 # parameters:
 #   - name: id
 #     in: path
@@ -617,7 +645,7 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 #     description: The ID of the task
 #   - name: status
 #     in: path
-#     description: The status to update the Task to. Following status Integers can be used. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+#     description: Will update a Tasks review status to one of the following. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted, 4 - Disputed, 5 - Unnecessary
 #   - name: comment
 #     in: query
 #     description: Any comment that is provided by the user when setting the review status

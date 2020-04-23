@@ -11,6 +11,8 @@ import org.maproulette.framework.psql.CommonField
   * @author mcuthbert
   */
 object StatusActions extends CommonField {
+  val TABLE = "status_actions"
+
   val FIELD_OSM_USER_ID  = "osm_user_id"
   val FIELD_PROJECT_ID   = "project_id"
   val FIELD_CHALLENGE_ID = "challenge_id"

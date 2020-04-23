@@ -56,10 +56,10 @@ class TaskBundleDAL @Inject() (
       val challengeId = lockedTasks.head.parent
       // Verify tasks
       // 1. Must belong to same challenge
-      // 2. suggested Fix tasks not allowed
+      // 2. Cooperative tasks not allowed
       for (task <- lockedTasks) {
-        if (task.suggestedFix.isDefined) {
-          throw new InvalidException("Suggested Fix tasks cannot be bundled.")
+        if (task.cooperativeWork.isDefined) {
+          throw new InvalidException("Cooperative tasks cannot be bundled.")
         }
         if (task.parent != challengeId) {
           throw new InvalidException("All tasks in the bundle must be part of the same challenge.")

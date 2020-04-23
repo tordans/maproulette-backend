@@ -19,6 +19,7 @@ import play.api.db.Database
   */
 @Singleton
 class UserGroupRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable: String = Group.TABLE
 
   /**
     * Gets all the groups that a user belongs too
@@ -29,7 +30,15 @@ class UserGroupRepository @Inject() (override val db: Database) extends Reposito
   def get(osmUserId: Long): List[Group] = {
     withMRTransaction { implicit c =>
       Query
-        .simple(List(BaseParameter(Group.FIELD_UG_OSM_USER_ID, osmUserId)))
+        .simple(
+          List(
+            BaseParameter(
+              Group.FIELD_UG_OSM_USER_ID,
+              osmUserId,
+              table = Some(Group.TABLE_USER_GROUP)
+            )
+          )
+        )
         .build("""SELECT groups.* FROM groups
            INNER JOIN user_groups ON user_groups.group_id = groups.id""")
         .as(GroupRepository.parser.*)
@@ -79,7 +88,7 @@ class UserGroupRepository @Inject() (override val db: Database) extends Reposito
             BaseParameter(Group.FIELD_UG_GROUP_ID, groupId)
           )
         )
-        .build("DELETE FROM user_groups")
+        .build("DELETE FROM user_groups")(baseTable = Group.TABLE_USER_GROUP)
         .execute()
     }
   }
@@ -108,7 +117,7 @@ class UserGroupRepository @Inject() (override val db: Database) extends Reposito
             )
           )
         )
-        .build("DELETE FROM user_groups")
+        .build("DELETE FROM user_groups")(baseTable = Group.TABLE_USER_GROUP)
         .execute()
     }
   }

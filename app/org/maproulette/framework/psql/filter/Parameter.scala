@@ -9,6 +9,7 @@ import anorm.{NamedParameter, ToParameterValue}
 import org.joda.time.DateTime
 import org.maproulette.framework.psql.filter.Operator.Operator
 import org.maproulette.framework.psql.{Query, SQLUtils}
+import org.maproulette.utils.Utils
 
 /**
   * Filter Parameters are generally be used for filter select queries using some basic filtering. It
@@ -23,8 +24,10 @@ trait Parameter[T] extends SQLClause {
   val operator: Operator        = Operator.EQ
   val negate: Boolean           = false
   val useValueDirectly: Boolean = false
+  val table: Option[String]     = None
+  val randomPrefix: String      = Utils.randomStringFromCharList(5)
 
-  def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+  def sql()(implicit tableKey: String = ""): String = {
     if (value.isInstanceOf[Iterable[_]] && value.asInstanceOf[Iterable[_]].isEmpty) {
       ""
     } else if (operator == Operator.CUSTOM) {
@@ -42,19 +45,26 @@ trait Parameter[T] extends SQLClause {
       } else {
         None
       }
-      Operator.format(key, operator, negate, directValue)
+      Operator.format(this.getColumnKey(tableKey), this.getKey(), operator, negate, directValue)
     }
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = {
+  protected def getColumnKey(tableKey: String): String = {
+    this.table.getOrElse(tableKey) match {
+      case "" => key
+      case v  => s"$v.$key"
+    }
+  }
+
+  def getKey(): String = s"$randomPrefix$key"
+
+  override def parameters(): List[NamedParameter] = {
     if ((value.isInstanceOf[Iterable[_]] && value
           .asInstanceOf[Iterable[_]]
-          .isEmpty) || operator == Operator.CUSTOM || operator == Operator.NULL || useValueDirectly) {
+          .isEmpty) || operator == Operator.CUSTOM || operator == Operator.NULL || operator == Operator.BOOL || useValueDirectly) {
       List.empty
     } else {
-      List(SQLUtils.buildNamedParameter(s"$parameterKey$key", value))
+      List(SQLUtils.buildNamedParameter(this.getKey(), value))
     }
   }
 }
@@ -74,26 +84,27 @@ case class BaseParameter[T](
     override val value: T,
     override val operator: Operator = Operator.EQ,
     override val negate: Boolean = false,
-    override val useValueDirectly: Boolean = false
+    override val useValueDirectly: Boolean = false,
+    override val table: Option[String] = None
 ) extends Parameter[T]
 
 case class ConditionalFilterParameter[T](
     filter: Parameter[T],
-    includeOnlyIfTrue: Boolean = false
+    includeOnlyIfTrue: Boolean = false,
+    override val table: Option[String] = None
 ) extends Parameter[T] {
   override val key: String = filter.key
   override val value: T    = filter.value
 
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String =
+  override def sql()(implicit tableKey: String = ""): String = {
     if (includeOnlyIfTrue) {
-      filter.sql()
+      filter.sql()(table.getOrElse(tableKey))
     } else {
       ""
     }
+  }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] =
+  override def parameters(): List[NamedParameter] =
     if (includeOnlyIfTrue) {
       filter.parameters()
     } else {
@@ -106,9 +117,10 @@ case class DateParameter(
     override val value: DateTime,
     value2: DateTime,
     override val operator: Operator = Operator.EQ,
-    override val negate: Boolean = false
+    override val negate: Boolean = false,
+    override val table: Option[String] = None
 ) extends Parameter[DateTime] {
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+  override def sql()(implicit tableKey: String = ""): String = {
     if (operator == Operator.BETWEEN) {
       SQLUtils.testColumnName(key)
       val negation = if (negate) {
@@ -116,21 +128,19 @@ case class DateParameter(
       } else {
         ""
       }
-      s"$key::DATE ${negation}BETWEEN {$parameterKey${key}_date1} AND {$parameterKey${key}_date2}"
+      s"${this.getColumnKey(tableKey)}::DATE ${negation}BETWEEN {${this.getKey()}_date1} AND {${this.getKey()}_date2}"
     } else {
       super.sql()
     }
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = {
+  override def parameters(): List[NamedParameter] = {
     if (operator == Operator.BETWEEN) {
       List(
-        Symbol(s"$parameterKey${key}_date1") -> ToParameterValue
+        Symbol(s"${this.getKey()}_date1") -> ToParameterValue
           .apply[DateTime](p = SQLUtils.toStatement)
           .apply(value),
-        Symbol(s"$parameterKey${key}_date2") -> ToParameterValue
+        Symbol(s"${this.getKey()}_date2") -> ToParameterValue
           .apply[DateTime](p = SQLUtils.toStatement)
           .apply(value2)
       )
@@ -150,32 +160,30 @@ case class SubQueryFilter(
     override val key: String,
     override val value: Query,
     override val negate: Boolean = false,
-    override val operator: Operator = Operator.IN
+    override val operator: Operator = Operator.IN,
+    override val table: Option[String] = None,
+    subQueryTable: Option[String] = Some("")
 ) extends Parameter[Query] {
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
-    val filterValue = if (operator == Operator.IN || operator == Operator.EXISTS) {
-      Some(value.sql()(this.getParameterKey))
-    } else {
-      Some(s"(${value.sql()(this.getParameterKey)})")
+  override def sql()(implicit tableKey: String = ""): String = {
+    val innerSQL = value.sql()(subQueryTable.getOrElse(tableKey)) match {
+      case ""                                                            => ""
+      case sql if operator == Operator.IN || operator == Operator.EXISTS => sql
+      case sql                                                           => s"($sql)"
     }
-    Operator.format(key, operator, negate, filterValue)
+    if (operator == Operator.CUSTOM) {
+      innerSQL
+    } else {
+      Operator.format(
+        this.getColumnKey(tableKey),
+        this.getKey(),
+        operator,
+        negate,
+        Some(innerSQL)
+      )
+    }
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = value.parameters()(this.getParameterKey)
-
-  // This may work for a single subquery, but there may be issues if you have more than one subquery
-  // as it will always choose "SECONDARY" as it parameterKey which might not make the keys unique
-  // for the parameter
-  def getParameterKey(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
-    if (parameterKey.equals(Query.PRIMARY_QUERY_KEY)) {
-      Query.SECONDARY_QUERY_KEY
-    } else {
-      parameterKey
-    }
-
-  }
+  override def parameters(): List[NamedParameter] = value.parameters()
 }
 
 /**
@@ -183,13 +191,12 @@ case class SubQueryFilter(
   *
   * @param key
   */
-case class CustomParameter(override val key: String, override val value: String = "")
-    extends Parameter[String] {
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = key
+case class CustomParameter(override val key: String) extends Parameter[String] {
+  override val value: String = ""
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] = List.empty
+  override def sql()(implicit tableKey: String = ""): String = key
+
+  override def parameters(): List[NamedParameter] = List.empty
 }
 
 case class FuzzySearchParameter(
@@ -198,24 +205,22 @@ case class FuzzySearchParameter(
     levenshsteinScore: Int = FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE,
     metaphoneSize: Int = FilterParameter.DEFAULT_METAPHONE_SIZE
 ) extends Parameter[String] {
-  override def sql()(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): String = {
+  override def sql()(implicit tableKey: String = ""): String = {
     SQLUtils.testColumnName(key)
     val score = if (levenshsteinScore > 0) {
       levenshsteinScore
     } else {
       FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE
     }
-    s"""($key <> '' AND
-      (LEVENSHTEIN(LOWER($key), LOWER({$parameterKey$key})) < $score OR
-      METAPHONE(LOWER($key), 4) = METAPHONE(LOWER({$parameterKey$key}), $metaphoneSize) OR
-      SOUNDEX(LOWER($key)) = SOUNDEX(LOWER({$parameterKey$key})))
+    val columnKey = this.getColumnKey(tableKey)
+    s"""($columnKey <> '' AND
+      (LEVENSHTEIN(LOWER($columnKey), LOWER({${this.getKey()}})) < $score OR
+      METAPHONE(LOWER($columnKey), 4) = METAPHONE(LOWER({${this.getKey()}}), $metaphoneSize) OR
+      SOUNDEX(LOWER($columnKey)) = SOUNDEX(LOWER({${this.getKey()}})))
       )"""
   }
 
-  override def parameters()(
-      implicit parameterKey: String = Query.PRIMARY_QUERY_KEY
-  ): List[NamedParameter] =
-    List(Symbol(s"$parameterKey${key}") -> value)
+  override def parameters(): List[NamedParameter] = List(Symbol(getKey) -> value)
 }
 
 object FilterParameter {
@@ -229,10 +234,11 @@ object FilterParameter {
       operator: Operator = Operator.EQ,
       negate: Boolean = false,
       useValueDirectly: Boolean = false,
-      includeOnlyIfTrue: Boolean = false
-  )(implicit parameterKey: String = Query.PRIMARY_QUERY_KEY): ConditionalFilterParameter[T] =
+      includeOnlyIfTrue: Boolean = false,
+      table: Option[String] = None
+  ): ConditionalFilterParameter[T] =
     ConditionalFilterParameter(
-      BaseParameter(key, value, operator, negate, useValueDirectly),
+      BaseParameter(key, value, operator, negate, useValueDirectly, table),
       includeOnlyIfTrue
     )
 }

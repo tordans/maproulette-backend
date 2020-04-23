@@ -19,16 +19,16 @@ class GroupingSpec extends PlaySpec {
     }
 
     "generate the correct group by value" in {
-      Grouping("test").sql() mustEqual "GROUP BY test"
+      (Grouping > "test").sql() mustEqual "GROUP BY test"
     }
 
     "generate multiple groups correctly" in {
-      Grouping("test1", "test2").sql() mustEqual "GROUP BY test1,test2"
+      (Grouping > ("test1", "test2")).sql() mustEqual "GROUP BY test1,test2"
     }
 
     "fail if provide invalid column name" in {
       intercept[SQLException] {
-        Grouping("$%invalud.name").sql()
+        (Grouping > "$%invalud.name").sql()
       }
     }
   }

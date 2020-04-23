@@ -42,7 +42,7 @@ class ProjectService @Inject() (
       searchString: String = "",
       onlyEnabled: Boolean = false,
       paging: Paging = Paging(Config.DEFAULT_LIST_SIZE),
-      order: Order = Order.simple(s"challenges.${Challenge.FIELD_ID}")
+      order: Order = Order(List(OrderField(Challenge.FIELD_ID, table = Some(Challenge.TABLE))))
   ): List[Challenge] = {
     // I am in two minds about handling it this way. Firstly one of the tenants of splitting up the
     // work between service and repository layer is that we limit the SQL code to the repository and
@@ -54,35 +54,45 @@ class ProjectService @Inject() (
     this.challengeService.query(
       Query(
         Filter(
-          AND(),
-          FilterGroup(
-            OR(),
-            BaseParameter(s"challenges.${Challenge.FIELD_PARENT_ID}", id),
-            SubQueryFilter(
-              s"challenges.${Challenge.FIELD_ID}",
-              Query.simple(
-                List(BaseParameter(s"vp2.${VirtualProject.FIELD_PROJECT_ID}", id)),
-                "SELECT vp2.challenge_id FROM virtual_project_challenges vp2"
+          List(
+            FilterGroup(
+              List(
+                BaseParameter(Challenge.FIELD_PARENT_ID, id, table = Some(Challenge.TABLE)),
+                SubQueryFilter(
+                  Challenge.FIELD_ID,
+                  Query.simple(
+                    List(BaseParameter(VirtualProject.FIELD_PROJECT_ID, id)),
+                    "SELECT challenge_id FROM virtual_project_challenges"
+                  )
+                )
+              ),
+              OR()
+            ),
+            FilterGroup(
+              List(
+                FilterParameter
+                  .conditional(
+                    Challenge.FIELD_ENABLED,
+                    onlyEnabled,
+                    includeOnlyIfTrue = onlyEnabled
+                  ),
+                FilterParameter.conditional(
+                  Challenge.FIELD_NAME,
+                  SQLUtils.search(searchString),
+                  Operator.ILIKE,
+                  includeOnlyIfTrue = searchString.nonEmpty
+                )
               )
-            )
-          ),
-          FilterGroup(
-            AND(),
-            FilterParameter
-              .conditional(Challenge.FIELD_ENABLED, onlyEnabled, includeOnlyIfTrue = onlyEnabled),
-            FilterParameter.conditional(
-              Challenge.FIELD_NAME,
-              SQLUtils.search(searchString),
-              Operator.ILIKE,
-              includeOnlyIfTrue = searchString.nonEmpty
             )
           )
         ),
-        s"""SELECT challenges.${ChallengeRepository.standardColumns}, ARRAY_REMOVE(ARRAY_AGG(vp.project_id), NULL) AS virtual_parent_ids FROM challenges
-          | LEFT OUTER JOIN virtual_project_challenges vp ON challenges.id = vp.challenge_id""".stripMargin,
+        s"""SELECT ${ChallengeRepository.standardColumns},
+            |ARRAY_REMOVE(ARRAY_AGG(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids
+            |FROM challenges
+            |LEFT OUTER JOIN virtual_project_challenges ON challenges.id = virtual_project_challenges.challenge_id""".stripMargin,
         paging,
         order,
-        Grouping(s"challenges.${Challenge.FIELD_ID}")
+        Grouping > Challenge.FIELD_ID
       )
     )
   }
@@ -129,7 +139,7 @@ class ProjectService @Inject() (
       onlyEnabled: Boolean = false,
       onlyOwned: Boolean = false,
       searchString: String = "",
-      order: Order = Order(List("display_name"), Order.ASC)
+      order: Order = Order > ("display_name", Order.ASC)
   )(implicit c: Option[Connection] = None): List[Project] = {
     if (user.isSuperUser && !onlyOwned) {
       this.find(searchString, paging, onlyEnabled, order)
@@ -138,32 +148,36 @@ class ProjectService @Inject() (
         List.empty
       } else {
         // TODO No sql should exist in the service layer
-        val customQuery = s"""SELECT distinct p.*, LOWER(p.name), LOWER(p.display_name)
-                FROM projects p
-                INNER JOIN groups g on g.project_id = p.id"""
+        val customQuery =
+          s"""SELECT distinct projects.*, LOWER(projects.name), LOWER(projects.display_name)
+                              FROM projects INNER JOIN groups on groups.project_id = projects.id"""
         val permissionFilterGroup =
           FilterGroup(
-            OR(),
-            BaseParameter(s"p.${Project.FIELD_OWNER}", user.osmProfile.id),
-            FilterParameter.conditional(
-              s"g.${Group.FIELD_ID}",
-              user.groups.map(_.id),
-              Operator.IN,
-              includeOnlyIfTrue = !onlyOwned
-            )
+            List(
+              BaseParameter(Project.FIELD_OWNER, user.osmProfile.id),
+              FilterParameter.conditional(
+                Group.FIELD_ID,
+                user.groups.map(_.id),
+                Operator.IN,
+                includeOnlyIfTrue = !onlyOwned,
+                table = Some(Group.TABLE)
+              )
+            ),
+            OR()
           )
         val baseFilterGroup = FilterGroup(
-          AND(),
-          BaseParameter(s"p.${Project.FIELD_NAME}", SQLUtils.search(searchString), Operator.LIKE),
-          FilterParameter.conditional(
-            Project.FIELD_ENABLED,
-            onlyEnabled,
-            includeOnlyIfTrue = onlyEnabled
+          List(
+            BaseParameter(Project.FIELD_NAME, SQLUtils.search(searchString), Operator.LIKE),
+            FilterParameter.conditional(
+              Project.FIELD_ENABLED,
+              onlyEnabled,
+              includeOnlyIfTrue = onlyEnabled
+            )
           )
         )
         this.query(
           Query(
-            Filter(AND(), permissionFilterGroup, baseFilterGroup),
+            Filter(List(permissionFilterGroup, baseFilterGroup)),
             customQuery,
             paging,
             order
@@ -189,27 +203,36 @@ class ProjectService @Inject() (
   ): List[Project] = {
     val query = Query(
       Filter(
-        AND(),
-        FilterGroup(
-          OR(),
-          BaseParameter(
-            Project.FIELD_NAME,
-            SQLUtils.search(search),
-            Operator.ILIKE
+        List(
+          FilterGroup(
+            List(
+              BaseParameter(
+                Project.FIELD_NAME,
+                SQLUtils.search(search),
+                Operator.ILIKE
+              ),
+              BaseParameter(
+                Project.FIELD_DISPLAY_NAME,
+                SQLUtils.search(search),
+                Operator.ILIKE
+              ),
+              FuzzySearchParameter(
+                Project.FIELD_DISPLAY_NAME,
+                value = search
+              )
+            ),
+            OR()
           ),
-          BaseParameter(
-            Project.FIELD_DISPLAY_NAME,
-            SQLUtils.search(search),
-            Operator.ILIKE
-          ),
-          FuzzySearchParameter(
-            Project.FIELD_DISPLAY_NAME,
-            value = search
+          FilterGroup(
+            List(
+              FilterParameter.conditional(
+                Project.FIELD_ENABLED,
+                true,
+                Operator.BOOL,
+                includeOnlyIfTrue = onlyEnabled
+              )
+            )
           )
-        ),
-        FilterGroup(
-          AND(),
-          BaseParameter(Project.FIELD_ENABLED, true)
         )
       ),
       paging = paging,
@@ -243,6 +266,8 @@ class ProjectService @Inject() (
       )
     )
   }
+
+  def query(query: Query): List[Project] = this.repository.query(query)
 
   /**
     * Updates a project with the given input JSON
@@ -280,6 +305,7 @@ class ProjectService @Inject() (
           case Some(f) => f
           case None    => cachedItem.featured
         }
+        val isVirtual = cachedItem.isVirtual // Don't allow updates to virtual status
 
         this.repository.update(
           Project(
@@ -289,10 +315,25 @@ class ProjectService @Inject() (
             displayName = Some(displayName),
             description = Some(description),
             enabled = enabled,
+            isVirtual = isVirtual,
             featured = featured
           )
         )
       }(id = id)
+  }
+
+  /**
+    * Retrieves a Project based on the given id
+    *
+    * @param id The id of the project
+    * @return An optional Project, None if not found.
+    */
+  def retrieve(id: Long): Option[Project] = {
+    this.cacheManager.withCaching { () =>
+      this.repository
+        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
+        .headOption
+    }(id = id)
   }
 
   /**
@@ -310,20 +351,6 @@ class ProjectService @Inject() (
       Some(deletedItem)
     }(id = id)
     true
-  }
-
-  /**
-    * Retrieves a Project based on the given id
-    *
-    * @param id The id of the project
-    * @return An optional Project, None if not found.
-    */
-  def retrieve(id: Long): Option[Project] = {
-    this.cacheManager.withCaching { () =>
-      this.repository
-        .query(Query.simple(List(BaseParameter(Project.FIELD_ID, id))))
-        .headOption
-    }(id = id)
   }
 
   /**
@@ -359,8 +386,6 @@ class ProjectService @Inject() (
       )
     )
   }
-
-  def query(query: Query): List[Project] = this.repository.query(query)
 
   /**
     * Clears the project cache
@@ -400,8 +425,9 @@ class ProjectService @Inject() (
   def getClusteredPoints(
       projectId: Option[Long] = None,
       challengeIds: List[Long] = List.empty,
-      enabledOnly: Boolean = true
+      enabledOnly: Boolean = true,
+      paging: Paging = Paging()
   ): List[ClusteredPoint] = {
-    this.repository.getClusteredPoints(projectId, challengeIds, enabledOnly)
+    this.repository.getClusteredPoints(projectId, challengeIds, enabledOnly, paging)
   }
 }

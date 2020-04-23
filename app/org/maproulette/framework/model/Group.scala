@@ -22,6 +22,8 @@ object Group extends CommonField {
   implicit val writes: Writes[Group] = Json.writes[Group]
   implicit val reads: Reads[Group]   = Json.reads[Group]
 
+  val TABLE                = "groups"
+  val TABLE_USER_GROUP     = "user_groups"
   val FIELD_GROUP_TYPE     = "group_type"
   val FIELD_PROJECT_ID     = "project_id"
   val FIELD_UG_OSM_USER_ID = "osm_user_id"

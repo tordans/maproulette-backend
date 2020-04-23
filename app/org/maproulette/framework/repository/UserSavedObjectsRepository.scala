@@ -9,14 +9,14 @@ import java.sql.Connection
 
 import anorm.SQL
 import javax.inject.{Inject, Singleton}
-import org.maproulette.framework.model.{Challenge, SavedTasks}
+import org.maproulette.framework.model.{Challenge, SavedChallenge, SavedTasks}
 import org.maproulette.framework.psql.filter.{
   BaseParameter,
   FilterParameter,
   Operator,
   SubQueryFilter
 }
-import org.maproulette.framework.psql.{Order, Paging, Query, SQLUtils}
+import org.maproulette.framework.psql._
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import play.api.db.Database
@@ -33,6 +33,7 @@ class UserSavedObjectsRepository @Inject() (
     challengeDAL: ChallengeDAL,
     taskDAL: TaskDAL
 ) extends RepositoryMixin {
+  implicit val baseTable: String = SavedChallenge.TABLE
 
   /**
     * Retreives all the challenges saved to a user profile
@@ -46,7 +47,7 @@ class UserSavedObjectsRepository @Inject() (
   def getSavedChallenges(
       userId: Long,
       paging: Paging = Paging(),
-      order: Order = Order(List("created"))
+      order: Order = Order > ("created")
   )(implicit c: Option[Connection] = None): List[Challenge] = {
     this.withMRTransaction { implicit c =>
       val query =
@@ -115,14 +116,14 @@ class UserSavedObjectsRepository @Inject() (
       userId: Long,
       challengeIds: Seq[Long] = Seq.empty,
       paging: Paging = Paging(),
-      order: Order = Order(List("created"))
+      order: Order = Order > ("created")
   )(implicit c: Option[Connection] = None): List[Task] = {
     this.withMRTransaction { implicit c =>
       Query
         .simple(
           List(
             SubQueryFilter(
-              "tasks.id",
+              "id",
               Query
                 .simple(
                   List(
@@ -144,7 +145,7 @@ class UserSavedObjectsRepository @Inject() (
         .build(s"""
           |SELECT ${taskDAL.retrieveColumnsWithReview} FROM tasks
           |LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
-          |""".stripMargin)
+          |""".stripMargin)(baseTable = "tasks")
         .as(taskDAL.parser.*)
     }
   }
@@ -186,7 +187,7 @@ class UserSavedObjectsRepository @Inject() (
         .simple(
           List(BaseParameter("user_id", userId), BaseParameter("task_id", taskId))
         )
-        .build("DELETE FROM saved_tasks")
+        .build("DELETE FROM saved_tasks")(baseTable = SavedTasks.TABLE)
         .execute()
     }
   }

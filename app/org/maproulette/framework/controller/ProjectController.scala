@@ -56,13 +56,7 @@ class ProjectController @Inject() (
   }
 
   /**
-    * The base create function that most controllers will run through to create the object. The
-    * actual work will be passed on to the internalCreate function. This is so that if you want
-    * to create your object differently you can keep the standard http functionality around and
-    * not have to reproduce a lot of the work done in this function. If the id is supplied in the
-    * json body it will pass off the workload to the update function. If no id is supplied then it
-    * will check the name to see if it can find any items in the database that match the name.
-    * Must be authenticated to perform operation
+    * API function call to create a project
     *
     * @return 201 Created with the json body of the created object
     */
@@ -208,7 +202,7 @@ class ProjectController @Inject() (
             search,
             Paging(limit, offset),
             onlyEnabled,
-            Order.simple(orderColumn, orderDirection)
+            Order > (orderColumn, orderDirection)
           )
         )
       )
@@ -244,7 +238,7 @@ class ProjectController @Inject() (
               onlyEnabled,
               onlyOwned,
               searchString,
-              Order.simple(sort)
+              Order > sort
             )
         )
       )
@@ -277,10 +271,9 @@ class ProjectController @Inject() (
     Action.async { implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
         SearchParameters.withSearch { params =>
-          params.copy(projectIds = Some(List(projectId)))
           val result = this.taskDAL.getRandomTasks(
             User.userOrMocked(user),
-            params,
+            params.copy(projectIds = Some(List(projectId))),
             limit,
             None,
             Utils.negativeToOption(proximityId)
@@ -294,30 +287,38 @@ class ProjectController @Inject() (
       }
     }
 
-  def getSearchedClusteredPoints(searchCookie: String): Action[AnyContent] = Action.async {
+  def getSearchedClusteredPoints(limit: Int, page: Int): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
         SearchParameters.withSearch { params =>
-          Ok(Json.toJson(this.projectService.getSearchedClusteredPoints(params)))
+          Ok(
+            Json.toJson(this.projectService.getSearchedClusteredPoints(params, Paging(limit, page)))
+          )
         }
       }
   }
 
-  def getClusteredPoints(projectId: Long, challengeIds: String): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.userAwareRequest { implicit user =>
-        val pid = if (projectId < 0) {
-          None
-        } else {
-          Some(projectId)
-        }
-        val cids = if (StringUtils.isEmpty(challengeIds)) {
-          List.empty
-        } else {
-          Utils.split(challengeIds).map(_.toLong)
-        }
-        Ok(Json.toJson(this.projectService.getClusteredPoints(pid, cids)))
+  def getClusteredPoints(
+      projectId: Long,
+      challengeIds: String,
+      limit: Int,
+      page: Int
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      val pid = if (projectId < 0) {
+        None
+      } else {
+        Some(projectId)
       }
+      val cids = if (StringUtils.isEmpty(challengeIds)) {
+        List.empty
+      } else {
+        Utils.split(challengeIds).map(_.toLong)
+      }
+      Ok(
+        Json.toJson(this.projectService.getClusteredPoints(pid, cids, paging = Paging(limit, page)))
+      )
+    }
   }
 
   /**

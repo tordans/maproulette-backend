@@ -9,10 +9,11 @@ import javax.inject.Inject
 import org.maproulette.data._
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.controller.SessionController
-import org.maproulette.framework.service.CommentService
+import org.maproulette.framework.model.Tag
+import org.maproulette.framework.service.{CommentService, ServiceManager, TagService}
+import org.maproulette.models.Task
+import org.maproulette.models.dal.DALManager
 import org.maproulette.models.dal.mixin.TagDALMixin
-import org.maproulette.models.dal.{DALManager, TagDAL}
-import org.maproulette.models.{Tag, Task}
 import org.maproulette.session.SessionManager
 import play.api.libs.json.{JsValue, Json, Reads, Writes}
 import play.api.mvc._
@@ -26,6 +27,7 @@ class TaskBundleController @Inject() (
     override val bodyParsers: PlayBodyParsers,
     commentService: CommentService,
     dalManager: DALManager,
+    serviceManager: ServiceManager,
     components: ControllerComponents
 ) extends AbstractController(components)
     with SessionController
@@ -36,7 +38,7 @@ class TaskBundleController @Inject() (
   // json writes for automatically writing Tasks to a json body response
   override implicit val tWrites: Writes[Task] = Task.TaskFormat
 
-  override def tagDAL: TagDAL = dalManager.tag
+  override def tagService: TagService = serviceManager.tag
 
   override def dalWithTags: TagDALMixin[Task] = dalManager.task
 

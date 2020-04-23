@@ -9,6 +9,8 @@ package org.maproulette.framework.model
   * @author mcuthbert
   */
 object UserMetrics {
+  val TABLE = "user_metrics"
+
   val FIELD_USER_ID                    = "user_id"
   val FIELD_SCORE                      = "score"
   val FIELD_TOTAL_FIXED                = "total_fixed"

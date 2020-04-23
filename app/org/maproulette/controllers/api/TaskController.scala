@@ -6,22 +6,25 @@ package org.maproulette.controllers.api
 
 import java.sql.Connection
 
+import akka.util.ByteString
 import javax.inject.Inject
 import org.locationtech.jts.geom.Envelope
 import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
-import org.maproulette.models.dal.{DALManager, TagDAL, TaskDAL}
-import org.maproulette.models._
 import org.maproulette.exception.{
   InvalidException,
   LockedException,
   NotFoundException,
   StatusMessage
 }
-import org.maproulette.framework.model.{Challenge, Comment, User}
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.model.{Challenge, Comment, Tag, User}
+import org.maproulette.framework.service.{ServiceManager, TagService}
+import org.maproulette.models._
 import org.maproulette.models.dal.mixin.TagDALMixin
+import org.maproulette.models.dal.{DALManager, TaskDAL}
+import org.maproulette.provider.osm._
+import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.{
   SearchChallengeParameters,
   SearchLocation,
@@ -29,10 +32,9 @@ import org.maproulette.session.{
   SessionManager
 }
 import org.maproulette.utils.Utils
-import org.maproulette.provider.osm._
-import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
+import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -52,7 +54,7 @@ class TaskController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val dal: TaskDAL,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     serviceManager: ServiceManager,
     dalManager: DALManager,
     wsClient: WSClient,
@@ -152,12 +154,12 @@ class TaskController @Inject() (
           case None => updatedBody
         }
     }
-    (updatedBody \ "suggestedFix").asOpt[String] match {
+    (updatedBody \ "cooperativeWork").asOpt[String] match {
       case Some(value) => updatedBody
       case None =>
-        (updatedBody \ "suggestedFix").asOpt[JsValue] match {
+        (updatedBody \ "cooperativeWork").asOpt[JsValue] match {
           case Some(value) =>
-            Utils.insertIntoJson(updatedBody, "suggestedFix", value.toString(), true)
+            Utils.insertIntoJson(updatedBody, "cooperativeWork", value.toString(), true)
           case None => updatedBody
         }
     }
@@ -216,6 +218,45 @@ class TaskController @Inject() (
       )
       Ok(Json.toJson(task))
     }
+  }
+
+  /**
+    * Retrieve cooperative change XML for task
+    *
+    * @param taskId     Id of task that you wish to start
+    * @return
+    */
+  def cooperativeWorkChangeXML(taskId: Long, filename: String): Action[AnyContent] = Action.async {
+    implicit request =>
+      val task = this.dal.retrieveById(taskId) match {
+        case Some(t) => t
+        case None    => throw new NotFoundException(s"Task with $taskId not found.")
+      }
+
+      val xml = task.cooperativeWork match {
+        case Some(cw) =>
+          val cooperativeWork = Json.parse(cw)
+          (cooperativeWork \ "file" \ "content").asOpt[String] match {
+            case Some(base64EncodedXML) =>
+              new String(java.util.Base64.getDecoder.decode(base64EncodedXML))
+            case None => throw new NotFoundException(s"Task $taskId does not offer change XML.")
+          }
+
+        case None => throw new NotFoundException(s"Task $taskId does not offer cooperative work.")
+      }
+
+      Future {
+        Result(
+          header = ResponseHeader(
+            OK,
+            Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")
+          ),
+          body = HttpEntity.Strict(
+            ByteString.fromString(xml),
+            Some("text/xml")
+          )
+        )
+      }
   }
 
   /**
@@ -363,8 +404,8 @@ class TaskController @Inject() (
       }
     }
 
-    val tags = tagDAL.listByTask(taskToReturn.id)
-    Utils.insertIntoJson(Json.toJson(taskToReturn), Tag.KEY, Json.toJson(tags.map(_.name)))
+    val tags = this.tagService.listByTask(taskToReturn.id)
+    Utils.insertIntoJson(Json.toJson(taskToReturn), Tag.TABLE, Json.toJson(tags.map(_.name)))
   }
 
   /**
@@ -416,6 +457,83 @@ class TaskController @Inject() (
   }
 
   /**
+    * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into
+    * the ClusteredPoint.pointReview
+    */
+  private def _insertExtraJSON(
+      tasks: List[ClusteredPoint],
+      includeGeometries: Boolean = false
+  ): JsValue = {
+    if (tasks.isEmpty) {
+      Json.toJson(List[JsValue]())
+    } else {
+      val mappers = Some(
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.completedBy.getOrElse(0L)))
+          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
+          .toMap
+      )
+
+      val reviewRequesters = Some(
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
+          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
+          .toMap
+      )
+
+      val reviewers = Some(
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.pointReview.reviewedBy.getOrElse(0L)))
+          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
+          .toMap
+      )
+
+      val taskDetailsMap: Map[Long, Task] =
+        includeGeometries match {
+          case true =>
+            val taskDetails = this.dalManager.task.retrieveListById()(tasks.map(t => t.id))
+            taskDetails.map(t => t.id -> t).toMap
+          case false => null
+        }
+
+      val jsonList = tasks.map { task =>
+        var updated         = Json.toJson(task)
+        var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
+
+        if (task.completedBy.getOrElse(0) != 0) {
+          val mappersJson = Json.toJson(mappers.get(task.completedBy.get)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "completedBy", mappersJson, true)
+        }
+
+        if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
+          val reviewRequestersJson =
+            Json.toJson(reviewRequesters.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
+          reviewPointJson = Utils
+            .insertIntoJson(reviewPointJson, "reviewRequestedBy", reviewRequestersJson, true)
+            .as[JsObject]
+          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        if (task.pointReview.reviewedBy.getOrElse(0) != 0) {
+          var reviewerJson =
+            Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
+          reviewPointJson =
+            Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        if (includeGeometries) {
+          val geometries = Json.parse(taskDetailsMap(task.id).geometries)
+          updated = Utils.insertIntoJson(updated, "geometries", geometries, true)
+        }
+
+        updated
+      }
+      Json.toJson(jsonList)
+    }
+  }
+
+  /**
     * This is the generic function that is leveraged by all the specific functions above. So it
     * sets the task status to the specific status ID's provided by those functions.
     * Must be authenticated to perform operation
@@ -451,48 +569,6 @@ class TaskController @Inject() (
       )
 
       NoContent
-    }
-  }
-
-  def customTaskStatus(
-      taskId: Long,
-      actionType: ActionType,
-      user: User,
-      comment: String = "",
-      tags: String = "",
-      requestReview: Option[Boolean] = None,
-      completionResponses: Option[JsValue] = None
-  ) = {
-    val status = actionType match {
-      case t: TaskStatusSet    => t.status
-      case q: QuestionAnswered => Task.STATUS_ANSWERED
-      case _                   => Task.STATUS_CREATED
-    }
-
-    if (!Task.isValidStatus(status)) {
-      throw new InvalidException(s"Cannot set task [$taskId] to invalid status [$status]")
-    }
-    val task = this.dal.retrieveById(taskId) match {
-      case Some(t) => t
-      case None    => throw new NotFoundException(s"Task with $taskId not found, can not set status.")
-    }
-
-    this.dal.setTaskStatus(List(task), status, user, requestReview, completionResponses)
-
-    val action =
-      this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
-    // add comment if any provided
-    if (comment.nonEmpty) {
-      val actionId = action match {
-        case Some(a) => Some(a.id)
-        case None    => None
-      }
-      this.serviceManager.comment.create(user, task.id, comment, actionId)
-    }
-
-    val tagList = tags.split(",").toList
-    if (tagList.nonEmpty) {
-      this.addTagstoItem(taskId, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
     }
   }
 
@@ -734,80 +810,45 @@ class TaskController @Inject() (
       }
     }
 
-  /**
-    * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into
-    * the ClusteredPoint.pointReview
-    */
-  private def _insertExtraJSON(
-      tasks: List[ClusteredPoint],
-      includeGeometries: Boolean = false
-  ): JsValue = {
-    if (tasks.isEmpty) {
-      Json.toJson(List[JsValue]())
-    } else {
-      val mappers = Some(
-        this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.completedBy.getOrElse(0L)))
-          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
-          .toMap
-      )
+  def customTaskStatus(
+      taskId: Long,
+      actionType: ActionType,
+      user: User,
+      comment: String = "",
+      tags: String = "",
+      requestReview: Option[Boolean] = None,
+      completionResponses: Option[JsValue] = None
+  ) = {
+    val status = actionType match {
+      case t: TaskStatusSet    => t.status
+      case q: QuestionAnswered => Task.STATUS_ANSWERED
+      case _                   => Task.STATUS_CREATED
+    }
 
-      val reviewRequesters = Some(
-        this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
-          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
-          .toMap
-      )
+    if (!Task.isValidStatus(status)) {
+      throw new InvalidException(s"Cannot set task [$taskId] to invalid status [$status]")
+    }
+    val task = this.dal.retrieveById(taskId) match {
+      case Some(t) => t
+      case None    => throw new NotFoundException(s"Task with $taskId not found, can not set status.")
+    }
 
-      val reviewers = Some(
-        this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.pointReview.reviewedBy.getOrElse(0L)))
-          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
-          .toMap
-      )
+    this.dal.setTaskStatus(List(task), status, user, requestReview, completionResponses)
 
-      val taskDetailsMap: Map[Long, Task] =
-        includeGeometries match {
-          case true =>
-            val taskDetails = this.dalManager.task.retrieveListById()(tasks.map(t => t.id))
-            taskDetails.map(t => t.id -> t).toMap
-          case false => null
-        }
-
-      val jsonList = tasks.map { task =>
-        var updated         = Json.toJson(task)
-        var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
-
-        if (task.completedBy.getOrElse(0) != 0) {
-          val mappersJson = Json.toJson(mappers.get(task.completedBy.get)).as[JsObject]
-          updated = Utils.insertIntoJson(updated, "completedBy", mappersJson, true)
-        }
-
-        if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
-          val reviewRequestersJson =
-            Json.toJson(reviewRequesters.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
-          reviewPointJson = Utils
-            .insertIntoJson(reviewPointJson, "reviewRequestedBy", reviewRequestersJson, true)
-            .as[JsObject]
-          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
-        }
-
-        if (task.pointReview.reviewedBy.getOrElse(0) != 0) {
-          var reviewerJson =
-            Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
-          reviewPointJson =
-            Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
-          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
-        }
-
-        if (includeGeometries) {
-          val geometries = Json.parse(taskDetailsMap(task.id).geometries)
-          updated = Utils.insertIntoJson(updated, "geometries", geometries, true)
-        }
-
-        updated
+    val action =
+      this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
+    // add comment if any provided
+    if (comment.nonEmpty) {
+      val actionId = action match {
+        case Some(a) => Some(a.id)
+        case None    => None
       }
-      Json.toJson(jsonList)
+      this.serviceManager.comment.create(user, task.id, comment, actionId)
+    }
+
+    val tagList = tags.split(",").toList
+    if (tagList.nonEmpty) {
+      this.addTagstoItem(taskId, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
     }
   }
 }

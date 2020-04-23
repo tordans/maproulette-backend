@@ -5,7 +5,6 @@
 package org.maproulette.models.dal
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.JodaParameterMetaData._
 import anorm.SqlParser._
@@ -13,12 +12,12 @@ import anorm._
 import javax.inject.{Inject, Provider, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.data.ChallengeType
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.model
 import org.maproulette.framework.model.{ReviewMetrics, TaskReview, TaskWithReview, User}
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
-import org.maproulette.data.ChallengeType
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.SearchParameters
@@ -34,7 +33,7 @@ import scala.collection.mutable.ListBuffer
 @Singleton
 class TaskReviewDAL @Inject() (
     override val db: Database,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     override val permission: Permission,
     serviceManager: ServiceManager,
     config: Config,
@@ -43,7 +42,7 @@ class TaskReviewDAL @Inject() (
     ws: WSClient
 ) extends TaskDAL(
       db,
-      tagDAL,
+      tagService,
       permission,
       serviceManager,
       config,
@@ -62,7 +61,7 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
       get[Option[String]]("geo_json") ~
-      get[Option[String]]("suggested_fix") ~
+      get[Option[String]]("cooperative_work") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Long]]("tasks.completed_time_spent") ~
       get[Option[Long]]("tasks.completed_by") ~
@@ -82,11 +81,11 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("reviewed_by_username") ~
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            suggestedFix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
+            cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority ~
             changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
             reviewedByUsername ~ responses =>
-        val values = this.updateAndRetrieve(id, geojson, location, suggestedFix)
+        val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
         model.TaskWithReview(
           Task(
             id,
@@ -202,25 +201,6 @@ class TaskReviewDAL @Inject() (
       Some(updatedTask)
     }
     Option(updatedTask)
-  }
-
-  def getTaskWithReview(taskId: Long): TaskWithReview = {
-    this.withMRConnection { implicit c =>
-      val query =
-        s"""
-        SELECT $retrieveColumnsWithReview,
-               challenges.name as challenge_name,
-               mappers.name as review_requested_by_username,
-               reviewers.name as reviewed_by_username
-        FROM ${this.tableName}
-        LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
-        LEFT OUTER JOIN users mappers ON task_review.review_requested_by = mappers.id
-        LEFT OUTER JOIN users reviewers ON task_review.reviewed_by = reviewers.id
-        INNER JOIN challenges ON challenges.id = tasks.parent_id
-        WHERE tasks.id = {taskId}
-      """
-      SQL(query).on(Symbol("taskId") -> taskId).as(this.taskWithReviewParser.single)
-    }
   }
 
   /**
@@ -362,6 +342,62 @@ class TaskReviewDAL @Inject() (
     }
   }
 
+  /**
+    * Gets a list of tasks that have requested review (and are in this user's project group)
+    *
+    * @param user            The user executing the request
+    * @param startDate       Limit tasks to reviewed after date (YYYY-MM-DD)
+    * @param endDate         Limit tasks to reviewed before date (YYYY-MM-DD)
+    * @param limit           The number of tasks to return
+    * @param offset          Offset to start paging
+    * @param sort            Sort column
+    * @param order           DESC or ASC
+    * @param includeDisputed Whether disputed tasks whould be returned in results (default is true)
+    * @return A list of tasks
+    */
+  def getReviewRequestedTasks(
+      user: User,
+      searchParameters: SearchParameters,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false,
+      limit: Int = -1,
+      offset: Int = 0,
+      sort: String,
+      order: String,
+      includeDisputed: Boolean = true,
+      excludeOtherReviewers: Boolean = false
+  )(implicit c: Connection = null): (Int, List[Task]) = {
+    val (countQuery, query, parameters) =
+      _getReviewRequestedQueries(
+        user,
+        searchParameters,
+        startDate,
+        endDate,
+        onlySaved,
+        limit,
+        offset,
+        sort,
+        order,
+        includeDisputed,
+        excludeOtherReviewers
+      )
+
+    // This only happens if a non-reviewer is trying to get review tasks
+    if (query == null) {
+      (0, List[Task]())
+    } else {
+      var count = 0
+      val tasks = this.manager.task.cacheManager.withIDListCaching { implicit cachedItems =>
+        this.withMRTransaction { implicit c =>
+          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
+          sqlWithParameters(query, parameters).as(this.parser.*)
+        }
+      }
+      (count, tasks)
+    }
+  }
+
   def _getReviewRequestedQueries(
       user: User,
       searchParameters: SearchParameters,
@@ -486,62 +522,6 @@ class TaskReviewDAL @Inject() (
   }
 
   /**
-    * Gets a list of tasks that have requested review (and are in this user's project group)
-    *
-    * @param user            The user executing the request
-    * @param startDate       Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate         Limit tasks to reviewed before date (YYYY-MM-DD)
-    * @param limit           The number of tasks to return
-    * @param offset          Offset to start paging
-    * @param sort            Sort column
-    * @param order           DESC or ASC
-    * @param includeDisputed Whether disputed tasks whould be returned in results (default is true)
-    * @return A list of tasks
-    */
-  def getReviewRequestedTasks(
-      user: User,
-      searchParameters: SearchParameters,
-      startDate: String,
-      endDate: String,
-      onlySaved: Boolean = false,
-      limit: Int = -1,
-      offset: Int = 0,
-      sort: String,
-      order: String,
-      includeDisputed: Boolean = true,
-      excludeOtherReviewers: Boolean = false
-  )(implicit c: Connection = null): (Int, List[Task]) = {
-    val (countQuery, query, parameters) =
-      _getReviewRequestedQueries(
-        user,
-        searchParameters,
-        startDate,
-        endDate,
-        onlySaved,
-        limit,
-        offset,
-        sort,
-        order,
-        includeDisputed,
-        excludeOtherReviewers
-      )
-
-    // This only happens if a non-reviewer is trying to get review tasks
-    if (query == null) {
-      (0, List[Task]())
-    } else {
-      var count = 0
-      val tasks = this.manager.task.cacheManager.withIDListCaching { implicit cachedItems =>
-        this.withMRTransaction { implicit c =>
-          count = sqlWithParameters(countQuery, parameters).as(SqlParser.int("count").single)
-          sqlWithParameters(query, parameters).as(this.parser.*)
-        }
-      }
-      (count, tasks)
-    }
-  }
-
-  /**
     * Gets a list of tasks that have been reviewed (either by this user or requested by this user)
     *
     * @param user              The user executing the request
@@ -569,7 +549,8 @@ class TaskReviewDAL @Inject() (
   )(implicit c: Connection = null): (Int, List[Task]) = {
     var orderByClause = ""
     val whereClause = new StringBuilder(
-      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND "
+      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND " +
+        s"task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY} AND "
     )
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
@@ -676,56 +657,6 @@ class TaskReviewDAL @Inject() (
     }
 
     (count, tasks)
-  }
-
-  /**
-    * private setup the search clauses for searching the review tables
-    */
-  private def setupReviewSearchClause(
-      whereClause: StringBuilder,
-      joinClause: StringBuilder,
-      searchParameters: SearchParameters,
-      startDate: String,
-      endDate: String
-  ): Unit = {
-
-    this.paramsOwner(searchParameters, whereClause, joinClause)
-    this.paramsReviewer(searchParameters, whereClause, joinClause)
-
-    searchParameters.taskStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
-        if (statuses.contains(-1)) {
-          statusClause ++= " OR c.status IS NULL"
-        }
-        statusClause ++= ")"
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _                                  =>
-    }
-
-    searchParameters.taskReviewStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(
-          s"(task_review.review_status IN (${statuses.mkString(",")}))"
-        )
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _                                  =>
-    }
-
-    this.paramsLocation(searchParameters, whereClause)
-    this.paramsProjectSearch(searchParameters, whereClause)
-    this.paramsTaskId(searchParameters, whereClause)
-    this.paramsPriority(searchParameters, whereClause)
-
-    if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
-      this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")
-    }
-
-    if (endDate != null && endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
-      this.appendInWhereClause(whereClause, "reviewed_at <= '" + endDate + " 23:59:59'")
-    }
   }
 
   /**
@@ -1007,6 +938,56 @@ class TaskReviewDAL @Inject() (
   }
 
   /**
+    * private setup the search clauses for searching the review tables
+    */
+  private def setupReviewSearchClause(
+      whereClause: StringBuilder,
+      joinClause: StringBuilder,
+      searchParameters: SearchParameters,
+      startDate: String,
+      endDate: String
+  ): Unit = {
+
+    this.paramsOwner(searchParameters, whereClause, joinClause)
+    this.paramsReviewer(searchParameters, whereClause, joinClause)
+
+    searchParameters.taskStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
+        if (statuses.contains(-1)) {
+          statusClause ++= " OR c.status IS NULL"
+        }
+        statusClause ++= ")"
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _                                  =>
+    }
+
+    searchParameters.taskReviewStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val statusClause = new StringBuilder(
+          s"(task_review.review_status IN (${statuses.mkString(",")}))"
+        )
+        this.appendInWhereClause(whereClause, statusClause.toString())
+      case Some(statuses) if statuses.isEmpty => //ignore this scenario
+      case _                                  =>
+    }
+
+    this.paramsLocation(searchParameters, whereClause)
+    this.paramsProjectSearch(searchParameters, whereClause)
+    this.paramsTaskId(searchParameters, whereClause)
+    this.paramsPriority(searchParameters, whereClause)
+
+    if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+      this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")
+    }
+
+    if (endDate != null && endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
+      this.appendInWhereClause(whereClause, "reviewed_at <= '" + endDate + " 23:59:59'")
+    }
+  }
+
+  /**
     * Sets the review status for a task. The user cannot set the status of a task unless the object has
     * been locked by the same user before hand.
     * Will throw an InvalidException if the task review status cannot be set due to the current review status
@@ -1037,8 +1018,6 @@ class TaskReviewDAL @Inject() (
       this.permission.hasWriteAccess(ChallengeType(), user)(task.parent)
     }
 
-    val now = Instant.now()
-
     val updatedRows = this.withMRTransaction { implicit c =>
       var fetchBy = "reviewed_by"
 
@@ -1061,7 +1040,7 @@ class TaskReviewDAL @Inject() (
       val updatedRows =
         SQL"""UPDATE task_review SET review_status = $reviewStatus,
                                  #${fetchBy} = ${user.id},
-                                 reviewed_at = ${now},
+                                 reviewed_at = NOW(),
                                  review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
                                  review_claimed_by = NULL
@@ -1105,7 +1084,7 @@ class TaskReviewDAL @Inject() (
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                          $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
+                          $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
             this.manager.notification.createReviewNotification(
               user,
               task.review.reviewedBy.getOrElse(-1),
@@ -1118,7 +1097,7 @@ class TaskReviewDAL @Inject() (
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
-                          $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
+                          $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
             if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
               this.manager.notification.createReviewNotification(
                 user,
@@ -1134,7 +1113,7 @@ class TaskReviewDAL @Inject() (
           SQL"""INSERT INTO task_review_history
                             (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                 VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                        $reviewStatus, $now, ${task.review.reviewStartedAt})""".executeUpdate()
+                        $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
         }
       }
 
@@ -1204,5 +1183,24 @@ class TaskReviewDAL @Inject() (
     }
 
     updatedRows
+  }
+
+  def getTaskWithReview(taskId: Long): TaskWithReview = {
+    this.withMRConnection { implicit c =>
+      val query =
+        s"""
+        SELECT $retrieveColumnsWithReview,
+               challenges.name as challenge_name,
+               mappers.name as review_requested_by_username,
+               reviewers.name as reviewed_by_username
+        FROM ${this.tableName}
+        LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+        LEFT OUTER JOIN users mappers ON task_review.review_requested_by = mappers.id
+        LEFT OUTER JOIN users reviewers ON task_review.reviewed_by = reviewers.id
+        INNER JOIN challenges ON challenges.id = tasks.parent_id
+        WHERE tasks.id = {taskId}
+      """
+      SQL(query).on(Symbol("taskId") -> taskId).as(this.taskWithReviewParser.single)
+    }
   }
 }

@@ -63,7 +63,13 @@ class VirtualProjectService @Inject() (
           SubQueryFilter(
             Challenge.FIELD_ID,
             Query.simple(
-              List(BaseParameter(VirtualProject.FIELD_PROJECT_ID, projectId)),
+              List(
+                BaseParameter(
+                  VirtualProject.FIELD_PROJECT_ID,
+                  projectId,
+                  table = Some(VirtualProject.TABLE)
+                )
+              ),
               "SELECT challenge_id FROM virtual_project_challenges"
             )
           )

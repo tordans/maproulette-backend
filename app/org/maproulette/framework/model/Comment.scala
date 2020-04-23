@@ -33,6 +33,7 @@ object Comment extends CommonField {
   implicit val writes: Writes[Comment] = Json.writes[Comment]
   implicit val reads: Reads[Comment]   = Json.reads[Comment]
 
+  val TABLE              = "task_comments"
   val FIELD_OSM_ID       = "osm_id"
   val FIELD_OSM_USERNAME = "name"
   val FIELD_TASK_ID      = "task_id"

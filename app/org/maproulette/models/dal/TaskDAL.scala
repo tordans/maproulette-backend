@@ -22,7 +22,7 @@ import org.maproulette.framework.model.{Challenge, Project, StatusActions, User}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.ProjectRepository
-import org.maproulette.framework.service.ServiceManager
+import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{Locking, SearchParametersMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
@@ -50,7 +50,7 @@ import scala.xml.XML
 @Singleton
 class TaskDAL @Inject() (
     override val db: Database,
-    override val tagDAL: TagDAL,
+    override val tagService: TagService,
     override val permission: Permission,
     serviceManager: ServiceManager,
     config: Config,
@@ -72,7 +72,7 @@ class TaskDAL @Inject() (
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
   override val retrieveColumns: String = "*, tasks.geojson::TEXT AS geo_json, " +
-    "tasks.suggestedfix_geojson::TEXT AS suggested_fix, tasks.completion_responses::TEXT AS responses, " +
+    "tasks.cooperative_work_json::TEXT AS cooperative_work, tasks.completion_responses::TEXT AS responses, " +
     "ST_AsGeoJSON(tasks.location) AS geo_location "
   val retrieveColumnsWithReview: String = this.retrieveColumns +
     ", task_review.review_status, task_review.review_requested_by, " +
@@ -115,7 +115,7 @@ class TaskDAL @Inject() (
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
       get[Option[String]]("geo_json") ~
-      get[Option[String]]("suggested_fix") ~
+      get[Option[String]]("cooperative_work") ~
       get[Option[DateTime]]("tasks.mapped_on") ~
       get[Option[Long]]("tasks.completed_time_spent") ~
       get[Option[Long]]("tasks.completed_by") ~
@@ -132,10 +132,10 @@ class TaskDAL @Inject() (
       get[Option[Long]]("tasks.bundle_id") ~
       get[Option[Boolean]]("tasks.is_bundle_primary") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            suggested_fix ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
+            cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
             reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
             reviewClaimedAt ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
-        val values = this.updateAndRetrieve(id, geojson, location, suggested_fix)
+        val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
         Task(
           id,
           name,
@@ -222,6 +222,121 @@ class TaskDAL @Inject() (
   }
 
   /**
+    * Updates a task object in the database.
+    *
+    * @param value A json object containing fields to be updated for the task
+    * @param user  The user executing the task
+    * @param id    The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  override def update(
+      value: JsValue,
+      user: User
+  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
+      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+      val instruction =
+        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
+      // status should probably not be allowed to be set through the update function, and rather
+      // it should be forced to use the setTaskStatus function
+      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
+        throw new InvalidException(
+          s"Could not set status for task [$id], " +
+            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
+        )
+      }
+      val priority                  = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
+      val geometries                = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
+      val cooperativeWorkGeometries = (value \ "cooperativeWork").asOpt[String].getOrElse("")
+      val changesetId =
+        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
+
+      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
+        case m: JsUndefined => cachedItem.mappedOn
+        case m              => m.asOpt[DateTime]
+      }
+
+      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
+        case r: JsUndefined => cachedItem.review.reviewStatus
+        case r              => r.asOpt[Int]
+      }
+
+      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
+        case r: JsUndefined => cachedItem.review.reviewRequestedBy
+        case r              => r.asOpt[Long]
+      }
+
+      val reviewedBy = (value \ "reviewedBy") match {
+        case r: JsUndefined => cachedItem.review.reviewedBy
+        case r              => r.asOpt[Long]
+      }
+
+      val reviewedAt = (value \ "reviewedAt") match {
+        case r: JsUndefined => cachedItem.review.reviewedAt
+        case r              => r.asOpt[DateTime]
+      }
+
+      val task = this.mergeUpdate(
+        cachedItem.copy(
+          name = name,
+          parent = parentId,
+          instruction = Some(instruction),
+          status = Some(status),
+          mappedOn = mappedOn,
+          review = cachedItem.review.copy(
+            reviewStatus = reviewStatus,
+            reviewRequestedBy = reviewRequestedBy,
+            reviewedBy = reviewedBy,
+            reviewedAt = reviewedAt
+          ),
+          geometries = geometries,
+          cooperativeWork = if (StringUtils.isEmpty(cooperativeWorkGeometries)) {
+            None
+          } else {
+            Some(cooperativeWorkGeometries)
+          },
+          priority = priority,
+          changesetId = Some(changesetId)
+        ),
+        user
+      )
+
+      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
+        this.manager.challenge.updateReadyStatus()(parentId)
+      } else {
+        this.manager.challenge.updateFinishedStatus()(parentId)
+      }
+
+      task match {
+        case Some(t) =>
+          // If the status is changing and if we have a bundle id, then we need
+          // to clear it out along with any other tasks that also have that
+          // bundle id -- essentially breaking up the bundle. Otherwise this
+          // task could end up with a different status than other tasks
+          // in that bundle.
+          if (cachedItem.status != t.status && t.bundleId != None) {
+            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
+          }
+
+          // Get the latest task data and notify clients of the update
+          this.retrieveById(t.id) match {
+            case Some(latestTask) =>
+              webSocketProvider.sendMessage(
+                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
+              )
+            case None =>
+          }
+        case None => // do NOTHING
+      }
+
+      task
+    }
+  }
+
+  /**
     * This is a merge update function that will update the task if it exists otherwise it will
     * insert a new item.
     *
@@ -253,13 +368,14 @@ class TaskDAL @Inject() (
         Some(cachedItem)
     }(id, true, true)
     this.withMRTransaction { implicit c =>
-      val result       = extractSuggestedFix(element.parent, element.geometries, element.suggestedFix)
-      val geometries   = result._1
-      var suggestedFix = result._2
+      val result =
+        extractCooperativeWork(element.parent, element.geometries, element.cooperativeWork)
+      val geometries      = result._1
+      var cooperativeWork = result._2
 
       val query =
         """SELECT create_update_task({name}, {parentId}, {instruction},
-                    {status}, {geojson}::JSONB, {suggestedFixGeoJson}::JSONB, {id}, {priority}, {changesetId},
+                    {status}, {geojson}::JSONB, {cooperativeWorkJson}::JSONB, {id}, {priority}, {changesetId},
                     {reset}, {mappedOn}, {reviewStatus}, CAST({reviewRequestedBy} AS INTEGER),
                     CAST({reviewedBy} AS INTEGER), {reviewedAt})"""
       val updatedTaskId = SQL(query)
@@ -276,8 +392,8 @@ class TaskDAL @Inject() (
           ),
           NamedParameter("geojson", ToParameterValue.apply[String].apply(geometries)),
           NamedParameter(
-            "suggestedFixGeoJson",
-            ToParameterValue.apply[String].apply(suggestedFix.orNull)
+            "cooperativeWorkJson",
+            ToParameterValue.apply[String].apply(cooperativeWork.orNull)
           ),
           NamedParameter("id", ToParameterValue.apply[Long].apply(element.id)),
           NamedParameter(
@@ -332,31 +448,35 @@ class TaskDAL @Inject() (
   }
 
   /**
-    * Function that extracts the suggestedFix from the geometries
+    * Function that extracts the cooperativeWork from the geometries
     *
     * @param parentId     The parent Id of the challenge (for marking this challenge has fixes)
-    * @param geometries   The geojson that contains the geometries/suggestedFix
-    * @param suggestedFix Any top level suggested fix not embedded in geometries
+    * @param geometries   The geojson that contains the geometries/cooperativeWork
+    * @param cooperativeWork Any top level cooperative work not embedded in geometries
     */
-  private def extractSuggestedFix(parentId: Long, geometries: String, suggestedFix: Option[String])(
+  private def extractCooperativeWork(
+      parentId: Long,
+      geometries: String,
+      cooperativeWork: Option[String]
+  )(
       implicit c: Option[Connection] = None
   ): (String, Option[String]) = {
     this.withMRTransaction { implicit c =>
-      var suggestedFixGeoJson = suggestedFix
+      var cooperativeWorkJson = cooperativeWork
 
-      val geoJson = Json.parse(geometries)
-      var sfMatch = (geoJson \\ "suggestedFix")
-      if (sfMatch.isEmpty) {
-        // Check to see if our suggested fix JSON was changed into a string due
+      val geoJson   = Json.parse(geometries)
+      var workMatch = (geoJson \\ "cooperativeWork")
+      if (workMatch.isEmpty) {
+        // Check to see if our cooperative work JSON was changed into a string due
         // to being a feature property (which are always converted to strings)
         val parentMatch = (geoJson \\ "maproulette")
         if (!parentMatch.isEmpty) {
-          sfMatch = (Json.parse(Utils.unescapeStringifiedJSON(parentMatch.head.toString())) \\ "suggestedFix")
+          workMatch = (Json.parse(Utils.unescapeStringifiedJSON(parentMatch.head.toString())) \\ "cooperativeWork")
         }
       }
 
-      if (!sfMatch.isEmpty) {
-        suggestedFixGeoJson = Some(sfMatch.head.toString())
+      if (!workMatch.isEmpty) {
+        cooperativeWorkJson = Some(workMatch.head.toString())
       }
 
       val mrTransformer = (__ \ "properties" \ "maproulette").json.prune
@@ -371,13 +491,27 @@ class TaskDAL @Inject() (
           .asInstanceOf[ArrayBuffer[JsObject]]
       )
 
-      suggestedFixGeoJson match {
-        case Some(sf) =>
-          SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${parentId}").execute()
+      // Set the correct cooperative type on the parent challenge
+      cooperativeWorkJson match {
+        case Some(work) =>
+          val parsed = Json.parse(work)
+          // Version 1 formatted work is always a tags-type challenge
+          // In version 2, the type is explicitly specified
+          val cooperativeType = (parsed \ "meta" \ "version").as[Int] match {
+            case 1 => Challenge.COOPERATIVE_TAGS
+            case 2 => (parsed \ "meta" \ "type").as[Int]
+            case other =>
+              throw new InvalidException(
+                s"Unsupported cooperative challenge format version ${other}"
+              )
+          }
+
+          SQL(s"UPDATE challenges SET cooperative_type = ${cooperativeType} WHERE id=${parentId}")
+            .execute()
         case None => // do nothing
       }
 
-      (JsObject(Seq("features" -> extractedGeometries)).toString, suggestedFixGeoJson)
+      (JsObject(Seq("features" -> extractedGeometries)).toString, cooperativeWorkJson)
     }
   }
 
@@ -403,146 +537,6 @@ class TaskDAL @Inject() (
   }
 
   def manager: DALManager = dalManager.get()
-
-  /**
-    * Updates a task object in the database.
-    *
-    * @param value A json object containing fields to be updated for the task
-    * @param user  The user executing the task
-    * @param id    The id of the object that you are updating
-    * @return An optional object, it will return None if no object found with a matching id that was supplied
-    */
-  override def update(
-      value: JsValue,
-      user: User
-  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
-    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
-      val name     = (value \ "name").asOpt[String].getOrElse(cachedItem.name)
-      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
-      val instruction =
-        (value \ "instruction").asOpt[String].getOrElse(cachedItem.instruction.getOrElse(""))
-      // status should probably not be allowed to be set through the update function, and rather
-      // it should be forced to use the setTaskStatus function
-      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
-      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
-          allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
-        throw new InvalidException(
-          s"Could not set status for task [$id], " +
-            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
-        )
-      }
-      val priority               = (value \ "priority").asOpt[Int].getOrElse(cachedItem.priority)
-      val geometries             = (value \ "geometries").asOpt[String].getOrElse(cachedItem.geometries)
-      val suggestedFixGeometries = (value \ "suggestedFix").asOpt[String].getOrElse("")
-      val changesetId =
-        (value \ "changesetId").asOpt[Long].getOrElse(cachedItem.changesetId.getOrElse(-1L))
-
-      val mappedOn: Option[DateTime] = (value \ "mappedOn") match {
-        case m: JsUndefined => cachedItem.mappedOn
-        case m              => m.asOpt[DateTime]
-      }
-
-      val reviewStatus: Option[Int] = (value \ "reviewStatus") match {
-        case r: JsUndefined => cachedItem.review.reviewStatus
-        case r              => r.asOpt[Int]
-      }
-
-      val reviewRequestedBy = (value \ "reviewRequestedBy") match {
-        case r: JsUndefined => cachedItem.review.reviewRequestedBy
-        case r              => r.asOpt[Long]
-      }
-
-      val reviewedBy = (value \ "reviewedBy") match {
-        case r: JsUndefined => cachedItem.review.reviewedBy
-        case r              => r.asOpt[Long]
-      }
-
-      val reviewedAt = (value \ "reviewedAt") match {
-        case r: JsUndefined => cachedItem.review.reviewedAt
-        case r              => r.asOpt[DateTime]
-      }
-
-      val task = this.mergeUpdate(
-        cachedItem.copy(
-          name = name,
-          parent = parentId,
-          instruction = Some(instruction),
-          status = Some(status),
-          mappedOn = mappedOn,
-          review = cachedItem.review.copy(
-            reviewStatus = reviewStatus,
-            reviewRequestedBy = reviewRequestedBy,
-            reviewedBy = reviewedBy,
-            reviewedAt = reviewedAt
-          ),
-          geometries = geometries,
-          suggestedFix = if (StringUtils.isEmpty(suggestedFixGeometries)) {
-            None
-          } else {
-            Some(suggestedFixGeometries)
-          },
-          priority = priority,
-          changesetId = Some(changesetId)
-        ),
-        user
-      )
-
-      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
-        this.manager.challenge.updateReadyStatus()(parentId)
-      } else {
-        this.manager.challenge.updateFinishedStatus()(parentId)
-      }
-
-      task match {
-        case Some(t) =>
-          // If the status is changing and if we have a bundle id, then we need
-          // to clear it out along with any other tasks that also have that
-          // bundle id -- essentially breaking up the bundle. Otherwise this
-          // task could end up with a different status than other tasks
-          // in that bundle.
-          if (cachedItem.status != t.status && t.bundleId != None) {
-            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
-          }
-
-          // Get the latest task data and notify clients of the update
-          this.retrieveById(t.id) match {
-            case Some(latestTask) =>
-              webSocketProvider.sendMessage(
-                WebSocketMessages.taskUpdate(latestTask, Some(WebSocketMessages.userSummary(user)))
-              )
-            case None =>
-          }
-        case None => // do NOTHING
-      }
-
-      task
-    }
-  }
-
-  /**
-    * There can only be a single suggested fix for a task, so if you add one it will remove any
-    * others that were added previously.
-    *
-    * @param taskId      The id for the task
-    * @param challengeId The id for the parent challenge
-    * @param value       The JSON value for the suggested fix
-    * @param c
-    */
-  def addSuggestedFix(taskId: Long, challengeId: Long, value: JsValue)(
-      implicit c: Option[Connection] = None
-  ): Unit = {
-    this.withMRTransaction { implicit c =>
-      val parameters = new ListBuffer[NamedParameter]()
-      parameters += (Symbol("suggestedFix") -> Json.stringify(value))
-      sqlWithParameters(
-        s"UPDATE tasks SET suggested_fix = {suggestedFix} WHERE id=${taskId}",
-        parameters
-      ).execute()
-
-      SQL(s"UPDATE challenges SET has_suggested_fixes = true WHERE id=${challengeId}").execute()
-      c.commit()
-    }
-  }
 
   /**
     * Sets the task for a given user. The user cannot set the status of a task unless the object has
@@ -575,7 +569,7 @@ class TaskDAL @Inject() (
     var bundleUpdate = ""
 
     // Find primary task in bundle if we are using a bundle
-    // Also check to make sure they aren't suggested fixes
+    // Also check to make sure they aren't cooperative tasks
     bundleId match {
       case Some(b) =>
         bundleUpdate = ", bundle_id = " + b
@@ -583,10 +577,10 @@ class TaskDAL @Inject() (
           primaryTaskId match {
             case Some(p) =>
               if (task.id == p) primaryTask = task
-              if (task.suggestedFix != None) {
+              if (task.cooperativeWork != None) {
                 throw new InvalidException(
                   "Cannot set task status as part of a bundle on task: " +
-                    task.id + " as it is a suggested fix."
+                    task.id + " as it contains cooperative work."
                 )
               }
             case _ => // do nothing
@@ -1061,7 +1055,7 @@ class TaskDAL @Inject() (
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
-          this.tagDAL.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
+          this.tagService.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
         } else {
           List.empty
         }
@@ -1256,8 +1250,8 @@ class TaskDAL @Inject() (
             User.FIELD_OSM_ID,
             Query.simple(
               List(BaseParameter(StatusActions.FIELD_TASK_ID, id)),
-              "SELECT osm_user_id FROM status_action",
-              order = Order.simple("created"),
+              "SELECT osm_user_id FROM status_actions",
+              order = Order > "created",
               paging = Paging(limit)
             )
           )
@@ -1411,10 +1405,10 @@ class TaskDAL @Inject() (
       taskId: Long,
       geojson: Option[String],
       location: Option[String],
-      suggestedfix: Option[String]
+      cooperativeWork: Option[String]
   )(implicit c: Option[Connection] = None): (String, Option[String], Option[String]) = {
     geojson match {
-      case Some(g) => (g, location, suggestedfix)
+      case Some(g) => (g, location, cooperativeWork)
       case None =>
         this.withMRTransaction { implicit c =>
           SQL("SELECT * FROM update_geometry({id})")

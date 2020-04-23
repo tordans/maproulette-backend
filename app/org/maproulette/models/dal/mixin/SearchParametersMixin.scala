@@ -182,9 +182,9 @@ trait SearchParametersMixin extends DALHelper {
       // specific challenge ids
       case _ =>
         params.challengeParams.requiresLocal match {
-          case SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE =>
+          case Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE) =>
             this.appendInWhereClause(whereClause, s"c.requires_local = false")
-          case SearchParameters.CHALLENGE_REQUIRES_LOCAL_ONLY =>
+          case Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_ONLY) =>
             this.appendInWhereClause(whereClause, s"c.requires_local = true")
           case _ =>
           // allow everything

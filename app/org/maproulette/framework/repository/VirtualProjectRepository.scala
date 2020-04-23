@@ -10,6 +10,7 @@ import java.sql.Connection
 import anorm.SQL
 import javax.inject.{Inject, Singleton}
 import org.maproulette.exception.InvalidException
+import org.maproulette.framework.model.{Project, VirtualProject}
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter
 import org.postgresql.util.PSQLException
@@ -20,6 +21,8 @@ import play.api.db.Database
   */
 @Singleton
 class VirtualProjectRepository @Inject() (override val db: Database) extends RepositoryMixin {
+  implicit val baseTable: String = VirtualProject.TABLE
+
   def addChallenge(projectId: Long, challengeId: Long)(
       implicit c: Option[Connection] = None
   ): Boolean = {

@@ -6,13 +6,10 @@ package org.maproulette.session
 
 import java.net.URLDecoder
 
-import org.maproulette.utils.Utils
-import play.api.mvc.{AnyContent, Request, AnyContentAsFormUrlEncoded}
-import play.api.data.format.Formats
-import play.api.libs.json._
-import play.api.libs.json.JodaWrites._
-import play.api.libs.json.JodaReads._
 import org.maproulette.exception.InvalidException
+import org.maproulette.utils.Utils
+import play.api.libs.json._
+import play.api.mvc.{AnyContent, AnyContentAsFormUrlEncoded, Request}
 
 /**
   * This holds the search parameters that are used to define task sets for retrieving random tasks
@@ -32,7 +29,7 @@ case class SearchChallengeParameters(
     challengeEnabled: Option[Boolean] = None,
     challengeDifficulty: Option[Int] = None,
     challengeStatus: Option[List[Int]] = None,
-    requiresLocal: Int = SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE
+    requiresLocal: Option[Int] = Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)
 )
 
 case class SearchParameters(
@@ -154,8 +151,13 @@ object SearchParameters {
         case Some(r) => Utils.insertIntoJson(updated, "challengeStatus", r, true)
         case None    => updated
       }
-      updated =
-        Utils.insertIntoJson(updated, "requiresLocal", o.challengeParams.requiresLocal, true)
+      updated = Utils.insertIntoJson(
+        updated,
+        "requiresLocal",
+        o.challengeParams.requiresLocal
+          .getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE),
+        true
+      )
 
       updated = updated.as[JsObject] - "challengeParams"
       updated
@@ -308,8 +310,7 @@ object SearchParameters {
           case None => params.challengeParams.challengeStatus
         },
         //requiresLocal
-        this.getIntParameter(request.getQueryString("cLocal"),
-          Some(params.challengeParams.requiresLocal)).getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)
+        this.getIntParameter(request.getQueryString("cLocal"), Some(params.challengeParams.requiresLocal.getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)))
       ),
       //taskTags
       request.getQueryString("tt") match {

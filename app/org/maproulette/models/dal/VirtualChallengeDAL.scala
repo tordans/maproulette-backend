@@ -470,13 +470,13 @@ class VirtualChallengeDAL @Inject() (
         case None    => ""
       }
       val pointParser = long("id") ~ str("name") ~ str("instruction") ~ str("location") ~
-        int("status") ~ get[Option[String]]("suggested_fix") ~ get[Option[DateTime]]("mapped_on") ~
+        int("status") ~ get[Option[String]]("cooperative_work") ~ get[Option[DateTime]]("mapped_on") ~
         get[Option[Long]]("completed_time_spent") ~ get[Option[Long]]("completed_by") ~
         get[Option[Int]]("review_status") ~ get[Option[Long]]("review_requested_by") ~
         get[Option[Long]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
         get[Option[DateTime]]("review_started_at") ~ int("priority") ~
         get[Option[Long]]("bundle_id") ~ get[Option[Boolean]]("is_bundle_primary") map {
-        case id ~ name ~ instruction ~ location ~ status ~ suggestedFix ~ mappedOn ~ completedTimeSpent ~
+        case id ~ name ~ instruction ~ location ~ status ~ cooperativeWork ~ mappedOn ~ completedTimeSpent ~
               completedBy ~ reviewStatus ~ reviewRequestedBy ~
               reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
@@ -498,7 +498,7 @@ class VirtualChallengeDAL @Inject() (
             -1,
             Actions.ITEM_TYPE_TASK,
             status,
-            suggestedFix,
+            cooperativeWork,
             mappedOn,
             completedTimeSpent,
             completedBy,
@@ -508,7 +508,7 @@ class VirtualChallengeDAL @Inject() (
             isBundlePrimary
           )
       }
-      SQL"""SELECT tasks.id, name, instruction, status, suggestedfix_geojson::TEXT as suggested_fix,
+      SQL"""SELECT tasks.id, name, instruction, status, cooperative_work_json::TEXT as cooperative_work,
                    mapped_on, completed_time_spent, completed_by, review_status, review_requested_by,
                    reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority,
                    bundle_id, is_bundle_primary

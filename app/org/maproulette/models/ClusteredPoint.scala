@@ -58,7 +58,7 @@ case class ClusteredPoint(
     difficulty: Int,
     `type`: Int,
     status: Int,
-    suggestedFix: Option[String] = None,
+    cooperativeWork: Option[String] = None,
     mappedOn: Option[DateTime],
     completedTimeSpent: Option[Long] = None,
     completedBy: Option[Long] = None,
