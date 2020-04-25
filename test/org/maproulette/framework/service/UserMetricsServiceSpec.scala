@@ -19,7 +19,12 @@ class UserMetricsServiceSpec(implicit val application: Application) extends Fram
 
   "UserMetricService" should {
     "get metrics for a user" taggedAs UserMetricsTag in {
-      //TODO
+      //TODO expand these tests.
+      val insertedUser =
+        this.userService.create(this.getTestUser(19, "UpdateUserService"), User.superUser)
+      val userMetrics =
+        this.service.getMetricsForUser(
+          insertedUser.id, insertedUser, -1, -1, -1, "", "", "", "", "", "")
     }
 
     "updates the users score" taggedAs UserMetricsTag in {

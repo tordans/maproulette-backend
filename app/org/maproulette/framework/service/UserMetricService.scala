@@ -77,7 +77,7 @@ class UserMetricService @Inject() (
       taskMonthDuration,
       startDate,
       endDate,
-      s"sa1.${StatusActions.FIELD_CREATED}"
+      s"${StatusActions.FIELD_CREATED}"
     )
     val taskCounts = this.repository.getUserTaskCounts(userId, timeClause)
 
@@ -175,6 +175,14 @@ class UserMetricService @Inject() (
         DateParameter(
           field,
           DateTime.now.withDayOfMonth(1),
+          DateTime.now,
+          Operator.BETWEEN
+        )
+      case -1 =>
+        // All time.
+        DateParameter(
+          field,
+          new DateTime(2000, 1, 1, 0, 0, 0, 0),
           DateTime.now,
           Operator.BETWEEN
         )
