@@ -377,6 +377,9 @@ class ProjectService @Inject() (
       ids: List[Long],
       paging: Paging = Paging()
   ): List[Project] = {
+    if (ids.isEmpty) {
+      return List()
+    }
     this.query(
       Query.simple(
         List(
