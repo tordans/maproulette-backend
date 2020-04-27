@@ -166,6 +166,29 @@ class TagService @Inject() (
   }
 
   /**
+    * Get all the tags for a specific task
+    *
+    * @param id The id fo the task
+    * @return List of tags for the task
+    */
+  def listByTasks(taskIds: List[Long]): Map[Long, List[Tag]] = {
+    this.repository.queryTaskTags(
+      Query.simple(
+        List(
+          BaseParameter(
+            Tag.FIELD_TASK_ID,
+            taskIds,
+            operator = Operator.IN,
+            table = Some(Tag.TABLE_TAGS_ON_TASKS)
+          )
+        ),
+        """SELECT *, task_id FROM tags
+           INNER JOIN tags_on_tasks ON tags.id = tags_on_tasks.tag_id"""
+      )
+    )
+  }
+
+  /**
     * This is an "upsert" function that will try and insert tags into the database based on a list,
     * it will either update the data for the tag if the tag already exists or create a new tag if
     * the tag does not exist. A tag is considered to exist if the id or the name is found in the

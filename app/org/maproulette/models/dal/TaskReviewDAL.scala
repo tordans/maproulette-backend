@@ -977,6 +977,7 @@ class TaskReviewDAL @Inject() (
     this.paramsProjectSearch(searchParameters, whereClause)
     this.paramsTaskId(searchParameters, whereClause)
     this.paramsPriority(searchParameters, whereClause)
+    this.paramsTaskTags(searchParameters, whereClause)
 
     if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
       this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")

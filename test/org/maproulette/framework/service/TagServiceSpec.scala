@@ -108,5 +108,19 @@ class TagServiceSpec(implicit val application: Application) extends FrameworkHel
       retrievedTags.size mustEqual 4
       retrievedTags.foreach(tag => tag.name.startsWith("challengetag") mustEqual true)
     }
+
+    "list all tags by a list of tasks" taggedAs KeywordTag in {
+      val tagList     = (1 to 4).map(index => Tag(-1, s"TaskTag$index")).toList
+      val createdTags = this.service.updateTagList(tagList, User.superUser)
+      this.taskDAL.updateItemTags(
+        this.defaultTask.id,
+        createdTags.map(_.id),
+        this.defaultUser,
+        true
+      )
+      val tagMap = this.service.listByTasks(List(this.defaultTask.id))
+      tagMap(this.defaultTask.id).size mustEqual 4
+      tagMap(this.defaultTask.id).foreach(tag => tag.name.startsWith("tasktag") mustEqual true)
+    }
   }
 }

@@ -8,7 +8,7 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data.ActionManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.{Challenge, User}
+import org.maproulette.framework.model.{Challenge, User, Tag}
 import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models.Task
 import org.maproulette.models.dal._
@@ -151,7 +151,8 @@ class TaskReviewController @Inject() (
       page: Int,
       sort: String,
       order: String,
-      excludeOtherReviewers: Boolean = false
+      excludeOtherReviewers: Boolean = false,
+      includeTags: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -171,7 +172,7 @@ class TaskReviewController @Inject() (
           true,
           excludeOtherReviewers
         )
-        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result, includeTags)))
       }
     }
   }
@@ -198,7 +199,8 @@ class TaskReviewController @Inject() (
       limit: Int,
       page: Int,
       sort: String,
-      order: String
+      order: String,
+      includeTags: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -215,7 +217,7 @@ class TaskReviewController @Inject() (
           sort,
           order
         )
-        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result, includeTags)))
       }
     }
   }
@@ -225,7 +227,7 @@ class TaskReviewController @Inject() (
     * into the JSON data returned. Also fetches and inserts usernames for
     * 'reviewRequestedBy' and 'reviewBy'
     */
-  private def _insertExtraJSON(tasks: List[Task]): JsValue = {
+  private def _insertExtraJSON(tasks: List[Task], includeTags: Boolean = false): JsValue = {
     if (tasks.isEmpty) {
       Json.toJson(List[JsValue]())
     } else {
@@ -268,6 +270,11 @@ class TaskReviewController @Inject() (
           .toMap
       )
 
+      val tagsMap: Map[Long, List[Tag]] = includeTags match {
+        case true => this.serviceManager.tag.listByTasks(tasks.map(t => t.id))
+        case _    => null
+      }
+
       val jsonList = tasks.map { task =>
         val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
         var updated =
@@ -280,7 +287,10 @@ class TaskReviewController @Inject() (
           val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
-
+        if (includeTags) {
+          val tagsJson = Json.toJson(tagsMap(task.id))
+          updated = Utils.insertIntoJson(updated, "tags", tagsJson, true)
+        }
         updated
       }
       Json.toJson(jsonList)

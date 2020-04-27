@@ -7,6 +7,7 @@ package org.maproulette.models.dal.mixin
 import anorm.NamedParameter
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.session.SearchParameters
+import org.maproulette.framework.psql.SQLUtils
 import play.api.libs.json.JsDefined
 
 import scala.collection.mutable.ListBuffer
@@ -38,6 +39,7 @@ trait SearchParametersMixin extends DALHelper {
     this.paramsReviewer(params, whereClause, joinClause)
     this.paramsMapper(params, whereClause, joinClause)
     this.paramsTaskPriorities(params, whereClause)
+    this.paramsTaskTags(params, whereClause)
     this.paramsPriority(params, whereClause)
     this.paramsChallengeDifficulty(params, whereClause)
     this.paramsChallengeStatus(params, whereClause, joinClause)
@@ -120,6 +122,24 @@ trait SearchParametersMixin extends DALHelper {
       case Some(p) if p == 0 || p == 1 || p == 2 =>
         this.appendInWhereClause(whereClause, s"tasks.priority = $p")
       case _ => // ignore
+    }
+  }
+
+  def paramsTaskTags(params: SearchParameters, whereClause: StringBuilder): Unit = {
+    if (params.hasTaskTags) {
+      val tagList = params.taskTags.get
+        .map(t => {
+          SQLUtils.testColumnName(t)
+          s"'${t}'"
+        })
+        .mkString(",")
+      this.appendInWhereClause(
+        whereClause,
+        s"""tasks.id IN (SELECT task_id from tags_on_tasks tt
+                         INNER JOIN tags ON tags.id = tt.tag_id
+                         WHERE tags.name IN (${tagList}))
+        """
+      )
     }
   }
 
