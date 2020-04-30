@@ -288,11 +288,13 @@ class UserRepository @Inject() (
              COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_TOO_HARD} then 1 else 0 end), 0) total_too_hard,
              COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_SKIPPED} then 1 else 0 end), 0) total_skipped,
              COALESCE(SUM(CASE WHEN (status_actions.created IS NOT NULL AND
-                                     status_actions.started_at IS NOT NULL)
+                                     status_actions.started_at IS NOT NULL AND
+                                     status_actions.status != ${Task.STATUS_SKIPPED})
                       THEN (EXTRACT(EPOCH FROM (status_actions.created - status_actions.started_at)) * 1000)
                       ELSE 0 END), 0) as total_time_spent,
              COALESCE(SUM(CASE WHEN (status_actions.created IS NOT NULL AND
-                                     status_actions.started_at IS NOT NULL)
+                                     status_actions.started_at IS NOT NULL AND
+                                     status_actions.status != ${Task.STATUS_SKIPPED})
                       THEN 1 ELSE 0 END), 0) as tasks_with_time
            FROM tasks
            INNER JOIN status_actions ON status_actions.task_id = tasks.id AND status_actions.status = tasks.status

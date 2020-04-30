@@ -651,9 +651,12 @@ class TaskDAL @Inject() (
         if (!skipStatusUpdate) {
           startedLock match {
             case Some(l) =>
-              SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
-                .getMillis()}))
-                    WHERE id = ${task.id}""".executeUpdate()
+              completedTimeSpent = Some(
+                SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
+                  .getMillis()}))
+                     WHERE id = ${task.id} RETURNING completed_time_spent"""
+                  .as(SqlParser.long("completed_time_spent").single)
+              )
             case _ => // do nothing
           }
         }
