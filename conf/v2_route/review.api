@@ -67,6 +67,9 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 #   - name: excludeOtherReviewers
 #     in: query
 #     description: exclude tasks that have been reviewed by someone else
+#   - name: includeTags
+#     in: query
+#     description: In response include list of tags for each task
 #   - name: cs
 #     in: query
 #     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
@@ -74,7 +77,7 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 #     in: query
 #     description: The search string used to match the name of the person requesting the review. (review_requested_by)
 ###
-GET     /tasks/review                          @org.maproulette.controllers.api.TaskReviewController.getReviewRequestedTasks(startDate: String ?= null, endDate: String ?= null, onlySaved: Boolean ?= false, limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", excludeOtherReviewers: Boolean ?= false)
+GET     /tasks/review                          @org.maproulette.controllers.api.TaskReviewController.getReviewRequestedTasks(startDate: String ?= null, endDate: String ?= null, onlySaved: Boolean ?= false, limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", excludeOtherReviewers: Boolean ?= false, includeTags: Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves reviewed tasks that have been reviewed either by this user or where the user requested
@@ -123,8 +126,11 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 #   - name: r
 #     in: query
 #     description: The search string used to match the Reviewer names. (reviewed_by)
+#   - name: includeTags
+#     in: query
+#     description: In response include list of tags for each task
 ###
-GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskReviewController.getReviewedTasks(mappers:String ?= "", reviewers:String ?= "", startDate: String ?= null, endDate: String ?= null, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC")
+GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskReviewController.getReviewedTasks(mappers:String ?= "", reviewers:String ?= "", startDate: String ?= null, endDate: String ?= null, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", includeTags:Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves and claims a the next review needed Task

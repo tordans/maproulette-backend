@@ -11,7 +11,7 @@ import anorm.SqlParser.get
 import anorm.{BatchSql, NamedParameter, RowParser, SQL, ~}
 import javax.inject.Inject
 import org.maproulette.exception.UniqueViolationException
-import org.maproulette.framework.model.Tag
+import org.maproulette.framework.model.{Tag, TaskTag}
 import org.maproulette.framework.psql.filter.{BaseParameter, Filter, FilterGroup, Operator}
 import org.maproulette.framework.psql.{OR, Query}
 import play.api.db.Database
@@ -160,11 +160,35 @@ class TagRepository @Inject() (override val db: Database) extends RepositoryMixi
     *
     * @param query The query to execute
     * @param c     An implicit connection
-    * @return A list of returned Comments
+    * @return A list of returned tags
     */
   def query(query: Query)(implicit c: Option[Connection] = None): List[Tag] = {
     this.withMRConnection { implicit c =>
       query.build(s"SELECT * FROM tags").as(TagRepository.parser.*)
+    }
+  }
+
+  /**
+    * Query function that allows a user to build their own query against the Tags table
+    * and return a mapping between task ids and tags.
+    *
+    * @param query The query to execute
+    * @param c     An implicit connection
+    * @return A map of taskId -> List of Tag
+    */
+  def queryTaskTags(query: Query)(implicit c: Option[Connection] = None): Map[Long, List[Tag]] = {
+    this.withMRConnection { implicit c =>
+      val taskTags    = query.build(s"SELECT * FROM tags").as(TagRepository.taskTagParser.*)
+      val taskTagsMap = scala.collection.mutable.Map[Long, List[Tag]]().withDefaultValue(null)
+
+      taskTags.foreach(t => {
+        if (taskTagsMap(t.taskId) == null) {
+          taskTagsMap(t.taskId) = List()
+        }
+        taskTagsMap(t.taskId) = t.tag :: taskTagsMap(t.taskId)
+      })
+
+      taskTagsMap.toMap
     }
   }
 }
@@ -177,6 +201,18 @@ object TagRepository {
       get[String]("tags.tag_type") map {
       case id ~ name ~ description ~ tagType =>
         new Tag(id, name.toLowerCase, description, tagType = tagType)
+    }
+  }
+
+  val taskTagParser: RowParser[TaskTag] = {
+    get[Long]("task_id") ~
+      get[Long]("tags.id") ~
+      get[String]("tags.name") ~
+      get[Option[String]]("tags.description") ~
+      get[String]("tags.tag_type") map {
+      case taskId ~ id ~ name ~ description ~ tagType => {
+        new TaskTag(taskId, new Tag(id, name.toLowerCase, description, tagType = tagType))
+      }
     }
   }
 }
