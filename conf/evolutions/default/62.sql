@@ -1,6 +1,10 @@
 # --- MapRoulette Scheme
 
 # --- !Ups
+-- Clean up empty task tags.
+-- (This will also clean up the join tables as well. tags_on_tasks/tags_on_challenges)
+DELETE FROM tags where name='';
+
 -- Combine groups and user_groups into new grants table
 CREATE TABLE IF NOT EXISTS grants
 (
