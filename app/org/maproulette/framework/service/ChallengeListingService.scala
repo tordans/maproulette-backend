@@ -10,6 +10,7 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
 import org.maproulette.framework.repository.ChallengeListingRepository
+import org.maproulette.permissions.Permission
 import org.maproulette.models.Task
 
 /**
@@ -18,9 +19,11 @@ import org.maproulette.models.Task
   * @author krotstan
   */
 @Singleton
-class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
-    extends ServiceHelper
-    with ServiceMixin[ChallengeListing] {
+class ChallengeListingService @Inject() (
+    repository: ChallengeListingRepository,
+    challengeService: ChallengeService,
+    permission: Permission
+) extends ServiceMixin[ChallengeListing] {
   def retrieve(parentId: Long): Option[ChallengeListing] =
     this.query(Query.simple(List(BaseParameter(Challenge.FIELD_PARENT_ID, parentId)))).headOption
 
@@ -40,7 +43,6 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
       excludeOtherReviewers: Boolean = false,
       paging: Paging = Paging()
   ): List[ChallengeListing] = {
-
     val filter =
       Filter(
         List(
@@ -76,7 +78,7 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
                 TaskReview.FIELD_REVIEW_REQUESTED_BY,
                 user.id,
                 negate = true,
-                includeOnlyIfTrue = (reviewTasksType == 1) && !user.isSuperUser,
+                includeOnlyIfTrue = (reviewTasksType == 1) && !permission.isSuperUser(user),
                 table = Some(TaskReview.TABLE)
               ),
               // reviewed_by == user.id for 'tasks reviewed by me' (review type = 3)
@@ -104,7 +106,7 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
             )
           ),
           // Check project/challenge visiblity
-          this.challengeVisibilityFilter(user),
+          challengeService.challengeVisibilityFilter(user),
           // reviewed_by is empty or user.id if excludeOtherReviewers
           FilterGroup(
             List(
@@ -121,13 +123,13 @@ class ChallengeListingService @Inject() (repository: ChallengeListingRepository)
           )
         )
       )
-
-    val query = Query(
-      filter,
-      paging = paging,
-      grouping = Grouping > "id"
+    this.query(
+      Query(
+        filter,
+        paging = paging,
+        grouping = Grouping > "id"
+      )
     )
-    this.query(query)
   }
 
   def query(query: Query): List[ChallengeListing] = this.repository.query(query)

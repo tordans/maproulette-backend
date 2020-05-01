@@ -49,7 +49,7 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
       ownerId: Long = this.defaultUser.osmProfile.id
   ): Project = {
     val createdProject = this.serviceManager.project
-      .create(Project(-1, ownerId, projectName), User.superUser)
+      .create(Project(-1, ownerId, projectName), this.defaultUser)
     1 to numberOfChallenges foreach { cid =>
       {
         val challenge = this.createChallengeStructure(s"${challengePrefix}_$cid", createdProject.id)
@@ -150,8 +150,7 @@ object ProjectTag              extends Tag("project")
 object ProjectRepoTag          extends Tag("projectrepo")
 object CommentTag              extends Tag("comment")
 object CommentRepoTag          extends Tag("commentrepo")
-object GroupTag                extends Tag("group")
-object GroupRepoTag            extends Tag("groupRepo")
+object GrantTag                extends Tag("grant")
 object UserMetricsTag          extends Tag("usermetrics")
 object UserSavedObjectsTag     extends Tag("usersavedobjects")
 object UserSavedObjectsRepoTag extends Tag("usersavedobjectsrepo")
@@ -159,8 +158,6 @@ object UserTag                 extends Tag("user")
 object UserRepoTag             extends Tag("userRepo")
 object VirtualProjectTag       extends Tag("virtualproject")
 object VirtualProjectRepoTag   extends Tag("virtualprojectrepo")
-object UserGroupTag            extends Tag("usergroup")
-object UserGroupRepoTag        extends Tag("usergrouprepo")
 object KeywordTag              extends Tag("keyword")
 object KeywordRepoTag          extends Tag("keywordrepo")
 object TaskReviewTag           extends Tag("taskreviewtag")

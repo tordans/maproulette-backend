@@ -12,7 +12,7 @@ import anorm._
 import javax.inject.{Inject, Provider, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.data.ChallengeType
+import org.maproulette.data.{ProjectType, ChallengeType, UserType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.model
 import org.maproulette.framework.model.{ReviewMetrics, TaskReview, TaskWithReview, User}
@@ -460,7 +460,7 @@ class TaskReviewDAL @Inject() (
       case _ => // ignore
     }
 
-    val query = if (user.isSuperUser) {
+    val query = if (permission.isSuperUser(user)) {
       s"""
           SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
             tasks.${this.retrieveColumnsWithReview} FROM tasks
@@ -483,10 +483,9 @@ class TaskReviewDAL @Inject() (
             ${joinClause}
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
-                    ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                               WHERE ug.group_id = g.id AND g.project_id = p.id))
-                    AND
-                    task_review.review_requested_by != ${user.id} AND
+                    ${this.userHasProjectGrantSQL(user)}
+                  ) AND
+                  task_review.review_requested_by != ${user.id} AND
             ${whereClause}
             ${whereBundleClause}
             ${orderByClause}
@@ -497,7 +496,7 @@ class TaskReviewDAL @Inject() (
       }
     }
 
-    val countQuery = if (user.isSuperUser) {
+    val countQuery = if (permission.isSuperUser(user)) {
       s"""
           SELECT count(*) FROM tasks
           ${joinClause}
@@ -510,9 +509,9 @@ class TaskReviewDAL @Inject() (
           ${joinClause}
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                             WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
-                  task_review.review_requested_by != ${user.id} AND
+                  ${this.userHasProjectGrantSQL(user)}
+                ) AND
+                task_review.review_requested_by != ${user.id} AND
           ${whereClause}
           ${whereBundleClause}
         """
@@ -592,7 +591,7 @@ class TaskReviewDAL @Inject() (
       case _ => // ignore
     }
 
-    val query = user.isSuperUser match {
+    val query = permission.isSuperUser(user) match {
       case true =>
         s"""
           SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
@@ -614,10 +613,10 @@ class TaskReviewDAL @Inject() (
             ${joinClause}
             WHERE ((p.enabled AND c.enabled) OR
                     p.owner_id = ${user.osmProfile.id} OR
-                    ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                               WHERE ug.group_id = g.id AND g.project_id = p.id) OR
+                    ${this.userHasProjectGrantSQL(user)} OR
                     task_review.review_requested_by = ${user.id} OR
-                    task_review.reviewed_by = ${user.id}) AND
+                    task_review.reviewed_by = ${user.id}
+                  ) AND
             ${whereClause}
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
@@ -627,7 +626,7 @@ class TaskReviewDAL @Inject() (
         }
     }
 
-    val countQuery = user.isSuperUser match {
+    val countQuery = permission.isSuperUser(user) match {
       case true =>
         s"""
           SELECT count(*) FROM tasks
@@ -640,10 +639,10 @@ class TaskReviewDAL @Inject() (
           ${joinClause}
           WHERE ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                             WHERE ug.group_id = g.id AND g.project_id = p.id) OR
+                  ${this.userHasProjectGrantSQL(user)} OR
                   task_review.review_requested_by = ${user.id} OR
-                  task_review.reviewed_by = ${user.id}) AND
+                  task_review.reviewed_by = ${user.id}
+                ) AND
           ${whereClause}
         """
     }
@@ -711,26 +710,26 @@ class TaskReviewDAL @Inject() (
         )
       }
 
-      if (!user.isSuperUser) {
+      if (!permission.isSuperUser(user)) {
         this.appendInWhereClause(
           whereClause,
           s""" ((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
-                ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                           WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
-                task_review.review_requested_by != ${user.id} """
+                ${this.userHasProjectGrantSQL(user)}
+               ) AND
+               task_review.review_requested_by != ${user.id} """
         )
       }
     } else {
-      if (!user.isSuperUser) {
+      if (!permission.isSuperUser(user)) {
         this.appendInWhereClause(
           whereClause,
           s"""((p.enabled AND c.enabled) OR
                 p.owner_id = ${user.osmProfile.id} OR
-                ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                          WHERE ug.group_id = g.id AND g.project_id = p.id) OR
+                ${this.userHasProjectGrantSQL(user)} OR
                 task_review.review_requested_by = ${user.id} OR
-                task_review.reviewed_by = ${user.id})"""
+                task_review.reviewed_by = ${user.id}
+              )"""
         )
       }
     }
@@ -889,13 +888,13 @@ class TaskReviewDAL @Inject() (
           )
         }
 
-        if (!user.isSuperUser) {
+        if (!permission.isSuperUser(user)) {
           whereClause ++=
             s""" AND ((p.enabled AND c.enabled) OR
                   p.owner_id = ${user.osmProfile.id} OR
-                  ${user.osmProfile.id} IN (SELECT ug.osm_user_id FROM user_groups ug, groups g
-                                             WHERE ug.group_id = g.id AND g.project_id = p.id)) AND
-                  task_review.review_requested_by != ${user.id} """
+                  ${this.userHasProjectGrantSQL(user)}
+                 ) AND
+                 task_review.review_requested_by != ${user.id} """
         }
       }
       this.appendInWhereClause(
@@ -1007,7 +1006,7 @@ class TaskReviewDAL @Inject() (
       actionId: Option[Long],
       commentContent: String = ""
   )(implicit c: Connection = null): Int = {
-    if (!user.isSuperUser && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
+    if (!permission.isSuperUser(user) && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus != Task.REVIEW_STATUS_DISPUTED && reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
       throw new IllegalAccessException("User must be a reviewer to edit task review status.")
     } else if (reviewStatus == Task.REVIEW_STATUS_UNNECESSARY) {
@@ -1204,4 +1203,12 @@ class TaskReviewDAL @Inject() (
       SQL(query).on(Symbol("taskId") -> taskId).as(this.taskWithReviewParser.single)
     }
   }
+
+  private def userHasProjectGrantSQL(user: User): String =
+    s"""${user.id} IN (
+        SELECT g.granteeId from grants g
+        WHERE g.objectType = ${ProjectType().typeId} AND
+              g.objectId = p.id AND
+              g.granteeType = ${UserType().typeId}
+    )"""
 }

@@ -7,9 +7,10 @@ package org.maproulette.framework.controller
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
-import org.maproulette.framework.model.{Challenge, User, UserSettings}
+import org.maproulette.framework.model.{Challenge, User, UserSettings, GrantTarget}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.ServiceManager
+import org.maproulette.permissions.Permission
 import org.maproulette.models.Task
 import org.maproulette.session.SessionManager
 import org.maproulette.utils.{Crypto, Utils}
@@ -27,7 +28,8 @@ class UserController @Inject() (
     sessionManager: SessionManager,
     components: ControllerComponents,
     bodyParsers: PlayBodyParsers,
-    crypto: Crypto
+    crypto: Crypto,
+    permission: Permission
 ) extends AbstractController(components)
     with DefaultWrites {
 
@@ -73,7 +75,7 @@ class UserController @Inject() (
     this.sessionManager.authenticatedRequest { implicit user =>
       if (userId == user.id || userId == user.osmProfile.id) {
         Ok(Json.toJson(User.withDecryptedAPIKey(user)(crypto)))
-      } else if (user.isSuperUser) {
+      } else if (permission.isSuperUser(user)) {
         this.serviceManager.user.retrieveByOSMId(userId) match {
           case Some(u) => Ok(Json.toJson(User.withDecryptedAPIKey(u)(crypto)))
           case None =>
@@ -267,23 +269,21 @@ class UserController @Inject() (
   }
 
   /**
-    * Add the user to the Admin group of a Project
+    * Grant the user a role on the project
     *
     * @param userId    The id of the User to add
     * @param projectId The project to add too
-    * @param groupType The type of group 1 - Admin, 2 - Write, 3 - Read
+    * @param role      The role 1 - Admin, 2 - Write, 3 - Read
     * @return Standard status message
     */
   def addUserToProject(
       userId: Long,
       projectId: Long,
-      groupType: Int,
+      role: Int,
       isOSMUserId: Boolean
   ): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      this.addUser(userId, isOSMUserId, projectId, groupType, user)
-      // clear group caches
-      this.serviceManager.group.clearCache()
+      this.addUser(userId, isOSMUserId, projectId, role, user)
       Ok(
         Json.toJson(
           StatusMessage("OK", JsString(s"User with id [$userId] added to project $projectId"))
@@ -296,20 +296,21 @@ class UserController @Inject() (
       userId: Long,
       isOSMUserId: Boolean,
       projectId: Long,
-      groupType: Int,
+      role: Int,
       user: User
   ): Unit = {
     val addUser = this.retrieveUser(userId, isOSMUserId, user)
 
-    if (addUser.groups.exists(g => g.projectId == projectId && g.groupType == groupType)) {
-      throw new InvalidException(s"User ${addUser.name} is already part of project $projectId")
+    val projectTarget = GrantTarget.project(projectId)
+    if (addUser.grants.exists(g => g.target == projectTarget && g.role == role)) {
+      throw new InvalidException(s"User ${addUser.name} already has role on project $projectId")
     }
     // quick verification to make sure that the project exists
     this.serviceManager.project.retrieve(projectId) match {
       case Some(_) => // just ignore
       case None    => throw new NotFoundException(s"Could not find project with ID $projectId")
     }
-    this.serviceManager.user.addUserToProject(addUser.osmProfile.id, projectId, groupType, user)
+    this.serviceManager.user.addUserToProject(addUser.osmProfile.id, projectId, role, user)
   }
 
   private def retrieveUser(userId: Long, isOSMUserId: Boolean, user: User): User = {
@@ -327,7 +328,7 @@ class UserController @Inject() (
     }
   }
 
-  def addUsersToProject(projectId: Long, groupType: Int, isOSMUserId: Boolean): Action[JsValue] =
+  def addUsersToProject(projectId: Long, role: Int, isOSMUserId: Boolean): Action[JsValue] =
     Action.async(bodyParsers.json) { implicit request =>
       sessionManager.authenticatedRequest { implicit user =>
         val jsBody = request.body
@@ -337,10 +338,8 @@ class UserController @Inject() (
 
         val idList = jsBody.as[JsArray].value
         idList.foreach(id => {
-          this.addUser(id.as[Long], isOSMUserId, projectId, groupType, user)
+          this.addUser(id.as[Long], isOSMUserId, projectId, role, user)
         })
-        // clear the group caches
-        this.serviceManager.group.clearCache()
         Ok(
           Json.toJson(
             StatusMessage(
@@ -353,32 +352,31 @@ class UserController @Inject() (
     }
 
   /**
-    * Sets the group type of the user in a project, first removing any prior
-    * group types.
+    * Sets the role of the user in a project, first removing any prior roles
     *
     * @param userId    The id of the User to add
     * @param projectId The project to add too
-    * @param groupType The type of group 1 - Admin, 2 - Write, 3 - Read
+    * @param role      The role to grant 1 - Admin, 2 - Write, 3 - Read
     * @return Standard status message
     */
-  def setUserProjectGroup(
+  def setUserProjectRole(
       userId: Long,
       projectId: Long,
-      groupType: Int,
+      role: Int,
       isOSMUserId: Boolean
   ): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
       val addUser = retrieveUser(userId, isOSMUserId, user)
       this.serviceManager.user
-        .addUserToProject(addUser.osmProfile.id, projectId, groupType, user, clear = true)
-      // clear group caches
+        .addUserToProject(addUser.osmProfile.id, projectId, role, user, clear = true)
+      // clear caches
       this.serviceManager.user.clearCache()
       Ok(Json.toJson(this.serviceManager.user.getUsersManagingProject(projectId, None, user)))
     }
   }
 
   /**
-    * Removes the user from the Admin group of the Project
+    * Removes the role granted to the user on the Project
     *
     * @param userId
     * @param projectId
@@ -387,13 +385,11 @@ class UserController @Inject() (
   def removeUserFromProject(
       userId: Long,
       projectId: Long,
-      groupType: Int,
+      role: Int,
       isOSMUserId: Boolean
   ): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      this.removeUser(userId, isOSMUserId, projectId, groupType, user)
-      // clear group caches
-      this.serviceManager.group.clearCache()
+      this.removeUser(userId, isOSMUserId, projectId, role, user)
       Ok(
         Json.toJson(
           StatusMessage("OK", JsString(s"User with id $userId removed from project $projectId"))
@@ -406,7 +402,7 @@ class UserController @Inject() (
       userId: Long,
       isOSMUserId: Boolean,
       projectId: Long,
-      groupType: Int,
+      role: Int,
       user: User
   ): Unit = {
     val addUser = this.retrieveUser(userId, isOSMUserId, user)
@@ -415,13 +411,16 @@ class UserController @Inject() (
       case Some(_) => // just ignore
       case None    => throw new NotFoundException(s"Could not find project with ID $projectId")
     }
+
+    // -1 indicates all roles, represented as an absence of a role filter
+    val roleFilter = if (role == -1) None else Some(role)
     this.serviceManager.user
-      .removeUserFromProject(addUser.osmProfile.id, projectId, groupType, user)
+      .removeUserFromProject(addUser.osmProfile.id, projectId, roleFilter, user)
   }
 
   def removeUsersFromProject(
       projectId: Long,
-      groupType: Int,
+      role: Int,
       isOSMUserId: Boolean
   ): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
@@ -432,10 +431,8 @@ class UserController @Inject() (
 
       val idList = jsBody.as[JsArray].value
       idList.foreach(id => {
-        this.removeUser(id.as[Long], isOSMUserId, projectId, groupType, user)
+        this.removeUser(id.as[Long], isOSMUserId, projectId, role, user)
       })
-      // clear the group caches
-      this.serviceManager.group.clearCache()
       Ok(
         Json.toJson(
           StatusMessage(
@@ -457,7 +454,7 @@ class UserController @Inject() (
     */
   def generateAPIKey(userId: Long = -1): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val newAPIUser = if (user.isSuperUser && userId != -1) {
+      val newAPIUser = if (permission.isSuperUser(user) && userId != -1) {
         this.serviceManager.user.retrieve(userId) match {
           case Some(u) => u
           case None => // look for the user under the OSM_ID

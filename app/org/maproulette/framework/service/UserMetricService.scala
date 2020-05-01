@@ -64,7 +64,7 @@ class UserMetricService @Inject() (
     var isReviewer = false
     targetUser match {
       case Some(u) =>
-        if (u.settings.leaderboardOptOut.getOrElse(false) && !user.isSuperUser && userId != user.id) {
+        if (u.settings.leaderboardOptOut.getOrElse(false) && !permission.isSuperUser(user) && userId != user.id) {
           throw new IllegalAccessException(s"User metrics are not public for this user.")
         }
         isReviewer = u.settings.isReviewer.getOrElse(false)

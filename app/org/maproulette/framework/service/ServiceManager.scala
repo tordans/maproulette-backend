@@ -17,7 +17,7 @@ import org.maproulette.exception.NotFoundException
 @Singleton
 class ServiceManager @Inject() (
     projectService: Provider[ProjectService],
-    groupService: Provider[GroupService],
+    grantService: Provider[GrantService],
     userService: Provider[UserService],
     commentService: Provider[CommentService],
     tagService: Provider[TagService],
@@ -37,16 +37,16 @@ class ServiceManager @Inject() (
 
   def getService(itemType: ItemType): ServiceMixin[_] = itemType match {
     case ProjectType()   => this.project
-    case GroupType()     => this.group
     case UserType()      => this.user
     case ChallengeType() => this.challenge
     case TagType()       => this.tag
+    case GrantType()     => this.grant
     case _               => throw new NotFoundException(s"Service not found for type $itemType")
   }
 
   def project: ProjectService = projectService.get()
 
-  def group: GroupService = groupService.get()
+  def grant: GrantService = grantService.get()
 
   def user: UserService = userService.get()
 

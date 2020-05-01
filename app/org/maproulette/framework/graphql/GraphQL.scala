@@ -16,7 +16,7 @@ class GraphQL @Inject() (
     projectSchema: ProjectSchema,
     challengeSchema: ChallengeSchema,
     commentSchema: CommentSchema,
-    groupSchema: GroupSchema,
+    grantSchema: GrantSchema,
     userSchema: UserSchema,
     tagSchema: TagSchema
 ) {
@@ -25,7 +25,7 @@ class GraphQL @Inject() (
       projectSchema.queries ++
       challengeSchema.queries ++
       commentSchema.queries ++
-      groupSchema.queries ++
+      grantSchema.queries ++
       userSchema.queries ++
       tagSchema.queries
 
@@ -34,7 +34,7 @@ class GraphQL @Inject() (
       projectSchema.mutations ++
       challengeSchema.mutations ++
       commentSchema.mutations ++
-      groupSchema.mutations ++
+      grantSchema.mutations ++
       userSchema.mutations ++
       tagSchema.mutations
 

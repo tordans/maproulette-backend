@@ -8,6 +8,7 @@ import java.sql.Connection
 
 import com.google.inject.Singleton
 import javax.inject.{Inject, Provider}
+import org.maproulette.Config
 import org.maproulette.cache.CacheObject
 import org.maproulette.data._
 import org.maproulette.exception.NotFoundException
@@ -22,7 +23,8 @@ import org.maproulette.models.dal.DALManager
 @Singleton
 class Permission @Inject() (
     dalManager: Provider[DALManager],
-    serviceManager: ServiceManager
+    serviceManager: ServiceManager,
+    config: Config
 ) {
 
   /**
@@ -47,30 +49,23 @@ class Permission @Inject() (
     }
   }
 
-  def hasWriteAccess(itemType: ItemType, user: User, groupType: Int = Group.TYPE_WRITE_ACCESS)(
+  def hasWriteAccess(itemType: ItemType, user: User, role: Int = Grant.ROLE_WRITE_ACCESS)(
       implicit id: Long,
       c: Option[Connection] = None
   ): Unit =
-    if (!user.isSuperUser) {
+    if (!this.isSuperUser(user)) {
       itemType match {
         case UserType() =>
           // we use read access here, simply because read and write access on a user is the same in that
           // you are required to the super user or owner to access the User object. It is much stricter
           // than other objects in the system
           this.hasReadAccess(itemType, user)
-        case GroupType() =>
-          this.serviceManager.group.retrieve(id) match {
-            case Some(obj) =>
-              this.hasObjectWriteAccess(obj.asInstanceOf[CacheObject[Long]], user, groupType)
-            case _ =>
-              throw new NotFoundException(
-                s"No Group found using id [$id] to check write access"
-              )
-          }
+        case GrantType() =>
+          throw new IllegalAccessException("Only super users can write to grant objects")
         case _ =>
           this.getItem(itemType)(id, c) match {
             case Some(obj) =>
-              this.hasObjectWriteAccess(obj.asInstanceOf[CacheObject[Long]], user, groupType)
+              this.hasObjectWriteAccess(obj.asInstanceOf[CacheObject[Long]], user, role)
             case _ =>
               throw new NotFoundException(
                 s"No ${Actions.getTypeName(itemType.typeId).getOrElse("Unknown")} found using id [$id] to check write access"
@@ -80,7 +75,7 @@ class Permission @Inject() (
     }
 
   /**
-    * Uses the hasWriteAccess function, but switches to check for users membership to the admin group instead of the write group
+    * Uses the hasWriteAccess function, but switches to check for users granted admin role instead of write role
     *
     * @param obj  The object that we are checking to see if they have access to it
     * @param user The user making the request
@@ -89,7 +84,7 @@ class Permission @Inject() (
   def hasObjectAdminAccess(obj: Any, user: User)(
       implicit c: Option[Connection] = None
   ): Unit =
-    this.hasObjectWriteAccess(obj, user, Group.TYPE_ADMIN)
+    this.hasObjectWriteAccess(obj, user, Grant.ROLE_ADMIN)
 
   /**
     * Checks whether a user has write permission to the given object
@@ -100,24 +95,22 @@ class Permission @Inject() (
   def hasObjectWriteAccess(
       obj: Any,
       user: User,
-      groupType: Int = Group.TYPE_WRITE_ACCESS
+      role: Int = Grant.ROLE_WRITE_ACCESS
   )(implicit c: Option[Connection] = None): Unit =
-    if (!user.isSuperUser) {
+    if (!this.isSuperUser(user)) {
       obj match {
         case u: User => this.hasObjectReadAccess(u, user)
         case p: Project =>
-          this.hasProjectAccess(Some(p), user, groupType)
+          this.hasProjectAccess(Some(p), user, role)
         case c: Challenge =>
-          if (c.general.owner != user.osmProfile.id) {
-            this.hasProjectAccess(
-              dalManager
-                .get()
-                .challenge
-                .retrieveRootObject(Right(c), user),
-              user,
-              groupType
-            )
-          }
+          this.hasProjectAccess(
+            dalManager
+              .get()
+              .challenge
+              .retrieveRootObject(Right(c), user),
+            user,
+            role
+          )
         case vc: VirtualChallenge =>
           if (vc.ownerId != user.osmProfile.id) {
             throw new IllegalAccessException(
@@ -128,12 +121,14 @@ class Permission @Inject() (
           this.hasProjectAccess(
             dalManager.get().task.retrieveRootObject(Right(t), user),
             user,
-            groupType
+            role
           )
         case tag: Tag =>
         //this.hasReadAccess(TagType(), user)(tag.id)
-        case g: Group =>
-          this.hasProjectTypeAccess(user, Group.TYPE_ADMIN)(g.projectId)
+        case g: Grant =>
+          throw new IllegalAccessException(
+            s"Only super users can write to grant objects"
+          )
         case b: Bundle =>
           if (b.owner != user.osmProfile.id) {
             throw new IllegalAccessException(
@@ -156,34 +151,42 @@ class Permission @Inject() (
     */
   def hasObjectReadAccess(obj: Any, user: User)(
       implicit c: Option[Connection] = None
-  ): Unit = if (!user.isSuperUser) {
+  ): Unit = if (!this.isSuperUser(user)) {
     obj match {
       case u: User if u.id != user.id & u.osmProfile.id != user.osmProfile.id =>
         throw new IllegalAccessException(
           s"User does not have read access to requested user object [${u.id}]"
         )
-      case g: Group =>
-        this.hasProjectTypeAccess(user)(g.projectId)
+      case g: Grant =>
+        if (g.grantee.granteeType != UserType() || g.grantee.granteeId != user.id) {
+          throw new IllegalAccessException(
+            s"User does not have read access to requested grant object [${g.id}]"
+          )
+        }
       case _ => // don't do anything, they have access
     }
   }
 
   def hasProjectTypeAccess(
       user: User,
-      groupType: Int = Group.TYPE_ADMIN
+      role: Int = Grant.ROLE_ADMIN
   )(implicit id: Long, c: Option[Connection] = None): Unit =
-    this.hasProjectAccess(this.serviceManager.project.retrieve(id), user, groupType)
+    this.hasProjectAccess(this.serviceManager.project.retrieve(id), user, role)
 
-  def hasProjectAccess(project: Option[Project], user: User, groupType: Int = Group.TYPE_ADMIN)(
+  def hasProjectAccess(project: Option[Project], user: User, role: Int = Grant.ROLE_ADMIN)(
       implicit c: Option[Connection] = None
-  ): Unit = if (!user.isSuperUser) {
+  ): Unit = if (!this.isSuperUser(user)) {
     project match {
       case Some(p) =>
-        if (project.get.owner != user.osmProfile.id && !user.groups
-              .exists(g => p.id == g.projectId && g.groupType <= groupType)) {
-          throw new IllegalAccessException(
-            s"User [${user.id}] does not have access to this project [${p.id}]"
-          )
+        // Make sure we're dealing with the latest user data
+        this.serviceManager.user.retrieve(user.id) match {
+          case Some(u) =>
+            if (!u.grantsForProject(p.id).exists(g => g.role <= role)) {
+              throw new IllegalAccessException(
+                s"User [${u.id}] does not have required access to this project [${p.id}]"
+              )
+            }
+          case None => throw new NotFoundException("No user found to check for access")
         }
       case None =>
         throw new NotFoundException(s"No project found to check access for object")
@@ -191,7 +194,7 @@ class Permission @Inject() (
   }
 
   /**
-    * Uses the hasWriteAccess function, but switches to check for users membership to the admin group instead of the write group
+    * Uses the hasWriteAccess function, but switches to check for user granted admin role instead of write role
     *
     * @param itemType The type of object that the user want's access too
     * @param user     The user making the request
@@ -202,15 +205,33 @@ class Permission @Inject() (
       itemType: ItemType,
       user: User
   )(implicit id: Long, c: Option[Connection] = None): Unit =
-    this.hasWriteAccess(itemType, user, Group.TYPE_ADMIN)
+    this.hasWriteAccess(itemType, user, Grant.ROLE_ADMIN)
 
   /**
-    * Checks if a user is a super user
+    * Checks that a user is a super user
     *
     * @param user
     */
-  def hasSuperAccess(user: User): Unit = if (!user.isSuperUser) {
+  def hasSuperAccess(user: User): Unit = if (!this.isSuperUser(user)) {
     throw new IllegalAccessException(s"Only super users can perform this action.")
+  }
+
+  /**
+    * Determines if the given user has been configured as a superuser
+    */
+  def isSuperUser(user: User): Boolean = {
+    if (user.id == User.DEFAULT_SUPER_USER_ID) {
+      return true
+    }
+
+    config.superAccounts.headOption match {
+      case Some("*") => true
+      case Some("")  => false
+      case _ =>
+        config.superAccounts.exists { superId =>
+          superId.toInt == user.osmProfile.id
+        }
+    }
   }
 
   private def getItem(

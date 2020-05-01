@@ -14,10 +14,11 @@ import com.vividsolutions.jts.io.WKTReader
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.data._
 import org.maproulette.framework.model._
+import org.maproulette.framework.service.GrantService
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
-import org.maproulette.framework.service.GroupService
 import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
@@ -32,7 +33,7 @@ import play.api.libs.oauth.RequestToken
 @Singleton
 class UserRepository @Inject() (
     override val db: Database,
-    groupService: GroupService,
+    grantService: GrantService,
     challengeDAL: ChallengeDAL,
     config: Config
 ) extends RepositoryMixin {
@@ -41,7 +42,7 @@ class UserRepository @Inject() (
   implicit val baseTable: String = User.TABLE
 
   /**
-    * Retrieve list of all users possessing a group type for the project.
+    * Retrieve list of all users possessing a role for the project.
     *
     * @param projectId   The project
     * @param osmIdFilter : A filter for manager OSM ids
@@ -52,22 +53,18 @@ class UserRepository @Inject() (
       osmIdFilter: Option[List[Long]] = None
   )(implicit c: Option[Connection] = None): List[ProjectManager] = {
     this.withMRTransaction { implicit c =>
-      val query = Query
+      Query
         .simple(
           List(
+            BaseParameter(Grant.FIELD_OBJECT_TYPE, ProjectType().typeId, table = Some(Grant.TABLE)),
+            BaseParameter(Grant.FIELD_OBJECT_ID, projectId, table = Some(Grant.TABLE)),
+            BaseParameter(Grant.FIELD_GRANTEE_TYPE, UserType().typeId, table = Some(Grant.TABLE)),
             BaseParameter(
-              Group.FIELD_UG_GROUP_ID,
-              s"groups.${Group.FIELD_ID}",
-              useValueDirectly = true,
-              table = Some(Group.TABLE_USER_GROUP)
+              Grant.FIELD_GRANTEE_ID,
+              s"users.${User.FIELD_ID}",
+              table = Some(Grant.TABLE),
+              useValueDirectly = true
             ),
-            BaseParameter(
-              Group.FIELD_UG_OSM_USER_ID,
-              s"users.${User.FIELD_OSM_ID}",
-              useValueDirectly = true,
-              table = Some(Group.TABLE_USER_GROUP)
-            ),
-            BaseParameter(Group.FIELD_PROJECT_ID, projectId, table = Some(Group.TABLE)),
             FilterParameter.conditional(
               User.FIELD_OSM_ID,
               osmIdFilter.getOrElse(List.empty),
@@ -77,11 +74,14 @@ class UserRepository @Inject() (
                 .nonEmpty
             )
           ),
-          s"""SELECT ${projectId} AS project_id, users.*, array_agg(groups.group_type) AS group_types
-        FROM users, groups, user_groups""",
+          s"""
+          SELECT ${projectId} AS project_id, users.*, array_agg(grants.role) AS roles
+          FROM users, grants
+          """,
           grouping = Grouping > ("id")
         )
-      query.build().as(UserRepository.projectManagerParser.*)
+        .build()
+        .as(UserRepository.projectManagerParser.*)
     }
   }
 
@@ -135,7 +135,7 @@ class UserRepository @Inject() (
   private def parser(): RowParser[User] =
     UserRepository.parser(
       this.config.defaultNeedsReview,
-      id => this.groupService.retrieveUserGroups(id, User.superUser)
+      id => this.grantService.retrieveGrantsTo(Grantee.user(id), User.superUser)
     )
 
   def update(
@@ -315,15 +315,15 @@ object UserRepository {
       get[Long]("users.osm_id") ~
       get[String]("users.name") ~
       get[Option[String]]("users.avatar_url") ~
-      get[List[Int]]("group_types") map {
-      case projectId ~ userId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
-        ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
+      get[List[Int]]("roles") map {
+      case projectId ~ userId ~ osmId ~ displayName ~ avatarURL ~ roles =>
+        ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), roles)
     }
   }
   private val standardColumns = "*, ST_AsText(users.home_location) AS home"
 
   // The anorm row parser to convert user records from the database to user objects
-  def parser(defaultNeedsReview: Int, groupFunc: (Long) => List[Group]): RowParser[User] = {
+  def parser(defaultNeedsReview: Int, grantFunc: (Long) => List[Grant]): RowParser[User] = {
     get[Long]("users.id") ~
       get[Long]("users.osm_id") ~
       get[DateTime]("users.created") ~
@@ -376,7 +376,7 @@ object UserRepository {
             osmCreated,
             RequestToken(oauthToken, oauthSecret)
           ),
-          groupFunc.apply(osmId),
+          grantFunc.apply(id),
           apiKey,
           false,
           UserSettings(

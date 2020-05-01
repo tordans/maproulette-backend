@@ -85,7 +85,7 @@ class VirtualProjectServiceSpec(implicit val application: Application) extends F
         "ActualVirtualProjectServiceSpecProject",
         isVirtual = Some(true)
       ),
-      User.superUser
+      this.defaultUser
     )
   }
 }

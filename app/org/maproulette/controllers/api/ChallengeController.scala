@@ -864,13 +864,13 @@ class ChallengeController @Inject() (
         )
         val projectJson = Json
           .toJson(projects.get(c.general.parent))
-          .as[JsObject] - Project.KEY_GROUPS
+          .as[JsObject] - Project.KEY_GRANTS
         updated = Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
 
         c.general.virtualParents match {
           case Some(vps) =>
             val vpJson =
-              Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GROUPS))
+              Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GRANTS))
             updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
           case _ => // do nothing
         }
@@ -908,7 +908,7 @@ class ChallengeController @Inject() (
       this.sessionManager.authenticatedRequest { implicit user =>
         val challenge = this.dal.retrieveById(challengeId)
         challenge match {
-          case Some(c) if user.isSuperUser || c.general.owner == user.osmProfile.id =>
+          case Some(c) if permission.isSuperUser(user) || c.general.owner == user.osmProfile.id =>
             // TODO might need to loop through the tasks in batches. Pulling every single task could be very expensive
             this.dal
               .listChildren(-1)(challengeId)

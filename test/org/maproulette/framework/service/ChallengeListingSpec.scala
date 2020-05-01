@@ -90,6 +90,7 @@ object ChallengeListingSpec {
       userFunc(12345, "RandomOUser"),
       User.superUser
     )
+
     taskDAL.setTaskStatus(List(task), Task.STATUS_FIXED, randomUser, Some(true))
     randomUser
   }

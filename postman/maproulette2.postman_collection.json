@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "0536fee6-e22d-49fa-a124-8887be300b2d",
+		"_postman_id": "b5a1f054-d2cb-4c96-9c99-666f6e50a055",
 		"name": "maproulette2",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -3406,9 +3406,8 @@
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"pm.test(\"Body matches string\", function () {",
-									"    pm.expect(pm.response.text()).to.include(\"Task 1\");",
-									"});"
+									"tests[\"Nearby Task 1\"] = jsonData.length > 0 && (jsonData[0].name === \"Task 1\" || jsonData[0].name === \"Task 2\");",
+									""
 								],
 								"type": "text/javascript"
 							}
@@ -6002,7 +6001,7 @@
 									"postman.setGlobalVariable(\"SimpleChallengeID\", jsonData.id);",
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"SFChallenge\";",
-									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+									"tests[\"cooperativeType\"] = jsonData.cooperativeType === 1;"
 								],
 								"type": "text/javascript"
 							}
@@ -6022,7 +6021,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\":\"SFChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFChallenge description\",\n    \"instruction\":\"SFChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SF Task 1\",\n\t        \"cooperativeWork\":  {\n        \t\t\"osmId\": 243499890,\n    \t\t\t\"osmType\": \"way\",\n        \t\t\"update\": {\n            \t\t\"tags\": {\n                \t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t}\n    \t\t\t}\n    \t\t},\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\"\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
+							"raw": "{\n    \"name\":\"SFChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFChallenge description\",\n    \"instruction\":\"SFChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SF Task 1\",\n\t        \"cooperativeWork\":  {\n\t        \t\"meta\": {\n\t        \t  \"version\": 1\n\t        \t},\n        \t\t\"osmId\": 243499890,\n    \t\t\t\"osmType\": \"way\",\n        \t\t\"update\": {\n            \t\t\"tags\": {\n                \t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t}\n    \t\t\t}\n    \t\t},\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\"\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/challenge",
@@ -6053,7 +6052,7 @@
 									"postman.setGlobalVariable(\"SimpleChallengeID1\", jsonData.id);",
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"SFEChallenge\";",
-									"tests[\"challengeType\"] = jsonData.challengeType === 1;"
+									"tests[\"cooperativeType\"] = jsonData.cooperativeType === 1;"
 								],
 								"type": "text/javascript"
 							}
@@ -6073,7 +6072,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\":\"SFEChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFEChallenge description\",\n    \"instruction\":\"SFEChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SFE Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\",\n            \t\"maproulette\": {\n            \t\t\"cooperativeWork\":  {\n        \t\t\t\t\"update\": {\n            \t\t\t\t\"tags\": {\n                \t\t\t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t\t\t}\n        \t\t\t\t}\n    \t\t\t\t}\n            \t}\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
+							"raw": "{\n    \"name\":\"SFEChallenge\",\n    \"parent\": {{SimpleProjectID}},\n    \"description\":\"SFEChallenge description\",\n    \"instruction\":\"SFEChallenge instruction\",\n    \"children\":[\n        {\n            \"name\":\"SFE Task 1\",\n            \"geometries\":{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.1,0.6]},\"properties\":{\"id\": \"test2\", \"building\": \"ok\", \"bldg\":\"y\",\n            \t\"maproulette\": {\n            \t\t\"cooperativeWork\":  {\n            \t\t\t\"meta\": {\n\t        \t\t\t\t\"version\": 1\n\t        \t\t\t},\n        \t\t\t\t\"update\": {\n            \t\t\t\t\"tags\": {\n                \t\t\t\t\"update\": [{\"name\":\"building\", \"value\":\"yes\"}],            \n                \t\t\t\t\"delete\": [{\"name\":\"bldg\", \"ifUnused\":\"true\"}]\n        \t\t\t\t\t}\n        \t\t\t\t}\n    \t\t\t\t}\n            \t}\n            }},{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[102.2,0.7]},\"properties\":{}}]}\n        }               \n    ]\n}\n"
 						},
 						"url": {
 							"raw": "http://localhost:9000/api/v2/challenge",
@@ -6228,8 +6227,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"SF Task 1\"] = jsonData.name === \"SF Task 1\";",
-									"tests[\"SF Task 1 status is fixed\"] = jsonData.status === 1;",
-									"tests[\"SF Task 1 review status is 0\"] = jsonData.reviewStatus === 0;"
+									"tests[\"SF Task 1 status is fixed\"] = jsonData.status === 1;"
 								],
 								"type": "text/javascript"
 							}
@@ -6275,7 +6273,7 @@
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
-									"tests[\"SF Task 1\"]  = jsonData[0].name === \"postman\";",
+									"tests[\"SF Task 1\"] = !!_.find(jsonData, {name: \"postman\"});",
 									""
 								],
 								"type": "text/javascript"

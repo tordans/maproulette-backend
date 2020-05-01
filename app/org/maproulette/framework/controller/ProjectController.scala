@@ -63,7 +63,7 @@ class ProjectController @Inject() (
   def insert(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       var jsonBody = this.updateBody(request.body, user)
-      jsonBody = Utils.insertIntoJson(jsonBody, "groups", Array.emptyShortArray)(arrayWrites[Short])
+      jsonBody = Utils.insertIntoJson(jsonBody, "grants", Array.emptyShortArray)(arrayWrites[Short])
       jsonBody = Utils.insertIntoJson(jsonBody, "owner", user.osmProfile.id, true)(LongWrites)
       jsonBody = Utils.insertIntoJson(jsonBody, "deleted", false)(BooleanWrites)
       jsonBody = Utils.insertIntoJson(jsonBody, "featured", false)(BooleanWrites)

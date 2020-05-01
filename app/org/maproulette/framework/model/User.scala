@@ -13,6 +13,8 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheObject
 import org.maproulette.framework.psql.CommonField
 import org.maproulette.utils.{Crypto, Utils}
+import org.maproulette.permissions.Permission
+import org.maproulette.data._
 import org.slf4j.LoggerFactory
 import play.api.data.Form
 import play.api.data.Forms._
@@ -69,14 +71,14 @@ case class UserSearchResult(osmId: Long, displayName: String, avatarURL: String)
 
 /**
   * Information specific to a user managing a project. Includes the project id,
-  * a few basic fields about the user, and their group types for the project.
+  * a few basic fields about the user, and their granted roles for the project.
   *
   * @param projectId   The project id
   * @param userId      The user's MapRoulette id
   * @param osmId       The user's osm id
   * @param displayName The display name for the osm user
   * @param avatarURL   The avatar URL to enabling displaying of their avatar
-  * @param groupTypes  List of the user's group types for the project
+  * @param roles       List of the user's granted roles for the project
   */
 case class ProjectManager(
     projectId: Long,
@@ -84,7 +86,7 @@ case class ProjectManager(
     osmId: Long,
     displayName: String,
     avatarURL: String,
-    groupTypes: List[Int] = List()
+    roles: List[Int] = List()
 )
 
 /**
@@ -154,7 +156,7 @@ case class User(
     created: DateTime,
     modified: DateTime,
     osmProfile: OSMProfile,
-    groups: List[Group] = List(),
+    grants: List[Grant] = List(),
     apiKey: Option[String] = None,
     guest: Boolean = false,
     settings: UserSettings = UserSettings(),
@@ -174,17 +176,17 @@ case class User(
 
   def formattedMPCreatedDate: String = DateTimeFormat.forPattern("MMMM. yyyy").print(created)
 
-  /**
-    * Checks to see if this user is part of the special super user group
-    *
-    * @return true if user is a super user
-    */
-  def isSuperUser: Boolean = groups.exists(_.groupType == Group.TYPE_SUPER_USER)
-
-  def isAdmin: Boolean = groups.exists(_.groupType == Group.TYPE_ADMIN)
+  def grantsForProject(projectId: Long): List[Grant] = {
+    val projectTarget = GrantTarget.project(projectId)
+    grants.filter { g =>
+      g.target == projectTarget
+    }
+  }
 
   def adminForProject(projectId: Long): Boolean =
-    groups.exists(g => g.groupType == Group.TYPE_ADMIN && g.projectId == projectId)
+    this.grantsForProject(projectId).exists { g =>
+      g.role == Grant.ROLE_ADMIN
+    }
 
   def getUserLocale: Locale = new Locale(this.settings.locale.getOrElse("en"))
 
@@ -200,8 +202,8 @@ object User extends CommonField {
   implicit val tokenReads: Reads[RequestToken]              = Json.reads[RequestToken]
   implicit val settingsWrites: Writes[UserSettings]         = Json.writes[UserSettings]
   implicit val settingsReads: Reads[UserSettings]           = Json.reads[UserSettings]
-  implicit val userGroupWrites: Writes[Group]               = Group.writes
-  implicit val userGroupReads: Reads[Group]                 = Group.reads
+  implicit val userGrantWrites: Writes[Grant]               = Grant.writes
+  implicit val userGrantReads: Reads[Grant]                 = Grant.reads
   implicit val locationWrites: Writes[Location]             = Json.writes[Location]
   implicit val locationReads: Reads[Location]               = Json.reads[Location]
   implicit val osmWrites: Writes[OSMProfile]                = Json.writes[OSMProfile]
@@ -248,7 +250,6 @@ object User extends CommonField {
 
   val DEFAULT_GUEST_USER_ID = -998
   val DEFAULT_SUPER_USER_ID = -999
-  val DEFAULT_GROUP_ID      = -999
 
   val THEME_BLACK        = 0
   val THEME_BLACK_LIGHT  = 1
@@ -262,7 +263,6 @@ object User extends CommonField {
   val THEME_RED_LIGHT    = 9
   val THEME_YELLOW       = 10
   val THEME_YELLOW_LIGHT = 11
-  val superGroup: Group  = Group(DEFAULT_GROUP_ID, "SUPERUSERS", 0, Group.TYPE_SUPER_USER)
   val settingsForm = Form(
     mapping(
       "defaultEditor"     -> optional(number),
@@ -314,14 +314,6 @@ object User extends CommonField {
       case Some(loc) => Location((loc \@ "lat").toDouble, (loc \@ "lon").toDouble)
       case None      => Location(47.608013, -122.335167)
     }
-    // check whether this user is a super user
-    val groups =
-      if (config.superAccounts.contains(osmId) ||
-          (config.superAccounts.size == 1 && config.superAccounts.head.equals("*"))) {
-        List(superGroup)
-      } else {
-        List[Group]()
-      }
     User(
       -1,
       new DateTime(),
@@ -335,7 +327,7 @@ object User extends CommonField {
         DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").parseDateTime(osmAccountCreated),
         requestToken
       ),
-      groups,
+      List(),
       settings =
         UserSettings(theme = Some(THEME_BLUE), needsReview = Option(config.defaultNeedsReview))
     )
@@ -355,7 +347,7 @@ object User extends CommonField {
         DateTime.now(),
         RequestToken("", "")
       ),
-      List(superGroup.copy()),
+      List(),
       settings = UserSettings(theme = Some(THEME_BLACK))
     )
 
@@ -369,7 +361,7 @@ object User extends CommonField {
             user.created,
             user.modified,
             user.osmProfile,
-            user.groups,
+            user.grants,
             decryptedAPIKey,
             user.guest,
             user.settings,
