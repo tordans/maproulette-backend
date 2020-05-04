@@ -7,6 +7,8 @@ GET     /snapshot/challenge/:challengeId/export     @org.maproulette.controllers
 ### NoDocs ###
 GET     /snapshot/:snapshotId                       @org.maproulette.controllers.api.SnapshotController.getChallengeSnapshot(snapshotId:Long)
 ### NoDocs ###
+DELETE  /snapshot/:snapshotId                       @org.maproulette.controllers.api.SnapshotController.deleteChallengeSnapshot(snapshotId:Long)
+### NoDocs ###
 POST    /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)
 ### NoDocs ###
 PUT     /*path                                      @org.maproulette.controllers.api.APIController.invalidAPIPath(path)

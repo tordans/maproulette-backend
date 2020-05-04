@@ -68,6 +68,14 @@ class SnapshotController @Inject() (
       }
   }
 
+  def deleteChallengeSnapshot(challengeId: Long): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        snapshotManager.deleteChallengeSnapshot(challengeId)
+        Ok
+      }
+  }
+
   def exportChallengeSnapshots(challengeId: Long): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
