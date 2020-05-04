@@ -482,7 +482,6 @@ class TaskReviewDAL @Inject() (
               tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
             WHERE ((p.enabled AND c.enabled) OR
-                    p.owner_id = ${user.osmProfile.id} OR
                     ${this.userHasProjectGrantSQL(user)}
                   ) AND
                   task_review.review_requested_by != ${user.id} AND
@@ -508,7 +507,6 @@ class TaskReviewDAL @Inject() (
           SELECT count(*) FROM tasks
           ${joinClause}
           WHERE ((p.enabled AND c.enabled) OR
-                  p.owner_id = ${user.osmProfile.id} OR
                   ${this.userHasProjectGrantSQL(user)}
                 ) AND
                 task_review.review_requested_by != ${user.id} AND
@@ -612,7 +610,6 @@ class TaskReviewDAL @Inject() (
             SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
             WHERE ((p.enabled AND c.enabled) OR
-                    p.owner_id = ${user.osmProfile.id} OR
                     ${this.userHasProjectGrantSQL(user)} OR
                     task_review.review_requested_by = ${user.id} OR
                     task_review.reviewed_by = ${user.id}
@@ -638,7 +635,6 @@ class TaskReviewDAL @Inject() (
           SELECT count(*) FROM tasks
           ${joinClause}
           WHERE ((p.enabled AND c.enabled) OR
-                  p.owner_id = ${user.osmProfile.id} OR
                   ${this.userHasProjectGrantSQL(user)} OR
                   task_review.review_requested_by = ${user.id} OR
                   task_review.reviewed_by = ${user.id}
@@ -714,7 +710,6 @@ class TaskReviewDAL @Inject() (
         this.appendInWhereClause(
           whereClause,
           s""" ((p.enabled AND c.enabled) OR
-                p.owner_id = ${user.osmProfile.id} OR
                 ${this.userHasProjectGrantSQL(user)}
                ) AND
                task_review.review_requested_by != ${user.id} """
@@ -725,7 +720,6 @@ class TaskReviewDAL @Inject() (
         this.appendInWhereClause(
           whereClause,
           s"""((p.enabled AND c.enabled) OR
-                p.owner_id = ${user.osmProfile.id} OR
                 ${this.userHasProjectGrantSQL(user)} OR
                 task_review.review_requested_by = ${user.id} OR
                 task_review.reviewed_by = ${user.id}
@@ -891,7 +885,6 @@ class TaskReviewDAL @Inject() (
         if (!permission.isSuperUser(user)) {
           whereClause ++=
             s""" AND ((p.enabled AND c.enabled) OR
-                  p.owner_id = ${user.osmProfile.id} OR
                   ${this.userHasProjectGrantSQL(user)}
                  ) AND
                  task_review.review_requested_by != ${user.id} """
@@ -1206,9 +1199,9 @@ class TaskReviewDAL @Inject() (
 
   private def userHasProjectGrantSQL(user: User): String =
     s"""${user.id} IN (
-        SELECT g.granteeId from grants g
-        WHERE g.objectType = ${ProjectType().typeId} AND
-              g.objectId = p.id AND
-              g.granteeType = ${UserType().typeId}
+        SELECT g.grantee_id from grants g
+        WHERE g.object_type = ${ProjectType().typeId} AND
+              g.object_id = p.id AND
+              g.grantee_type = ${UserType().typeId}
     )"""
 }

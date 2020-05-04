@@ -287,7 +287,7 @@ class TaskReviewController @Inject() (
           val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
-        if (includeTags) {
+        if (includeTags && tagsMap.contains(task.id)) {
           val tagsJson = Json.toJson(tagsMap(task.id))
           updated = Utils.insertIntoJson(updated, "tags", tagsJson, true)
         }
