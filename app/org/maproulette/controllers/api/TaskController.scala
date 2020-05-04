@@ -860,7 +860,7 @@ class TaskController @Inject() (
       this.serviceManager.comment.create(user, task.id, comment, actionId)
     }
 
-    val tagList = tags.split(",").toList
+    val tagList = if (tags == "") List() else tags.split(",").toList
     if (tagList.nonEmpty) {
       this.addTagstoItem(taskId, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
     }
