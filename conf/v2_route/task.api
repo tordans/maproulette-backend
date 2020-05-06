@@ -552,6 +552,32 @@ PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers
 PUT     /task/:id/changeset                         @org.maproulette.controllers.api.TaskController.matchToOSMChangeSet(id:Long)
 ###
 # tags: [ Task ]
+# summary: Update Completion Responses
+# produces: [ application/json ]
+# description: Will update the completion responses on the Task.
+# responses:
+#   '304':
+#     description: No Content, update successful
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the task
+#   - name: completionResponses
+#     in: body
+#     description: key/value json to be stored with this task.
+###
+PUT     /task/:id/responses                           @org.maproulette.framework.controller.TaskController.updateCompletionResponses(id:Long)
+###
+# tags: [ Task ]
 # summary: Update Task Status
 # produces: [ application/json ]
 # description: Will update a Tasks status to one of the following. 0 - Created, 1 - Fixed, 2 - False Positive, 3 - Skipped, 4 - Deleted, 5 - Already Fixed, 6 - Too Hard
