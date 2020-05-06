@@ -25,6 +25,9 @@ class FrameworkMasterSuite extends Suites with BeforeAndAfterAll with TestDataba
     new GrantRepositorySpec,
     new ProjectServiceSpec,
     new ProjectRepositorySpec,
+    new TagServiceSpec,
+    new TagRepositorySpec,
+    new TaskServiceSpec,
     new TaskReviewServiceSpec,
     new UserMetricsServiceSpec,
     new UserSavedObjectsServiceSpec,
@@ -32,9 +35,7 @@ class FrameworkMasterSuite extends Suites with BeforeAndAfterAll with TestDataba
     new UserServiceSpec,
     new UserRepositorySpec,
     new VirtualProjectServiceSpec,
-    new VirtualProjectRepositorySpec,
-    new TagServiceSpec,
-    new TagRepositorySpec
+    new VirtualProjectRepositorySpec
   )
   private val tagFilters: Seq[Tag] = Seq()
   override val nestedSuites: IndexedSeq[Suite] =
