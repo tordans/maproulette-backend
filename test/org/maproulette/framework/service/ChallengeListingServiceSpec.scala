@@ -17,7 +17,7 @@ import play.api.Application
 /**
   * @author krotstan
   */
-class ChallengeListingSpec(implicit val application: Application) extends FrameworkHelper {
+class ChallengeListingServiceSpec(implicit val application: Application) extends FrameworkHelper {
   val service: ChallengeListingService = this.serviceManager.challengeListing
   var randomUser: User                 = null
 
@@ -42,7 +42,7 @@ class ChallengeListingSpec(implicit val application: Application) extends Framew
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    ChallengeListingSpec.setup(
+    ChallengeListingServiceSpec.setup(
       this.challengeDAL,
       this.taskDAL,
       this.serviceManager,
@@ -53,7 +53,7 @@ class ChallengeListingSpec(implicit val application: Application) extends Framew
   }
 }
 
-object ChallengeListingSpec {
+object ChallengeListingServiceSpec {
   def setup(
       challengeDAL: ChallengeDAL,
       taskDAL: TaskDAL,

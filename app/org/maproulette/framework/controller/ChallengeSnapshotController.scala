@@ -2,30 +2,39 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.controllers.api
+package org.maproulette.framework.controller
 
 import akka.util.ByteString
 import javax.inject.Inject
-import org.maproulette.Config
+import org.maproulette.data.ActionManager
 import org.maproulette.data._
-import org.maproulette.framework.model.Challenge
+import org.maproulette.framework.service.ChallengeSnapshotService
+import org.maproulette.framework.psql.Paging
+import org.maproulette.framework.model.{User, Challenge}
 import org.maproulette.models.Task
 import org.maproulette.session.SessionManager
-import play.api.http.HttpEntity
-import play.api.libs.json.Json.JsValueWrapper
-import play.api.libs.json._
+import org.maproulette.utils.Utils
 import play.api.mvc._
+import play.api.libs.json._
+import play.api.libs.json.Json.JsValueWrapper
+import play.api.http.HttpEntity
+import org.maproulette.exception.NotFoundException
 
 /**
+  * SnapshotController is responsible for handling functionality related to
+  * snapshots.
+  *
   * @author krotstan
   */
-class SnapshotController @Inject() (
-    sessionManager: SessionManager,
-    config: Config,
-    actionManager: ActionManager,
+class ChallengeSnapshotController @Inject() (
+    override val sessionManager: SessionManager,
+    override val actionManager: ActionManager,
+    override val bodyParsers: PlayBodyParsers,
+    snapshotService: ChallengeSnapshotService,
     components: ControllerComponents,
     snapshotManager: SnapshotManager
-) extends AbstractController(components) {
+) extends AbstractController(components)
+    with MapRouletteController {
 
   implicit val actionWrites           = actionManager.actionItemWrites
   implicit val dateWrites             = Writes.dateWrites("yyyy-MM-dd")
@@ -40,9 +49,25 @@ class SnapshotController @Inject() (
           ret
       }.toSeq: _*)
   }
-  implicit val snapshotWrites     = Json.writes[ReviewActions]
-  implicit val reviewActionWrites = Json.writes[Snapshot]
+  implicit val reviewActionWrites = Json.writes[ReviewActions]
+  implicit val snapshotWrites     = Json.writes[Snapshot]
 
+  /**
+    * Retrieves a snapshot
+    *
+    * @param snapshotId
+    */
+  def retrieve(snapshotId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(snapshotManager.getChallengeSnapshot(snapshotId)))
+    }
+  }
+
+  /**
+    * Records a new snapshot for a challenge.
+    *
+    * @param challengeId
+    */
   def recordChallengeSnapshot(challengeId: Long): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
@@ -50,7 +75,26 @@ class SnapshotController @Inject() (
       }
   }
 
-  def getChallengeSnapshotList(challengeId: Long, includeAllData: Boolean): Action[AnyContent] =
+  /**
+    * Deletes a challenges snapshot. User must have write privileges to challenge.
+    *
+    * @param snapshotId Id of snapshot to delete.
+    */
+  def delete(snapshotId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      this.snapshotService.delete(snapshotId, user)
+      Ok
+    }
+  }
+
+  /**
+    * Gets a list of snapshots for a challenge.
+    *
+    * @param challengeId
+    * @param includeAllData Boolean indicating whether all snapshot data should
+    *                       be included or just a brief summary of each.
+    */
+  def getSnapshotList(challengeId: Long, includeAllData: Boolean): Action[AnyContent] =
     Action.async { implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
         if (includeAllData) {
@@ -61,13 +105,11 @@ class SnapshotController @Inject() (
       }
     }
 
-  def getChallengeSnapshot(snapshotId: Long): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.userAwareRequest { implicit user =>
-        Ok(Json.toJson(snapshotManager.getChallengeSnapshot(snapshotId)))
-      }
-  }
-
+  /**
+    * Returns a csv export of challenge snapshots.
+    *
+    * @param challengeId
+    */
   def exportChallengeSnapshots(challengeId: Long): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
@@ -88,14 +130,14 @@ class SnapshotController @Inject() (
                 .mkString(",") + "," +
                 "Low_Total," + Task.statusMap.values.map(v => "Low_" + v).mkString(",") +
                 "\n"
-            ).concat(ByteString(_extractSnapshots(challengeId).mkString("\n"))),
+            ).concat(ByteString(extractSnapshots(challengeId).mkString("\n"))),
             Some("text/csv; header=present")
           )
         )
       }
   }
 
-  private def _extractSnapshots(challengeId: Long): Seq[String] = {
+  private def extractSnapshots(challengeId: Long): Seq[String] = {
     val snapshots = snapshotManager.getAllChallengeSnapshots(challengeId)
 
     snapshots.map(snapshot => {
@@ -108,5 +150,4 @@ class SnapshotController @Inject() (
         priorityActions(Challenge.PRIORITY_LOW.toString).values.mkString(",")
     })
   }
-
 }
