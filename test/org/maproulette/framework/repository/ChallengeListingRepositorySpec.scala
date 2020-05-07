@@ -7,7 +7,7 @@ package org.maproulette.framework.repository
 
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Grouping, Query}
-import org.maproulette.framework.service.ChallengeListingSpec
+import org.maproulette.framework.service.ChallengeListingServiceSpec
 import org.maproulette.framework.util.{ChallengeListingRepoTag, FrameworkHelper}
 import play.api.Application
 
@@ -31,7 +31,7 @@ class ChallengeListingRepositorySpec(implicit val application: Application)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    ChallengeListingSpec.setup(
+    ChallengeListingServiceSpec.setup(
       this.challengeDAL,
       this.taskDAL,
       this.serviceManager,

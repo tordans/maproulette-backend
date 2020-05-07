@@ -18,6 +18,8 @@ import org.scalatestplus.play.PlaySpec
 import play.api.Application
 import play.api.libs.oauth.RequestToken
 
+import org.maproulette.data.SnapshotManager
+
 /**
   * @author mcuthbert
   */
@@ -26,6 +28,9 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
   val serviceManager: ServiceManager = application.injector.instanceOf(classOf[ServiceManager])
   val challengeDAL: ChallengeDAL     = application.injector.instanceOf(classOf[ChallengeDAL])
   val taskDAL: TaskDAL               = application.injector.instanceOf(classOf[TaskDAL])
+
+  // To be removed when all of SnapshotManager has been converted
+  val snapshotManager: SnapshotManager = application.injector.instanceOf(classOf[SnapshotManager])
 
   implicit val projectTestName: String
 
@@ -146,6 +151,7 @@ object ChallengeTag            extends Tag("challenge")
 object ChallengeRepoTag        extends Tag("challengerepo")
 object ChallengeListingTag     extends Tag("challengelisting")
 object ChallengeListingRepoTag extends Tag("challengelistingrepo")
+object ChallengeSnapshotTag    extends Tag("challengesnapshot")
 object ProjectTag              extends Tag("project")
 object ProjectRepoTag          extends Tag("projectrepo")
 object CommentTag              extends Tag("comment")

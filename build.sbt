@@ -101,6 +101,7 @@ generateRoutesFile := {
       "notification.api",
       "project.api",
       "review.api",
+      "snapshot.api",
       "task.api",
       "user.api",
       "virtualchallenge.api",

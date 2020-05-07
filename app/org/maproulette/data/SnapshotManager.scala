@@ -374,17 +374,6 @@ class SnapshotManager @Inject() (
     }
   }
 
-  def deleteChallengeSnapshot(snapshotId: Long): Unit = {
-    db.withConnection { implicit c =>
-      val query = s"""
-        DELETE FROM challenge_snapshots
-        WHERE id = ${snapshotId}
-      """
-
-      SQL(query).executeUpdate()
-    }
-  }
-
   private def _recordCompletionSnapshot(
       summary: ChallengeSummary,
       priority: Option[Integer]

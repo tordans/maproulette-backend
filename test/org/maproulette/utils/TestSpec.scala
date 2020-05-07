@@ -130,15 +130,16 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     taskClusterDAL,
     statusActionManager
   )
-  val grantService            = mock[GrantService]
-  val commentService          = mock[CommentService]
-  val challengeService        = mock[ChallengeService]
-  val challengeListingService = mock[ChallengeListingService]
-  val userMetricService       = mock[UserMetricService]
-  val virtualProjectService   = mock[VirtualProjectService]
-  val tagService              = mock[TagService]
-  val taskReviewService       = mock[TaskReviewService]
-  val taskService             = mock[TaskService]
+  val grantService             = mock[GrantService]
+  val commentService           = mock[CommentService]
+  val challengeService         = mock[ChallengeService]
+  val challengeListingService  = mock[ChallengeListingService]
+  val challengeSnapshotService = mock[ChallengeSnapshotService]
+  val userMetricService        = mock[UserMetricService]
+  val virtualProjectService    = mock[VirtualProjectService]
+  val tagService               = mock[TagService]
+  val taskReviewService        = mock[TaskReviewService]
+  val taskService              = mock[TaskService]
   val serviceManager = new ServiceManager(
     Providers.of[ProjectService](projectService),
     Providers.of[GrantService](grantService),
@@ -147,6 +148,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     Providers.of[TagService](tagService),
     Providers.of[ChallengeService](challengeService),
     Providers.of[ChallengeListingService](challengeListingService),
+    Providers.of[ChallengeSnapshotService](challengeSnapshotService),
     Providers.of[UserMetricService](userMetricService),
     Providers.of[VirtualProjectService](virtualProjectService),
     Providers.of[TaskReviewService](taskReviewService),
