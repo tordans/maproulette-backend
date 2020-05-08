@@ -210,8 +210,11 @@ GET     /tasks/review/next                       @org.maproulette.controllers.ap
 #   - name: includeByPriority
 #     in: query
 #     description: Also include a breakdown of review status by priority
+#   - name: includeByTaskStatus
+#     in: query
+#     description: Also include a breakdown of review status by task status
 ###
-GET     /tasks/review/metrics                          @org.maproulette.controllers.api.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers: Boolean ?= false, includeByPriority:Boolean ?= false)
+GET     /tasks/review/metrics                          @org.maproulette.framework.controller.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers: Boolean ?= false, includeByPriority:Boolean ?= false, includeByTaskStatus:Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves task review clusters
