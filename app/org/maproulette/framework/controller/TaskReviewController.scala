@@ -6,13 +6,19 @@ package org.maproulette.framework.controller
 
 import javax.inject.Inject
 import org.maproulette.data.ActionManager
-import org.maproulette.framework.service.{ChallengeListingService, ProjectService}
+import org.maproulette.framework.service.{
+  ChallengeListingService,
+  ProjectService,
+  TaskReviewService
+}
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{Challenge, ChallengeListing, Project}
-import org.maproulette.session.SessionManager
+import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User}
+import org.maproulette.session.{SessionManager, SearchParameters}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
+
+import org.maproulette.models.Task
 
 /**
   * TaskReviewController is responsible for handling functionality related to
@@ -24,6 +30,7 @@ class TaskReviewController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val bodyParsers: PlayBodyParsers,
+    service: TaskReviewService,
     challengeListingService: ChallengeListingService,
     projectService: ProjectService,
     components: ControllerComponents
@@ -105,4 +112,171 @@ class TaskReviewController @Inject() (
         )
       }
     }
+
+  /**
+    * Gets reviewed tasks where the user has reviewed or requested review
+    *
+    * @param reviewTasksType - 1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users
+    * @param startDate Optional start date to filter by reviewedAt date
+    * @param endDate Optional end date to filter by reviewedAt date
+    * @param onlySaved Only include saved challenges
+    * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
+    * @return
+    */
+  def getReviewMetrics(
+      reviewTasksType: Int,
+      mappers: String = "",
+      reviewers: String = "",
+      priorities: String = "",
+      startDate: String = null,
+      endDate: String = null,
+      onlySaved: Boolean = false,
+      excludeOtherReviewers: Boolean = false,
+      includeByPriority: Boolean = false,
+      includeByTaskStatus: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val result = this.service.getReviewMetrics(
+          User.userOrMocked(user),
+          reviewTasksType,
+          params,
+          Some(Utils.split(mappers)),
+          Some(Utils.split(reviewers)),
+          Utils.toIntList(priorities),
+          startDate,
+          endDate,
+          onlySaved,
+          excludeOtherReviewers
+        )
+
+        if (includeByPriority || includeByTaskStatus) {
+          var resultJson: JsValue = Json.obj(
+            "reviewActions" -> Json.toJson(result)
+          )
+
+          if (includeByPriority) {
+            val priorityMap = this.fetchPriorityReviewMetrics(
+              User.userOrMocked(user),
+              reviewTasksType,
+              params,
+              Some(Utils.split(mappers)),
+              Some(Utils.split(reviewers)),
+              startDate,
+              endDate,
+              onlySaved,
+              excludeOtherReviewers
+            )
+
+            resultJson =
+              Utils.insertIntoJson(resultJson, "priorityReviewActions", Json.toJson(priorityMap))
+          }
+
+          if (includeByTaskStatus) {
+            val statusMap = this.fetchByTaskStatusReviewMetrics(
+              User.userOrMocked(user),
+              reviewTasksType,
+              params,
+              Some(Utils.split(mappers)),
+              Some(Utils.split(reviewers)),
+              Utils.toIntList(priorities),
+              startDate,
+              endDate,
+              onlySaved,
+              excludeOtherReviewers
+            )
+
+            resultJson =
+              Utils.insertIntoJson(resultJson, "statusReviewActions", Json.toJson(statusMap))
+          }
+
+          Ok(resultJson)
+        } else {
+          Ok(Json.toJson(List(result)))
+        }
+      }
+    }
+  }
+
+  private def fetchPriorityReviewMetrics(
+      user: User,
+      reviewTasksType: Int,
+      params: SearchParameters,
+      mappers: Option[List[String]],
+      reviewers: Option[List[String]],
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean,
+      excludeOtherReviewers: Boolean
+  ): scala.collection.mutable.Map[String, JsValue] = {
+    val prioritiesToFetch =
+      List(Challenge.PRIORITY_HIGH, Challenge.PRIORITY_MEDIUM, Challenge.PRIORITY_LOW)
+
+    val priorityMap = scala.collection.mutable.Map[String, JsValue]()
+
+    prioritiesToFetch.foreach(p => {
+      val pResult = this.service.getReviewMetrics(
+        user,
+        reviewTasksType,
+        params,
+        mappers,
+        reviewers,
+        Some(List(p)),
+        startDate,
+        endDate,
+        onlySaved,
+        excludeOtherReviewers
+      )
+
+      priorityMap.put(p.toString, Json.toJson(pResult))
+    })
+
+    priorityMap
+  }
+
+  private def fetchByTaskStatusReviewMetrics(
+      user: User,
+      reviewTasksType: Int,
+      params: SearchParameters,
+      mappers: Option[List[String]],
+      reviewers: Option[List[String]],
+      priorities: Option[List[Int]] = None,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean,
+      excludeOtherReviewers: Boolean
+  ): scala.collection.mutable.Map[String, JsValue] = {
+    val statusesToFetch =
+      List(
+        Task.STATUS_FIXED,
+        Task.STATUS_FALSE_POSITIVE,
+        Task.STATUS_ALREADY_FIXED,
+        Task.STATUS_TOO_HARD
+      )
+
+    val statusMap = scala.collection.mutable.Map[String, JsValue]()
+
+    statusesToFetch.foreach(m => {
+      val newParams = params.copy(
+        taskStatus = Some(List(m))
+      )
+
+      val mResult = this.service.getReviewMetrics(
+        user,
+        reviewTasksType,
+        newParams,
+        mappers,
+        reviewers,
+        priorities,
+        startDate,
+        endDate,
+        onlySaved,
+        excludeOtherReviewers
+      )
+
+      statusMap.put(m.toString, Json.toJson(mResult))
+    })
+
+    statusMap
+  }
 }
