@@ -677,13 +677,18 @@ class TaskDAL @Inject() (
                      VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
                              ${Task.REVIEW_STATUS_REQUESTED}, ${Instant.now()},
                              ${task.review.reviewStartedAt})""".executeUpdate()
-              this.manager.notification.createReviewNotification(
-                user,
-                task.review.reviewedBy.getOrElse(-1),
-                Task.REVIEW_STATUS_REQUESTED,
-                task,
-                None
-              )
+
+              // Create notification only if task has reviewer
+              val reviewedBy: Long = task.review.reviewedBy.getOrElse(-1)
+              if (reviewedBy != -1) {
+                this.manager.notification.createReviewNotification(
+                  user,
+                  reviewedBy,
+                  Task.REVIEW_STATUS_REQUESTED,
+                  task,
+                  None
+                )
+              }
             case None =>
               SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
                       VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})"""
