@@ -41,31 +41,19 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
     * @param user      The user executing the request
     * @param reviewTasksType
     * @param searchParameters
-    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate   Limit tasks to reviewed before date (YYYY-MM-DD)
     * @return A list of tasks
     */
   def getReviewMetrics(
       user: User,
       reviewTasksType: Int,
-      searchParameters: SearchParameters,
-      mappers: Option[List[String]] = None,
-      reviewers: Option[List[String]] = None,
-      priorities: Option[List[Int]] = None,
-      startDate: String,
-      endDate: String,
+      params: SearchParameters,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): ReviewMetrics = {
     this.taskReviewDAL.getReviewMetrics(
       user,
       reviewTasksType,
-      searchParameters,
-      mappers,
-      reviewers,
-      priorities,
-      startDate,
-      endDate,
+      params,
       onlySaved,
       excludeOtherReviewers
     )
@@ -76,32 +64,17 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
     *
     * @param user      The user executing the request
     * @param searchParameters
-    * @param mappers Optional limit to mappers
-    * @param reviewers Optional limit to reviewers
-    * @param priorities Optional limit to only these priorities
-    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate   Limit tasks to reviewed before date (YYYY-MM-DD)
     * @param onlySaved Only include saved challenges
     * @return A list of review metrics by mapper
     */
   def getMapperMetrics(
       user: User,
-      searchParameters: SearchParameters,
-      mappers: Option[List[String]] = None,
-      reviewers: Option[List[String]] = None,
-      priorities: Option[List[Int]] = None,
-      startDate: String,
-      endDate: String,
+      params: SearchParameters,
       onlySaved: Boolean = false
   ): List[ReviewMetrics] = {
     this.taskReviewDAL.getMapperMetrics(
       user,
-      searchParameters,
-      mappers,
-      reviewers,
-      priorities,
-      startDate,
-      endDate,
+      params,
       onlySaved
     )
   }

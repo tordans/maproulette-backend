@@ -206,7 +206,9 @@ class ChallengeController @Inject() (
         val filter = if (StringUtils.isEmpty(statusFilter)) {
           None
         } else {
-          searchParams = params.copy(taskStatus = Some(Utils.split(statusFilter).map(_.toInt)))
+          searchParams = params.copy(taskParams =
+            params.taskParams.copy(taskStatus = Some(Utils.split(statusFilter).map(_.toInt)))
+          )
         }
 
         val result = this.dal.getClusteredPoints(
@@ -282,8 +284,10 @@ class ChallengeController @Inject() (
       SearchParameters.withSearch { p =>
         val params = p.copy(
           challengeParams = p.challengeParams.copy(challengeIds = Some(List(challengeId))),
-          taskSearch = Some(taskSearch),
-          taskTags = Some(Utils.split(tags))
+          taskParams = p.taskParams.copy(
+            taskSearch = Some(taskSearch),
+            taskTags = Some(Utils.split(tags))
+          )
         )
         val result = this.dalManager.task.getRandomTasksWithPriority(
           User.userOrMocked(user),
@@ -320,8 +324,10 @@ class ChallengeController @Inject() (
       SearchParameters.withSearch { p =>
         val params = p.copy(
           challengeParams = p.challengeParams.copy(challengeIds = Some(List(challengeId))),
-          taskSearch = Some(taskSearch),
-          taskTags = Some(Utils.split(tags))
+          taskParams = p.taskParams.copy(
+            taskSearch = Some(taskSearch),
+            taskTags = Some(Utils.split(tags))
+          )
         )
         val result = this.dalManager.task.getRandomTasks(
           User.userOrMocked(user),
@@ -658,9 +664,8 @@ class ChallengeController @Inject() (
         val allParams =
           params.copy(
             challengeParams = params.challengeParams.copy(challengeIds = Some(challengeIds)),
-            taskStatus = status,
-            taskReviewStatus = reviewStatus,
-            taskPriorities = priority
+            taskParams = params.taskParams
+              .copy(taskStatus = status, taskReviewStatus = reviewStatus, taskPriorities = priority)
           )
 
         val (tasks, allComments) =

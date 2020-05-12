@@ -379,13 +379,13 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
 
       params match {
         case Some(search) =>
-          search.taskStatus match {
+          search.taskParams.taskStatus match {
             case Some(s) if s.nonEmpty =>
               searchFilters.append(s" AND t.status IN (${s.mkString(",")}) ")
             case _ =>
           }
 
-          search.taskReviewStatus match {
+          search.taskParams.taskReviewStatus match {
             case Some(statuses) if statuses.nonEmpty =>
               val filter = new StringBuilder(s"""AND (t.id IN (SELECT task_id FROM task_review tr
                                                           WHERE tr.task_id = t.id AND tr.review_status
@@ -421,7 +421,7 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
             case _ => // ignore
           }
 
-          search.taskId match {
+          search.taskParams.taskId match {
             case Some(tid) =>
               searchFilters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
             case _ => // ignore

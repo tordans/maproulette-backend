@@ -134,8 +134,6 @@ class TaskReviewController @Inject() (
   /**
     * Gets tasks where a review is requested
     *
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
     * @param limit The number of tasks to return
     * @param page The page number for the results
     * @param sort The column to sort
@@ -144,8 +142,6 @@ class TaskReviewController @Inject() (
     * @return
     */
   def getReviewRequestedTasks(
-      startDate: String = null,
-      endDate: String = null,
       onlySaved: Boolean = false,
       limit: Int,
       page: Int,
@@ -162,8 +158,6 @@ class TaskReviewController @Inject() (
         val (count, result) = this.taskReviewDAL.getReviewRequestedTasks(
           User.userOrMocked(user),
           params,
-          startDate,
-          endDate,
           onlySaved,
           limit,
           page,
@@ -180,9 +174,6 @@ class TaskReviewController @Inject() (
   /**
     * Gets reviewed tasks where the user has reviewed or requested review
     *
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
-    * @param reviewers Whether we should return tasks reviewed by this user or reqested by this user
     * @param allowReviewNeeded Whether we should return tasks where status is review requested also
     * @param limit The number of tasks to return
     * @param page The page number for the results
@@ -191,10 +182,6 @@ class TaskReviewController @Inject() (
     * @return
     */
   def getReviewedTasks(
-      mappers: String = "",
-      reviewers: String = "",
-      startDate: String = null,
-      endDate: String = null,
       allowReviewNeeded: Boolean = false,
       limit: Int,
       page: Int,
@@ -207,10 +194,6 @@ class TaskReviewController @Inject() (
         val (count, result) = this.taskReviewDAL.getReviewedTasks(
           User.userOrMocked(user),
           params,
-          Some(Utils.split(mappers)),
-          Some(Utils.split(reviewers)),
-          startDate,
-          endDate,
           allowReviewNeeded,
           limit,
           page,
@@ -302,8 +285,6 @@ class TaskReviewController @Inject() (
     *
     * @param reviewTasksType Type of review tasks (1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users)
     * @param numberOfPoints Number of clustered points you wish to have returned
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
     * @param onlySaved include challenges that have been saved
     * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     *
@@ -312,8 +293,6 @@ class TaskReviewController @Inject() (
   def getReviewTaskClusters(
       reviewTasksType: Int,
       numberOfPoints: Int,
-      startDate: String = null,
-      endDate: String = null,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
@@ -326,8 +305,6 @@ class TaskReviewController @Inject() (
               reviewTasksType,
               params,
               numberOfPoints,
-              startDate,
-              endDate,
               onlySaved,
               excludeOtherReviewers
             )

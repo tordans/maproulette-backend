@@ -32,11 +32,15 @@ case class SearchChallengeParameters(
     requiresLocal: Option[Int] = Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)
 )
 
-case class SearchParameters(
-    projectIds: Option[List[Long]] = None,
-    projectSearch: Option[String] = None,
-    projectEnabled: Option[Boolean] = None,
-    challengeParams: SearchChallengeParameters = SearchChallengeParameters(),
+case class SearchReviewParameters(
+    mappers: Option[List[String]] = None,
+    reviewers: Option[List[String]] = None,
+    priorities: Option[List[Int]] = None,
+    startDate: Option[String] = None,
+    endDate: Option[String] = None
+)
+
+case class SearchTaskParameters(
     taskTags: Option[List[String]] = None,
     taskTagConjunction: Option[Boolean] = None,
     taskSearch: Option[String] = None,
@@ -46,7 +50,16 @@ case class SearchParameters(
     taskProperties: Option[Map[String, String]] = None,
     taskPropertySearchType: Option[String] = None,
     taskPropertySearch: Option[TaskPropertySearch] = None,
-    taskPriorities: Option[List[Int]] = None,
+    taskPriorities: Option[List[Int]] = None
+)
+
+case class SearchParameters(
+    projectIds: Option[List[Long]] = None,
+    projectSearch: Option[String] = None,
+    projectEnabled: Option[Boolean] = None,
+    challengeParams: SearchChallengeParameters = SearchChallengeParameters(),
+    taskParams: SearchTaskParameters = SearchTaskParameters(),
+    reviewParams: SearchReviewParameters = SearchReviewParameters(),
     priority: Option[Int] = None,
     location: Option[SearchLocation] = None,
     bounding: Option[SearchLocation] = None,
@@ -76,7 +89,7 @@ case class SearchParameters(
     case _                  => challengeParams.challengeDifficulty
   }
 
-  def hasTaskTags: Boolean = taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
+  def hasTaskTags: Boolean = taskParams.taskTags.getOrElse(List.empty).exists(tt => tt.nonEmpty)
 
   def hasChallengeTags: Boolean =
     challengeParams.challengeTags.getOrElse(List.empty).exists(ct => ct.nonEmpty)
@@ -115,6 +128,17 @@ object SearchParameters {
     Json.writes[SearchChallengeParameters]
   implicit val challengeParamsReads: Reads[SearchChallengeParameters] =
     Json.reads[SearchChallengeParameters]
+
+  implicit val taskParamsWrites: Writes[SearchTaskParameters] =
+    Json.writes[SearchTaskParameters]
+  implicit val taskParamsReads: Reads[SearchTaskParameters] =
+    Json.reads[SearchTaskParameters]
+
+  implicit val reviewParamsWrites: Writes[SearchReviewParameters] =
+    Json.writes[SearchReviewParameters]
+  implicit val reviewParamsReads: Reads[SearchReviewParameters] =
+    Json.reads[SearchReviewParameters]
+
   implicit val paramsWrites: Writes[SearchParameters] = Json.writes[SearchParameters]
   implicit val paramsReads: Reads[SearchParameters]   = Json.reads[SearchParameters]
 
@@ -122,6 +146,14 @@ object SearchParameters {
     override def writes(o: SearchParameters): JsValue = {
 
       var original = Json.toJson(o)(Json.writes[SearchParameters])
+      var updated  = moveUpChallengeParams(o, original)
+      updated = moveUpTaskParams(o, updated)
+
+      updated = updated.as[JsObject] - "challengeParams" - "taskParams"
+      updated
+    }
+
+    private def moveUpChallengeParams(o: SearchParameters, original: JsValue): JsValue = {
       // Move challenge param fields up to top level
       var updated = o.challengeParams.challengeIds match {
         case Some(c) => Utils.insertIntoJson(original, "challengeIds", c, true)
@@ -158,60 +190,109 @@ object SearchParameters {
           .getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE),
         true
       )
+      updated
+    }
 
-      updated = updated.as[JsObject] - "challengeParams"
+    private def moveUpTaskParams(o: SearchParameters, original: JsValue): JsValue = {
+      // Move task param fields up to top level
+
+      var updated = original
+      updated = o.taskParams.taskTags match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskTags", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskTagConjunction match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskTagConjunction", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskSearch match {
+        case Some(c) => Utils.insertIntoJson(original, "taskSearch", c, true)
+        case None    => original
+      }
+      updated = o.taskParams.taskStatus match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskStatus", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskId match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskId", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskReviewStatus match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskReviewStatus", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskProperties match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskProperties", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskPropertySearchType match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskPropertySearchType", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskPropertySearch match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskPropertySearch", c, true)
+        case None    => updated
+      }
+      updated = o.taskParams.taskPriorities match {
+        case Some(c) => Utils.insertIntoJson(updated, "taskPriorities", c, true)
+        case None    => updated
+      }
+
       updated
     }
 
     override def reads(json: JsValue): JsResult[SearchParameters] = {
       implicit val challengeParamsReads: Reads[SearchChallengeParameters] =
         Json.reads[SearchChallengeParameters]
+      implicit val taskParamsReads: Reads[SearchTaskParameters] =
+        Json.reads[SearchTaskParameters]
+      implicit val reviewParamsReads: Reads[SearchReviewParameters] =
+        Json.reads[SearchReviewParameters]
 
-      var challengeParams = Map[String, JsValue]()
-      (json \ "challengeIds").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeIds" -> v)
-        case None    => // do nothing
-      }
+      val challengeParams = constructChallengeParams(json)
+      val taskParams      = constructTaskParams(json)
 
-      (json \ "challengeTags").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeTags" -> v)
-        case None    => // do nothing
-      }
-
-      (json \ "challengeTagConjunction").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeTagConjunction" -> v)
-        case None    => // do nothing
-      }
-
-      (json \ "challengeSearch").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeSearch" -> v)
-        case None    => // do nothing
-      }
-
-      (json \ "challengeEnabled").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeEnabled" -> v)
-        case None    => // do nothing
-      }
-
-      (json \ "challengeDifficulty").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeDifficulty" -> v)
-        case None    => // do nothing
-      }
-
-      (json \ "challengeStatus").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("challengeStatus" -> v)
-        case None    => // do nothing
-      }
-
-      (json \ "requiresLocal").toOption match {
-        case Some(v) => challengeParams = challengeParams + ("requiresLocal" -> v)
-        case None    => // do nothing
-      }
-
-      val jsonWithChallengeParams =
+      var jsonWithAdditionalParams =
         Utils.insertIntoJson(json, "challengeParams", challengeParams, false)
-      Json.fromJson[SearchParameters](jsonWithChallengeParams)(Json.reads[SearchParameters])
+      jsonWithAdditionalParams =
+        Utils.insertIntoJson(jsonWithAdditionalParams, "taskParams", taskParams, false)
+      jsonWithAdditionalParams = Utils.insertIntoJson(
+        jsonWithAdditionalParams,
+        "reviewParams",
+        Map[String, JsValue](),
+        false
+      )
+
+      Json.fromJson[SearchParameters](jsonWithAdditionalParams)(Json.reads[SearchParameters])
     }
+  }
+
+  private def constructChallengeParams(json: JsValue): Map[String, JsValue] = {
+    var challengeParams = Map[String, JsValue]()
+    var challengeFields = (new SearchChallengeParameters).getClass.getDeclaredFields
+
+    challengeFields.foreach(field => {
+      (json \ field.getName).toOption match {
+        case Some(v) => challengeParams = challengeParams + (field.getName -> v)
+        case None    => // do nothing
+      }
+    })
+
+    challengeParams
+  }
+
+  private def constructTaskParams(json: JsValue): Map[String, JsValue] = {
+    var taskParams = Map[String, JsValue]()
+    var taskFields = (new SearchTaskParameters).getClass.getDeclaredFields
+
+    taskFields.foreach(field => {
+      (json \ field.getName).toOption match {
+        case Some(v) => taskParams = taskParams + (field.getName -> v)
+        case None    => // do nothing
+      }
+    })
+
+    taskParams
   }
 
   /**
@@ -312,42 +393,61 @@ object SearchParameters {
         //requiresLocal
         this.getIntParameter(request.getQueryString("cLocal"), Some(params.challengeParams.requiresLocal.getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)))
       ),
+      new SearchTaskParameters(
       //taskTags
-      request.getQueryString("tt") match {
-        case Some(v) => Some(v.split(",").toList)
-        case None => params.taskTags
-      },
-      //taskTagConjunction
-      this.getBooleanParameter(request.getQueryString("ttc"), Some(params.taskTagConjunction.getOrElse(false))),
-      //taskSearch
-      this.getStringParameter(request.getQueryString("ts"), params.taskSearch),
-      //taskStatus
-      request.getQueryString("tStatus") match {
-        case Some(v) => Utils.toIntList(v)
-        case None => params.taskStatus
-      },
-      //taskIds
-      this.getLongParameter(request.getQueryString("tid"), params.taskId),
-      //taskReviewStatus
-      request.getQueryString("trStatus") match {
-        case Some(v) => Utils.toIntList(v)
-        case None => params.taskReviewStatus
-      },
-      //taskProperties (base 64 encoded key:value comma separated)
-      request.getQueryString("tProps") match {
-        case Some(v) => Utils.toMap(v)
-        case None => params.taskProperties
-      },
-      //taskPropertySearchType
-      this.getStringParameter(request.getQueryString("tPropsSearchType"),
-                              params.taskPropertySearchType),
-      //taskPropertySearch
-      taskPropertySearch,
-      //taskPriorities
-      request.getQueryString("priorities") match {
-        case Some(v) => Utils.toIntList(v)
-        case None => params.taskPriorities
-      },
+        request.getQueryString("tt") match {
+          case Some(v) => Some(v.split(",").toList)
+          case None => params.taskParams.taskTags
+        },
+        //taskTagConjunction
+        this.getBooleanParameter(request.getQueryString("ttc"), Some(params.taskParams.taskTagConjunction.getOrElse(false))),
+        //taskSearch
+        this.getStringParameter(request.getQueryString("ts"), params.taskParams.taskSearch),
+        //taskStatus
+        request.getQueryString("tStatus") match {
+          case Some(v) => Utils.toIntList(v)
+          case None => params.taskParams.taskStatus
+        },
+        //taskIds
+        this.getLongParameter(request.getQueryString("tid"), params.taskParams.taskId),
+        //taskReviewStatus
+        request.getQueryString("trStatus") match {
+          case Some(v) => Utils.toIntList(v)
+          case None => params.taskParams.taskReviewStatus
+        },
+        //taskProperties (base 64 encoded key:value comma separated)
+        request.getQueryString("tProps") match {
+          case Some(v) => Utils.toMap(v)
+          case None => params.taskParams.taskProperties
+        },
+        //taskPropertySearchType
+        this.getStringParameter(request.getQueryString("tPropsSearchType"),
+                                params.taskParams.taskPropertySearchType),
+        //taskPropertySearch
+        taskPropertySearch,
+        //taskPriorities
+        request.getQueryString("priorities") match {
+          case Some(v) => Utils.toIntList(v)
+          case None => params.taskParams.taskPriorities
+        }
+      ),
+      // Search Review Parameters
+      new SearchReviewParameters(
+        request.getQueryString("mappers") match {
+          case Some(r) => Utils.toStringList(r)
+          case None => params.reviewParams.mappers
+        },
+        request.getQueryString("reviewers") match {
+          case Some(r) => Utils.toStringList(r)
+          case None => params.reviewParams.reviewers
+        },
+        request.getQueryString("priorities") match {
+          case Some(p) => Utils.toIntList(p)
+          case None => params.reviewParams.priorities
+        },
+        this.getStringParameter(request.getQueryString("startDate"), params.reviewParams.startDate),
+        this.getStringParameter(request.getQueryString("endDate"), params.reviewParams.endDate)
+      ),
       //taskPriority
       this.getIntParameter(request.getQueryString("tp"), params.priority),
       //taskBoundingBox for tasks found in bounding Box

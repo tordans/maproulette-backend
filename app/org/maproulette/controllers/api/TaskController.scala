@@ -27,6 +27,7 @@ import org.maproulette.provider.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.{
   SearchChallengeParameters,
+  SearchTaskParameters,
   SearchLocation,
   SearchParameters,
   SessionManager
@@ -335,8 +336,10 @@ class TaskController @Inject() (
           challengeSearch = Some(challengeSearch),
           challengeTags = Some(challengeTags.split(",").toList)
         ),
-        taskTags = Some(tags.split(",").toList),
-        taskSearch = Some(taskSearch)
+        taskParams = SearchTaskParameters(
+          taskTags = Some(tags.split(",").toList),
+          taskSearch = Some(taskSearch)
+        )
       )
       val result = this.dal.getRandomTasks(
         User.userOrMocked(user),

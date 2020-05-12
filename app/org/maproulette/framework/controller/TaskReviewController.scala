@@ -121,19 +121,12 @@ class TaskReviewController @Inject() (
     * Gets reviewed tasks where the user has reviewed or requested review
     *
     * @param reviewTasksType - 1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
     * @param onlySaved Only include saved challenges
     * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     * @return
     */
   def getReviewMetrics(
       reviewTasksType: Int,
-      mappers: String = "",
-      reviewers: String = "",
-      priorities: String = "",
-      startDate: String = null,
-      endDate: String = null,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false,
       includeByPriority: Boolean = false,
@@ -145,11 +138,6 @@ class TaskReviewController @Inject() (
           User.userOrMocked(user),
           reviewTasksType,
           params,
-          Some(Utils.split(mappers)),
-          Some(Utils.split(reviewers)),
-          Utils.toIntList(priorities),
-          startDate,
-          endDate,
           onlySaved,
           excludeOtherReviewers
         )
@@ -164,10 +152,6 @@ class TaskReviewController @Inject() (
               User.userOrMocked(user),
               reviewTasksType,
               params,
-              Some(Utils.split(mappers)),
-              Some(Utils.split(reviewers)),
-              startDate,
-              endDate,
               onlySaved,
               excludeOtherReviewers
             )
@@ -181,11 +165,6 @@ class TaskReviewController @Inject() (
               User.userOrMocked(user),
               reviewTasksType,
               params,
-              Some(Utils.split(mappers)),
-              Some(Utils.split(reviewers)),
-              Utils.toIntList(priorities),
-              startDate,
-              endDate,
               onlySaved,
               excludeOtherReviewers
             )
@@ -206,10 +185,6 @@ class TaskReviewController @Inject() (
       user: User,
       reviewTasksType: Int,
       params: SearchParameters,
-      mappers: Option[List[String]],
-      reviewers: Option[List[String]],
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean,
       excludeOtherReviewers: Boolean
   ): scala.collection.mutable.Map[String, JsValue] = {
@@ -219,15 +194,13 @@ class TaskReviewController @Inject() (
     val priorityMap = scala.collection.mutable.Map[String, JsValue]()
 
     prioritiesToFetch.foreach(p => {
+      val newParams =
+        params.copy(reviewParams = params.reviewParams.copy(priorities = Some(List(p))))
+
       val pResult = this.service.getReviewMetrics(
         user,
         reviewTasksType,
-        params,
-        mappers,
-        reviewers,
-        Some(List(p)),
-        startDate,
-        endDate,
+        newParams,
         onlySaved,
         excludeOtherReviewers
       )
@@ -242,11 +215,6 @@ class TaskReviewController @Inject() (
       user: User,
       reviewTasksType: Int,
       params: SearchParameters,
-      mappers: Option[List[String]],
-      reviewers: Option[List[String]],
-      priorities: Option[List[Int]] = None,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean,
       excludeOtherReviewers: Boolean
   ): scala.collection.mutable.Map[String, JsValue] = {
@@ -262,18 +230,13 @@ class TaskReviewController @Inject() (
 
     statusesToFetch.foreach(m => {
       val newParams = params.copy(
-        taskStatus = Some(List(m))
+        taskParams = params.taskParams.copy(taskStatus = Some(List(m)))
       )
 
       val mResult = this.service.getReviewMetrics(
         user,
         reviewTasksType,
         newParams,
-        mappers,
-        reviewers,
-        priorities,
-        startDate,
-        endDate,
         onlySaved,
         excludeOtherReviewers
       )
@@ -287,20 +250,16 @@ class TaskReviewController @Inject() (
   /**
     * Returns a CSV export of review metrics per mapper.
     *
-    * @param mappers Optional limit to reviews of tasks by specific mappers
-    * @param reviewers Optional limit reviews done by specific reviewers
-    * @param priorities Optional limit to only these priorities
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
+    * SearchParameters:
+    *   mappers Optional limit to reviews of tasks by specific mappers
+    *   reviewers Optional limit reviews done by specific reviewers
+    *   priorities Optional limit to only these priorities
+    *   startDate Optional start date to filter by reviewedAt date
+    *   endDate Optional end date to filter by reviewedAt date
     * @param onlySaved Only include saved challenges
     * @return
     */
   def extractMapperMetrics(
-      mappers: String = "",
-      reviewers: String = "",
-      priorities: String = "",
-      startDate: String = null,
-      endDate: String = null,
       onlySaved: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
@@ -308,11 +267,6 @@ class TaskReviewController @Inject() (
         val metrics = this.service.getMapperMetrics(
           User.userOrMocked(user),
           params,
-          Some(Utils.split(mappers)),
-          Some(Utils.split(reviewers)),
-          Utils.toIntList(priorities),
-          startDate,
-          endDate,
           onlySaved
         )
 

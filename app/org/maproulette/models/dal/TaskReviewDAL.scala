@@ -313,8 +313,6 @@ class TaskReviewDAL @Inject() (
           _getReviewRequestedQueries(
             user,
             searchParameters,
-            null,
-            null,
             onlySaved,
             -1,
             0,
@@ -358,8 +356,6 @@ class TaskReviewDAL @Inject() (
       _getReviewRequestedQueries(
         user,
         searchParameters,
-        null,
-        null,
         onlySaved,
         1,
         position,
@@ -383,8 +379,6 @@ class TaskReviewDAL @Inject() (
     * Gets a list of tasks that have requested review (and are in this user's project group)
     *
     * @param user            The user executing the request
-    * @param startDate       Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate         Limit tasks to reviewed before date (YYYY-MM-DD)
     * @param limit           The number of tasks to return
     * @param offset          Offset to start paging
     * @param sort            Sort column
@@ -395,8 +389,6 @@ class TaskReviewDAL @Inject() (
   def getReviewRequestedTasks(
       user: User,
       searchParameters: SearchParameters,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean = false,
       limit: Int = -1,
       offset: Int = 0,
@@ -409,8 +401,6 @@ class TaskReviewDAL @Inject() (
       _getReviewRequestedQueries(
         user,
         searchParameters,
-        startDate,
-        endDate,
         onlySaved,
         limit,
         offset,
@@ -438,8 +428,6 @@ class TaskReviewDAL @Inject() (
   def _getReviewRequestedQueries(
       user: User,
       searchParameters: SearchParameters,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean = false,
       limit: Int = -1,
       offset: Int = 0,
@@ -483,7 +471,7 @@ class TaskReviewDAL @Inject() (
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
-    setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
+    setupReviewSearchClause(whereClause, joinClause, searchParameters)
 
     sort match {
       case s if s.nonEmpty =>
@@ -559,8 +547,6 @@ class TaskReviewDAL @Inject() (
     * Gets a list of tasks that have been reviewed (either by this user or requested by this user)
     *
     * @param user              The user executing the request
-    * @param startDate         Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate           Limit tasks to reviewed before date (YYYY-MM-DD)
     * @param allowReviewNeeded Whether we should include review requested tasks as well
     * @param limit             The amount of tasks to be returned
     * @param offset            Offset to start paging
@@ -571,10 +557,6 @@ class TaskReviewDAL @Inject() (
   def getReviewedTasks(
       user: User,
       searchParameters: SearchParameters,
-      mappers: Option[List[String]] = None,
-      reviewers: Option[List[String]] = None,
-      startDate: String,
-      endDate: String,
       allowReviewNeeded: Boolean = false,
       limit: Int = -1,
       offset: Int = 0,
@@ -590,23 +572,8 @@ class TaskReviewDAL @Inject() (
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
     joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
 
-    mappers match {
-      case Some(m) =>
-        if (m.size > 0) {
-          whereClause ++= s"task_review.review_requested_by IN (${m.mkString(",")}) "
-        } else {
-          whereClause ++= s"task_review.review_requested_by IS NOT NULL "
-        }
-      case _ => whereClause ++= s"task_review.review_requested_by IS NOT NULL "
-    }
-
-    reviewers match {
-      case Some(r) =>
-        if (r.size > 0) {
-          whereClause ++= s" AND task_review.reviewed_by IN (${r.mkString(",")})"
-        }
-      case _ => // do nothing
-    }
+    this.paramsMappers(searchParameters, whereClause)
+    this.paramsReviewers(searchParameters, whereClause)
 
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
@@ -618,7 +585,7 @@ class TaskReviewDAL @Inject() (
       )
     }
 
-    setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
+    setupReviewSearchClause(whereClause, joinClause, searchParameters)
 
     sort match {
       case s if s.nonEmpty =>
@@ -697,31 +664,19 @@ class TaskReviewDAL @Inject() (
     * @param user      The user executing the request
     * @param reviewTasksType
     * @param searchParameters
-    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate   Limit tasks to reviewed before date (YYYY-MM-DD)
     * @return A list of tasks
     */
   def getReviewMetrics(
       user: User,
       reviewTasksType: Int,
       searchParameters: SearchParameters,
-      mappers: Option[List[String]] = None,
-      reviewers: Option[List[String]] = None,
-      priorities: Option[List[Int]] = None,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   )(implicit c: Connection = null): ReviewMetrics = {
-    val (query, parameters) = _getReviewMetricsQuery(
+    val (query, parameters) = getReviewMetricsQuery(
       user,
       reviewTasksType,
       searchParameters,
-      mappers,
-      reviewers,
-      priorities,
-      startDate,
-      endDate,
       onlySaved,
       excludeOtherReviewers
     )
@@ -736,29 +691,17 @@ class TaskReviewDAL @Inject() (
     *
     * @param user      The user executing the request
     * @param searchParameters
-    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
-    * @param endDate   Limit tasks to reviewed before date (YYYY-MM-DD)
     * @return A list of tasks
     */
   def getMapperMetrics(
       user: User,
       searchParameters: SearchParameters,
-      mappers: Option[List[String]] = None,
-      reviewers: Option[List[String]] = None,
-      priorities: Option[List[Int]] = None,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean = false
   )(implicit c: Connection = null): List[ReviewMetrics] = {
-    val (query, parameters) = _getReviewMetricsQuery(
+    val (query, parameters) = getReviewMetricsQuery(
       user,
       4,
       searchParameters,
-      mappers,
-      reviewers,
-      priorities,
-      startDate,
-      endDate,
       onlySaved,
       false,
       true
@@ -768,15 +711,10 @@ class TaskReviewDAL @Inject() (
     }
   }
 
-  def _getReviewMetricsQuery(
+  def getReviewMetricsQuery(
       user: User,
       reviewTasksType: Int,
       searchParameters: SearchParameters,
-      mappers: Option[List[String]] = None,
-      reviewers: Option[List[String]] = None,
-      priorities: Option[List[Int]] = None,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false,
       groupByMappers: Boolean = false
@@ -827,39 +765,13 @@ class TaskReviewDAL @Inject() (
       }
     }
 
-    mappers match {
-      case Some(m) =>
-        if (m.size > 0) {
-          this.appendInWhereClause(
-            whereClause,
-            s"task_review.review_requested_by IN (${m.mkString(",")}) "
-          )
-        } else {
-          this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
-        }
-      case _ =>
-        this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
-    }
+    this.paramsMappers(searchParameters, whereClause)
+    this.paramsReviewers(searchParameters, whereClause)
+    this.paramsPriorities(searchParameters, whereClause)
 
     if (onlySaved) {
       joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
       this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
-    }
-
-    reviewers match {
-      case Some(r) =>
-        if (r.size > 0) {
-          this.appendInWhereClause(whereClause, s"task_review.reviewed_by IN (${r.mkString(",")}) ")
-        }
-      case _ => // do nothing
-    }
-
-    priorities match {
-      case Some(priority) if priority.nonEmpty =>
-        val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
-        this.appendInWhereClause(whereClause, priorityClause.toString())
-      case Some(priority) if priority.isEmpty => //ignore this scenario
-      case _                                  =>
     }
 
     val parameters = new ListBuffer[NamedParameter]()
@@ -876,7 +788,7 @@ class TaskReviewDAL @Inject() (
       whereClause,
       "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
     )
-    setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
+    setupReviewSearchClause(whereClause, joinClause, searchParameters)
 
     var groupFields = ""
     val groupBy = groupByMappers match {
@@ -918,8 +830,6 @@ class TaskReviewDAL @Inject() (
     * @param reviewTasksType
     * @param params         SearchParameters used to filter the tasks in the cluster
     * @param numberOfPoints Number of cluster points to group all the tasks by
-    * @param startDate
-    * @param endDate
     * @param c              an implicit connection
     * @return A list of task clusters
     */
@@ -928,8 +838,6 @@ class TaskReviewDAL @Inject() (
       reviewTasksType: Int,
       params: SearchParameters,
       numberOfPoints: Int = TaskDAL.DEFAULT_NUMBER_OF_POINTS,
-      startDate: String,
-      endDate: String,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   )(implicit c: Option[Connection] = None): List[TaskCluster] = {
@@ -971,7 +879,7 @@ class TaskReviewDAL @Inject() (
         "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
       )
 
-      params.taskId match {
+      params.taskParams.taskId match {
         case Some(tid) =>
           this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
         case _ => // do nothing
@@ -987,7 +895,7 @@ class TaskReviewDAL @Inject() (
         )
       }
 
-      setupReviewSearchClause(whereClause, joinClause, params, startDate, endDate)
+      setupReviewSearchClause(whereClause, joinClause, params)
 
       val where = if (whereClause.isEmpty) {
         whereClause.toString
@@ -1011,15 +919,13 @@ class TaskReviewDAL @Inject() (
   private def setupReviewSearchClause(
       whereClause: StringBuilder,
       joinClause: StringBuilder,
-      searchParameters: SearchParameters,
-      startDate: String,
-      endDate: String
+      searchParameters: SearchParameters
   ): Unit = {
 
     this.paramsOwner(searchParameters, whereClause, joinClause)
     this.paramsReviewer(searchParameters, whereClause, joinClause)
 
-    searchParameters.taskStatus match {
+    searchParameters.taskParams.taskStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
         if (statuses.contains(-1)) {
@@ -1031,7 +937,7 @@ class TaskReviewDAL @Inject() (
       case _                                  =>
     }
 
-    searchParameters.taskReviewStatus match {
+    searchParameters.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val statusClause = new StringBuilder(
           s"(task_review.review_status IN (${statuses.mkString(",")}))"
@@ -1047,10 +953,12 @@ class TaskReviewDAL @Inject() (
     this.paramsPriority(searchParameters, whereClause)
     this.paramsTaskTags(searchParameters, whereClause)
 
+    val startDate = searchParameters.reviewParams.startDate.getOrElse(null)
     if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
       this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")
     }
 
+    val endDate = searchParameters.reviewParams.endDate.getOrElse(null)
     if (endDate != null && endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
       this.appendInWhereClause(whereClause, "reviewed_at <= '" + endDate + " 23:59:59'")
     }

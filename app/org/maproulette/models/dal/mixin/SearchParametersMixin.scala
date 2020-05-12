@@ -89,7 +89,7 @@ trait SearchParametersMixin extends DALHelper {
   }
 
   def paramsTaskStatus(params: SearchParameters, whereClause: StringBuilder): Unit = {
-    params.taskStatus match {
+    params.taskParams.taskStatus match {
       case Some(sl) if sl.nonEmpty =>
         // If list contains -1 then ignore filtering by status
         if (!sl.contains(-1)) {
@@ -101,7 +101,7 @@ trait SearchParametersMixin extends DALHelper {
   }
 
   def paramsTaskId(params: SearchParameters, whereClause: StringBuilder): Unit = {
-    params.taskId match {
+    params.taskParams.taskId match {
       case Some(tid) =>
         this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
       case _ => // do nothing
@@ -109,7 +109,7 @@ trait SearchParametersMixin extends DALHelper {
   }
 
   def paramsTaskPriorities(params: SearchParameters, whereClause: StringBuilder): Unit = {
-    params.taskPriorities match {
+    params.taskParams.taskPriorities match {
       case Some(sl) if sl.nonEmpty =>
         this.appendInWhereClause(whereClause, s"tasks.priority IN (${sl.mkString(",")})")
       case Some(sl) if sl.isEmpty => //ignore this scenario
@@ -127,7 +127,7 @@ trait SearchParametersMixin extends DALHelper {
 
   def paramsTaskTags(params: SearchParameters, whereClause: StringBuilder): Unit = {
     if (params.hasTaskTags) {
-      val tagList = params.taskTags.get
+      val tagList = params.taskParams.taskTags.get
         .map(t => {
           SQLUtils.testColumnName(t)
           s"'${t}'"
@@ -156,7 +156,7 @@ trait SearchParametersMixin extends DALHelper {
       whereClause: StringBuilder,
       joinClause: StringBuilder
   ): Unit = {
-    params.taskReviewStatus match {
+    params.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val filter = new StringBuilder(s"""(tasks.id IN (SELECT task_id FROM task_review
                                                     WHERE task_review.task_id = tasks.id AND task_review.review_status
@@ -275,7 +275,7 @@ trait SearchParametersMixin extends DALHelper {
   ): Unit = {
     params.getChallengeIds match {
       case Some(l) =>
-        params.taskPropertySearch match {
+        params.taskParams.taskPropertySearch match {
           case Some(tps) =>
             val query = new StringBuilder(s"""tasks.id IN (
                 SELECT id FROM tasks,
@@ -285,9 +285,9 @@ trait SearchParametersMixin extends DALHelper {
                """)
             this.appendInWhereClause(whereClause, query.toString())
           case _ =>
-            params.taskProperties match {
+            params.taskParams.taskProperties match {
               case Some(tp) =>
-                val searchType = params.taskPropertySearchType match {
+                val searchType = params.taskParams.taskPropertySearchType match {
                   case Some(t) => t
                   case _       => "equals"
                 }
@@ -356,6 +356,51 @@ trait SearchParametersMixin extends DALHelper {
         joinClause ++= "INNER JOIN users u ON u.id = tasks.completed_by "
         this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
       case _ => // ignore
+    }
+  }
+
+  def paramsMappers(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    params.reviewParams.mappers match {
+      case Some(m) =>
+        if (m.size > 0) {
+          this.appendInWhereClause(
+            whereClause,
+            s"task_review.review_requested_by IN (${m.mkString(",")}) "
+          )
+        } else {
+          this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
+        }
+      case _ =>
+        this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
+    }
+  }
+
+  def paramsReviewers(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    params.reviewParams.reviewers match {
+      case Some(r) =>
+        if (r.size > 0) {
+          this.appendInWhereClause(whereClause, s"task_review.reviewed_by IN (${r.mkString(",")}) ")
+        }
+      case _ => // do nothing
+    }
+  }
+
+  def paramsPriorities(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    params.reviewParams.priorities match {
+      case Some(priority) if priority.nonEmpty =>
+        val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
+        this.appendInWhereClause(whereClause, priorityClause.toString())
+      case Some(priority) if priority.isEmpty => //ignore this scenario
+      case _                                  =>
     }
   }
 }

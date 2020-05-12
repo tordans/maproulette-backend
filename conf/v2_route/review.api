@@ -77,7 +77,7 @@ GET     /task/:id/review/cancel                       @org.maproulette.controlle
 #     in: query
 #     description: The search string used to match the name of the person requesting the review. (review_requested_by)
 ###
-GET     /tasks/review                          @org.maproulette.controllers.api.TaskReviewController.getReviewRequestedTasks(startDate: String ?= null, endDate: String ?= null, onlySaved: Boolean ?= false, limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", excludeOtherReviewers: Boolean ?= false, includeTags: Boolean ?= false)
+GET     /tasks/review                          @org.maproulette.controllers.api.TaskReviewController.getReviewRequestedTasks(onlySaved: Boolean ?= false, limit:Int ?= -1, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", excludeOtherReviewers: Boolean ?= false, includeTags: Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves reviewed tasks that have been reviewed either by this user or where the user requested
@@ -130,7 +130,7 @@ GET     /tasks/review                          @org.maproulette.controllers.api.
 #     in: query
 #     description: In response include list of tags for each task
 ###
-GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskReviewController.getReviewedTasks(mappers:String ?= "", reviewers:String ?= "", startDate: String ?= null, endDate: String ?= null, allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", includeTags:Boolean ?= false)
+GET     /tasks/reviewed                          @org.maproulette.controllers.api.TaskReviewController.getReviewedTasks(allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", includeTags:Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves and claims a the next review needed Task
@@ -214,7 +214,7 @@ GET     /tasks/review/next                       @org.maproulette.controllers.ap
 #     in: query
 #     description: Also include a breakdown of review status by task status
 ###
-GET     /tasks/review/metrics                          @org.maproulette.framework.controller.TaskReviewController.getReviewMetrics(reviewTasksType: Int, mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers: Boolean ?= false, includeByPriority:Boolean ?= false, includeByTaskStatus:Boolean ?= false)
+GET     /tasks/review/metrics                          @org.maproulette.framework.controller.TaskReviewController.getReviewMetrics(reviewTasksType: Int, onlySaved:Boolean ?= false, excludeOtherReviewers: Boolean ?= false, includeByPriority:Boolean ?= false, includeByTaskStatus:Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves task review clusters
@@ -248,7 +248,7 @@ GET     /tasks/review/metrics                          @org.maproulette.framewor
 #     in: query
 #     description: exclude tasks that have been reviewed by someone else
 ###
-GET     /taskCluster/review                                @org.maproulette.controllers.api.TaskReviewController.getReviewTaskClusters(reviewTasksType:Int, points:Int ?= 100, startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers:Boolean ?= false)
+GET     /taskCluster/review                                @org.maproulette.controllers.api.TaskReviewController.getReviewTaskClusters(reviewTasksType:Int, points:Int ?= 100, onlySaved:Boolean ?= false, excludeOtherReviewers:Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieve a summary of review coverage for mappers
@@ -276,4 +276,4 @@ GET     /taskCluster/review                                @org.maproulette.cont
 #     in: query
 #     description: Only show challenges that have been saved.
 ###
-GET     /tasks/review/mappers/export                          @org.maproulette.framework.controller.TaskReviewController.extractMapperMetrics(mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false)
+GET     /tasks/review/mappers/export                          @org.maproulette.framework.controller.TaskReviewController.extractMapperMetrics(onlySaved:Boolean ?= false)
