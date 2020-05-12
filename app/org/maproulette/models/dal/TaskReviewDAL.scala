@@ -135,6 +135,43 @@ class TaskReviewDAL @Inject() (
     }
   }
 
+  implicit val reviewMetricsParser: RowParser[ReviewMetrics] = {
+    get[Int]("total") ~
+      get[Int]("requested") ~
+      get[Int]("approved") ~
+      get[Int]("rejected") ~
+      get[Int]("assisted") ~
+      get[Int]("disputed") ~
+      get[Int]("fixed") ~
+      get[Int]("falsePositive") ~
+      get[Int]("skipped") ~
+      get[Int]("alreadyFixed") ~
+      get[Int]("tooHard") ~
+      get[Double]("totalReviewTime") ~
+      get[Int]("tasksWithReviewTime") ~
+      get[Long]("user_id").? map {
+      case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
+            fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
+            totalReviewTime ~ tasksWithReviewTime ~ userId => {
+        new ReviewMetrics(
+          total,
+          requested,
+          approved,
+          rejected,
+          assisted,
+          disputed,
+          fixed,
+          falsePositive,
+          skipped,
+          alreadyFixed,
+          tooHard,
+          if (tasksWithReviewTime > 0) (totalReviewTime / tasksWithReviewTime) else 0,
+          userId
+        )
+      }
+    }
+  }
+
   /**
     * Gets and claims a task for review.
     *
@@ -676,7 +713,74 @@ class TaskReviewDAL @Inject() (
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   )(implicit c: Connection = null): ReviewMetrics = {
+    val (query, parameters) = _getReviewMetricsQuery(
+      user,
+      reviewTasksType,
+      searchParameters,
+      mappers,
+      reviewers,
+      priorities,
+      startDate,
+      endDate,
+      onlySaved,
+      excludeOtherReviewers
+    )
 
+    this.withMRTransaction { implicit c =>
+      sqlWithParameters(query, parameters).as(reviewMetricsParser.single)
+    }
+  }
+
+  /**
+    * Gets review metrics grouped by mapper
+    *
+    * @param user      The user executing the request
+    * @param searchParameters
+    * @param startDate Limit tasks to reviewed after date (YYYY-MM-DD)
+    * @param endDate   Limit tasks to reviewed before date (YYYY-MM-DD)
+    * @return A list of tasks
+    */
+  def getMapperMetrics(
+      user: User,
+      searchParameters: SearchParameters,
+      mappers: Option[List[String]] = None,
+      reviewers: Option[List[String]] = None,
+      priorities: Option[List[Int]] = None,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false
+  )(implicit c: Connection = null): List[ReviewMetrics] = {
+    val (query, parameters) = _getReviewMetricsQuery(
+      user,
+      4,
+      searchParameters,
+      mappers,
+      reviewers,
+      priorities,
+      startDate,
+      endDate,
+      onlySaved,
+      false,
+      true
+    )
+    this.withMRTransaction { implicit c =>
+      sqlWithParameters(query, parameters).as(reviewMetricsParser.*)
+    }
+  }
+
+  def _getReviewMetricsQuery(
+      user: User,
+      reviewTasksType: Int,
+      searchParameters: SearchParameters,
+      mappers: Option[List[String]] = None,
+      reviewers: Option[List[String]] = None,
+      priorities: Option[List[Int]] = None,
+      startDate: String,
+      endDate: String,
+      onlySaved: Boolean = false,
+      excludeOtherReviewers: Boolean = false,
+      groupByMappers: Boolean = false
+  ): (String, ListBuffer[NamedParameter]) = {
     // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
     // 2: MY_REVIEWED_TASKS = 'myReviewedTasks'
     // 3: REVIEW_TASKS_BY_ME = 'tasksReviewedByMe'
@@ -693,11 +797,6 @@ class TaskReviewDAL @Inject() (
         whereClause,
         s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
       )
-
-      if (onlySaved) {
-        joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
-        this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
-      }
 
       if (excludeOtherReviewers) {
         this.appendInWhereClause(
@@ -742,6 +841,11 @@ class TaskReviewDAL @Inject() (
         this.appendInWhereClause(whereClause, s"task_review.review_requested_by IS NOT NULL ")
     }
 
+    if (onlySaved) {
+      joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
+      this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
+    }
+
     reviewers match {
       case Some(r) =>
         if (r.size > 0) {
@@ -774,8 +878,16 @@ class TaskReviewDAL @Inject() (
     )
     setupReviewSearchClause(whereClause, joinClause, searchParameters, startDate, endDate)
 
-    val query =
-      s"""
+    var groupFields = ""
+    val groupBy = groupByMappers match {
+      case true => {
+        groupFields = ", review_requested_by as user_id"
+        "group by task_review.review_requested_by"
+      }
+      case false => ""
+    }
+
+    (s"""
      SELECT COUNT(*) AS total,
      COUNT(tasks.completed_time_spent) as tasksWithReviewTime,
      COALESCE(SUM(EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000),0) as totalReviewTime,
@@ -789,50 +901,14 @@ class TaskReviewDAL @Inject() (
      COUNT(tasks.status) FILTER (where tasks.status = 3) AS skipped,
      COUNT(tasks.status) FILTER (where tasks.status = 5) AS alreadyFixed,
      COUNT(tasks.status) FILTER (where tasks.status = 6) AS tooHard
+     ${groupFields}
      FROM tasks
      ${joinClause}
      WHERE
      ${whereClause}
      AND task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY}
-    """
-    val reviewMetricsParser: RowParser[ReviewMetrics] = {
-      get[Int]("total") ~
-        get[Int]("requested") ~
-        get[Int]("approved") ~
-        get[Int]("rejected") ~
-        get[Int]("assisted") ~
-        get[Int]("disputed") ~
-        get[Int]("fixed") ~
-        get[Int]("falsePositive") ~
-        get[Int]("skipped") ~
-        get[Int]("alreadyFixed") ~
-        get[Int]("tooHard") ~
-        get[Double]("totalReviewTime") ~
-        get[Int]("tasksWithReviewTime") map {
-        case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
-              fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
-              totalReviewTime ~ tasksWithReviewTime => {
-          new ReviewMetrics(
-            total,
-            requested,
-            approved,
-            rejected,
-            assisted,
-            disputed,
-            fixed,
-            falsePositive,
-            skipped,
-            alreadyFixed,
-            tooHard,
-            if (tasksWithReviewTime > 0) (totalReviewTime / tasksWithReviewTime) else 0
-          )
-        }
-      }
-    }
-
-    this.withMRTransaction { implicit c =>
-      sqlWithParameters(query, parameters).as(reviewMetricsParser.single)
-    }
+     ${groupBy}
+    """, parameters)
   }
 
   /**

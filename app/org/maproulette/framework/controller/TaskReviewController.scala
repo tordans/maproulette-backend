@@ -5,11 +5,13 @@
 package org.maproulette.framework.controller
 
 import javax.inject.Inject
+import akka.util.ByteString
 import org.maproulette.data.ActionManager
 import org.maproulette.framework.service.{
   ChallengeListingService,
   ProjectService,
-  TaskReviewService
+  TaskReviewService,
+  UserService
 }
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User}
@@ -17,6 +19,7 @@ import org.maproulette.session.{SessionManager, SearchParameters}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
+import play.api.http.HttpEntity
 
 import org.maproulette.models.Task
 
@@ -33,6 +36,7 @@ class TaskReviewController @Inject() (
     service: TaskReviewService,
     challengeListingService: ChallengeListingService,
     projectService: ProjectService,
+    userService: UserService,
     components: ControllerComponents
 ) extends AbstractController(components)
     with MapRouletteController {
@@ -278,5 +282,69 @@ class TaskReviewController @Inject() (
     })
 
     statusMap
+  }
+
+  /**
+    * Returns a CSV export of review metrics per mapper.
+    *
+    * @param mappers Optional limit to reviews of tasks by specific mappers
+    * @param reviewers Optional limit reviews done by specific reviewers
+    * @param priorities Optional limit to only these priorities
+    * @param startDate Optional start date to filter by reviewedAt date
+    * @param endDate Optional end date to filter by reviewedAt date
+    * @param onlySaved Only include saved challenges
+    * @return
+    */
+  def extractMapperMetrics(
+      mappers: String = "",
+      reviewers: String = "",
+      priorities: String = "",
+      startDate: String = null,
+      endDate: String = null,
+      onlySaved: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val metrics = this.service.getMapperMetrics(
+          User.userOrMocked(user),
+          params,
+          Some(Utils.split(mappers)),
+          Some(Utils.split(reviewers)),
+          Utils.toIntList(priorities),
+          startDate,
+          endDate,
+          onlySaved
+        )
+
+        val mapperNames =
+          this.userService
+            .retrieveListById(metrics.map(m => m.userId.get), Paging())
+            .map(u => u.id -> u.name)
+            .toMap
+
+        val seqString = metrics.map(row => {
+          var mapper = mapperNames.get(row.userId.get)
+
+          val reviewTimeSeconds = Math.round(row.avgReviewTime / 1000)
+
+          s"${mapper.get},${row.total},${reviewTimeSeconds},${row.reviewRequested}," +
+            s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
+            s"${row.reviewDisputed}"
+        })
+
+        Result(
+          header = ResponseHeader(
+            OK,
+            Map(CONTENT_DISPOSITION -> s"attachment; filename=mapper_review_metrics.csv")
+          ),
+          body = HttpEntity.Strict(
+            ByteString(
+              s"""Mapper,Total Review Tasks,Avg Review Time (seconds),Review Requested,Approved,Needs Revision,Approved w/Fixes,Contested\n"""
+            ).concat(ByteString(seqString.mkString("\n"))),
+            Some("text/csv; header=present")
+          )
+        )
+      }
+    }
   }
 }

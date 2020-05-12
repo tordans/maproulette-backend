@@ -249,3 +249,31 @@ GET     /tasks/review/metrics                          @org.maproulette.framewor
 #     description: exclude tasks that have been reviewed by someone else
 ###
 GET     /taskCluster/review                                @org.maproulette.controllers.api.TaskReviewController.getReviewTaskClusters(reviewTasksType:Int, points:Int ?= 100, startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false, excludeOtherReviewers:Boolean ?= false)
+###
+# tags: [ Review ]
+# summary: Retrieve a summary of review coverage for mappers
+# description: This will retrieve a summary of review coverage for each mapper and respond with a csv
+# response:
+#   '200':
+#     description: A CSV file containing the following data "Mapper,Requested,Approved,Rejected,ApprovedWithFixes,Disputed,Total"
+# parameters:
+#   - name: mappers
+#     in: query
+#     description: the mapper ids to search by (review_requested_by)
+#   - name: reviewers
+#     in: query
+#     description: the reviewer ids to search by (reviewed_by)
+#   - name: priorities
+#     in: query
+#     description: the priorities to search by
+#   - name: startDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed after this date (format 'YYYY-MM-DD')
+#   - name: endDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed before this date (format 'YYYY-MM-DD')
+#   - name: onlySaved
+#     in: query
+#     description: Only show challenges that have been saved.
+###
+GET     /tasks/review/mappers/export                          @org.maproulette.framework.controller.TaskReviewController.extractMapperMetrics(mappers: String ?= "", reviewers: String ?= "", priorities:String ?= "", startDate: String ?= null, endDate: String ?= null, onlySaved:Boolean ?= false)
