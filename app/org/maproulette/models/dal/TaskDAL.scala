@@ -1063,7 +1063,9 @@ class TaskDAL @Inject() (
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
-          this.tagService.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
+          this.tagService
+            .retrieveListByName(params.taskParams.taskTags.get.map(_.toLowerCase))
+            .map(_.id)
         } else {
           List.empty
         }
@@ -1079,7 +1081,7 @@ class TaskDAL @Inject() (
         // The default where clause will check to see if the parents are enabled, that the task is
         // not locked (or if it is, it is locked by the current user) and that the status of the task
         // is either Created or Skipped
-        val taskStatusList = params.taskStatus match {
+        val taskStatusList = params.taskParams.taskStatus match {
           case Some(l) if l.nonEmpty => l
           case _ => {
             config.skipTooHard match {
@@ -1122,9 +1124,9 @@ class TaskDAL @Inject() (
           appendInWhereClause(whereClause, "tt.tag_id IN ({tagids})")
           parameters += (Symbol("tagids") -> ToParameterValue.apply[List[Long]].apply(taskTagIds))
         }
-        if (params.taskSearch.nonEmpty) {
+        if (params.taskParams.taskSearch.nonEmpty) {
           appendInWhereClause(whereClause, s"${searchField("tasks.name", "taskSearch")(None)}")
-          parameters += (Symbol("taskSearch") -> search(params.taskSearch.getOrElse("")))
+          parameters += (Symbol("taskSearch") -> search(params.taskParams.taskSearch.getOrElse("")))
         }
 
         val proximityOrdering = proximityId match {

@@ -11,7 +11,7 @@ import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.Task
-import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
+import org.maproulette.models.dal.{ChallengeDAL, TaskDAL, TaskReviewDAL}
 import org.scalatest.{BeforeAndAfterAll, Tag}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
@@ -28,6 +28,7 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
   val serviceManager: ServiceManager = application.injector.instanceOf(classOf[ServiceManager])
   val challengeDAL: ChallengeDAL     = application.injector.instanceOf(classOf[ChallengeDAL])
   val taskDAL: TaskDAL               = application.injector.instanceOf(classOf[TaskDAL])
+  val taskReviewDAL: TaskReviewDAL   = application.injector.instanceOf(classOf[TaskReviewDAL])
 
   // To be removed when all of SnapshotManager has been converted
   val snapshotManager: SnapshotManager = application.injector.instanceOf(classOf[SnapshotManager])
