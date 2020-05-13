@@ -33,8 +33,8 @@ case class SearchChallengeParameters(
 )
 
 case class SearchReviewParameters(
-    mappers: Option[List[String]] = None,
-    reviewers: Option[List[String]] = None,
+    mappers: Option[List[Long]] = None,
+    reviewers: Option[List[Long]] = None,
     priorities: Option[List[Int]] = None,
     startDate: Option[String] = None,
     endDate: Option[String] = None
@@ -434,11 +434,11 @@ object SearchParameters {
       // Search Review Parameters
       new SearchReviewParameters(
         request.getQueryString("mappers") match {
-          case Some(r) => Utils.toStringList(r)
+          case Some(r) => Utils.toLongList(r)
           case None => params.reviewParams.mappers
         },
         request.getQueryString("reviewers") match {
-          case Some(r) => Utils.toStringList(r)
+          case Some(r) => Utils.toLongList(r)
           case None => params.reviewParams.reviewers
         },
         request.getQueryString("priorities") match {

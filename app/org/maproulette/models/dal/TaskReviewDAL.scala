@@ -566,7 +566,7 @@ class TaskReviewDAL @Inject() (
     var orderByClause = ""
     val whereClause = new StringBuilder(
       "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND " +
-        s"task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY} AND "
+        s"task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY} "
     )
     val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
     joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
