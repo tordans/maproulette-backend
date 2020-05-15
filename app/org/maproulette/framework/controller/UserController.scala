@@ -7,12 +7,13 @@ package org.maproulette.framework.controller
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
-import org.maproulette.framework.model.{Challenge, User, UserSettings, GrantTarget}
+import org.maproulette.framework.model.{Challenge, User, UserSettings, ProjectManager, GrantTarget}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.permissions.Permission
 import org.maproulette.models.Task
 import org.maproulette.session.SessionManager
+import org.maproulette.data.{UserType}
 import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json._
 import play.api.mvc._
@@ -370,8 +371,12 @@ class UserController @Inject() (
       this.serviceManager.user
         .addUserToProject(addUser.osmProfile.id, projectId, role, user, clear = true)
       // clear caches
-      this.serviceManager.user.clearCache()
-      Ok(Json.toJson(this.serviceManager.user.getUsersManagingProject(projectId, None, user)))
+      this.serviceManager.user.clearCache(userId)
+      Ok(
+        Json.toJson(
+          this.serviceManager.user.getUsersManagingProject(projectId, None, user, false)
+        )
+      )
     }
   }
 
@@ -480,17 +485,24 @@ class UserController @Inject() (
     }
   }
 
-  def getUsersManagingProject(projectId: Long, osmIds: String): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.authenticatedRequest { implicit user =>
-        Ok(
-          Json
-            .toJson(
-              this.serviceManager.user
-                .getUsersManagingProject(projectId, Utils.toLongList(osmIds), user)
-            )
+  /**
+    * Retrieve users as project managers who manage the project. If indirect
+    * is set to true, then indirect managers who can manage via their teams
+    * are also included
+    */
+  def getUsersManagingProject(
+      projectId: Long,
+      osmIds: String,
+      includeTeams: Boolean
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      Ok(
+        Json.toJson(
+          this.serviceManager.user
+            .getUsersManagingProject(projectId, Utils.toLongList(osmIds), user, includeTeams)
         )
-      }
+      )
+    }
   }
 
   def getMetricsForUser(

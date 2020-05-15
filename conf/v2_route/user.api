@@ -460,13 +460,17 @@ PUT     /user/:userId/refresh                        @org.maproulette.framework.
 #   - name: osmIds
 #     in: query
 #     description: A list of comma separated OSM id's to filter the request by
+#   - name: includeTeams
+#     in: query
+#     description: If true, indirect managers via teams will also be included
+#     default: false
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
 ###
-GET     /user/project/:projectId                     @org.maproulette.framework.controller.UserController.getUsersManagingProject(projectId:Long, osmIds:String ?= "")
+GET     /user/project/:projectId                     @org.maproulette.framework.controller.UserController.getUsersManagingProject(projectId:Long, osmIds:String ?= "", includeTeams:Boolean ?= false)
 ###
 # tags: [ User ]
 # summary: Grant role to user on project

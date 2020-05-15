@@ -155,23 +155,13 @@ class ProjectService @Inject() (
       if (user.grants.isEmpty && !permission.isSuperUser(user)) {
         List.empty
       } else {
-        val managedProjectIds =
-          this.serviceManager.grant
-            .retrieveGrantsTo(Grantee.user(user.id), User.superUser)
-            .filter { g =>
-              g.target.objectType == ProjectType()
-            }
-            .map { g =>
-              g.target.objectId
-            }
-
         // TODO No sql should exist in the service layer
         val customQuery =
           s"""SELECT distinct projects.*, LOWER(projects.name), LOWER(projects.display_name)
               FROM projects"""
         val baseFilterGroup = FilterGroup(
           List(
-            BaseParameter(Project.FIELD_ID, managedProjectIds, Operator.IN),
+            BaseParameter(Project.FIELD_ID, user.managedProjectIds(), Operator.IN),
             BaseParameter(Project.FIELD_NAME, SQLUtils.search(searchString), Operator.LIKE),
             FilterParameter.conditional(
               Project.FIELD_ENABLED,

@@ -50,7 +50,7 @@ class GrantSchema @Inject() (override val service: GrantService)
 }
 
 object GrantSchema {
-  val roleArgument = Argument(
+  val roleArg = Argument(
     "role",
     IntType,
     "The granted role: -1 = SUPER USER, 1 = ADMIN, 2 = WRITE, 3 = READ"

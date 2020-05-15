@@ -168,14 +168,14 @@ class UserSchema @Inject() (override val service: UserService)
       name = "removeUserFromProject",
       description = Some("Removes a user from a specific project"),
       fieldType = BooleanType,
-      arguments = MRSchema.osmIdArg :: ProjectSchema.projectIdArg :: GrantSchema.roleArgument :: Nil,
+      arguments = MRSchema.osmIdArg :: ProjectSchema.projectIdArg :: GrantSchema.roleArg :: Nil,
       resolve = context => {
         // -1 indicates all roles, represented as an absence of a role filter
         val roleFilter =
-          if (context.arg(GrantSchema.roleArgument) == -1)
+          if (context.arg(GrantSchema.roleArg) == -1)
             None
           else
-            Some(context.arg(GrantSchema.roleArgument))
+            Some(context.arg(GrantSchema.roleArg))
 
         this.service.removeUserFromProject(
           context.arg(MRSchema.osmIdArg),
@@ -190,12 +190,12 @@ class UserSchema @Inject() (override val service: UserService)
       name = "addUserToProject",
       description = Some("Adds a user to a specified project"),
       fieldType = UserType,
-      arguments = MRSchema.osmIdArg :: ProjectSchema.projectIdArg :: GrantSchema.roleArgument :: Nil,
+      arguments = MRSchema.osmIdArg :: ProjectSchema.projectIdArg :: GrantSchema.roleArg :: Nil,
       resolve = context =>
         this.service.addUserToProject(
           context.arg(MRSchema.osmIdArg),
           context.arg(ProjectSchema.projectIdArg),
-          context.arg(GrantSchema.roleArgument),
+          context.arg(GrantSchema.roleArg),
           context.ctx.user
         )
     ),
@@ -281,6 +281,7 @@ object UserSchema extends DefaultWrites {
       InputObjectTypeDescription("Settings for a user object")
     )
 
+  val userIdArg: Argument[Long] = Argument("userId", LongType, "The user identifier")
   val userSettingsArg: Argument[UserSettings] = Argument(
     "settings",
     UserSettingsInputType,

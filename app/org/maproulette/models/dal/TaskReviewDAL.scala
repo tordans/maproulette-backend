@@ -1182,10 +1182,5 @@ class TaskReviewDAL @Inject() (
   }
 
   private def userHasProjectGrantSQL(user: User): String =
-    s"""${user.id} IN (
-        SELECT g.grantee_id from grants g
-        WHERE g.object_type = ${ProjectType().typeId} AND
-              g.object_id = p.id AND
-              g.grantee_type = ${UserType().typeId}
-    )"""
+    s"""p.id IN (${user.managedProjectIds().mkString(",")})"""
 }

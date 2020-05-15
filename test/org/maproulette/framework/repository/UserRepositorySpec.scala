@@ -105,23 +105,6 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
         )
       )
     }
-
-    "get users managing projects" taggedAs UserRepoTag in {
-      val managers = this.userRepository.getUsersManagingProject(this.defaultProject.id)
-      managers.size mustEqual 1
-      managers.head.osmId mustEqual this.defaultUser.osmProfile.id
-      val managers2 =
-        this.userRepository.getUsersManagingProject(this.defaultProject.id, Some(List.empty))
-      managers2.size mustEqual 1
-      managers2.head.osmId mustEqual this.defaultUser.osmProfile.id
-      val managers3 = this.userRepository
-        .getUsersManagingProject(this.defaultProject.id, Some(List(this.defaultUser.id)))
-      managers3.size mustEqual 0
-      val managers4 = this.userRepository
-        .getUsersManagingProject(this.defaultProject.id, Some(List(this.defaultUser.osmProfile.id)))
-      managers4.size mustEqual 1
-      managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
-    }
   }
 
   override implicit val projectTestName: String = "UserRepositorySpecProject"

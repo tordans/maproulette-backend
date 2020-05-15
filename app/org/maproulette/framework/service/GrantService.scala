@@ -72,11 +72,24 @@ class GrantService @Inject() (
   /**
     * Retrieve all grants belonging to the given Grantee
     *
-    * @param grantee the Grantee for which grants are desired
+    * @param grantee the Grantees for which grants are desired
     * @param user the user making the request
     */
   def retrieveGrantsTo(grantee: Grantee, user: User): List[Grant] =
-    this.retrieveMatchingGrants(grantee = Some(grantee), user = user)
+    this.retrieveMatchingGrants(grantee = Some(List(grantee)), user = user)
+
+  /**
+    * Retrieve all grants belonging to any of the given grantees, all of which
+    * must be of the same item type
+    *
+    * @param granteeType the item type of all grantees
+    * @param granteeIds the ids of the grantees for which grants are desired
+    * @param user the user making the request
+    */
+  def retrieveGrantsTo(granteeType: ItemType, granteeIds: List[Long], user: User): List[Grant] = {
+    val grantees = granteeIds.map(Grantee(granteeType, _))
+    this.retrieveMatchingGrants(grantee = Some(grantees), user = user)
+  }
 
   /**
     * Retrieve all grants on the given target object
@@ -91,13 +104,13 @@ class GrantService @Inject() (
   /**
     * Retrieve all grants matching the given criteria
     *
-    * @param grantee optional Grantee to filter by
+    * @param grantee optional Grantees to filter by (must all be of same type)
     * @param role optional role to filter by
     * @param target optional GrantTarget to filter by
     * @param user the user making the request
     */
   def retrieveMatchingGrants(
-      grantee: Option[Grantee] = None,
+      grantee: Option[List[Grantee]] = None,
       role: Option[Int] = None,
       target: Option[GrantTarget] = None,
       user: User
@@ -155,7 +168,7 @@ class GrantService @Inject() (
     * Delete all grants matching the given criteria. Either grantee or target
     * (or both) must be specified or an exception will be thrown.
     *
-    * @param grantee optional Grantee to filter by
+    * @param grantee optional Grantees to filter by (must all be of same type)
     * @param role optional role to filter by
     * @param target optional GrantTarget to filter by
     * @param user the user making the request
@@ -175,8 +188,14 @@ class GrantService @Inject() (
       )
     }
 
+    // Convert single grantee to List expected by grantFilterParameters
+    val granteeList = grantee match {
+      case Some(g) => Some(List(g))
+      case None    => None
+    }
+
     this.repository.deleteGrants(
-      Query.simple(this.grantFilterParameters(grantee, role, target))
+      Query.simple(this.grantFilterParameters(granteeList, role, target))
     )
   }
 
@@ -184,24 +203,24 @@ class GrantService @Inject() (
     * Generates List of query Parameters setup to match the given filter
     * arguments
     *
-    * @param granteeFilter optional Grantee to filter by
+    * @param granteeFilter optional Grantees to filter by (must all be of same type)
     * @param roleFilter optional role to filter by
     * @param targetFilter optional GrantTarget to filter by
     */
   private def grantFilterParameters(
-      granteeFilter: Option[Grantee] = None,
+      granteeFilter: Option[List[Grantee]] = None,
       roleFilter: Option[Int] = None,
       targetFilter: Option[GrantTarget] = None
   ): List[Parameter[_]] =
     List(
       granteeFilter match {
         case Some(grantee) =>
-          Some(BaseParameter(Grant.FIELD_GRANTEE_TYPE, grantee.granteeType.typeId))
+          Some(BaseParameter(Grant.FIELD_GRANTEE_TYPE, grantee.head.granteeType.typeId))
         case None => None
       },
       granteeFilter match {
         case Some(grantee) =>
-          Some(BaseParameter(Grant.FIELD_GRANTEE_ID, grantee.granteeId))
+          Some(BaseParameter(Grant.FIELD_GRANTEE_ID, grantee.map(_.granteeId), Operator.IN))
         case None => None
       },
       roleFilter match {

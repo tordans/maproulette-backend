@@ -100,6 +100,14 @@ class Permission @Inject() (
     if (!this.isSuperUser(user)) {
       obj match {
         case u: User => this.hasObjectReadAccess(u, user)
+        case group: Group =>
+          if (group.groupType == Group.GROUP_TYPE_TEAM) {
+            if (!this.serviceManager.team.isUserTeamAdmin(group, user, User.superUser)) {
+              throw new IllegalAccessException("Must be an admin of team to write to it")
+            }
+          } else {
+            this.hasObjectReadAccess(group, user)
+          }
         case p: Project =>
           this.hasProjectAccess(Some(p), user, role)
         case c: Challenge =>
@@ -181,13 +189,14 @@ class Permission @Inject() (
         // Make sure we're dealing with the latest user data
         this.serviceManager.user.retrieve(user.id) match {
           case Some(u) =>
-            if (!u.grantsForProject(p.id).exists(g => g.role <= role)) {
+            if (!u.grantsForProject(p.id).exists(_.role <= role)) {
               throw new IllegalAccessException(
-                s"User [${u.id}] does not have required access to this project [${p.id}]"
+                s"User [${user.id}] does not have required access to this project [${p.id}]"
               )
             }
           case None => throw new NotFoundException("No user found to check for access")
         }
+
       case None =>
         throw new NotFoundException(s"No project found to check access for object")
     }

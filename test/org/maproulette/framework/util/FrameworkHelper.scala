@@ -12,6 +12,7 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL, TaskReviewDAL}
+import org.maproulette.permissions.Permission
 import org.scalatest.{BeforeAndAfterAll, Tag}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
@@ -29,6 +30,7 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
   val challengeDAL: ChallengeDAL     = application.injector.instanceOf(classOf[ChallengeDAL])
   val taskDAL: TaskDAL               = application.injector.instanceOf(classOf[TaskDAL])
   val taskReviewDAL: TaskReviewDAL   = application.injector.instanceOf(classOf[TaskReviewDAL])
+  val permission: Permission         = application.injector.instanceOf(classOf[Permission])
 
   // To be removed when all of SnapshotManager has been converted
   val snapshotManager: SnapshotManager = application.injector.instanceOf(classOf[SnapshotManager])
@@ -141,6 +143,15 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
     )
   }
 
+  protected def getTestTeam(name: String): Group = {
+    Group(
+      -1,
+      name,
+      Some("A test team"),
+      Some("http://www.gravatar.com/avatar/?d=identicon")
+    )
+  }
+
   override protected def afterAll(): Unit = {
     val testProject = this.serviceManager.project.retrieveByName(projectTestName)
     this.serviceManager.project.delete(testProject.get.id, User.superUser, true)
@@ -162,6 +173,7 @@ object UserMetricsTag          extends Tag("usermetrics")
 object UserSavedObjectsTag     extends Tag("usersavedobjects")
 object UserSavedObjectsRepoTag extends Tag("usersavedobjectsrepo")
 object UserTag                 extends Tag("user")
+object GroupTag                extends Tag("group")
 object UserRepoTag             extends Tag("userRepo")
 object VirtualProjectTag       extends Tag("virtualproject")
 object VirtualProjectRepoTag   extends Tag("virtualprojectrepo")
@@ -169,3 +181,4 @@ object KeywordTag              extends Tag("keyword")
 object KeywordRepoTag          extends Tag("keywordrepo")
 object TaskReviewTag           extends Tag("taskreviewtag")
 object TaskTag                 extends Tag("tasktag")
+object TeamTag                 extends Tag("teamtag")

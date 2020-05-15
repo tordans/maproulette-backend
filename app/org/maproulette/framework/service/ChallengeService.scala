@@ -57,21 +57,11 @@ class ChallengeService @Inject() (
           ),
           operator = Operator.CUSTOM
         ),
-        SubQueryFilter(
-          user.id.toString,
-          Query.simple(
-            List(
-              BaseParameter(Grant.FIELD_OBJECT_TYPE, ProjectType().typeId),
-              BaseParameter(
-                Grant.FIELD_OBJECT_ID,
-                s"${Project.TABLE}.${Project.FIELD_ID}",
-                useValueDirectly = true
-              ),
-              BaseParameter(Grant.FIELD_GRANTEE_TYPE, UserType().typeId)
-            ),
-            base = s"SELECT ${Grant.TABLE}.object_id FROM grants "
-          ),
-          table = Some("")
+        BaseParameter(
+          Challenge.FIELD_PARENT_ID,
+          user.managedProjectIds,
+          Operator.IN,
+          table = Some(Challenge.TABLE)
         )
       ),
       OR(),
