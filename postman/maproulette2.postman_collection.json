@@ -7386,7 +7386,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Postman Team A\",\n  \"description\": \"A test team from Postman\"\n}",
+							"raw": "{\n  \"id\": -1,\n  \"name\": \"Postman Team A\",\n  \"description\": \"A test team from Postman\",\n  \"groupType\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -7425,6 +7425,16 @@
 								],
 								"type": "text/javascript"
 							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"id": "8d31a476-f2b7-4de2-9229-e2876b3e555a",
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
 						}
 					],
 					"request": {
@@ -7443,7 +7453,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Team A\",\n  \"description\": \"A test team\"\n}",
+							"raw": "{\n  \"id\": {{TestTeam}},\n  \"name\": \"Team A\",\n  \"description\": \"A test team\",\n  \"groupType\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -7554,7 +7564,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Team B\",\n  \"description\": \"A second test team\"\n}",
+							"raw": "{\n  \"id\": -1,\n  \"name\": \"Team B\",\n  \"description\": \"A second test team\",\n  \"groupType\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"

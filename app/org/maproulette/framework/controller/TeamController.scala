@@ -9,6 +9,7 @@ import java.net.URLDecoder
 
 import javax.inject.Inject
 import org.maproulette.data.ActionManager
+import org.maproulette.exception.{MPExceptionUtil, NotFoundException, StatusMessage}
 import org.maproulette.framework.service.TeamService
 import org.maproulette.framework.model.{User, TeamMember, TeamUser, MemberObject, Group}
 import org.maproulette.framework.psql.{Paging}
@@ -33,22 +34,26 @@ class TeamController @Inject() (
     */
   def createTeam(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Created(
-        Json.toJson(
-          this.teamService
-            .create(
-              Group(
-                -1,
-                (request.body \ "name").as[String],
-                (request.body \ "description").asOpt[String],
-                (request.body \ "avatarURL").asOpt[String],
-                Group.GROUP_TYPE_TEAM
-              ),
-              MemberObject.user(user.id),
-              user
+      val result = request.body.validate[Group]
+      result.fold(
+        errors => {
+          BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+        },
+        element => {
+          MPExceptionUtil.internalExceptionCatcher { () =>
+            Created(
+              Json.toJson(
+                this.teamService
+                  .create(
+                    element.copy(groupType = Group.GROUP_TYPE_TEAM),
+                    MemberObject.user(user.id),
+                    user
+                  )
+                  .get
+              )
             )
-            .get
-        )
+          }
+        }
       )
     }
   }
@@ -260,34 +265,34 @@ class TeamController @Inject() (
   def updateTeam(teamId: Long): Action[JsValue] = Action.async(bodyParsers.json) {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        this.teamService.retrieve(teamId, user) match {
-          case Some(team: Group) =>
-            val oldDescription: Option[String] = team.description
-            Ok(
-              Json.toJson(
-                this.teamService
-                  .updateTeam(
-                    team.copy(
-                      name = (request.body \ "name").asOpt[String] match {
-                        case Some(name) => name
-                        case None       => team.name
-                      },
-                      description = (request.body \ "description").asOpt[String] match {
-                        case Some(description) => Some(description)
-                        case None              => team.description
-                      },
-                      avatarURL = (request.body \ "avatarURL").asOpt[String] match {
-                        case Some(avatarURL) => Some(avatarURL)
-                        case None            => team.avatarURL
-                      }
-                    ),
-                    user
+        val result = request.body.validate[Group]
+        result.fold(
+          errors => {
+            BadRequest(Json.toJson(StatusMessage("KO", JsError.toJson(errors))))
+          },
+          element => {
+            MPExceptionUtil.internalExceptionCatcher { () =>
+              this.teamService.retrieve(teamId, user) match {
+                case Some(team: Group) =>
+                  Ok(
+                    Json.toJson(
+                      this.teamService
+                        .updateTeam(
+                          team.copy(
+                            name = element.name,
+                            description = element.description,
+                            avatarURL = element.avatarURL
+                          ),
+                          user
+                        )
+                        .get
+                    )
                   )
-                  .get
-              )
-            )
-          case None => NotFound
-        }
+                case None => NotFound
+              }
+            }
+          }
+        )
       }
   }
 

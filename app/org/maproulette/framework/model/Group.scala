@@ -7,6 +7,7 @@ package org.maproulette.framework.model
 import org.joda.time.DateTime
 import org.maproulette.framework.psql.CommonField
 import org.maproulette.data.{UserType}
+import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
@@ -29,7 +30,15 @@ case class Group(
 
 object Group extends CommonField {
   implicit val writes: Writes[Group] = Json.writes[Group]
-  implicit val reads: Reads[Group]   = Json.reads[Group]
+  implicit val reads: Reads[Group] = (
+    (JsPath \ "id").read[Long] and
+      (JsPath \ "name").read[String] and
+      (JsPath \ "description").readNullable[String] and
+      (JsPath \ "avatarURL").readNullable[String] and
+      (JsPath \ "groupType").read[Int] and
+      ((JsPath \ "created").read[DateTime] or Reads.pure(DateTime.now())) and
+      ((JsPath \ "modified").read[DateTime] or Reads.pure(DateTime.now()))
+  )(Group.apply _)
 
   val TABLE            = "groups"
   val FIELD_GROUP_TYPE = "group_type"

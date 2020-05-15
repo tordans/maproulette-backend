@@ -25,6 +25,14 @@ class FilterOperatorSpec extends PlaySpec {
       Operator.format(KEY, parameterKey, Operator.EQ, true) mustEqual s"NOT $KEY = {$parameterKey}"
     }
 
+    "format NE operator correctly" in {
+      Operator.format(KEY, parameterKey, Operator.NE) mustEqual s"$KEY <> {$parameterKey}"
+    }
+
+    "format NOT NE operator correctly" in {
+      Operator.format(KEY, parameterKey, Operator.NE, true) mustEqual s"NOT $KEY <> {$parameterKey}"
+    }
+
     "format GT operator correctly" in {
       Operator.format(KEY, parameterKey, Operator.GT) mustEqual s"$KEY > {$parameterKey}"
     }
