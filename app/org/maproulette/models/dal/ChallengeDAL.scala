@@ -610,7 +610,7 @@ class ChallengeDAL @Inject() (
     * @param c    The connection for the request
     */
   def updateTaskPriorities(user: User)(implicit id: Long, c: Option[Connection] = None): Unit = {
-    this.permission.hasWriteAccess(TaskType(), user)
+    this.permission.hasWriteAccess(ChallengeType(), user)
     this.withMRConnection { implicit c =>
       val challenge = this.retrieveById(id) match {
         case Some(c) => c
