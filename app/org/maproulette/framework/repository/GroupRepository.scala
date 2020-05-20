@@ -14,7 +14,7 @@ import org.joda.time.DateTime
 import org.maproulette.framework.model.{Group, GroupMember}
 import org.maproulette.framework.repository.{GroupMemberRepository}
 import org.maproulette.framework.psql.{Query, Paging}
-import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
+import org.maproulette.framework.psql.filter.{BaseParameter, Operator, FilterGroup}
 import play.api.db.Database
 
 /**
@@ -61,19 +61,19 @@ class GroupRepository @Inject() (
   /**
     * Retrieve all groups matching the ids
     */
-  def list(ids: List[Long], paging: Paging = Paging()): List[Group] = {
+  def list(ids: List[Long], query: Query = Query.empty): List[Group] = {
     if (ids.isEmpty) {
       return List()
     }
 
-    this.query(
-      Query.simple(
-        List(
-          BaseParameter(Group.FIELD_ID, ids, Operator.IN)
-        ),
-        paging = paging
+    this
+      .query(
+        query.addFilterGroup(
+          FilterGroup(
+            List(BaseParameter(Group.FIELD_ID, ids, Operator.IN))
+          )
+        )
       )
-    )
   }
 
   /**
