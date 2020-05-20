@@ -67,7 +67,8 @@ case class SearchParameters(
     fuzzySearch: Option[Int] = None,
     mapper: Option[String] = None,
     owner: Option[String] = None,
-    reviewer: Option[String] = None
+    reviewer: Option[String] = None,
+    invertFields: Option[List[String]] = None
 ) {
   def getProjectIds: Option[List[Long]] = projectIds match {
     case Some(v) => Some(v.filter(_ != -1))
@@ -477,7 +478,12 @@ object SearchParameters {
       //Owner
       this.getStringParameter(request.getQueryString("o"), params.owner),
       //Reviewer
-      this.getStringParameter(request.getQueryString("r"), params.reviewer)
+      this.getStringParameter(request.getQueryString("r"), params.reviewer),
+      // Fields to invert
+      request.getQueryString("invf") match {
+        case Some(q) => Utils.toStringList(q)
+        case None => params.invertFields
+      }
     ))
   }
   // format: off
@@ -496,6 +502,23 @@ object SearchParameters {
       case e: Exception =>
         SearchParameters()
     }
+  }
+
+  /**
+    * If we don't want to use default taskStatus (0,3,6) but want to use all then
+    * this method will copy the params and force all statuses (by creating an
+    * empty list as opposed to None).
+    * @see SearchParametersMixin.paramsTaskStatus for where the limiting is determined
+    */
+  def withDefaultAllTaskStatuses(params: SearchParameters): SearchParameters = {
+    val taskStatuses = params.taskParams.taskStatus match {
+      case Some(ts) => ts
+      case None => List[Int]()
+    }
+
+    params.copy(
+      taskParams = params.taskParams.copy(taskStatus = Some(taskStatuses))
+    )
   }
 
   private def getBooleanParameter(value: Option[String], default: Option[Boolean]): Option[Boolean] = value match {
