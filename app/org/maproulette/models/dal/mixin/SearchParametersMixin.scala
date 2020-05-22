@@ -14,7 +14,7 @@ import scala.collection.mutable.ListBuffer
 
 /**
   * NOTE: This class has quite a few side effects that need to be taken into account. Specifically
-  * that the "whereClause" and "joinClause" that are updated through the string builder functions
+  * that the "whereClause" and "joinClause" are updated through the string builder functions
   * and not returned. So basically functioning like InOut Parameters. Not the best approach
   *
   * @author mcuthbert
@@ -34,20 +34,20 @@ trait SearchParametersMixin extends DALHelper {
     this.paramsTaskStatus(params, whereClause)
     this.paramsTaskId(params, whereClause)
     this.paramsProjectSearch(params, whereClause)
-    this.paramsTaskReviewStatus(params, whereClause, joinClause)
-    this.paramsOwner(params, whereClause, joinClause)
-    this.paramsReviewer(params, whereClause, joinClause)
-    this.paramsMapper(params, whereClause, joinClause)
+    this.paramsTaskReviewStatus(params, whereClause)
+    this.paramsOwner(params, whereClause)
+    this.paramsReviewer(params, whereClause)
+    this.paramsMapper(params, whereClause)
     this.paramsTaskPriorities(params, whereClause)
     this.paramsTaskTags(params, whereClause)
     this.paramsPriority(params, whereClause)
     this.paramsChallengeDifficulty(params, whereClause)
-    this.paramsChallengeStatus(params, whereClause, joinClause)
-    this.paramsChallengeRequiresLocal(params, whereClause, joinClause)
+    this.paramsChallengeStatus(params, whereClause)
+    this.paramsChallengeRequiresLocal(params, whereClause)
     this.paramsBoundingGeometries(params, whereClause)
 
     // For efficiency can only query on task properties with a parent challenge id
-    this.paramsChallengeIds(params, whereClause, joinClause)
+    this.paramsTaskProps(params, whereClause)
 
     parameters ++= this.addSearchToQuery(params, whereClause)(projectSearch)
     parameters ++= this.addChallengeTagMatchingToQuery(params, whereClause, joinClause)
@@ -57,10 +57,11 @@ trait SearchParametersMixin extends DALHelper {
   def paramsProjectSearch(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.projectSearch match {
       case Some(ps) =>
+        val invert      = if (params.invertFields.getOrElse(List()).contains("ps")) "NOT" else ""
         val projectName = ps.replace("'", "''")
         this.appendInWhereClause(
           whereClause,
-          s"""LOWER(p.display_name) LIKE LOWER('%${projectName}%')"""
+          s"""LOWER(p.display_name) ${invert} LIKE LOWER('%${projectName}%')"""
         )
       case None => // do nothing
     }
@@ -91,12 +92,15 @@ trait SearchParametersMixin extends DALHelper {
   def paramsTaskStatus(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskParams.taskStatus match {
       case Some(sl) if sl.nonEmpty =>
+        val invert = if (params.invertFields.getOrElse(List()).contains("tStatus")) "NOT" else ""
+
         // If list contains -1 then ignore filtering by status
         if (!sl.contains(-1)) {
-          this.appendInWhereClause(whereClause, s"tasks.status IN (${sl.mkString(",")})")
+          this.appendInWhereClause(whereClause, s"tasks.status ${invert} IN (${sl.mkString(",")})")
         }
       case Some(sl) if sl.isEmpty => //ignore this scenario
-      case _                      => this.appendInWhereClause(whereClause, "tasks.status IN (0,3,6)")
+      case _ =>
+        this.appendInWhereClause(whereClause, "tasks.status IN (0,3,6)")
     }
   }
 
@@ -111,7 +115,8 @@ trait SearchParametersMixin extends DALHelper {
   def paramsTaskPriorities(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.taskParams.taskPriorities match {
       case Some(sl) if sl.nonEmpty =>
-        this.appendInWhereClause(whereClause, s"tasks.priority IN (${sl.mkString(",")})")
+        val invert = if (params.invertFields.getOrElse(List()).contains("priorities")) "NOT" else ""
+        this.appendInWhereClause(whereClause, s"tasks.priority ${invert} IN (${sl.mkString(",")})")
       case Some(sl) if sl.isEmpty => //ignore this scenario
       case _                      => // do nothing
     }
@@ -120,7 +125,8 @@ trait SearchParametersMixin extends DALHelper {
   def paramsPriority(params: SearchParameters, whereClause: StringBuilder): Unit = {
     params.priority match {
       case Some(p) if p == 0 || p == 1 || p == 2 =>
-        this.appendInWhereClause(whereClause, s"tasks.priority = $p")
+        val invert = if (params.invertFields.getOrElse(List()).contains("tp")) "!" else ""
+        this.appendInWhereClause(whereClause, s"tasks.priority ${invert}= $p")
       case _ => // ignore
     }
   }
@@ -153,17 +159,19 @@ trait SearchParametersMixin extends DALHelper {
 
   def paramsTaskReviewStatus(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
-        val filter = new StringBuilder(s"""(tasks.id IN (SELECT task_id FROM task_review
+        val invert = if (params.invertFields.getOrElse(List()).contains("trStatus")) "NOT" else ""
+        val filter = new StringBuilder(s"""(tasks.id ${invert} IN (SELECT task_id FROM task_review
                                                     WHERE task_review.task_id = tasks.id AND task_review.review_status
                                                           IN (${statuses.mkString(",")})) """)
         if (statuses.contains(-1)) {
+          val includeNOT =
+            if (!params.invertFields.getOrElse(List()).contains("trStatus")) "NOT" else ""
           filter.append(
-            " OR tasks.id NOT IN (SELECT task_id FROM task_review task_review WHERE task_review.task_id = tasks.id)"
+            s" OR tasks.id ${includeNOT} IN (SELECT task_id FROM task_review task_review WHERE task_review.task_id = tasks.id)"
           )
         }
         filter.append(")")
@@ -175,8 +183,7 @@ trait SearchParametersMixin extends DALHelper {
 
   def paramsChallengeStatus(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.challengeParams.challengeStatus match {
       case Some(sl) if sl.nonEmpty =>
@@ -193,8 +200,7 @@ trait SearchParametersMixin extends DALHelper {
 
   def paramsChallengeRequiresLocal(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.challengeParams.challengeIds match {
       case Some(ids) if ids.nonEmpty =>
@@ -268,10 +274,9 @@ trait SearchParametersMixin extends DALHelper {
     }
   }
 
-  def paramsChallengeIds(
+  def paramsTaskProps(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.getChallengeIds match {
       case Some(l) =>
@@ -287,10 +292,7 @@ trait SearchParametersMixin extends DALHelper {
           case _ =>
             params.taskParams.taskProperties match {
               case Some(tp) =>
-                val searchType = params.taskParams.taskPropertySearchType match {
-                  case Some(t) => t
-                  case _       => "equals"
-                }
+                val searchType = params.taskParams.taskPropertySearchType.getOrElse("equals")
 
                 val query = new StringBuilder(s"""tasks.id IN (
                     SELECT id FROM tasks,
@@ -299,16 +301,18 @@ trait SearchParametersMixin extends DALHelper {
                     AND (true
                    """)
                 for ((k, v) <- tp) {
-                  if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS) {
-                    query ++= s" AND features->'properties'->>'${k}' = '${v}' "
-                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL) {
-                    query ++= s" AND features->'properties'->>'${k}' != '${v}' "
-                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS) {
-                    query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
-                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_EXISTS) {
-                    query ++= s" AND features->'properties'->>'${k}' IS NOT NULL "
-                  } else if (searchType == SearchParameters.TASK_PROP_SEARCH_TYPE_MISSING) {
-                    query ++= s" AND features->'properties'->>'${k}' IS NULL "
+                  searchType match {
+                    case SearchParameters.TASK_PROP_SEARCH_TYPE_EQUALS =>
+                      query ++= s" AND features->'properties'->>'${k}' = '${v}' "
+                    case SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL =>
+                      query ++= s" AND features->'properties'->>'${k}' != '${v}' "
+                    case SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS =>
+                      query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
+                    case SearchParameters.TASK_PROP_SEARCH_TYPE_EXISTS =>
+                      query ++= s" AND features->'properties'->>'${k}' IS NOT NULL "
+                    case SearchParameters.TASK_PROP_SEARCH_TYPE_MISSING =>
+                      query ++= s" AND features->'properties'->>'${k}' IS NULL "
+                    case _ => // should not happen
                   }
                 }
                 query ++= "))"
@@ -322,39 +326,60 @@ trait SearchParametersMixin extends DALHelper {
 
   def paramsOwner(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.owner match {
       case Some(o) if o.nonEmpty =>
-        joinClause ++= "INNER JOIN users u ON u.id = task_review.review_requested_by "
-        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
+        val invert = if (params.invertFields.getOrElse(List()).contains("o")) "NOT" else ""
+        this.appendInWhereClause(
+          whereClause,
+          s""" (tasks.id ${invert} IN (SELECT task_id
+                                       FROM task_review tr
+                                       INNER JOIN users u ON u.id = tr.review_requested_by
+                                       WHERE tr.task_id = tasks.id AND
+                                             LOWER(u.name) LIKE LOWER('%${o}%') ))
+           """
+        )
       case _ => // ignore
     }
   }
 
   def paramsReviewer(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.reviewer match {
       case Some(r) if r.nonEmpty =>
-        joinClause ++= "INNER JOIN users u2 ON u2.id = task_review.reviewed_by "
-        this.appendInWhereClause(whereClause, s"LOWER(u2.name) LIKE LOWER('%${r}%')")
+        val invert = if (params.invertFields.getOrElse(List()).contains("r")) "NOT" else ""
+        this.appendInWhereClause(
+          whereClause,
+          s""" (tasks.id ${invert} IN (SELECT task_id
+                                       FROM task_review tr
+                                       INNER JOIN users u ON u.id = tr.reviewed_by
+                                       WHERE tr.task_id = tasks.id AND
+                                             LOWER(u.name) LIKE LOWER('%${r}%') ))
+           """
+        )
       case _ => // ignore
     }
   }
 
   def paramsMapper(
       params: SearchParameters,
-      whereClause: StringBuilder,
-      joinClause: StringBuilder
+      whereClause: StringBuilder
   ): Unit = {
     params.mapper match {
       case Some(o) if o.nonEmpty =>
-        joinClause ++= "INNER JOIN users u ON u.id = tasks.completed_by "
-        this.appendInWhereClause(whereClause, s"LOWER(u.name) LIKE LOWER('%${o}%')")
+        val invert = if (params.invertFields.getOrElse(List()).contains("m")) "NOT" else ""
+        this.appendInWhereClause(
+          whereClause,
+          s""" (tasks.id ${invert} IN (SELECT t2.id
+                                       FROM tasks t2
+                                       INNER JOIN users u ON u.id = t2.completed_by
+                                       WHERE t2.id = tasks.id AND
+                                             LOWER(u.name) LIKE LOWER('%${o}%') ))
+           """
+        )
       case _ => // ignore
     }
   }
@@ -397,7 +422,10 @@ trait SearchParametersMixin extends DALHelper {
   ): Unit = {
     params.reviewParams.priorities match {
       case Some(priority) if priority.nonEmpty =>
-        val priorityClause = new StringBuilder(s"(tasks.priority IN (${priority.mkString(",")}))")
+        val invert = if (params.invertFields.getOrElse(List()).contains("priorities")) "NOT" else ""
+        val priorityClause = new StringBuilder(
+          s"(tasks.priority ${invert} IN (${priority.mkString(",")}))"
+        )
         this.appendInWhereClause(whereClause, priorityClause.toString())
       case Some(priority) if priority.isEmpty => //ignore this scenario
       case _                                  =>

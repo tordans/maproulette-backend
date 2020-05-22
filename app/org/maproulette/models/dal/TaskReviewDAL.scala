@@ -471,7 +471,7 @@ class TaskReviewDAL @Inject() (
     val parameters = new ListBuffer[NamedParameter]()
     parameters ++= addSearchToQuery(searchParameters, whereClause)
 
-    setupReviewSearchClause(whereClause, joinClause, searchParameters)
+    setupReviewSearchClause(whereClause, searchParameters)
 
     sort match {
       case s if s.nonEmpty =>
@@ -585,7 +585,7 @@ class TaskReviewDAL @Inject() (
       )
     }
 
-    setupReviewSearchClause(whereClause, joinClause, searchParameters)
+    setupReviewSearchClause(whereClause, searchParameters)
 
     sort match {
       case s if s.nonEmpty =>
@@ -788,7 +788,7 @@ class TaskReviewDAL @Inject() (
       whereClause,
       "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
     )
-    setupReviewSearchClause(whereClause, joinClause, searchParameters)
+    setupReviewSearchClause(whereClause, searchParameters)
 
     var groupFields = ""
     val groupBy = groupByMappers match {
@@ -895,7 +895,7 @@ class TaskReviewDAL @Inject() (
         )
       }
 
-      setupReviewSearchClause(whereClause, joinClause, params)
+      setupReviewSearchClause(whereClause, params)
 
       val where = if (whereClause.isEmpty) {
         whereClause.toString
@@ -918,16 +918,20 @@ class TaskReviewDAL @Inject() (
     */
   private def setupReviewSearchClause(
       whereClause: StringBuilder,
-      joinClause: StringBuilder,
       searchParameters: SearchParameters
   ): Unit = {
 
-    this.paramsOwner(searchParameters, whereClause, joinClause)
-    this.paramsReviewer(searchParameters, whereClause, joinClause)
+    this.paramsOwner(searchParameters, whereClause)
+    this.paramsReviewer(searchParameters, whereClause)
+    this.paramsMapper(searchParameters, whereClause)
 
     searchParameters.taskParams.taskStatus match {
       case Some(statuses) if statuses.nonEmpty =>
-        val statusClause = new StringBuilder(s"(tasks.status IN (${statuses.mkString(",")})")
+        val invert =
+          if (searchParameters.invertFields.getOrElse(List()).contains("tStatus")) "NOT" else ""
+        val statusClause = new StringBuilder(
+          s"(tasks.status ${invert} IN (${statuses.mkString(",")})"
+        )
         if (statuses.contains(-1)) {
           statusClause ++= " OR c.status IS NULL"
         }
@@ -939,8 +943,10 @@ class TaskReviewDAL @Inject() (
 
     searchParameters.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
+        val invert =
+          if (searchParameters.invertFields.getOrElse(List()).contains("trStatus")) "NOT" else ""
         val statusClause = new StringBuilder(
-          s"(task_review.review_status IN (${statuses.mkString(",")}))"
+          s"(task_review.review_status ${invert} IN (${statuses.mkString(",")}))"
         )
         this.appendInWhereClause(whereClause, statusClause.toString())
       case Some(statuses) if statuses.isEmpty => //ignore this scenario
