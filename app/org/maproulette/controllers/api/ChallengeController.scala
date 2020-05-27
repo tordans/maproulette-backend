@@ -765,7 +765,7 @@ class ChallengeController @Inject() (
                 (responseMap \ key) match {
                   case value: JsDefined =>
                     var propValue = value.get.toString()
-                    if (propValue != "true") {
+                    if (propValue != "true" && propValue != "false") {
                       // Strip off ""s
                       propValue = propValue.substring(1, propValue.length() - 1)
                     }
