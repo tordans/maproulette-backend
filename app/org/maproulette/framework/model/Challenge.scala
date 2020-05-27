@@ -9,12 +9,34 @@ import org.joda.time.DateTime
 import org.maproulette.data.{ChallengeType, ItemType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.psql.CommonField
-import org.maproulette.models.BaseObject
+import org.maproulette.models.{BaseObject, Task}
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
+import org.maproulette.utils.Utils
 
 case class PriorityRule(operator: String, key: String, value: String, valueType: String) {
-  def doesMatch(properties: Map[String, String]): Boolean = {
+  def doesMatch(properties: Map[String, String], task: Task): Boolean = {
+    // For a "bounds" match we need to see if task location is in given bounds value
+    if (valueType == "bounds") {
+      // MinX,MinY,MaxX,MaxY
+      val bbox: List[Double] = Utils.toDoubleList(value).getOrElse(List(0, 0, 0, 0))
+
+      // Some({"type":"Point","coordinates":[-120.18699365,48.47991855]})
+      task.location match {
+        case Some(loc) =>
+          val coordinates = (Json.parse(loc) \ "coordinates").as[List[Double]]
+          val x: Double   = coordinates(0) //-120  -160,48.4770,120,50
+          val y: Double   = coordinates(1) //49
+          val isInBBox    = (x > bbox(0) && x < bbox(2) && y > bbox(1) && y < bbox(3))
+          operator match {
+            case "contains"     => isInBBox  // loc is in bbox
+            case "not_contains" => !isInBBox // loc is not in bbox
+          }
+          return isInBBox
+        case _ => // no location to match against
+      }
+    }
+
     properties.find(pair => StringUtils.equalsIgnoreCase(pair._1, key)) match {
       case Some(v) =>
         valueType match {
@@ -142,23 +164,31 @@ case class Challenge(
 
   override val itemType: ItemType = ChallengeType()
 
-  def isHighPriority(properties: Map[String, String]): Boolean =
-    this.matchesRule(priority.highPriorityRule, properties)
+  def isHighPriority(properties: Map[String, String], task: Task): Boolean =
+    this.matchesRule(priority.highPriorityRule, properties, task)
 
-  def isMediumPriority(properties: Map[String, String]): Boolean =
-    this.matchesRule(priority.mediumPriorityRule, properties)
+  def isMediumPriority(properties: Map[String, String], task: Task): Boolean =
+    this.matchesRule(priority.mediumPriorityRule, properties, task)
 
-  def isLowRulePriority(properties: Map[String, String]): Boolean =
-    this.matchesRule(priority.lowPriorityRule, properties)
+  def isLowRulePriority(properties: Map[String, String], task: Task): Boolean =
+    this.matchesRule(priority.lowPriorityRule, properties, task)
 
-  private def matchesRule(rule: Option[String], properties: Map[String, String]): Boolean = {
+  private def matchesRule(
+      rule: Option[String],
+      properties: Map[String, String],
+      task: Task
+  ): Boolean = {
     rule match {
-      case Some(r) => matchesJSONRule(Json.parse(r), properties)
+      case Some(r) => matchesJSONRule(Json.parse(r), properties, task)
       case None    => false
     }
   }
 
-  private def matchesJSONRule(ruleJSON: JsValue, properties: Map[String, String]): Boolean = {
+  private def matchesJSONRule(
+      ruleJSON: JsValue,
+      properties: Map[String, String],
+      task: Task
+  ): Boolean = {
     val cnf = (ruleJSON \ "condition").asOpt[String] match {
       case Some("OR") => false
       case _          => true
@@ -167,13 +197,13 @@ case class Challenge(
     val rules          = (ruleJSON \ "rules").as[List[JsValue]]
     val matched = rules.filter(jsValue => {
       (jsValue \ "rules").asOpt[JsValue] match {
-        case Some(nestedRule) => matchesJSONRule(jsValue, properties)
+        case Some(nestedRule) => matchesJSONRule(jsValue, properties, task)
         case _ =>
           val keyValue  = (jsValue \ "value").as[String].split("\\.", 2)
           val valueType = (jsValue \ "type").as[String]
           val rule =
             PriorityRule((jsValue \ "operator").as[String], keyValue(0), keyValue(1), valueType)
-          rule.doesMatch(properties)
+          rule.doesMatch(properties, task)
       }
     })
     if (cnf && matched.size == rules.size) {
