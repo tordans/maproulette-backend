@@ -27,6 +27,7 @@ import org.maproulette.provider.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.{
   SearchChallengeParameters,
+  SearchTaskParameters,
   SearchLocation,
   SearchParameters,
   SessionManager
@@ -335,8 +336,10 @@ class TaskController @Inject() (
           challengeSearch = Some(challengeSearch),
           challengeTags = Some(challengeTags.split(",").toList)
         ),
-        taskTags = Some(tags.split(",").toList),
-        taskSearch = Some(taskSearch)
+        taskParams = SearchTaskParameters(
+          taskTags = Some(tags.split(",").toList),
+          taskSearch = Some(taskSearch)
+        )
       )
       val result = this.dal.getRandomTasks(
         User.userOrMocked(user),
@@ -425,12 +428,13 @@ class TaskController @Inject() (
       right: Double,
       top: Double,
       limit: Int,
-      offset: Int,
+      page: Int,
       excludeLocked: Boolean,
       sort: String = "",
       order: String = "ASC",
       includeTotal: Boolean = false,
-      includeGeometries: Boolean = false
+      includeGeometries: Boolean = false,
+      includeTags: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { p =>
@@ -439,13 +443,13 @@ class TaskController @Inject() (
           User.userOrMocked(user),
           params,
           limit,
-          offset,
+          page,
           excludeLocked,
           sort,
           order
         )
 
-        val resultJson = _insertExtraJSON(result, includeGeometries)
+        val resultJson = _insertExtraJSON(result, includeGeometries, includeTags)
 
         if (includeTotal) {
           Ok(Json.obj("total" -> count, "tasks" -> resultJson))
@@ -462,7 +466,8 @@ class TaskController @Inject() (
     */
   private def _insertExtraJSON(
       tasks: List[ClusteredPoint],
-      includeGeometries: Boolean = false
+      includeGeometries: Boolean = false,
+      includeTags: Boolean = false
   ): JsValue = {
     if (tasks.isEmpty) {
       Json.toJson(List[JsValue]())
@@ -496,6 +501,11 @@ class TaskController @Inject() (
           case false => null
         }
 
+      val tagsMap: Map[Long, List[Tag]] = includeTags match {
+        case true => this.serviceManager.tag.listByTasks(tasks.map(t => t.id))
+        case _    => null
+      }
+
       val jsonList = tasks.map { task =>
         var updated         = Json.toJson(task)
         var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
@@ -525,6 +535,13 @@ class TaskController @Inject() (
         if (includeGeometries) {
           val geometries = Json.parse(taskDetailsMap(task.id).geometries)
           updated = Utils.insertIntoJson(updated, "geometries", geometries, true)
+        }
+
+        if (includeTags) {
+          if (tagsMap.contains(task.id)) {
+            val tagsJson = Json.toJson(tagsMap(task.id))
+            updated = Utils.insertIntoJson(updated, "tags", tagsJson, true)
+          }
         }
 
         updated
@@ -846,7 +863,7 @@ class TaskController @Inject() (
       this.serviceManager.comment.create(user, task.id, comment, actionId)
     }
 
-    val tagList = tags.split(",").toList
+    val tagList = if (tags == "") List() else tags.split(",").toList
     if (tagList.nonEmpty) {
       this.addTagstoItem(taskId, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
     }

@@ -368,8 +368,8 @@ class ChallengeDAL @Inject() (
   def retrieveRootObject(obj: Either[Long, Challenge], user: User)(
       implicit c: Option[Connection] = None
   ): Option[Project] = {
-    val projectParser = ProjectRepository.parser(id =>
-      this.serviceManager.group.retrieveProjectGroups(id, User.superUser)
+    val projectParser = ProjectRepository.parser(projectId =>
+      this.serviceManager.grant.retrieveGrantsOn(GrantTarget.project(projectId), User.superUser)
     )
     obj match {
       case Left(id) =>
@@ -610,7 +610,7 @@ class ChallengeDAL @Inject() (
     * @param c    The connection for the request
     */
   def updateTaskPriorities(user: User)(implicit id: Long, c: Option[Connection] = None): Unit = {
-    this.permission.hasWriteAccess(TaskType(), user)
+    this.permission.hasWriteAccess(ChallengeType(), user)
     this.withMRConnection { implicit c =>
       val challenge = this.retrieveById(id) match {
         case Some(c) => c
@@ -973,7 +973,7 @@ class ChallengeDAL @Inject() (
 
       params match {
         case Some(p) =>
-          p.taskPropertySearch match {
+          p.taskParams.taskPropertySearch match {
             case Some(tps) =>
               filters.append(s""" AND t.id IN (
                   SELECT id FROM tasks,
@@ -984,7 +984,7 @@ class ChallengeDAL @Inject() (
             case None => // do nothing
           }
 
-          p.taskId match {
+          p.taskParams.taskId match {
             case Some(tid) => filters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%'")
             case _         => // do nothing
           }
@@ -1146,7 +1146,7 @@ class ChallengeDAL @Inject() (
         """
       )
 
-      params.taskStatus match {
+      params.taskParams.taskStatus match {
         case Some(s) => this.appendInWhereClause(whereClause, s"t.status IN (${s.mkString(",")})")
         case None    => ""
       }

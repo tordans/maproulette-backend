@@ -13,7 +13,8 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.models.Task
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
-import org.maproulette.session.SearchParameters
+import org.maproulette.models.dal.mixin.SearchParametersMixin
+import org.maproulette.session.{SearchParameters, SearchTaskParameters}
 import org.maproulette.utils.BoundingBoxFinder
 import play.api.Application
 import play.api.db.Database
@@ -111,7 +112,8 @@ case class LeaderboardUser(
 @Singleton
 class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: BoundingBoxFinder)(
     implicit application: Application
-) extends DALHelper {
+) extends DALHelper
+    with SearchParametersMixin {
   private def getDistinctUsers(
       projectFilter: String,
       survey: Boolean = false,
@@ -366,102 +368,69 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
           tasksWithTime
         )
       )
+      val searchParams = SearchParameters.withDefaultAllTaskStatuses(
+        params match {
+          case Some(p) => p
+          case None    => new SearchParameters()
+        }
+      )
+
       val challengeFilter = challengeId match {
-        case Some(id) if id != -1 => s"AND t.parent_id = $id"
+        case Some(id) if id != -1 => s"AND tasks.parent_id = $id"
         case _                    => buildProjectSearch(projectList, "c.parent_id", "c.id")
       }
       val priorityFilter = priority match {
-        case Some(p) => s"AND t.priority IN (${p.mkString(",")})"
-        case None    => ""
+        case Some(p) =>
+          val invert =
+            if (searchParams.invertFields.getOrElse(List()).contains("priority")) "NOT" else ""
+          s"AND tasks.priority ${invert} IN (${p.mkString(",")})"
+        case None => ""
       }
 
-      val searchFilters = new StringBuilder
+      val searchFilters = new StringBuilder(
+        s"1=1 $challengeFilter $priorityFilter ${if (searchString != "") searchField("c.name")
+        else ""}"
+      )
 
-      params match {
-        case Some(search) =>
-          search.taskStatus match {
-            case Some(s) if s.nonEmpty =>
-              searchFilters.append(s" AND t.status IN (${s.mkString(",")}) ")
-            case _ =>
-          }
-
-          search.taskReviewStatus match {
-            case Some(statuses) if statuses.nonEmpty =>
-              val filter = new StringBuilder(s"""AND (t.id IN (SELECT task_id FROM task_review tr
-                                                          WHERE tr.task_id = t.id AND tr.review_status
-                                                                IN (${statuses.mkString(",")})) """)
-              if (statuses.contains(-1)) {
-                filter.append(
-                  " OR t.id NOT IN (SELECT task_id FROM task_review tr WHERE tr.task_id = t.id)"
-                )
-              }
-              filter.append(")")
-              searchFilters.append(filter)
-            case Some(statuses) if statuses.isEmpty => //ignore this scenario
-            case _                                  =>
-          }
-
-          search.owner match {
-            case Some(o) if o.nonEmpty =>
-              searchFilters.append(s""" AND (t.id IN (SELECT task_id
-                                                     FROM task_review tr
-                                                     INNER JOIN users u ON u.id = tr.review_requested_by
-                                                     WHERE tr.task_id = t.id AND
-                                                     LOWER(u.name) LIKE LOWER('%${o}%') )) """)
-            case _ => // ignore
-          }
-
-          search.reviewer match {
-            case Some(r) if r.nonEmpty =>
-              searchFilters.append(s""" AND (t.id IN (SELECT task_id
-                                                     FROM task_review tr
-                                                     INNER JOIN users u ON u.id = tr.reviewed_by
-                                                     WHERE tr.task_id = t.id AND
-                                                    LOWER(u.name) LIKE LOWER('%${r}%') )) """)
-            case _ => // ignore
-          }
-
-          search.taskId match {
-            case Some(tid) =>
-              searchFilters.append(s" AND CAST(t.id AS TEXT) LIKE '${tid}%' ")
-            case _ => // ignore
-          }
-        case _ =>
-      }
+      this.paramsTaskStatus(searchParams, searchFilters)
+      this.paramsTaskReviewStatus(searchParams, searchFilters)
+      this.paramsTaskId(searchParams, searchFilters)
+      this.paramsOwner(searchParams, searchFilters)
+      this.paramsReviewer(searchParams, searchFilters)
+      this.paramsMapper(searchParams, searchFilters)
 
       // The percentage columns are a bit of a hack simply so that we can order by the percentages.
       // It won't decrease performance as this is simple basic math calculations, but it certainly
       // isn't pretty
       val query =
-        s"""SELECT t.parent_id, c.name,
-              COUNT(t.completed_time_spent) as tasksWithTime,
-              COALESCE(SUM(t.completed_time_spent), 0) as totalTimeSpent,
-              SUM(CASE WHEN t.status != 4 THEN 1 ELSE 0 END) as total,
-              SUM(CASE t.status WHEN 0 THEN 1 ELSE 0 END) as available,
-              SUM(CASE t.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
-              SUM(CASE t.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
-              SUM(CASE t.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
-              SUM(CASE t.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
-              SUM(CASE t.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
-              SUM(CASE t.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
-              SUM(CASE t.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
-              SUM(CASE t.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
-              SUM(CASE t.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
-            FROM tasks t
-            INNER JOIN challenges c ON c.id = t.parent_id
+        s"""SELECT tasks.parent_id, c.name,
+              COUNT(tasks.completed_time_spent) as tasksWithTime,
+              COALESCE(SUM(tasks.completed_time_spent), 0) as totalTimeSpent,
+              SUM(CASE WHEN tasks.status != 4 THEN 1 ELSE 0 END) as total,
+              SUM(CASE tasks.status WHEN 0 THEN 1 ELSE 0 END) as available,
+              SUM(CASE tasks.status WHEN 1 THEN 1 ELSE 0 END) as fixed,
+              SUM(CASE tasks.status WHEN 2 THEN 1 ELSE 0 END) as false_positive,
+              SUM(CASE tasks.status WHEN 3 THEN 1 ELSE 0 END) as skipped,
+              SUM(CASE tasks.status WHEN 4 THEN 1 ELSE 0 END) as deleted,
+              SUM(CASE tasks.status WHEN 5 THEN 1 ELSE 0 END) as already_fixed,
+              SUM(CASE tasks.status WHEN 6 THEN 1 ELSE 0 END) AS too_hard,
+              SUM(CASE tasks.status WHEN 7 THEN 1 ELSE 0 END) AS answered,
+              SUM(CASE tasks.status WHEN 8 THEN 1 ELSE 0 END) AS validated,
+              SUM(CASE tasks.status WHEN 9 THEN 1 ELSE 0 END) AS disabled
+            FROM tasks
+            INNER JOIN challenges c ON c.id = tasks.parent_id
             INNER JOIN projects p ON p.id = c.parent_id
             WHERE ${if (onlyEnabled) {
           "c.enabled = true AND p.enabled = true AND"
         } else {
           ""
         }}
-              1=1 $challengeFilter $priorityFilter
-              ${if (searchString != "") searchField("c.name") else ""}
               ${searchFilters.toString()}
-            GROUP BY t.parent_id, c.name
+            GROUP BY tasks.parent_id, c.name
             ${this.order(orderColumn, orderDirection)}
             LIMIT ${this.sqlLimit(limit)} OFFSET {offset}
         """
+
       SQL(query)
         .on(Symbol("ss") -> this.search(searchString), Symbol("offset") -> offset)
         .as(parser.*)

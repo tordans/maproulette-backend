@@ -64,7 +64,7 @@ class UserMetricService @Inject() (
     var isReviewer = false
     targetUser match {
       case Some(u) =>
-        if (u.settings.leaderboardOptOut.getOrElse(false) && !user.isSuperUser && userId != user.id) {
+        if (u.settings.leaderboardOptOut.getOrElse(false) && !permission.isSuperUser(user) && userId != user.id) {
           throw new IllegalAccessException(s"User metrics are not public for this user.")
         }
         isReviewer = u.settings.isReviewer.getOrElse(false)
@@ -286,13 +286,16 @@ class UserMetricService @Inject() (
             case None => // not a review
           }
         } else {
-          taskTimeSpent match {
-            case Some(time) =>
-              insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_TASKS_WITH_TIME))
-              insertBuffer.addOne(
-                this.customFilter(UserMetrics.FIELD_TOTAL_TIME_SPENT, value = time)
-              )
-            case _ => // not updating time
+          // Only update time if user isn't "skipping"
+          if (taskStatus.getOrElse(0) != Task.STATUS_SKIPPED) {
+            taskTimeSpent match {
+              case Some(time) =>
+                insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_TASKS_WITH_TIME))
+                insertBuffer.addOne(
+                  this.customFilter(UserMetrics.FIELD_TOTAL_TIME_SPENT, value = time)
+                )
+              case _ => // not updating time
+            }
           }
         }
         this.repository.updateUserScore(userId, insertBuffer.toList)

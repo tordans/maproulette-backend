@@ -267,7 +267,7 @@ class VirtualChallengeDAL @Inject() (
     // The default where clause will check to see if the parents are enabled, that the task is
     // not locked (or if it is, it is locked by the current user) and that the status of the task
     // is either Created or Skipped
-    val taskStatusList = params.taskStatus match {
+    val taskStatusList = params.taskParams.taskStatus match {
       case Some(l) if l.nonEmpty => l
       case _ => {
         config.skipTooHard match {

@@ -14,10 +14,11 @@ import com.vividsolutions.jts.io.WKTReader
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
+import org.maproulette.data._
 import org.maproulette.framework.model._
+import org.maproulette.framework.service.{ServiceManager, GrantService}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
-import org.maproulette.framework.service.GroupService
 import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
@@ -32,58 +33,14 @@ import play.api.libs.oauth.RequestToken
 @Singleton
 class UserRepository @Inject() (
     override val db: Database,
-    groupService: GroupService,
+    serviceManager: ServiceManager,
+    grantService: GrantService,
     challengeDAL: ChallengeDAL,
     config: Config
 ) extends RepositoryMixin {
   import org.maproulette.utils.AnormExtension._
 
   implicit val baseTable: String = User.TABLE
-
-  /**
-    * Retrieve list of all users possessing a group type for the project.
-    *
-    * @param projectId   The project
-    * @param osmIdFilter : A filter for manager OSM ids
-    * @return A list of ProjectManager objects.
-    */
-  def getUsersManagingProject(
-      projectId: Long,
-      osmIdFilter: Option[List[Long]] = None
-  )(implicit c: Option[Connection] = None): List[ProjectManager] = {
-    this.withMRTransaction { implicit c =>
-      val query = Query
-        .simple(
-          List(
-            BaseParameter(
-              Group.FIELD_UG_GROUP_ID,
-              s"groups.${Group.FIELD_ID}",
-              useValueDirectly = true,
-              table = Some(Group.TABLE_USER_GROUP)
-            ),
-            BaseParameter(
-              Group.FIELD_UG_OSM_USER_ID,
-              s"users.${User.FIELD_OSM_ID}",
-              useValueDirectly = true,
-              table = Some(Group.TABLE_USER_GROUP)
-            ),
-            BaseParameter(Group.FIELD_PROJECT_ID, projectId, table = Some(Group.TABLE)),
-            FilterParameter.conditional(
-              User.FIELD_OSM_ID,
-              osmIdFilter.getOrElse(List.empty),
-              Operator.IN,
-              includeOnlyIfTrue = osmIdFilter.isDefined && osmIdFilter
-                .getOrElse(List.empty)
-                .nonEmpty
-            )
-          ),
-          s"""SELECT ${projectId} AS project_id, users.*, array_agg(groups.group_type) AS group_types
-        FROM users, groups, user_groups""",
-          grouping = Grouping > ("id")
-        )
-      query.build().as(UserRepository.projectManagerParser.*)
-    }
-  }
 
   def upsert(user: User, apiKey: String, ewkt: String)(
       implicit c: Option[Connection] = None
@@ -132,10 +89,12 @@ class UserRepository @Inject() (
     }
   }
 
-  private def parser(): RowParser[User] =
+  def parser(): RowParser[User] =
     UserRepository.parser(
       this.config.defaultNeedsReview,
-      id => this.groupService.retrieveUserGroups(id, User.superUser)
+      id =>
+        this.grantService.retrieveGrantsTo(Grantee.user(id), User.superUser) ++
+          this.serviceManager.team.projectGrantsForUser(id, User.superUser)
     )
 
   def update(
@@ -288,11 +247,13 @@ class UserRepository @Inject() (
              COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_TOO_HARD} then 1 else 0 end), 0) total_too_hard,
              COALESCE(SUM(CASE WHEN status_actions.status = ${Task.STATUS_SKIPPED} then 1 else 0 end), 0) total_skipped,
              COALESCE(SUM(CASE WHEN (status_actions.created IS NOT NULL AND
-                                     status_actions.started_at IS NOT NULL)
+                                     status_actions.started_at IS NOT NULL AND
+                                     status_actions.status != ${Task.STATUS_SKIPPED})
                       THEN (EXTRACT(EPOCH FROM (status_actions.created - status_actions.started_at)) * 1000)
                       ELSE 0 END), 0) as total_time_spent,
              COALESCE(SUM(CASE WHEN (status_actions.created IS NOT NULL AND
-                                     status_actions.started_at IS NOT NULL)
+                                     status_actions.started_at IS NOT NULL AND
+                                     status_actions.status != ${Task.STATUS_SKIPPED})
                       THEN 1 ELSE 0 END), 0) as tasks_with_time
            FROM tasks
            INNER JOIN status_actions ON status_actions.task_id = tasks.id AND status_actions.status = tasks.status
@@ -313,15 +274,15 @@ object UserRepository {
       get[Long]("users.osm_id") ~
       get[String]("users.name") ~
       get[Option[String]]("users.avatar_url") ~
-      get[List[Int]]("group_types") map {
-      case projectId ~ userId ~ osmId ~ displayName ~ avatarURL ~ groupTypes =>
-        ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), groupTypes)
+      get[List[Int]]("roles") map {
+      case projectId ~ userId ~ osmId ~ displayName ~ avatarURL ~ roles =>
+        ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), roles)
     }
   }
   private val standardColumns = "*, ST_AsText(users.home_location) AS home"
 
   // The anorm row parser to convert user records from the database to user objects
-  def parser(defaultNeedsReview: Int, groupFunc: (Long) => List[Group]): RowParser[User] = {
+  def parser(defaultNeedsReview: Int, grantFunc: (Long) => List[Grant]): RowParser[User] = {
     get[Long]("users.id") ~
       get[Long]("users.osm_id") ~
       get[DateTime]("users.created") ~
@@ -374,7 +335,7 @@ object UserRepository {
             osmCreated,
             RequestToken(oauthToken, oauthSecret)
           ),
-          groupFunc.apply(osmId),
+          grantFunc.apply(id),
           apiKey,
           false,
           UserSettings(

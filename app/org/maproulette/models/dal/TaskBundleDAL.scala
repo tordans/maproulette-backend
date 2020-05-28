@@ -101,7 +101,7 @@ class TaskBundleDAL @Inject() (
   ): TaskBundle = {
     this.withMRConnection { implicit c =>
       val bundle = this.getTaskBundle(user, bundleId)
-      if (!user.isSuperUser && bundle.ownerId != user.id) {
+      if (!permission.isSuperUser(user) && bundle.ownerId != user.id) {
         throw new IllegalAccessException(
           "Only a super user or the original user can delete this bundle."
         )
@@ -154,7 +154,7 @@ class TaskBundleDAL @Inject() (
   ): Unit = {
     this.withMRConnection { implicit c =>
       val bundle = this.getTaskBundle(user, bundleId)
-      if (!user.isSuperUser && bundle.ownerId != user.id) {
+      if (!permission.isSuperUser(user) && bundle.ownerId != user.id) {
         val challengeId = bundle.tasks.getOrElse(List()).head.parent
         val challenge   = this.challengeDAL.retrieveById(challengeId)
         this.permission.hasObjectWriteAccess(challenge.get, user)

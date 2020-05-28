@@ -27,6 +27,14 @@ case class Tag(
     tagType: String = "challenges"
 ) extends CacheObject[Long]
 
+/**
+  * Mapping between Task and Tag
+  */
+case class TaskTag(
+    taskId: Long,
+    tag: Tag
+)
+
 object Tag extends CommonField {
   implicit val tagWrites: Writes[Tag] = Json.writes[Tag]
   implicit val tagReads: Reads[Tag]   = Json.reads[Tag]

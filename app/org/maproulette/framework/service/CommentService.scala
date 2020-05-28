@@ -49,7 +49,7 @@ class CommentService @Inject() (
     // first get the comment
     this.retrieve(id) match {
       case Some(original) =>
-        if (!user.isSuperUser && original.osm_id != user.osmProfile.id) {
+        if (!permission.isSuperUser(user) && original.osm_id != user.osmProfile.id) {
           throw new IllegalAccessException(
             "User updating the comment must be a Super user or the original user who made the comment"
           )

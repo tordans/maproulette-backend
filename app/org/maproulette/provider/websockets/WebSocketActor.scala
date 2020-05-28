@@ -50,6 +50,8 @@ class WebSocketActor(out: ActorRef) extends Actor {
   implicit val taskReviewWrites                   = TaskReview.writes
   implicit val taskWrites: Writes[Task]           = Task.TaskFormat
   implicit val challengeWrites: Writes[Challenge] = Challenge.writes.challengeWrites
+  implicit val teamUpdateDataWrites               = WebSocketMessages.teamUpdateDataWrites
+  implicit val teamMessageWrites                  = WebSocketMessages.teamMessageWrites
 
   def receive = {
     case serverMessage: WebSocketMessages.NotificationMessage =>
@@ -57,6 +59,8 @@ class WebSocketActor(out: ActorRef) extends Actor {
     case serverMessage: WebSocketMessages.ReviewMessage =>
       out ! Json.toJson(serverMessage)
     case serverMessage: WebSocketMessages.TaskMessage =>
+      out ! Json.toJson(serverMessage)
+    case serverMessage: WebSocketMessages.TeamMessage =>
       out ! Json.toJson(serverMessage)
     case clientMessage: WebSocketMessages.ClientMessage =>
       clientMessage.messageType match {

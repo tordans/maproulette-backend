@@ -84,26 +84,29 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
       permission.hasReadAccess(VirtualChallengeType(), this.userService.retrieve(100).get)
     }
 
-    // Only superusers and admin's for the project can read groups, or owners of the project which should always be in the admin group
-    "Read access on Groups" in {
+    // Only grantees and superusers can read grants
+    "Read access on Grants" in {
       an[IllegalAccessException] should be thrownBy permission.hasReadAccess(
-        GroupType(),
+        GrantType(),
         User.guestUser
       )
-      permission.hasReadAccess(GroupType(), User.superUser)
-      permission.hasReadAccess(GroupType(), this.userService.retrieve(1).get)
+
+      // Grantee
+      permission.hasReadAccess(GrantType(), this.userService.retrieve(1).get)
+
       an[IllegalAccessException] should be thrownBy permission.hasReadAccess(
-        GroupType(),
+        GrantType(),
         this.userService.retrieve(2).get
       )
       an[IllegalAccessException] should be thrownBy permission.hasReadAccess(
-        GroupType(),
+        GrantType(),
         this.userService.retrieve(3).get
       )
-      permission.hasReadAccess(GroupType(), this.userService.retrieve(100).get)
+
+      permission.hasReadAccess(GrantType(), User.superUser)
     }
 
-    // Users in Admin and Write groups should have write access to projects
+    // Users with Admin and Write roles should have write access to projects
     "Write access in Projects" in {
       an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
         ProjectType(),
@@ -118,7 +121,7 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
       permission.hasWriteAccess(ProjectType(), this.userService.retrieve(1).get)
     }
 
-    // Users in Admin and Write groups should have write access to challenges
+    // Users with Admin and Write roles should have write access to challenges
     "Write access in Challenges" in {
       an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
         ChallengeType(),
@@ -128,13 +131,19 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
         ChallengeType(),
         this.userService.retrieve(3).get
       )
+
+      // Even an owner needs to be granted the proper role
+      an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
+        ChallengeType(),
+        this.userService.retrieve(100).get
+      )
+
       permission.hasWriteAccess(ChallengeType(), this.userService.retrieve(2).get)
       permission.hasWriteAccess(ChallengeType(), this.userService.retrieve(1).get)
-      permission.hasWriteAccess(ChallengeType(), this.userService.retrieve(100).get)
       permission.hasWriteAccess(ChallengeType(), User.superUser)
     }
 
-    // Users in Admin and Write groups should have write access to tasks
+    // Users with Admin and Write roles should have write access to tasks
     "Write access in Tasks" in {
       an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
         TaskType(),
@@ -144,9 +153,15 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
         TaskType(),
         this.userService.retrieve(3L).get
       )
+
+      // Even an owner needs to be granted the proper role
+      an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
+        TaskType(),
+        this.userService.retrieve(100L).get
+      )
+
       permission.hasWriteAccess(TaskType(), this.userService.retrieve(2L).get)
       permission.hasWriteAccess(TaskType(), this.userService.retrieve(1L).get)
-      permission.hasWriteAccess(TaskType(), this.userService.retrieve(100L).get)
       permission.hasWriteAccess(TaskType(), User.superUser)
     }
 
@@ -202,22 +217,26 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
       permission.hasWriteAccess(VirtualChallengeType(), this.userService.retrieve(100L).get)
     }
 
-    "Write access in Groups" in {
+    // Only superusers can write to grants
+    "Write access in Grants" in {
       an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
-        GroupType(),
+        GrantType(),
         User.guestUser
       )
       an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
-        GroupType(),
-        this.userService.retrieve(3L).get
+        GrantType(),
+        this.userService.retrieve(1L).get
       )
       an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
-        GroupType(),
+        GrantType(),
         this.userService.retrieve(2L).get
       )
-      permission.hasWriteAccess(GroupType(), this.userService.retrieve(1L).get)
-      permission.hasWriteAccess(GroupType(), this.userService.retrieve(100L).get)
-      permission.hasWriteAccess(GroupType(), User.superUser)
+      an[IllegalAccessException] should be thrownBy permission.hasWriteAccess(
+        GrantType(),
+        this.userService.retrieve(3L).get
+      )
+
+      permission.hasWriteAccess(GrantType(), User.superUser)
     }
 
     "Admin access for Projects" in {
@@ -250,8 +269,14 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
         ChallengeType(),
         this.userService.retrieve(2L).get
       )
+
+      // Even an owner needs to be granted the proper role
+      an[IllegalAccessException] should be thrownBy permission.hasAdminAccess(
+        ChallengeType(),
+        this.userService.retrieve(100L).get
+      )
+
       permission.hasAdminAccess(ChallengeType(), this.userService.retrieve(1L).get)
-      permission.hasAdminAccess(ChallengeType(), this.userService.retrieve(100L).get)
       permission.hasAdminAccess(ChallengeType(), User.superUser)
     }
 
@@ -268,8 +293,13 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
         TaskType(),
         this.userService.retrieve(2L).get
       )
+
+      // Even an owner needs to be granted the proper role
+      an[IllegalAccessException] should be thrownBy permission.hasAdminAccess(
+        ChallengeType(),
+        this.userService.retrieve(100L).get
+      )
       permission.hasAdminAccess(TaskType(), this.userService.retrieve(1L).get)
-      permission.hasAdminAccess(TaskType(), this.userService.retrieve(100L).get)
       permission.hasAdminAccess(TaskType(), User.superUser)
     }
 
@@ -327,22 +357,26 @@ class PermissionsSpec extends TestSpec with BeforeAndAfterAll {
       permission.hasAdminAccess(VirtualChallengeType(), this.userService.retrieve(100L).get)
     }
 
-    "Admin access for Groups" in {
+    // Only superusers can adminstrate grants
+    "Admin access for Grants" in {
       an[IllegalAccessException] should be thrownBy permission.hasAdminAccess(
-        GroupType(),
+        GrantType(),
         User.guestUser
       )
       an[IllegalAccessException] should be thrownBy permission.hasAdminAccess(
-        GroupType(),
-        this.userService.retrieve(3L).get
+        GrantType(),
+        this.userService.retrieve(1L).get
       )
       an[IllegalAccessException] should be thrownBy permission.hasAdminAccess(
-        GroupType(),
+        GrantType(),
         this.userService.retrieve(2L).get
       )
-      permission.hasAdminAccess(GroupType(), this.userService.retrieve(1L).get)
-      permission.hasAdminAccess(GroupType(), this.userService.retrieve(100L).get)
-      permission.hasAdminAccess(GroupType(), User.superUser)
+      an[IllegalAccessException] should be thrownBy permission.hasAdminAccess(
+        GrantType(),
+        this.userService.retrieve(3L).get
+      )
+
+      permission.hasAdminAccess(GrantType(), User.superUser)
     }
   }
 }

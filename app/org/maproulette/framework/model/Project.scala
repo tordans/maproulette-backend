@@ -6,6 +6,7 @@ package org.maproulette.framework.model
 
 import org.joda.time.DateTime
 import org.maproulette.cache.CacheObject
+import org.maproulette.data.{ItemType}
 import org.maproulette.framework.psql.CommonField
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
@@ -25,22 +26,25 @@ case class Project(
     created: DateTime = DateTime.now(),
     modified: DateTime = DateTime.now(),
     description: Option[String] = None,
-    groups: List[Group] = List.empty,
+    grants: List[Grant] = List.empty,
     enabled: Boolean = false,
     displayName: Option[String] = None,
     deleted: Boolean = false,
     isVirtual: Option[Boolean] = Some(false),
     featured: Boolean = false
-) extends CacheObject[Long]
+) extends CacheObject[Long] {
+  def grantsToType(granteeType: ItemType) =
+    this.grants.filter(_.grantee.granteeType == granteeType)
+}
 
 object Project extends CommonField {
-  implicit val groupWrites: Writes[Group] = Group.writes
-  implicit val groupReads: Reads[Group]   = Group.reads
+  implicit val grantWrites: Writes[Grant] = Grant.writes
+  implicit val grantReads: Reads[Grant]   = Grant.reads
   implicit val writes: Writes[Project]    = Json.writes[Project]
   implicit val reads: Reads[Project]      = Json.reads[Project]
 
   val TABLE              = "projects"
-  val KEY_GROUPS         = "groups"
+  val KEY_GRANTS         = "grants"
   val FIELD_OWNER        = "owner_id"
   val FIELD_ENABLED      = "enabled"
   val FIELD_DISPLAY_NAME = "display_name"

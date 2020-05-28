@@ -9,11 +9,12 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception._
-import org.maproulette.framework.model.{Group, User}
+import org.maproulette.framework.model.{Grant, GrantTarget, User}
 import org.maproulette.framework.psql.{Order, Query}
 import org.maproulette.framework.service.UserService
 import org.maproulette.models.dal.DALManager
 import org.maproulette.session.SessionManager
+import org.maproulette.permissions.Permission
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc._
 import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
@@ -32,6 +33,7 @@ class AuthController @Inject() (
     sessionManager: SessionManager,
     userService: UserService,
     dalManager: DALManager,
+    permission: Permission,
     val config: Config
 ) extends AbstractController(components)
     with StatusMessages {
@@ -174,7 +176,7 @@ class AuthController @Inject() (
     */
   def generateAPIKey(userId: Long = -1): Action[AnyContent] = Action.async { implicit request =>
     sessionManager.authenticatedRequest { implicit user =>
-      val newAPIUser = if (user.isSuperUser && userId != -1) {
+      val newAPIUser = if (permission.isSuperUser(user) && userId != -1) {
         this.userService.retrieve(userId) match {
           case Some(u) => u
           case None =>
@@ -214,7 +216,7 @@ class AuthController @Inject() (
   }
 
   /**
-    * Adds a user to the Admin group for a project
+    * Adds an Admin role on the project to the user
     *
     * @param projectId The id of the project to add the user too
     * @return NoContent
@@ -225,16 +227,21 @@ class AuthController @Inject() (
       sessionManager.authenticatedRequest { implicit user =>
         this.userService.retrieve(userId) match {
           case Some(addUser) =>
-            if (addUser.groups.exists(_.projectId == projectId)) {
+            val projectTarget = GrantTarget.project(projectId)
+            if (addUser.grants
+                  .exists(g => g.target == projectTarget && g.role == Grant.ROLE_ADMIN)) {
               throw new InvalidException(
-                s"User ${addUser.name} is already part of project $projectId"
+                s"User ${addUser.name} is already an admin of project $projectId"
               )
             }
             this.userService
-              .addUserToProject(addUser.osmProfile.id, projectId, Group.TYPE_ADMIN, user)
+              .addUserToProject(addUser.osmProfile.id, projectId, Grant.ROLE_ADMIN, user)
             Ok(
               Json.toJson(
-                StatusMessage("OK", JsString(s"User ${addUser.name} added to project $projectId"))
+                StatusMessage(
+                  "OK",
+                  JsString(s"User ${addUser.name} made admin of project $projectId")
+                )
               )
             )
           case None => throw new NotFoundException(s"Could not find user with ID $userId")

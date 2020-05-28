@@ -39,6 +39,7 @@ class ItemType(id: Int) {
       case t: TaskType              => new TaskItem(itemId)
       case ta: TagType              => new TagItem(itemId)
       case u: UserType              => new UserItem(itemId)
+      case group: GroupType         => new GroupItem(itemId)
       case vc: VirtualChallengeType => new VirtualChallengeItem(itemId)
       case b: BundleType            => new BundleItem(itemId)
     }
@@ -75,6 +76,8 @@ class TagItem(override val itemId: Long) extends TagType with Item
 
 class UserItem(override val itemId: Long) extends UserType with Item
 
+class GroupItem(override val itemId: Long) extends GroupType with Item
+
 class VirtualChallengeItem(override val itemId: Long) extends VirtualChallengeType with Item
 
 class BundleItem(override val itemId: Long) extends BundleType with Item
@@ -100,6 +103,8 @@ case class TagRemoved() extends ActionType(Actions.ACTION_TYPE_TAG_REMOVED, Acti
 case class QuestionAnswered(answerId: Long)
     extends ActionType(Actions.ACTION_TYPE_QUESTION_ANSWERED, Actions.ACTION_LEVEL_1)
 
+case class GrantType() extends ItemType(Actions.ITEM_TYPE_GRANT)
+
 object Actions {
   val ACTION_LEVEL_1 = 1
   val ACTION_LEVEL_2 = 2
@@ -123,6 +128,8 @@ object Actions {
   val ITEM_TYPE_VIRTUAL_CHALLENGE_NAME = "VirtualChallenge"
   val ITEM_TYPE_BUNDLE                 = 8
   val ITEM_TYPE_BUNDLE_NAME            = "Bundle"
+  val ITEM_TYPE_GRANT                  = 9
+  val ITEM_TYPE_GRANT_NAME             = "Grant"
   val itemIDMap = Map(
     ITEM_TYPE_PROJECT           -> (ITEM_TYPE_PROJECT_NAME, ProjectType()),
     ITEM_TYPE_CHALLENGE         -> (ITEM_TYPE_CHALLENGE_NAME, ChallengeType()),
@@ -131,7 +138,8 @@ object Actions {
     ITEM_TYPE_USER              -> (ITEM_TYPE_USER_NAME, UserType()),
     ITEM_TYPE_GROUP             -> (ITEM_TYPE_GROUP_NAME, GroupType()),
     ITEM_TYPE_VIRTUAL_CHALLENGE -> (ITEM_TYPE_VIRTUAL_CHALLENGE_NAME, VirtualChallengeType()),
-    ITEM_TYPE_BUNDLE            -> (ITEM_TYPE_BUNDLE_NAME, BundleType())
+    ITEM_TYPE_BUNDLE            -> (ITEM_TYPE_BUNDLE_NAME, BundleType()),
+    ITEM_TYPE_GRANT             -> (ITEM_TYPE_GRANT_NAME, GrantType())
   )
 
   val ACTION_TYPE_UPDATED                     = 0

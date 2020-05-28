@@ -7,27 +7,46 @@ package org.maproulette.framework.repository
 
 import java.sql.Connection
 
-import anorm.Macro.ColumnNaming
+import anorm.SqlParser.{get, long}
 import anorm._
-import javax.inject.{Inject, Singleton}
-import org.maproulette.framework.model.Group
-import org.maproulette.framework.psql.Query
-import org.maproulette.framework.psql.filter.BaseParameter
+import javax.inject.Inject
+import org.joda.time.DateTime
+import org.maproulette.framework.model.{Group, GroupMember}
+import org.maproulette.framework.repository.{GroupMemberRepository}
+import org.maproulette.framework.psql.{Query, Paging}
+import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import play.api.db.Database
 
 /**
-  * @author mcuthbert
+  * Repository to handle all the database queries for the Group object
+  *
+  * @author nrotstan
   */
-@Singleton
-class GroupRepository @Inject() (val db: Database) extends RepositoryMixin {
+class GroupRepository @Inject() (
+    override val db: Database,
+    groupMemberRepository: GroupMemberRepository
+) extends RepositoryMixin {
   implicit val baseTable: String = Group.TABLE
 
   /**
-    * Retrieves a single Group matching the given id
+    * Finds 0 or more groups that match the filter criteria
     *
-    * @param id The id for the group
-    * @param c An implicit connection, defaults to None
-    * @return The group matching the id, None if not found
+    * @param query The psql query object containing all the filtering, paging and ordering information
+    * @param c An implicit connection, that defaults to None
+    * @return The list of groups that match the filter criteria
+    */
+  def query(query: Query)(implicit c: Option[Connection] = None): List[Group] = {
+    withMRConnection { implicit c =>
+      query.build(s"SELECT * FROM groups").as(GroupRepository.parser.*)
+    }
+  }
+
+  /**
+    * For a given id returns the group
+    *
+    * @param id The id of the group you are looking for
+    * @param c An implicit connection, defaults to none and one will be created automatically
+    * @return None if not found, otherwise the Group
     */
   def retrieve(id: Long)(implicit c: Option[Connection] = None): Option[Group] = {
     this.withMRTransaction { implicit c =>
@@ -40,66 +59,92 @@ class GroupRepository @Inject() (val db: Database) extends RepositoryMixin {
   }
 
   /**
-    * Finds a list of groups matching the criteria given by the psqlQuery
-    *
-    * @param query The psqlQuery including filter, paging and ordering
-    * @param c An implicit connection, defaults to None
-    * @return A list of groups matching the psqlQuery criteria
+    * Retrieve all groups matching the ids
     */
-  def query(query: Query)(implicit c: Option[Connection] = None): List[Group] = {
-    this.withMRTransaction { implicit c =>
-      query.build("SELECT * FROM groups").as(GroupRepository.parser.*)
+  def list(ids: List[Long], paging: Paging = Paging()): List[Group] = {
+    if (ids.isEmpty) {
+      return List()
     }
+
+    this.query(
+      Query.simple(
+        List(
+          BaseParameter(Group.FIELD_ID, ids, Operator.IN)
+        ),
+        paging = paging
+      )
+    )
   }
 
   /**
-    * Inserts a group into the database
+    * Insert a group into the database
     *
-    * @param group The group to insert into the database. If id is set on the object it will be ignored.
-    * @param c An implicit connection, defaults to None
-    * @return A list of groups matching the psqlQuery criteria
+    * @param group The group to insert into the database. The group will fail to be inserted
+    *             if a group with the same name already exists. If the id field is set on the
+    *             provided group it will be ignored
+    * @param c An implicit connection, that defaults to None
+    * @return The group that was inserted now with the generated id or None
     */
-  def create(group: Group)(implicit c: Option[Connection] = None): Group = {
+  def create(group: Group)(implicit c: Option[Connection] = None): Option[Group] = {
     this.withMRTransaction { implicit c =>
-      SQL("""INSERT INTO groups (project_id, name, group_type)
-           VALUES ({projectId}, {name}, {groupType}) RETURNING *""")
-        .on(
-          Symbol("projectId") -> group.projectId,
-          Symbol("name")      -> group.name,
-          Symbol("groupType") -> group.groupType
+      SQL(
+        """
+        |INSERT INTO groups (name, description, avatar_url, group_type)
+        |VALUES ({name}, {description}, {avatarURL}, {groupType})
+        |RETURNING *
+        """.stripMargin
+      ).on(
+          Symbol("name")        -> group.name,
+          Symbol("description") -> group.description,
+          Symbol("avatarURL")   -> group.avatarURL,
+          Symbol("groupType")   -> group.groupType
         )
         .as(GroupRepository.parser.*)
-        .head
+        .headOption
     }
   }
 
   /**
-    * Updates a group, the only value you can update in a group is the name
+    * Updates an existing Group
     *
-    * @param group The group to update, which will include the name variable
-    * @param c An implicit connection, that defaults to None
+    * @param group The properties of the Group to update
+    * @param c    Implicit provided optional connection
     * @return The updated group
     */
-  def update(group: Group)(implicit c: Option[Connection] = None): Group = {
-    this.withMRTransaction { implicit c =>
-      SQL("""UPDATE groups SET name = {name} WHERE id = {id} RETURNING *""")
-        .on(Symbol("name") -> group.name, Symbol("id") -> group.id)
+  def update(group: Group)(
+      implicit c: Option[Connection] = None
+  ): Option[Group] = {
+    withMRTransaction { implicit c =>
+      SQL(
+        """
+        |UPDATE groups
+        |SET name = {name}, description = {description}, avatar_url={avatarURL}
+        |WHERE id = {id}
+        |RETURNING *
+        """.stripMargin
+      ).on(
+          Symbol("id")          -> group.id,
+          Symbol("name")        -> group.name,
+          Symbol("description") -> group.description,
+          Symbol("avatarURL")   -> group.avatarURL
+        )
         .as(GroupRepository.parser.*)
-        .head
+        .headOption
     }
   }
 
   /**
-    * Deletes a group from the database
+    * Deletes a Group from the database
     *
-    * @param id The id for the group
-    * @param c An implicit connection, that defaults to None
-    * @return true if successfully deleted
+    * @param group The group to delete
+    * @param c    Implicit provided optional connection
     */
-  def delete(id: Long)(implicit c: Option[Connection] = None): Boolean = {
-    this.withMRTransaction { implicit c =>
+  def delete(group: Group)(
+      implicit c: Option[Connection] = None
+  ): Boolean = {
+    withMRConnection { implicit c =>
       Query
-        .simple(List(BaseParameter(Group.FIELD_ID, id)))
+        .simple(List(BaseParameter(Group.FIELD_ID, group.id)))
         .build("DELETE FROM groups")
         .execute()
     }
@@ -107,6 +152,14 @@ class GroupRepository @Inject() (val db: Database) extends RepositoryMixin {
 }
 
 object GroupRepository {
-  // The anorm row parser to convert group records from the database to group objects
-  val parser: RowParser[Group] = Macro.namedParser[Group](ColumnNaming.SnakeCase)
+  // The anorm row parser mapping database records to Group objects
+  val parser: RowParser[Group] = Macro.parser[Group](
+    "groups.id",
+    "groups.name",
+    "groups.description",
+    "groups.avatar_url",
+    "groups.group_type",
+    "groups.created",
+    "groups.modified"
+  )
 }

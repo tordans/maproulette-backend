@@ -16,6 +16,8 @@ import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
 import org.maproulette.models.{ClusteredPoint, Task, VirtualChallenge}
 import org.maproulette.session.{
   SearchChallengeParameters,
+  SearchTaskParameters,
+  SearchReviewParameters,
   SearchLocation,
   SearchParameters,
   SessionManager,
@@ -55,6 +57,10 @@ class VirtualChallengeController @Inject() (
   implicit val taskPropertySearchReads  = Json.reads[TaskPropertySearch]
   implicit val challengeParamsWrites    = Json.writes[SearchChallengeParameters]
   implicit val challengeParamsReads     = Json.reads[SearchChallengeParameters]
+  implicit val taskParamsWrites         = Json.writes[SearchTaskParameters]
+  implicit val taskParamsReads          = Json.reads[SearchTaskParameters]
+  implicit val reviewParamsWrites       = Json.writes[SearchReviewParameters]
+  implicit val reviewParamsReads        = Json.reads[SearchReviewParameters]
   implicit val paramsWrites             = Json.writes[SearchParameters]
   implicit val paramsReads              = Json.reads[SearchParameters]
 

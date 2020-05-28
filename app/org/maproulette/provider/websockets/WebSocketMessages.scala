@@ -58,6 +58,11 @@ object WebSocketMessages {
   case class TaskMessage(messageType: String, data: TaskAction, meta: ServerMeta)
       extends ServerMessage
 
+  case class TeamUpdateData(teamId: Long, userId: Option[Long])
+
+  case class TeamMessage(messageType: String, data: TeamUpdateData, meta: ServerMeta)
+      extends ServerMessage
+
   // Public helper methods for creation of individual messages and data objects
   def pong(): PongMessage = PongMessage("pong", ServerMeta(None))
 
@@ -78,6 +83,8 @@ object WebSocketMessages {
 
   def taskUpdate(taskData: Task, userData: Option[UserSummary]): List[ServerMessage] =
     createTaskMessage("task-update", taskData, userData)
+
+  def teamUpdate(data: TeamUpdateData): TeamMessage = createTeamMessage("team-update", data)
 
   def userSummary(user: User): UserSummary =
     UserSummary(user.id, user.osmProfile.displayName, user.osmProfile.avatarURL)
@@ -125,6 +132,10 @@ object WebSocketMessages {
     )
   }
 
+  private def createTeamMessage(messageType: String, data: TeamUpdateData): TeamMessage = {
+    TeamMessage(messageType, data, ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_TEAMS)))
+  }
+
   // Reads for client messages
   implicit val clientMessageReads: Reads[ClientMessage]       = Json.reads[ClientMessage]
   implicit val subscriptionDataReads: Reads[SubscriptionData] = Json.reads[SubscriptionData]
@@ -137,10 +148,12 @@ object WebSocketMessages {
   implicit val notificationDataWrites: Writes[NotificationData] = Json.writes[NotificationData]
   implicit val notificationMessageWrites: Writes[NotificationMessage] =
     Json.writes[NotificationMessage]
-  implicit val reviewDataWrites: Writes[ReviewData]       = Json.writes[ReviewData]
-  implicit val reviewMessageWrites: Writes[ReviewMessage] = Json.writes[ReviewMessage]
-  implicit val taskActionWrites: Writes[TaskAction]       = Json.writes[TaskAction]
-  implicit val taskMessageWrites: Writes[TaskMessage]     = Json.writes[TaskMessage]
+  implicit val reviewDataWrites: Writes[ReviewData]         = Json.writes[ReviewData]
+  implicit val reviewMessageWrites: Writes[ReviewMessage]   = Json.writes[ReviewMessage]
+  implicit val taskActionWrites: Writes[TaskAction]         = Json.writes[TaskAction]
+  implicit val taskMessageWrites: Writes[TaskMessage]       = Json.writes[TaskMessage]
+  implicit val teamUpdateDataWrites: Writes[TeamUpdateData] = Json.writes[TeamUpdateData]
+  implicit val teamMessageWrites: Writes[TeamMessage]       = Json.writes[TeamMessage]
 
   // Available subscription types
   val SUBSCRIPTION_USER            = "user" // expected to be accompanied by user id
@@ -148,4 +161,5 @@ object WebSocketMessages {
   val SUBSCRIPTION_REVIEWS         = "reviews"
   val SUBSCRIPTION_TASKS           = "tasks"
   val SUBSCRIPTION_CHALLENGE_TASKS = "challengeTasks" // expected to be accompanied by challenge id
+  val SUBSCRIPTION_TEAMS           = "teams"
 }

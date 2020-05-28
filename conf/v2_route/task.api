@@ -520,8 +520,11 @@ GET     /tasks/random                               @org.maproulette.controllers
 #   - name: includeGeometries
 #     in: query
 #     description: Optional flag to have geometries data returned for each task.
+#   - name: includeTags
+#     in: query
+#     description: Optional flag to have tag data returned for each task.
 ###
-PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
+PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false, includeTags:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Update Task Changeset
@@ -547,6 +550,32 @@ PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers
 #     description: The ID of the task
 ###
 PUT     /task/:id/changeset                         @org.maproulette.controllers.api.TaskController.matchToOSMChangeSet(id:Long)
+###
+# tags: [ Task ]
+# summary: Update Completion Responses
+# produces: [ application/json ]
+# description: Will update the completion responses on the Task.
+# responses:
+#   '304':
+#     description: No Content, update successful
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the task
+#   - name: completionResponses
+#     in: body
+#     description: key/value json to be stored with this task.
+###
+PUT     /task/:id/responses                           @org.maproulette.framework.controller.TaskController.updateCompletionResponses(id:Long)
 ###
 # tags: [ Task ]
 # summary: Update Task Status
@@ -730,7 +759,7 @@ PUT     /taskCluster                                @org.maproulette.controllers
 # summary: Retrieves Tasks within a bounding box
 # deprecated: true
 ###
-GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false)
+GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false, includeTags:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Retrieves task clusters. USE PUT METHOD

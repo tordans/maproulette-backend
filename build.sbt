@@ -101,11 +101,13 @@ generateRoutesFile := {
       "notification.api",
       "project.api",
       "review.api",
+      "snapshot.api",
       "task.api",
       "user.api",
       "virtualchallenge.api",
       "virtualproject.api",
       "bundle.api",
+      "team.api",
       "v2.api"
     )
     println(s"Generating Routes File from ${routeFiles.mkString(",")}")

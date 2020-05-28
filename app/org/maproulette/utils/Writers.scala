@@ -18,11 +18,10 @@ trait Writers extends ChallengeWrites {
   // User Writers
   implicit val tokenWrites: Writes[RequestToken]    = User.tokenWrites
   implicit val settingsWrites: Writes[UserSettings] = User.settingsWrites
-  implicit val userGroupWrites: Writes[Group]       = User.userGroupWrites
   implicit val locationWrites: Writes[Location]     = User.locationWrites
   implicit val osmWrites: Writes[OSMProfile]        = User.osmWrites
-  // Group Writers
-  implicit val groupWrites: Writes[Group] = Group.writes
+  // Grant Writers
+  implicit val grantWrites: Writes[Grant] = Grant.writes
   // Point Writers
   implicit val pointWrites: Writes[Point]                   = ClusteredPoint.pointWrites
   implicit val clusteredPointWrites: Writes[ClusteredPoint] = ClusteredPoint.clusteredPointWrites

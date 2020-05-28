@@ -9,7 +9,9 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.util.{FrameworkHelper, UserTag}
+import org.maproulette.exception.{InvalidException}
 import org.maproulette.models.Task
+import org.maproulette.data.{ProjectType}
 import org.scalatest.Matchers._
 import play.api.Application
 
@@ -74,6 +76,56 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       }
     }
 
+    "retrieve includes grants conferred by teams" taggedAs UserTag in {
+      val insertedUser =
+        this.userService
+          .create(this.getTestUser(21, "retrieveConferredGrantsUser1"), User.superUser)
+
+      val team = this.serviceManager.team
+        .create(
+          this.getTestTeam("UserRepository_conferredGrantsTest Team"),
+          MemberObject.user(this.defaultUser.id),
+          this.defaultUser
+        )
+        .get
+
+      val project = this.serviceManager.project
+        .create(
+          Project(-1, this.defaultUser.osmProfile.id, "retrieveConferredGrantsProject"),
+          this.defaultUser
+        )
+
+      this.serviceManager.team
+        .addTeamMember(
+          team,
+          MemberObject.user(insertedUser.id),
+          Grant.ROLE_ADMIN,
+          TeamMember.STATUS_MEMBER,
+          User.superUser
+        )
+
+      this.serviceManager.team
+        .addTeamToProject(
+          team.id,
+          project.id,
+          Grant.ROLE_WRITE_ACCESS,
+          User.superUser
+        )
+
+      // Work off a fresh copy of the user
+      val user = this.userService.retrieve(insertedUser.id).get
+      user.grants
+        .filter(g =>
+          g.target.objectType == ProjectType() &&
+            g.target.objectId == project.id &&
+            g.role == Grant.ROLE_WRITE_ACCESS
+        )
+        .size mustEqual 1
+
+      user.managedProjectIds().contains(project.id) mustEqual true
+      user.grantsForProject(project.id).size mustEqual 1
+    }
+
     "generate new API key" taggedAs UserTag in {
       val insertedUser =
         this.userService.create(this.getTestUser(11, "APIGenerationTestUser"), User.superUser)
@@ -115,16 +167,19 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
         this.userService.create(this.getTestUser(18, "OSMUsernameNotRelated"), User.superUser)
 
       val searchResultUser1 = UserSearchResult(
+        user1.id,
         user1.osmProfile.id,
         user1.osmProfile.displayName,
         user1.osmProfile.avatarURL
       )
       val searchResultUser2 = UserSearchResult(
+        user2.id,
         user2.osmProfile.id,
         user2.osmProfile.displayName,
         user2.osmProfile.avatarURL
       )
       val searchResultUser3 = UserSearchResult(
+        user3.id,
         user3.osmProfile.id,
         user3.osmProfile.displayName,
         user3.osmProfile.avatarURL
@@ -135,7 +190,7 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       List(searchResultUser1, searchResultUser2).contains(users1.head.toSearchResult) mustEqual true
       List(searchResultUser1, searchResultUser2).contains(users1(1).toSearchResult) mustEqual true
 
-      val users2 = this.userService.searchByOSMUsername("Not")
+      val users2 = this.userService.searchByOSMUsername("NotRelated")
       users2.size mustEqual 1
       users2.head.toSearchResult mustEqual searchResultUser3
 
@@ -188,6 +243,141 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       managers4.head.osmId mustEqual this.defaultUser.osmProfile.id
     }
 
+    "get project managers indirectly through teams" taggedAs UserTag in {
+      val freshUser = this.userService.create(
+        this.getTestUser(44412345, "GetIndirectProjectManagersOUser"),
+        User.superUser
+      )
+
+      val team = this.serviceManager.team
+        .create(
+          this.getTestTeam("UserService_getProjectManagersTest Team"),
+          MemberObject.user(this.defaultUser.id),
+          this.defaultUser
+        )
+        .get
+
+      val project = this.serviceManager.project
+        .create(
+          Project(-1, this.defaultUser.osmProfile.id, "getAllProjectManagersProject"),
+          this.defaultUser
+        )
+
+      this.serviceManager.team
+        .addTeamMember(
+          team,
+          MemberObject.user(freshUser.id),
+          Grant.ROLE_ADMIN,
+          TeamMember.STATUS_MEMBER,
+          User.superUser
+        )
+
+      this.serviceManager.team
+        .addTeamToProject(
+          team.id,
+          project.id,
+          Grant.ROLE_WRITE_ACCESS,
+          User.superUser
+        )
+
+      this.permission.hasObjectWriteAccess(project, freshUser)
+      val managers =
+        this.userService.getUsersManagingProject(project.id, user = User.superUser)
+
+      managers.map(_.userId).contains(this.defaultUser.id) mustEqual true
+      managers.map(_.userId).contains(freshUser.id) mustEqual true
+      managers.size mustEqual 2
+
+      this.serviceManager.team
+        .removeTeamFromProject(
+          team.id,
+          project.id,
+          User.superUser
+        )
+
+      an[IllegalAccessException] should be thrownBy this.permission.hasObjectWriteAccess(
+        project,
+        freshUser
+      )
+      val managersAfterRemoval =
+        this.userService.getUsersManagingProject(project.id, user = User.superUser)
+
+      managersAfterRemoval.size mustEqual 1
+      managersAfterRemoval.head.userId mustEqual this.defaultUser.id
+    }
+
+    "add a user to a project" taggedAs UserTag in {
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 1
+
+      val user =
+        this.userService.create(this.getTestUser(19, "AddUserToProjectTest"), User.superUser)
+
+      this.userService.addUserToProject(
+        user.osmProfile.id,
+        this.defaultProject.id,
+        Grant.ROLE_WRITE_ACCESS,
+        User.superUser
+      )
+
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 2
+    }
+
+    "remove a user from a project" taggedAs UserTag in {
+      val user =
+        this.userService.create(this.getTestUser(20, "RemoveUserFromProjectTest"), User.superUser)
+
+      this.userService.addUserToProject(
+        user.osmProfile.id,
+        this.defaultProject.id,
+        Grant.ROLE_ADMIN,
+        User.superUser
+      )
+
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 3
+
+      this.userService.removeUserFromProject(
+        user.osmProfile.id,
+        this.defaultProject.id,
+        Some(Grant.ROLE_ADMIN),
+        User.superUser
+      )
+
+      this.userService
+        .getUsersManagingProject(
+          this.defaultProject.id,
+          None,
+          User.superUser
+        )
+        .size mustEqual 2
+    }
+
+    "not remove last admin from project" taggedAs UserTag in {
+      an[InvalidException] should be thrownBy this.userService.removeUserFromProject(
+        this.defaultUser.osmProfile.id,
+        this.defaultProject.id,
+        Some(Grant.ROLE_ADMIN),
+        User.superUser
+      )
+    }
+
     "complex query" in {
       val user                          = User.superUser
       val excludeOtherReviewers         = true
@@ -212,7 +402,7 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
                 "task_review.review_requested_by",
                 user.id,
                 negate = true,
-                includeOnlyIfTrue = user.isSuperUser
+                includeOnlyIfTrue = true
               ),
               FilterParameter.conditional(
                 "task_review.review_status",
@@ -248,7 +438,7 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
               )
             ),
             OR(),
-            user.isSuperUser
+            true
           ),
           FilterGroup(
             List(

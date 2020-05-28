@@ -23,28 +23,17 @@ class Bootstrap @Inject() (appLifeCycle: ApplicationLifecycle, db: Database, con
 
   def start(): Unit = {
     if (!config.isBootstrapMode) {
-      // for startup we make sure that all the super users are set correctly
-      db.withConnection { implicit c =>
-        SQL"""DELETE FROM user_groups
-              WHERE group_id = -999 AND NOT osm_user_id = -999
-          """.executeUpdate()
-        // make sure all the super user id's are in the super user group
-        config.superAccounts.headOption match {
-          case Some("*") =>
-            logger.info(
-              "WARNING: Configuration is setting all users to super users. Make sure this is what you want."
-            )
-            SQL"""INSERT INTO user_groups (group_id, osm_user_id) (SELECT -999 AS group_id, osm_id FROM users WHERE NOT osm_id = -999)"""
-              .executeUpdate()
-          case Some("") =>
-            logger.info(
-              "WARNING: Configuration has NO super users. Make sure this is what you want."
-            )
-          case _ =>
-            val inserts = config.superAccounts.map(s => s"(-999, $s)").mkString(",")
-            SQL"""INSERT INTO user_groups (group_id, osm_user_id) VALUES #$inserts"""
-              .executeUpdate()
-        }
+      // Check superuser settings at startup and output appropriate warnings
+      config.superAccounts.headOption match {
+        case Some("*") =>
+          logger.info(
+            "WARNING: Configuration is setting all users to super users. Make sure this is what you want."
+          )
+        case Some("") =>
+          logger.info(
+            "WARNING: Configuration has NO super users. Make sure this is what you want."
+          )
+        case _ => // do nothing
       }
     }
   }

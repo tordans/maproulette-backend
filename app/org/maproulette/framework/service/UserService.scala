@@ -14,8 +14,8 @@ import org.locationtech.jts.geom.{Coordinate, GeometryFactory}
 import org.locationtech.jts.io.WKTWriter
 import org.maproulette.Config
 import org.maproulette.cache.CacheManager
-import org.maproulette.data.UserType
-import org.maproulette.exception.NotFoundException
+import org.maproulette.data.{UserType, GroupType}
+import org.maproulette.exception.{NotFoundException, InvalidException}
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
@@ -34,7 +34,8 @@ import play.api.libs.oauth.RequestToken
 class UserService @Inject() (
     repository: UserRepository,
     savedObjectsRepository: UserSavedObjectsRepository,
-    groupService: GroupService,
+    serviceManager: ServiceManager,
+    grantService: GrantService,
     projectService: ProjectService,
     taskDAL: TaskDAL,
     config: Config,
@@ -94,7 +95,7 @@ class UserService @Inject() (
   def retrieveByOSMUsername(username: String, user: User): Option[User] =
     this.cacheManager.withOptionCaching { () =>
       // only execute this kind of request if the user is a super user
-      if (user.isSuperUser) {
+      if (permission.isSuperUser(user)) {
         this
           .query(
             Query
@@ -176,10 +177,10 @@ class UserService @Inject() (
   /**
     * "Upsert" function that will insert a new user into the database, if the user already exists in
     * the database it will simply update the user with new information. A user is considered to exist
-    * in the database if the id or osm_id is found in the users table. During an insert any groups
-    * for the user will be ignored, to update groups or add/remove groups, the specific functions
+    * in the database if the id or osm_id is found in the users table. During an insert any grants
+    * for the user will be ignored, to update grants or add/remove grants, the specific functions
     * for that must be used. Or the update method which has a specific mechanism for updating
-    * groups
+    * grants
     *
     * @param user The user to update
     * @return None if failed to update or create.
@@ -196,20 +197,7 @@ class UserService @Inject() (
           )
         )
       )
-      this.repository.upsert(item, newAPIKey, ewkt)
-
-      // just in case expire the osm ID
-      this.groupService.clearCache(osmId = item.osmProfile.id)
-
-      // We do this separately from the transaction because if we don't the user_group mappings
-      // wont be accessible just yet.
-      val retUser = this.retrieveByOSMId(item.osmProfile.id).head
-
-      // now update the groups by adding any new groups, from the supplied user
-      val newGroups = item.groups.filter(g => !retUser.groups.exists(_.id == g.id))
-      newGroups.foreach(g => this.groupService.addUserToGroup(item.osmProfile.id, g, User.superUser)
-      )
-      Some(retUser.copy(groups = newGroups))
+      Some(this.repository.upsert(item, newAPIKey, ewkt))
     }.get
   }
 
@@ -338,12 +326,11 @@ class UserService @Inject() (
 
       // If this user always requires a review, then they are not allowed to change it (except super users)
       if (user.settings.needsReview.getOrElse(0) == User.REVIEW_MANDATORY) {
-        if (!user.isSuperUser) {
+        if (!permission.isSuperUser(user)) {
           needsReview = User.REVIEW_MANDATORY
         }
       }
 
-      this.groupService.clearCache(osmId = cachedItem.osmProfile.id)
       Some(
         this.repository.update(
           User(
@@ -390,7 +377,7 @@ class UserService @Inject() (
   def delete(id: Long, user: User): Boolean = {
     this.permission.hasSuperAccess(user)
     retrieve(id) match {
-      case Some(u) => this.groupService.clearCache(osmId = u.osmProfile.id)
+      case Some(u) => this.grantService.deleteGrantsTo(Grantee.user(u.id), user)
       case None    => //no user, so can just ignore
     }
     this.cacheManager.withCacheIDDeletion { () =>
@@ -439,11 +426,12 @@ class UserService @Inject() (
     */
   def deleteByOsmID(osmId: Long, user: User): Boolean = {
     this.permission.hasSuperAccess(user)
-    // expire the user group cache
-    this.groupService.clearCache(osmId = osmId)
+
     val item = this.retrieveByOSMId(osmId) match {
-      case Some(i) => i
-      case None    => throw new NotFoundException(s"No user with OSM ID $osmId found")
+      case Some(i) =>
+        this.grantService.deleteGrantsTo(Grantee.user(i.id), user)
+        i
+      case None => throw new NotFoundException(s"No user with OSM ID $osmId found")
     }
     this.cacheManager.withCacheIDDeletion { () =>
       this.repository.deleteByOSMID(osmId)
@@ -463,24 +451,48 @@ class UserService @Inject() (
   }
 
   /**
-    * Removes a user from a project
+    * Removes a user's granted role on a project
     *
     * @param osmId     The OSM ID of the user
     * @param projectId The id of the project to remove the user from
-    * @param groupType The type of group to remove -1 - all, 1 - Admin, 2 - Write, 3 - Read
+    * @param role      The role to remove -1 - all, 1 - Admin, 2 - Write, 3 - Read
     * @param user      The user making the request
     */
-  def removeUserFromProject(osmId: Long, projectId: Long, groupType: Int, user: User): Unit = {
+  def removeUserFromProject(osmId: Long, projectId: Long, role: Option[Int], user: User): Unit = {
     this.permission.hasProjectAccess(this.projectService.retrieve(projectId), user)
-    this.groupService.clearCache(osmId = osmId)
+
     this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
-        this.groupService.removeUserFromProjectGroups(osmId, projectId, groupType, User.superUser)
+        // Don't remove the last administrator from the project
+        if (!this.grantService
+              .retrieveMatchingGrants(
+                role = Some(Grant.ROLE_ADMIN),
+                target = Some(GrantTarget.project(projectId)),
+                user = User.superUser
+              )
+              .exists { g =>
+                g.grantee.granteeType == UserType() && g.grantee != Grantee.user(cachedUser.id)
+              }) {
+          throw new InvalidException(
+            "Cannot remove user from project: projects must have at least one administrator"
+          )
+        }
+
+        this.grantService.deleteMatchingGrants(
+          grantee = Some(Grantee.user(cachedUser.id)),
+          role = role,
+          target = Some(GrantTarget.project(projectId)),
+          user = User.superUser
+        )
         Some(
-          cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmId, User.superUser))
+          cachedUser.copy(
+            grants = this.grantService.retrieveGrantsTo(Grantee.user(cachedUser.id), User.superUser)
+          )
         )
       }(id = osmId)
       .get
+
+    this.projectService.clearCache(projectId)
   }
 
   /**
@@ -509,12 +521,17 @@ class UserService @Inject() (
           )
           .id
     }
-    // make sure the user is an admin of this project
-    if (!user.groups.exists(g => g.projectId == homeProjectId)) {
-      this.addUserToProject(user.osmProfile.id, homeProjectId, Group.TYPE_ADMIN, User.superUser)
-    } else {
-      user
-    }
+
+    // Return user refreshed with new grants
+    this.cacheManager
+      .withUpdatingCache(osmId => Some(user)) { cachedUser =>
+        Some(
+          cachedUser.copy(
+            grants = this.grantService.retrieveGrantsTo(Grantee.user(cachedUser.id), User.superUser)
+          )
+        )
+      }(id = user.osmProfile.id)
+      .get
   }
 
   /**
@@ -522,29 +539,40 @@ class UserService @Inject() (
     *
     * @param osmId     The OSM ID of the user to add to the project
     * @param projectId The project that user is being added too
-    * @param groupType The type of group to add 1 - Admin, 2 - Write, 3 - Read
+    * @param role      The type of role to add 1 - Admin, 2 - Write, 3 - Read
     * @param user      The user that is adding the user to the project
     */
   def addUserToProject(
       osmId: Long,
       projectId: Long,
-      groupType: Int,
+      role: Int,
       user: User,
       clear: Boolean = false
   ): User = {
     this.permission.hasProjectAccess(this.projectService.retrieve(projectId), user)
-    // expire the user group cache
-    this.groupService.clearCache(osmId = osmId)
-    this.verifyProjectGroups(projectId)
-    this.cacheManager
+    val addedUser = this.cacheManager
       .withUpdatingCache(this.retrieveByOSMId) { cachedUser =>
         if (clear) {
-          this.groupService.removeUserFromProjectGroups(osmId, projectId, -1, User.superUser)
+          this.grantService.deleteMatchingGrants(
+            grantee = Some(Grantee.user(cachedUser.id)),
+            target = Some(GrantTarget.project(projectId)),
+            user = User.superUser
+          )
         }
-        this.groupService.addUserToProject(osmId, groupType, projectId, User.superUser)
-        Some(cachedUser.copy(groups = this.groupService.retrieveUserGroups(osmId, User.superUser)))
+        this.grantService.createGrant(
+          Grant(-1, "", Grantee.user(cachedUser.id), role, GrantTarget.project(projectId)),
+          User.superUser
+        )
+        Some(
+          cachedUser.copy(
+            grants = this.grantService.retrieveGrantsTo(Grantee.user(cachedUser.id), User.superUser)
+          )
+        )
       }(id = osmId)
       .get
+
+    this.projectService.clearCache(projectId)
+    addedUser
   }
 
   /**
@@ -562,31 +590,6 @@ class UserService @Inject() (
     }
 
   def query(query: Query, user: User): List[User] = this.repository.query(query)
-
-  /**
-    * This function will quickly verify that the project groups have been created correctly and if not,
-    * then it will create them
-    *
-    * @param projectId The id of the project you are checking
-    */
-  def verifyProjectGroups(projectId: Long): Unit = {
-    this.projectService.clearCache(projectId)
-    this.projectService.retrieve(projectId) match {
-      case Some(p) =>
-        val groups = p.groups
-        // must contain at least 1 admin group, 1 write group and 1 read group
-        if (groups.count(_.groupType == Group.TYPE_ADMIN) < 1) {
-          this.groupService.create(projectId, Group.TYPE_ADMIN, User.superUser)
-        }
-        if (groups.count(_.groupType == Group.TYPE_WRITE_ACCESS) < 1) {
-          this.groupService.create(projectId, Group.TYPE_WRITE_ACCESS, User.superUser)
-        }
-        if (groups.count(_.groupType == Group.TYPE_READ_ONLY) < 1) {
-          this.groupService.create(projectId, Group.TYPE_READ_ONLY, User.superUser)
-        }
-      case None => throw new NotFoundException(s"No project found with id $projectId")
-    }
-  }
 
   /**
     * Retrieves the user's home project
@@ -694,27 +697,69 @@ class UserService @Inject() (
   }
 
   /**
-    * Retrieve list of all users possessing a group type for the project.
+    * Retrieve list of all users possessing a granted role on the project
     *
-    * @param projectId   The project
-    * @param osmIdFilter : A filter for manager OSM ids
-    * @param user        The user making the request
+    * @param projectId    The project
+    * @param osmIdFilter  A filter for manager OSM ids
+    * @param user         The user making the request
+    * @param includeTeams If true, also include indirect managers via teams
     * @return A list of ProjectManager objects.
     */
   def getUsersManagingProject(
       projectId: Long,
       osmIdFilter: Option[List[Long]] = None,
-      user: User
+      user: User,
+      includeTeams: Boolean = true
   ): List[ProjectManager] = {
-    this.permission
-      .hasProjectAccess(this.projectService.retrieve(projectId), user, Group.TYPE_READ_ONLY)
-    this.repository.getUsersManagingProject(projectId, osmIdFilter)
+    val project = this.projectService.retrieve(projectId) match {
+      case Some(p) => p
+      case None    => throw new NotFoundException(s"No project found with id $projectId")
+    }
+    this.permission.hasProjectAccess(Some(project), user, Grant.ROLE_READ_ONLY)
+
+    // Get users directly granted a role on the project
+    val userIds = project.grantsToType(UserType()).map(_.grantee.granteeId)
+
+    if (!includeTeams) {
+      return this.retrieveListById(userIds.distinct).map(u => ProjectManager.fromUser(u, projectId))
+    }
+
+    // Get users indirectly granted a role on the project via their teams
+    val teamGrants = project.grantsToType(GroupType())
+    val teamUsers = this.serviceManager.team.teamUsersByTeamIds(
+      teamGrants.map(_.grantee.granteeId),
+      User.superUser
+    )
+
+    // Fetch both types of users, filter, and convert to project managers. If a
+    // user is in both types (or on multiple teams), consolidate all relevant
+    // granted roles
+    val users = this.serviceManager.user.retrieveListById(
+      (userIds ++ teamUsers.map(_.userId)).distinct
+    )
+    val matchingUsers = osmIdFilter match {
+      case Some(osmIds) if !osmIds.isEmpty => users.filter(u => osmIds.contains(u.osmProfile.id))
+      case _                               => users
+    }
+
+    matchingUsers.map(u => {
+      val teamIds = teamUsers.filter(_.userId == u.id).map(_.teamId)
+      val grants  = teamGrants.filter(g => teamIds.contains(g.grantee.granteeId))
+      ProjectManager(
+        projectId,
+        u.id,
+        u.osmProfile.id,
+        u.osmProfile.displayName,
+        u.osmProfile.avatarURL,
+        (u.grantsForProject(projectId) ++ grants).map(_.role).distinct
+      )
+    })
   }
 
   /**
     * Clears the users cache
     *
-    * @param id If id is supplied will only remove the project with that id
+    * @param id If id is supplied will only remove the user with that id
     */
   def clearCache(id: Long = -1): Unit = {
     if (id > -1) {

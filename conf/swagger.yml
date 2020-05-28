@@ -10,7 +10,7 @@ info:
     name: "Apache License version 2.0"
     url: "http://www.apache.org/licenses/"
 basePath: "/api/v2"
-host: "localhost:9000"
+host: ${API_HOST}
 consumes:
   - application/json
 produces:
@@ -62,12 +62,12 @@ definitions:
         type: string
         example: "This is my project"
         description: "The description for the project"
-      groups:
+      grants:
         type: array
         items:
-          $ref: "#/definitions/org.maproulette.framework.model.Group"
+          $ref: "#/definitions/org.maproulette.framework.model.Grant"
         readOnly: true
-        description: "The groups that are associated with the project, which is completely managed by the backend"
+        description: "The grants associated with the project, which is completely managed by the backend"
       enabled:
         type: boolean
         description: "Whether this project is enabled for use or not"

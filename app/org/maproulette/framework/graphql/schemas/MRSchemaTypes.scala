@@ -7,16 +7,24 @@ package org.maproulette.framework.graphql.schemas
 
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
+import org.maproulette.framework.graphql.fetchers._
 import org.maproulette.models.{MapillaryImage, Task, TaskBundle, TaskReviewFields}
+import org.maproulette.data._
 import play.api.libs.oauth.RequestToken
 import sangria.ast.StringValue
-import sangria.macros.derive.{ObjectTypeName, deriveObjectType}
-import sangria.schema.{ObjectType, ScalarType}
+import sangria.macros.derive._
+import sangria.schema._
 
 /**
   * @author mcuthbert
   */
 trait MRSchemaTypes {
+  implicit val IdentifiableType = InterfaceType(
+    "Identifiable",
+    fields[Unit, Identifiable](
+      Field("id", LongType, resolve = _.value.id)
+    )
+  )
   implicit val graphQLDateTime: ScalarType[DateTime] = ScalarType[DateTime](
     "DateTime",
     coerceOutput = (dt, _) => dt.toString,
@@ -33,9 +41,25 @@ trait MRSchemaTypes {
   // Project Types
   implicit val ProjectType: ObjectType[Unit, Project] =
     deriveObjectType[Unit, Project](ObjectTypeName("Project"))
-  // Group Types
-  implicit val GroupType: ObjectType[Unit, Group] =
-    deriveObjectType[Unit, Group](ObjectTypeName("Group"))
+  // Grant Types
+  implicit val GranteeType = ObjectType(
+    "Grantee",
+    "Something granted a security role",
+    fields[Unit, Grantee](
+      Field("granteeType", IntType, resolve = _.value.granteeType.typeId),
+      Field("granteeId", LongType, resolve = _.value.granteeId)
+    )
+  )
+  implicit val GrantTargetType = ObjectType(
+    "GrantTarget",
+    "Something to which a security role is granted",
+    fields[Unit, GrantTarget](
+      Field("objectType", IntType, resolve = _.value.objectType.typeId),
+      Field("objectId", LongType, resolve = _.value.objectId)
+    )
+  )
+  implicit val GrantType: ObjectType[Unit, Grant] =
+    deriveObjectType[Unit, Grant](ObjectTypeName("Grant"))
   // User Types
   implicit val RequestTokenType: ObjectType[Unit, RequestToken] =
     deriveObjectType[Unit, RequestToken](ObjectTypeName("RequestToken"))
@@ -76,4 +100,34 @@ trait MRSchemaTypes {
   // Tag Types
   implicit val TagType: ObjectType[Unit, Tag] =
     deriveObjectType[Unit, Tag](ObjectTypeName("Keyword"))
+  implicit lazy val GroupType: ObjectType[Unit, Group] =
+    deriveObjectType[Unit, Group](
+      ObjectTypeName("Group"),
+      Interfaces(IdentifiableType),
+      AddFields(
+        Field(
+          "teamUsers",
+          ListType(TeamUserType),
+          resolve = ctx =>
+            TeamFetchers.teamUsersFetcher.deferRelSeq(TeamFetchers.teamUsersByTeamRel, ctx.value.id)
+        )
+      )
+    )
+  implicit lazy val GroupMemberType: ObjectType[Unit, GroupMember] =
+    deriveObjectType[Unit, GroupMember](
+      ObjectTypeName("GroupMember"),
+      Interfaces(IdentifiableType)
+    )
+  implicit lazy val TeamUserType: ObjectType[Unit, TeamUser] = deriveObjectType[Unit, TeamUser](
+    ObjectTypeName("TeamUser"),
+    Interfaces(IdentifiableType),
+    ExcludeFields("teamId"),
+    AddFields(
+      Field(
+        "team",
+        GroupType,
+        resolve = ctx => TeamFetchers.teamsFetcher.defer(ctx.value.teamId)
+      )
+    )
+  )
 }

@@ -18,7 +18,7 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Challenge, Project, StatusActions, User}
+import org.maproulette.framework.model.{Challenge, Project, StatusActions, User, GrantTarget}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.ProjectRepository
@@ -180,7 +180,7 @@ class TaskDAL @Inject() (
       implicit c: Option[Connection] = None
   ): Option[Project] = {
     val projectParser = ProjectRepository.parser(projectId =>
-      this.serviceManager.group.retrieveProjectGroups(projectId, User.superUser)
+      this.serviceManager.grant.retrieveGrantsOn(GrantTarget.project(projectId), User.superUser)
     )
     obj match {
       case Left(id) =>
@@ -651,9 +651,12 @@ class TaskDAL @Inject() (
         if (!skipStatusUpdate) {
           startedLock match {
             case Some(l) =>
-              SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
-                .getMillis()}))
-                    WHERE id = ${task.id}""".executeUpdate()
+              completedTimeSpent = Some(
+                SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
+                  .getMillis()}))
+                     WHERE id = ${task.id} RETURNING completed_time_spent"""
+                  .as(SqlParser.long("completed_time_spent").single)
+              )
             case _ => // do nothing
           }
         }
@@ -674,13 +677,18 @@ class TaskDAL @Inject() (
                      VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
                              ${Task.REVIEW_STATUS_REQUESTED}, ${Instant.now()},
                              ${task.review.reviewStartedAt})""".executeUpdate()
-              this.manager.notification.createReviewNotification(
-                user,
-                task.review.reviewedBy.getOrElse(-1),
-                Task.REVIEW_STATUS_REQUESTED,
-                task,
-                None
-              )
+
+              // Create notification only if task has reviewer
+              val reviewedBy: Long = task.review.reviewedBy.getOrElse(-1)
+              if (reviewedBy != -1) {
+                this.manager.notification.createReviewNotification(
+                  user,
+                  reviewedBy,
+                  Task.REVIEW_STATUS_REQUESTED,
+                  task,
+                  None
+                )
+              }
             case None =>
               SQL"""INSERT INTO task_review (task_id, review_status, review_requested_by)
                       VALUES (${task.id}, ${Task.REVIEW_STATUS_REQUESTED}, ${user.id})"""
@@ -1055,7 +1063,9 @@ class TaskDAL @Inject() (
     getRandomChallenge(params) match {
       case Some(challengeId) =>
         val taskTagIds = if (params.hasTaskTags) {
-          this.tagService.retrieveListByName(params.taskTags.get.map(_.toLowerCase)).map(_.id)
+          this.tagService
+            .retrieveListByName(params.taskParams.taskTags.get.map(_.toLowerCase))
+            .map(_.id)
         } else {
           List.empty
         }
@@ -1071,7 +1081,7 @@ class TaskDAL @Inject() (
         // The default where clause will check to see if the parents are enabled, that the task is
         // not locked (or if it is, it is locked by the current user) and that the status of the task
         // is either Created or Skipped
-        val taskStatusList = params.taskStatus match {
+        val taskStatusList = params.taskParams.taskStatus match {
           case Some(l) if l.nonEmpty => l
           case _ => {
             config.skipTooHard match {
@@ -1114,9 +1124,9 @@ class TaskDAL @Inject() (
           appendInWhereClause(whereClause, "tt.tag_id IN ({tagids})")
           parameters += (Symbol("tagids") -> ToParameterValue.apply[List[Long]].apply(taskTagIds))
         }
-        if (params.taskSearch.nonEmpty) {
+        if (params.taskParams.taskSearch.nonEmpty) {
           appendInWhereClause(whereClause, s"${searchField("tasks.name", "taskSearch")(None)}")
-          parameters += (Symbol("taskSearch") -> search(params.taskSearch.getOrElse("")))
+          parameters += (Symbol("taskSearch") -> search(params.taskParams.taskSearch.getOrElse("")))
         }
 
         val proximityOrdering = proximityId match {

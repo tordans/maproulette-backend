@@ -5,7 +5,7 @@
 
 package org.maproulette.framework.service
 
-import org.maproulette.framework.model.{Project, User}
+import org.maproulette.framework.model.{Project, User, Grant}
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.util.{FrameworkHelper, ProjectTag}
@@ -27,12 +27,19 @@ class ProjectServiceSpec(implicit val application: Application) extends Framewor
 
     "create a new project" taggedAs ProjectTag in {
       val createdProject = this.service
-        .create(Project(-1, User.superUser.osmProfile.id, "ServiceCreateProject"), User.superUser)
+        .create(
+          Project(-1, this.defaultUser.osmProfile.id, "ServiceCreateProject"),
+          this.defaultUser
+        )
       val retrievedProject = this.service.retrieve(createdProject.id)
       retrievedProject.get mustEqual createdProject
-      // make sure that the groups were created as well for the project
-      val createdGroups = retrievedProject.get.groups
-      createdGroups.size mustEqual 3
+
+      // make sure that project creator is granted admin role on new project
+      val createdGrants = retrievedProject.get.grants
+      createdGrants.size mustEqual 1
+      createdGrants.head.grantee.granteeId mustEqual defaultUser.id
+      createdGrants.head.role mustEqual Grant.ROLE_ADMIN
+      createdGrants.head.target.objectId mustEqual createdProject.id
     }
 
     // This
@@ -57,7 +64,7 @@ class ProjectServiceSpec(implicit val application: Application) extends Framewor
         .create(this.getTestUser(575438, "RandomFeatureUser"), User.superUser)
       val project = this.service.create(
         Project(-1, randomUser.osmProfile.id, "ServiceFeaturedUpdateProject"),
-        User.superUser
+        randomUser
       )
       project.featured mustEqual false
       val updatedProject =
@@ -95,7 +102,7 @@ class ProjectServiceSpec(implicit val application: Application) extends Framewor
       val randomUser =
         this.serviceManager.user.create(this.getTestUser(9876, "RANDOM_USER"), User.superUser)
       val updateProject = this.service
-        .create(Project(-1, randomUser.osmProfile.id, "EnabledFeaturedProject"), User.superUser)
+        .create(Project(-1, randomUser.osmProfile.id, "EnabledFeaturedProject"), randomUser)
       val update1 =
         this.service.update(updateProject.id, Json.obj("featured" -> true), User.superUser)
       update1.get.featured mustEqual true
@@ -119,7 +126,7 @@ class ProjectServiceSpec(implicit val application: Application) extends Framewor
             "ChangeVirtualStatusProject",
             isVirtual = Some(true)
           ),
-          User.superUser
+          randomUser
         )
       // Update that omits isVirtual
       val update1 =

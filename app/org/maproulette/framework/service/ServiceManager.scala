@@ -17,15 +17,19 @@ import org.maproulette.exception.NotFoundException
 @Singleton
 class ServiceManager @Inject() (
     projectService: Provider[ProjectService],
-    groupService: Provider[GroupService],
+    grantService: Provider[GrantService],
     userService: Provider[UserService],
+    groupService: Provider[GroupService],
     commentService: Provider[CommentService],
     tagService: Provider[TagService],
     challengeService: Provider[ChallengeService],
     challengeListingService: Provider[ChallengeListingService],
+    challengeSnapshotService: Provider[ChallengeSnapshotService],
     userMetricService: Provider[UserMetricService],
     virtualProjectService: Provider[VirtualProjectService],
-    taskReviewService: Provider[TaskReviewService]
+    taskReviewService: Provider[TaskReviewService],
+    taskService: Provider[TaskService],
+    teamService: Provider[TeamService]
 ) {
   def comment: CommentService = commentService.get()
 
@@ -37,22 +41,31 @@ class ServiceManager @Inject() (
 
   def getService(itemType: ItemType): ServiceMixin[_] = itemType match {
     case ProjectType()   => this.project
-    case GroupType()     => this.group
     case UserType()      => this.user
+    case GroupType()     => this.group
     case ChallengeType() => this.challenge
     case TagType()       => this.tag
+    case GrantType()     => this.grant
     case _               => throw new NotFoundException(s"Service not found for type $itemType")
   }
 
   def project: ProjectService = projectService.get()
 
-  def group: GroupService = groupService.get()
+  def grant: GrantService = grantService.get()
 
   def user: UserService = userService.get()
+
+  def group: GroupService = groupService.get()
 
   def challenge: ChallengeService = challengeService.get()
 
   def challengeListing: ChallengeListingService = challengeListingService.get()
 
+  def challengeSnapshot: ChallengeSnapshotService = challengeSnapshotService.get()
+
   def taskReview: TaskReviewService = taskReviewService.get()
+
+  def task: TaskService = taskService.get()
+
+  def team: TeamService = teamService.get()
 }

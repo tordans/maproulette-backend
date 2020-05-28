@@ -208,7 +208,11 @@ trait DALHelper {
     if (projectSearch) {
       params.getProjectIds match {
         case Some(p) if p.nonEmpty =>
-          appendInWhereClause(whereClause, s"$challengePrefix.parent_id IN (${p.mkString(",")})")
+          val invert = if (params.invertFields.getOrElse(List()).contains("pid")) "NOT" else ""
+          appendInWhereClause(
+            whereClause,
+            s"$challengePrefix.parent_id ${invert} IN (${p.mkString(",")})"
+          )
         case _ =>
           params.projectSearch match {
             case Some(ps) if ps.nonEmpty =>
@@ -238,7 +242,11 @@ trait DALHelper {
 
     params.getChallengeIds match {
       case Some(c) if c.nonEmpty =>
-        this.appendInWhereClause(whereClause, s"$challengePrefix.id IN (${c.mkString(",")})")
+        val invert = if (params.invertFields.getOrElse(List()).contains("cid")) "NOT" else ""
+        this.appendInWhereClause(
+          whereClause,
+          s"$challengePrefix.id ${invert} IN (${c.mkString(",")})"
+        )
       case _ =>
         params.challengeParams.challengeSearch match {
           case Some(cs) if cs.nonEmpty =>
@@ -250,9 +258,10 @@ trait DALHelper {
                 )
                 parameters += (Symbol("cs") -> cs)
               case None =>
+                val invert = params.invertFields.getOrElse(List()).contains("cs")
                 this.appendInWhereClause(
                   whereClause,
-                  this.searchField(s"$challengePrefix.name", "cs")(None)
+                  this.searchField(s"$challengePrefix.name", "cs", invert)(None)
                 )
                 parameters += (Symbol("cs") -> s"%$cs%")
             }
@@ -327,10 +336,10 @@ trait DALHelper {
     * @param key         The search string that you are testing against
     * @return
     */
-  def searchField(column: String, key: String = "ss")(
+  def searchField(column: String, key: String = "ss", invert: Boolean = false)(
       implicit conjunction: Option[SQLKey] = Some(AND())
   ): String =
-    s" ${this.getSqlKey} LOWER($column) LIKE LOWER({$key})"
+    s" ${this.getSqlKey} LOWER($column) ${if (invert) "NOT" else ""} LIKE LOWER({$key})"
 
   /**
     * Adds fuzzy search to any query. This will include the Levenshtein, Metaphone and Soundex functions

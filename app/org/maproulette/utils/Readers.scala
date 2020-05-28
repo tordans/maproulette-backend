@@ -20,8 +20,8 @@ trait Readers extends ChallengeReads {
   implicit val settingsReads: Reads[UserSettings] = User.settingsReads
   implicit val locationReads: Reads[Location]     = User.locationReads
   implicit val osmReads: Reads[OSMProfile]        = User.osmReads
-  // Group Readers
-  implicit val groupReads: Reads[Group] = Group.reads
+  // Grant Readers
+  implicit val grantReads: Reads[Grant] = Grant.reads
   // Point Readers
   implicit val pointReads: Reads[Point]                   = ClusteredPoint.pointReads
   implicit val clusteredPointReads: Reads[ClusteredPoint] = ClusteredPoint.clusteredPointReads

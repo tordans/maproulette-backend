@@ -8,7 +8,7 @@ import javax.inject.Inject
 import org.maproulette.Config
 import org.maproulette.data.ActionManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.{Challenge, User}
+import org.maproulette.framework.model.{Challenge, User, Tag}
 import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models.Task
 import org.maproulette.models.dal._
@@ -134,8 +134,6 @@ class TaskReviewController @Inject() (
   /**
     * Gets tasks where a review is requested
     *
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
     * @param limit The number of tasks to return
     * @param page The page number for the results
     * @param sort The column to sort
@@ -144,14 +142,13 @@ class TaskReviewController @Inject() (
     * @return
     */
   def getReviewRequestedTasks(
-      startDate: String = null,
-      endDate: String = null,
       onlySaved: Boolean = false,
       limit: Int,
       page: Int,
       sort: String,
       order: String,
-      excludeOtherReviewers: Boolean = false
+      excludeOtherReviewers: Boolean = false,
+      includeTags: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -161,8 +158,6 @@ class TaskReviewController @Inject() (
         val (count, result) = this.taskReviewDAL.getReviewRequestedTasks(
           User.userOrMocked(user),
           params,
-          startDate,
-          endDate,
           onlySaved,
           limit,
           page,
@@ -171,7 +166,7 @@ class TaskReviewController @Inject() (
           true,
           excludeOtherReviewers
         )
-        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result, includeTags)))
       }
     }
   }
@@ -179,9 +174,6 @@ class TaskReviewController @Inject() (
   /**
     * Gets reviewed tasks where the user has reviewed or requested review
     *
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
-    * @param reviewers Whether we should return tasks reviewed by this user or reqested by this user
     * @param allowReviewNeeded Whether we should return tasks where status is review requested also
     * @param limit The number of tasks to return
     * @param page The page number for the results
@@ -190,32 +182,25 @@ class TaskReviewController @Inject() (
     * @return
     */
   def getReviewedTasks(
-      mappers: String = "",
-      reviewers: String = "",
-      startDate: String = null,
-      endDate: String = null,
       allowReviewNeeded: Boolean = false,
       limit: Int,
       page: Int,
       sort: String,
-      order: String
+      order: String,
+      includeTags: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
         val (count, result) = this.taskReviewDAL.getReviewedTasks(
           User.userOrMocked(user),
           params,
-          Some(Utils.split(mappers)),
-          Some(Utils.split(reviewers)),
-          startDate,
-          endDate,
           allowReviewNeeded,
           limit,
           page,
           sort,
           order
         )
-        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result)))
+        Ok(Json.obj("total" -> count, "tasks" -> _insertExtraJSON(result, includeTags)))
       }
     }
   }
@@ -225,7 +210,7 @@ class TaskReviewController @Inject() (
     * into the JSON data returned. Also fetches and inserts usernames for
     * 'reviewRequestedBy' and 'reviewBy'
     */
-  private def _insertExtraJSON(tasks: List[Task]): JsValue = {
+  private def _insertExtraJSON(tasks: List[Task], includeTags: Boolean = false): JsValue = {
     if (tasks.isEmpty) {
       Json.toJson(List[JsValue]())
     } else {
@@ -268,6 +253,11 @@ class TaskReviewController @Inject() (
           .toMap
       )
 
+      val tagsMap: Map[Long, List[Tag]] = includeTags match {
+        case true => this.serviceManager.tag.listByTasks(tasks.map(t => t.id))
+        case _    => null
+      }
+
       val jsonList = tasks.map { task =>
         val challengeJson = Json.toJson(challenges.get(task.parent)).as[JsObject]
         var updated =
@@ -280,7 +270,10 @@ class TaskReviewController @Inject() (
           val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
         }
-
+        if (includeTags && tagsMap.contains(task.id)) {
+          val tagsJson = Json.toJson(tagsMap(task.id))
+          updated = Utils.insertIntoJson(updated, "tags", tagsJson, true)
+        }
         updated
       }
       Json.toJson(jsonList)
@@ -288,110 +281,10 @@ class TaskReviewController @Inject() (
   }
 
   /**
-    * Gets reviewed tasks where the user has reviewed or requested review
-    *
-    * @param reviewTasksType - 1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
-    * @param onlySaved Only include saved challenges
-    * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
-    * @return
-    */
-  def getReviewMetrics(
-      reviewTasksType: Int,
-      mappers: String = "",
-      reviewers: String = "",
-      priorities: String = "",
-      startDate: String = null,
-      endDate: String = null,
-      onlySaved: Boolean = false,
-      excludeOtherReviewers: Boolean = false,
-      includeByPriority: Boolean = false
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      SearchParameters.withSearch { implicit params =>
-        val result = this.taskReviewDAL.getReviewMetrics(
-          User.userOrMocked(user),
-          reviewTasksType,
-          params,
-          Some(Utils.split(mappers)),
-          Some(Utils.split(reviewers)),
-          Utils.toIntList(priorities),
-          startDate,
-          endDate,
-          onlySaved,
-          excludeOtherReviewers
-        )
-
-        if (includeByPriority) {
-          val priorityMap = this._fetchPriorityReviewMetrics(
-            User.userOrMocked(user),
-            reviewTasksType,
-            params,
-            Some(Utils.split(mappers)),
-            Some(Utils.split(reviewers)),
-            startDate,
-            endDate,
-            onlySaved,
-            excludeOtherReviewers
-          )
-
-          Ok(
-            Json.obj(
-              "reviewActions"         -> Json.toJson(result),
-              "priorityReviewActions" -> Json.toJson(priorityMap)
-            )
-          )
-        } else {
-          Ok(Json.toJson(List(result)))
-        }
-      }
-    }
-  }
-
-  private def _fetchPriorityReviewMetrics(
-      user: User,
-      reviewTasksType: Int,
-      params: SearchParameters,
-      mappers: Option[List[String]],
-      reviewers: Option[List[String]],
-      startDate: String,
-      endDate: String,
-      onlySaved: Boolean,
-      excludeOtherReviewers: Boolean
-  ): scala.collection.mutable.Map[String, JsValue] = {
-    val prioritiesToFetch =
-      List(Challenge.PRIORITY_HIGH, Challenge.PRIORITY_MEDIUM, Challenge.PRIORITY_LOW)
-
-    val priorityMap = scala.collection.mutable.Map[String, JsValue]()
-
-    prioritiesToFetch.foreach(p => {
-      val pResult = this.taskReviewDAL.getReviewMetrics(
-        user,
-        reviewTasksType,
-        params,
-        mappers,
-        reviewers,
-        Some(List(p)),
-        startDate,
-        endDate,
-        onlySaved,
-        excludeOtherReviewers
-      )
-
-      priorityMap.put(p.toString, Json.toJson(pResult))
-    })
-
-    priorityMap
-  }
-
-  /**
     * Gets clusters of review tasks. Uses kmeans method in postgis.
     *
     * @param reviewTasksType Type of review tasks (1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users)
     * @param numberOfPoints Number of clustered points you wish to have returned
-    * @param startDate Optional start date to filter by reviewedAt date
-    * @param endDate Optional end date to filter by reviewedAt date
     * @param onlySaved include challenges that have been saved
     * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
     *
@@ -400,8 +293,6 @@ class TaskReviewController @Inject() (
   def getReviewTaskClusters(
       reviewTasksType: Int,
       numberOfPoints: Int,
-      startDate: String = null,
-      endDate: String = null,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
@@ -414,8 +305,6 @@ class TaskReviewController @Inject() (
               reviewTasksType,
               params,
               numberOfPoints,
-              startDate,
-              endDate,
               onlySaved,
               excludeOtherReviewers
             )

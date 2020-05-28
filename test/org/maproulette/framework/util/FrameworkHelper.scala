@@ -11,12 +11,15 @@ import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.Task
-import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
+import org.maproulette.models.dal.{ChallengeDAL, TaskDAL, TaskReviewDAL}
+import org.maproulette.permissions.Permission
 import org.scalatest.{BeforeAndAfterAll, Tag}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
 import play.api.Application
 import play.api.libs.oauth.RequestToken
+
+import org.maproulette.data.SnapshotManager
 
 /**
   * @author mcuthbert
@@ -26,6 +29,11 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
   val serviceManager: ServiceManager = application.injector.instanceOf(classOf[ServiceManager])
   val challengeDAL: ChallengeDAL     = application.injector.instanceOf(classOf[ChallengeDAL])
   val taskDAL: TaskDAL               = application.injector.instanceOf(classOf[TaskDAL])
+  val taskReviewDAL: TaskReviewDAL   = application.injector.instanceOf(classOf[TaskReviewDAL])
+  val permission: Permission         = application.injector.instanceOf(classOf[Permission])
+
+  // To be removed when all of SnapshotManager has been converted
+  val snapshotManager: SnapshotManager = application.injector.instanceOf(classOf[SnapshotManager])
 
   implicit val projectTestName: String
 
@@ -49,7 +57,7 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
       ownerId: Long = this.defaultUser.osmProfile.id
   ): Project = {
     val createdProject = this.serviceManager.project
-      .create(Project(-1, ownerId, projectName), User.superUser)
+      .create(Project(-1, ownerId, projectName), this.defaultUser)
     1 to numberOfChallenges foreach { cid =>
       {
         val challenge = this.createChallengeStructure(s"${challengePrefix}_$cid", createdProject.id)
@@ -135,6 +143,15 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
     )
   }
 
+  protected def getTestTeam(name: String): Group = {
+    Group(
+      -1,
+      name,
+      Some("A test team"),
+      Some("http://www.gravatar.com/avatar/?d=identicon")
+    )
+  }
+
   override protected def afterAll(): Unit = {
     val testProject = this.serviceManager.project.retrieveByName(projectTestName)
     this.serviceManager.project.delete(testProject.get.id, User.superUser, true)
@@ -146,21 +163,22 @@ object ChallengeTag            extends Tag("challenge")
 object ChallengeRepoTag        extends Tag("challengerepo")
 object ChallengeListingTag     extends Tag("challengelisting")
 object ChallengeListingRepoTag extends Tag("challengelistingrepo")
+object ChallengeSnapshotTag    extends Tag("challengesnapshot")
 object ProjectTag              extends Tag("project")
 object ProjectRepoTag          extends Tag("projectrepo")
 object CommentTag              extends Tag("comment")
 object CommentRepoTag          extends Tag("commentrepo")
-object GroupTag                extends Tag("group")
-object GroupRepoTag            extends Tag("groupRepo")
+object GrantTag                extends Tag("grant")
 object UserMetricsTag          extends Tag("usermetrics")
 object UserSavedObjectsTag     extends Tag("usersavedobjects")
 object UserSavedObjectsRepoTag extends Tag("usersavedobjectsrepo")
 object UserTag                 extends Tag("user")
+object GroupTag                extends Tag("group")
 object UserRepoTag             extends Tag("userRepo")
 object VirtualProjectTag       extends Tag("virtualproject")
 object VirtualProjectRepoTag   extends Tag("virtualprojectrepo")
-object UserGroupTag            extends Tag("usergroup")
-object UserGroupRepoTag        extends Tag("usergrouprepo")
 object KeywordTag              extends Tag("keyword")
 object KeywordRepoTag          extends Tag("keywordrepo")
 object TaskReviewTag           extends Tag("taskreviewtag")
+object TaskTag                 extends Tag("tasktag")
+object TeamTag                 extends Tag("teamtag")

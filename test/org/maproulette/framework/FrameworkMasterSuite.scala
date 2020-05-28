@@ -15,26 +15,32 @@ import org.scalatest.{BeforeAndAfterAll, Suite, Suites, Tag}
   */
 class FrameworkMasterSuite extends Suites with BeforeAndAfterAll with TestDatabase {
   private val suites = IndexedSeq(
+    new TeamServiceSpec,
     new ChallengeServiceSpec,
     new ChallengeRepositorySpec,
-    new ChallengeListingSpec,
+    new ChallengeListingServiceSpec,
     new ChallengeRepositorySpec,
+    new ChallengeSnapshotServiceSpec,
     new CommentServiceSpec,
     new CommentRepositorySpec,
-    new GroupServiceSpec,
-    new GroupRepositorySpec,
+    new GrantServiceSpec,
+    new GrantRepositorySpec,
     new ProjectServiceSpec,
     new ProjectRepositorySpec,
+    new TagServiceSpec,
+    new TagRepositorySpec,
+    new TaskServiceSpec,
     new TaskReviewServiceSpec,
     new UserMetricsServiceSpec,
     new UserSavedObjectsServiceSpec,
     new UserSavedObjectsRepositorySpec,
     new UserServiceSpec,
     new UserRepositorySpec,
+    new GroupServiceSpec,
+    new GroupRepositorySpec,
+    new GroupMemberRepositorySpec,
     new VirtualProjectServiceSpec,
-    new VirtualProjectRepositorySpec,
-    new TagServiceSpec,
-    new TagRepositorySpec
+    new VirtualProjectRepositorySpec
   )
   private val tagFilters: Seq[Tag] = Seq()
   override val nestedSuites: IndexedSeq[Suite] =
