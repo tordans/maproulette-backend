@@ -766,7 +766,7 @@ class ChallengeController @Inject() (
                   case value: JsDefined =>
                     var propValue = value.get.toString()
                     if (propValue != "true" && propValue != "false") {
-                      // Strip off ""s
+                      // Strip off quotes
                       propValue = propValue.substring(1, propValue.length() - 1)
                     }
                     responseData += "," + propValue.replaceAll("\"", "\"\"")
