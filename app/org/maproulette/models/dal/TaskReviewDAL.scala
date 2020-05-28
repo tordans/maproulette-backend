@@ -1068,7 +1068,7 @@ class TaskReviewDAL @Inject() (
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
                           $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
-            this.manager.notification.createReviewNotification(
+            this.serviceManager.notification.createReviewNotification(
               user,
               task.review.reviewedBy.getOrElse(-1),
               reviewStatus,
@@ -1082,7 +1082,7 @@ class TaskReviewDAL @Inject() (
                   VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
                           $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
             if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
-              this.manager.notification.createReviewNotification(
+              this.serviceManager.notification.createReviewNotification(
                 user,
                 task.review.reviewRequestedBy.getOrElse(-1),
                 reviewStatus,

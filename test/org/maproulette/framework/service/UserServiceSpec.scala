@@ -361,42 +361,56 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
     "remove a user from a project" taggedAs UserTag in {
       val user =
         this.userService.create(this.getTestUser(20, "RemoveUserFromProjectTest"), User.superUser)
+      val project = this.serviceManager.project
+        .create(
+          Project(-1, user.osmProfile.id, "RemoveUserFromProjectTestProject"),
+          user
+        )
 
       this.userService.addUserToProject(
-        user.osmProfile.id,
-        this.defaultProject.id,
+        this.defaultUser.osmProfile.id,
+        project.id,
         Grant.ROLE_ADMIN,
         User.superUser
       )
 
       this.userService
         .getUsersManagingProject(
-          this.defaultProject.id,
+          project.id,
           None,
           User.superUser
         )
-        .size mustEqual 3
+        .size mustEqual 2
 
       this.userService.removeUserFromProject(
-        user.osmProfile.id,
-        this.defaultProject.id,
+        this.defaultUser.osmProfile.id,
+        project.id,
         Some(Grant.ROLE_ADMIN),
         User.superUser
       )
 
       this.userService
         .getUsersManagingProject(
-          this.defaultProject.id,
+          project.id,
           None,
           User.superUser
         )
-        .size mustEqual 2
+        .size mustEqual 1
     }
 
     "not remove last admin from project" taggedAs UserTag in {
+      val user =
+        this.userService
+          .create(this.getTestUser(195838622, "RemoveLastAdminFromProjectTest"), User.superUser)
+      val project = this.serviceManager.project
+        .create(
+          Project(-1, user.osmProfile.id, "RemoveLastAdminFromProjectTestProject"),
+          user
+        )
+
       an[InvalidException] should be thrownBy this.userService.removeUserFromProject(
-        this.defaultUser.osmProfile.id,
-        this.defaultProject.id,
+        user.id,
+        project.id,
         Some(Grant.ROLE_ADMIN),
         User.superUser
       )

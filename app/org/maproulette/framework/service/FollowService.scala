@@ -53,6 +53,8 @@ class FollowService @Inject() (
         WebSocketMessages.FollowUpdateData(Some(follower.id), Some(followed.id))
       )
     )
+
+    this.serviceManager.notification.createFollowedNotification(follower, followed.id)
   }
 
   /**

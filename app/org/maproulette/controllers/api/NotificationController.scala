@@ -7,9 +7,10 @@ package org.maproulette.controllers.api
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
-import org.maproulette.models.dal.{NotificationDAL}
+import org.maproulette.framework.service.{NotificationService}
+import org.maproulette.framework.model.{NotificationSubscriptions}
+import org.maproulette.framework.psql.{Order, OrderField, Paging}
 import org.maproulette.session.SessionManager
-import org.maproulette.models.{NotificationSubscriptions}
 import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json._
 import play.api.mvc._
@@ -21,7 +22,7 @@ import scala.util.{Failure, Success}
   * @author nrotstan
   */
 class NotificationController @Inject() (
-    notificationDAL: NotificationDAL,
+    service: NotificationService,
     sessionManager: SessionManager,
     components: ControllerComponents,
     bodyParsers: PlayBodyParsers,
@@ -56,17 +57,15 @@ class NotificationController @Inject() (
 
       Ok(
         Json.toJson(
-          this.notificationDAL.getUserNotifications(
+          this.service.getUserNotifications(
             userId,
             user,
-            limit,
-            page * limit,
-            sort,
-            order,
             notificationType,
             readFilter,
             fromUsername,
-            challengeId
+            challengeId,
+            OrderField(sort, if (order == "ASC") Order.ASC else Order.DESC),
+            Paging(limit, page)
           )
         )
       )
@@ -78,7 +77,7 @@ class NotificationController @Inject() (
       this.sessionManager.authenticatedRequest { implicit user =>
         if (!StringUtils.isEmpty(notificationIds)) {
           val parsedNotificationIds = Utils.split(notificationIds).map(_.toLong)
-          this.notificationDAL.markNotificationsRead(userId, user, parsedNotificationIds)
+          this.service.markNotificationsRead(userId, user, parsedNotificationIds)
         }
         Ok(Json.toJson(StatusMessage("OK", JsString(s"Notifications marked as read"))))
       }
@@ -89,7 +88,7 @@ class NotificationController @Inject() (
       this.sessionManager.authenticatedRequest { implicit user =>
         if (!StringUtils.isEmpty(notificationIds)) {
           val parsedNotificationIds = Utils.split(notificationIds).map(_.toLong)
-          this.notificationDAL.deleteNotifications(userId, user, parsedNotificationIds)
+          this.service.deleteNotifications(userId, user, parsedNotificationIds)
         }
         Ok(Json.toJson(StatusMessage("OK", JsString(s"Notifications deleted"))))
       }
@@ -98,14 +97,14 @@ class NotificationController @Inject() (
   def getNotificationSubscriptions(userId: Long): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        Ok(Json.toJson(this.notificationDAL.getNotificationSubscriptions(userId, user)))
+        Ok(Json.toJson(this.service.getNotificationSubscriptions(userId, user)))
       }
   }
 
   def updateNotificationSubscriptions(userId: Long): Action[JsValue] =
     Action.async(bodyParsers.json) { implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        notificationDAL.updateNotificationSubscriptions(
+        this.service.updateNotificationSubscriptions(
           userId,
           user,
           request.body.as[NotificationSubscriptions]

@@ -292,6 +292,14 @@ class TeamService @Inject() (
       )
     )
     this.serviceManager.user.clearCache(member.objectId)
+
+    if (status == TeamMember.STATUS_INVITED) {
+      this.serviceManager.notification.createTeamInviteNotification(
+        user,
+        member.objectId,
+        team
+      )
+    }
     addedMember
   }
 

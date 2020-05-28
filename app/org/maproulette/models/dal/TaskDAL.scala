@@ -681,7 +681,7 @@ class TaskDAL @Inject() (
               // Create notification only if task has reviewer
               val reviewedBy: Long = task.review.reviewedBy.getOrElse(-1)
               if (reviewedBy != -1) {
-                this.manager.notification.createReviewNotification(
+                this.serviceManager.notification.createReviewNotification(
                   user,
                   reviewedBy,
                   Task.REVIEW_STATUS_REQUESTED,

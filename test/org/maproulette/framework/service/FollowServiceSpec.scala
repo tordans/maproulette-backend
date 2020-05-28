@@ -22,7 +22,7 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
   "FollowService" should {
     "retrieve a user's Following group, creating it if necessary" taggedAs UserTag in {
       val insertedUser =
-        this.userService.create(this.getTestUser(21, "FollowingGroupTest"), User.superUser)
+        this.userService.create(this.getTestUser(288811111, "FollowingGroupTest"), User.superUser)
 
       insertedUser.followingGroupId mustEqual None
       val followingGroup = this.followService.getFollowingGroup(insertedUser, User.superUser)
@@ -41,7 +41,7 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
 
     "retrieve a user's Followers group, creating it if necessary" taggedAs UserTag in {
       val insertedUser =
-        this.userService.create(this.getTestUser(22, "FollowersGroupTest"), User.superUser)
+        this.userService.create(this.getTestUser(288811112, "FollowersGroupTest"), User.superUser)
 
       insertedUser.followersGroupId mustEqual None
       val followersGroup = this.followService.getFollowersGroup(insertedUser, User.superUser)
@@ -60,11 +60,11 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
 
     "follow a user" taggedAs UserTag in {
       val firstUser =
-        this.userService.create(this.getTestUser(23, "FollowUserTest1"), User.superUser)
+        this.userService.create(this.getTestUser(288811113, "FollowUserTest1"), User.superUser)
       val secondUser =
-        this.userService.create(this.getTestUser(24, "FollowUserTest2"), User.superUser)
+        this.userService.create(this.getTestUser(288811114, "FollowUserTest2"), User.superUser)
       val thirdUser =
-        this.userService.create(this.getTestUser(25, "FollowUserTest3"), User.superUser)
+        this.userService.create(this.getTestUser(288811115, "FollowUserTest3"), User.superUser)
 
       this.followService.follow(firstUser, secondUser, User.superUser)
       val followers = this.followService.getUserFollowers(secondUser.id, User.superUser)
@@ -85,11 +85,11 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
 
     "stop following a user" taggedAs UserTag in {
       val firstUser =
-        this.userService.create(this.getTestUser(26, "UnfollowUserTest1"), User.superUser)
+        this.userService.create(this.getTestUser(288811116, "UnfollowUserTest1"), User.superUser)
       val secondUser =
-        this.userService.create(this.getTestUser(27, "UnfollowUserTest2"), User.superUser)
+        this.userService.create(this.getTestUser(288811117, "UnfollowUserTest2"), User.superUser)
       val thirdUser =
-        this.userService.create(this.getTestUser(28, "UnfollowUserTest3"), User.superUser)
+        this.userService.create(this.getTestUser(288811118, "UnfollowUserTest3"), User.superUser)
 
       this.followService.follow(firstUser, secondUser, User.superUser)
       this.followService.follow(thirdUser, firstUser, User.superUser)
@@ -109,7 +109,9 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
     "not allow following a user who has opted out" taggedAs UserTag in {
       val insertedUser = this.userService
         .update(
-          this.userService.create(this.getTestUser(29, "FollowOptOutUserTest"), User.superUser).id,
+          this.userService
+            .create(this.getTestUser(288811119, "FollowOptOutUserTest"), User.superUser)
+            .id,
           Json.parse(s"""{"settings": {"allowFollowing": false}}"""),
           User.superUser
         )
@@ -130,9 +132,9 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
 
     "block and unblock a follower" taggedAs UserTag in {
       val firstUser =
-        this.userService.create(this.getTestUser(30, "BlockFollowerTest1"), User.superUser)
+        this.userService.create(this.getTestUser(288811120, "BlockFollowerTest1"), User.superUser)
       val secondUser =
-        this.userService.create(this.getTestUser(31, "BlockFollowerTest2"), User.superUser)
+        this.userService.create(this.getTestUser(288811121, "BlockFollowerTest2"), User.superUser)
 
       this.followService.follow(secondUser, firstUser, User.superUser)
       this.followService
@@ -155,9 +157,11 @@ class FollowServiceSpec(implicit val application: Application) extends Framework
 
     "remove all existing followers when opting out of following" taggedAs UserTag in {
       val firstUser =
-        this.userService.create(this.getTestUser(32, "OptOutWithFollowersTest1"), User.superUser)
+        this.userService
+          .create(this.getTestUser(288811122, "OptOutWithFollowersTest1"), User.superUser)
       val secondUser =
-        this.userService.create(this.getTestUser(33, "OptOutWithFollowersTest2"), User.superUser)
+        this.userService
+          .create(this.getTestUser(288811123, "OptOutWithFollowersTest2"), User.superUser)
 
       this.followService.follow(secondUser, firstUser, User.superUser)
       this.followService.getUserFollowers(firstUser.id, User.superUser).size mustEqual 1
