@@ -1,0 +1,101 @@
+###
+# tags: [ Follow ]
+# summary: Get users being followed by a user
+# description: Get users being followed by a user
+# responses:
+#   '200':
+#     description: The users followed by the specified user
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the follower
+#     required: true
+###
+GET    /user/:userId/following                      @org.maproulette.framework.controller.FollowController.followedBy(userId: Long)
+
+###
+# tags: [ Follow ]
+# summary: Get users following a user
+# description: Get users following a user
+# responses:
+#   '200':
+#     description: The users following the specified user
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user being followed
+#     required: true
+###
+GET    /user/:userId/followers                      @org.maproulette.framework.controller.FollowController.followersOf(userId: Long)
+
+###
+# tags: [ Follow ]
+# summary: Follow a user
+# description: Begin following a user's MapRoulette activity
+# responses:
+#   '200':
+#     description: Updated list of followed users
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to follow
+#     required: true
+###
+POST    /user/:userId/follow                        @org.maproulette.framework.controller.FollowController.follow(userId: Long)
+
+###
+# tags: [ Follow ]
+# summary: Stop following a user
+# description: Stop following a user's MapRoulette activity
+# responses:
+#   '200':
+#     description: Updated list of followed users
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to stop following
+#     required: true
+###
+DELETE /user/:userId/follow                         @org.maproulette.framework.controller.FollowController.unfollow(userId: Long)
+
+###
+# tags: [ Follow ]
+# summary: Block a follower
+# description: Prevent a user from following this user
+# responses:
+#   '200':
+#     description: Updated list of followers
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to block
+#     required: true
+###
+POST    /user/:userId/block                         @org.maproulette.framework.controller.FollowController.block(userId: Long)
+
+###
+# tags: [ Follow ]
+# summary: Stop blocking a follower
+# description: Remove block preventing a user from following this user
+# responses:
+#   '200':
+#     description: Updated list of followers
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.User'
+# parameters:
+#   - name: userId
+#     in: path
+#     description: The id of the user to stop blocking
+#     required: true
+###
+DELETE /user/:userId/block                          @org.maproulette.framework.controller.FollowController.unblock(userId: Long)

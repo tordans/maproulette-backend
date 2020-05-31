@@ -8,12 +8,14 @@ package org.maproulette.framework.graphql.schemas
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.framework.graphql.fetchers._
+import org.maproulette.framework.graphql.UserContext
 import org.maproulette.models.{MapillaryImage, Task, TaskBundle, TaskReviewFields}
 import org.maproulette.data._
 import play.api.libs.oauth.RequestToken
 import sangria.ast.StringValue
 import sangria.macros.derive._
 import sangria.schema._
+import scala.concurrent.{Future}
 
 /**
   * @author mcuthbert
@@ -69,8 +71,39 @@ trait MRSchemaTypes {
     deriveObjectType[Unit, Location](ObjectTypeName("Location"))
   implicit val OSMProfileType: ObjectType[Unit, OSMProfile] =
     deriveObjectType[Unit, OSMProfile](ObjectTypeName("OSMProfile"))
-  implicit val UserType: ObjectType[Unit, User] =
-    deriveObjectType[Unit, User](ObjectTypeName("User"))
+  implicit lazy val UserType: ObjectType[Unit, User] =
+    deriveObjectType[Unit, User](
+      ObjectTypeName("User"),
+      Interfaces(IdentifiableType),
+      ReplaceField(
+        "followingGroupId",
+        Field(
+          "following",
+          ListType(UserType),
+          resolve = context => {
+            val userContext = context.ctx.asInstanceOf[UserContext]
+            Future.successful(
+              userContext.services.follow
+                .getUsersFollowedBy(context.value.id, userContext.user)
+                .toSeq
+            )
+          }
+        )
+      ),
+      ReplaceField(
+        "followersGroupId",
+        Field(
+          "followers",
+          ListType(FollowerType),
+          resolve = context => {
+            val userContext = context.ctx.asInstanceOf[UserContext]
+            Future.successful(
+              userContext.services.follow.getUserFollowers(context.value.id, userContext.user).toSeq
+            )
+          }
+        )
+      )
+    )
   implicit val ProjectManagerType: ObjectType[Unit, ProjectManager] =
     deriveObjectType[Unit, ProjectManager](ObjectTypeName("ProjectManager"))
   // Challenge Types
@@ -129,5 +162,9 @@ trait MRSchemaTypes {
         resolve = ctx => TeamFetchers.teamsFetcher.defer(ctx.value.teamId)
       )
     )
+  )
+  implicit lazy val FollowerType: ObjectType[Unit, Follower] = deriveObjectType[Unit, Follower](
+    ObjectTypeName("Follower"),
+    Interfaces(IdentifiableType)
   )
 }

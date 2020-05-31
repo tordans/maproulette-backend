@@ -19,6 +19,7 @@ class ServiceManager @Inject() (
     projectService: Provider[ProjectService],
     grantService: Provider[GrantService],
     userService: Provider[UserService],
+    followService: Provider[FollowService],
     groupService: Provider[GroupService],
     commentService: Provider[CommentService],
     tagService: Provider[TagService],
@@ -54,6 +55,8 @@ class ServiceManager @Inject() (
   def grant: GrantService = grantService.get()
 
   def user: UserService = userService.get()
+
+  def follow: FollowService = followService.get()
 
   def group: GroupService = groupService.get()
 

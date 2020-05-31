@@ -56,23 +56,33 @@ class DataController @Inject() (
   }
 
   /**
-    * Gets the recent activity for a user
+    * Gets the recent activity for one or more users
     *
+    * @param osmUserIds OSM user ids for which activity is desired
     * @param limit  the limit on the number of activities return
     * @param offset paging, starting at 0
     * @return List of action summaries associated with the user
     */
-  def getRecentUserActivity(limit: Int, offset: Int): Action[AnyContent] = Action.async {
-    implicit request =>
+  def getRecentUserActivity(osmUserIds: String, limit: Int, offset: Int): Action[AnyContent] =
+    Action.async { implicit request =>
       val actualLimit = if (limit == -1) {
         this.config.numberOfActivities
       } else {
         limit
       }
+
       this.sessionManager.authenticatedRequest { user =>
-        Ok(Json.toJson(this.actionManager.getRecentActivity(user, actualLimit, offset)))
+        // If no users were explicitly specified, use the current user. If -1 is
+        // given, do not limit by user
+        val osmIds = Utils.toLongList(osmUserIds) match {
+          case Some(ids) if ids.contains(-1) => List.empty
+          case Some(ids)                     => ids
+          case None                          => List(user.osmProfile.id)
+        }
+
+        Ok(Json.toJson(this.actionManager.getRecentActivity(osmIds, actualLimit, offset)))
       }
-  }
+    }
 
   def getUserChallengeSummary(
       challengeId: Long,

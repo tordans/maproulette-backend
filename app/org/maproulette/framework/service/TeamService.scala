@@ -80,7 +80,10 @@ class TeamService @Inject() (
     */
   def list(ids: List[Long], user: User): List[Group] =
     // Everyone has read access to teams, so no need to check permissions
-    this.groupService.list(ids)
+    this.groupService.list(
+      ids,
+      Query.simple(List(BaseParameter(Group.FIELD_GROUP_TYPE, Group.GROUP_TYPE_TEAM)))
+    )
 
   /**
     * Retrieves a single team based on a team name
@@ -536,12 +539,17 @@ class TeamService @Inject() (
     val users = this.serviceManager.user.retrieveListById(userIds)
     val userMembers =
       this.groupService.getMembershipsForMembers(UserType().typeId, userIds)
+    val teams = this.list(userMembers.map(_.groupId), user)
 
     userMembers
       .map(member => {
-        users.find(u => u.id == member.memberId) match {
-          case Some(user) => Some(TeamUser.fromUser(member.groupId, member, user))
-          case None       => None
+        teams.find(t => t.id == member.groupId) match {
+          case Some(team) =>
+            users.find(u => u.id == member.memberId) match {
+              case Some(user) => Some(TeamUser.fromUser(member.groupId, member, user))
+              case None       => None
+            }
+          case None => None
         }
       })
       .flatten
