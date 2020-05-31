@@ -18,23 +18,7 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
   def doesMatch(properties: Map[String, String], task: Task): Boolean = {
     // For a "bounds" match we need to see if task location is in given bounds value
     if (valueType == "bounds") {
-      // MinX,MinY,MaxX,MaxY
-      val bbox: List[Double] = Utils.toDoubleList(value).getOrElse(List(0, 0, 0, 0))
-
-      // Some({"type":"Point","coordinates":[-120.18699365,48.47991855]})
-      task.location match {
-        case Some(loc) =>
-          val coordinates = (Json.parse(loc) \ "coordinates").as[List[Double]]
-          val x: Double   = coordinates(0) //-120  -160,48.4770,120,50
-          val y: Double   = coordinates(1) //49
-          val isInBBox    = (x > bbox(0) && x < bbox(2) && y > bbox(1) && y < bbox(3))
-          operator match {
-            case "contains"     => isInBBox  // loc is in bbox
-            case "not_contains" => !isInBBox // loc is not in bbox
-          }
-          return isInBBox
-        case _ => // no location to match against
-      }
+      return locationInBounds(operator, value, task.location)
     }
 
     properties.find(pair => StringUtils.equalsIgnoreCase(pair._1, key)) match {
@@ -50,16 +34,6 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
               case "is_not_empty" => StringUtils.isNotEmpty(v._2)
               case _              => throw new InvalidException(s"Operator $operator not supported")
             }
-          case "integer" =>
-            operator match {
-              case "==" => v._2.toInt == value.toInt
-              case "!=" => v._2.toInt != value.toInt
-              case "<"  => v._2.toInt < value.toInt
-              case "<=" => v._2.toInt <= value.toInt
-              case ">"  => v._2.toInt > value.toInt
-              case ">=" => v._2.toInt >= value.toInt
-              case _    => throw new InvalidException(s"Operator $operator not supported")
-            }
           case "double" =>
             operator match {
               case "==" => v._2.toDouble == value.toDouble
@@ -70,7 +44,7 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
               case ">=" => v._2.toDouble >= value.toDouble
               case _    => throw new InvalidException(s"Operator $operator not supported")
             }
-          case "long" =>
+          case "integer" | "long" =>
             operator match {
               case "==" => v._2.toLong == value.toLong
               case "!=" => v._2.toLong != value.toLong
@@ -84,6 +58,32 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
         }
       case None => false
     }
+  }
+
+  private def locationInBounds(
+      operator: String,
+      value: String,
+      location: Option[String]
+  ): Boolean = {
+    // eg. Some({"type":"Point","coordinates":[-120.18699365,48.47991855]})
+    location match {
+      case Some(loc) =>
+        // MinX,MinY,MaxX,MaxY
+        val bbox: List[Double] = Utils.toDoubleList(value).getOrElse(List(0, 0, 0, 0))
+        val coordinates        = (Json.parse(loc) \ "coordinates").as[List[Double]]
+        if (coordinates.length == 2) {
+          val x        = coordinates(0)
+          val y        = coordinates(1)
+          val isInBBox = (x > bbox(0) && x < bbox(2) && y > bbox(1) && y < bbox(3))
+          operator match {
+            case "contains"     => return isInBBox  // loc is in bbox
+            case "not_contains" => return !isInBBox // loc is not in bbox
+          }
+        }
+      case _ => // no location to match against
+    }
+
+    return false
   }
 }
 

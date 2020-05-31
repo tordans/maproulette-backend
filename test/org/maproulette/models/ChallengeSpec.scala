@@ -7,6 +7,7 @@ package org.maproulette.models
 
 import org.maproulette.framework.model.PriorityRule
 import org.scalatestplus.play.PlaySpec
+import org.joda.time.DateTime
 
 /**
   * @author cuthbertm
@@ -16,39 +17,61 @@ class ChallengeSpec() extends PlaySpec {
 
   "PriorityRule" should {
     "string types should operate correctly" in {
-      PriorityRule("equal", "key", "value", "string").doesMatch(Map("key"        -> "value")) mustEqual true
-      PriorityRule("not_equal", "key", "value", "string").doesMatch(Map("key"    -> "value2")) mustEqual true
-      PriorityRule("contains", "key", "Value", "string").doesMatch(Map("key"     -> "TheValue")) mustEqual true
-      PriorityRule("not_contains", "key", "value", "string").doesMatch(Map("key" -> "Nothing")) mustEqual true
-      PriorityRule("is_empty", "key", "", "string").doesMatch(Map("key"          -> "")) mustEqual true
-      PriorityRule("is_not_empty", "key", "", "string").doesMatch(Map("Key"      -> "value")) mustEqual true
+      PriorityRule("equal", "key", "value", "string")
+        .doesMatch(Map("key" -> "value"), null) mustEqual true
+      PriorityRule("not_equal", "key", "value", "string")
+        .doesMatch(Map("key" -> "value2"), null) mustEqual true
+      PriorityRule("contains", "key", "Value", "string")
+        .doesMatch(Map("key" -> "TheValue"), null) mustEqual true
+      PriorityRule("not_contains", "key", "value", "string")
+        .doesMatch(Map("key"                                            -> "Nothing"), null) mustEqual true
+      PriorityRule("is_empty", "key", "", "string").doesMatch(Map("key" -> ""), null) mustEqual true
+      PriorityRule("is_not_empty", "key", "", "string")
+        .doesMatch(Map("Key" -> "value"), null) mustEqual true
     }
 
     "integer types should operate correctly" in {
-      PriorityRule("==", "key", "0", "integer").doesMatch(Map("key" -> "0")) mustEqual true
-      PriorityRule("!=", "key", "0", "integer").doesMatch(Map("key" -> "1")) mustEqual true
-      PriorityRule("<", "key", "0", "integer").doesMatch(Map("key"  -> "-1")) mustEqual true
-      PriorityRule("<=", "key", "0", "integer").doesMatch(Map("key" -> "0")) mustEqual true
-      PriorityRule(">", "key", "0", "integer").doesMatch(Map("key"  -> "1")) mustEqual true
-      PriorityRule(">=", "key", "0", "integer").doesMatch(Map("Key" -> "0")) mustEqual true
+      PriorityRule("==", "key", "0", "integer").doesMatch(Map("key" -> "0"), null) mustEqual true
+      PriorityRule("!=", "key", "0", "integer").doesMatch(Map("key" -> "1"), null) mustEqual true
+      PriorityRule("<", "key", "0", "integer").doesMatch(Map("key"  -> "-1"), null) mustEqual true
+      PriorityRule("<=", "key", "0", "integer").doesMatch(Map("key" -> "0"), null) mustEqual true
+      PriorityRule(">", "key", "0", "integer").doesMatch(Map("key"  -> "1"), null) mustEqual true
+      PriorityRule(">=", "key", "0", "integer").doesMatch(Map("Key" -> "0"), null) mustEqual true
     }
 
     "double types should operate correctly" in {
-      PriorityRule("==", "key", "0", "double").doesMatch(Map("key" -> "0")) mustEqual true
-      PriorityRule("!=", "key", "0", "double").doesMatch(Map("key" -> "1")) mustEqual true
-      PriorityRule("<", "key", "0", "double").doesMatch(Map("key"  -> "-1")) mustEqual true
-      PriorityRule("<=", "key", "0", "double").doesMatch(Map("key" -> "0")) mustEqual true
-      PriorityRule(">", "key", "0", "double").doesMatch(Map("key"  -> "1")) mustEqual true
-      PriorityRule(">=", "key", "0", "double").doesMatch(Map("Key" -> "0")) mustEqual true
+      PriorityRule("==", "key", "0", "double").doesMatch(Map("key" -> "0"), null) mustEqual true
+      PriorityRule("!=", "key", "0", "double").doesMatch(Map("key" -> "1"), null) mustEqual true
+      PriorityRule("<", "key", "0", "double").doesMatch(Map("key"  -> "-1"), null) mustEqual true
+      PriorityRule("<=", "key", "0", "double").doesMatch(Map("key" -> "0"), null) mustEqual true
+      PriorityRule(">", "key", "0", "double").doesMatch(Map("key"  -> "1"), null) mustEqual true
+      PriorityRule(">=", "key", "0", "double").doesMatch(Map("Key" -> "0"), null) mustEqual true
     }
 
     "long types should operate correctly" in {
-      PriorityRule("==", "key", "0", "long").doesMatch(Map("key" -> "0")) mustEqual true
-      PriorityRule("!=", "key", "0", "long").doesMatch(Map("key" -> "1")) mustEqual true
-      PriorityRule("<", "key", "0", "long").doesMatch(Map("key"  -> "-1")) mustEqual true
-      PriorityRule("<=", "key", "0", "long").doesMatch(Map("key" -> "0")) mustEqual true
-      PriorityRule(">", "key", "0", "long").doesMatch(Map("key"  -> "1")) mustEqual true
-      PriorityRule(">=", "key", "0", "long").doesMatch(Map("Key" -> "0")) mustEqual true
+      PriorityRule("==", "key", "0", "long").doesMatch(Map("key" -> "0"), null) mustEqual true
+      PriorityRule("!=", "key", "0", "long").doesMatch(Map("key" -> "1"), null) mustEqual true
+      PriorityRule("<", "key", "0", "long").doesMatch(Map("key"  -> "-1"), null) mustEqual true
+      PriorityRule("<=", "key", "0", "long").doesMatch(Map("key" -> "0"), null) mustEqual true
+      PriorityRule(">", "key", "0", "long").doesMatch(Map("key"  -> "1"), null) mustEqual true
+      PriorityRule(">=", "key", "0", "long").doesMatch(Map("Key" -> "0"), null) mustEqual true
+    }
+
+    "bounds type should operate correctly" in {
+      val location = Some("{\"type\":\"Point\",\"coordinates\":[-120,50]}")
+
+      val task = Task(1, "Task1", DateTime.now(), DateTime.now(), 1, None, location, "")
+
+      // format like: bounds = "MinX,MinY,MaxX,MaxY"
+      PriorityRule("contains", "location", "0,0,1,1", "bounds")
+        .doesMatch(Map(), task) mustEqual false
+      PriorityRule("contains", "location", "-130,0,130,100", "bounds")
+        .doesMatch(Map(), task) mustEqual true
+
+      PriorityRule("not_contains", "location", "0,0,1,1", "bounds")
+        .doesMatch(Map(), task) mustEqual true
+      PriorityRule("not_contains", "location", "-130,0,130,100", "bounds")
+        .doesMatch(Map(), task) mustEqual false
     }
   }
 }
