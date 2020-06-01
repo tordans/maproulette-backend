@@ -376,6 +376,65 @@ class TaskReviewDAL @Inject() (
   }
 
   /**
+    * Retrieve tasks geographically closest to the given task id wit the
+    * given set of search parameters.
+    */
+  def getNearbyReviewTasks(
+      user: User,
+      searchParameters: SearchParameters,
+      proximityId: Long,
+      limit: Int = 5,
+      excludeOtherReviewers: Boolean = false,
+      onlySaved: Boolean = false
+  )(implicit c: Option[Connection] = None): List[Task] = {
+    val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
+    joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
+
+    var whereClause = new StringBuilder(
+      s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}"
+    )
+    this.appendInWhereClause(
+      whereClause,
+      " (tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) "
+    )
+    this.appendInWhereClause(
+      whereClause,
+      s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})"
+    )
+
+    if (onlySaved) {
+      joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
+      this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id}")
+    }
+    if (excludeOtherReviewers) {
+      this.appendInWhereClause(
+        whereClause,
+        s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
+      )
+    }
+
+    val parameters = new ListBuffer[NamedParameter]()
+    parameters ++= addSearchToQuery(searchParameters, whereClause)
+
+    setupReviewSearchClause(whereClause, searchParameters)
+
+    val query =
+      s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
+      LEFT JOIN locked l ON l.item_id = tasks.id
+      ${joinClause}
+      WHERE tasks.id <> $proximityId AND
+            l.id IS NULL AND
+            ${whereClause}
+      ORDER BY ST_Distance(tasks.location, (SELECT location FROM tasks WHERE id = $proximityId)), tasks.status, RANDOM()
+      LIMIT ${this.sqlLimit(limit)}"""
+
+    this.withMRTransaction { implicit c =>
+      sqlWithParameters(query, parameters).as(this.parser.*)
+    }
+  }
+
+  /**
     * Gets a list of tasks that have requested review (and are in this user's project group)
     *
     * @param user            The user executing the request

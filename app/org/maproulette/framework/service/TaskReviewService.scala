@@ -79,4 +79,25 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
     )
   }
 
+  /**
+    * Gets tasks near the given task id within the given challenge
+    *
+    * @param challengeId  The challenge id that is the parent of the tasks that you would be searching for
+    * @param proximityId  Id of task for which nearby tasks are desired
+    * @param excludeSelfLocked Also exclude tasks locked by requesting user
+    * @param limit        The maximum number of nearby tasks to return
+    * @return
+    */
+  def getNearbyReviewTasks(
+      user: User,
+      params: SearchParameters,
+      proximityId: Long,
+      limit: Int,
+      excludeOtherReviewers: Boolean = false,
+      onlySaved: Boolean = false
+  ): List[Task] = {
+        this.taskReviewDAL.getNearbyReviewTasks(user, params, proximityId, limit,
+          excludeOtherReviewers, onlySaved)
+  }
+
 }
