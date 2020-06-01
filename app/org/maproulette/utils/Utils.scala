@@ -229,6 +229,13 @@ object Utils extends DefaultWrites {
       Some(stringList.split(",").toList.map(_.toInt))
     }
 
+  def toDoubleList(stringList: String): Option[List[Double]] =
+    if (stringList.isEmpty) {
+      None
+    } else {
+      Some(stringList.split(",").toList.map(_.toDouble))
+    }
+
   def toMap(stringMap: String): Option[Map[String, String]] =
     if (stringMap.isEmpty) {
       None
