@@ -2,7 +2,7 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.controllers.api
+package org.maproulette.framework.controller
 
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
