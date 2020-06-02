@@ -81,6 +81,27 @@ class QuerySpec extends PlaySpec {
     params(2) mustEqual SQLUtils.buildNamedParameter(s"${pagingPrefix}offset", 50)
   }
 
+  "build standard query with final clause" in {
+    val paging       = Paging(10, 5)
+    val pagingPrefix = paging.randomPrefix
+    val query = Query.simple(
+      List(parameter),
+      "SELECT * FROM table",
+      AND(),
+      paging,
+      Order > "order",
+      Grouping > "test1",
+      finalClause = "RETURNING *"
+    )
+    query
+      .sql() mustEqual s"SELECT * FROM table WHERE KEY = {$setKey} GROUP BY test1 ORDER BY order DESC LIMIT {${pagingPrefix}limit} OFFSET {${pagingPrefix}offset} RETURNING *"
+    val params = query.parameters()
+    params.size mustEqual 3
+    params.head mustEqual SQLUtils.buildNamedParameter(setKey, VALUE)
+    params(1) mustEqual SQLUtils.buildNamedParameter(s"${pagingPrefix}limit", 10)
+    params(2) mustEqual SQLUtils.buildNamedParameter(s"${pagingPrefix}offset", 50)
+  }
+
   "build complex query" in {
     implicit val parameterKey = ""
     val firstDate             = DateTime.now()

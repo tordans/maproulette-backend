@@ -122,7 +122,6 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     taskDAL,
     challengeDAL,
     virtualChallengeDAL,
-    notificationDAL,
     actionManager,
     dataManager,
     taskBundleDAL,
@@ -143,6 +142,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
   val taskService              = mock[TaskService]
   val groupService             = mock[GroupService]
   val teamService              = mock[TeamService]
+  val notificationService      = mock[NotificationService]
   val serviceManager = new ServiceManager(
     Providers.of[ProjectService](projectService),
     Providers.of[GrantService](grantService),
@@ -158,7 +158,8 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     Providers.of[VirtualProjectService](virtualProjectService),
     Providers.of[TaskReviewService](taskReviewService),
     Providers.of[TaskService](taskService),
-    Providers.of[TeamService](teamService)
+    Providers.of[TeamService](teamService),
+    Providers.of[NotificationService](notificationService)
   )
   val permission =
     new Permission(Providers.of[DALManager](dalManager), serviceManager, new Config())
@@ -183,7 +184,6 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     OSMProfile(101, "DefaultOwner", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
     List.empty // even an owner needs to be granted the proper role
   )
-  var notificationDAL = mock[NotificationDAL]
 
   def setupMocks(): Unit = {
     // Mocks for Tags

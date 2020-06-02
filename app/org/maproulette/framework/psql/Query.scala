@@ -30,7 +30,8 @@ object Query {
       order: Order = Order(),
       grouping: Grouping = Grouping(),
       includeWhere: Boolean = true,
-      appendBase: Boolean = false
+      appendBase: Boolean = false,
+      finalClause: String = ""
   ): Query =
     Query(
       Filter(List(FilterGroup(parameters, key)), key),
@@ -39,7 +40,8 @@ object Query {
       order,
       grouping,
       includeWhere,
-      appendBase
+      appendBase,
+      finalClause
     )
 
   def empty = Query.simple(List())
@@ -52,7 +54,8 @@ case class Query(
     order: Order = Order(),
     grouping: Grouping = Grouping(),
     includeWhere: Boolean = true,
-    appendBase: Boolean = false
+    appendBase: Boolean = false,
+    finalClause: String = ""
 ) extends SQLClause {
   def build(
       baseQuery: String = "",
@@ -108,7 +111,7 @@ case class Query(
 
     val query =
       s"$start${this.format(filterQuery)}${this.format(sqlGrouping)}${this.format(order.sql())}${this
-        .format(pagingQuery)}"
+        .format(pagingQuery)}${this.format(this.finalClause)}"
     if (Query.devMode()) {
       Query.logger.debug(query)
     }

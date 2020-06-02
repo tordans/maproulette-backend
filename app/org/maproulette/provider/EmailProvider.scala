@@ -9,7 +9,7 @@ import java.io.File
 import org.apache.commons.mail.EmailAttachment
 import javax.inject.{Inject, Singleton}
 import org.maproulette.Config
-import org.maproulette.models.{UserNotification, UserNotificationEmail}
+import org.maproulette.framework.model.{UserNotification, UserNotificationEmail}
 import scala.concurrent.{Future}
 
 /**

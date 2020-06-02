@@ -15,7 +15,7 @@ import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
 import org.maproulette.models.TaskBundle
-import org.maproulette.models.dal.{NotificationDAL, TaskBundleDAL, TaskDAL}
+import org.maproulette.models.dal.{TaskBundleDAL, TaskDAL}
 import org.maproulette.permissions.Permission
 
 /**
@@ -28,8 +28,8 @@ import org.maproulette.permissions.Permission
 @Singleton
 class CommentService @Inject() (
     repository: CommentRepository,
+    serviceManager: ServiceManager,
     permission: Permission,
-    notificationDAL: NotificationDAL,
     taskDAL: TaskDAL,
     taskBundleDAL: TaskBundleDAL
 ) extends ServiceMixin[Comment] {
@@ -138,7 +138,7 @@ class CommentService @Inject() (
       throw new InvalidException("Invalid empty string supplied. Comment could not be created.")
     }
     val newComment = this.repository.create(user, task.id, comment, actionId)
-    this.notificationDAL.createMentionNotifications(user, newComment, task)
+    this.serviceManager.notification.createMentionNotifications(user, newComment, task)
     newComment
   }
 

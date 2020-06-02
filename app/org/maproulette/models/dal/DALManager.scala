@@ -18,7 +18,6 @@ class DALManager @Inject() (
     taskDAL: TaskDAL,
     challengeDAL: ChallengeDAL,
     virtualChallengeDAL: VirtualChallengeDAL,
-    notificationDAL: NotificationDAL,
     actionManager: ActionManager,
     dataManager: DataManager,
     taskBundleDAL: TaskBundleDAL,
@@ -31,8 +30,6 @@ class DALManager @Inject() (
   def challenge: ChallengeDAL = challengeDAL
 
   def virtualChallenge: VirtualChallengeDAL = virtualChallengeDAL
-
-  def notification: NotificationDAL = notificationDAL
 
   def action: ActionManager = actionManager
 

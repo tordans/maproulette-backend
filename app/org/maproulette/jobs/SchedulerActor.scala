@@ -19,7 +19,8 @@ import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
 import org.maproulette.models.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.models.{Task, UserNotification, UserNotificationEmailDigest}
+import org.maproulette.models.{Task}
+import org.maproulette.framework.model.{UserNotification, UserNotificationEmailDigest}
 import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
@@ -474,62 +475,45 @@ class SchedulerActor @Inject() (
     logger.info(action)
 
     // Gather notifications needing an immediate email and send email for each
-    db.withConnection { implicit c =>
-      SQL(s"""
-        |UPDATE user_notifications
-        |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
-        |WHERE id in (
-        |  SELECT id from user_notifications
-        |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_IMMEDIATE}
-        |  ORDER BY created ASC
-        |  LIMIT ${config.notificationImmediateEmailBatchSize}
-        |) RETURNING *
-      """.stripMargin)
-        .as(dALManager.notification.userNotificationEmailParser.*)
-        .foreach(notification => {
-          // Send email if user has an email address on file
-          try {
-            this.serviceManager.user.retrieve(notification.userId) match {
-              case Some(user) =>
-                user.settings.email match {
-                  case Some(address) if (!address.isEmpty) =>
-                    this.emailProvider.emailNotification(address, notification)
-                  case _ => None
-                }
-              case None => None
-            }
-          } catch {
-            case e: Exception => logger.error("Failed to send immediate email: " + e)
+    this.serviceManager.notification
+      .prepareNotificationsForImmediateEmail(
+        User.superUser,
+        config.notificationImmediateEmailBatchSize
+      )
+      .foreach(notification => {
+        // Send email if user has an email address on file
+        try {
+          this.serviceManager.user.retrieve(notification.userId) match {
+            case Some(user) =>
+              user.settings.email match {
+                case Some(address) if (!address.isEmpty) =>
+                  this.emailProvider.emailNotification(address, notification)
+                case _ => None
+              }
+            case None => None
           }
-        })
-    }
+        } catch {
+          case e: Exception => logger.error("Failed to send immediate email: " + e)
+        }
+      })
   }
 
   def sendDigestNotificationEmails(action: String) = {
     logger.info(action)
-    var digests: List[UserNotificationEmailDigest] = List.empty
 
-    db.withConnection { implicit c =>
-      // Gather up users with unsent digest notifications and build digests for each
-      digests = SQL(s"""
-        |SELECT distinct(user_id) from user_notifications
-        |WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST}
-      """.stripMargin)
-        .as(SqlParser.int("user_id").*)
-        .map(recipientId => {
-          val digestNotifications = SQL(s"""
-            |UPDATE user_notifications
-            |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
-            |WHERE id in (
-            |  SELECT id from user_notifications
-            |  WHERE email_status = ${UserNotification.NOTIFICATION_EMAIL_DIGEST} AND
-            |       user_id=${recipientId}
-            |) RETURNING *
-        """.stripMargin).as(dALManager.notification.userNotificationEmailParser.*)
-
-          UserNotificationEmailDigest(recipientId, digestNotifications)
-        })
-    }
+    // Compile together notification digests for each user with pending notifications
+    val digests = this.serviceManager.notification
+      .usersWithNotificationEmails(
+        User.superUser,
+        UserNotification.NOTIFICATION_EMAIL_DIGEST
+      )
+      .map(recipientId =>
+        UserNotificationEmailDigest(
+          recipientId,
+          this.serviceManager.notification
+            .prepareNotificationsForDigestEmail(recipientId, User.superUser)
+        )
+      )
 
     // Email each digest if recipient has an email address on file
     digests.foreach(digest => {
