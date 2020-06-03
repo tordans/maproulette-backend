@@ -577,8 +577,21 @@ class ChallengeProvider @Inject() (
     // execute regex matching against {{data:string}}, {{geocodeId:name}}, {{geocodeArea:name}}, {{geocodeBbox:name}}, {{geocodeCoords:name}}
   }
 
+  /**
+    * Determines if the given array of strings looks like line-by-line formatted
+    * GeoJSON. This check is rudimentary and only inspects up to the first 2
+    * lines to make a determination
+    */
   private def isLineByLineGeoJson(splitJson: Array[String]): Boolean = {
-    splitJson.length > 1 && splitJson(0).startsWith("{") && splitJson(0).endsWith("}") &&
-    splitJson(1).startsWith("{") && splitJson(1).endsWith("}")
+    splitJson.length match {
+      case 0 => false
+      case 1 => isCompleteJSON(splitJson(0))
+      case _ => isCompleteJSON(splitJson(0)) && isCompleteJSON(splitJson(1))
+    }
   }
+
+  /**
+    * Very rudimentary check to see if the string looks like complete json data
+    */
+  private def isCompleteJSON(data: String): Boolean = data.startsWith("{") && data.endsWith("}")
 }
