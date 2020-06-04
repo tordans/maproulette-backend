@@ -8,6 +8,7 @@ import anorm.NamedParameter
 import org.maproulette.session.{SearchParameters, SearchLocation}
 import org.maproulette.framework.psql.SQLUtils
 import org.maproulette.framework.psql.filter._
+import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.{AND, OR}
 import play.api.libs.json.JsDefined
 
@@ -376,16 +377,11 @@ trait SearchParametersMixin {
     * Filters on tasks task_review.review_requested_by
     * @param params with inverting on 'o'
     */
-  def filterOwner(params: SearchParameters): Parameter[String] = {
+  def filterOwner(params: SearchParameters): FilterGroup = {
     params.owner match {
       case Some(o) if o.nonEmpty =>
-        val invert = if (params.invertFields.getOrElse(List()).contains("o")) "NOT" else ""
-        CustomParameter(s"""(tasks.id ${invert} IN
-            | (SELECT task_id
-            | FROM task_review tr
-            | INNER JOIN users u ON u.id = tr.review_requested_by
-            | WHERE tr.task_id = tasks.id AND LOWER(u.name) LIKE LOWER('%${o}%') ))""".stripMargin)
-      case _ => CustomParameter("")
+        this.buildReviewSubQuerySearch(params, "review_requested_by", o, "o")
+      case _ => FilterGroup(List())
     }
   }
 
@@ -393,16 +389,11 @@ trait SearchParametersMixin {
     * Filters on tasks task_review.reviewed_by
     * @param params with inverting on 'r'
     */
-  def filterReviewer(params: SearchParameters): Parameter[String] = {
+  def filterReviewer(params: SearchParameters): FilterGroup = {
     params.reviewer match {
       case Some(r) if r.nonEmpty =>
-        val invert = if (params.invertFields.getOrElse(List()).contains("r")) "NOT" else ""
-        CustomParameter(s"""(tasks.id ${invert} IN
-            | (SELECT task_id
-            | FROM task_review tr
-            | INNER JOIN users u ON u.id = tr.reviewed_by
-            | WHERE tr.task_id = tasks.id AND LOWER(u.name) LIKE LOWER('%${r}%') ))""".stripMargin)
-      case _ => CustomParameter("")
+        this.buildReviewSubQuerySearch(params, "reviewed_by", r, "r")
+      case _ => FilterGroup(List())
     }
   }
 
@@ -410,16 +401,27 @@ trait SearchParametersMixin {
     * Filters on tasks.completedBy
     * @param params with inverting on 'm'
     */
-  def filterMapper(params: SearchParameters): Parameter[String] = {
+  def filterMapper(params: SearchParameters): FilterGroup = {
     params.mapper match {
-      case Some(o) if o.nonEmpty =>
-        val invert = if (params.invertFields.getOrElse(List()).contains("m")) "NOT" else ""
-        CustomParameter(s"""(tasks.id ${invert} IN
-             | (SELECT t2.id
-             | FROM tasks t2
-             | INNER JOIN users u ON u.id = t2.completed_by
-             | WHERE t2.id = tasks.id AND LOWER(u.name) LIKE LOWER('%${o}%') ))""".stripMargin)
-      case _ => CustomParameter("")
+      case Some(m) if m.nonEmpty =>
+        FilterGroup(
+          List(
+            SubQueryFilter(
+              "id",
+              Query.simple(
+                List(
+                  BaseParameter("t2.id", "tasks.id", useValueDirectly = true),
+                  BaseParameter("u.name", s"'%${m}%'", Operator.ILIKE, useValueDirectly = true)
+                ),
+                "SELECT t2.id FROM tasks t2 INNER JOIN users u ON u.id = t2.completed_by"
+              ),
+              params.invertFields.getOrElse(List()).contains("m"),
+              Operator.IN,
+              Some("tasks")
+            )
+          )
+        )
+      case _ => FilterGroup(List())
     }
   }
 
@@ -491,5 +493,33 @@ trait SearchParametersMixin {
         )
       case None => CustomParameter("")
     }
+  }
+
+  /**
+    * Private method to help build a sub select on task_review and users.
+    */
+  private def buildReviewSubQuerySearch(
+      params: SearchParameters,
+      column: String,
+      value: String,
+      invertKey: String
+  ): FilterGroup = {
+    FilterGroup(
+      List(
+        SubQueryFilter(
+          "id",
+          Query.simple(
+            List(
+              BaseParameter("tr.task_id", "tasks.id", useValueDirectly = true),
+              BaseParameter("u.name", s"'%${value}%'", Operator.ILIKE, useValueDirectly = true)
+            ),
+            s"SELECT task_id FROM task_review tr INNER JOIN users u ON u.id = tr.${column}"
+          ),
+          params.invertFields.getOrElse(List()).contains(invertKey),
+          Operator.IN,
+          Some("tasks")
+        )
+      )
+    )
   }
 }
