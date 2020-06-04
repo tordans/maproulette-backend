@@ -826,7 +826,7 @@ class TaskReviewDAL @Inject() (
 
     this.paramsMappers(searchParameters, whereClause)
     this.paramsReviewers(searchParameters, whereClause)
-    this.paramsPriorities(searchParameters, whereClause)
+    this.paramsTaskPriorities(searchParameters, whereClause)
 
     if (onlySaved) {
       joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
@@ -983,22 +983,7 @@ class TaskReviewDAL @Inject() (
     this.paramsOwner(searchParameters, whereClause)
     this.paramsReviewer(searchParameters, whereClause)
     this.paramsMapper(searchParameters, whereClause)
-
-    searchParameters.taskParams.taskStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val invert =
-          if (searchParameters.invertFields.getOrElse(List()).contains("tStatus")) "NOT" else ""
-        val statusClause = new StringBuilder(
-          s"(tasks.status ${invert} IN (${statuses.mkString(",")})"
-        )
-        if (statuses.contains(-1)) {
-          statusClause ++= " OR c.status IS NULL"
-        }
-        statusClause ++= ")"
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _                                  =>
-    }
+    this.paramsTaskStatus(searchParameters, whereClause, List())
 
     searchParameters.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>

@@ -135,8 +135,14 @@ class TaskReviewController @Inject() (
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { params =>
         val results = this.service
-          .getNearbyReviewTasks(User.userOrMocked(user), params, proximityId, limit,
-                                excludeOtherReviewers, onlySaved)
+          .getNearbyReviewTasks(
+            User.userOrMocked(user),
+            params,
+            proximityId,
+            limit,
+            excludeOtherReviewers,
+            onlySaved
+          )
         Ok(Json.toJson(results))
       }
     }
@@ -220,7 +226,7 @@ class TaskReviewController @Inject() (
 
     prioritiesToFetch.foreach(p => {
       val newParams =
-        params.copy(reviewParams = params.reviewParams.copy(priorities = Some(List(p))))
+        params.copy(taskParams = params.taskParams.copy(taskPriorities = Some(List(p))))
 
       val pResult = this.service.getReviewMetrics(
         user,

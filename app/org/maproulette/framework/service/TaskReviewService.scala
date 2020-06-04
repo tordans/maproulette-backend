@@ -96,8 +96,14 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
       excludeOtherReviewers: Boolean = false,
       onlySaved: Boolean = false
   ): List[Task] = {
-        this.taskReviewDAL.getNearbyReviewTasks(user, params, proximityId, limit,
-          excludeOtherReviewers, onlySaved)
+    this.taskReviewDAL.getNearbyReviewTasks(
+      user,
+      params,
+      proximityId,
+      limit,
+      excludeOtherReviewers,
+      onlySaved
+    )
   }
 
 }
