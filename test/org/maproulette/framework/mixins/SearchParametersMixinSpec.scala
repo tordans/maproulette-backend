@@ -200,10 +200,8 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskTags = Some(List("my_tag", "tag2"))))
       this.filterTaskTags(params).sql() mustEqual
-        s"""tasks.id IN (SELECT task_id from tags_on_tasks tt
-              | INNER JOIN tags ON tags.id = tt.tag_id
-              | WHERE tags.name IN ('my_tag','tag2'))
-        """.stripMargin
+        "tasks.id IN (SELECT task_id from tags_on_tasks tt " +
+          "INNER JOIN tags ON tags.id = tt.tag_id WHERE tags.name IN ('my_tag','tag2'))"
     }
 
     "be empty" in {
@@ -216,10 +214,8 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("tt"))
       )
       this.filterTaskTags(params).sql() mustEqual
-        s"""NOT tasks.id IN (SELECT task_id from tags_on_tasks tt
-              | INNER JOIN tags ON tags.id = tt.tag_id
-              | WHERE tags.name IN ('my_tag','tag2'))
-        """.stripMargin
+        "NOT tasks.id IN (SELECT task_id from tags_on_tasks tt " +
+          "INNER JOIN tags ON tags.id = tt.tag_id WHERE tags.name IN ('my_tag','tag2'))"
     }
   }
 
@@ -228,21 +224,18 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskReviewStatus = Some(List(1, 2))))
       this.filterTaskReviewStatus(params).sql() mustEqual
-        s"""(tasks.id IN
-          | (SELECT task_id FROM task_review
-          | WHERE task_review.task_id = tasks.id AND task_review.review_status
-          | IN (1,2)))""".stripMargin
+        "(tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
     }
 
     "include tasks without review status when params contains -1" in {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskReviewStatus = Some(List(1, 2, -1))))
       this.filterTaskReviewStatus(params).sql() mustEqual
-        s"""(tasks.id IN
-          | (SELECT task_id FROM task_review
-          | WHERE task_review.task_id = tasks.id AND task_review.review_status
-          | IN (1,2,-1)) OR tasks.id NOT IN (SELECT task_id FROM task_review task_review
-          | WHERE task_review.task_id = tasks.id))""".stripMargin
+        "(tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
+          "OR NOT tasks.id IN (SELECT task_id FROM task_review task_review " +
+          "WHERE task_review.task_id = tasks.id))"
     }
 
     "be empty" in {
@@ -255,10 +248,8 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        s"""NOT (tasks.id IN
-          | (SELECT task_id FROM task_review
-          | WHERE task_review.task_id = tasks.id AND task_review.review_status
-          | IN (1,2)))""".stripMargin
+        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
     }
 
     "invert when contains -1" in {
@@ -267,11 +258,16 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        s"""NOT (tasks.id IN
-          | (SELECT task_id FROM task_review
-          | WHERE task_review.task_id = tasks.id AND task_review.review_status
-          | IN (1,2,-1)) OR tasks.id NOT IN (SELECT task_id FROM task_review task_review
-          | WHERE task_review.task_id = tasks.id))""".stripMargin
+        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
+          "AND tasks.id IN (SELECT task_id FROM task_review task_review " +
+          "WHERE task_review.task_id = tasks.id))"
+
+      // s"""NOT (tasks.id IN
+      //   | (SELECT task_id FROM task_review
+      //   | WHERE task_review.task_id = tasks.id AND task_review.review_status
+      //   | IN (1,2,-1)) OR tasks.id NOT IN (SELECT task_id FROM task_review task_review
+      //   | WHERE task_review.task_id = tasks.id))""".stripMargin
     }
   }
 
@@ -412,19 +408,19 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     }
 
     "match on review_requested_by" in {
-      val params = SearchParameters(owner = Some("123"))
+      val params = SearchParameters(owner = Some("2223"))
       this.filterOwner(params).sql() mustEqual
         "tasks.id IN (SELECT task_id FROM task_review tr " +
           "INNER JOIN users u ON u.id = tr.review_requested_by " +
-          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%123%')"
+          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%2223%')"
     }
 
     "be inverted" in {
-      val params = SearchParameters(owner = Some("123"), invertFields = Some(List("o")))
+      val params = SearchParameters(owner = Some("4123"), invertFields = Some(List("o")))
       this.filterOwner(params).sql() mustEqual
         "NOT tasks.id IN (SELECT task_id FROM task_review tr " +
           "INNER JOIN users u ON u.id = tr.review_requested_by " +
-          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%123%')"
+          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%4123%')"
     }
   }
 
@@ -434,19 +430,19 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     }
 
     "match on reviewer" in {
-      val params = SearchParameters(reviewer = Some("123"))
+      val params = SearchParameters(reviewer = Some("1230"))
       this.filterReviewer(params).sql() mustEqual
         "tasks.id IN (SELECT task_id FROM task_review tr " +
           "INNER JOIN users u ON u.id = tr.reviewed_by " +
-          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%123%')"
+          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%1230%')"
     }
 
     "be inverted" in {
-      val params = SearchParameters(reviewer = Some("123"), invertFields = Some(List("r")))
+      val params = SearchParameters(reviewer = Some("1"), invertFields = Some(List("r")))
       this.filterReviewer(params).sql() mustEqual
         "NOT tasks.id IN (SELECT task_id FROM task_review tr " +
           "INNER JOIN users u ON u.id = tr.reviewed_by " +
-          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%123%')"
+          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%1%')"
     }
   }
 
@@ -456,19 +452,19 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     }
 
     "match on mapper" in {
-      val params = SearchParameters(mapper = Some("123"))
+      val params = SearchParameters(mapper = Some("900123"))
       this.filterMapper(params).sql() mustEqual
         "tasks.id IN (SELECT t2.id FROM tasks t2 " +
           "INNER JOIN users u ON u.id = t2.completed_by " +
-          "WHERE t2.id = tasks.id AND u.name ILIKE '%123%')"
+          "WHERE t2.id = tasks.id AND u.name ILIKE '%900123%')"
     }
 
     "be inverted" in {
-      val params = SearchParameters(mapper = Some("123"), invertFields = Some(List("m")))
+      val params = SearchParameters(mapper = Some("123000"), invertFields = Some(List("m")))
       this.filterMapper(params).sql() mustEqual
         "NOT tasks.id IN (SELECT t2.id FROM tasks t2 " +
           "INNER JOIN users u ON u.id = t2.completed_by " +
-          "WHERE t2.id = tasks.id AND u.name ILIKE '%123%')"
+          "WHERE t2.id = tasks.id AND u.name ILIKE '%123000%')"
     }
   }
 

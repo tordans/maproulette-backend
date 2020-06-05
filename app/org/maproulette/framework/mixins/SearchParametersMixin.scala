@@ -10,6 +10,8 @@ import org.maproulette.framework.psql.SQLUtils
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.{AND, OR}
+import org.maproulette.framework.model.{TaskReview, Project, Challenge}
+import org.maproulette.models.Task
 import play.api.libs.json.JsDefined
 
 import scala.collection.mutable.ListBuffer
@@ -22,7 +24,7 @@ trait SearchParametersMixin {
     */
   def filterProjectSearch(params: SearchParameters): Parameter[String] = {
     FilterParameter.conditional(
-      "display_name",
+      Project.FIELD_DISPLAY_NAME,
       s"'${SQLUtils.search(params.projectSearch.getOrElse("").replace("'", "''"))}'",
       Operator.LIKE,
       params.invertFields.getOrElse(List()).contains("ps"),
@@ -38,9 +40,9 @@ trait SearchParametersMixin {
     */
   def filterLocation(params: SearchParameters): Parameter[String] = {
     this.locationSearch(
-      "location",
+      Task.FIELD_LOCATION,
       params.location,
-      "tasks",
+      Task.TABLE,
       params.invertFields.getOrElse(List()).contains("tbb")
     )
   }
@@ -74,14 +76,14 @@ trait SearchParametersMixin {
         params.taskParams.taskStatus.getOrElse(defaultStatuses).contains(-1)
 
     FilterParameter.conditional(
-      "status",
+      Task.FIELD_STATUS,
       // If taskStatus is not present then default taskStatus to 0,3,6
       params.taskParams.taskStatus.getOrElse(defaultStatuses).mkString(","),
       Operator.IN,
       params.invertFields.getOrElse(List()).contains("tStatus"),
       true,
       !dontFilter,
-      Some("tasks")
+      Some(Task.TABLE)
     )
   }
 
@@ -94,7 +96,7 @@ trait SearchParametersMixin {
 
     params.taskParams.taskId match {
       case Some(tid) =>
-        CustomParameter(s"${invert}CAST(tasks.id AS TEXT) LIKE '${tid}%'")
+        CustomParameter(s"${invert}CAST(${Task.TABLE}.${Task.FIELD_ID} AS TEXT) LIKE '${tid}%'")
       case _ => CustomParameter("")
     }
   }
@@ -105,14 +107,14 @@ trait SearchParametersMixin {
     */
   def filterTaskPriorities(params: SearchParameters): Parameter[String] = {
     FilterParameter.conditional(
-      "priority",
+      Task.FIELD_PRIORITY,
       params.taskParams.taskPriorities.getOrElse(List()).mkString(","),
       Operator.IN,
       params.invertFields.getOrElse(List()).contains("priorities"),
       true,
       params.taskParams.taskPriorities != None &&
         !params.taskParams.taskPriorities.getOrElse(List()).isEmpty,
-      Some("tasks")
+      Some(Task.TABLE)
     )
   }
 
@@ -122,14 +124,14 @@ trait SearchParametersMixin {
     */
   def filterPriority(params: SearchParameters): Parameter[String] = {
     FilterParameter.conditional(
-      "priority",
+      Task.FIELD_PRIORITY,
       params.priority.getOrElse("").toString,
       Operator.EQ,
       params.invertFields.getOrElse(List()).contains("tp"),
       true,
       params.priority != None &&
         (params.priority.get == 0 || params.priority.get == 1 || params.priority.get == 2),
-      Some("tasks")
+      Some(Task.TABLE)
     )
   }
 
@@ -137,7 +139,7 @@ trait SearchParametersMixin {
     * Filters by task tags
     * @param params with inverting on 'tt'
     */
-  def filterTaskTags(params: SearchParameters): Parameter[String] = {
+  def filterTaskTags(params: SearchParameters): FilterGroup = {
     if (params.hasTaskTags) {
       val tagList = params.taskParams.taskTags.get
         .map(t => {
@@ -146,16 +148,31 @@ trait SearchParametersMixin {
         })
         .mkString(",")
 
-      val invert = if (params.invertFields.getOrElse(List()).contains("tt")) "NOT " else ""
-
-      CustomParameter(
-        s"""${invert}tasks.id IN (SELECT task_id from tags_on_tasks tt
-              | INNER JOIN tags ON tags.id = tt.tag_id
-              | WHERE tags.name IN (${tagList}))
-        """.stripMargin
+      val invert = params.invertFields.getOrElse(List()).contains("tt")
+      FilterGroup(
+        List(
+          SubQueryFilter(
+            Task.FIELD_ID,
+            Query.simple(
+              List(
+                BaseParameter(
+                  Task.FIELD_NAME,
+                  tagList,
+                  Operator.IN,
+                  useValueDirectly = true,
+                  table = Some("tags")
+                )
+              ),
+              "SELECT task_id from tags_on_tasks tt INNER JOIN tags ON tags.id = tt.tag_id"
+            ),
+            invert,
+            Operator.IN,
+            Some(Task.TABLE)
+          )
+        )
       )
     } else {
-      CustomParameter("")
+      FilterGroup(List())
     }
   }
 
@@ -167,16 +184,57 @@ trait SearchParametersMixin {
     params.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val invert = params.invertFields.getOrElse(List()).contains("trStatus")
-        val filter = new StringBuilder(s"""${if (invert) "NOT " else ""}(tasks.id IN
-              | (SELECT task_id FROM task_review
-              | WHERE task_review.task_id = tasks.id AND task_review.review_status
-              | IN (${statuses.mkString(",")}))""".stripMargin)
-        if (statuses.contains(-1)) {
-          filter.append(s""" OR tasks.id NOT IN (SELECT task_id FROM task_review task_review
-              | WHERE task_review.task_id = tasks.id)""".stripMargin)
-        }
-        filter.append(")")
-        CustomParameter(filter.toString())
+        val query =
+          FilterGroup(
+            List(
+              SubQueryFilter(
+                Task.FIELD_ID,
+                Query.simple(
+                  List(
+                    BaseParameter(
+                      "task_id",
+                      s"${Task.TABLE}.${Task.FIELD_ID}",
+                      useValueDirectly = true,
+                      table = Some(TaskReview.TABLE)
+                    ),
+                    BaseParameter(
+                      TaskReview.FIELD_REVIEW_STATUS,
+                      statuses.mkString(","),
+                      Operator.IN,
+                      useValueDirectly = true,
+                      table = Some(TaskReview.TABLE)
+                    )
+                  ),
+                  "SELECT task_id FROM task_review"
+                ),
+                invert,
+                Operator.IN,
+                Some(Task.TABLE)
+              ),
+              ConditionalFilterParameter(
+                SubQueryFilter(
+                  Task.FIELD_ID,
+                  Query.simple(
+                    List(
+                      BaseParameter(
+                        "task_id",
+                        s"${Task.TABLE}.${Task.FIELD_ID}",
+                        useValueDirectly = true,
+                        table = Some(TaskReview.TABLE)
+                      )
+                    ),
+                    "SELECT task_id FROM task_review task_review"
+                  ),
+                  !invert,
+                  Operator.IN,
+                  Some(Task.TABLE)
+                ),
+                statuses.contains(-1)
+              )
+            ),
+            if (invert) AND() else OR()
+          )
+        CustomParameter(s"(${query.sql()})")
       case Some(statuses) if statuses.isEmpty => CustomParameter("")
       case _                                  => CustomParameter("")
     }
@@ -209,7 +267,7 @@ trait SearchParametersMixin {
     FilterGroup(
       List(
         BaseParameter(
-          "status",
+          Challenge.FIELD_STATUS,
           searchList.mkString(","),
           Operator.IN,
           invert,
@@ -217,7 +275,7 @@ trait SearchParametersMixin {
           Some("c")
         ),
         FilterParameter.conditional(
-          "status",
+          Challenge.FIELD_STATUS,
           None,
           Operator.NULL,
           invert,
@@ -333,7 +391,7 @@ trait SearchParametersMixin {
       case Some(l) =>
         params.taskParams.taskPropertySearch match {
           case Some(tps) =>
-            val query = new StringBuilder(s"""tasks.id IN (
+            val query = new StringBuilder(s"""${Task.TABLE}.${Task.FIELD_ID} IN (
                 | SELECT id FROM tasks,
                 | jsonb_array_elements(geojson->'features') features
                 | WHERE parent_id IN (${l.mkString(",")})
@@ -344,7 +402,7 @@ trait SearchParametersMixin {
               case Some(tp) =>
                 val searchType = params.taskParams.taskPropertySearchType.getOrElse("equals")
 
-                val query = new StringBuilder(s"""tasks.id IN (
+                val query = new StringBuilder(s"""${Task.TABLE}.${Task.FIELD_ID} IN (
                     | SELECT id FROM tasks,
                     | jsonb_array_elements(geojson->'features') features
                     | WHERE parent_id IN (${l.mkString(",")})
@@ -380,7 +438,7 @@ trait SearchParametersMixin {
   def filterOwner(params: SearchParameters): FilterGroup = {
     params.owner match {
       case Some(o) if o.nonEmpty =>
-        this.buildReviewSubQuerySearch(params, "review_requested_by", o, "o")
+        this.buildReviewSubQuerySearch(params, TaskReview.FIELD_REVIEW_REQUESTED_BY, o, "o")
       case _ => FilterGroup(List())
     }
   }
@@ -392,7 +450,7 @@ trait SearchParametersMixin {
   def filterReviewer(params: SearchParameters): FilterGroup = {
     params.reviewer match {
       case Some(r) if r.nonEmpty =>
-        this.buildReviewSubQuerySearch(params, "reviewed_by", r, "r")
+        this.buildReviewSubQuerySearch(params, TaskReview.FIELD_REVIEWED_BY, r, "r")
       case _ => FilterGroup(List())
     }
   }
@@ -407,17 +465,21 @@ trait SearchParametersMixin {
         FilterGroup(
           List(
             SubQueryFilter(
-              "id",
+              Task.FIELD_ID,
               Query.simple(
                 List(
-                  BaseParameter("t2.id", "tasks.id", useValueDirectly = true),
+                  BaseParameter(
+                    "t2.id",
+                    s"${Task.TABLE}.${Task.FIELD_ID}",
+                    useValueDirectly = true
+                  ),
                   BaseParameter("u.name", s"'%${m}%'", Operator.ILIKE, useValueDirectly = true)
                 ),
                 "SELECT t2.id FROM tasks t2 INNER JOIN users u ON u.id = t2.completed_by"
               ),
               params.invertFields.getOrElse(List()).contains("m"),
               Operator.IN,
-              Some("tasks")
+              Some(Task.TABLE)
             )
           )
         )
@@ -435,21 +497,21 @@ trait SearchParametersMixin {
     FilterGroup(
       List(
         FilterParameter.conditional(
-          "review_requested_by",
+          TaskReview.FIELD_REVIEW_REQUESTED_BY,
           params.reviewParams.mappers.getOrElse(List()).mkString(","),
           Operator.IN,
           params.invertFields.getOrElse(List()).contains("mappers"),
           true,
           !params.reviewParams.mappers.getOrElse(List()).isEmpty,
-          Some("task_review")
+          Some(TaskReview.TABLE)
         ),
         BaseParameter(
-          "review_requested_by",
+          TaskReview.FIELD_REVIEW_REQUESTED_BY,
           None,
           Operator.NULL,
           true,
           true,
-          Some("task_review")
+          Some(TaskReview.TABLE)
         )
       )
     )
@@ -462,13 +524,13 @@ trait SearchParametersMixin {
     */
   def filterReviewers(params: SearchParameters): Parameter[String] = {
     FilterParameter.conditional(
-      "reviewed_by",
+      TaskReview.FIELD_REVIEWED_BY,
       params.reviewParams.reviewers.getOrElse(List()).mkString(","),
       Operator.IN,
       params.invertFields.getOrElse(List()).contains("reviewers"),
       true,
       !params.reviewParams.reviewers.getOrElse(List()).isEmpty,
-      Some("task_review")
+      Some(TaskReview.TABLE)
     )
   }
 
@@ -507,17 +569,21 @@ trait SearchParametersMixin {
     FilterGroup(
       List(
         SubQueryFilter(
-          "id",
+          Task.FIELD_ID,
           Query.simple(
             List(
-              BaseParameter("tr.task_id", "tasks.id", useValueDirectly = true),
+              BaseParameter(
+                "tr.task_id",
+                s"${Task.TABLE}.${Task.FIELD_ID}",
+                useValueDirectly = true
+              ),
               BaseParameter("u.name", s"'%${value}%'", Operator.ILIKE, useValueDirectly = true)
             ),
             s"SELECT task_id FROM task_review tr INNER JOIN users u ON u.id = tr.${column}"
           ),
           params.invertFields.getOrElse(List()).contains(invertKey),
           Operator.IN,
-          Some("tasks")
+          Some(Task.TABLE)
         )
       )
     )
