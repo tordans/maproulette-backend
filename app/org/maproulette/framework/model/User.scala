@@ -101,6 +101,22 @@ object ProjectManager {
 }
 
 /**
+  * Wraps together a user with their follower status
+  *
+  * @param id     The member id of the follower from a (followed) user's followers group
+  * @param user   The user who is following
+  * @param status Their follower status
+  */
+case class Follower(id: Long, user: User, status: Int) extends Identifiable
+object Follower {
+  implicit val writes: Writes[Follower] = Json.writes[Follower]
+  implicit val reads: Reads[Follower]   = Json.reads[Follower]
+
+  val STATUS_FOLLOWING = GroupMember.STATUS_MEMBER
+  val STATUS_BLOCKED   = 1
+}
+
+/**
   * Settings that are not defined by the OSM user profile, but specific to MapRoulette
   *
   * @param defaultEditor     The default editor that the user wants to use
@@ -128,6 +144,7 @@ case class UserSettings(
     leaderboardOptOut: Option[Boolean] = None,
     needsReview: Option[Int] = None,
     isReviewer: Option[Boolean] = None,
+    allowFollowing: Option[Boolean] = None,
     theme: Option[Int] = None
 ) {
   def getTheme: String = theme match {
@@ -172,8 +189,11 @@ case class User(
     guest: Boolean = false,
     settings: UserSettings = UserSettings(),
     properties: Option[String] = None,
-    score: Option[Int] = None
-) extends CacheObject[Long] {
+    score: Option[Int] = None,
+    followingGroupId: Option[Long] = None,
+    followersGroupId: Option[Long] = None
+) extends CacheObject[Long]
+    with Identifiable {
   // for users the display name is always retrieved from OSM
   override def name: String = osmProfile.displayName
 
@@ -294,6 +314,7 @@ object User extends CommonField {
       "leaderboardOptOut" -> optional(boolean),
       "needsReview"       -> optional(number),
       "isReviewer"        -> optional(boolean),
+      "allowFollowing"    -> optional(boolean),
       "theme"             -> optional(number)
     )(UserSettings.apply)(UserSettings.unapply)
   )

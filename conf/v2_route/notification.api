@@ -10,7 +10,7 @@
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.UserNotification'
+#         $ref: '#/definitions/org.maproulette.framework.model.UserNotification'
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
@@ -44,7 +44,7 @@
 #     in: query
 #     description: Limit by notifications from a OSM Username. This can be a SQL "like" query
 ###
-GET     /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.getUserNotifications(userId:Long, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "is_read", order:String ?= "ASC", notificationType:Option[Int], isRead:Option[Int], fromUsername:Option[String])
+GET     /user/:userId/notifications                 @org.maproulette.framework.controller.NotificationController.getUserNotifications(userId:Long, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "is_read", order:String ?= "ASC", notificationType:Option[Int], isRead:Option[Int], fromUsername:Option[String])
 ###
 # tags: [ Notification ]
 # summary: Mark user notifications as read
@@ -70,7 +70,7 @@ GET     /user/:userId/notifications                 @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-PUT     /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.markNotificationsRead(userId:Long, notificationIds:String)
+PUT     /user/:userId/notifications                 @org.maproulette.framework.controller.NotificationController.markNotificationsRead(userId:Long, notificationIds:String)
 ###
 # tags: [ Notification ]
 # summary: Delete user notifications
@@ -96,7 +96,7 @@ PUT     /user/:userId/notifications                 @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-DELETE  /user/:userId/notifications                 @org.maproulette.controllers.api.NotificationController.deleteNotifications(userId:Long, notificationIds:String)
+DELETE  /user/:userId/notifications                 @org.maproulette.framework.controller.NotificationController.deleteNotifications(userId:Long, notificationIds:String)
 ###
 # tags: [ Notification ]
 # summary: Retrieves Users notification subscriptions
@@ -109,7 +109,7 @@ DELETE  /user/:userId/notifications                 @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.UserNotification'
+#         $ref: '#/definitions/org.maproulette.framework.model.UserNotification'
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:
@@ -122,7 +122,7 @@ DELETE  /user/:userId/notifications                 @org.maproulette.controllers
 #     required: true
 #     type: string
 ###
-GET     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.NotificationController.getNotificationSubscriptions(userId:Long)
+GET     /user/:userId/notificationSubscriptions     @org.maproulette.framework.controller.NotificationController.getNotificationSubscriptions(userId:Long)
 ###
 # tags: [ Notification ]
 # summary: Updates user's notification subscriptions
@@ -143,11 +143,11 @@ GET     /user/:userId/notificationSubscriptions     @org.maproulette.controllers
 #     required: true
 #     schema:
 #       type: object
-#       $ref: '#/definitions/org.maproulette.models.NotificationSubscriptions'
+#       $ref: '#/definitions/org.maproulette.framework.model.NotificationSubscriptions'
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
 #     required: true
 #     type: string
 ###
-PUT     /user/:userId/notificationSubscriptions     @org.maproulette.controllers.api.NotificationController.updateNotificationSubscriptions(userId:Long)
+PUT     /user/:userId/notificationSubscriptions     @org.maproulette.framework.controller.NotificationController.updateNotificationSubscriptions(userId:Long)

@@ -2,9 +2,10 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.joda.time.DateTime
+import org.maproulette.framework.psql.CommonField
 import play.api.libs.json.{DefaultWrites, Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
@@ -34,9 +35,17 @@ case class UserNotification(
     var extra: Option[String] = None
 )
 
-object UserNotification {
+object UserNotification extends CommonField {
   implicit val notificationWrites: Writes[UserNotification] = Json.writes[UserNotification]
   implicit val notificationReads: Reads[UserNotification]   = Json.reads[UserNotification]
+
+  val TABLE                   = "user_notifications"
+  val FIELD_NOTIFICATION_TYPE = "notification_type"
+  val FIELD_USER_ID           = "user_id"
+  val FIELD_IS_READ           = "is_read"
+  val FIELD_CHALLENGE_ID      = "challenge_id"
+  val FIELD_FROM_USERNAME     = "from_username"
+  val FIELD_EMAIL_STATUS      = "email_status"
 
   val NOTIFICATION_TYPE_SYSTEM                   = 0
   val NOTIFICATION_TYPE_SYSTEM_NAME              = "System Message"
@@ -50,13 +59,19 @@ object UserNotification {
   val NOTIFICATION_TYPE_REVIEW_AGAIN_NAME        = "Review Requested"
   val NOTIFICATION_TYPE_CHALLENGE_COMPLETED      = 5
   val NOTIFICATION_TYPE_CHALLENGE_COMPLETED_NAME = "Challenge Completed"
+  val NOTIFICATION_TYPE_TEAM                     = 6
+  val NOTIFICATION_TYPE_TEAM_NAME                = "Team"
+  val NOTIFICATION_TYPE_FOLLOW                   = 7
+  val NOTIFICATION_TYPE_FOLLOW_NAME              = "Follow"
   val notificationTypeMap = Map(
     NOTIFICATION_TYPE_SYSTEM              -> NOTIFICATION_TYPE_SYSTEM_NAME,
     NOTIFICATION_TYPE_MENTION             -> NOTIFICATION_TYPE_MENTION_NAME,
     NOTIFICATION_TYPE_REVIEW_APPROVED     -> NOTIFICATION_TYPE_REVIEW_APPROVED_NAME,
     NOTIFICATION_TYPE_REVIEW_REJECTED     -> NOTIFICATION_TYPE_REVIEW_REJECTED_NAME,
     NOTIFICATION_TYPE_REVIEW_AGAIN        -> NOTIFICATION_TYPE_REVIEW_AGAIN_NAME,
-    NOTIFICATION_TYPE_CHALLENGE_COMPLETED -> NOTIFICATION_TYPE_CHALLENGE_COMPLETED_NAME
+    NOTIFICATION_TYPE_CHALLENGE_COMPLETED -> NOTIFICATION_TYPE_CHALLENGE_COMPLETED_NAME,
+    NOTIFICATION_TYPE_TEAM                -> NOTIFICATION_TYPE_TEAM_NAME,
+    NOTIFICATION_TYPE_FOLLOW              -> NOTIFICATION_TYPE_FOLLOW_NAME
   )
 
   val NOTIFICATION_IGNORE          = 0 // ignore notification
@@ -74,13 +89,18 @@ case class NotificationSubscriptions(
     val reviewApproved: Int,
     val reviewRejected: Int,
     val reviewAgain: Int,
-    val challengeCompleted: Int
+    val challengeCompleted: Int,
+    val team: Int,
+    val follow: Int
 )
 object NotificationSubscriptions {
   implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] =
     Json.reads[NotificationSubscriptions]
   implicit val notificationSubscriptionWrites: Writes[NotificationSubscriptions] =
     Json.writes[NotificationSubscriptions]
+
+  val TABLE         = "user_notification_subscriptions"
+  val FIELD_USER_ID = "user_id"
 }
 
 case class UserNotificationEmail(

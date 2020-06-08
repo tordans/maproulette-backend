@@ -19,6 +19,7 @@ class ServiceManager @Inject() (
     projectService: Provider[ProjectService],
     grantService: Provider[GrantService],
     userService: Provider[UserService],
+    followService: Provider[FollowService],
     groupService: Provider[GroupService],
     commentService: Provider[CommentService],
     tagService: Provider[TagService],
@@ -29,7 +30,8 @@ class ServiceManager @Inject() (
     virtualProjectService: Provider[VirtualProjectService],
     taskReviewService: Provider[TaskReviewService],
     taskService: Provider[TaskService],
-    teamService: Provider[TeamService]
+    teamService: Provider[TeamService],
+    notificationService: Provider[NotificationService]
 ) {
   def comment: CommentService = commentService.get()
 
@@ -55,6 +57,8 @@ class ServiceManager @Inject() (
 
   def user: UserService = userService.get()
 
+  def follow: FollowService = followService.get()
+
   def group: GroupService = groupService.get()
 
   def challenge: ChallengeService = challengeService.get()
@@ -68,4 +72,6 @@ class ServiceManager @Inject() (
   def task: TaskService = taskService.get()
 
   def team: TeamService = teamService.get()
+
+  def notification: NotificationService = notificationService.get()
 }

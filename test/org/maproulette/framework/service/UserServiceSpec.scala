@@ -133,6 +133,30 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       newAPIUser.get.apiKey must not be insertedUser.apiKey
     }
 
+    "add a user's Following group" taggedAs UserTag in {
+      val insertedUser =
+        this.userService.create(this.getTestUser(21, "AddFollowingGroupTest"), User.superUser)
+
+      insertedUser.followingGroupId mustEqual None
+      val followingGroupId = this.userService.addFollowingGroup(insertedUser, User.superUser)
+      followingGroupId.isDefined mustEqual true
+
+      val groupAgain = this.userService.addFollowingGroup(insertedUser, User.superUser)
+      groupAgain.get mustEqual followingGroupId.get
+    }
+
+    "add a user's Followers group" taggedAs UserTag in {
+      val insertedUser =
+        this.userService.create(this.getTestUser(22, "AddFollowersGroupTest"), User.superUser)
+
+      insertedUser.followersGroupId mustEqual None
+      val followersGroupId = this.userService.addFollowersGroup(insertedUser, User.superUser)
+      followersGroupId.isDefined mustEqual true
+
+      val groupAgain = this.userService.addFollowersGroup(insertedUser, User.superUser)
+      groupAgain.get mustEqual followersGroupId.get
+    }
+
     "retrieve list of users" taggedAs UserTag in {
       val user1 =
         this.userService.create(this.getTestUser(12, "ListRetrievalTestUser1"), User.superUser)
@@ -337,42 +361,56 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
     "remove a user from a project" taggedAs UserTag in {
       val user =
         this.userService.create(this.getTestUser(20, "RemoveUserFromProjectTest"), User.superUser)
+      val project = this.serviceManager.project
+        .create(
+          Project(-1, user.osmProfile.id, "RemoveUserFromProjectTestProject"),
+          user
+        )
 
       this.userService.addUserToProject(
-        user.osmProfile.id,
-        this.defaultProject.id,
+        this.defaultUser.osmProfile.id,
+        project.id,
         Grant.ROLE_ADMIN,
         User.superUser
       )
 
       this.userService
         .getUsersManagingProject(
-          this.defaultProject.id,
+          project.id,
           None,
           User.superUser
         )
-        .size mustEqual 3
+        .size mustEqual 2
 
       this.userService.removeUserFromProject(
-        user.osmProfile.id,
-        this.defaultProject.id,
+        this.defaultUser.osmProfile.id,
+        project.id,
         Some(Grant.ROLE_ADMIN),
         User.superUser
       )
 
       this.userService
         .getUsersManagingProject(
-          this.defaultProject.id,
+          project.id,
           None,
           User.superUser
         )
-        .size mustEqual 2
+        .size mustEqual 1
     }
 
     "not remove last admin from project" taggedAs UserTag in {
+      val user =
+        this.userService
+          .create(this.getTestUser(195838622, "RemoveLastAdminFromProjectTest"), User.superUser)
+      val project = this.serviceManager.project
+        .create(
+          Project(-1, user.osmProfile.id, "RemoveLastAdminFromProjectTestProject"),
+          user
+        )
+
       an[InvalidException] should be thrownBy this.userService.removeUserFromProject(
-        this.defaultUser.osmProfile.id,
-        this.defaultProject.id,
+        user.id,
+        project.id,
         Some(Grant.ROLE_ADMIN),
         User.superUser
       )

@@ -9,12 +9,18 @@ import org.joda.time.DateTime
 import org.maproulette.data.{ChallengeType, ItemType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.psql.CommonField
-import org.maproulette.models.BaseObject
+import org.maproulette.models.{BaseObject, Task}
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
+import org.maproulette.utils.Utils
 
 case class PriorityRule(operator: String, key: String, value: String, valueType: String) {
-  def doesMatch(properties: Map[String, String]): Boolean = {
+  def doesMatch(properties: Map[String, String], task: Task): Boolean = {
+    // For a "bounds" match we need to see if task location is in given bounds value
+    if (valueType == "bounds") {
+      return locationInBounds(operator, value, task.location)
+    }
+
     properties.find(pair => StringUtils.equalsIgnoreCase(pair._1, key)) match {
       case Some(v) =>
         valueType match {
@@ -28,16 +34,6 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
               case "is_not_empty" => StringUtils.isNotEmpty(v._2)
               case _              => throw new InvalidException(s"Operator $operator not supported")
             }
-          case "integer" =>
-            operator match {
-              case "==" => v._2.toInt == value.toInt
-              case "!=" => v._2.toInt != value.toInt
-              case "<"  => v._2.toInt < value.toInt
-              case "<=" => v._2.toInt <= value.toInt
-              case ">"  => v._2.toInt > value.toInt
-              case ">=" => v._2.toInt >= value.toInt
-              case _    => throw new InvalidException(s"Operator $operator not supported")
-            }
           case "double" =>
             operator match {
               case "==" => v._2.toDouble == value.toDouble
@@ -48,7 +44,7 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
               case ">=" => v._2.toDouble >= value.toDouble
               case _    => throw new InvalidException(s"Operator $operator not supported")
             }
-          case "long" =>
+          case "integer" | "long" =>
             operator match {
               case "==" => v._2.toLong == value.toLong
               case "!=" => v._2.toLong != value.toLong
@@ -62,6 +58,32 @@ case class PriorityRule(operator: String, key: String, value: String, valueType:
         }
       case None => false
     }
+  }
+
+  private def locationInBounds(
+      operator: String,
+      value: String,
+      location: Option[String]
+  ): Boolean = {
+    // eg. Some({"type":"Point","coordinates":[-120.18699365,48.47991855]})
+    location match {
+      case Some(loc) =>
+        // MinX,MinY,MaxX,MaxY
+        val bbox: List[Double] = Utils.toDoubleList(value).getOrElse(List(0, 0, 0, 0))
+        val coordinates        = (Json.parse(loc) \ "coordinates").as[List[Double]]
+        if (coordinates.length == 2) {
+          val x        = coordinates(0)
+          val y        = coordinates(1)
+          val isInBBox = (x > bbox(0) && x < bbox(2) && y > bbox(1) && y < bbox(3))
+          operator match {
+            case "contains"     => return isInBBox  // loc is in bbox
+            case "not_contains" => return !isInBBox // loc is not in bbox
+          }
+        }
+      case _ => // no location to match against
+    }
+
+    return false
   }
 }
 
@@ -142,23 +164,31 @@ case class Challenge(
 
   override val itemType: ItemType = ChallengeType()
 
-  def isHighPriority(properties: Map[String, String]): Boolean =
-    this.matchesRule(priority.highPriorityRule, properties)
+  def isHighPriority(properties: Map[String, String], task: Task): Boolean =
+    this.matchesRule(priority.highPriorityRule, properties, task)
 
-  def isMediumPriority(properties: Map[String, String]): Boolean =
-    this.matchesRule(priority.mediumPriorityRule, properties)
+  def isMediumPriority(properties: Map[String, String], task: Task): Boolean =
+    this.matchesRule(priority.mediumPriorityRule, properties, task)
 
-  def isLowRulePriority(properties: Map[String, String]): Boolean =
-    this.matchesRule(priority.lowPriorityRule, properties)
+  def isLowRulePriority(properties: Map[String, String], task: Task): Boolean =
+    this.matchesRule(priority.lowPriorityRule, properties, task)
 
-  private def matchesRule(rule: Option[String], properties: Map[String, String]): Boolean = {
+  private def matchesRule(
+      rule: Option[String],
+      properties: Map[String, String],
+      task: Task
+  ): Boolean = {
     rule match {
-      case Some(r) => matchesJSONRule(Json.parse(r), properties)
+      case Some(r) => matchesJSONRule(Json.parse(r), properties, task)
       case None    => false
     }
   }
 
-  private def matchesJSONRule(ruleJSON: JsValue, properties: Map[String, String]): Boolean = {
+  private def matchesJSONRule(
+      ruleJSON: JsValue,
+      properties: Map[String, String],
+      task: Task
+  ): Boolean = {
     val cnf = (ruleJSON \ "condition").asOpt[String] match {
       case Some("OR") => false
       case _          => true
@@ -167,13 +197,13 @@ case class Challenge(
     val rules          = (ruleJSON \ "rules").as[List[JsValue]]
     val matched = rules.filter(jsValue => {
       (jsValue \ "rules").asOpt[JsValue] match {
-        case Some(nestedRule) => matchesJSONRule(jsValue, properties)
+        case Some(nestedRule) => matchesJSONRule(jsValue, properties, task)
         case _ =>
           val keyValue  = (jsValue \ "value").as[String].split("\\.", 2)
           val valueType = (jsValue \ "type").as[String]
           val rule =
             PriorityRule((jsValue \ "operator").as[String], keyValue(0), keyValue(1), valueType)
-          rule.doesMatch(properties)
+          rule.doesMatch(properties, task)
       }
     })
     if (cnf && matched.size == rules.size) {

@@ -195,13 +195,13 @@ class ActionManager @Inject() (config: Config, db: Database)(implicit applicatio
     * Helper function for getActivity list that gets the recent activity for a specific user, and
     * will only retrieve activity where status was set for tasks.
     *
-    * @param user   The user to get the activity for
+    * @param osmUserIds The OSM ids of users to get activity for
     * @param limit  limit the number of returned items
     * @param offset paging, starting at 0
     * @return
     */
   def getRecentActivity(
-      user: User,
+      osmUserIds: List[Long],
       limit: Int = Config.DEFAULT_LIST_SIZE,
       offset: Int = 0
   ): List[ActionItem] =
@@ -209,7 +209,7 @@ class ActionManager @Inject() (config: Config, db: Database)(implicit applicatio
       limit,
       offset,
       ActionLimits(
-        osmUserLimit = List(user.osmProfile.id),
+        osmUserLimit = osmUserIds,
         actionLimit =
           List(Actions.ACTION_TYPE_TASK_STATUS_SET, Actions.ACTION_TYPE_QUESTION_ANSWERED)
       )

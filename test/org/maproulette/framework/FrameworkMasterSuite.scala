@@ -15,6 +15,10 @@ import org.scalatest.{BeforeAndAfterAll, Suite, Suites, Tag}
   */
 class FrameworkMasterSuite extends Suites with BeforeAndAfterAll with TestDatabase {
   private val suites = IndexedSeq(
+    new NotificationRepositorySpec,
+    new NotificationSubscriptionRepositorySpec,
+    new NotificationServiceSpec,
+    new FollowServiceSpec,
     new TeamServiceSpec,
     new ChallengeServiceSpec,
     new ChallengeRepositorySpec,

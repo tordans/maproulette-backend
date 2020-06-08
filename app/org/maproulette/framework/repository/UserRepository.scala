@@ -108,7 +108,8 @@ class UserRepository @Inject() (
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId}, custom_basemap_url = {customBasemap},
                                           locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
-                                          needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, properties = {properties}
+                                          needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, allow_following = {allowFollowing},
+                                          properties = {properties}
                         WHERE id = {id} RETURNING ${UserRepository.standardColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
       SQL(query)
@@ -131,6 +132,7 @@ class UserRepository @Inject() (
           Symbol("needsReview")       -> user.settings.needsReview,
           Symbol("isReviewer")        -> user.settings.isReviewer,
           Symbol("theme")             -> user.settings.theme,
+          Symbol("allowFollowing")    -> user.settings.allowFollowing,
           Symbol("properties")        -> user.properties
         )
         .as(this.parser().*)
@@ -157,6 +159,32 @@ class UserRepository @Inject() (
         .on(Symbol("apiKey") -> apiKey, Symbol("id") -> id)
         .as(this.parser().*)
         .head
+    }
+  }
+
+  def addFollowingGroup(follower: User): User = {
+    follower.followingGroupId match {
+      case Some(groupId) => follower // already setup, do nothing
+      case None =>
+        val group = this.serviceManager.group
+          .create(
+            Group(-1, s"User ${follower.id} Following", groupType = Group.GROUP_TYPE_FOLLOWING)
+          )
+          .get
+        this.setupGroup("following_group", group.id, follower.id)
+    }
+  }
+
+  def addFollowersGroup(followed: User): User = {
+    followed.followersGroupId match {
+      case Some(groupId) => followed // already setup, do nothing
+      case None =>
+        val group = this.serviceManager.group
+          .create(
+            Group(-1, s"User ${followed.id} Followers", groupType = Group.GROUP_TYPE_FOLLOWERS)
+          )
+          .get
+        this.setupGroup("followers_group", group.id, followed.id)
     }
   }
 
@@ -264,6 +292,29 @@ class UserRepository @Inject() (
         .as(taskCountsParser.single)
     }
   }
+
+  /**
+    * Assigns a group id to a group column on a user, returning the updated User
+    *
+    * @param groupColumn The name of the group column to set
+    * @param groupId     The id of the group to set
+    * @param userId      The id of the user on which the group is to be set
+    */
+  private def setupGroup(groupColumn: String, groupId: Long, userId: Long): User = {
+    this.withMRTransaction { implicit c =>
+      val query =
+        s"""UPDATE users SET ${groupColumn} = {groupId} WHERE id = {userId}
+            RETURNING ${UserRepository.standardColumns},
+            (SELECT score FROM user_metrics um WHERE um.user_id = {userId}) as score"""
+      SQL(query)
+        .on(
+          Symbol("groupId") -> groupId,
+          Symbol("userId")  -> userId
+        )
+        .as(this.parser().*)
+        .head
+    }
+  }
 }
 
 object UserRepository {
@@ -307,11 +358,14 @@ object UserRepository {
       get[Option[String]]("users.locale") ~
       get[Option[Int]]("users.theme") ~
       get[Option[String]]("properties") ~
-      get[Option[Int]]("score") map {
+      get[Option[Int]]("score") ~
+      get[Option[Boolean]]("users.allow_following") ~
+      get[Option[Long]]("users.following_group") ~
+      get[Option[Long]]("users.followers_group") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
             homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
-            properties ~ score =>
+            properties ~ score ~ allowFollowing ~ followingGroupId ~ followersGroupId =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None      => new GeometryFactory().createPoint(new Coordinate(0, 0))
@@ -349,10 +403,13 @@ object UserRepository {
             leaderboardOptOut,
             setNeedsReview,
             isReviewer,
+            allowFollowing,
             theme
           ),
           properties,
-          score
+          score,
+          followingGroupId,
+          followersGroupId
         )
     }
   }

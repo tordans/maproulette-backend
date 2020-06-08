@@ -42,7 +42,6 @@ class ChallengeDAL @Inject() (
     serviceManager: ServiceManager,
     taskDAL: TaskDAL,
     override val tagService: TagService,
-    notificationDAL: Provider[NotificationDAL],
     override val permission: Permission,
     config: Config
 ) extends ParentDAL[Long, Challenge, Task]
@@ -1308,7 +1307,8 @@ class ChallengeDAL @Inject() (
               SQL(updateStatusQuery).as(this.parser.*).headOption match {
                 case Some(updatedChallenge) =>
                   if (updatedChallenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_FINISHED) {
-                    this.notificationDAL.get().createChallengeCompletionNotification(challenge)
+                    this.serviceManager.notification
+                      .createChallengeCompletionNotification(challenge)
                   }
                   Some(updatedChallenge)
                 case None => None

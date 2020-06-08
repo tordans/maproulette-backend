@@ -267,6 +267,64 @@ class UserSchema @Inject() (override val service: UserService)
         )
         true
       }
+    ),
+    Field(
+      name = "follow",
+      description = Some("Follow a user"),
+      fieldType = UserType,
+      arguments = MRSchema.idArg :: Nil,
+      resolve = context => {
+        val user       = context.ctx.user
+        val followedId = context.arg(MRSchema.idArg)
+        val followed = this.service.retrieve(followedId) match {
+          case Some(u) => u
+          case None =>
+            throw new NotFoundException(s"No user with id $followedId found")
+        }
+        context.ctx.services.follow.follow(user, followed, user)
+        user
+      }
+    ),
+    Field(
+      name = "stopFollowing",
+      description = Some("Stop following a user"),
+      fieldType = UserType,
+      arguments = MRSchema.idArg :: Nil,
+      resolve = context => {
+        val user       = context.ctx.user
+        val followedId = context.arg(MRSchema.idArg)
+        val followed = this.service.retrieve(followedId) match {
+          case Some(u) => u
+          case None =>
+            throw new NotFoundException(s"No user with id $followedId found")
+        }
+        context.ctx.services.follow.stopFollowing(user, followed, user)
+        user
+      }
+    ),
+    Field(
+      name = "blockFollower",
+      description = Some("Block a follower from following a user"),
+      fieldType = UserType,
+      arguments = MRSchema.idArg :: Nil,
+      resolve = context => {
+        val user       = context.ctx.user
+        val followerId = context.arg(MRSchema.idArg)
+        context.ctx.services.follow.blockFollower(followerId, user, user)
+        user
+      }
+    ),
+    Field(
+      name = "unblockFollower",
+      description = Some("Unblock a blocked follower"),
+      fieldType = UserType,
+      arguments = MRSchema.idArg :: Nil,
+      resolve = context => {
+        val user       = context.ctx.user
+        val followerId = context.arg(MRSchema.idArg)
+        context.ctx.services.follow.unblockFollower(followerId, user, user)
+        user
+      }
     )
   )
 }

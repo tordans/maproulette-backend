@@ -44,8 +44,10 @@ object Group extends CommonField {
   val FIELD_GROUP_TYPE = "group_type"
 
   // Types of groups
-  val GROUP_TYPE_STANDARD = 0
-  val GROUP_TYPE_TEAM     = 1
+  val GROUP_TYPE_STANDARD  = 0
+  val GROUP_TYPE_TEAM      = 1
+  val GROUP_TYPE_FOLLOWING = 2
+  val GROUP_TYPE_FOLLOWERS = 3
 }
 
 /**
