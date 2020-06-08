@@ -114,11 +114,6 @@ class ChallengeController @Inject() (
     }
     // we need to elevate the user permissions to super users to extract and create the tags
     this.extractTags(body, createdObject, User.superUser)
-
-    //we need to reapply task priority rules since task locations were updated
-    Future {
-      this.dal.updateTaskPriorities(user)(createdObject.id)
-    }
   }
 
   /**

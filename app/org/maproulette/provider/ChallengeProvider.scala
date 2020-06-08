@@ -106,6 +106,11 @@ class ChallengeProvider @Inject() (
             } else {
               this.createTasksFromJson(user, challenge, value)
             }
+
+            //we need to reapply task priority rules since task locations were updated
+            Future {
+              this.challengeDAL.updateTaskPriorities(user)(challenge.id)
+            }
           }
           true
         case _ => false
