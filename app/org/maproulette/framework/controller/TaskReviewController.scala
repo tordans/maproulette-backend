@@ -280,10 +280,13 @@ class TaskReviewController @Inject() (
           var mapper = mapperNames.get(row.userId.get)
 
           val reviewTimeSeconds = Math.round(row.avgReviewTime / 1000)
+          val reviewPercentCoverage =
+            Math.round((row.total - row.reviewRequested) * 100 / row.total)
 
-          s"${mapper.get},${row.total},${reviewTimeSeconds},${row.reviewRequested}," +
+          s"${mapper.get},${row.total},${reviewPercentCoverage},${reviewTimeSeconds},${row.reviewRequested}," +
             s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
-            s"${row.reviewDisputed}"
+            s"${row.reviewDisputed},${row.fixed},${row.falsePositive},${row.alreadyFixed}," +
+            s"${row.tooHard}"
         })
 
         Result(
@@ -293,7 +296,10 @@ class TaskReviewController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"""Mapper,Total Review Tasks,Avg Review Time (seconds),Review Requested,Approved,Needs Revision,Approved w/Fixes,Contested\n"""
+              s"Mapper,Total Review Tasks,% Reviewed,Avg Review Time (seconds),Review Requested,Approved," +
+                s"Needs Revision,Approved w/Fixes,Contested,${Task.STATUS_FIXED_NAME}," +
+                s"${Task.STATUS_FALSE_POSITIVE_NAME},${Task.STATUS_ALREADY_FIXED_NAME}," +
+                s"${Task.STATUS_TOO_HARD_NAME}\n"
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )
