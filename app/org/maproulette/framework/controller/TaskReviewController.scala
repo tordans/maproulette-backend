@@ -118,6 +118,37 @@ class TaskReviewController @Inject() (
     }
 
   /**
+    * Gets tasks near the given task id within the given challenge
+    *
+    * @param challengeId  The challenge id that is the parent of the tasks that you would be searching for
+    * @param proximityId  Id of task for which nearby tasks are desired
+    * @param excludeSelfLocked Also exclude tasks locked by requesting user
+    * @param limit        The maximum number of nearby tasks to return
+    * @return
+    */
+  def getNearbyReviewTasks(
+      proximityId: Long,
+      limit: Int,
+      excludeOtherReviewers: Boolean = false,
+      onlySaved: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { params =>
+        val results = this.service
+          .getNearbyReviewTasks(
+            User.userOrMocked(user),
+            params,
+            proximityId,
+            limit,
+            excludeOtherReviewers,
+            onlySaved
+          )
+        Ok(Json.toJson(results))
+      }
+    }
+  }
+
+  /**
     * Gets reviewed tasks where the user has reviewed or requested review
     *
     * @param reviewTasksType - 1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users
@@ -195,7 +226,7 @@ class TaskReviewController @Inject() (
 
     prioritiesToFetch.foreach(p => {
       val newParams =
-        params.copy(reviewParams = params.reviewParams.copy(priorities = Some(List(p))))
+        params.copy(taskParams = params.taskParams.copy(taskPriorities = Some(List(p))))
 
       val pResult = this.service.getReviewMetrics(
         user,

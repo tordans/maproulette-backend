@@ -171,6 +171,34 @@ GET     /tasks/reviewed                          @org.maproulette.controllers.ap
 GET     /tasks/review/next                       @org.maproulette.controllers.api.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastTaskId:Long ?= -1, excludeOtherReviewers:Boolean ?= false)
 ###
 # tags: [ Review ]
+# summary: Retrieves nearby Tasks
+# produces: [ application/json ]
+# description: Retrieves review tasks geographically closest to the specified task within the given filters
+# responses:
+#   '200':
+#     description: The list of geographically closest review tasks
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.models.Task'
+# parameters:
+#   - name: limit
+#     in: query
+#     description: Limit the number of results returned in the response. Default value is 5.
+#   - name: proximity
+#     in: query
+#     description: Id of task around which geographically closest tasks are desired
+#   - name: excludeOtherReviewers
+#     in: query
+#     description: exclude tasks that have been reviewed by someone else
+#   - name: onlySaved
+#     in: query
+#     description: Only show challenges that have been saved.
+###
+GET     /tasks/review/nearby/:proximityId           @org.maproulette.framework.controller.TaskReviewController.getNearbyReviewTasks(proximityId:Long, limit:Int ?= 5, excludeOtherReviewers:Boolean ?= false, onlySaved:Boolean ?= false)
+###
+# tags: [ Review ]
 # summary: Retrieves tasks that need review
 # produces: [ application/json ]
 # description: Retrieves list of Tasks and total count
