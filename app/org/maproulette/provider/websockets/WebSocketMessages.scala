@@ -5,7 +5,7 @@
 package org.maproulette.provider.websockets
 
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{TaskWithReview, User}
+import org.maproulette.framework.model.{TaskWithReview, User, Challenge, Project}
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
@@ -41,7 +41,11 @@ object WebSocketMessages {
 
   case class PongMessage(messageType: String, meta: ServerMeta) extends ServerMessage
 
-  case class UserSummary(userId: Long, displayName: String, avatarURL: String)
+  case class UserSummary(userId: Long, osmId: Long, displayName: String, avatarURL: String)
+
+  case class ChallengeSummary(id: Long, parentId: Long, name: String, enabled: Boolean)
+
+  case class ProjectSummary(id: Long, name: String, enabled: Boolean)
 
   case class NotificationData(userId: Long, notificationType: Int)
 
@@ -53,7 +57,12 @@ object WebSocketMessages {
   case class ReviewMessage(messageType: String, data: ReviewData, meta: ServerMeta)
       extends ServerMessage
 
-  case class TaskAction(task: Task, byUser: Option[UserSummary])
+  case class TaskAction(
+      task: Task,
+      challenge: Option[ChallengeSummary],
+      project: Option[ProjectSummary],
+      byUser: Option[UserSummary]
+  )
 
   case class TaskMessage(messageType: String, data: TaskAction, meta: ServerMeta)
       extends ServerMessage
@@ -80,14 +89,39 @@ object WebSocketMessages {
 
   def reviewUpdate(data: ReviewData): ReviewMessage = createReviewMessage("review-update", data)
 
-  def taskClaimed(taskData: Task, userData: Option[UserSummary]): List[ServerMessage] =
-    createTaskMessage("task-claimed", taskData, userData)
+  def taskClaimed(
+      taskData: Task,
+      challengeData: ChallengeSummary,
+      projectData: ProjectSummary,
+      userData: UserSummary
+  ): List[ServerMessage] =
+    createTaskMessage(
+      "task-claimed",
+      taskData,
+      Some(challengeData),
+      Some(projectData),
+      Some(userData)
+    )
 
   def taskReleased(taskData: Task, userData: Option[UserSummary]): List[ServerMessage] =
-    createTaskMessage("task-released", taskData, userData)
+    createTaskMessage("task-released", taskData, None, None, userData)
 
-  def taskUpdate(taskData: Task, userData: Option[UserSummary]): List[ServerMessage] =
-    createTaskMessage("task-update", taskData, userData)
+  def taskCompleted(
+      taskData: Task,
+      challengeData: ChallengeSummary,
+      projectData: ProjectSummary,
+      userData: UserSummary
+  ): List[ServerMessage] =
+    createTaskMessage(
+      "task-completed",
+      taskData,
+      Some(challengeData),
+      Some(projectData),
+      Some(userData)
+    )
+
+  def taskUpdated(taskData: Task, userData: Option[UserSummary]): List[ServerMessage] =
+    createTaskMessage("task-update", taskData, None, None, userData)
 
   def teamUpdate(data: TeamUpdateData): TeamMessage = createTeamMessage("team-update", data)
 
@@ -95,7 +129,18 @@ object WebSocketMessages {
     createFollowMessage("follow-update", data)
 
   def userSummary(user: User): UserSummary =
-    UserSummary(user.id, user.osmProfile.displayName, user.osmProfile.avatarURL)
+    UserSummary(user.id, user.osmProfile.id, user.osmProfile.displayName, user.osmProfile.avatarURL)
+
+  def challengeSummary(challenge: Challenge): ChallengeSummary =
+    ChallengeSummary(
+      challenge.id,
+      challenge.general.parent,
+      challenge.name,
+      challenge.general.enabled
+    )
+
+  def projectSummary(project: Project): ProjectSummary =
+    ProjectSummary(project.id, project.displayName.getOrElse(project.name), project.enabled)
 
   // private helper methods
   private def createNotificationMessage(
@@ -116,9 +161,11 @@ object WebSocketMessages {
   private def createTaskMessage(
       messageType: String,
       taskData: Task,
+      challengeData: Option[ChallengeSummary],
+      projectData: Option[ProjectSummary],
       userData: Option[UserSummary]
   ): List[ServerMessage] = {
-    val data = TaskAction(taskData, userData)
+    val data = TaskAction(taskData, challengeData, projectData, userData)
 
     // Create one message for subscribers to all tasks and one for subscribers
     // to just challenge-specific tasks
@@ -156,6 +203,8 @@ object WebSocketMessages {
   // Writes for server-generated messages
   implicit val serverMetaWrites: Writes[ServerMeta]             = Json.writes[ServerMeta]
   implicit val pongMessageWrites: Writes[PongMessage]           = Json.writes[PongMessage]
+  implicit val ChallengeSummaryWrites: Writes[ChallengeSummary] = Json.writes[ChallengeSummary]
+  implicit val ProjectSummaryWrites: Writes[ProjectSummary]     = Json.writes[ProjectSummary]
   implicit val UserSummaryWrites: Writes[UserSummary]           = Json.writes[UserSummary]
   implicit val notificationDataWrites: Writes[NotificationData] = Json.writes[NotificationData]
   implicit val notificationMessageWrites: Writes[NotificationMessage] =

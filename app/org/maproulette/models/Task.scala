@@ -7,7 +7,7 @@ package org.maproulette.models
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.data.{ItemType, TaskType}
-import org.maproulette.framework.model.Challenge
+import org.maproulette.framework.model.{Challenge, Identifiable}
 import org.maproulette.framework.psql.CommonField
 import org.maproulette.utils.Utils
 import play.api.data.format.Formats
@@ -67,7 +67,8 @@ case class Task(
     mapillaryImages: Option[List[MapillaryImage]] = None
 ) extends BaseObject[Long]
     with DefaultReads
-    with LowPriorityDefaultReads {
+    with LowPriorityDefaultReads
+    with Identifiable {
   override val itemType: ItemType = TaskType()
 
   /**
