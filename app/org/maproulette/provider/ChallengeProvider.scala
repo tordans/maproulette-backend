@@ -39,6 +39,8 @@ class ChallengeProvider @Inject() (
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
+  private val RS = 0x1E.toChar // RS (record separator) control character
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def rebuildTasks(user: User, challenge: Challenge, removeUnmatched: Boolean = false): Boolean =
@@ -76,7 +78,7 @@ class ChallengeProvider @Inject() (
             if (isLineByLineGeoJson(splitJson)) {
               val failedLines = splitJson.zipWithIndex.flatMap(line => {
                 try {
-                  val jsonData = Json.parse(line._1)
+                  val jsonData = Json.parse(normalizeRFC7464Sequence(line._1))
                   this.createNewTask(
                     user,
                     taskNameFromJsValue(jsonData, challenge),
@@ -140,7 +142,14 @@ class ChallengeProvider @Inject() (
     */
   def createTaskFromJson(user: User, challenge: Challenge, json: String): Option[Task] = {
     try {
-      this.createTasksFromFeatures(user, challenge, Json.parse(json), true).headOption
+      this
+        .createTasksFromFeatures(
+          user,
+          challenge,
+          Json.parse(this.normalizeRFC7464Sequence(json)),
+          true
+        )
+        .headOption
     } catch {
       case e: Exception =>
         this.challengeDAL.update(
@@ -205,7 +214,7 @@ class ChallengeProvider @Inject() (
           val splitJson = resp.body.split("\n")
           if (this.isLineByLineGeoJson(splitJson)) {
             splitJson.foreach { line =>
-              val jsonData = Json.parse(line)
+              val jsonData = Json.parse(normalizeRFC7464Sequence(line))
               this.createNewTask(
                 user,
                 taskNameFromJsValue(jsonData, challenge),
@@ -582,8 +591,41 @@ class ChallengeProvider @Inject() (
     // execute regex matching against {{data:string}}, {{geocodeId:name}}, {{geocodeArea:name}}, {{geocodeBbox:name}}, {{geocodeCoords:name}}
   }
 
+  /**
+    * Determine if this represents line-by-line GeoJSON. It either must be
+    * RFC 7464 compliant or consist of complete JSON objects on 2 or more
+    * separate lines
+    */
   private def isLineByLineGeoJson(splitJson: Array[String]): Boolean = {
-    splitJson.length > 1 && splitJson(0).startsWith("{") && splitJson(0).endsWith("}") &&
-    splitJson(1).startsWith("{") && splitJson(1).endsWith("}")
+    splitJson.length match {
+      case 0 => false
+      case 1 => this.isRFC7464Sequence(splitJson(0))
+      case _ =>
+        this.isRFC7464Sequence(splitJson(0)) ||
+          (isCompleteJSON(splitJson(0)) && isCompleteJSON(splitJson(1)))
+    }
   }
+
+  /**
+    * Basic check for a [RFC 7464](https://tools.ietf.org/html/rfc7464) sequence,
+    * basically ensuring the line starts with an RS control character. This does
+    * not attempt to validate any subsequent data, e.g. to ensure it is correct
+    * JSON as required by the RFC
+    */
+  private def isRFC7464Sequence(line: String): Boolean =
+    line.length > 1 && line(0) == RS
+
+  /**
+    * Very rudimentary check to see if the string looks like complete json data
+    */
+  private def isCompleteJSON(json: String): Boolean =
+    json.startsWith("{") && json.endsWith("}")
+
+  /**
+    * Normalize a RFC 7464 sequence, i.e. strip out any record separators at the
+    * beginning of the string. This is safe to call even on strings containing
+    * ordinary JSON data
+    */
+  private def normalizeRFC7464Sequence(line: String): String =
+    line.replaceAll(s"^${RS}+", "")
 }
