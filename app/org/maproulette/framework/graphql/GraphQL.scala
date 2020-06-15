@@ -48,6 +48,8 @@ class GraphQL @Inject() (
   private val fetchers =
     UserFetchers.fetchers ++
       TaskFetchers.fetchers ++
+      ChallengeFetchers.fetchers ++
+      ProjectFetchers.fetchers ++
       TeamFetchers.fetchers
 
   val schema: sangria.schema.Schema[UserContext, Unit] = sangria.schema.Schema[UserContext, Unit](
