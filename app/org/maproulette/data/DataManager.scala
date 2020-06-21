@@ -12,12 +12,15 @@ import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.models.Task
+import org.maproulette.framework.model.ReviewMetrics
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import org.maproulette.models.dal.mixin.SearchParametersMixin
+import org.maproulette.framework.repository.TaskReviewRepository
 import org.maproulette.session.{SearchParameters, SearchTaskParameters}
 import org.maproulette.utils.BoundingBoxFinder
 import play.api.Application
 import play.api.db.Database
+import scala.collection.mutable.ListBuffer
 
 case class ActionSummary(
     total: Int,
@@ -110,7 +113,12 @@ case class LeaderboardUser(
   * @author cuthbertm
   */
 @Singleton
-class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: BoundingBoxFinder)(
+class DataManager @Inject() (
+    config: Config,
+    db: Database,
+    boundingBoxFinder: BoundingBoxFinder,
+    taskReviewRepository: TaskReviewRepository
+)(
     implicit application: Application
 ) extends DALHelper
     with SearchParametersMixin {
@@ -178,6 +186,19 @@ class DataManager @Inject() (config: Config, db: Database, boundingBoxFinder: Bo
           AND sa.created::date BETWEEN current_date - INTERVAL '2 days' AND current_date"""
       .as(get[Option[Int]]("count").single)
       .getOrElse(0)
+  }
+
+  /**
+    * Returns tag metrics given the search parameters.
+    */
+  def getTagMetrics(params: SearchParameters): List[ReviewMetrics] = {
+    this.db.withConnection { implicit c =>
+      val searchParams = SearchParameters.withDefaultAllTaskStatuses(params)
+
+      val query = this.filterOnSearchParameters(searchParams)
+
+      this.taskReviewRepository.executeReviewMetricsQuery(query, groupByTags = true)
+    }
   }
 
   def getUserChallengeSummary(

@@ -32,3 +32,5 @@ GET     /data/status/summary                        @org.maproulette.controllers
 GET     /data/challenge/:challengeId/propertyKeys   @org.maproulette.controllers.api.DataController.getPropertyKeys(challengeId:Long)
 ### NoDocs ###
 GET     /data/challenge/:challengeId                @org.maproulette.controllers.api.DataController.getChallengeSummary(challengeId:Long, priority:String ?= "", includeByPriority:Boolean ?= false)
+### NoDocs ###
+GET     /data/tag/metrics                           @org.maproulette.controllers.api.DataController.getTagMetrics()

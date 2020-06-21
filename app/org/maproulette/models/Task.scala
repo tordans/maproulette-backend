@@ -114,10 +114,12 @@ case class Task(
 
 object Task extends CommonField {
   // TASK FIELDS
-  val TABLE          = "tasks"
-  val FIELD_LOCATION = "location"
-  val FIELD_STATUS   = "status"
-  val FIELD_PRIORITY = "priority"
+  val TABLE                = "tasks"
+  val FIELD_LOCATION       = "location"
+  val FIELD_STATUS         = "status"
+  val FIELD_PRIORITY       = "priority"
+  val FIELD_BUNDLE_ID      = "bundle_id"
+  val FIELD_BUNDLE_PRIMARY = "is_bundle_primary"
 
   implicit object TaskFormat extends Format[Task] {
     override def writes(o: Task): JsValue = {

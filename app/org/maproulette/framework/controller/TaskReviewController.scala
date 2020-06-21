@@ -338,4 +338,28 @@ class TaskReviewController @Inject() (
       }
     }
   }
+
+  /**
+    * Returns a breakdown of tag metrics
+    *
+    * @return
+    */
+  def getReviewTagMetrics(
+      reviewTasksType: Int,
+      onlySaved: Boolean,
+      excludeOtherReviewers: Boolean
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val result = this.service.getReviewTagMetrics(
+          User.userOrMocked(user),
+          reviewTasksType,
+          params,
+          onlySaved,
+          excludeOtherReviewers
+        )
+        Ok(Json.toJson(result))
+      }
+    }
+  }
 }

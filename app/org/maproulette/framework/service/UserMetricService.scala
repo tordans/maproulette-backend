@@ -77,7 +77,8 @@ class UserMetricService @Inject() (
       taskMonthDuration,
       startDate,
       endDate,
-      s"${StatusActions.FIELD_CREATED}"
+      s"${StatusActions.FIELD_CREATED}",
+      Task.TABLE
     )
     val taskCounts = this.repository.getUserTaskCounts(userId, timeClause)
 
@@ -87,7 +88,8 @@ class UserMetricService @Inject() (
         reviewMonthDuration,
         reviewStartDate,
         reviewEndDate,
-        TaskReview.FIELD_REVIEWED_AT
+        TaskReview.FIELD_REVIEWED_AT,
+        TaskReview.TABLE
       )
     val reviewCounts = this.taskReviewRepository.getTaskReviewCounts(
       Query(
@@ -122,7 +124,8 @@ class UserMetricService @Inject() (
           reviewerMonthDuration,
           reviewerStartDate,
           reviewerEndDate,
-          TaskReview.FIELD_REVIEWED_AT
+          TaskReview.FIELD_REVIEWED_AT,
+          TaskReview.TABLE
         )
 
       val asReviewerCounts = this.taskReviewRepository.getTaskReviewCounts(
@@ -153,7 +156,8 @@ class UserMetricService @Inject() (
       duration: Int,
       startDate: String,
       endDate: String,
-      field: String
+      field: String,
+      table: String
   ): DateParameter = {
     val dates =
       try {
@@ -169,14 +173,16 @@ class UserMetricService @Inject() (
           field,
           dates._1.get,
           dates._2.get,
-          Operator.BETWEEN
+          Operator.BETWEEN,
+          table = Some(table)
         )
       case 0 =>
         DateParameter(
           field,
           DateTime.now.withDayOfMonth(1),
           DateTime.now,
-          Operator.BETWEEN
+          Operator.BETWEEN,
+          table = Some(table)
         )
       case -1 =>
         // All time.
@@ -184,14 +190,16 @@ class UserMetricService @Inject() (
           field,
           new DateTime(2000, 1, 1, 0, 0, 0, 0),
           DateTime.now,
-          Operator.BETWEEN
+          Operator.BETWEEN,
+          table = Some(table)
         )
-      case _ =>
+      case x =>
         DateParameter(
           field,
-          DateTime.now.minus(Months.ONE),
+          DateTime.now.minusMonths(x),
           DateTime.now,
-          Operator.BETWEEN
+          Operator.BETWEEN,
+          table = Some(table)
         )
     }
   }

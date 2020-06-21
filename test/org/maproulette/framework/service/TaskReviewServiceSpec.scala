@@ -84,6 +84,15 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
       result(0).total mustEqual 1
       result(0).userId mustEqual Some(randomUser.id)
     }
+
+    "get Tag Metrics" taggedAs (TaskReviewTag) in {
+      val result = this.service.getReviewTagMetrics(User.superUser, 4, new SearchParameters())
+      println(result)
+      result.length mustEqual 1
+      result.head.tagName.get mustEqual "testtag"
+      result.head.total mustEqual 1
+      result.head.fixed mustEqual 1
+    }
   }
 
   override implicit val projectTestName: String = "TaskReviewSpecProject"
@@ -162,6 +171,12 @@ object TaskReviewServiceSpec {
         taskFunc(UUID.randomUUID().toString, createdReviewChallenge2.id),
         User.superUser
       )
+
+    var newTag = serviceManager.tag.create(
+      Tag(id = -1, tagType = "tasks", name = "testTag"),
+      User.superUser
+    )
+    taskDAL.updateItemTags(task2.id, List(newTag.id), User.superUser, true)
 
     val randomUser = serviceManager.user.create(
       userFunc(12345, "RandomOUser"),

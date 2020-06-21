@@ -12,6 +12,7 @@ import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model.User
 import org.maproulette.models.BaseObject
 import org.maproulette.models.utils.DALHelper
+import org.maproulette.models.dal.mixin.SearchParametersMixin
 
 /**
   * Parent data access layer that simply includes the ability to list the children of the current
@@ -21,7 +22,8 @@ import org.maproulette.models.utils.DALHelper
   */
 trait ParentDAL[Key, T <: BaseObject[Key], C <: BaseObject[Key]]
     extends BaseDAL[Key, T]
-    with DALHelper {
+    with DALHelper
+    with SearchParametersMixin {
   // The table of the child for this type
   val childTable: String
   // The anorm row parser for the child of this type

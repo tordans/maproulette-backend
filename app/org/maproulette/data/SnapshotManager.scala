@@ -13,11 +13,12 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.models.Task
 import org.maproulette.models.utils.WHERE
-import org.maproulette.models.dal.ChallengeDAL
+import org.maproulette.models.dal.{ChallengeDAL}
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model.Challenge
+import org.maproulette.framework.repository.TaskReviewRepository
 import play.api.Application
 import play.api.db.Database
 
@@ -52,9 +53,10 @@ class SnapshotManager @Inject() (
     config: Config,
     db: Database,
     challengeDAL: ChallengeDAL,
-    boundingBoxFinder: BoundingBoxFinder
+    boundingBoxFinder: BoundingBoxFinder,
+    taskReviewRepository: TaskReviewRepository
 )(implicit application: Application)
-    extends DataManager(config, db, boundingBoxFinder) {
+    extends DataManager(config, db, boundingBoxFinder, taskReviewRepository) {
 
   val snapshotBriefParser: RowParser[Snapshot] = {
     get[Long]("id") ~

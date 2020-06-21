@@ -19,18 +19,174 @@ import scala.collection.mutable.ListBuffer
 trait SearchParametersMixin {
 
   /**
+    * Sets up a where clause searching by given SearchParameters
+    */
+  def filterOnSearchParameters(
+      params: SearchParameters
+  )(implicit projectSearch: Boolean = true): Query = {
+    var newQuery = Query.empty
+
+    newQuery = newQuery.addFilterGroup(this.filterLocation(params))
+    newQuery = newQuery.addFilterGroup(this.filterBounding(params))
+    newQuery = newQuery.addFilterGroup(this.filterTaskStatus(params))
+    newQuery = newQuery.addFilterGroup(this.filterTaskId(params))
+    newQuery = newQuery.addFilterGroup(this.filterProjectSearch(params))
+    newQuery = newQuery.addFilterGroup(this.filterTaskReviewStatus(params))
+    newQuery = newQuery.addFilterGroup(this.filterOwner(params))
+    newQuery = newQuery.addFilterGroup(this.filterReviewer(params))
+    newQuery = newQuery.addFilterGroup(this.filterMapper(params))
+    newQuery = newQuery.addFilterGroup(this.filterTaskPriorities(params))
+    newQuery = newQuery.addFilterGroup(this.filterTaskTags(params))
+    newQuery = newQuery.addFilterGroup(this.filterPriority(params))
+    newQuery = newQuery.addFilterGroup(this.filterChallengeDifficulty(params))
+    newQuery = newQuery.addFilterGroup(this.filterChallengeStatus(params))
+    newQuery = newQuery.addFilterGroup(this.filterChallengeRequiresLocal(params))
+    newQuery = newQuery.addFilterGroup(this.filterBoundingGeometries(params))
+
+    // For efficiency can only query on task properties with a parent challenge id
+    newQuery = newQuery.addFilterGroup(this.filterTaskProps(params))
+
+    if (projectSearch) {
+      newQuery = newQuery.addFilterGroup(this.filterProjects(params))
+      newQuery = newQuery.addFilterGroup(this.filterProjectEnabled(params))
+    }
+    newQuery = newQuery.addFilterGroup(this.filterChallenges(params))
+    newQuery = newQuery.addFilterGroup(this.filterChallengeEnabled(params))
+
+    newQuery = newQuery.addFilterGroup(this.filterChallengeTags(params))
+
+    newQuery
+  }
+
+  def filterChallengeTags(params: SearchParameters): FilterGroup = {
+    if (params.hasChallengeTags) {
+      val tagList = params.challengeParams.challengeTags.get
+        .map(t => {
+          SQLUtils.testColumnName(t)
+          s"'${t}'"
+        })
+        .mkString(",")
+
+      val invert = params.invertFields.getOrElse(List()).contains("tc")
+      FilterGroup(
+        List(
+          SubQueryFilter(
+            Challenge.FIELD_ID,
+            Query.simple(
+              List(
+                BaseParameter(
+                  Task.FIELD_NAME,
+                  tagList,
+                  Operator.IN,
+                  useValueDirectly = true,
+                  table = Some("tags")
+                )
+              ),
+              "SELECT task_id from tags_on_challenges tc INNER JOIN tags ON tags.id = tc.tag_id"
+            ),
+            invert,
+            Operator.IN,
+            Some("c")
+          )
+        )
+      )
+    } else {
+      FilterGroup(List())
+    }
+  }
+
+  /**
     * Filters by p.display_name with a like %projectSearch%
     * @param params with inverting on 'ps'
     */
-  def filterProjectSearch(params: SearchParameters): Parameter[String] = {
-    FilterParameter.conditional(
-      Project.FIELD_DISPLAY_NAME,
-      s"'${SQLUtils.search(params.projectSearch.getOrElse("").replace("'", "''"))}'",
-      Operator.LIKE,
-      params.invertFields.getOrElse(List()).contains("ps"),
-      true,
-      params.projectSearch != None,
-      Some("p")
+  def filterProjectSearch(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Project.FIELD_DISPLAY_NAME,
+          s"'${SQLUtils.search(params.projectSearch.getOrElse("").replace("'", "''"))}'",
+          Operator.ILIKE,
+          params.invertFields.getOrElse(List()).contains("ps"),
+          true,
+          params.projectSearch != None,
+          Some("p")
+        )
+      )
+    )
+  }
+
+  def filterProjects(params: SearchParameters): FilterGroup = {
+    params.getProjectIds match {
+      case Some(p) if p.nonEmpty =>
+        FilterGroup(
+          List(
+            BaseParameter(
+              Project.FIELD_ID,
+              p.mkString(","),
+              Operator.IN,
+              params.invertFields.getOrElse(List()).contains("pid"),
+              true,
+              Some("p")
+            )
+          )
+        )
+      case _ =>
+        params.projectSearch match {
+          case Some(ps) if ps.nonEmpty =>
+            params.fuzzySearch match {
+              case Some(x) =>
+                FilterGroup(
+                  List(
+                    FuzzySearchParameter(
+                      Project.FIELD_DISPLAY_NAME,
+                      ps,
+                      x,
+                      table = Some("p")
+                    )
+                  )
+                )
+              case None =>
+                FilterGroup(
+                  List(
+                    FilterParameter.conditional(
+                      Project.FIELD_DISPLAY_NAME,
+                      s"'${SQLUtils.search(params.projectSearch.getOrElse("").replace("'", "''"))}'",
+                      Operator.ILIKE,
+                      params.invertFields.getOrElse(List()).contains("ps"),
+                      true,
+                      params.projectSearch != None,
+                      Some("p")
+                    ),
+                    CustomParameter(
+                      s"(c.id IN " +
+                        s"(SELECT vp2.challenge_id FROM virtual_project_challenges vp2 " +
+                        s" INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE " +
+                        s" LOWER(p2.display_name) LIKE LOWER('%${ps}%') AND p2.enabled=true))"
+                    )
+                  ),
+                  OR()
+                )
+            }
+          case _ => FilterGroup(List())
+        }
+    }
+  }
+
+  /**
+    * Filters by p.enabled. Will only include if params.projectEnabled value is true
+    */
+  def filterProjectEnabled(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Project.FIELD_ENABLED,
+          params.projectEnabled.getOrElse(false),
+          Operator.BOOL,
+          useValueDirectly = true,
+          includeOnlyIfTrue = params.projectEnabled.getOrElse(false),
+          table = Some("p")
+        )
+      )
     )
   }
 
@@ -38,12 +194,16 @@ trait SearchParametersMixin {
     * Filters by tasks.location with a @ MAKE_ENVELOPE etc.
     * @param params with inverting on 'tbb'
     */
-  def filterLocation(params: SearchParameters): Parameter[String] = {
-    this.locationSearch(
-      Task.FIELD_LOCATION,
-      params.location,
-      Task.TABLE,
-      params.invertFields.getOrElse(List()).contains("tbb")
+  def filterLocation(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        this.locationSearch(
+          Task.FIELD_LOCATION,
+          params.location,
+          Task.TABLE,
+          params.invertFields.getOrElse(List()).contains("tbb")
+        )
+      )
     )
   }
 
@@ -51,12 +211,16 @@ trait SearchParametersMixin {
     * Filters by c.bounding with a @ MAKE_ENVELOPE etc.
     * @param params with inverting on 'bb'
     */
-  def filterBounding(params: SearchParameters): Parameter[String] = {
-    this.locationSearch(
-      "bounding",
-      params.bounding,
-      "c",
-      params.invertFields.getOrElse(List()).contains("bb")
+  def filterBounding(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        this.locationSearch(
+          "bounding",
+          params.bounding,
+          "c",
+          params.invertFields.getOrElse(List()).contains("bb")
+        )
+      )
     )
   }
 
@@ -69,21 +233,25 @@ trait SearchParametersMixin {
   def filterTaskStatus(
       params: SearchParameters,
       defaultStatuses: List[Int] = List(0, 3, 6)
-  ): Parameter[String] = {
+  ): FilterGroup = {
     // Do not filter if taskStatus list has -1 or list is empty
     val dontFilter =
       params.taskParams.taskStatus.getOrElse(defaultStatuses).isEmpty ||
         params.taskParams.taskStatus.getOrElse(defaultStatuses).contains(-1)
 
-    FilterParameter.conditional(
-      Task.FIELD_STATUS,
-      // If taskStatus is not present then default taskStatus to 0,3,6
-      params.taskParams.taskStatus.getOrElse(defaultStatuses).mkString(","),
-      Operator.IN,
-      params.invertFields.getOrElse(List()).contains("tStatus"),
-      true,
-      !dontFilter,
-      Some(Task.TABLE)
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Task.FIELD_STATUS,
+          // If taskStatus is not present then default taskStatus to 0,3,6
+          params.taskParams.taskStatus.getOrElse(defaultStatuses).mkString(","),
+          Operator.IN,
+          params.invertFields.getOrElse(List()).contains("tStatus"),
+          true,
+          !dontFilter,
+          Some(Task.TABLE)
+        )
+      )
     )
   }
 
@@ -91,13 +259,17 @@ trait SearchParametersMixin {
     * Filters by tasks.id
     * @param params with inverting on 'tid'
     */
-  def filterTaskId(params: SearchParameters): Parameter[String] = {
+  def filterTaskId(params: SearchParameters): FilterGroup = {
     val invert = if (params.invertFields.getOrElse(List()).contains("tid")) "NOT " else ""
 
     params.taskParams.taskId match {
       case Some(tid) =>
-        CustomParameter(s"${invert}CAST(${Task.TABLE}.${Task.FIELD_ID} AS TEXT) LIKE '${tid}%'")
-      case _ => CustomParameter("")
+        FilterGroup(
+          List(
+            CustomParameter(s"${invert}CAST(${Task.TABLE}.${Task.FIELD_ID} AS TEXT) LIKE '${tid}%'")
+          )
+        )
+      case _ => FilterGroup(List())
     }
   }
 
@@ -105,16 +277,20 @@ trait SearchParametersMixin {
     * Filters by tasks.priority
     * @param params with inverting on 'priorities'
     */
-  def filterTaskPriorities(params: SearchParameters): Parameter[String] = {
-    FilterParameter.conditional(
-      Task.FIELD_PRIORITY,
-      params.taskParams.taskPriorities.getOrElse(List()).mkString(","),
-      Operator.IN,
-      params.invertFields.getOrElse(List()).contains("priorities"),
-      true,
-      params.taskParams.taskPriorities != None &&
-        !params.taskParams.taskPriorities.getOrElse(List()).isEmpty,
-      Some(Task.TABLE)
+  def filterTaskPriorities(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Task.FIELD_PRIORITY,
+          params.taskParams.taskPriorities.getOrElse(List()).mkString(","),
+          Operator.IN,
+          params.invertFields.getOrElse(List()).contains("priorities"),
+          true,
+          params.taskParams.taskPriorities != None &&
+            !params.taskParams.taskPriorities.getOrElse(List()).isEmpty,
+          Some(Task.TABLE)
+        )
+      )
     )
   }
 
@@ -122,16 +298,20 @@ trait SearchParametersMixin {
     * Filters by tasks.priority
     * @param params with inverting on 'tp'
     */
-  def filterPriority(params: SearchParameters): Parameter[String] = {
-    FilterParameter.conditional(
-      Task.FIELD_PRIORITY,
-      params.priority.getOrElse("").toString,
-      Operator.EQ,
-      params.invertFields.getOrElse(List()).contains("tp"),
-      true,
-      params.priority != None &&
-        (params.priority.get == 0 || params.priority.get == 1 || params.priority.get == 2),
-      Some(Task.TABLE)
+  def filterPriority(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Task.FIELD_PRIORITY,
+          params.priority.getOrElse("").toString,
+          Operator.EQ,
+          params.invertFields.getOrElse(List()).contains("tp"),
+          true,
+          params.priority != None &&
+            (params.priority.get == 0 || params.priority.get == 1 || params.priority.get == 2),
+          Some(Task.TABLE)
+        )
+      )
     )
   }
 
@@ -180,7 +360,7 @@ trait SearchParametersMixin {
     * Filters by task review status
     * @param params with inverting on 'trStatus'
     */
-  def filterTaskReviewStatus(params: SearchParameters): Parameter[String] = {
+  def filterTaskReviewStatus(params: SearchParameters): FilterGroup = {
     params.taskParams.taskReviewStatus match {
       case Some(statuses) if statuses.nonEmpty =>
         val invert = params.invertFields.getOrElse(List()).contains("trStatus")
@@ -234,9 +414,9 @@ trait SearchParametersMixin {
             ),
             if (invert) AND() else OR()
           )
-        CustomParameter(s"(${query.sql()})")
-      case Some(statuses) if statuses.isEmpty => CustomParameter("")
-      case _                                  => CustomParameter("")
+        FilterGroup(List(CustomParameter(s"(${query.sql()})")))
+      case Some(statuses) if statuses.isEmpty => FilterGroup(List())
+      case _                                  => FilterGroup(List())
     }
   }
 
@@ -244,15 +424,19 @@ trait SearchParametersMixin {
     * Filters by c.difficulty
     * @param params with inverting on 'cd'
     */
-  def filterChallengeDifficulty(params: SearchParameters): Parameter[String] = {
-    FilterParameter.conditional(
-      "difficulty",
-      params.challengeParams.challengeDifficulty.getOrElse("").toString,
-      Operator.EQ,
-      params.invertFields.getOrElse(List()).contains("cd"),
-      true,
-      params.challengeParams.challengeDifficulty != None,
-      Some("c")
+  def filterChallengeDifficulty(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          "difficulty",
+          params.challengeParams.challengeDifficulty.getOrElse("").toString,
+          Operator.EQ,
+          params.invertFields.getOrElse(List()).contains("cd"),
+          true,
+          params.challengeParams.challengeDifficulty != None,
+          Some("c")
+        )
+      )
     )
   }
 
@@ -286,6 +470,74 @@ trait SearchParametersMixin {
       ),
       (if (invert) AND() else OR()),
       params.challengeParams.challengeStatus != None
+    )
+  }
+
+  def filterChallenges(params: SearchParameters): FilterGroup = {
+    params.getChallengeIds match {
+      case Some(c) if c.nonEmpty =>
+        FilterGroup(
+          List(
+            BaseParameter(
+              Challenge.FIELD_ID,
+              c.mkString(","),
+              Operator.IN,
+              params.invertFields.getOrElse(List()).contains("cid"),
+              true,
+              Some("c")
+            )
+          )
+        )
+      case _ =>
+        params.challengeParams.challengeSearch match {
+          case Some(cs) if cs.nonEmpty =>
+            params.fuzzySearch match {
+              case Some(x) =>
+                FilterGroup(
+                  List(
+                    FuzzySearchParameter(
+                      Challenge.FIELD_NAME,
+                      cs,
+                      x,
+                      table = Some("c")
+                    )
+                  )
+                )
+              case None =>
+                FilterGroup(
+                  List(
+                    BaseParameter(
+                      Challenge.FIELD_NAME,
+                      s"'%${cs}%'",
+                      Operator.ILIKE,
+                      useValueDirectly = true,
+                      negate = params.invertFields.getOrElse(List()).contains("cs"),
+                      table = Some("c")
+                    )
+                  )
+                )
+            }
+          case _ => FilterGroup(List())
+        }
+    }
+  }
+
+  /**
+    * Filters by c.enabled. Will only include if
+    * challengeParams.challengeEnabled value is true
+    */
+  def filterChallengeEnabled(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Challenge.FIELD_ENABLED,
+          params.challengeParams.challengeEnabled.getOrElse(false),
+          Operator.BOOL,
+          useValueDirectly = true,
+          includeOnlyIfTrue = params.challengeParams.challengeEnabled.getOrElse(false),
+          table = Some("c")
+        )
+      )
     )
   }
 
@@ -327,7 +579,7 @@ trait SearchParametersMixin {
   /**
     * Filters on tasks.location @ GEOMETRY
     */
-  def filterBoundingGeometries(params: SearchParameters): Parameter[String] = {
+  def filterBoundingGeometries(params: SearchParameters): FilterGroup = {
     params.boundingGeometries match {
       case Some(bp) =>
         val allPolygons = new StringBuilder()
@@ -378,15 +630,15 @@ trait SearchParametersMixin {
             case _ => // do nothing
           }
         )
-        CustomParameter("(" + allPolygons.toString + ")")
-      case _ => CustomParameter("")
+        FilterGroup(List(CustomParameter("(" + allPolygons.toString + ")")))
+      case _ => FilterGroup(List())
     }
   }
 
   /**
     * Filters on tasks features
     */
-  def filterTaskProps(params: SearchParameters): Parameter[String] = {
+  def filterTaskProps(params: SearchParameters): FilterGroup = {
     params.getChallengeIds match {
       case Some(l) =>
         params.taskParams.taskPropertySearch match {
@@ -396,7 +648,7 @@ trait SearchParametersMixin {
                 | jsonb_array_elements(geojson->'features') features
                 | WHERE parent_id IN (${l.mkString(",")})
                 | AND (${tps.toSQL}))""".stripMargin)
-            CustomParameter(query.toString())
+            FilterGroup(List(CustomParameter(query.toString())))
           case _ =>
             params.taskParams.taskProperties match {
               case Some(tp) =>
@@ -423,11 +675,11 @@ trait SearchParametersMixin {
                   }
                 }
                 query ++= "))"
-                CustomParameter(query.toString())
-              case _ => CustomParameter("")
+                FilterGroup(List(CustomParameter(query.toString())))
+              case _ => FilterGroup(List())
             }
         }
-      case None => CustomParameter("")
+      case None => FilterGroup(List())
     }
   }
 
@@ -522,15 +774,52 @@ trait SearchParametersMixin {
     *
     * @param params with inverting on 'reviewers'
     */
-  def filterReviewers(params: SearchParameters): Parameter[String] = {
-    FilterParameter.conditional(
-      TaskReview.FIELD_REVIEWED_BY,
-      params.reviewParams.reviewers.getOrElse(List()).mkString(","),
-      Operator.IN,
-      params.invertFields.getOrElse(List()).contains("reviewers"),
-      true,
-      !params.reviewParams.reviewers.getOrElse(List()).isEmpty,
-      Some(TaskReview.TABLE)
+  def filterReviewers(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          TaskReview.FIELD_REVIEWED_BY,
+          params.reviewParams.reviewers.getOrElse(List()).mkString(","),
+          Operator.IN,
+          params.invertFields.getOrElse(List()).contains("reviewers"),
+          true,
+          !params.reviewParams.reviewers.getOrElse(List()).isEmpty,
+          Some(TaskReview.TABLE)
+        )
+      )
+    )
+  }
+
+  /**
+    * Filters on task_review.reviewed_at is between startDate and endDate
+    */
+  def filterReviewDate(params: SearchParameters): FilterGroup = {
+    val startDate = params.reviewParams.startDate.getOrElse(null)
+    val endDate   = params.reviewParams.endDate.getOrElse(null)
+
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          TaskReview.FIELD_REVIEWED_AT,
+          "'" + startDate + " 00:00:00'",
+          Operator.GTE,
+          false,
+          true,
+          startDate != null &&
+            startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"),
+          Some(TaskReview.TABLE)
+        ),
+        FilterParameter.conditional(
+          TaskReview.FIELD_REVIEWED_AT,
+          "'" + endDate + " 23:59:59'",
+          Operator.LTE,
+          false,
+          true,
+          endDate != null &&
+            endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"),
+          Some(TaskReview.TABLE)
+        )
+      )
     )
   }
 
