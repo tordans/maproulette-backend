@@ -24,38 +24,35 @@ trait SearchParametersMixin {
   def filterOnSearchParameters(
       params: SearchParameters
   )(implicit projectSearch: Boolean = true): Query = {
-    var newQuery = Query.empty
-
-    newQuery = newQuery.addFilterGroup(this.filterLocation(params))
-    newQuery = newQuery.addFilterGroup(this.filterBounding(params))
-    newQuery = newQuery.addFilterGroup(this.filterTaskStatus(params))
-    newQuery = newQuery.addFilterGroup(this.filterTaskId(params))
-    newQuery = newQuery.addFilterGroup(this.filterProjectSearch(params))
-    newQuery = newQuery.addFilterGroup(this.filterTaskReviewStatus(params))
-    newQuery = newQuery.addFilterGroup(this.filterOwner(params))
-    newQuery = newQuery.addFilterGroup(this.filterReviewer(params))
-    newQuery = newQuery.addFilterGroup(this.filterMapper(params))
-    newQuery = newQuery.addFilterGroup(this.filterTaskPriorities(params))
-    newQuery = newQuery.addFilterGroup(this.filterTaskTags(params))
-    newQuery = newQuery.addFilterGroup(this.filterPriority(params))
-    newQuery = newQuery.addFilterGroup(this.filterChallengeDifficulty(params))
-    newQuery = newQuery.addFilterGroup(this.filterChallengeStatus(params))
-    newQuery = newQuery.addFilterGroup(this.filterChallengeRequiresLocal(params))
-    newQuery = newQuery.addFilterGroup(this.filterBoundingGeometries(params))
-
-    // For efficiency can only query on task properties with a parent challenge id
-    newQuery = newQuery.addFilterGroup(this.filterTaskProps(params))
+    var filterList = List(
+      this.filterLocation(params),
+      this.filterBounding(params),
+      this.filterTaskStatus(params),
+      this.filterTaskId(params),
+      this.filterProjectSearch(params),
+      this.filterTaskReviewStatus(params),
+      this.filterOwner(params),
+      this.filterReviewer(params),
+      this.filterMapper(params),
+      this.filterTaskPriorities(params),
+      this.filterTaskTags(params),
+      this.filterPriority(params),
+      this.filterChallengeDifficulty(params),
+      this.filterChallengeStatus(params),
+      this.filterChallengeRequiresLocal(params),
+      this.filterBoundingGeometries(params),
+      // For efficiency can only query on task properties with a parent challenge id
+      this.filterTaskProps(params),
+      this.filterChallenges(params),
+      this.filterChallengeTags(params),
+      this.filterChallengeEnabled(params)
+    )
 
     if (projectSearch) {
-      newQuery = newQuery.addFilterGroup(this.filterProjects(params))
-      newQuery = newQuery.addFilterGroup(this.filterProjectEnabled(params))
+      filterList = this.filterProjects(params) :: this.filterProjectEnabled(params) :: filterList
     }
-    newQuery = newQuery.addFilterGroup(this.filterChallenges(params))
-    newQuery = newQuery.addFilterGroup(this.filterChallengeEnabled(params))
 
-    newQuery = newQuery.addFilterGroup(this.filterChallengeTags(params))
-
-    newQuery
+    Query(Filter(filterList))
   }
 
   def filterChallengeTags(params: SearchParameters): FilterGroup = {
@@ -414,7 +411,8 @@ trait SearchParametersMixin {
             ),
             if (invert) AND() else OR()
           )
-        FilterGroup(List(CustomParameter(s"(${query.sql()})")))
+        //FilterGroup(List(CustomParameter(s"(${query.sql()})")))
+        query
       case Some(statuses) if statuses.isEmpty => FilterGroup(List())
       case _                                  => FilterGroup(List())
     }

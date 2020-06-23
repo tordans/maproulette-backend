@@ -14,6 +14,12 @@ import org.maproulette.permissions.Permission
 
 import org.maproulette.models.Task
 
+/**
+  * ReviewSearchMixin provides a method to setup the Query filters for a
+  * review search. It will apply all the filters from the search parameters
+  * as well as ensuring the correct conditions are met for the given
+  * ReviewTasksType.
+  */
 trait ReviewSearchMixin extends SearchParametersMixin {
   val REVIEW_REQUESTED_TASKS = 1 // Tasks needing to be reviewed
   val MY_REVIEWED_TASKS      = 2 // Tasks reviewed by user
@@ -33,47 +39,43 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): Query = {
-    var newQuery = query
-    newQuery = newQuery.addFilterGroup(this.userHasPermission(user, permission, reviewTasksType))
-
-    // Filter bundles to only primary tasks
-    newQuery = newQuery.addFilterGroup(
-      FilterGroup(
-        List(
-          BaseParameter(
-            Task.FIELD_BUNDLE_ID,
-            None,
-            Operator.NULL,
-            table = Some(Task.TABLE)
+    query
+      .addFilterGroup(this.userHasPermission(user, permission, reviewTasksType))
+      // Filter bundles to only primary tasks
+      .addFilterGroup(
+        FilterGroup(
+          List(
+            BaseParameter(
+              Task.FIELD_BUNDLE_ID,
+              None,
+              Operator.NULL,
+              table = Some(Task.TABLE)
+            ),
+            BaseParameter(
+              Task.FIELD_BUNDLE_PRIMARY,
+              true,
+              Operator.BOOL,
+              table = Some(Task.TABLE)
+            )
           ),
-          BaseParameter(
-            Task.FIELD_BUNDLE_PRIMARY,
-            true,
-            Operator.BOOL,
-            table = Some(Task.TABLE)
-          )
-        ),
-        OR()
+          OR()
+        )
       )
-    )
-
-    // Exclude unnecessary reviews
-    newQuery = newQuery.addFilterGroup(
-      FilterGroup(
-        List(
-          BaseParameter(
-            TaskReview.FIELD_REVIEW_STATUS,
-            Task.REVIEW_STATUS_UNNECESSARY,
-            Operator.NE,
-            table = Some(TaskReview.TABLE)
+      // Exclude unnecessary reviews
+      .addFilterGroup(
+        FilterGroup(
+          List(
+            BaseParameter(
+              TaskReview.FIELD_REVIEW_STATUS,
+              Task.REVIEW_STATUS_UNNECESSARY,
+              Operator.NE,
+              table = Some(TaskReview.TABLE)
+            )
           )
         )
       )
-    )
-
-    if (reviewTasksType == REVIEW_REQUESTED_TASKS) {
       // Limit to only review requested and disputed
-      newQuery = newQuery.addFilterGroup(
+      .addFilterGroup(
         FilterGroup(
           List(
             BaseParameter(
@@ -90,65 +92,62 @@ trait ReviewSearchMixin extends SearchParametersMixin {
               table = Some(TaskReview.TABLE)
             )
           ),
-          OR()
+          OR(),
+          reviewTasksType == REVIEW_REQUESTED_TASKS
         )
       )
-
       // Only challenges 'saved' (marked as favorite) by this user
-      if (onlySaved) {
-        newQuery = newQuery.addFilterGroup(
-          FilterGroup(
-            List(
-              SubQueryFilter(
-                Challenge.FIELD_ID,
-                Query.simple(
-                  List(
-                    BaseParameter(
-                      "user_id",
-                      user.id,
-                      Operator.EQ,
-                      useValueDirectly = true,
-                      table = Some("sc")
-                    )
-                  ),
-                  "SELECT challenge_id from saved_challenges sc"
+      .addFilterGroup(
+        FilterGroup(
+          List(
+            SubQueryFilter(
+              Challenge.FIELD_ID,
+              Query.simple(
+                List(
+                  BaseParameter(
+                    "user_id",
+                    user.id,
+                    Operator.EQ,
+                    useValueDirectly = true,
+                    table = Some("sc")
+                  )
                 ),
-                false,
-                Operator.IN,
-                Some("c")
-              )
+                "SELECT challenge_id from saved_challenges sc"
+              ),
+              false,
+              Operator.IN,
+              Some("c")
             )
-          )
+          ),
+          AND(),
+          onlySaved && reviewTasksType == REVIEW_REQUESTED_TASKS
         )
-      }
-
+      )
       // Don't show tasks already reviewed by someone else
       // Used most often when tasks need a "re-review" (so in a requested state)
-      if (excludeOtherReviewers) {
-        newQuery = newQuery.addFilterGroup(
-          FilterGroup(
-            List(
-              BaseParameter(
-                TaskReview.FIELD_REVIEWED_BY,
-                null,
-                Operator.NULL,
-                table = Some(TaskReview.TABLE)
-              ),
-              BaseParameter(
-                TaskReview.FIELD_REVIEWED_BY,
-                user.id,
-                Operator.EQ,
-                useValueDirectly = true,
-                table = Some(TaskReview.TABLE)
-              )
+      .addFilterGroup(
+        FilterGroup(
+          List(
+            BaseParameter(
+              TaskReview.FIELD_REVIEWED_BY,
+              null,
+              Operator.NULL,
+              table = Some(TaskReview.TABLE)
             ),
-            OR()
-          )
+            BaseParameter(
+              TaskReview.FIELD_REVIEWED_BY,
+              user.id,
+              Operator.EQ,
+              useValueDirectly = true,
+              table = Some(TaskReview.TABLE)
+            )
+          ),
+          OR(),
+          excludeOtherReviewers && reviewTasksType == REVIEW_REQUESTED_TASKS
         )
-      }
-    } else if (reviewTasksType == MY_REVIEWED_TASKS) {
+      )
       // Limit to already reviewed tasks
-      newQuery = newQuery.addFilterGroup(
+      .addFilterGroup(
         FilterGroup(
           List(
             BaseParameter(
@@ -157,46 +156,43 @@ trait ReviewSearchMixin extends SearchParametersMixin {
               Operator.NE,
               table = Some(TaskReview.TABLE)
             )
+          ),
+          AND(),
+          reviewTasksType == MY_REVIEWED_TASKS
+        )
+      )
+      .addFilterGroup(
+        FilterGroup(
+          List(
+            FilterParameter.conditional(
+              TaskReview.FIELD_REVIEW_STATUS,
+              searchParameters.taskParams.taskReviewStatus.getOrElse(List()).mkString(","),
+              Operator.IN,
+              searchParameters.invertFields.getOrElse(List()).contains("trStatus"),
+              true,
+              searchParameters.taskParams.taskReviewStatus.getOrElse(List()).nonEmpty,
+              table = Some(TaskReview.TABLE)
+            )
           )
         )
       )
-    }
-
-    newQuery = newQuery.addFilterGroup(
-      FilterGroup(
-        List(
-          FilterParameter.conditional(
-            TaskReview.FIELD_REVIEW_STATUS,
-            searchParameters.taskParams.taskReviewStatus.getOrElse(List()).mkString(","),
-            Operator.IN,
-            searchParameters.invertFields.getOrElse(List()).contains("trStatus"),
-            true,
-            searchParameters.taskParams.taskReviewStatus.getOrElse(List()).nonEmpty,
-            table = Some(TaskReview.TABLE)
-          )
-        )
-      )
-    )
-
-    newQuery = newQuery.addFilterGroup(this.filterProjects(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterProjectEnabled(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterChallenges(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterChallengeEnabled(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterOwner(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterReviewer(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterMapper(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterTaskStatus(searchParameters, List()))
-    newQuery = newQuery.addFilterGroup(this.filterReviewMappers(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterReviewers(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterTaskPriorities(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterLocation(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterProjectSearch(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterTaskId(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterPriority(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterTaskTags(searchParameters))
-    newQuery = newQuery.addFilterGroup(this.filterReviewDate(searchParameters))
-
-    newQuery
+      .addFilterGroup(this.filterProjects(searchParameters))
+      .addFilterGroup(this.filterProjectEnabled(searchParameters))
+      .addFilterGroup(this.filterChallenges(searchParameters))
+      .addFilterGroup(this.filterChallengeEnabled(searchParameters))
+      .addFilterGroup(this.filterOwner(searchParameters))
+      .addFilterGroup(this.filterReviewer(searchParameters))
+      .addFilterGroup(this.filterMapper(searchParameters))
+      .addFilterGroup(this.filterTaskStatus(searchParameters, List()))
+      .addFilterGroup(this.filterReviewMappers(searchParameters))
+      .addFilterGroup(this.filterReviewers(searchParameters))
+      .addFilterGroup(this.filterTaskPriorities(searchParameters))
+      .addFilterGroup(this.filterLocation(searchParameters))
+      .addFilterGroup(this.filterProjectSearch(searchParameters))
+      .addFilterGroup(this.filterTaskId(searchParameters))
+      .addFilterGroup(this.filterPriority(searchParameters))
+      .addFilterGroup(this.filterTaskTags(searchParameters))
+      .addFilterGroup(this.filterReviewDate(searchParameters))
   }
 
   private def userHasPermission(

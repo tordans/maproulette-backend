@@ -252,18 +252,18 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskReviewStatus = Some(List(1, 2))))
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(tasks.id IN (SELECT task_id FROM task_review " +
-          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
+        "tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2))"
     }
 
     "include tasks without review status when params contains -1" in {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskReviewStatus = Some(List(1, 2, -1))))
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(tasks.id IN (SELECT task_id FROM task_review " +
+        "tasks.id IN (SELECT task_id FROM task_review " +
           "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
           "OR NOT tasks.id IN (SELECT task_id FROM task_review task_review " +
-          "WHERE task_review.task_id = tasks.id))"
+          "WHERE task_review.task_id = tasks.id)"
     }
 
     "be empty" in {
@@ -276,8 +276,8 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
-          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2))"
     }
 
     "invert when contains -1" in {
@@ -286,16 +286,10 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
           "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
           "AND tasks.id IN (SELECT task_id FROM task_review task_review " +
-          "WHERE task_review.task_id = tasks.id))"
-
-      // s"""NOT (tasks.id IN
-      //   | (SELECT task_id FROM task_review
-      //   | WHERE task_review.task_id = tasks.id AND task_review.review_status
-      //   | IN (1,2,-1)) OR tasks.id NOT IN (SELECT task_id FROM task_review task_review
-      //   | WHERE task_review.task_id = tasks.id))""".stripMargin
+          "WHERE task_review.task_id = tasks.id)"
     }
   }
 

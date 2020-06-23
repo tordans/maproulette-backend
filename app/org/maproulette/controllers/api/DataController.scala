@@ -371,18 +371,6 @@ class DataController @Inject() (
     }
   }
 
-  def getTagMetrics(): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      SearchParameters.withSearch { implicit params =>
-        Ok(
-          Json.toJson(
-            this.dataManager.getTagMetrics(params)
-          )
-        )
-      }
-    }
-  }
-
   private def getPriority(priority: Int): Option[Int] = {
     priority match {
       case x if x >= Challenge.PRIORITY_HIGH & x <= Challenge.PRIORITY_LOW => Some(x)
