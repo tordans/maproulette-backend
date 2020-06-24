@@ -135,6 +135,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
   val challengeService         = mock[ChallengeService]
   val challengeListingService  = mock[ChallengeListingService]
   val challengeSnapshotService = mock[ChallengeSnapshotService]
+  val dataService              = mock[DataService]
   val userMetricService        = mock[UserMetricService]
   val virtualProjectService    = mock[VirtualProjectService]
   val tagService               = mock[TagService]
@@ -151,6 +152,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     Providers.of[GroupService](groupService),
     Providers.of[CommentService](commentService),
     Providers.of[TagService](tagService),
+    Providers.of[DataService](dataService),
     Providers.of[ChallengeService](challengeService),
     Providers.of[ChallengeListingService](challengeListingService),
     Providers.of[ChallengeSnapshotService](challengeSnapshotService),

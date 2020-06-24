@@ -12,7 +12,9 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
 import org.maproulette.framework.repository.TaskReviewRepository
+import org.maproulette.framework.mixins.ReviewSearchMixin
 import org.maproulette.session.SearchParameters
+import org.maproulette.permissions.Permission
 
 import org.maproulette.models.Task
 import org.maproulette.models.dal.TaskReviewDAL
@@ -23,7 +25,11 @@ import org.maproulette.models.dal.TaskReviewDAL
   * @author krotstan
   */
 @Singleton
-class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewDAL: TaskReviewDAL) {
+class TaskReviewService @Inject() (
+    repository: TaskReviewRepository,
+    taskReviewDAL: TaskReviewDAL,
+    permission: Permission
+) extends ReviewSearchMixin {
 
   /**
     * Marks expired taskReviews as unnecessary.
@@ -50,13 +56,18 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): ReviewMetrics = {
-    this.taskReviewDAL.getReviewMetrics(
+    val query = this.setupReviewSearchClause(
+      Query.empty,
       user,
-      reviewTasksType,
+      permission,
       params,
+      reviewTasksType,
+      true,
       onlySaved,
       excludeOtherReviewers
     )
+
+    this.repository.executeReviewMetricsQuery(query).head
   }
 
   /**
@@ -72,10 +83,20 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
       params: SearchParameters,
       onlySaved: Boolean = false
   ): List[ReviewMetrics] = {
-    this.taskReviewDAL.getMapperMetrics(
+    val query = this.setupReviewSearchClause(
+      Query.empty,
       user,
+      permission,
       params,
-      onlySaved
+      4,
+      true,
+      onlySaved,
+      excludeOtherReviewers = true
+    )
+
+    this.repository.executeReviewMetricsQuery(
+      query,
+      groupByMappers = true
     )
   }
 
@@ -106,4 +127,33 @@ class TaskReviewService @Inject() (repository: TaskReviewRepository, taskReviewD
     )
   }
 
+  /*
+   * Gets a list of tag metrics for the review tasks that meet the given
+   * criteria.
+   *
+   * @return A list of tasks
+   */
+  def getReviewTagMetrics(
+      user: User,
+      reviewTasksType: Int,
+      params: SearchParameters,
+      onlySaved: Boolean = false,
+      excludeOtherReviewers: Boolean = false
+  ): List[ReviewMetrics] = {
+    val query = this.setupReviewSearchClause(
+      Query.empty,
+      user,
+      permission,
+      params,
+      reviewTasksType,
+      true,
+      onlySaved,
+      excludeOtherReviewers
+    )
+
+    this.repository.executeReviewMetricsQuery(
+      query,
+      groupByTags = true
+    )
+  }
 }

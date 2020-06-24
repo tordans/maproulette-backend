@@ -56,8 +56,33 @@ trait SearchParametersMixin
     parameters
   }
 
+  def addSearchToQuery(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  )(implicit projectSearch: Boolean = true): ListBuffer[NamedParameter] = {
+    val parameters = new ListBuffer[NamedParameter]()
+    if (projectSearch) {
+      parameters ++= this.paramsProjects(params, whereClause)
+      this.paramsProjectEnabled(params, whereClause)
+    }
+    parameters ++= this.paramsChallenges(params, whereClause)
+    this.paramsChallengeEnabled(params, whereClause)
+
+    parameters
+  }
+
   def paramsProjectSearch(params: SearchParameters, whereClause: StringBuilder): Unit = {
     this.appendInWhereClause(whereClause, this.filterProjectSearch(params).sql())
+  }
+
+  def paramsProjects(params: SearchParameters, whereClause: StringBuilder): List[NamedParameter] = {
+    val filter = this.filterProjects(params)
+    this.appendInWhereClause(whereClause, filter.sql())
+    filter.parameters()
+  }
+
+  def paramsProjectEnabled(params: SearchParameters, whereClause: StringBuilder): Unit = {
+    this.appendInWhereClause(whereClause, this.filterProjectEnabled(params).sql())
   }
 
   def paramsLocation(params: SearchParameters, whereClause: StringBuilder): Unit = {
@@ -99,15 +124,25 @@ trait SearchParametersMixin
     this.appendInWhereClause(whereClause, this.filterTaskReviewStatus(params).sql())
   }
 
+  def paramsChallengeEnabled(params: SearchParameters, whereClause: StringBuilder): Unit = {
+    this.appendInWhereClause(whereClause, this.filterChallengeEnabled(params).sql())
+  }
+
   def paramsChallengeDifficulty(params: SearchParameters, whereClause: StringBuilder): Unit = {
     this.appendInWhereClause(whereClause, this.filterChallengeDifficulty(params).sql())
   }
 
-  def paramsChallengeStatus(
+  def paramsChallengeStatus(params: SearchParameters, whereClause: StringBuilder): Unit = {
+    this.appendInWhereClause(whereClause, this.filterChallengeStatus(params).sql())
+  }
+
+  def paramsChallenges(
       params: SearchParameters,
       whereClause: StringBuilder
-  ): Unit = {
-    this.appendInWhereClause(whereClause, this.filterChallengeStatus(params).sql())
+  ): List[NamedParameter] = {
+    val filter = this.filterChallenges(params)
+    this.appendInWhereClause(whereClause, filter.sql())
+    filter.parameters()
   }
 
   def paramsChallengeRequiresLocal(
@@ -158,5 +193,12 @@ trait SearchParametersMixin
       whereClause: StringBuilder
   ): Unit = {
     this.appendInWhereClause(whereClause, this.filterReviewers(params).sql())
+  }
+
+  def paramsReviewDate(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    this.appendInWhereClause(whereClause, this.filterReviewDate(params).sql())
   }
 }

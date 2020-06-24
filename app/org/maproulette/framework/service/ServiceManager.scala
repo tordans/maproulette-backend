@@ -23,6 +23,7 @@ class ServiceManager @Inject() (
     groupService: Provider[GroupService],
     commentService: Provider[CommentService],
     tagService: Provider[TagService],
+    dataService: Provider[DataService],
     challengeService: Provider[ChallengeService],
     challengeListingService: Provider[ChallengeListingService],
     challengeSnapshotService: Provider[ChallengeSnapshotService],
@@ -60,6 +61,8 @@ class ServiceManager @Inject() (
   def follow: FollowService = followService.get()
 
   def group: GroupService = groupService.get()
+
+  def data: DataService = dataService.get()
 
   def challenge: ChallengeService = challengeService.get()
 

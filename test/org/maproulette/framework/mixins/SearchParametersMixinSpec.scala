@@ -15,15 +15,43 @@ import org.maproulette.session._
 class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
   implicit var challengeID: Long = -1
 
+  def normalized(s: String): String = s.replaceAll("(?s)\\s+", " ").trim
+
+  "filterChallengeTags" should {
+    "match on challenge tags" in {
+      val params =
+        SearchParameters(challengeParams =
+          SearchChallengeParameters(challengeTags = Some(List("my_tag", "tag2")))
+        )
+      this.filterChallengeTags(params).sql() mustEqual
+        "c.id IN (SELECT task_id from tags_on_challenges tc " +
+          "INNER JOIN tags ON tags.id = tc.tag_id WHERE tags.name IN ('my_tag','tag2'))"
+    }
+
+    "be empty" in {
+      this.filterChallengeTags(SearchParameters()).sql() mustEqual ""
+    }
+
+    "be inverted" in {
+      val params = SearchParameters(
+        challengeParams = SearchChallengeParameters(challengeTags = Some(List("my_tag", "tag2"))),
+        invertFields = Some(List("tc"))
+      )
+      this.filterChallengeTags(params).sql() mustEqual
+        "NOT c.id IN (SELECT task_id from tags_on_challenges tc " +
+          "INNER JOIN tags ON tags.id = tc.tag_id WHERE tags.name IN ('my_tag','tag2'))"
+    }
+  }
+
   "filterProjectSearch" should {
     "match on project name" in {
       val params = new SearchParameters(projectSearch = Some("my_project"))
-      this.filterProjectSearch(params).sql() mustEqual "p.display_name LIKE '%my_project%'"
+      this.filterProjectSearch(params).sql() mustEqual "p.display_name ILIKE '%my_project%'"
     }
 
     "allow apostrophes in project name" in {
       val params = new SearchParameters(projectSearch = Some("my project's"))
-      this.filterProjectSearch(params).sql() mustEqual "p.display_name LIKE '%my project''s%'"
+      this.filterProjectSearch(params).sql() mustEqual "p.display_name ILIKE '%my project''s%'"
     }
 
     "be empty" in {
@@ -33,7 +61,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     "be inverted" in {
       val params =
         new SearchParameters(projectSearch = Some("my_project"), invertFields = Some(List("ps")))
-      this.filterProjectSearch(params).sql() mustEqual "NOT p.display_name LIKE '%my_project%'"
+      this.filterProjectSearch(params).sql() mustEqual "NOT p.display_name ILIKE '%my_project%'"
     }
   }
 
@@ -224,18 +252,18 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskReviewStatus = Some(List(1, 2))))
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(tasks.id IN (SELECT task_id FROM task_review " +
-          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
+        "tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2))"
     }
 
     "include tasks without review status when params contains -1" in {
       val params =
         SearchParameters(taskParams = SearchTaskParameters(taskReviewStatus = Some(List(1, 2, -1))))
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(tasks.id IN (SELECT task_id FROM task_review " +
+        "tasks.id IN (SELECT task_id FROM task_review " +
           "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
           "OR NOT tasks.id IN (SELECT task_id FROM task_review task_review " +
-          "WHERE task_review.task_id = tasks.id))"
+          "WHERE task_review.task_id = tasks.id)"
     }
 
     "be empty" in {
@@ -248,8 +276,8 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
-          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2))"
     }
 
     "invert when contains -1" in {
@@ -258,16 +286,10 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
           "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
           "AND tasks.id IN (SELECT task_id FROM task_review task_review " +
-          "WHERE task_review.task_id = tasks.id))"
-
-      // s"""NOT (tasks.id IN
-      //   | (SELECT task_id FROM task_review
-      //   | WHERE task_review.task_id = tasks.id AND task_review.review_status
-      //   | IN (1,2,-1)) OR tasks.id NOT IN (SELECT task_id FROM task_review task_review
-      //   | WHERE task_review.task_id = tasks.id))""".stripMargin
+          "WHERE task_review.task_id = tasks.id)"
     }
   }
 
@@ -516,4 +538,147 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
       this.filterReviewers(params).sql() mustEqual "NOT task_review.reviewed_by IN (1,2,3)"
     }
   }
+
+  "filterReviewDate" should {
+    "match on reviewDate" in {
+      val params =
+        SearchParameters(reviewParams =
+          SearchReviewParameters(startDate = Some("2020-05-27"), endDate = Some("2020-05-28"))
+        )
+      this.filterReviewDate(params).sql() mustEqual
+        "task_review.reviewed_at >= '2020-05-27 00:00:00' AND task_review.reviewed_at <= '2020-05-28 23:59:59'"
+    }
+
+    "be empty" in {
+      this.filterReviewDate(SearchParameters()).sql() mustEqual ""
+    }
+
+    "include only start date" in {
+      val params =
+        SearchParameters(reviewParams = SearchReviewParameters(startDate = Some("2020-05-27")))
+      this.filterReviewDate(params).sql() mustEqual
+        "task_review.reviewed_at >= '2020-05-27 00:00:00'"
+    }
+
+    "include only end date" in {
+      val params =
+        SearchParameters(reviewParams = SearchReviewParameters(endDate = Some("2020-01-01")))
+      this.filterReviewDate(params).sql() mustEqual
+        "task_review.reviewed_at <= '2020-01-01 23:59:59'"
+    }
+
+    "include only valid dates" in {
+      val params =
+        SearchParameters(reviewParams = SearchReviewParameters(startDate = Some("x123x")))
+      this.filterReviewDate(params).sql() mustEqual ""
+    }
+  }
+
+  "filterProjectEnabled" should {
+    "match on projectEnabled" in {
+      val params = SearchParameters(projectEnabled = Some(true))
+      this.filterProjectEnabled(params).sql() mustEqual "p.enabled"
+    }
+
+    "be empty if false" in {
+      val params = SearchParameters(projectEnabled = Some(false))
+      this.filterProjectEnabled(params).sql() mustEqual ""
+      this.filterProjectEnabled(new SearchParameters()).sql() mustEqual ""
+    }
+  }
+
+  "filterChallengeEnabled" should {
+    "match on challengeEnabled" in {
+      val params =
+        SearchParameters(challengeParams = SearchChallengeParameters(challengeEnabled = Some(true)))
+      this.filterChallengeEnabled(params).sql() mustEqual "c.enabled"
+    }
+
+    "be empty if false" in {
+      val params = SearchParameters(challengeParams =
+        SearchChallengeParameters(challengeEnabled = Some(false))
+      )
+      this.filterProjectEnabled(params).sql() mustEqual ""
+      this.filterProjectEnabled(new SearchParameters()).sql() mustEqual ""
+    }
+  }
+
+  "filterProjects" should {
+    "search by project ids" in {
+      val params = SearchParameters(projectIds = Some(List(123, 456)))
+      this.filterProjects(params).sql() mustEqual "p.id IN (123,456)"
+    }
+
+    "invert search project Ids" in {
+      val params =
+        SearchParameters(projectIds = Some(List(123, 456)), invertFields = Some(List("pid")))
+      this.filterProjects(params).sql() mustEqual "NOT p.id IN (123,456)"
+    }
+
+    "does fuzzy search" in {
+      val params     = SearchParameters(projectSearch = Some("abc"), fuzzySearch = Some(2))
+      val filter     = this.filterProjects(params)
+      val parameters = filter.parameters()
+      normalized(filter.sql().replaceAll(parameters.head.name, "abc")) mustEqual
+        "(p.display_name <> '' AND " +
+          "(LEVENSHTEIN(LOWER(p.display_name), LOWER({abc})) < 2 OR " +
+          "METAPHONE(LOWER(p.display_name), 4) = METAPHONE(LOWER({abc}), 4) OR " +
+          "SOUNDEX(LOWER(p.display_name)) = SOUNDEX(LOWER({abc}))) )"
+    }
+
+    "does search on display name and virtual project names" in {
+      val params = SearchParameters(projectSearch = Some("abc"))
+      this.filterProjects(params).sql() mustEqual
+        "p.display_name ILIKE '%abc%' OR " +
+          "(c.id IN (SELECT vp2.challenge_id FROM virtual_project_challenges vp2  " +
+          "INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE  LOWER(p2.display_name) " +
+          "LIKE LOWER('%abc%') AND p2.enabled=true))"
+    }
+
+    "can be empty" in {
+      this.filterProjects(new SearchParameters()).sql() mustEqual ""
+    }
+  }
+
+  "filterChallenges" should {
+    "search by challenge ids" in {
+      val params = SearchParameters(challengeParams =
+        SearchChallengeParameters(challengeIds = Some(List(123, 456)))
+      )
+      this.filterChallenges(params).sql() mustEqual "c.id IN (123,456)"
+    }
+
+    "invert search challenge ids" in {
+      val params = SearchParameters(
+        challengeParams = SearchChallengeParameters(challengeIds = Some(List(123, 456))),
+        invertFields = Some(List("cid"))
+      )
+      this.filterChallenges(params).sql() mustEqual "NOT c.id IN (123,456)"
+    }
+
+    "does fuzzy search" in {
+      val params = SearchParameters(
+        challengeParams = SearchChallengeParameters(challengeSearch = Some("testC")),
+        fuzzySearch = Some(2)
+      )
+      val filter     = this.filterChallenges(params)
+      val parameters = filter.parameters()
+      normalized(filter.sql().replaceAll(parameters.head.name, "testC")) mustEqual
+        "(c.name <> '' AND (LEVENSHTEIN(LOWER(c.name), LOWER({testC})) < 2 OR " +
+          "METAPHONE(LOWER(c.name), 4) = METAPHONE(LOWER({testC}), 4) OR " +
+          "SOUNDEX(LOWER(c.name)) = SOUNDEX(LOWER({testC}))) )"
+    }
+
+    "does search on name" in {
+      val params = SearchParameters(challengeParams =
+        SearchChallengeParameters(challengeSearch = Some("testC"))
+      )
+      this.filterChallenges(params).sql() mustEqual "c.name ILIKE '%testC%'"
+    }
+
+    "can be empty" in {
+      this.filterChallenges(new SearchParameters()).sql() mustEqual ""
+    }
+  }
+
 }
