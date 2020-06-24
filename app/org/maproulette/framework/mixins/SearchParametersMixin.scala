@@ -411,8 +411,7 @@ trait SearchParametersMixin {
             ),
             if (invert) AND() else OR()
           )
-        //FilterGroup(List(CustomParameter(s"(${query.sql()})")))
-        query
+        FilterGroup(List(CustomParameter(s"(${query.sql()})")))
       case Some(statuses) if statuses.isEmpty => FilterGroup(List())
       case _                                  => FilterGroup(List())
     }
