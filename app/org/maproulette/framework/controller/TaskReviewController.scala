@@ -15,7 +15,7 @@ import org.maproulette.framework.service.{
 }
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User}
-import org.maproulette.session.{SessionManager, SearchParameters}
+import org.maproulette.session.{SessionManager, SearchParameters, SearchTaskParameters}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
@@ -295,9 +295,21 @@ class TaskReviewController @Inject() (
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
+        val allReviewStatuses = List(
+          Task.REVIEW_STATUS_REQUESTED,
+          Task.REVIEW_STATUS_APPROVED,
+          Task.REVIEW_STATUS_REJECTED,
+          Task.REVIEW_STATUS_ASSISTED,
+          Task.REVIEW_STATUS_DISPUTED
+        )
+
         val metrics = this.service.getMapperMetrics(
           User.userOrMocked(user),
-          params,
+          params.copy(
+            taskParams = SearchTaskParameters(
+              taskReviewStatus = Some(allReviewStatuses)
+            )
+          ),
           onlySaved
         )
 
@@ -307,17 +319,43 @@ class TaskReviewController @Inject() (
             .map(u => u.id -> u.name)
             .toMap
 
+        val byReviewStatusMetrics =
+          allReviewStatuses.map( reviewStatus => {
+            val reviewStatusMetrics = this.service.getMapperMetrics(
+              User.userOrMocked(user),
+              params.copy(
+                taskParams = SearchTaskParameters(
+                  taskReviewStatus = Some(List(reviewStatus))
+                )
+              ),
+              onlySaved
+            )
+
+            reviewStatus -> (reviewStatusMetrics.map(m => m.userId.get -> m).toMap)
+          }).toMap
+
         val seqString = metrics.map(row => {
           var mapper = mapperNames.get(row.userId.get)
 
-          val reviewTimeSeconds = Math.round(row.avgReviewTime / 1000)
-          val reviewPercentCoverage =
-            Math.round((row.total - row.reviewRequested) * 100 / row.total)
-
-          s"${mapper.get},${row.total},${reviewPercentCoverage},${reviewTimeSeconds},${row.reviewRequested}," +
+          val result = new StringBuilder(
+            s"${mapper.get},,${row.total},,,${row.reviewRequested}," +
             s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
             s"${row.reviewDisputed},${row.fixed},${row.falsePositive},${row.alreadyFixed}," +
-            s"${row.tooHard}"
+            s"${row.tooHard}")
+
+          allReviewStatuses.foreach(rs => {
+            if (byReviewStatusMetrics.get(rs).get.contains(row.userId.get)) {
+              val rsRow = byReviewStatusMetrics.get(rs).get(row.userId.get)
+              val rsTimeSeconds = Math.round(rsRow.avgReviewTime / 1000)
+              val rsPercent = Math.round(rsRow.total * 100 / row.total)
+              result ++=
+                s"\n${mapper.get},${Task.reviewStatusMap.get(rs).get},${rsRow.total}," +
+                s"${rsPercent},${rsTimeSeconds},,,,," +
+                s",${rsRow.fixed},${rsRow.falsePositive},${rsRow.alreadyFixed}," +
+                s"${rsRow.tooHard}"
+            }
+          })
+          result.toString
         })
 
         Result(
@@ -327,7 +365,7 @@ class TaskReviewController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"Mapper,Total Review Tasks,% Reviewed,Avg Review Time (seconds),Review Requested,Approved," +
+              s"Mapper,Review Status,Total Review Tasks,Coverage %,Avg Review Time (seconds),Review Requested,Approved," +
                 s"Needs Revision,Approved w/Fixes,Contested,${Task.STATUS_FIXED_NAME}," +
                 s"${Task.STATUS_FALSE_POSITIVE_NAME},${Task.STATUS_ALREADY_FIXED_NAME}," +
                 s"${Task.STATUS_TOO_HARD_NAME}\n"
