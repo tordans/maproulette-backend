@@ -50,6 +50,7 @@ libraryDependencies ++= Seq(
   "org.scalatestplus.play"  %% "scalatestplus-play" % "5.0.0" % Test,
   "org.webjars"             % "swagger-ui"          % "3.25.0",
   "org.playframework.anorm" %% "anorm"              % "2.6.5",
+  "org.playframework.anorm" %% "anorm-postgres"     % "2.6.5",
   "org.postgresql"          % "postgresql"          % "42.2.10",
   "net.postgis"             % "postgis-jdbc"        % "2.3.0",
   "joda-time"               % "joda-time"           % "2.10.5",

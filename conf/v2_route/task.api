@@ -233,6 +233,55 @@ GET     /task/:id/start                               @org.maproulette.controlle
 #                  underscores, dashes, and dots.
 ###
 GET     /task/:id/cooperative/change/$filename<\w[\w\d-_\.]*>            @org.maproulette.controllers.api.TaskController.cooperativeWorkChangeXML(id:Long, filename:String)
+
+###
+# tags: [ Task ]
+# summary: Retrieve task attachment
+# produces: [ application/json ]
+# description: Retrieve attachment identified by attachmentId on specified task
+#
+# responses:
+#   '200':
+#     description: The attachment data
+#   '404':
+#     description: No Task found matching the id, or no attachment found matching attachmentId
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the Task for which attachment is desired
+#   - name: attachmentId
+#     in: path
+#     description: The id of the desired task attachment
+###
+GET     /task/:id/attachment/$attachmentId<[\w\d-_~\.]+>                 @org.maproulette.framework.controller.TaskController.attachment(id:Long, attachmentId:String)
+
+###
+# tags: [ Task ]
+# summary: Download task attachment data as file
+# produces: [ application/json ]
+# description: Download attachment attachment data as file
+#
+# responses:
+#   '200':
+#     description: The attachment data
+#   '404':
+#     description: No Task found matching the id, or no attachment found matching attachmentId
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the Task for which attachment is desired
+#   - name: attachmentId
+#     in: path
+#     description: The id of the desired task attachment
+#   - name: filename
+#     in: path
+#     description: A filename to use. Some editors will use this as a hint as
+#                  to the format of the data. Must be alphanumeric with optional
+#                  underscores, dashes, and dots.
+###
+GET     /task/:id/attachment/$attachmentId<[\w\d-_~\.]+>/data/$filename<[\w\d-_\.]+>           @org.maproulette.framework.controller.TaskController.attachmentData(id:Long, attachmentId:String, filename:String)
+
+
 ###
 # tags: [ Task ]
 # summary: Release a Task (unlocks it)

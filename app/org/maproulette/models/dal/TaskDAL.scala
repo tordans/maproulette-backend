@@ -479,6 +479,7 @@ class TaskDAL @Inject() (
         cooperativeWorkJson = Some(workMatch.head.toString())
       }
 
+      val attachments   = (geoJson \ "attachments").toOption
       val mrTransformer = (__ \ "properties" \ "maproulette").json.prune
       val extractedGeometries = JsArray(
         (geoJson \ "features")
@@ -511,7 +512,19 @@ class TaskDAL @Inject() (
         case None => // do nothing
       }
 
-      (JsObject(Seq("features" -> extractedGeometries)).toString, cooperativeWorkJson)
+      (
+        JsObject(
+          Seq(
+            Some("features" -> extractedGeometries),
+            Some("type"     -> JsString("FeatureCollection")),
+            attachments match {
+              case Some(a) => Some("attachments" -> a)
+              case None    => None
+            }
+          ).flatten
+        ).toString,
+        cooperativeWorkJson
+      )
     }
   }
 

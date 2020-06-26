@@ -7,7 +7,7 @@ package org.maproulette.framework.service
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.duration.FiniteDuration
-import play.api.libs.json.JsValue
+import play.api.libs.json._
 
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model._
@@ -67,4 +67,13 @@ class TaskService @Inject() (repository: TaskRepository, taskDAL: TaskDAL) {
       Some(task.copy(completionResponses = Some(completionResponses.toString())))
     }
   }
+
+  /**
+    * Retrieve a task attachment identified by attachmentId
+    *
+    * @param taskId       The id of the task with the attachment
+    * @param attachmentId The id of the attachment
+    */
+  def getTaskAttachment(taskId: Long, attachmentId: String): Option[JsObject] =
+    this.repository.getTaskAttachment(taskId, attachmentId)
 }
