@@ -9,7 +9,7 @@ import javax.inject.{Inject, Singleton}
 import org.maproulette.permissions.Permission
 import org.maproulette.framework.model.{Challenge, Grant, Project, User}
 import org.maproulette.data.{UserType, ProjectType}
-import org.maproulette.framework.psql.{Query, OR}
+import org.maproulette.framework.psql.{Query, OR, Paging}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.ChallengeRepository
 
@@ -26,6 +26,21 @@ class ChallengeService @Inject() (
 
   def retrieve(id: Long): Option[Challenge] =
     this.query(Query.simple(List(BaseParameter(Challenge.FIELD_ID, id)))).headOption
+
+  def list(ids: List[Long], paging: Paging = Paging()): List[Challenge] = {
+    if (ids.isEmpty) {
+      return List()
+    }
+
+    this.query(
+      Query.simple(
+        List(
+          BaseParameter(Challenge.FIELD_ID, ids, Operator.IN)
+        ),
+        paging = paging
+      )
+    )
+  }
 
   def query(query: Query): List[Challenge] = this.repository.query(query)
 

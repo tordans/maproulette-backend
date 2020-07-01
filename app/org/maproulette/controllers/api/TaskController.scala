@@ -209,13 +209,32 @@ class TaskController @Inject() (
         case None    => throw new NotFoundException(s"Task with $taskId not found, unable to lock.")
       }
 
+      val challenge = this.serviceManager.challenge.retrieve(task.parent) match {
+        case Some(c) => c
+        case None =>
+          throw new NotFoundException(s"Challenge ${task.parent} not found, unable to lock.")
+      }
+
+      val project = this.serviceManager.project.retrieve(challenge.general.parent) match {
+        case Some(c) => c
+        case None =>
+          throw new NotFoundException(
+            s"Project ${challenge.general.parent} not found, unable to lock."
+          )
+      }
+
       val success = this.dal.lockItem(user, task)
       if (success == 0) {
         throw new IllegalAccessException(s"Current task [${taskId}] is locked by another user.")
       }
 
       webSocketProvider.sendMessage(
-        WebSocketMessages.taskClaimed(task, Some(WebSocketMessages.userSummary(user)))
+        WebSocketMessages.taskClaimed(
+          task,
+          WebSocketMessages.challengeSummary(challenge),
+          WebSocketMessages.projectSummary(project),
+          WebSocketMessages.userSummary(user)
+        )
       )
       Ok(Json.toJson(task))
     }

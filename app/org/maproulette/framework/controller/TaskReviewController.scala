@@ -15,7 +15,7 @@ import org.maproulette.framework.service.{
 }
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User}
-import org.maproulette.session.{SessionManager, SearchParameters}
+import org.maproulette.session.{SessionManager, SearchParameters, SearchTaskParameters}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
@@ -118,6 +118,37 @@ class TaskReviewController @Inject() (
     }
 
   /**
+    * Gets tasks near the given task id within the given challenge
+    *
+    * @param challengeId  The challenge id that is the parent of the tasks that you would be searching for
+    * @param proximityId  Id of task for which nearby tasks are desired
+    * @param excludeSelfLocked Also exclude tasks locked by requesting user
+    * @param limit        The maximum number of nearby tasks to return
+    * @return
+    */
+  def getNearbyReviewTasks(
+      proximityId: Long,
+      limit: Int,
+      excludeOtherReviewers: Boolean = false,
+      onlySaved: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { params =>
+        val results = this.service
+          .getNearbyReviewTasks(
+            User.userOrMocked(user),
+            params,
+            proximityId,
+            limit,
+            excludeOtherReviewers,
+            onlySaved
+          )
+        Ok(Json.toJson(results))
+      }
+    }
+  }
+
+  /**
     * Gets reviewed tasks where the user has reviewed or requested review
     *
     * @param reviewTasksType - 1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users
@@ -195,7 +226,7 @@ class TaskReviewController @Inject() (
 
     prioritiesToFetch.foreach(p => {
       val newParams =
-        params.copy(reviewParams = params.reviewParams.copy(priorities = Some(List(p))))
+        params.copy(taskParams = params.taskParams.copy(taskPriorities = Some(List(p))))
 
       val pResult = this.service.getReviewMetrics(
         user,
@@ -264,9 +295,21 @@ class TaskReviewController @Inject() (
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
+        val allReviewStatuses = List(
+          Task.REVIEW_STATUS_REQUESTED,
+          Task.REVIEW_STATUS_APPROVED,
+          Task.REVIEW_STATUS_REJECTED,
+          Task.REVIEW_STATUS_ASSISTED,
+          Task.REVIEW_STATUS_DISPUTED
+        )
+
         val metrics = this.service.getMapperMetrics(
           User.userOrMocked(user),
-          params,
+          params.copy(
+            taskParams = SearchTaskParameters(
+              taskReviewStatus = Some(allReviewStatuses)
+            )
+          ),
           onlySaved
         )
 
@@ -276,14 +319,43 @@ class TaskReviewController @Inject() (
             .map(u => u.id -> u.name)
             .toMap
 
+        val byReviewStatusMetrics =
+          allReviewStatuses.map( reviewStatus => {
+            val reviewStatusMetrics = this.service.getMapperMetrics(
+              User.userOrMocked(user),
+              params.copy(
+                taskParams = SearchTaskParameters(
+                  taskReviewStatus = Some(List(reviewStatus))
+                )
+              ),
+              onlySaved
+            )
+
+            reviewStatus -> (reviewStatusMetrics.map(m => m.userId.get -> m).toMap)
+          }).toMap
+
         val seqString = metrics.map(row => {
           var mapper = mapperNames.get(row.userId.get)
 
-          val reviewTimeSeconds = Math.round(row.avgReviewTime / 1000)
-
-          s"${mapper.get},${row.total},${reviewTimeSeconds},${row.reviewRequested}," +
+          val result = new StringBuilder(
+            s"${mapper.get},,${row.total},,,${row.reviewRequested}," +
             s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
-            s"${row.reviewDisputed}"
+            s"${row.reviewDisputed},${row.fixed},${row.falsePositive},${row.alreadyFixed}," +
+            s"${row.tooHard}")
+
+          allReviewStatuses.foreach(rs => {
+            if (byReviewStatusMetrics.get(rs).get.contains(row.userId.get)) {
+              val rsRow = byReviewStatusMetrics.get(rs).get(row.userId.get)
+              val rsTimeSeconds = Math.round(rsRow.avgReviewTime / 1000)
+              val rsPercent = Math.round(rsRow.total * 100 / row.total)
+              result ++=
+                s"\n${mapper.get},${Task.reviewStatusMap.get(rs).get},${rsRow.total}," +
+                s"${rsPercent},${rsTimeSeconds},,,,," +
+                s",${rsRow.fixed},${rsRow.falsePositive},${rsRow.alreadyFixed}," +
+                s"${rsRow.tooHard}"
+            }
+          })
+          result.toString
         })
 
         Result(
@@ -293,11 +365,38 @@ class TaskReviewController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"""Mapper,Total Review Tasks,Avg Review Time (seconds),Review Requested,Approved,Needs Revision,Approved w/Fixes,Contested\n"""
+              s"Mapper,Review Status,Total Review Tasks,Coverage %,Avg Review Time (seconds),Review Requested,Approved," +
+                s"Needs Revision,Approved w/Fixes,Contested,${Task.STATUS_FIXED_NAME}," +
+                s"${Task.STATUS_FALSE_POSITIVE_NAME},${Task.STATUS_ALREADY_FIXED_NAME}," +
+                s"${Task.STATUS_TOO_HARD_NAME}\n"
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )
         )
+      }
+    }
+  }
+
+  /**
+    * Returns a breakdown of tag metrics
+    *
+    * @return
+    */
+  def getReviewTagMetrics(
+      reviewTasksType: Int,
+      onlySaved: Boolean,
+      excludeOtherReviewers: Boolean
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val result = this.service.getReviewTagMetrics(
+          User.userOrMocked(user),
+          reviewTasksType,
+          params,
+          onlySaved,
+          excludeOtherReviewers
+        )
+        Ok(Json.toJson(result))
       }
     }
   }

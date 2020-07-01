@@ -60,7 +60,8 @@ case class ReviewMetrics(
     alreadyFixed: Int,
     tooHard: Int,
     avgReviewTime: Double,
-    userId: Option[Long] = None // If these metrics apply to a particular user
+    userId: Option[Long] = None,   // If these metrics apply to a particular user
+    tagName: Option[String] = None // If these metrics apply for a particular tag
 )
 object ReviewMetrics {
   implicit val reviewMetricsWrites = Json.writes[ReviewMetrics]

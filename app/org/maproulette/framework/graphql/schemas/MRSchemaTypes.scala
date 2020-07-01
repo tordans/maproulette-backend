@@ -41,7 +41,7 @@ trait MRSchemaTypes {
   )
 
   // Project Types
-  implicit val ProjectType: ObjectType[Unit, Project] =
+  implicit lazy val ProjectType: ObjectType[Unit, Project] =
     deriveObjectType[Unit, Project](ObjectTypeName("Project"))
   // Grant Types
   implicit val GranteeType = ObjectType(
@@ -104,13 +104,66 @@ trait MRSchemaTypes {
         )
       )
     )
+  implicit lazy val ActionItemType: ObjectType[Unit, ActionItem] =
+    deriveObjectType[Unit, ActionItem](
+      ObjectTypeName("ActionItem"),
+      Interfaces(IdentifiableType),
+      ReplaceField(
+        "osmUserId",
+        Field(
+          "user",
+          UserType,
+          resolve = context => UserFetchers.osmUsersFetcher.defer(context.value.osmUserId.get)
+        )
+      ),
+      AddFields(
+        Field(
+          "task",
+          OptionType(TaskType),
+          resolve = context => {
+            context.value.typeId match {
+              case Some(typeId) if typeId == Actions.ITEM_TYPE_TASK =>
+                TaskFetchers.tasksFetcher.deferOpt(context.value.itemId.get)
+              case _ =>
+                Future.successful(None)
+            }
+          }
+        ),
+        Field(
+          "challenge",
+          OptionType(ChallengeType),
+          resolve = context => {
+            context.value.parentId match {
+              case Some(challengeId) =>
+                context.value.typeId match {
+                  case Some(typeId) if typeId == Actions.ITEM_TYPE_TASK =>
+                    ChallengeFetchers.challengesFetcher.deferOpt(challengeId)
+                  case _ =>
+                    Future.successful(None)
+                }
+              case None => Future.successful(None)
+            }
+          }
+        )
+      )
+    )
   implicit val ProjectManagerType: ObjectType[Unit, ProjectManager] =
     deriveObjectType[Unit, ProjectManager](ObjectTypeName("ProjectManager"))
   // Challenge Types
-  implicit val ChallengeType: ObjectType[Unit, Challenge] =
+  implicit lazy val ChallengeType: ObjectType[Unit, Challenge] =
     deriveObjectType[Unit, Challenge](ObjectTypeName("Challenge"))
-  implicit val ChallengeGeneralType: ObjectType[Unit, ChallengeGeneral] =
-    deriveObjectType[Unit, ChallengeGeneral](ObjectTypeName("ChallengeGeneral"))
+  implicit lazy val ChallengeGeneralType: ObjectType[Unit, ChallengeGeneral] =
+    deriveObjectType[Unit, ChallengeGeneral](
+      ObjectTypeName("ChallengeGeneral"),
+      ReplaceField(
+        "parent",
+        Field(
+          "parent",
+          ProjectType,
+          resolve = context => ProjectFetchers.projectsFetcher.defer(context.value.parent)
+        )
+      )
+    )
   implicit val ChallengeCreationType: ObjectType[Unit, ChallengeCreation] =
     deriveObjectType[Unit, ChallengeCreation](ObjectTypeName("ChallengeCreation"))
   implicit val ChallengePriorityType: ObjectType[Unit, ChallengePriority] =

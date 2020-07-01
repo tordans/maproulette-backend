@@ -8,15 +8,18 @@ package org.maproulette.framework.repository
 import java.sql.Connection
 import scala.concurrent.duration.FiniteDuration
 
-import anorm.SqlParser.get
+import anorm.SqlParser.{get, scalar}
 import anorm.ToParameterValue
 import anorm.{RowParser, ~}
+import anorm._, postgresql._
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.psql.Query
+import org.maproulette.framework.psql.filter.{BaseParameter, CustomParameter}
 import org.maproulette.models.Task
 import org.maproulette.framework.model.User
 import play.api.db.Database
-import play.api.libs.json.JsValue
+import play.api.libs.json._
+
 @Singleton
 class TaskRepository @Inject() (override val db: Database) extends RepositoryMixin {
   implicit val baseTable: String = "tasks"
@@ -55,6 +58,28 @@ class TaskRepository @Inject() (override val db: Database) extends RepositoryMix
         )
         .executeUpdate()
 
+    }
+  }
+
+  /**
+    * Retrieve a task attachment identified by attachmentId
+    *
+    * @param taskId       The id of the task with the attachment
+    * @param attachmentId The id of the attachment
+    */
+  def getTaskAttachment(taskId: Long, attachmentId: String): Option[JsObject] = {
+    withMRConnection { implicit c =>
+      Query
+        .simple(
+          List(
+            BaseParameter(Task.FIELD_ID, taskId),
+            CustomParameter(s"attachment->>'id' = '$attachmentId'")
+          )
+        )
+        .build(
+          s"select attachment from tasks, jsonb_array_elements(geojson -> 'attachments') attachment"
+        )
+        .as(scalar[JsObject].singleOpt)
     }
   }
 }

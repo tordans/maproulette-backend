@@ -51,6 +51,11 @@ class TaskReviewDAL @Inject() (
       ws
     ) {
 
+  val REVIEW_REQUESTED_TASKS = 1 // Tasks needing to be reviewed
+  val MY_REVIEWED_TASKS      = 2 // Tasks reviewed by user
+  val REVIEWED_TASKS_BY_ME   = 3 // Tasks completed by user and done review
+  val ALL_REVIEWED_TASKS     = 4 // All review(ed) tasks
+
   implicit val taskWithReviewParser: RowParser[TaskWithReview] = {
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
@@ -132,43 +137,6 @@ class TaskReviewDAL @Inject() (
             None
           )
         )
-    }
-  }
-
-  implicit val reviewMetricsParser: RowParser[ReviewMetrics] = {
-    get[Int]("total") ~
-      get[Int]("requested") ~
-      get[Int]("approved") ~
-      get[Int]("rejected") ~
-      get[Int]("assisted") ~
-      get[Int]("disputed") ~
-      get[Int]("fixed") ~
-      get[Int]("falsePositive") ~
-      get[Int]("skipped") ~
-      get[Int]("alreadyFixed") ~
-      get[Int]("tooHard") ~
-      get[Double]("totalReviewTime") ~
-      get[Int]("tasksWithReviewTime") ~
-      get[Long]("user_id").? map {
-      case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
-            fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
-            totalReviewTime ~ tasksWithReviewTime ~ userId => {
-        new ReviewMetrics(
-          total,
-          requested,
-          approved,
-          rejected,
-          assisted,
-          disputed,
-          fixed,
-          falsePositive,
-          skipped,
-          alreadyFixed,
-          tooHard,
-          if (tasksWithReviewTime > 0) (totalReviewTime / tasksWithReviewTime) else 0,
-          userId
-        )
-      }
     }
   }
 
@@ -376,6 +344,47 @@ class TaskReviewDAL @Inject() (
   }
 
   /**
+    * Retrieve tasks geographically closest to the given task id wit the
+    * given set of search parameters.
+    */
+  def getNearbyReviewTasks(
+      user: User,
+      searchParameters: SearchParameters,
+      proximityId: Long,
+      limit: Int = 5,
+      excludeOtherReviewers: Boolean = false,
+      onlySaved: Boolean = false
+  )(implicit c: Option[Connection] = None): List[Task] = {
+    val (parameters, joinClause, whereClause) = setupReviewSearchClause(
+      user,
+      searchParameters,
+      REVIEW_REQUESTED_TASKS,
+      false,
+      onlySaved,
+      excludeOtherReviewers
+    )
+
+    this.appendInWhereClause(
+      whereClause,
+      s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})"
+    )
+
+    val query =
+      s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
+      LEFT JOIN locked l ON l.item_id = tasks.id
+      ${joinClause}
+      WHERE tasks.id <> $proximityId AND
+            l.id IS NULL AND
+            ${whereClause}
+      ORDER BY ST_Distance(tasks.location, (SELECT location FROM tasks WHERE id = $proximityId)), tasks.status, RANDOM()
+      LIMIT ${this.sqlLimit(limit)}"""
+
+    this.withMRTransaction { implicit c =>
+      sqlWithParameters(query, parameters).as(this.parser.*)
+    }
+  }
+
+  /**
     * Gets a list of tasks that have requested review (and are in this user's project group)
     *
     * @param user            The user executing the request
@@ -437,41 +446,21 @@ class TaskReviewDAL @Inject() (
       excludeOtherReviewers: Boolean = false
   )(implicit c: Connection = null): (String, String, ListBuffer[NamedParameter]) = {
     var orderByClause = ""
-    val whereClause = if (includeDisputed) {
-      new StringBuilder(
-        s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
-      )
-    } else {
-      new StringBuilder(s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}")
-    }
 
-    val whereBundleClause = " AND (tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) "
+    val (parameters, joinClause, whereClause) = setupReviewSearchClause(
+      user,
+      searchParameters,
+      REVIEW_REQUESTED_TASKS,
+      includeDisputed,
+      onlySaved,
+      excludeOtherReviewers
+    )
 
-    val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
-    joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
-
-    if (onlySaved) {
-      joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
-      this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id}")
-    }
-
+    // Unclaimed or claimed by me for review
     this.appendInWhereClause(
       whereClause,
       s"(task_review.review_claimed_at IS NULL OR task_review.review_claimed_by = ${user.id})"
     )
-
-    if (excludeOtherReviewers) {
-      this.appendInWhereClause(
-        whereClause,
-        s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
-      )
-    }
-
-    val parameters = new ListBuffer[NamedParameter]()
-    parameters ++= addSearchToQuery(searchParameters, whereClause)
-
-    setupReviewSearchClause(whereClause, searchParameters)
 
     sort match {
       case s if s.nonEmpty =>
@@ -485,60 +474,27 @@ class TaskReviewDAL @Inject() (
       case _ => // ignore
     }
 
-    val query = if (permission.isSuperUser(user)) {
-      s"""
-          SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
-            tasks.${this.retrieveColumnsWithReview} FROM tasks
-          ${joinClause}
-          WHERE
-          ${whereClause}
-          ${whereBundleClause}
-          ${orderByClause}
-          LIMIT ${sqlLimit(limit)} OFFSET ${offset}
-         """
-    } else {
-      if (user.settings.isReviewer.getOrElse(false)) {
-        // You see review task when:
-        // 1. Project and Challenge enabled (so visible to everyone)
-        // 2. You own the Project
-        // 3. You manage the project (your user group matches groups of project)
+    val query =
+      if (user.settings.isReviewer.getOrElse(false) || permission.isSuperUser(user)) {
         s"""
             SELECT ROW_NUMBER() OVER (${orderByClause}) as row_num,
               tasks.${this.retrieveColumnsWithReview} FROM tasks
             ${joinClause}
-            WHERE ((p.enabled AND c.enabled) OR
-                    ${this.userHasProjectGrantSQL(user)}
-                  ) AND
-                  task_review.review_requested_by != ${user.id} AND
+            WHERE
             ${whereClause}
-            ${whereBundleClause}
             ${orderByClause}
             LIMIT ${sqlLimit(limit)} OFFSET ${offset}
            """
       } else {
         return (null, null, null)
       }
-    }
 
-    val countQuery = if (permission.isSuperUser(user)) {
+    val countQuery =
       s"""
           SELECT count(*) FROM tasks
           ${joinClause}
           WHERE ${whereClause}
-          ${whereBundleClause}
         """
-    } else {
-      s"""
-          SELECT count(*) FROM tasks
-          ${joinClause}
-          WHERE ((p.enabled AND c.enabled) OR
-                  ${this.userHasProjectGrantSQL(user)}
-                ) AND
-                task_review.review_requested_by != ${user.id} AND
-          ${whereClause}
-          ${whereBundleClause}
-        """
-    }
 
     (countQuery, query, parameters)
   }
@@ -564,28 +520,12 @@ class TaskReviewDAL @Inject() (
       order: String
   )(implicit c: Connection = null): (Int, List[Task]) = {
     var orderByClause = ""
-    val whereClause = new StringBuilder(
-      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true) AND " +
-        s"task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY} "
+
+    val (parameters, joinClause, whereClause) = setupReviewSearchClause(
+      user,
+      searchParameters,
+      if (allowReviewNeeded) ALL_REVIEWED_TASKS else MY_REVIEWED_TASKS
     )
-    val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
-    joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
-
-    this.paramsMappers(searchParameters, whereClause)
-    this.paramsReviewers(searchParameters, whereClause)
-
-    val parameters = new ListBuffer[NamedParameter]()
-    parameters ++= addSearchToQuery(searchParameters, whereClause)
-
-    if (!allowReviewNeeded) {
-      this.appendInWhereClause(
-        whereClause,
-        s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
-      )
-    }
-
-    setupReviewSearchClause(whereClause, searchParameters)
 
     sort match {
       case s if s.nonEmpty =>
@@ -593,8 +533,8 @@ class TaskReviewDAL @Inject() (
       case _ => // ignore
     }
 
-    val query = permission.isSuperUser(user) match {
-      case true =>
+    val query =
+      if (user.settings.isReviewer.getOrElse(false) || permission.isSuperUser(user)) {
         s"""
           SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
           ${joinClause}
@@ -603,49 +543,16 @@ class TaskReviewDAL @Inject() (
           ${orderByClause}
           LIMIT ${sqlLimit(limit)} OFFSET ${offset}
          """
-      case default =>
-        if (user.settings.isReviewer.getOrElse(false)) {
-          // You see review task when:
-          // 1. Project and Challenge enabled (so visible to everyone)
-          // 2. You own the Project
-          // 3. You manage the project (your user group matches groups of project)
-          // 4. You asked for the review or you performed the review
-          s"""
-            SELECT tasks.${this.retrieveColumnsWithReview} FROM tasks
-            ${joinClause}
-            WHERE ((p.enabled AND c.enabled) OR
-                    ${this.userHasProjectGrantSQL(user)} OR
-                    task_review.review_requested_by = ${user.id} OR
-                    task_review.reviewed_by = ${user.id}
-                  ) AND
-            ${whereClause}
-            ${orderByClause}
-            LIMIT ${sqlLimit(limit)} OFFSET ${offset}
-           """
-        } else {
-          return (0, List[Task]())
-        }
-    }
+      } else {
+        return (0, List[Task]())
+      }
 
-    val countQuery = permission.isSuperUser(user) match {
-      case true =>
-        s"""
-          SELECT count(*) FROM tasks
-          ${joinClause}
-          WHERE ${whereClause}
-        """
-      case default =>
-        s"""
-          SELECT count(*) FROM tasks
-          ${joinClause}
-          WHERE ((p.enabled AND c.enabled) OR
-                  ${this.userHasProjectGrantSQL(user)} OR
-                  task_review.review_requested_by = ${user.id} OR
-                  task_review.reviewed_by = ${user.id}
-                ) AND
-          ${whereClause}
-        """
-    }
+    val countQuery =
+      s"""
+        SELECT count(*) FROM tasks
+        ${joinClause}
+        WHERE ${whereClause}
+      """
 
     var count = 0
     val tasks = this.manager.task.cacheManager.withIDListCaching { implicit cachedItems =>
@@ -656,171 +563,6 @@ class TaskReviewDAL @Inject() (
     }
 
     (count, tasks)
-  }
-
-  /**
-    * Gets a list of tasks that have been reviewed (either by this user or requested by this user)
-    *
-    * @param user      The user executing the request
-    * @param reviewTasksType
-    * @param searchParameters
-    * @return A list of tasks
-    */
-  def getReviewMetrics(
-      user: User,
-      reviewTasksType: Int,
-      searchParameters: SearchParameters,
-      onlySaved: Boolean = false,
-      excludeOtherReviewers: Boolean = false
-  )(implicit c: Connection = null): ReviewMetrics = {
-    val (query, parameters) = getReviewMetricsQuery(
-      user,
-      reviewTasksType,
-      searchParameters,
-      onlySaved,
-      excludeOtherReviewers
-    )
-
-    this.withMRTransaction { implicit c =>
-      sqlWithParameters(query, parameters).as(reviewMetricsParser.single)
-    }
-  }
-
-  /**
-    * Gets review metrics grouped by mapper
-    *
-    * @param user      The user executing the request
-    * @param searchParameters
-    * @return A list of tasks
-    */
-  def getMapperMetrics(
-      user: User,
-      searchParameters: SearchParameters,
-      onlySaved: Boolean = false
-  )(implicit c: Connection = null): List[ReviewMetrics] = {
-    val (query, parameters) = getReviewMetricsQuery(
-      user,
-      4,
-      searchParameters,
-      onlySaved,
-      false,
-      true
-    )
-    this.withMRTransaction { implicit c =>
-      sqlWithParameters(query, parameters).as(reviewMetricsParser.*)
-    }
-  }
-
-  def getReviewMetricsQuery(
-      user: User,
-      reviewTasksType: Int,
-      searchParameters: SearchParameters,
-      onlySaved: Boolean = false,
-      excludeOtherReviewers: Boolean = false,
-      groupByMappers: Boolean = false
-  ): (String, ListBuffer[NamedParameter]) = {
-    // 1: REVIEW_TASKS_TO_BE_REVIEWED = 'tasksToBeReviewed'
-    // 2: MY_REVIEWED_TASKS = 'myReviewedTasks'
-    // 3: REVIEW_TASKS_BY_ME = 'tasksReviewedByMe'
-    // 4: ALL_REVIEWED_TASKS = 'allReviewedTasks'
-
-    val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
-    joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
-
-    val whereClause = new StringBuilder()
-
-    if (reviewTasksType == 1) {
-      this.appendInWhereClause(
-        whereClause,
-        s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
-      )
-
-      if (excludeOtherReviewers) {
-        this.appendInWhereClause(
-          whereClause,
-          s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
-        )
-      }
-
-      if (!permission.isSuperUser(user)) {
-        this.appendInWhereClause(
-          whereClause,
-          s""" ((p.enabled AND c.enabled) OR
-                ${this.userHasProjectGrantSQL(user)}
-               ) AND
-               task_review.review_requested_by != ${user.id} """
-        )
-      }
-    } else {
-      if (!permission.isSuperUser(user)) {
-        this.appendInWhereClause(
-          whereClause,
-          s"""((p.enabled AND c.enabled) OR
-                ${this.userHasProjectGrantSQL(user)} OR
-                task_review.review_requested_by = ${user.id} OR
-                task_review.reviewed_by = ${user.id}
-              )"""
-        )
-      }
-    }
-
-    this.paramsMappers(searchParameters, whereClause)
-    this.paramsReviewers(searchParameters, whereClause)
-    this.paramsPriorities(searchParameters, whereClause)
-
-    if (onlySaved) {
-      joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
-      this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
-    }
-
-    val parameters = new ListBuffer[NamedParameter]()
-    parameters ++= addSearchToQuery(searchParameters, whereClause)
-
-    if (reviewTasksType == 2) {
-      this.appendInWhereClause(
-        whereClause,
-        s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
-      )
-    }
-
-    this.appendInWhereClause(
-      whereClause,
-      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
-    )
-    setupReviewSearchClause(whereClause, searchParameters)
-
-    var groupFields = ""
-    val groupBy = groupByMappers match {
-      case true => {
-        groupFields = ", review_requested_by as user_id"
-        "group by task_review.review_requested_by"
-      }
-      case false => ""
-    }
-
-    (s"""
-     SELECT COUNT(*) AS total,
-     COUNT(tasks.completed_time_spent) as tasksWithReviewTime,
-     COALESCE(SUM(EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000),0) as totalReviewTime,
-     COUNT(review_status) FILTER (where review_status = 0) AS requested,
-     COUNT(review_status) FILTER (where review_status = 1) AS approved,
-     COUNT(review_status) FILTER (where review_status = 2) AS rejected,
-     COUNT(review_status) FILTER (where review_status = 3) AS assisted,
-     COUNT(review_status) FILTER (where review_status = 4) AS disputed,
-     COUNT(tasks.status) FILTER (where tasks.status = 1) AS fixed,
-     COUNT(tasks.status) FILTER (where tasks.status = 2) AS falsePositive,
-     COUNT(tasks.status) FILTER (where tasks.status = 3) AS skipped,
-     COUNT(tasks.status) FILTER (where tasks.status = 5) AS alreadyFixed,
-     COUNT(tasks.status) FILTER (where tasks.status = 6) AS tooHard
-     ${groupFields}
-     FROM tasks
-     ${joinClause}
-     WHERE
-     ${whereClause}
-     AND task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY}
-     ${groupBy}
-    """, parameters)
   }
 
   /**
@@ -842,69 +584,26 @@ class TaskReviewDAL @Inject() (
       excludeOtherReviewers: Boolean = false
   )(implicit c: Option[Connection] = None): List[TaskCluster] = {
     this.withMRConnection { implicit c =>
-      val fetchBy =
-        if (reviewTasksType == 2) "task_review.reviewed_by" else "task_review.review_requested_by"
-      val joinClause = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
-      joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
-      joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
-
-      var whereClause = new StringBuilder(s"${fetchBy}=${user.id}")
-      if (reviewTasksType == 1) {
-        whereClause = new StringBuilder(
-          s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
-        )
-
-        if (onlySaved) {
-          joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
-          this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id} ")
-        }
-
-        if (excludeOtherReviewers) {
-          this.appendInWhereClause(
-            whereClause,
-            s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
-          )
-        }
-
-        if (!permission.isSuperUser(user)) {
-          whereClause ++=
-            s""" AND ((p.enabled AND c.enabled) OR
-                  ${this.userHasProjectGrantSQL(user)}
-                 ) AND
-                 task_review.review_requested_by != ${user.id} """
-        }
-      }
-      this.appendInWhereClause(
-        whereClause,
-        "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
+      val (parameters, joinClause, whereClause) = setupReviewSearchClause(
+        user,
+        params,
+        reviewTasksType,
+        true,
+        onlySaved,
+        excludeOtherReviewers
       )
 
-      params.taskParams.taskId match {
-        case Some(tid) =>
-          this.appendInWhereClause(whereClause, s"CAST(tasks.id AS TEXT) LIKE '${tid}%'")
+      reviewTasksType match {
+        case MY_REVIEWED_TASKS =>
+          this.appendInWhereClause(whereClause, s"task_review.reviewed_by=${user.id}")
+        case REVIEWED_TASKS_BY_ME =>
+          this.appendInWhereClause(whereClause, s"task_review.review_requested_by=${user.id}")
         case _ => // do nothing
       }
 
-      val parameters = new ListBuffer[NamedParameter]()
-      parameters ++= addSearchToQuery(params, whereClause)
-
-      if (reviewTasksType == 2) {
-        this.appendInWhereClause(
-          whereClause,
-          s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
-        )
-      }
-
-      setupReviewSearchClause(whereClause, params)
-
-      val where = if (whereClause.isEmpty) {
-        whereClause.toString
-      } else {
-        "WHERE " + whereClause.toString
-      } + s" AND task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY}"
-
       val query =
-        this.manager.taskCluster.getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
+        this.manager.taskCluster
+          .getTaskClusterQuery(joinClause.toString, "where " + whereClause.toString, numberOfPoints)
       val result = sqlWithParameters(query, parameters).as(
         this.manager.taskCluster.getTaskClusterParser(params).*
       )
@@ -915,30 +614,99 @@ class TaskReviewDAL @Inject() (
 
   /**
     * private setup the search clauses for searching the review tables
+    * @deprecated  Please use new method in SearchReviewMixin when converting to new system
     */
   private def setupReviewSearchClause(
-      whereClause: StringBuilder,
-      searchParameters: SearchParameters
-  ): Unit = {
+      user: User,
+      searchParameters: SearchParameters,
+      reviewTasksType: Int = ALL_REVIEWED_TASKS,
+      includeDisputed: Boolean = true,
+      onlySaved: Boolean = false,
+      excludeOtherReviewers: Boolean = false
+  ): (ListBuffer[NamedParameter], StringBuilder, StringBuilder) = {
+    val whereClause = new StringBuilder()
+    val joinClause  = new StringBuilder("INNER JOIN challenges c ON c.id = tasks.parent_id ")
+    joinClause ++= "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id "
+    joinClause ++= "INNER JOIN projects p ON p.id = c.parent_id "
 
-    this.paramsOwner(searchParameters, whereClause)
-    this.paramsReviewer(searchParameters, whereClause)
-    this.paramsMapper(searchParameters, whereClause)
+    // Check for bundles
+    this.appendInWhereClause(
+      whereClause,
+      "(tasks.bundle_id is NULL OR tasks.is_bundle_primary = true)"
+    )
 
-    searchParameters.taskParams.taskStatus match {
-      case Some(statuses) if statuses.nonEmpty =>
-        val invert =
-          if (searchParameters.invertFields.getOrElse(List()).contains("tStatus")) "NOT" else ""
-        val statusClause = new StringBuilder(
-          s"(tasks.status ${invert} IN (${statuses.mkString(",")})"
+    // Ignore unnecessary
+    this.appendInWhereClause(
+      whereClause,
+      s"task_review.review_status != ${Task.REVIEW_STATUS_UNNECESSARY}"
+    )
+
+    if (reviewTasksType == REVIEW_REQUESTED_TASKS) {
+      // Limit to only review requested and disputed
+      if (includeDisputed) {
+        this.appendInWhereClause(
+          whereClause,
+          s"(task_review.review_status=${Task.REVIEW_STATUS_REQUESTED} OR " +
+            s" task_review.review_status=${Task.REVIEW_STATUS_DISPUTED})"
         )
-        if (statuses.contains(-1)) {
-          statusClause ++= " OR c.status IS NULL"
-        }
-        statusClause ++= ")"
-        this.appendInWhereClause(whereClause, statusClause.toString())
-      case Some(statuses) if statuses.isEmpty => //ignore this scenario
-      case _                                  =>
+      } else {
+        this.appendInWhereClause(
+          whereClause,
+          s"task_review.review_status=${Task.REVIEW_STATUS_REQUESTED}"
+        )
+      }
+
+      // Only challenges 'saved' (marked as favorite) by this user
+      if (onlySaved) {
+        joinClause ++= "INNER JOIN saved_challenges sc ON sc.challenge_id = c.id "
+        this.appendInWhereClause(whereClause, s"sc.user_id = ${user.id}")
+      }
+
+      // Don't show tasks already reviewed by someone else
+      // Used most often when tasks need a "re-review" (so in a requested state)
+      if (excludeOtherReviewers) {
+        this.appendInWhereClause(
+          whereClause,
+          s"(task_review.reviewed_by IS NULL OR task_review.reviewed_by = ${user.id})"
+        )
+      }
+    } else if (reviewTasksType == MY_REVIEWED_TASKS) {
+      // Limit to already reviewed tasks
+      this.appendInWhereClause(
+        whereClause,
+        s"task_review.review_status <> ${Task.REVIEW_STATUS_REQUESTED} "
+      )
+    }
+
+    // Setup permissions
+    // You see review task when:
+    // 1. Project and Challenge enabled (so visible to everyone)
+    // 2. You own the Project
+    // 3. You manage the project (your user group matches groups of project)
+    // 4. You worked on the task - ie. review/reviewed it
+    if (reviewTasksType == REVIEW_REQUESTED_TASKS) {
+      if (!permission.isSuperUser(user)) {
+        // If not a super user than you are not allowed to request reviews
+        // on tasks you completed.
+        this.appendInWhereClause(
+          whereClause,
+          s""" ((p.enabled AND c.enabled) OR
+                ${this.userHasProjectGrantSQL(user)}
+               ) AND
+               task_review.review_requested_by != ${user.id} """
+        )
+      }
+    } else {
+      if (!permission.isSuperUser(user)) {
+        this.appendInWhereClause(
+          whereClause,
+          s"""((p.enabled AND c.enabled) OR
+                ${this.userHasProjectGrantSQL(user)} OR
+                task_review.review_requested_by = ${user.id} OR
+                task_review.reviewed_by = ${user.id}
+              )"""
+        )
+      }
     }
 
     searchParameters.taskParams.taskReviewStatus match {
@@ -953,21 +721,26 @@ class TaskReviewDAL @Inject() (
       case _                                  =>
     }
 
+    val parameters = new ListBuffer[NamedParameter]()
+    parameters ++= addSearchToQuery(searchParameters, whereClause)
+
+    this.paramsOwner(searchParameters, whereClause)
+    this.paramsReviewer(searchParameters, whereClause)
+    this.paramsMapper(searchParameters, whereClause)
+    this.paramsTaskStatus(searchParameters, whereClause, List())
+
+    this.paramsMappers(searchParameters, whereClause)
+    this.paramsReviewers(searchParameters, whereClause)
+    this.paramsTaskPriorities(searchParameters, whereClause)
+
     this.paramsLocation(searchParameters, whereClause)
     this.paramsProjectSearch(searchParameters, whereClause)
     this.paramsTaskId(searchParameters, whereClause)
     this.paramsPriority(searchParameters, whereClause)
     this.paramsTaskTags(searchParameters, whereClause)
+    this.paramsReviewDate(searchParameters, whereClause)
 
-    val startDate = searchParameters.reviewParams.startDate.getOrElse(null)
-    if (startDate != null && startDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
-      this.appendInWhereClause(whereClause, "reviewed_at >= '" + startDate + " 00:00:00'")
-    }
-
-    val endDate = searchParameters.reviewParams.endDate.getOrElse(null)
-    if (endDate != null && endDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]")) {
-      this.appendInWhereClause(whereClause, "reviewed_at <= '" + endDate + " 23:59:59'")
-    }
+    (parameters, joinClause, whereClause)
   }
 
   /**

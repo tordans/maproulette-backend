@@ -203,7 +203,8 @@ case class FuzzySearchParameter(
     override val key: String,
     override val value: String,
     levenshsteinScore: Int = FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE,
-    metaphoneSize: Int = FilterParameter.DEFAULT_METAPHONE_SIZE
+    metaphoneSize: Int = FilterParameter.DEFAULT_METAPHONE_SIZE,
+    override val table: Option[String] = None
 ) extends Parameter[String] {
   override def sql()(implicit tableKey: String = ""): String = {
     SQLUtils.testColumnName(key)
@@ -212,7 +213,7 @@ case class FuzzySearchParameter(
     } else {
       FilterParameter.DEFAULT_LEVENSHSTEIN_SCORE
     }
-    val columnKey = this.getColumnKey(tableKey)
+    val columnKey = this.getColumnKey(table.getOrElse(tableKey))
     s"""($columnKey <> '' AND
       (LEVENSHTEIN(LOWER($columnKey), LOWER({${this.getKey()}})) < $score OR
       METAPHONE(LOWER($columnKey), 4) = METAPHONE(LOWER({${this.getKey()}}), $metaphoneSize) OR

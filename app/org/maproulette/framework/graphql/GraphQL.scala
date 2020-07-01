@@ -21,7 +21,8 @@ class GraphQL @Inject() (
     grantSchema: GrantSchema,
     userSchema: UserSchema,
     tagSchema: TagSchema,
-    teamSchema: TeamSchema
+    teamSchema: TeamSchema,
+    actionItemSchema: ActionItemSchema
 ) {
   private val queries =
     MRSchema.baseQueries ++
@@ -31,7 +32,8 @@ class GraphQL @Inject() (
       grantSchema.queries ++
       userSchema.queries ++
       tagSchema.queries ++
-      teamSchema.queries
+      teamSchema.queries ++
+      actionItemSchema.queries
 
   private val mutations =
     MRSchema.baseMutations ++
@@ -44,7 +46,11 @@ class GraphQL @Inject() (
       teamSchema.mutations
 
   private val fetchers =
-    TeamFetchers.fetchers
+    UserFetchers.fetchers ++
+      TaskFetchers.fetchers ++
+      ChallengeFetchers.fetchers ++
+      ProjectFetchers.fetchers ++
+      TeamFetchers.fetchers
 
   val schema: sangria.schema.Schema[UserContext, Unit] = sangria.schema.Schema[UserContext, Unit](
     query = ObjectType("Query", fields(queries: _*)),

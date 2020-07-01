@@ -9,6 +9,7 @@ import org.joda.time.DateTime
 import org.maproulette.data.{ChallengeType, ItemType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.psql.CommonField
+import org.maproulette.framework.model.Identifiable
 import org.maproulette.models.{BaseObject, Task}
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
@@ -160,7 +161,8 @@ case class Challenge(
     location: Option[String] = None,
     bounding: Option[String] = None
 ) extends BaseObject[Long]
-    with DefaultWrites {
+    with DefaultWrites
+    with Identifiable {
 
   override val itemType: ItemType = ChallengeType()
 
@@ -260,6 +262,7 @@ object Challenge extends CommonField {
   val TABLE           = "challenges"
   val FIELD_PARENT_ID = "parent_id"
   val FIELD_ENABLED   = "enabled"
+  val FIELD_STATUS    = "status"
 
   /**
     * This will check to make sure that the rule string is fully valid.

@@ -7,7 +7,8 @@ package org.maproulette.models
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.data.{ItemType, TaskType}
-import org.maproulette.framework.model.Challenge
+import org.maproulette.framework.model.{Challenge, Identifiable}
+import org.maproulette.framework.psql.CommonField
 import org.maproulette.utils.Utils
 import play.api.data.format.Formats
 import play.api.libs.json._
@@ -66,7 +67,8 @@ case class Task(
     mapillaryImages: Option[List[MapillaryImage]] = None
 ) extends BaseObject[Long]
     with DefaultReads
-    with LowPriorityDefaultReads {
+    with LowPriorityDefaultReads
+    with Identifiable {
   override val itemType: ItemType = TaskType()
 
   /**
@@ -110,7 +112,15 @@ case class Task(
   }
 }
 
-object Task {
+object Task extends CommonField {
+  // TASK FIELDS
+  val TABLE                = "tasks"
+  val FIELD_LOCATION       = "location"
+  val FIELD_STATUS         = "status"
+  val FIELD_PRIORITY       = "priority"
+  val FIELD_BUNDLE_ID      = "bundle_id"
+  val FIELD_BUNDLE_PRIMARY = "is_bundle_primary"
+
   implicit object TaskFormat extends Format[Task] {
     override def writes(o: Task): JsValue = {
       implicit val mapillaryWrites: Writes[MapillaryImage] = Json.writes[MapillaryImage]
