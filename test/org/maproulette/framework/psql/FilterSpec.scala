@@ -35,7 +35,7 @@ class FilterSpec extends PlaySpec {
     "Create a group of OR filter parameters" in {
       val group =
         FilterGroup(List(parameter1, parameter2), OR())
-      group.sql() mustEqual s"KEY = {${parameter1.getKey}} OR KEY2 = {${parameter2.getKey}}"
+      group.sql() mustEqual s"(KEY = {${parameter1.getKey}} OR KEY2 = {${parameter2.getKey}})"
       val params = group.parameters()
       params.size mustEqual 2
       params.head mustEqual SQLUtils.buildNamedParameter(parameter1.getKey, VALUE)
@@ -55,7 +55,7 @@ class FilterSpec extends PlaySpec {
 
     "generate standard sql for OR parameters" in {
       val filter = Filter.simple(List(parameter1, parameter2), OR())
-      filter.sql() mustEqual s"KEY = {${parameter1.getKey}} OR KEY2 = {${parameter2.getKey}}"
+      filter.sql() mustEqual s"(KEY = {${parameter1.getKey}} OR KEY2 = {${parameter2.getKey}})"
       val params = filter.parameters()
       params.size mustEqual 2
       params.head mustEqual SQLUtils.buildNamedParameter(parameter1.getKey, VALUE)
@@ -77,7 +77,7 @@ class FilterSpec extends PlaySpec {
     "generate filter groups for OR parameters" in {
       val filter = this.genericFilter(OR(), OR(), OR())
       filter
-        .sql() mustEqual s"(KEY = {${parameter1.getKey}} OR KEY_1 = {${parameter3.getKey}}) OR (KEY2 = {${parameter2.getKey}} OR KEY2_2 = {${parameter4.getKey}})"
+        .sql() mustEqual s"((KEY = {${parameter1.getKey}} OR KEY_1 = {${parameter3.getKey}})) OR ((KEY2 = {${parameter2.getKey}} OR KEY2_2 = {${parameter4.getKey}}))"
       val params = filter.parameters()
       params.size mustEqual 4
     }
@@ -93,7 +93,7 @@ class FilterSpec extends PlaySpec {
     "generate filter groups for OR/AND/OR parameters" in {
       val filter = this.genericFilter(AND(), OR(), OR())
       filter
-        .sql() mustEqual s"(KEY = {${parameter1.getKey}} OR KEY_1 = {${parameter3.getKey}}) AND (KEY2 = {${parameter2.getKey}} OR KEY2_2 = {${parameter4.getKey}})"
+        .sql() mustEqual s"((KEY = {${parameter1.getKey}} OR KEY_1 = {${parameter3.getKey}})) AND ((KEY2 = {${parameter2.getKey}} OR KEY2_2 = {${parameter4.getKey}}))"
       val params = filter.parameters()
       params.size mustEqual 4
     }
@@ -101,7 +101,7 @@ class FilterSpec extends PlaySpec {
     "generate filter groups for OR/OR/AND parameters" in {
       val filter = this.genericFilter(OR(), OR(), AND())
       filter
-        .sql() mustEqual s"(KEY = {${parameter1.getKey}} OR KEY_1 = {${parameter3.getKey}}) OR (KEY2 = {${parameter2.getKey}} AND KEY2_2 = {${parameter4.getKey}})"
+        .sql() mustEqual s"((KEY = {${parameter1.getKey}} OR KEY_1 = {${parameter3.getKey}})) OR (KEY2 = {${parameter2.getKey}} AND KEY2_2 = {${parameter4.getKey}})"
       val params = filter.parameters()
       params.size mustEqual 4
     }

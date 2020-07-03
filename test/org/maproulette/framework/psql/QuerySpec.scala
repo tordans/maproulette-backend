@@ -139,7 +139,7 @@ class QuerySpec extends PlaySpec {
     )
 
     query
-      .sql() mustEqual s"""SELECT * FROM table WHERE (KEY = {$setKey} OR key2 = {${parameter2.getKey}}) AND (a.g = g.a OR dateField::DATE BETWEEN {${parameter4.getKey}_date1} AND {${parameter4.getKey}_date2}) AND (${FilterParameterSpec
+      .sql() mustEqual s"""SELECT * FROM table WHERE ((KEY = {$setKey} OR key2 = {${parameter2.getKey}})) AND ((a.g = g.a OR dateField::DATE BETWEEN {${parameter4.getKey}_date1} AND {${parameter4.getKey}_date2})) AND (${FilterParameterSpec
       .DEFAULT_FUZZY_SQL(
         "fuzzy",
         keyPrefix = parameter5.randomPrefix

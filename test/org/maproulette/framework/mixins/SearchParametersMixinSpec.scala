@@ -276,8 +276,8 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
-          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2)))"
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2))"
     }
 
     "invert when contains -1" in {
@@ -286,10 +286,10 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("trStatus"))
       )
       this.filterTaskReviewStatus(params).sql() mustEqual
-        "(NOT tasks.id IN (SELECT task_id FROM task_review " +
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
           "WHERE task_review.task_id = tasks.id AND task_review.review_status IN (1,2,-1)) " +
           "AND tasks.id IN (SELECT task_id FROM task_review task_review " +
-          "WHERE task_review.task_id = tasks.id))"
+          "WHERE task_review.task_id = tasks.id)"
     }
   }
 
@@ -299,7 +299,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         SearchChallengeParameters(challengeStatus = Some(List(1, 2)))
       )
       this.filterChallengeStatus(params).sql() mustEqual
-        s"""c.status IN (1,2)"""
+        s"""(c.status IN (1,2))"""
     }
 
     "include challenge with null status when params contains -1" in {
@@ -307,7 +307,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         SearchChallengeParameters(challengeStatus = Some(List(1, 2, -1)))
       )
       this.filterChallengeStatus(params).sql() mustEqual
-        s"""c.status IN (1,2,-1) OR c.status IS NULL""".stripMargin
+        s"""(c.status IN (1,2,-1) OR c.status IS NULL)""".stripMargin
     }
 
     "be empty" in {
@@ -629,10 +629,10 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     "does search on display name and virtual project names" in {
       val params = SearchParameters(projectSearch = Some("abc"))
       this.filterProjects(params).sql() mustEqual
-        "p.display_name ILIKE '%abc%' OR " +
+        "(p.display_name ILIKE '%abc%' OR " +
           "(c.id IN (SELECT vp2.challenge_id FROM virtual_project_challenges vp2  " +
           "INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE  LOWER(p2.display_name) " +
-          "LIKE LOWER('%abc%') AND p2.enabled=true))"
+          "LIKE LOWER('%abc%') AND p2.enabled=true)))"
     }
 
     "can be empty" in {
