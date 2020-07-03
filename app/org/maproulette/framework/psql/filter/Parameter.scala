@@ -7,6 +7,7 @@ package org.maproulette.framework.psql.filter
 
 import anorm.{NamedParameter, ToParameterValue}
 import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 import org.maproulette.framework.psql.filter.Operator.Operator
 import org.maproulette.framework.psql.{Query, SQLUtils}
 import org.maproulette.utils.Utils
@@ -118,8 +119,11 @@ case class DateParameter(
     value2: DateTime,
     override val operator: Operator = Operator.EQ,
     override val negate: Boolean = false,
-    override val table: Option[String] = None
+    override val table: Option[String] = None,
+    override val useValueDirectly: Boolean = false
 ) extends Parameter[DateTime] {
+  private val dateFormat = DateTimeFormat.forPattern("yyyy-MM-dd")
+
   override def sql()(implicit tableKey: String = ""): String = {
     if (operator == Operator.BETWEEN) {
       SQLUtils.testColumnName(key)
@@ -128,7 +132,12 @@ case class DateParameter(
       } else {
         ""
       }
-      s"${this.getColumnKey(tableKey)}::DATE ${negation}BETWEEN {${this.getKey()}_date1} AND {${this.getKey()}_date2}"
+      if (useValueDirectly) {
+        s"${this.getColumnKey(tableKey)}::DATE ${negation}BETWEEN '${dateFormat.print(value)}' AND '${dateFormat
+          .print(value2)}'"
+      } else {
+        s"${this.getColumnKey(tableKey)}::DATE ${negation}BETWEEN {${this.getKey()}_date1} AND {${this.getKey()}_date2}"
+      }
     } else {
       super.sql()
     }

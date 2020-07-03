@@ -9,6 +9,7 @@ import java.sql.SQLException
 
 import anorm.NamedParameter
 import org.joda.time.{DateTime, Months}
+import org.joda.time.format.DateTimeFormat
 import org.maproulette.framework.psql.filter._
 import org.scalatestplus.play.PlaySpec
 
@@ -145,6 +146,15 @@ class FilterParameterSpec extends PlaySpec {
       intercept[SQLException] {
         DateParameter(s"432%$KEY", DateTime.now(), null).sql()
       }
+    }
+
+    "allow useValueDirectly" in {
+      val dateFormat = DateTimeFormat.forPattern("yyyy-MM-dd")
+      val endDate    = DateTime.now()
+      val startDate  = endDate.minus(Months.ONE)
+      val filter     = DateParameter(KEY, startDate, endDate, Operator.BETWEEN, useValueDirectly = true)
+      filter
+        .sql() mustEqual s"$KEY::DATE BETWEEN '${dateFormat.print(startDate)}' AND '${dateFormat.print(endDate)}'"
     }
   }
 

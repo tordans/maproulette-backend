@@ -7,13 +7,15 @@ package org.maproulette.framework.repository
 
 import java.sql.Connection
 
-import anorm.SqlParser.get
+import anorm.SqlParser._
 import anorm.{RowParser, ~}
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.{Query, Grouping, GroupField}
+import org.maproulette.framework.psql.{Query, Grouping, GroupField, OR}
+import org.maproulette.framework.psql.filter._
+
 import play.api.db.Database
 
 /**
@@ -45,6 +47,44 @@ class ChallengeRepository @Inject() (override val db: Database) extends Reposito
           Grouping(GroupField(Challenge.FIELD_ID))
         )
         .as(ChallengeRepository.parser.*)
+    }
+  }
+
+  /**
+    * Returns all the challenge ids that are in the given projects
+    * @param projectList - ids of projects (can also include virtual projects)
+    * @return list of challenge ids
+    */
+  def findRelevantChallenges(projectList: Option[List[Long]]): Option[List[Long]] = {
+    withMRConnection { implicit c =>
+      Some(
+        Query
+          .simple(
+            List(
+              BaseParameter(
+                Challenge.FIELD_PARENT_ID,
+                projectList.getOrElse(List()),
+                Operator.IN
+              ),
+              SubQueryFilter(
+                Challenge.FIELD_ID,
+                Query.simple(
+                  List(
+                    BaseParameter(
+                      "project_id",
+                      projectList.getOrElse(List()),
+                      Operator.IN
+                    )
+                  ),
+                  "SELECT challenge_id FROM virtual_project_challenges vp"
+                )
+              )
+            ),
+            key = OR()
+          )
+          .build("SELECT id FROM challenges")
+          .as(long("id").*)
+      )
     }
   }
 }
