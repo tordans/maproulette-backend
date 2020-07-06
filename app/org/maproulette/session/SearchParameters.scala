@@ -465,8 +465,8 @@ object SearchParameters {
           case Some(r) => Utils.toLongList(r)
           case None => params.reviewParams.reviewers
         },
-        this.getStringParameter(request.getQueryString("startDate"), params.reviewParams.startDate),
-        this.getStringParameter(request.getQueryString("endDate"), params.reviewParams.endDate)
+        this.getStringParameter(request.getQueryString("start"), params.reviewParams.startDate),
+        this.getStringParameter(request.getQueryString("end"), params.reviewParams.endDate)
       ),
       // Search Leaderboard Parameters
       new SearchLeaderboardParameters(
