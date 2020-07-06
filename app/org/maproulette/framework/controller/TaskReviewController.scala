@@ -320,39 +320,42 @@ class TaskReviewController @Inject() (
             .toMap
 
         val byReviewStatusMetrics =
-          allReviewStatuses.map( reviewStatus => {
-            val reviewStatusMetrics = this.service.getMapperMetrics(
-              User.userOrMocked(user),
-              params.copy(
-                taskParams = SearchTaskParameters(
-                  taskReviewStatus = Some(List(reviewStatus))
-                )
-              ),
-              onlySaved
-            )
+          allReviewStatuses
+            .map(reviewStatus => {
+              val reviewStatusMetrics = this.service.getMapperMetrics(
+                User.userOrMocked(user),
+                params.copy(
+                  taskParams = SearchTaskParameters(
+                    taskReviewStatus = Some(List(reviewStatus))
+                  )
+                ),
+                onlySaved
+              )
 
-            reviewStatus -> (reviewStatusMetrics.map(m => m.userId.get -> m).toMap)
-          }).toMap
+              reviewStatus -> (reviewStatusMetrics.map(m => m.userId.get -> m).toMap)
+            })
+            .toMap
 
         val seqString = metrics.map(row => {
           var mapper = mapperNames.get(row.userId.get)
 
           val result = new StringBuilder(
             s"${mapper.get},,${row.total},,,${row.reviewRequested}," +
-            s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
-            s"${row.reviewDisputed},${row.fixed},${row.falsePositive},${row.alreadyFixed}," +
-            s"${row.tooHard}")
+              s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
+              s"${row.reviewDisputed},${row.fixed},${row.falsePositive},${row.alreadyFixed}," +
+              s"${row.tooHard}"
+          )
 
           allReviewStatuses.foreach(rs => {
             if (byReviewStatusMetrics.get(rs).get.contains(row.userId.get)) {
-              val rsRow = byReviewStatusMetrics.get(rs).get(row.userId.get)
+              val rsRow         = byReviewStatusMetrics.get(rs).get(row.userId.get)
               val rsTimeSeconds = Math.round(rsRow.avgReviewTime / 1000)
-              val rsPercent = Math.round(rsRow.total * 100 / row.total)
+              val rsPercent     = Math.round(rsRow.total * 100 / row.total)
               result ++=
                 s"\n${mapper.get},${Task.reviewStatusMap.get(rs).get},${rsRow.total}," +
-                s"${rsPercent},${rsTimeSeconds},,,,," +
-                s",${rsRow.fixed},${rsRow.falsePositive},${rsRow.alreadyFixed}," +
-                s"${rsRow.tooHard}"
+                  s"${rsPercent},${rsTimeSeconds},,,,," +
+                  s",${rsRow.fixed},${rsRow.falsePositive},${rsRow.alreadyFixed}," +
+                  s"${rsRow.tooHard}"
             }
           })
           result.toString

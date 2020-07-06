@@ -110,6 +110,7 @@ generateRoutesFile := {
       "bundle.api",
       "team.api",
       "follow.api",
+      "leaderboard.api",
       "v2.api"
     )
     println(s"Generating Routes File from ${routeFiles.mkString(",")}")

@@ -33,18 +33,16 @@ class DataController @Inject() (
     permission: Permission
 ) extends AbstractController(components) {
 
-  implicit val actionWrites               = actionManager.actionItemWrites
-  implicit val dateWrites                 = Writes.dateWrites("yyyy-MM-dd")
-  implicit val dateTimeWrites             = JodaWrites.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss")
-  implicit val actionSummaryWrites        = Json.writes[ActionSummary]
-  implicit val userSummaryWrites          = Json.writes[UserSummary]
-  implicit val challengeLeaderboardWrites = Json.writes[LeaderboardChallenge]
-  implicit val userLeaderboardWrites      = Json.writes[LeaderboardUser]
-  implicit val challengeSummaryWrites     = Json.writes[ChallengeSummary]
-  implicit val challengeActivityWrites    = Json.writes[ChallengeActivity]
-  implicit val rawActivityWrites          = Json.writes[RawActivity]
-  implicit val statusActionItemWrites     = Json.writes[StatusActionItem]
-  implicit val statusActionSummaryWrites  = Json.writes[DailyStatusActionSummary]
+  implicit val actionWrites              = actionManager.actionItemWrites
+  implicit val dateWrites                = Writes.dateWrites("yyyy-MM-dd")
+  implicit val dateTimeWrites            = JodaWrites.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss")
+  implicit val actionSummaryWrites       = Json.writes[ActionSummary]
+  implicit val userSummaryWrites         = Json.writes[UserSummary]
+  implicit val challengeSummaryWrites    = Json.writes[ChallengeSummary]
+  implicit val challengeActivityWrites   = Json.writes[ChallengeActivity]
+  implicit val rawActivityWrites         = Json.writes[RawActivity]
+  implicit val statusActionItemWrites    = Json.writes[StatusActionItem]
+  implicit val statusActionSummaryWrites = Json.writes[DailyStatusActionSummary]
 
   implicit val stringIntMap: Writes[Map[String, Int]] = new Writes[Map[String, Int]] {
     def writes(map: Map[String, Int]): JsValue =
@@ -120,150 +118,6 @@ class DataController @Inject() (
             Utils.getDate(start),
             Utils.getDate(end),
             this.getPriority(priority)
-          )
-        )
-      )
-    }
-  }
-
-  /**
-    * Gets the top scoring users, based on task completion, over the given
-    * number of montns (or using start and end dates). Included with each user is their top challenges
-    * (by amount of activity).
-    *
-    * @param userIds       restrict to specified users
-    * @param projectIds    restrict to specified projects
-    * @param challengeIds  restrict to specified challenges
-    * @param countryCodes  restrict tasks to specified countries
-    * @param monthDuration number of months to fetch (do not include if using start/end dates)
-    * @param start         the start date (if not using monthDuration)
-    * @param end           the end date (if not using monthDuration)
-    * @param limit         the limit on the number of users returned
-    * @param onlyEnabled   only include enabled in user top challenges (doesn't affect scoring)
-    * @param offset        paging, starting at 0
-    * @return Top-ranked users with scores based on task completion activity
-    */
-  def getUserLeaderboard(
-      userIds: String,
-      projectIds: String,
-      challengeIds: String,
-      countryCodes: String,
-      monthDuration: String,
-      start: String,
-      end: String,
-      onlyEnabled: Boolean,
-      limit: Int,
-      offset: Int
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      Ok(
-        Json.toJson(
-          this.dataManager.getUserLeaderboard(
-            Utils.toLongList(userIds),
-            Utils.toLongList(projectIds),
-            Utils.toLongList(challengeIds),
-            Utils.toStringList(countryCodes),
-            Try(monthDuration.toInt).toOption,
-            Utils.getDate(start),
-            Utils.getDate(end),
-            onlyEnabled,
-            limit,
-            offset
-          )
-        )
-      )
-    }
-  }
-
-  /**
-    * Gets the leaderboard ranking for a user, based on task completion, over
-    * the given number of months (or start and end dates). Included with the user is their top challenges
-    * (by amount of activity). Also a bracketing number of users above and below
-    * the user in the rankings.
-    *
-    * @param userId        user Id for user
-    * @param projectIds    restrict to specified projects
-    * @param challengeIds  restrict to specified challenges
-    * @param countryCodes  restrict tasks to specified countries
-    * @param monthDuration number of months to fetch (do not include if using start and end dates)
-    * @param start         the start date (if not using monthDuration)
-    * @param end           the end date (if not using monthDuration)
-    * @param onlyEnabled   only include enabled in user top challenges (doesn't affect scoring)
-    * @param bracket       the number of users to return above and below the given user (0 returns just the user)
-    * @return User with score and ranking based on task completion activity
-    */
-  def getLeaderboardForUser(
-      userId: Long,
-      projectIds: String,
-      challengeIds: String,
-      countryCodes: String,
-      monthDuration: String,
-      start: String,
-      end: String,
-      onlyEnabled: Boolean,
-      bracket: Int
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      Ok(
-        Json.toJson(
-          this.dataManager.getLeaderboardForUser(
-            userId,
-            Utils.toLongList(projectIds),
-            Utils.toLongList(challengeIds),
-            Utils.toStringList(countryCodes),
-            Try(monthDuration.toInt).toOption,
-            Utils.getDate(start),
-            Utils.getDate(end),
-            onlyEnabled,
-            bracket
-          )
-        )
-      )
-    }
-  }
-
-  /**
-    * Gets the user's top challenges, based on activity, over the given number of months
-    * (or start and end dates).
-    *
-    * @param userId        the id of the user
-    * @param projectIds    restrict to specified projects
-    * @param challengeIds  restrict to specified challenges
-    * @param countryCodes  restrict tasks to specified countries
-    * @param monthDuration number of months (do not include if using start/end dates)
-    * @param start         the start date (if not using monthDuration)
-    * @param end           the end date (if not using monthDuration)
-    * @param onlyEnabled   only get enabled challenges
-    * @param limit         the limit on the number of challenges returned
-    * @param offset        paging, starting at 0
-    * @return Top challenges based on user's activity
-    */
-  def getUserTopChallenges(
-      userId: Long,
-      projectIds: String,
-      challengeIds: String,
-      countryCodes: String,
-      monthDuration: String,
-      start: String,
-      end: String,
-      onlyEnabled: Boolean,
-      limit: Int,
-      offset: Int
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      Ok(
-        Json.toJson(
-          this.dataManager.getUserTopChallenges(
-            userId,
-            Utils.toLongList(projectIds),
-            Utils.toLongList(projectIds),
-            Utils.toStringList(countryCodes),
-            Try(monthDuration.toInt).toOption,
-            Utils.getDate(start),
-            Utils.getDate(end),
-            onlyEnabled,
-            limit,
-            offset
           )
         )
       )

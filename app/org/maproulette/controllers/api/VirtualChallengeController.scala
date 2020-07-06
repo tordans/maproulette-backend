@@ -18,6 +18,7 @@ import org.maproulette.session.{
   SearchChallengeParameters,
   SearchTaskParameters,
   SearchReviewParameters,
+  SearchLeaderboardParameters,
   SearchLocation,
   SearchParameters,
   SessionManager,
@@ -47,6 +48,10 @@ class VirtualChallengeController @Inject() (
   override implicit val tWrites: Writes[VirtualChallenge] = VirtualChallenge.virtualChallengeWrites
   override implicit val itemType                          = VirtualChallengeType()
 
+  implicit val jodaDateWrite: Writes[DateTime] =
+    JodaWrites.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss'Z")
+  implicit val jodaDateReads: Reads[DateTime] = JodaReads.jodaDateReads("yyyy-MM-dd'T'HH:mm:ss'Z")
+
   //writes for tasks
   implicit val taskWrites: Writes[Task] = Task.TaskFormat
   implicit val taskReads: Reads[Task]   = Task.TaskFormat
@@ -61,6 +66,8 @@ class VirtualChallengeController @Inject() (
   implicit val taskParamsReads          = Json.reads[SearchTaskParameters]
   implicit val reviewParamsWrites       = Json.writes[SearchReviewParameters]
   implicit val reviewParamsReads        = Json.reads[SearchReviewParameters]
+  implicit val leaderboardParamsWrites  = Json.writes[SearchLeaderboardParameters]
+  implicit val leaderboardParamsReads   = Json.reads[SearchLeaderboardParameters]
   implicit val paramsWrites             = Json.writes[SearchParameters]
   implicit val paramsReads              = Json.reads[SearchParameters]
 
