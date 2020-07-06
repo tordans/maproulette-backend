@@ -400,6 +400,9 @@ class LeaderboardService @Inject() (
       endDate = new DateTime()
       if (monthDuration.get == -1) {
         startDate = new DateTime(2000, 1, 1, 12, 0, 0, 0)
+      }
+      else if (monthDuration.get == 0) {
+        startDate = new DateTime().withDayOfMonth(1)
       } else {
         startDate = new DateTime().minusMonths(monthDuration.get)
       }
