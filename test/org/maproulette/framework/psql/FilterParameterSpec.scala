@@ -181,7 +181,7 @@ class FilterParameterSpec extends PlaySpec {
       val filter =
         SubQueryFilter(KEY, Query.simple(List(parameter1, parameter2), "SELECT * FROM table", OR()))
       filter
-        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE key2 = {${parameter1.getKey}} OR key3 <= {${parameter2.getKey}})"
+        .sql() mustEqual s"$KEY IN (SELECT * FROM table WHERE (key2 = {${parameter1.getKey}} OR key3 <= {${parameter2.getKey}}))"
       val params = filter.parameters()
       params.size mustEqual 2
       params.head mustEqual SQLUtils.buildNamedParameter(
