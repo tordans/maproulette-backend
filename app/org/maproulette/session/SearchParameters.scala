@@ -465,8 +465,8 @@ object SearchParameters {
           case Some(r) => Utils.toLongList(r)
           case None => params.reviewParams.reviewers
         },
-        this.getStringParameter(request.getQueryString("start"), params.reviewParams.startDate),
-        this.getStringParameter(request.getQueryString("end"), params.reviewParams.endDate)
+        this.getStringParameter(request.getQueryString("startDate"), params.reviewParams.startDate),
+        this.getStringParameter(request.getQueryString("endDate"), params.reviewParams.endDate)
       ),
       // Search Leaderboard Parameters
       new SearchLeaderboardParameters(
@@ -487,8 +487,8 @@ object SearchParameters {
           case None => params.leaderboardParams.countryCodeFilter
         },
         this.getIntParameter(request.getQueryString("monthDuration"), params.leaderboardParams.monthDuration),
-        this.getDateParameter(request.getQueryString("startDate"), params.leaderboardParams.start),
-        this.getDateParameter(request.getQueryString("endDate"), params.leaderboardParams.end),
+        this.getDateParameter(request.getQueryString("start"), params.leaderboardParams.start),
+        this.getDateParameter(request.getQueryString("end"), params.leaderboardParams.end),
         this.getBooleanParameter(request.getQueryString("onlyEnabled"), Some(params.leaderboardParams.onlyEnabled)).getOrElse(true)
       ),
       //taskPriority
