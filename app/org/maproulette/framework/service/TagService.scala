@@ -105,7 +105,7 @@ class TagService @Inject() (
     */
   def find(
       searchString: String,
-      tagType: String = "challenges",
+      tagTypes: List[String] = List("challenges"),
       paging: Paging = Paging(),
       order: Order = Order(),
       usePrefix: Boolean = false
@@ -116,8 +116,9 @@ class TagService @Inject() (
           BaseParameter(Tag.FIELD_NAME, SQLUtils.search(searchString, usePrefix), Operator.ILIKE),
           FilterParameter.conditional(
             Tag.FIELD_TAG_TYPE,
-            tagType.trim,
-            includeOnlyIfTrue = tagType.trim.nonEmpty
+            tagTypes.mkString(","),
+            Operator.IN,
+            includeOnlyIfTrue = tagTypes.nonEmpty
           )
         ),
         paging = paging,

@@ -42,7 +42,7 @@ class TagSchema @Inject() (override val service: TagService)
       resolve = context =>
         this.service.find(
           context.arg(TagSchema.searchStringArg),
-          context.arg(TagSchema.tagTypeArg),
+          List(context.arg(TagSchema.tagTypeArg)),
           Paging(context.arg(MRSchema.pagingLimitArg), context.arg(MRSchema.pagingOffsetArg)),
           Order(context.arg(MRSchema.orderArg).getOrElse(Seq.empty).toList.map(OrderField(_))),
           context.arg(TagSchema.usePrefixArg)

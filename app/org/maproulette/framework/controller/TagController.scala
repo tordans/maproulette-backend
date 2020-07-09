@@ -137,7 +137,7 @@ class TagController @Inject() (
   def getTags(prefix: String, tagType: String, limit: Int, offset: Int): Action[AnyContent] =
     Action.async { implicit request =>
       this.sessionManager.userAwareRequest { implicit user =>
-        Ok(Json.toJson(this.service.find(prefix, tagType, Paging(limit, offset))))
+        Ok(Json.toJson(this.service.find(prefix, Utils.split(tagType.trim), Paging(limit, offset))))
       }
     }
 

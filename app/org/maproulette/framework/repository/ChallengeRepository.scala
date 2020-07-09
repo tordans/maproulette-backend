@@ -133,6 +133,9 @@ object ChallengeRepository {
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
+      get[Option[String]]("challenges.preferred_review_tags") ~
+      get[Boolean]("challenges.limit_tags") ~
+      get[Boolean]("challenges.limit_review_tags") ~
       get[Option[String]]("challenges.task_styles") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
@@ -145,7 +148,8 @@ object ChallengeRepository {
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
+            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
+            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ requiresLocal ~ location ~ bounding ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
@@ -195,6 +199,9 @@ object ChallengeRepository {
             exportableProperties,
             osmIdProperty,
             preferredTags,
+            preferredReviewTags,
+            limitTags,
+            limitReviewTags,
             taskStyles
           ),
           status,

@@ -643,7 +643,7 @@ class TaskController @Inject() (
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {
-        this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.dal.tableName)), user)
+        this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = "review")), user)
       }
 
       NoContent
