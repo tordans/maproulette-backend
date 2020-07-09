@@ -950,6 +950,7 @@ class ChallengeDAL @Inject() (
     this.withMRConnection { implicit c =>
       val filters = new StringBuilder()
 
+      // Verify timzone offset is valid (eg. -10:00 or +04:00 or 06:30:00)
       val tzOffset =
         timezone.matches("^[\\+\\-]*\\d\\d\\:\\d\\d(\\:\\d\\d)?$") match {
           case true => timezone
