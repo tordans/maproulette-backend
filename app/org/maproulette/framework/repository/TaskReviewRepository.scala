@@ -39,10 +39,11 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
       get[Double]("totalReviewTime") ~
       get[Int]("tasksWithReviewTime") ~
       get[Long]("user_id").? ~
-      get[String]("tag_name").? map {
+      get[String]("tag_name").? ~
+      get[String]("tag_type").? map {
       case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
             fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
-            totalReviewTime ~ tasksWithReviewTime ~ userId ~ tagName => {
+            totalReviewTime ~ tasksWithReviewTime ~ userId ~ tagName ~ tagType => {
         new ReviewMetrics(
           total,
           requested,
@@ -57,7 +58,8 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
           tooHard,
           if (tasksWithReviewTime > 0) (totalReviewTime / tasksWithReviewTime) else 0,
           userId,
-          tagName
+          tagName,
+          tagType
         )
       }
     }
@@ -175,10 +177,10 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
         groupFields = ", review_requested_by as user_id"
         Grouping(GroupField(TaskReview.FIELD_REVIEW_REQUESTED_BY))
       } else if (groupByTags) {
-        groupFields = ", tags.name as tag_name"
+        groupFields = ", TRIM(tags.name) as tag_name, tags.tag_type as tag_type"
         joinClause ++= "INNER JOIN tags_on_tasks tot ON tot.task_id = tasks.id "
         joinClause ++= "INNER JOIN tags tags ON tags.id = tot.tag_id "
-        Grouping(GroupField("name", table = Some("tags")))
+        Grouping(GroupField("tag_name", table = Some("")), GroupField("tag_type", table = Some("")))
       } else {
         Grouping()
       }

@@ -321,7 +321,7 @@ trait SearchParametersMixin {
       val tagList = params.taskParams.taskTags.get
         .map(t => {
           SQLUtils.testColumnName(t)
-          s"'${t}'"
+          s"'${t.trim.toLowerCase()}'"
         })
         .mkString(",")
 

@@ -103,6 +103,9 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
+      get[Option[String]]("challenges.preferred_review_tags") ~
+      get[Boolean]("challenges.limit_tags") ~
+      get[Boolean]("challenges.limit_review_tags") ~
       get[Option[String]]("challenges.task_styles") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
@@ -114,7 +117,8 @@ class ChallengeDAL @Inject() (
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
+            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
+            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
@@ -164,6 +168,9 @@ class ChallengeDAL @Inject() (
             exportableProperties,
             osmIdProperty,
             preferredTags,
+            preferredReviewTags,
+            limitTags,
+            limitReviewTags,
             taskStyles
           ),
           status,
@@ -216,6 +223,9 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
+      get[Option[String]]("challenges.preferred_review_tags") ~
+      get[Boolean]("challenges.limit_tags") ~
+      get[Boolean]("challenges.limit_review_tags") ~
       get[Option[String]]("challenges.task_styles") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
@@ -229,7 +239,8 @@ class ChallengeDAL @Inject() (
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-            exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~
+            exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~ limitTags ~
+            limitReviewTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~
             location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
@@ -279,6 +290,9 @@ class ChallengeDAL @Inject() (
             exportableProperties,
             osmIdProperty,
             preferredTags,
+            preferredReviewTags,
+            limitTags,
+            limitReviewTags,
             taskStyles
           ),
           status,
@@ -420,7 +434,8 @@ class ChallengeDAL @Inject() (
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
-                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, task_styles, requires_local)
+                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
+                                      limit_tags, limit_review_tags, task_styles, requires_local)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.featured},
@@ -431,7 +446,8 @@ class ChallengeDAL @Inject() (
                       ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty},
                       ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
-                      ${challenge.extra.preferredTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
+                      ${challenge.extra.preferredTags}, ${challenge.extra.preferredReviewTags}, ${challenge.extra.limitTags},
+                      ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}"""
           .as(this.parser.*)
           .headOption
@@ -557,6 +573,15 @@ class ChallengeDAL @Inject() (
           val preferredTags = (updates \ "preferredTags")
             .asOpt[String]
             .getOrElse(cachedItem.extra.preferredTags.getOrElse(null))
+          val preferredReviewTags = (updates \ "preferredReviewTags")
+            .asOpt[String]
+            .getOrElse(cachedItem.extra.preferredReviewTags.getOrElse(null))
+          val limitTags = (updates \ "limitTags")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.extra.limitTags)
+          val limitReviewTags = (updates \ "limitReviewTags")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.extra.limitReviewTags)
           val taskStyles = (updates \ "taskStyles").asOpt[JsValue] match {
             case Some(ts) => ts.toString()
             case _        => cachedItem.extra.taskStyles.getOrElse(null)
@@ -587,7 +612,8 @@ class ChallengeDAL @Inject() (
           }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, task_styles = $taskStyles,
+                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
+                limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
                 requires_local = $requiresLocal
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
         }
