@@ -652,6 +652,7 @@ class ChallengeController @Inject() (
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
+        // Verify timzone offset is valid (eg. -10:00 or +04:00 or 06:30:00)
         val tzRegex = "^[\\+]?([\\-]?[\\d]?\\d)\\:([\\d]?\\d)(\\:\\d\\d)?$".r
         val dateTimeZone =
           timezone match {
