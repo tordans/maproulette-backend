@@ -11,7 +11,7 @@ import java.util.zip.{ZipEntry, ZipOutputStream}
 import akka.util.ByteString
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import org.maproulette.Config
 import org.maproulette.controllers.ParentController
 import org.maproulette.data._
@@ -141,7 +141,8 @@ class ChallengeController @Inject() (
       challengeId: Long,
       statusFilter: String,
       reviewStatusFilter: String,
-      priorityFilter: String
+      priorityFilter: String,
+      timezone: String
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -171,7 +172,7 @@ class ChallengeController @Inject() (
               body = HttpEntity.Strict(
                 ByteString(
                   this.dal
-                    .getChallengeGeometry(challengeId, status, reviewStatus, priority, Some(params))
+                    .getChallengeGeometry(challengeId, status, reviewStatus, priority, Some(params), timezone)
                 ),
                 Some("application/json;charset=utf-8;header=present")
               )
@@ -586,11 +587,12 @@ class ChallengeController @Inject() (
     * Extracts all the tasks belonging to the challenges in the project and
     * returns them in a nice format like csv.
     *
-    * @param projectId The id of the project
-    * @param cId Optional list of challenges
+    * @param projectId    The id of the project
+    * @param cId          Optional list of challenges
+    * @param timezone     The timezone offset (ie. -07:00)
     * @return A csv list of tasks for the project
     */
-  def extractAllTaskSummaries(projectId: Long, cId: Option[String]): Action[AnyContent] = {
+  def extractAllTaskSummaries(projectId: Long, cId: Option[String], timezone: String = Utils.UTC_TIMEZONE): Action[AnyContent] = {
     var challengeIds: List[Long] = cId match {
       case Some(c) => Utils.toLongList(c).getOrElse(List())
       case None    => List()
@@ -601,7 +603,8 @@ class ChallengeController @Inject() (
         case None    => throw new NotFoundException(s"Project with id $projectId not found")
       }
     }
-    this._extractTaskSummaries(challengeIds, -1, 0, "-1", "", "", s"project_${projectId}_tasks.csv")
+    this._extractTaskSummaries(challengeIds, -1, 0, "-1", "", "", s"project_${projectId}_tasks.csv",
+                               timezone = timezone)
   }
 
   /**
@@ -610,6 +613,7 @@ class ChallengeController @Inject() (
     * @param challengeId The id of the challenge
     * @param limit       limit the number of results
     * @param page        Used for paging
+    * @param timezone    The timezone offset (ie. -07:00)
     * @return A csv list of tasks for the challenge
     */
   def extractTaskSummaries(
@@ -619,7 +623,8 @@ class ChallengeController @Inject() (
       statusFilter: String,
       reviewStatusFilter: String,
       priorityFilter: String,
-      exportProperties: String = ""
+      exportProperties: String = "",
+      timezone: String = Utils.UTC_TIMEZONE
   ): Action[AnyContent] = {
     this._extractTaskSummaries(
       List(challengeId),
@@ -629,7 +634,8 @@ class ChallengeController @Inject() (
       reviewStatusFilter,
       priorityFilter,
       s"challenge_${challengeId}_tasks.csv",
-      exportProperties
+      exportProperties,
+      timezone
     )
   }
 
@@ -641,10 +647,24 @@ class ChallengeController @Inject() (
       reviewStatusFilter: String,
       priorityFilter: String,
       filename: String,
-      exportProperties: String = ""
+      exportProperties: String = "",
+      timezone: String
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
+        // Verify timzone offset is valid (eg. -10:00 or +04:00 or 06:30:00)
+        val tzRegex = "^[\\+]?([\\-]?[\\d]?\\d)\\:([\\d]?\\d)(\\:\\d\\d)?$".r
+        val dateTimeZone =
+          timezone match {
+            case tzRegex(hours, minutes, seconds) =>
+              DateTimeZone.forOffsetHoursMinutes(hours.toInt, minutes.toInt)
+            case _  =>
+              if (timezone.isEmpty())
+                DateTimeZone.getDefault
+              else
+                throw new InvalidException("Timezone is not a valid time zone. [" + timezone + "]")
+          }
+
         val status = if (StringUtils.isEmpty(statusFilter)) {
           None
         } else {
@@ -782,18 +802,26 @@ class ChallengeController @Inject() (
 
           var comments      = allComments(task.taskId).replaceAll("\"", "\"\"")
           var challengeLink = s"[[hyperlink URL link=${urlPrefix}browse/challenges/${task.parent}]]"
+          val mappedOn = task.mappedOn match {
+            case Some(m) => m.withZone(dateTimeZone)
+            case _ => ""
+          }
+
+          val reviewedAt = task.reviewedAt match {
+            case Some(d) => d.withZone(dateTimeZone)
+            case _ => ""
+          }
+
           var taskLink =
             s"[[hyperlink URL link=${urlPrefix}challenge/${task.parent}/task/${task.taskId}]]"
 
           s"""${task.taskId},${taskLink},${task.parent},${challengeLink},"${task.name}","${Task.statusMap
             .get(task.status)
             .get}",""" +
-            s""""${Challenge.priorityMap.get(task.priority).get}",${task.mappedOn
-              .getOrElse("")},""" +
+            s""""${Challenge.priorityMap.get(task.priority).get}",${mappedOn},""" +
             s"""${task.completedTimeSpent.getOrElse("")},"${mapper}",""" +
             s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},""" +
-            s""""${task.reviewedBy.getOrElse("")}",${task.reviewedAt
-              .getOrElse("")},"${reviewTimeSeconds}",""" +
+            s""""${task.reviewedBy.getOrElse("")}",${reviewedAt},"${reviewTimeSeconds}",""" +
             s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary
               .getOrElse("")}",""" +
             s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin

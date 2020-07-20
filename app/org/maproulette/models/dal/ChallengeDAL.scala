@@ -22,6 +22,7 @@ import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters
+import org.maproulette.utils.Utils
 import play.api.db.Database
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.{JsString, JsValue, Json}
@@ -934,6 +935,7 @@ class ChallengeDAL @Inject() (
     * @param reviewStatusFilter To view the geojson for only challenges with a specific review status
     * @param priorityFilter     To view the geojson for only challenges with a specific priority
     * @param params             SearchParameters for filtering by taskPropertySearch
+    * @param timezone           The timezone offset (ie. -07:00)
     * @param c                  The implicit connection for the function
     * @return
     */
@@ -942,10 +944,22 @@ class ChallengeDAL @Inject() (
       statusFilter: Option[List[Int]] = None,
       reviewStatusFilter: Option[List[Int]] = None,
       priorityFilter: Option[List[Int]] = None,
-      params: Option[SearchParameters] = None
+      params: Option[SearchParameters] = None,
+      timezone: String = Utils.UTC_TIMEZONE
   )(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
       val filters = new StringBuilder()
+
+      // Verify timzone offset is valid (eg. -10:00 or +04:00 or 06:30:00)
+      val tzOffset =
+        timezone.matches("^[\\+\\-]*\\d\\d\\:\\d\\d(\\:\\d\\d)?$") match {
+          case true => timezone
+          case false =>
+            if (timezone.isEmpty)
+              Utils.UTC_TIMEZONE
+            else
+              throw new InvalidException("Timezone is not a valid time zone. [" + timezone + "]")
+        }
 
       statusFilter match {
         case Some(s) => filters.append(s"AND t.status IN (${s.mkString(",")})")
@@ -1041,7 +1055,11 @@ class ChallengeDAL @Inject() (
                                             WHEN t.priority = #${Challenge.PRIORITY_MEDIUM} THEN ${Challenge.PRIORITY_MEDIUM_NAME}
                                             WHEN t.priority = #${Challenge.PRIORITY_LOW} THEN ${Challenge.PRIORITY_LOW_NAME}
                                            END)) ||
-                                        hstore('mr_mappedOn', t.mapped_on::text) ||
+                                        hstore('mr_mappedOn',
+                                                TO_CHAR(t.mapped_on::TIMESTAMPTZ at time zone
+                                                  (select name from pg_timezone_names where utc_offset='#${tzOffset}' limit 1),
+                                                  'YYYY-MM-DD"T"HH24:MI:SS#${tzOffset}'))
+                                        ||
                                         hstore('mr_mapper',
                                           (CASE WHEN t.review_requested_by = NULL
                                            THEN (select name from users where osm_id=t.osm_user_id)::text
@@ -1057,7 +1075,11 @@ class ChallengeDAL @Inject() (
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_UNNECESSARY} THEN ${Task.REVIEW_STATUS_UNNECESSARY_NAME}
                                            END)) ||
                                         hstore('mr_reviewer', (select name from users where id=t.reviewed_by)::text) ||
-                                        hstore('mr_reviewedAt', t.reviewed_at::text) ||
+                                        hstore('mr_reviewedAt',
+                                          TO_CHAR(t.reviewed_at::TIMESTAMPTZ at time zone
+                                            (select name from pg_timezone_names where utc_offset='#${tzOffset}' limit 1),
+                                            'YYYY-MM-DD"T"HH24:MI:SS#${tzOffset}'))
+                                        ||
                                         hstore('mr_reviewTimeSeconds', FLOOR(EXTRACT(EPOCH FROM (t.reviewed_at - t.review_started_at)))::text) ||
                                         hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags
                                                             FROM tags_on_tasks tot, tags tg
