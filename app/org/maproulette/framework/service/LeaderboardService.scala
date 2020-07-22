@@ -30,6 +30,81 @@ class LeaderboardService @Inject() (
 ) extends LeaderboardMixin {
 
   /**
+    * Gets leaderboard of top ranking reviewers based on review activity
+    * over the given period.
+    *
+    * If projectFilter or challengeFilter are given, activity will be limited to
+    * those projects and/or challenges.
+    *
+    * @param params             SearchLeaderboardParameters
+    * @param limit             limit the number of returned users
+    * @param offset            paging, starting at 0
+    * @return Returns list of leaderboard users
+    */
+  def getReviewerLeaderboard(
+      params: SearchLeaderboardParameters,
+      limit: Int = Config.DEFAULT_LIST_SIZE,
+      offset: Int = 0
+  ): List[LeaderboardUser] = {
+    val (start, end) = this.setupDates(params.monthDuration, params.start, params.end)
+
+    val projectFilter   = params.projectFilter
+    val challengeFilter = params.challengeFilter
+
+    val challengeList =
+      if (projectFilter != None)
+        // Let's determine all the challenges that are in these projects
+        // to make our query faster.
+        this.challengeRepository.findRelevantChallenges(projectFilter)
+      else challengeFilter
+
+    val query = Query.simple(
+      List(
+        DateParameter(
+          "reviewed_at",
+          start,
+          end,
+          Operator.BETWEEN,
+          table = Some("task_review"),
+          useValueDirectly = true
+        ),
+        CustomParameter("users.id = task_review.reviewed_by"),
+        CustomParameter("tasks.id = task_review.task_id"),
+        FilterParameter.conditional(
+          "parent_id",
+          challengeList.getOrElse(List()).mkString(","),
+          Operator.IN,
+          includeOnlyIfTrue = challengeList.getOrElse(List()).nonEmpty,
+          useValueDirectly = true,
+          table = Some("tasks")
+        )
+      ),
+      grouping = Grouping(
+        GroupField("reviewed_by", Some("task_review")),
+        GroupField(User.FIELD_ID, Some("users"))
+      ),
+      order = Order(
+        List(
+          OrderField("user_score", Order.DESC, table = Some("")),
+          OrderField("reviewed_by", Order.ASC, table = Some("task_review"))
+        )
+      ),
+      base = s"""
+            SELECT users.id as user_id, users.name as user_name, users.avatar_url as user_avatar_url, ${this
+        .reviewScoreSumSQL(config)} AS user_score,
+                   ${this.reviewSumSQL()} AS completed_tasks, ${this
+        .reviewTimeSpentSQL()} AS avg_time_spent,
+                   ROW_NUMBER() OVER( ORDER BY ${this
+        .reviewScoreSumSQL(config)} DESC, task_review.reviewed_by ASC) as user_ranking
+            FROM users, task_review, tasks
+          """,
+      paging = Paging(limit, offset)
+    )
+
+    this.repository.query(query, fetchedUserId => List())
+  }
+
+  /**
     * Gets leaderboard of top-scoring users based on task completion activity
     * over the given period. Scoring for each completed task is based on status
     * assigned to the task (status point values are configurable). Users are

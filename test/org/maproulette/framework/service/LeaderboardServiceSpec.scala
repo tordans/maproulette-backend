@@ -13,7 +13,7 @@ import org.maproulette.framework.psql.{GroupField, Grouping, Query}
 import org.maproulette.framework.util.{LeaderboardTag, FrameworkHelper}
 import org.maproulette.framework.repository.UserRepository
 import org.maproulette.models.Task
-import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
+import org.maproulette.models.dal.{ChallengeDAL, TaskDAL, TaskReviewDAL}
 import org.maproulette.session.{SearchParameters, SearchLeaderboardParameters}
 import play.api.Application
 import javax.inject.Inject
@@ -51,7 +51,7 @@ class LeaderboardServiceSpec(implicit val application: Application) extends Fram
 
       // With Challenge Filter
       val cParams  = SearchLeaderboardParameters(challengeFilter = Some(List(challenge.id)))
-      val cResults = this.service.getMapperLeaderboard(params)
+      val cResults = this.service.getMapperLeaderboard(cParams)
       cResults.size mustEqual 2
       val cParams2  = SearchLeaderboardParameters(challengeFilter = Some(List(987654)))
       val cResults2 = this.service.getMapperLeaderboard(cParams2)
@@ -101,6 +101,22 @@ class LeaderboardServiceSpec(implicit val application: Application) extends Fram
       results.size mustEqual 2
       results.head.userId mustEqual randomUser.id
     }
+
+    "get reviewer leaderboard" taggedAs (LeaderboardTag) in {
+      val cParams  = SearchLeaderboardParameters(challengeFilter = Some(List(challenge.id)))
+      val cResults = this.service.getReviewerLeaderboard(cParams)
+      cResults.size mustEqual 1
+
+      val cParams2  = SearchLeaderboardParameters(challengeFilter = Some(List(987654)))
+      val cResults2 = this.service.getReviewerLeaderboard(cParams2)
+      cResults2.size mustEqual 0
+
+      // With Project Filter
+      val pParams =
+        SearchLeaderboardParameters(projectFilter = Some(List(challenge.general.parent)))
+      val pResults = this.service.getReviewerLeaderboard(pParams)
+      pResults.size mustEqual 1
+    }
   }
 
   override implicit val projectTestName: String = "LeaderboardServiceSpecProject"
@@ -111,6 +127,7 @@ class LeaderboardServiceSpec(implicit val application: Application) extends Fram
     val (u, c) = LeaderboardServiceSpec.setup(
       this.challengeDAL,
       this.taskDAL,
+      this.taskReviewDAL,
       this.serviceManager,
       this.defaultProject.id,
       this.getTestTask,
@@ -137,6 +154,7 @@ class LeaderboardServiceSpec(implicit val application: Application) extends Fram
 object LeaderboardServiceSpec {
   var challengeDAL: ChallengeDAL       = null
   var taskDAL: TaskDAL                 = null
+  var taskReviewDAL: TaskReviewDAL     = null
   var serviceManager: ServiceManager   = null
   var taskFunc: (String, Long) => Task = null
   var userFunc: (Long, String) => User = null
@@ -145,6 +163,7 @@ object LeaderboardServiceSpec {
   def setup(
       challengeDAL: ChallengeDAL,
       taskDAL: TaskDAL,
+      taskReviewDAL: TaskReviewDAL,
       serviceManager: ServiceManager,
       projectId: Long,
       taskFunc: (String, Long) => Task,
@@ -153,6 +172,7 @@ object LeaderboardServiceSpec {
   ): (User, Challenge) = {
     this.challengeDAL = challengeDAL
     this.taskDAL = taskDAL
+    this.taskReviewDAL = taskReviewDAL
     this.serviceManager = serviceManager
     this.taskFunc = taskFunc
     this.userFunc = userFunc
@@ -185,7 +205,9 @@ object LeaderboardServiceSpec {
     completeTask(
       createdChallenge.id,
       Task.STATUS_ALREADY_FIXED,
-      "randomUser2"
+      "randomUser2",
+      false,
+      true
     )
 
     // User that has opted out.
@@ -205,7 +227,8 @@ object LeaderboardServiceSpec {
       challengeId: Long,
       taskStatus: Int,
       username: String,
-      optOut: Boolean = false
+      optOut: Boolean = false,
+      addReview: Boolean = false
   ): User = {
     val task = this.taskDAL
       .insert(
@@ -225,6 +248,16 @@ object LeaderboardServiceSpec {
     }
 
     this.taskDAL.setTaskStatus(List(task), taskStatus, randomUser, Some(true))
+
+    if (addReview) {
+      val refreshedTask = taskDAL.retrieveById(task.id).get
+      taskReviewDAL.setTaskReviewStatus(
+        refreshedTask,
+        Task.REVIEW_STATUS_APPROVED,
+        User.superUser,
+        None
+      )
+    }
 
     randomUser
   }

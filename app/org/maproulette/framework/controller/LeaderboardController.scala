@@ -115,4 +115,31 @@ class LeaderboardController @Inject() (
       }
     }
   }
+
+  /**
+    * Gets the top ranking reviewers over the given number of months (or
+    * using start and end dates).
+    *
+    * @param limit         the limit on the number of reviewers returned
+    * @param offset        paging, starting at 0
+    * @return Top-ranked reviewers
+    */
+  def getReviewerLeaderboard(
+      limit: Int,
+      offset: Int
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        Ok(
+          Json.toJson(
+            this.service.getReviewerLeaderboard(
+              params.leaderboardParams,
+              limit,
+              offset
+            )
+          )
+        )
+      }
+    }
+  }
 }

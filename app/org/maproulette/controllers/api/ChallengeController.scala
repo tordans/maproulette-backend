@@ -172,7 +172,14 @@ class ChallengeController @Inject() (
               body = HttpEntity.Strict(
                 ByteString(
                   this.dal
-                    .getChallengeGeometry(challengeId, status, reviewStatus, priority, Some(params), timezone)
+                    .getChallengeGeometry(
+                      challengeId,
+                      status,
+                      reviewStatus,
+                      priority,
+                      Some(params),
+                      timezone
+                    )
                 ),
                 Some("application/json;charset=utf-8;header=present")
               )
@@ -592,7 +599,11 @@ class ChallengeController @Inject() (
     * @param timezone     The timezone offset (ie. -07:00)
     * @return A csv list of tasks for the project
     */
-  def extractAllTaskSummaries(projectId: Long, cId: Option[String], timezone: String = Utils.UTC_TIMEZONE): Action[AnyContent] = {
+  def extractAllTaskSummaries(
+      projectId: Long,
+      cId: Option[String],
+      timezone: String = Utils.UTC_TIMEZONE
+  ): Action[AnyContent] = {
     var challengeIds: List[Long] = cId match {
       case Some(c) => Utils.toLongList(c).getOrElse(List())
       case None    => List()
@@ -603,8 +614,16 @@ class ChallengeController @Inject() (
         case None    => throw new NotFoundException(s"Project with id $projectId not found")
       }
     }
-    this._extractTaskSummaries(challengeIds, -1, 0, "-1", "", "", s"project_${projectId}_tasks.csv",
-                               timezone = timezone)
+    this._extractTaskSummaries(
+      challengeIds,
+      -1,
+      0,
+      "-1",
+      "",
+      "",
+      s"project_${projectId}_tasks.csv",
+      timezone = timezone
+    )
   }
 
   /**
@@ -658,7 +677,7 @@ class ChallengeController @Inject() (
           timezone match {
             case tzRegex(hours, minutes, seconds) =>
               DateTimeZone.forOffsetHoursMinutes(hours.toInt, minutes.toInt)
-            case _  =>
+            case _ =>
               if (timezone.isEmpty())
                 DateTimeZone.getDefault
               else
@@ -804,12 +823,12 @@ class ChallengeController @Inject() (
           var challengeLink = s"[[hyperlink URL link=${urlPrefix}browse/challenges/${task.parent}]]"
           val mappedOn = task.mappedOn match {
             case Some(m) => m.withZone(dateTimeZone)
-            case _ => ""
+            case _       => ""
           }
 
           val reviewedAt = task.reviewedAt match {
             case Some(d) => d.withZone(dateTimeZone)
-            case _ => ""
+            case _       => ""
           }
 
           var taskLink =
