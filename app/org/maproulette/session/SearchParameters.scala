@@ -286,6 +286,12 @@ object SearchParameters {
         Map[String, JsValue](),
         false
       )
+      jsonWithAdditionalParams = Utils.insertIntoJson(
+        jsonWithAdditionalParams,
+        "leaderboardParams",
+        Map[String, JsValue]("onlyEnabled" -> JsBoolean(true)),
+        false
+      )
 
       Json.fromJson[SearchParameters](jsonWithAdditionalParams)(Json.reads[SearchParameters])
     }

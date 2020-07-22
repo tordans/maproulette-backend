@@ -77,13 +77,23 @@ trait ChallengeReads extends DefaultReads {
 
   implicit val challengeExtraReads = new Reads[ChallengeExtra] {
     def reads(json: JsValue): JsResult[ChallengeExtra] = {
-      val jsonWithStyles =
+      var jsonWithExtras =
         (json \ "taskStyles").asOpt[JsValue] match {
           case Some(value) => Utils.insertIntoJson(json, "taskStyles", value.toString(), true)
           case None        => json
         }
 
-      Json.fromJson[ChallengeExtra](jsonWithStyles)(Json.reads[ChallengeExtra])
+      jsonWithExtras = (jsonWithExtras \ "limitTags").asOpt[JsValue] match {
+          case Some(value) => jsonWithExtras
+          case None        => Utils.insertIntoJson(jsonWithExtras, "limitTags", false, true)
+        }
+
+      jsonWithExtras = (jsonWithExtras \ "limitReviewTags").asOpt[JsValue] match {
+          case Some(value) => jsonWithExtras
+          case None        => Utils.insertIntoJson(jsonWithExtras, "limitReviewTags", false, true)
+        }
+
+      Json.fromJson[ChallengeExtra](jsonWithExtras)(Json.reads[ChallengeExtra])
     }
   }
 
