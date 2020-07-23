@@ -10,6 +10,7 @@ import org.maproulette.exception.InvalidException
 import org.maproulette.utils.Utils
 import play.api.libs.json._
 import play.api.mvc.{AnyContent, AnyContentAsFormUrlEncoded, Request}
+import org.joda.time.DateTime
 
 /**
   * This holds the search parameters that are used to define task sets for retrieving random tasks
@@ -52,6 +53,17 @@ case class SearchTaskParameters(
     taskPriorities: Option[List[Int]] = None
 )
 
+case class SearchLeaderboardParameters(
+    userFilter: Option[List[Long]] = None,
+    projectFilter: Option[List[Long]] = None,
+    challengeFilter: Option[List[Long]] = None,
+    countryCodeFilter: Option[List[String]] = None,
+    monthDuration: Option[Int] = None,
+    start: Option[DateTime] = None,
+    end: Option[DateTime] = None,
+    onlyEnabled: Boolean = true
+)
+
 case class SearchParameters(
     projectIds: Option[List[Long]] = None,
     projectSearch: Option[String] = None,
@@ -59,6 +71,7 @@ case class SearchParameters(
     challengeParams: SearchChallengeParameters = SearchChallengeParameters(),
     taskParams: SearchTaskParameters = SearchTaskParameters(),
     reviewParams: SearchReviewParameters = SearchReviewParameters(),
+    leaderboardParams: SearchLeaderboardParameters = SearchLeaderboardParameters(),
     priority: Option[Int] = None,
     location: Option[SearchLocation] = None,
     bounding: Option[SearchLocation] = None,
@@ -138,6 +151,15 @@ object SearchParameters {
     Json.writes[SearchReviewParameters]
   implicit val reviewParamsReads: Reads[SearchReviewParameters] =
     Json.reads[SearchReviewParameters]
+
+  implicit val jodaDateWrite: Writes[DateTime] =
+    JodaWrites.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss'Z")
+  implicit val jodaDateReads: Reads[DateTime] = JodaReads.jodaDateReads("yyyy-MM-dd'T'HH:mm:ss'Z")
+
+  implicit val leaderboardParamsWrites: Writes[SearchLeaderboardParameters] =
+    Json.writes[SearchLeaderboardParameters]
+  implicit val leaderboardParamsReads: Reads[SearchLeaderboardParameters] =
+    Json.reads[SearchLeaderboardParameters]
 
   implicit val paramsWrites: Writes[SearchParameters] = Json.writes[SearchParameters]
   implicit val paramsReads: Reads[SearchParameters]   = Json.reads[SearchParameters]
@@ -248,6 +270,8 @@ object SearchParameters {
         Json.reads[SearchTaskParameters]
       implicit val reviewParamsReads: Reads[SearchReviewParameters] =
         Json.reads[SearchReviewParameters]
+      implicit val leaderboardParamsReads: Reads[SearchLeaderboardParameters] =
+        Json.reads[SearchLeaderboardParameters]
 
       val challengeParams = constructChallengeParams(json)
       val taskParams      = constructTaskParams(json)
@@ -260,6 +284,12 @@ object SearchParameters {
         jsonWithAdditionalParams,
         "reviewParams",
         Map[String, JsValue](),
+        false
+      )
+      jsonWithAdditionalParams = Utils.insertIntoJson(
+        jsonWithAdditionalParams,
+        "leaderboardParams",
+        Map[String, JsValue]("onlyEnabled" -> JsBoolean(true)),
         false
       )
 
@@ -433,7 +463,7 @@ object SearchParameters {
       ),
       // Search Review Parameters
       new SearchReviewParameters(
-        request.getQueryString("mappers") match {
+        request.getQueryString("users") match {
           case Some(r) => Utils.toLongList(r)
           case None => params.reviewParams.mappers
         },
@@ -443,6 +473,29 @@ object SearchParameters {
         },
         this.getStringParameter(request.getQueryString("startDate"), params.reviewParams.startDate),
         this.getStringParameter(request.getQueryString("endDate"), params.reviewParams.endDate)
+      ),
+      // Search Leaderboard Parameters
+      new SearchLeaderboardParameters(
+        request.getQueryString("userIds") match {
+          case Some(u) => Utils.toLongList(u)
+          case None => params.leaderboardParams.userFilter
+        },
+        request.getQueryString("projectIds") match {
+          case Some(p) => Utils.toLongList(p)
+          case None => params.leaderboardParams.projectFilter
+        },
+        request.getQueryString("challengeIds") match {
+          case Some(c) => Utils.toLongList(c)
+          case None => params.leaderboardParams.challengeFilter
+        },
+        request.getQueryString("countryCodes") match {
+          case Some(cc) => Utils.toStringList(cc)
+          case None => params.leaderboardParams.countryCodeFilter
+        },
+        this.getIntParameter(request.getQueryString("monthDuration"), params.leaderboardParams.monthDuration),
+        this.getDateParameter(request.getQueryString("start"), params.leaderboardParams.start),
+        this.getDateParameter(request.getQueryString("end"), params.leaderboardParams.end),
+        this.getBooleanParameter(request.getQueryString("onlyEnabled"), Some(params.leaderboardParams.onlyEnabled)).getOrElse(true)
       ),
       //taskPriority
       this.getIntParameter(request.getQueryString("tp"), params.priority),
@@ -533,6 +586,11 @@ object SearchParameters {
 
   private def getLongParameter(value: Option[String], default: Option[Long]): Option[Long] = value match {
     case Some(v) => Some(v.toLong)
+    case None => default
+  }
+
+  private def getDateParameter(value: Option[String], default: Option[DateTime]): Option[DateTime] = value match {
+    case Some(v) => Utils.getDate(v)
     case None => default
   }
 }

@@ -321,7 +321,7 @@ trait SearchParametersMixin {
       val tagList = params.taskParams.taskTags.get
         .map(t => {
           SQLUtils.testColumnName(t)
-          s"'${t}'"
+          s"'${t.trim.toLowerCase()}'"
         })
         .mkString(",")
 
@@ -411,7 +411,7 @@ trait SearchParametersMixin {
             ),
             if (invert) AND() else OR()
           )
-        FilterGroup(List(CustomParameter(s"(${query.sql()})")))
+        query
       case Some(statuses) if statuses.isEmpty => FilterGroup(List())
       case _                                  => FilterGroup(List())
     }

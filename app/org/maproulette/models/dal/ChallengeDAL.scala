@@ -22,6 +22,7 @@ import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters
+import org.maproulette.utils.Utils
 import play.api.db.Database
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.{JsString, JsValue, Json}
@@ -102,6 +103,9 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
+      get[Option[String]]("challenges.preferred_review_tags") ~
+      get[Boolean]("challenges.limit_tags") ~
+      get[Boolean]("challenges.limit_review_tags") ~
       get[Option[String]]("challenges.task_styles") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
@@ -113,7 +117,8 @@ class ChallengeDAL @Inject() (
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~
+            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
+            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
@@ -163,6 +168,9 @@ class ChallengeDAL @Inject() (
             exportableProperties,
             osmIdProperty,
             preferredTags,
+            preferredReviewTags,
+            limitTags,
+            limitReviewTags,
             taskStyles
           ),
           status,
@@ -215,6 +223,9 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
+      get[Option[String]]("challenges.preferred_review_tags") ~
+      get[Boolean]("challenges.limit_tags") ~
+      get[Boolean]("challenges.limit_review_tags") ~
       get[Option[String]]("challenges.task_styles") ~
       get[Option[DateTime]]("challenges.last_task_refresh") ~
       get[Option[DateTime]]("challenges.data_origin_date") ~
@@ -228,7 +239,8 @@ class ChallengeDAL @Inject() (
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-            exportableProperties ~ osmIdProperty ~ preferredTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~
+            exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~ limitTags ~
+            limitReviewTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~
             location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
@@ -278,6 +290,9 @@ class ChallengeDAL @Inject() (
             exportableProperties,
             osmIdProperty,
             preferredTags,
+            preferredReviewTags,
+            limitTags,
+            limitReviewTags,
             taskStyles
           ),
           status,
@@ -419,7 +434,8 @@ class ChallengeDAL @Inject() (
                                       overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
-                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, task_styles, requires_local)
+                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
+                                      limit_tags, limit_review_tags, task_styles, requires_local)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.featured},
@@ -430,7 +446,8 @@ class ChallengeDAL @Inject() (
                       ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty},
                       ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
-                      ${challenge.extra.preferredTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
+                      ${challenge.extra.preferredTags}, ${challenge.extra.preferredReviewTags}, ${challenge.extra.limitTags},
+                      ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}"""
           .as(this.parser.*)
           .headOption
@@ -556,6 +573,15 @@ class ChallengeDAL @Inject() (
           val preferredTags = (updates \ "preferredTags")
             .asOpt[String]
             .getOrElse(cachedItem.extra.preferredTags.getOrElse(null))
+          val preferredReviewTags = (updates \ "preferredReviewTags")
+            .asOpt[String]
+            .getOrElse(cachedItem.extra.preferredReviewTags.getOrElse(null))
+          val limitTags = (updates \ "limitTags")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.extra.limitTags)
+          val limitReviewTags = (updates \ "limitReviewTags")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.extra.limitReviewTags)
           val taskStyles = (updates \ "taskStyles").asOpt[JsValue] match {
             case Some(ts) => ts.toString()
             case _        => cachedItem.extra.taskStyles.getOrElse(null)
@@ -586,7 +612,8 @@ class ChallengeDAL @Inject() (
           }},
                 default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                 custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, task_styles = $taskStyles,
+                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
+                limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
                 requires_local = $requiresLocal
               WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
         }
@@ -934,6 +961,7 @@ class ChallengeDAL @Inject() (
     * @param reviewStatusFilter To view the geojson for only challenges with a specific review status
     * @param priorityFilter     To view the geojson for only challenges with a specific priority
     * @param params             SearchParameters for filtering by taskPropertySearch
+    * @param timezone           The timezone offset (ie. -07:00)
     * @param c                  The implicit connection for the function
     * @return
     */
@@ -942,10 +970,22 @@ class ChallengeDAL @Inject() (
       statusFilter: Option[List[Int]] = None,
       reviewStatusFilter: Option[List[Int]] = None,
       priorityFilter: Option[List[Int]] = None,
-      params: Option[SearchParameters] = None
+      params: Option[SearchParameters] = None,
+      timezone: String = Utils.UTC_TIMEZONE
   )(implicit c: Option[Connection] = None): String = {
     this.withMRConnection { implicit c =>
       val filters = new StringBuilder()
+
+      // Verify timzone offset is valid (eg. -10:00 or +04:00 or 06:30:00)
+      val tzOffset =
+        timezone.matches("^[\\+\\-]*\\d\\d\\:\\d\\d(\\:\\d\\d)?$") match {
+          case true => timezone
+          case false =>
+            if (timezone.isEmpty)
+              Utils.UTC_TIMEZONE
+            else
+              throw new InvalidException("Timezone is not a valid time zone. [" + timezone + "]")
+        }
 
       statusFilter match {
         case Some(s) => filters.append(s"AND t.status IN (${s.mkString(",")})")
@@ -1041,7 +1081,11 @@ class ChallengeDAL @Inject() (
                                             WHEN t.priority = #${Challenge.PRIORITY_MEDIUM} THEN ${Challenge.PRIORITY_MEDIUM_NAME}
                                             WHEN t.priority = #${Challenge.PRIORITY_LOW} THEN ${Challenge.PRIORITY_LOW_NAME}
                                            END)) ||
-                                        hstore('mr_mappedOn', t.mapped_on::text) ||
+                                        hstore('mr_mappedOn',
+                                                TO_CHAR(t.mapped_on::TIMESTAMPTZ at time zone
+                                                  (select name from pg_timezone_names where utc_offset='#${tzOffset}' limit 1),
+                                                  'YYYY-MM-DD"T"HH24:MI:SS#${tzOffset}'))
+                                        ||
                                         hstore('mr_mapper',
                                           (CASE WHEN t.review_requested_by = NULL
                                            THEN (select name from users where osm_id=t.osm_user_id)::text
@@ -1057,7 +1101,11 @@ class ChallengeDAL @Inject() (
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_UNNECESSARY} THEN ${Task.REVIEW_STATUS_UNNECESSARY_NAME}
                                            END)) ||
                                         hstore('mr_reviewer', (select name from users where id=t.reviewed_by)::text) ||
-                                        hstore('mr_reviewedAt', t.reviewed_at::text) ||
+                                        hstore('mr_reviewedAt',
+                                          TO_CHAR(t.reviewed_at::TIMESTAMPTZ at time zone
+                                            (select name from pg_timezone_names where utc_offset='#${tzOffset}' limit 1),
+                                            'YYYY-MM-DD"T"HH24:MI:SS#${tzOffset}'))
+                                        ||
                                         hstore('mr_reviewTimeSeconds', FLOOR(EXTRACT(EPOCH FROM (t.reviewed_at - t.review_started_at)))::text) ||
                                         hstore('mr_tags', (SELECT STRING_AGG(tg.name, ',') AS tags
                                                             FROM tags_on_tasks tot, tags tg

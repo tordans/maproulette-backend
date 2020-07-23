@@ -23,6 +23,7 @@ import scala.util.{Failure, Random, Success, Try}
   * @author cuthbertm
   */
 object Utils extends DefaultWrites {
+  val UTC_TIMEZONE = "+00:00"
 
   def randomStringFromCharList(
       length: Int,

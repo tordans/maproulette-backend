@@ -6,7 +6,7 @@
 package org.maproulette.framework.psql.filter
 
 import anorm.NamedParameter
-import org.maproulette.framework.psql.{AND, Query, SQLKey}
+import org.maproulette.framework.psql.{OR, AND, Query, SQLKey}
 
 /**
   * This class handles any filters that you want to add onto a query. Repositories only handle one
@@ -34,7 +34,7 @@ case class FilterGroup(params: List[Parameter[_]], key: SQLKey = AND(), conditio
     extends SQLClause {
   override def sql()(implicit tableKey: String = ""): String =
     if (condition) {
-      params
+      val result = params
         .flatMap(param =>
           param.sql() match {
             case ""  => None
@@ -42,6 +42,11 @@ case class FilterGroup(params: List[Parameter[_]], key: SQLKey = AND(), conditio
           }
         )
         .mkString(s" ${key.getSQLKey()} ")
+
+      // If we OR the results together they need to be wrapped in parens
+      if (key == OR())
+        s"(${result})"
+      else result
     } else {
       ""
     }

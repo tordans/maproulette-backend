@@ -127,6 +127,9 @@ case class ChallengeExtra(
     exportableProperties: Option[String] = None,
     osmIdProperty: Option[String] = None,
     preferredTags: Option[String] = None,
+    preferredReviewTags: Option[String] = None,
+    limitTags: Boolean = false,       // If true, only preferred tags should be used
+    limitReviewTags: Boolean = false, // If true, only preferred review tags should be used
     taskStyles: Option[String] = None
 ) extends DefaultWrites
 
