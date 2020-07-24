@@ -31,6 +31,19 @@ trait LeaderboardMixin {
   }
 
   /**
+    * Returns the SQL to sum review status actions for ranking purposes
+    **/
+  def reviewScoreSumSQL(config: Config): String = {
+    s"""SUM(CASE review_status
+         WHEN ${Task.REVIEW_STATUS_APPROVED} THEN 1
+         WHEN ${Task.REVIEW_STATUS_ASSISTED} THEN 1
+         WHEN ${Task.REVIEW_STATUS_REJECTED} THEN 1
+         WHEN ${Task.REVIEW_STATUS_DISPUTED} THEN 0
+         ELSE 0
+       END)"""
+  }
+
+  /**
     * Returns the SQL to sum a user's number of completed tasks
     **/
   def tasksSumSQL(): String = {
@@ -45,12 +58,38 @@ trait LeaderboardMixin {
   }
 
   /**
+    * Returns the SQL to sum a user's number of tasks they reviewed
+    **/
+  def reviewSumSQL(): String = {
+    s"""COALESCE(SUM(CASE review_status
+               WHEN ${Task.REVIEW_STATUS_APPROVED} THEN 1
+               WHEN ${Task.REVIEW_STATUS_ASSISTED} THEN 1
+               WHEN ${Task.REVIEW_STATUS_REJECTED} THEN 1
+               WHEN ${Task.REVIEW_STATUS_DISPUTED} THEN 1
+               ELSE 0
+             END), 0)"""
+  }
+
+  /**
     * Returns the SQL to sum a user's average time spent per task
     **/
   def timeSpentSQL(): String = {
     s"""COALESCE(SUM(tasks.completed_time_spent) /
         SUM(CASE
              WHEN tasks.completed_time_spent > 0 THEN 1
+             ELSE 0
+           END), 0)"""
+  }
+
+  /**
+    * Returns the SQL to sum a user's average time spent per review
+    **/
+  def reviewTimeSpentSQL(): String = {
+    val avgReviewTime =
+      "CAST(EXTRACT(epoch FROM (task_review.reviewed_at - task_review.review_started_at)) * 1000 AS INT)"
+    s"""COALESCE(SUM(${avgReviewTime}) /
+        SUM(CASE
+             WHEN (${avgReviewTime}) > 0 THEN 1
              ELSE 0
            END), 0)"""
   }
