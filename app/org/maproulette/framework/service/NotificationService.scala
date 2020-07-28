@@ -227,20 +227,34 @@ class NotificationService @Inject() (
   def createChallengeCompletionNotification(challenge: Challenge): Unit = {
     this.serviceManager.project.retrieve(challenge.general.parent) match {
       case Some(parentProject) =>
+        val buildNotification = (userId: Long, isManager: Boolean) => {
+          UserNotification(
+            -1,
+            userId = userId,
+            notificationType =
+              if (isManager) UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED
+              else UserNotification.NOTIFICATION_TYPE_MAPPER_CHALLENGE_COMPLETED,
+            challengeId = Some(challenge.id),
+            projectId = Some(parentProject.id),
+            description = Some(challenge.name),
+            extra = Some(s""""${challenge.name}" from project "${parentProject.displayName
+              .getOrElse(parentProject.name)}"""")
+          )
+        }
+
         this.serviceManager.user
           .getUsersManagingProject(parentProject.id, None, User.superUser)
           .foreach { manager =>
             this.addNotification(
-              UserNotification(
-                -1,
-                userId = manager.userId,
-                notificationType = UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED,
-                challengeId = Some(challenge.id),
-                projectId = Some(parentProject.id),
-                description = Some(challenge.name),
-                extra = Some(s""""${challenge.name}" from project "${parentProject.displayName
-                  .getOrElse(parentProject.name)}"""")
-              ),
+              buildNotification(manager.userId, true),
+              User.superUser
+            )
+          }
+        this.serviceManager.user
+          .getChallengeMappers(challenge.id)
+          .foreach { mapper =>
+            this.addNotification(
+              buildNotification(mapper.id, false),
               User.superUser
             )
           }
@@ -315,6 +329,8 @@ class NotificationService @Inject() (
       case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED => subscriptions.reviewRejected
       case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN    => subscriptions.reviewAgain
       case UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED =>
+        subscriptions.challengeCompleted
+      case UserNotification.NOTIFICATION_TYPE_MAPPER_CHALLENGE_COMPLETED =>
         subscriptions.challengeCompleted
       case UserNotification.NOTIFICATION_TYPE_TEAM   => subscriptions.team
       case UserNotification.NOTIFICATION_TYPE_FOLLOW => subscriptions.follow

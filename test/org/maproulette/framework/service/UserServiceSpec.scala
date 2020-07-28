@@ -12,6 +12,7 @@ import org.maproulette.framework.util.{FrameworkHelper, UserTag}
 import org.maproulette.exception.{InvalidException}
 import org.maproulette.models.Task
 import org.maproulette.data.{ProjectType}
+import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import org.scalatest.Matchers._
 import play.api.Application
 
@@ -19,7 +20,9 @@ import play.api.Application
   * @author mcuthbert
   */
 class UserServiceSpec(implicit val application: Application) extends FrameworkHelper {
-  val userService: UserService = this.serviceManager.user
+  val userService: UserService   = this.serviceManager.user
+  var randomChallenge: Challenge = null
+  var randomUser: User           = null
 
   "UserService" should {
     "not allow retrieval of user by API key if not actual user" taggedAs UserTag in {
@@ -416,6 +419,13 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       )
     }
 
+    "get user mappers for challenge" in {
+      val result = this.userService.getChallengeMappers(randomChallenge.id)
+
+      result.size mustEqual 2
+      result.head.id mustEqual randomUser.id
+    }
+
     "complex query" in {
       val user                          = User.superUser
       val excludeOtherReviewers         = true
@@ -493,4 +503,63 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
   }
 
   override implicit val projectTestName: String = "UserServiceSpecProject"
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    val (c, u) =
+      UserServiceSpec.setup(
+        this.challengeDAL,
+        this.taskDAL,
+        this.serviceManager,
+        this.defaultProject.id,
+        this.getTestChallenge,
+        this.getTestTask,
+        this.getTestUser
+      )
+    randomChallenge = c
+    randomUser = u
+  }
+}
+
+object UserServiceSpec {
+  def setup(
+      challengeDAL: ChallengeDAL,
+      taskDAL: TaskDAL,
+      serviceManager: ServiceManager,
+      projectId: Long,
+      challengeFunc: (String, Long) => Challenge,
+      taskFunc: (String, Long) => Task,
+      userFunc: (Long, String) => User
+  ): (Challenge, User) = {
+    val createdChallenge =
+      challengeDAL.insert(challengeFunc("mChallenge", projectId), User.superUser)
+
+    val task = taskDAL
+      .insert(taskFunc("iamtask1", createdChallenge.id), User.superUser)
+    val task2 = taskDAL
+      .insert(taskFunc("iamtask2", createdChallenge.id), User.superUser)
+    val task3 = taskDAL
+      .insert(taskFunc("iamtask3", createdChallenge.id), User.superUser)
+
+    val randomUser1 = serviceManager.user.create(
+      userFunc(12345, "RandomOUser"),
+      User.superUser
+    )
+
+    val randomUser2 = serviceManager.user.create(
+      userFunc(12346, "RandomOUser2"),
+      User.superUser
+    )
+
+    val randomUser3 = serviceManager.user.create(
+      userFunc(12346, "RandomOUser3"),
+      User.superUser
+    )
+
+    taskDAL.setTaskStatus(List(task), Task.STATUS_FIXED, randomUser1, Some(true))
+    taskDAL.setTaskStatus(List(task2), Task.STATUS_FIXED, randomUser2, Some(true))
+    taskDAL.setTaskStatus(List(task3), Task.STATUS_SKIPPED, randomUser3, Some(true))
+
+    (createdChallenge, randomUser1)
+  }
 }
