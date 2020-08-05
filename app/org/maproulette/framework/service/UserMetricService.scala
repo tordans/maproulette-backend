@@ -224,21 +224,10 @@ class UserMetricService @Inject() (
       userId: Long
   ): Option[User] = {
     // We need to invalidate the user in the cache.
-    this.userService.cacheManager.withUpdatingCache(id => userService.retrieve(id)) {
+    this.userService.cacheManager.withDeletingCache(id => userService.retrieve(id)) {
       implicit cachedItem =>
         val insertBuffer = mutable.ListBuffer[Parameter[_]]()
-        val stateTuple = taskStatus match {
-          case Some(Task.STATUS_FIXED) => (config.taskScoreFixed, UserMetrics.FIELD_TOTAL_FIXED)
-          case Some(Task.STATUS_FALSE_POSITIVE) =>
-            (config.taskScoreFalsePositive, UserMetrics.FIELD_TOTAL_FALSE_POSITIVE)
-          case Some(Task.STATUS_ALREADY_FIXED) =>
-            (config.taskScoreAlreadyFixed, UserMetrics.FIELD_TOTAL_ALREADY_FIXED)
-          case Some(Task.STATUS_TOO_HARD) =>
-            (config.taskScoreTooHard, UserMetrics.FIELD_TOTAL_TOO_HARD)
-          case Some(Task.STATUS_SKIPPED) =>
-            (config.taskScoreSkipped, UserMetrics.FIELD_TOTAL_SKIPPED)
-          case _ => (0, "")
-        }
+        val stateTuple   = setupStateTuple(taskStatus)
 
         if (stateTuple._1 != 0) {
           insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_SCORE, value = stateTuple._1))
@@ -307,8 +296,40 @@ class UserMetricService @Inject() (
           }
         }
         this.repository.updateUserScore(userId, insertBuffer.toList)
-        this.userService.retrieve(userId)
+        Some(cachedItem)
     }(id = userId)
+    this.userService.retrieve(userId)
+  }
+
+  /**
+    * Rolls back a user's score by the number of status points. This is useful when
+    * a completion status is being changed to another status.
+    *
+    * @param taskStatus
+    * @param userId
+    */
+  def rollbackUserScore(
+      taskStatus: Int,
+      userId: Long
+  ): Option[User] = {
+    // We need to invalidate the user in the cache.
+    this.userService.cacheManager.withDeletingCache(id => userService.retrieve(id)) {
+      implicit cachedItem =>
+        val insertBuffer = mutable.ListBuffer[Parameter[_]]()
+        val stateTuple   = setupStateTuple(Some(taskStatus))
+
+        if (stateTuple._1 != 0) {
+          insertBuffer.addOne(
+            this.customFilter(UserMetrics.FIELD_SCORE, "-", value = stateTuple._1)
+          )
+        }
+        if (stateTuple._2.nonEmpty) {
+          insertBuffer.addOne(this.customFilter(stateTuple._2, "-", 1))
+        }
+        this.repository.updateUserScore(userId, insertBuffer.toList)
+        Some(cachedItem)
+    }(id = userId)
+    this.userService.retrieve(userId)
   }
 
   private def customFilter(
@@ -317,4 +338,19 @@ class UserMetricService @Inject() (
       value: Long = 1
   ): Parameter[String] =
     BaseParameter(key, s"=($key$sign$value)", Operator.CUSTOM)
+
+  private def setupStateTuple(taskStatus: Option[Int]): (Int, String) = {
+    taskStatus match {
+      case Some(Task.STATUS_FIXED) => (config.taskScoreFixed, UserMetrics.FIELD_TOTAL_FIXED)
+      case Some(Task.STATUS_FALSE_POSITIVE) =>
+        (config.taskScoreFalsePositive, UserMetrics.FIELD_TOTAL_FALSE_POSITIVE)
+      case Some(Task.STATUS_ALREADY_FIXED) =>
+        (config.taskScoreAlreadyFixed, UserMetrics.FIELD_TOTAL_ALREADY_FIXED)
+      case Some(Task.STATUS_TOO_HARD) =>
+        (config.taskScoreTooHard, UserMetrics.FIELD_TOTAL_TOO_HARD)
+      case Some(Task.STATUS_SKIPPED) =>
+        (config.taskScoreSkipped, UserMetrics.FIELD_TOTAL_SKIPPED)
+      case _ => (0, "")
+    }
+  }
 }

@@ -256,26 +256,40 @@ object Task extends CommonField {
     * If current status is skipped, then it can set the status to fixed, false_positive or deleted
     * If current statis is deleted, then it can set the status to created. Essentially resetting the task
     *
+    * The exception is if we are allowing the task status to be changed by the mapper in case
+    * of review revisions and then these completed statuses can also change to another completed status:
+    * fixed, false_positive, too_hard, already_fixed
+    *
     * @param current The current status of the task
     * @param toSet   The status that the task will be set too
+    * @param allowChange Allow an already completed status to be changed to another completed status.
     * @return True if the status can be set without violating any of the above rules
     */
-  def isValidStatusProgression(current: Int, toSet: Int): Boolean = {
+  def isValidStatusProgression(current: Int, toSet: Int, allowChange: Boolean = false): Boolean = {
     if (current == toSet || toSet == STATUS_DELETED || toSet == STATUS_DISABLED) {
       true
     } else {
       current match {
-        case STATUS_CREATED        => true
-        case STATUS_FIXED          => false
-        case STATUS_FALSE_POSITIVE => toSet == STATUS_FIXED
+        case STATUS_CREATED => true
+        case STATUS_FIXED =>
+          if (allowChange)
+            toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED || toSet == STATUS_TOO_HARD
+          else false
+        case STATUS_FALSE_POSITIVE =>
+          if (allowChange)
+            toSet == STATUS_FIXED || toSet == STATUS_ALREADY_FIXED || toSet == STATUS_TOO_HARD
+          else toSet == STATUS_FIXED
         case STATUS_SKIPPED | STATUS_TOO_HARD =>
           toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_ALREADY_FIXED ||
             toSet == STATUS_SKIPPED || toSet == STATUS_TOO_HARD || toSet == STATUS_ANSWERED
-        case STATUS_DELETED       => toSet == STATUS_CREATED
-        case STATUS_ALREADY_FIXED => false
-        case STATUS_ANSWERED      => false
-        case STATUS_VALIDATED     => false
-        case STATUS_DISABLED      => toSet == STATUS_CREATED
+        case STATUS_DELETED => toSet == STATUS_CREATED
+        case STATUS_ALREADY_FIXED =>
+          if (allowChange)
+            toSet == STATUS_FIXED || toSet == STATUS_FALSE_POSITIVE || toSet == STATUS_TOO_HARD
+          else false
+        case STATUS_ANSWERED  => false
+        case STATUS_VALIDATED => false
+        case STATUS_DISABLED  => toSet == STATUS_CREATED
       }
     }
   }
