@@ -825,6 +825,55 @@ class UserService @Inject() (
   }
 
   /**
+    * Returns a list of users that have completed tasks for a challenge.
+    *
+    * @param challengeId - The challenge id of the challenge
+    * @return mappers as a list of UserSearchResults
+    */
+  def getChallengeMappers(challengeId: Long): List[UserSearchResult] = {
+    this.repository
+      .query(
+        Query.simple(
+          List(
+            SubQueryFilter(
+              "osm_id",
+              Query.simple(
+                List(
+                  BaseParameter(
+                    "challenge_id",
+                    challengeId,
+                    Operator.EQ,
+                    useValueDirectly = true
+                  ),
+                  BaseParameter(
+                    "osm_user_id",
+                    "'-1'",
+                    Operator.NE,
+                    useValueDirectly = true
+                  ),
+                  CustomParameter("old_status <> status"),
+                  BaseParameter(
+                    "status",
+                    List(
+                      Task.STATUS_FIXED,
+                      Task.STATUS_FALSE_POSITIVE,
+                      Task.STATUS_TOO_HARD,
+                      Task.STATUS_ALREADY_FIXED
+                    ).mkString(","),
+                    Operator.IN,
+                    useValueDirectly = true
+                  )
+                ),
+                "SELECT osm_user_id from status_actions"
+              )
+            )
+          )
+        )
+      )
+      .map(u => { u.toSearchResult })
+  }
+
+  /**
     * Clears the users cache
     *
     * @param id If id is supplied will only remove the user with that id

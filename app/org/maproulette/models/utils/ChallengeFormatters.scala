@@ -84,14 +84,14 @@ trait ChallengeReads extends DefaultReads {
         }
 
       jsonWithExtras = (jsonWithExtras \ "limitTags").asOpt[JsValue] match {
-          case Some(value) => jsonWithExtras
-          case None        => Utils.insertIntoJson(jsonWithExtras, "limitTags", false, true)
-        }
+        case Some(value) => jsonWithExtras
+        case None        => Utils.insertIntoJson(jsonWithExtras, "limitTags", false, true)
+      }
 
       jsonWithExtras = (jsonWithExtras \ "limitReviewTags").asOpt[JsValue] match {
-          case Some(value) => jsonWithExtras
-          case None        => Utils.insertIntoJson(jsonWithExtras, "limitReviewTags", false, true)
-        }
+        case Some(value) => jsonWithExtras
+        case None        => Utils.insertIntoJson(jsonWithExtras, "limitReviewTags", false, true)
+      }
 
       Json.fromJson[ChallengeExtra](jsonWithExtras)(Json.reads[ChallengeExtra])
     }

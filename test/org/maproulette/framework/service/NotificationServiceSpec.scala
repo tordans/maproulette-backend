@@ -403,6 +403,31 @@ class NotificationServiceSpec(implicit val application: Application) extends Fra
       completed.get.description.get mustEqual this.defaultChallenge.name
     }
 
+    "add a mapper challenge-complete notification" taggedAs NotificationTag in {
+      val task = this.taskDAL.insert(
+        this.getTestTask("mapperTestTask", this.defaultChallenge.id),
+        User.superUser
+      )
+
+      val randomUser = this.serviceManager.user.create(
+        this.getTestUser(52345, "RandomMapperUser"),
+        User.superUser
+      )
+
+      this.taskDAL.setTaskStatus(List(task), Task.STATUS_FIXED, randomUser, Some(true))
+
+      this.service.createChallengeCompletionNotification(this.defaultChallenge)
+      val notifications = this.service.getUserNotifications(randomUser.id, randomUser)
+
+      val completed = notifications.find(
+        _.notificationType == UserNotification.NOTIFICATION_TYPE_MAPPER_CHALLENGE_COMPLETED
+      )
+      completed.isDefined mustEqual true
+      completed.get.challengeId.get mustEqual this.defaultChallenge.id
+      completed.get.projectId.get mustEqual this.defaultChallenge.general.parent
+      completed.get.description.get mustEqual this.defaultChallenge.name
+    }
+
     "add a team invite notification" taggedAs NotificationTag in {
       val freshUser = this.serviceManager.user.create(
         this.getTestUser(299911128, "Service_AddTeamNotificationUser"),
