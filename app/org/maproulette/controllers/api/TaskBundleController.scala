@@ -118,6 +118,7 @@ class TaskBundleController @Inject() (
     * @param reviewStatus The review status id to set the task's review status to
     * @param comment      An optional comment to add to the task
     * @param tags         Optional tags to add to the task
+    * @param newTaskStatus  Optional new taskStatus to change on all tasks in bundle
     * @return 400 BadRequest if task with supplied id not found.
     *         If successful then 200 NoContent
     */
@@ -125,12 +126,33 @@ class TaskBundleController @Inject() (
       id: Long,
       reviewStatus: Int,
       comment: String = "",
-      tags: String = ""
+      tags: String = "",
+      newTaskStatus: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val tasks = this.dalManager.taskBundle.getTaskBundle(user, id).tasks match {
-        case Some(t) => t
-        case None    => throw new InvalidException("No tasks found in this bundle.")
+        case Some(t) => {
+          // If the mapper wants to change the task status while revising the task after review
+          if (!newTaskStatus.isEmpty) {
+            val taskStatus = newTaskStatus.toInt
+
+            for (task <- t) {
+              // Make sure to remove user's score credit for the prior task status first.
+              this.serviceManager.userMetrics.rollbackUserScore(task.status.get, user.id)
+            }
+
+            // Change task status. This will also credit user's score for new task status.
+            this.dalManager.task.setTaskStatus(t, taskStatus, user, Some(false))
+            val updatedTasks = this.dalManager.task.retrieveListById()(t.map(_.id))
+
+            for (task <- t) {
+              this.actionManager
+                .setAction(Some(user), new TaskItem(task.id), TaskStatusSet(taskStatus), task.name)
+            }
+            updatedTasks
+          } else t
+        }
+        case None => throw new InvalidException("No tasks found in this bundle.")
       }
 
       for (task <- tasks) {

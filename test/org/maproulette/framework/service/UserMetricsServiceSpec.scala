@@ -50,6 +50,25 @@ class UserMetricsServiceSpec(implicit val application: Application) extends Fram
         Some(0),
         insertedUser.id
       )
+      updatedUser.get.score.get mustEqual (insertedUser.score.getOrElse(0) + 5)
+    }
+
+    "rolls back the users score" taggedAs UserMetricsTag in {
+      val insertedUser =
+        this.userService.create(this.getTestUser(19, "UpdateUserService"), User.superUser)
+      val currentScore = insertedUser.score.getOrElse(0)
+
+      var updatedUser = this.service.updateUserScore(
+        Some(Task.STATUS_ALREADY_FIXED),
+        Some(1000),
+        Some(1),
+        true,
+        true,
+        Some(0),
+        insertedUser.id
+      )
+      updatedUser = this.service.rollbackUserScore(Task.STATUS_ALREADY_FIXED, insertedUser.id)
+      updatedUser.get.score.get mustEqual currentScore
     }
   }
   override implicit val projectTestName: String = "UserMetricsSpecProject"

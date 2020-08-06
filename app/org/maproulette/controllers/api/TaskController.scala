@@ -616,6 +616,7 @@ class TaskController @Inject() (
     * @param reviewStatus The review status id to set the task's review status to
     * @param comment An optional comment to add to the task
     * @param tags Optional tags to add to the task
+    * @param newTaskStatus Optional new taskStatus to change the task's status
     * @return 400 BadRequest if task with supplied id not found.
     *         If successful then 200 NoContent
     */
@@ -623,11 +624,27 @@ class TaskController @Inject() (
       id: Long,
       reviewStatus: Int,
       comment: String = "",
-      tags: String = ""
+      tags: String = "",
+      newTaskStatus: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val task = this.dal.retrieveById(id) match {
-        case Some(t) => t
+        case Some(t) => {
+          // If the mapper wants to change the task status while revising the task after review
+          if (!newTaskStatus.isEmpty) {
+            val taskStatus = newTaskStatus.toInt
+
+            // Make sure to remove user's score credit for the prior task status first.
+            this.serviceManager.userMetrics.rollbackUserScore(t.status.get, user.id)
+
+            // Change task status. This will also credit user's score for new task status.
+            this.dal.setTaskStatus(List(t), taskStatus, user, Some(false))
+            this.actionManager
+              .setAction(Some(user), new TaskItem(t.id), TaskStatusSet(taskStatus), t.name)
+            // Refetch Task
+            this.dal.retrieveById(id).get
+          } else t
+        }
         case None =>
           throw new NotFoundException(s"Task with $id not found, cannot set review status.")
       }
