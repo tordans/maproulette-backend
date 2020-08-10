@@ -112,21 +112,58 @@ trait SearchParametersMixin {
     )
   }
 
-  def filterProjects(params: SearchParameters): FilterGroup = {
+  def filterProjects(params: SearchParameters, includeVirtual: Boolean = false): FilterGroup = {
     params.getProjectIds match {
-      case Some(p) if p.nonEmpty =>
-        FilterGroup(
-          List(
-            BaseParameter(
-              Project.FIELD_ID,
-              p.mkString(","),
-              Operator.IN,
-              params.invertFields.getOrElse(List()).contains("pid"),
-              true,
-              Some("p")
+      case Some(p) if p.nonEmpty => {
+        val invert = params.invertFields.getOrElse(List()).contains("pid")
+        if (!includeVirtual) {
+          FilterGroup(
+            List(
+              BaseParameter(
+                Project.FIELD_ID,
+                p.mkString(","),
+                Operator.IN,
+                invert,
+                true,
+                Some("p")
+              )
             )
           )
-        )
+        }
+        else {
+          FilterGroup(
+            List(
+              BaseParameter(
+                Project.FIELD_ID,
+                p.mkString(","),
+                Operator.IN,
+                invert,
+                true,
+                Some("p")
+              ),
+              SubQueryFilter(
+                Challenge.FIELD_ID,
+                Query.simple(
+                  List(
+                    BaseParameter(
+                      "project_id",
+                      p.mkString(","),
+                      Operator.IN,
+                      useValueDirectly = true,
+                      table = Some("")
+                    )
+                  ),
+                  "SELECT challenge_id from virtual_project_challenges"
+                ),
+                invert,
+                Operator.IN,
+                Some("c")
+              )
+            ),
+            if (invert) AND() else OR()
+          )
+        }
+      }
       case _ =>
         params.projectSearch match {
           case Some(ps) if ps.nonEmpty =>

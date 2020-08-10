@@ -91,7 +91,8 @@ class TaskReviewService @Inject() (
       4,
       true,
       onlySaved,
-      excludeOtherReviewers = true
+      excludeOtherReviewers = true,
+      includeVirtualProjects = true
     )
 
     this.repository.executeReviewMetricsQuery(
