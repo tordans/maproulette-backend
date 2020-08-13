@@ -264,6 +264,7 @@ class UserService @Inject() (
   def update(id: Long, value: JsValue, user: User): Option[User] = {
     this.cacheManager.withUpdatingCache(this.retrieve) { implicit cachedItem =>
       this.permission.hasObjectAdminAccess(cachedItem, user)
+
       val displayName = (value \ "osmProfile" \ "displayName")
         .asOpt[String]
         .getOrElse(cachedItem.osmProfile.displayName)
@@ -297,9 +298,6 @@ class UserService @Inject() (
       val defaultBasemapId = (value \ "settings" \ "defaultBasemapId")
         .asOpt[String]
         .getOrElse(cachedItem.settings.defaultBasemapId.getOrElse(""))
-      val customBasemap = (value \ "settings" \ "customBasemap")
-        .asOpt[String]
-        .getOrElse(cachedItem.settings.customBasemap.getOrElse(""))
       val locale = (value \ "settings" \ "locale")
         .asOpt[String]
         .getOrElse(cachedItem.settings.locale.getOrElse("en"))
@@ -327,6 +325,8 @@ class UserService @Inject() (
       val properties =
         (value \ "properties").asOpt[String].getOrElse(cachedItem.properties.getOrElse("{}"))
 
+      val customBasemaps = (value \ "settings" \ "customBasemaps").asOpt[List[CustomBasemap]]
+
       // If this user always requires a review, then they are not allowed to change it (except super users)
       if (user.settings.needsReview.getOrElse(0) == User.REVIEW_MANDATORY) {
         if (!permission.isSuperUser(user)) {
@@ -353,7 +353,6 @@ class UserService @Inject() (
               Some(defaultEditor),
               Some(defaultBasemap),
               Some(defaultBasemapId),
-              Some(customBasemap),
               Some(locale),
               Some(email),
               Some(emailOptIn),
@@ -361,7 +360,8 @@ class UserService @Inject() (
               Some(needsReview),
               Some(isReviewer),
               Some(allowFollowing),
-              Some(theme)
+              Some(theme),
+              customBasemaps
             ),
             properties = Some(properties)
           ),

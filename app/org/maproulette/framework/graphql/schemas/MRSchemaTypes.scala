@@ -65,6 +65,8 @@ trait MRSchemaTypes {
   // User Types
   implicit val RequestTokenType: ObjectType[Unit, RequestToken] =
     deriveObjectType[Unit, RequestToken](ObjectTypeName("RequestToken"))
+  implicit val CustomBasemapType: ObjectType[Unit, CustomBasemap] =
+    deriveObjectType[Unit, CustomBasemap](ObjectTypeName("CustomBasemap"))
   implicit val UserSettingsType: ObjectType[Unit, UserSettings] =
     deriveObjectType[Unit, UserSettings](ObjectTypeName("UserSettings"))
   implicit val LocationType: ObjectType[Unit, Location] =

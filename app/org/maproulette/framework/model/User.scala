@@ -101,6 +101,25 @@ object ProjectManager {
 }
 
 /**
+  * Custom basemaps defined by the user
+  *
+  * @param id           Id of this custom basemap
+  * @param name         Basemap name given by the user
+  * @param url          The url to the tile server
+  * @param overlay      Whether this basemap is an overlay
+  */
+case class CustomBasemap(
+    id: Long = -1,
+    name: String,
+    url: String,
+    overlay: Boolean = false
+)
+object CustomBasemap {
+  implicit val writes: Writes[CustomBasemap] = Json.writes[CustomBasemap]
+  implicit val reads: Reads[CustomBasemap]   = Json.reads[CustomBasemap]
+}
+
+/**
   * Wraps together a user with their follower status
   *
   * @param id     The member id of the follower from a (followed) user's followers group
@@ -109,6 +128,22 @@ object ProjectManager {
   */
 case class Follower(id: Long, user: User, status: Int) extends Identifiable
 object Follower {
+  implicit val tokenWrites: Writes[RequestToken]            = Json.writes[RequestToken]
+  implicit val tokenReads: Reads[RequestToken]              = Json.reads[RequestToken]
+  implicit val settingsWrites: Writes[UserSettings]         = Json.writes[UserSettings]
+  implicit val settingsReads: Reads[UserSettings]           = Json.reads[UserSettings]
+  implicit val userGrantWrites: Writes[Grant]               = Grant.writes
+  implicit val userGrantReads: Reads[Grant]                 = Grant.reads
+  implicit val locationWrites: Writes[Location]             = Json.writes[Location]
+  implicit val locationReads: Reads[Location]               = Json.reads[Location]
+  implicit val osmWrites: Writes[OSMProfile]                = Json.writes[OSMProfile]
+  implicit val osmReads: Reads[OSMProfile]                  = Json.reads[OSMProfile]
+  implicit val searchResultWrites: Writes[UserSearchResult] = Json.writes[UserSearchResult]
+  implicit val projectManagerWrites: Writes[ProjectManager] = Json.writes[ProjectManager]
+
+  implicit val userWrites: Writes[User] = Json.writes[User]
+  implicit val userReads: Reads[User]   = Json.reads[User]
+
   implicit val writes: Writes[Follower] = Json.writes[Follower]
   implicit val reads: Reads[Follower]   = Json.reads[Follower]
 
@@ -122,7 +157,6 @@ object Follower {
   * @param defaultEditor     The default editor that the user wants to use
   * @param defaultBasemap    The default basemap that the user wants to see, will be overridden by default basemap for the challenge if set
   * @param defaultBasemapId  The string id of the default basemap that the user wants to see
-  * @param customBasemap     It default basemap is custom, then this is the url to the tile server
   * @param locale            The locale for the user, if not set will default to en
   * @param email             The user's email address
   * @param emailOptIn        If the user has opted in to receive emails
@@ -132,12 +166,12 @@ object Follower {
   * @param theme             The theme to display in MapRoulette. Optionally - 0=skin-black, 1=skin-black-light,
   *                          2=skin-blue, 3=skin-blue-light, 4=skin-green, 5=skin-green-light,
   *                          6=skin-purple, 7=skin-purple-light, 8=skin-red, 9=skin-red-light, 10=skin-yellow, 11=skin-yellow-light
+  * @param customBasemaps    Custom basemaps defined by user, which basemap to show is the name selected by the defaultBasemap.
   */
 case class UserSettings(
     defaultEditor: Option[Int] = None,
     defaultBasemap: Option[Int] = None,
     defaultBasemapId: Option[String] = None,
-    customBasemap: Option[String] = None,
     locale: Option[String] = None,
     email: Option[String] = None,
     emailOptIn: Option[Boolean] = None,
@@ -145,7 +179,8 @@ case class UserSettings(
     needsReview: Option[Int] = None,
     isReviewer: Option[Boolean] = None,
     allowFollowing: Option[Boolean] = None,
-    theme: Option[Int] = None
+    theme: Option[Int] = None,
+    customBasemaps: Option[List[CustomBasemap]] = None
 ) {
   def getTheme: String = theme match {
     case Some(t) =>
@@ -302,22 +337,6 @@ object User extends CommonField {
   val THEME_RED_LIGHT    = 9
   val THEME_YELLOW       = 10
   val THEME_YELLOW_LIGHT = 11
-  val settingsForm = Form(
-    mapping(
-      "defaultEditor"     -> optional(number),
-      "defaultBasemap"    -> optional(number),
-      "defaultBasemapId"  -> optional(text),
-      "customBasemap"     -> optional(text),
-      "locale"            -> optional(text),
-      "email"             -> optional(text),
-      "emailOptIn"        -> optional(boolean),
-      "leaderboardOptOut" -> optional(boolean),
-      "needsReview"       -> optional(number),
-      "isReviewer"        -> optional(boolean),
-      "allowFollowing"    -> optional(boolean),
-      "theme"             -> optional(number)
-    )(UserSettings.apply)(UserSettings.unapply)
-  )
 
   val REVIEW_NOT_NEEDED = 0
   val REVIEW_NEEDED     = 1
