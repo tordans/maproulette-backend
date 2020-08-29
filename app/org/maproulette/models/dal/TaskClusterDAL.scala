@@ -217,6 +217,12 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
         """
       )
 
+      params.taskParams.excludeTaskIds match {
+        case Some(excludedIds) if !excludedIds.isEmpty =>
+          this.appendInWhereClause(whereClause, s"(tasks.id NOT IN (${excludedIds.mkString(",")}))")
+        case _ => // do nothing
+      }
+
       if (!excludeLocked) {
         joinClause ++= " LEFT JOIN locked l ON l.item_id = tasks.id "
         this.appendInWhereClause(whereClause, s"(l.id IS NULL OR l.user_id = ${user.id})")
