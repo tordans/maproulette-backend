@@ -23,6 +23,7 @@ import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
 import play.api.libs.oauth.RequestToken
+import play.api.libs.json.{JsResultException, Json}
 
 /**
   * The User repository handles all the sql queries that are executed against the database for the
@@ -318,17 +319,17 @@ class UserRepository @Inject() (
   }
 
   /**
-   * Private method that updates the user's custom basemaps in the database.
-   * This will treat what's given as a full and complete list -- so any basemaps
-   * not appearing in list will be deleted.
-   *
-   * @param user
-   */
+    * Private method that updates the user's custom basemaps in the database.
+    * This will treat what's given as a full and complete list -- so any basemaps
+    * not appearing in list will be deleted.
+    *
+    * @param user
+    */
   private def updateCustomBasemaps(user: User): Unit = {
     this.withMRTransaction { implicit c =>
       user.settings.customBasemaps match {
         case Some(bm) =>
-          bm.foreach( basemap => {
+          bm.foreach(basemap => {
             if (basemap.id == -1) {
               val insertBasemapQuery =
                 s"""INSERT INTO user_basemaps (user_id, name, url, overlay)
@@ -336,13 +337,13 @@ class UserRepository @Inject() (
                  """
               SQL(insertBasemapQuery)
                 .on(
-                  Symbol("user_id")  -> user.id,
-                  Symbol("name") -> basemap.name,
-                  Symbol("url") -> basemap.url,
+                  Symbol("user_id") -> user.id,
+                  Symbol("name")    -> basemap.name,
+                  Symbol("url")     -> basemap.url,
                   Symbol("overlay") -> basemap.overlay
-                ).executeUpdate()
-            }
-            else {
+                )
+                .executeUpdate()
+            } else {
               val updateBasemapQuery =
                 s"""UPDATE user_basemaps
                       SET modified=NOW(), name={name}, url={url}, overlay={overlay}
@@ -350,31 +351,33 @@ class UserRepository @Inject() (
                  """
               SQL(updateBasemapQuery)
                 .on(
-                  Symbol("id")  -> basemap.id,
+                  Symbol("id")      -> basemap.id,
                   Symbol("user_id") -> user.id,
-                  Symbol("name") -> basemap.name,
-                  Symbol("url") -> basemap.url,
+                  Symbol("name")    -> basemap.name,
+                  Symbol("url")     -> basemap.url,
                   Symbol("overlay") -> basemap.overlay
-                ).executeUpdate()
+                )
+                .executeUpdate()
             }
           })
 
           // Delete all custom basemaps not in list. (Or delete everything if
-         // list is empty.)
+          // list is empty.)
           if (bm.nonEmpty) {
             SQL(s"""DELETE from user_basemaps WHERE user_id={user_id} AND
                     name NOT IN ({name_list})
                 """)
               .on(
-                Symbol("user_id") -> user.id,
+                Symbol("user_id")   -> user.id,
                 Symbol("name_list") -> bm.map(_.name)
-              ).executeUpdate()
-          }
-          else {
+              )
+              .executeUpdate()
+          } else {
             SQL(s"""DELETE from user_basemaps WHERE user_id={user_id}""")
               .on(
                 Symbol("user_id") -> user.id
-              ).executeUpdate()
+              )
+              .executeUpdate()
           }
         case None => // no custom basemaps
       }
@@ -383,6 +386,47 @@ class UserRepository @Inject() (
 }
 
 object UserRepository {
+  case class CustomBasemapList(
+      customBasemaps: Option[List[CustomBasemap]]
+  )
+
+  implicit val columnToCustomBasemapList: Column[CustomBasemapList] =
+    anorm.Column.nonNull[CustomBasemapList] { (value, meta) =>
+      val MetaDataItem(qualified, nullable, clazz) = meta
+      value match {
+        case data: org.postgresql.util.PGobject =>
+          try {
+            val basemapData = Json.parse(data.getValue())
+
+            val ids      = (basemapData \ "id").as[List[Long]]
+            val urls     = (basemapData \ "url").as[List[String]]
+            val names    = (basemapData \ "name").as[List[String]]
+            val overlays = (basemapData \ "overlay").as[List[Boolean]]
+
+            val basemaps =
+              ids.zipWithIndex.map(basemapIdWithIndex =>
+                CustomBasemap(
+                  basemapIdWithIndex._1.toLong,
+                  names(basemapIdWithIndex._2),
+                  urls(basemapIdWithIndex._2),
+                  overlays(basemapIdWithIndex._2)
+                )
+              )
+
+            Right(CustomBasemapList(Some(basemaps)))
+          } catch {
+            // If we reach here, then there are no custom basemaps for this user
+            case e: JsResultException => Right(CustomBasemapList(None))
+          }
+        case _ =>
+          Left(
+            TypeDoesNotMatch(
+              s"Cannot convert $value: ${value.asInstanceOf[AnyRef].getClass} to CustomBasemap for column $qualified"
+            )
+          )
+      }
+    }
+
   // The Anorm row parser to convert user records to project manager
   val projectManagerParser: RowParser[ProjectManager] = {
     get[Long]("project_id") ~
@@ -395,11 +439,17 @@ object UserRepository {
         ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), roles)
     }
   }
+
   private val standardColumns = "*, ST_AsText(users.home_location) AS home, " +
-    "ARRAY(SELECT id from user_basemaps WHERE user_id=users.id) as custom_basemap_ids, " +
-    "ARRAY(SELECT name from user_basemaps WHERE user_id=users.id) as custom_basemap_names, " +
-    "ARRAY(SELECT url from user_basemaps WHERE user_id=users.id) as custom_basemap_urls, " +
-    "ARRAY(SELECT overlay from user_basemaps WHERE user_id=users.id) as custom_basemap_overlays "
+    """
+      (SELECT  json_build_object(
+        'id', json_agg(id),
+        'name', json_agg(name),
+        'url', json_agg(url),
+        'overlay', json_agg(overlay)
+       )
+       FROM user_basemaps WHERE user_id = users.id) AS custom_basemaps
+      """
 
   // The anorm row parser to convert user records from the database to user objects
   def parser(defaultNeedsReview: Int, grantFunc: (Long) => List[Grant]): RowParser[User] = {
@@ -418,10 +468,7 @@ object UserRepository {
       get[Option[Int]]("users.default_editor") ~
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.default_basemap_id") ~
-      get[Option[List[Long]]]("custom_basemap_ids") ~
-      get[Option[List[String]]]("custom_basemap_names") ~
-      get[Option[List[String]]]("custom_basemap_urls") ~
-      get[Option[List[Boolean]]]("custom_basemap_overlays") ~
+      get[Option[CustomBasemapList]]("custom_basemaps") ~
       get[Option[String]]("users.email") ~
       get[Option[Boolean]]("users.email_opt_in") ~
       get[Option[Boolean]]("users.leaderboard_opt_out") ~
@@ -435,8 +482,8 @@ object UserRepository {
       get[Option[Long]]("users.following_group") ~
       get[Option[Long]]("users.followers_group") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
-            homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemapIds ~ customBasemapNames ~ customBasemapURLs ~ customBasemapOverlays ~
+            homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
+            defaultBasemapId ~ customBasemapList ~
             email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
             properties ~ score ~ allowFollowing ~ followingGroupId ~ followersGroupId =>
         val locationWKT = homeLocation match {
@@ -450,22 +497,9 @@ object UserRepository {
         }
 
         val customBasemaps: Option[List[CustomBasemap]] =
-          customBasemapIds match {
-            case Some(ids) =>
-              val names = customBasemapNames.getOrElse(List())
-              val urls = customBasemapURLs.getOrElse(List())
-              val overlays = customBasemapOverlays.getOrElse(List())
-              Some(
-                ids.zipWithIndex.map(basemapIdWithIndex =>
-                  CustomBasemap(
-                    basemapIdWithIndex._1,
-                    names(basemapIdWithIndex._2),
-                    urls(basemapIdWithIndex._2),
-                    overlays(basemapIdWithIndex._2)
-                  )
-                )
-              )
-            case None => None
+          customBasemapList match {
+            case Some(bm) => bm.customBasemaps
+            case None     => None
           }
 
         new User(

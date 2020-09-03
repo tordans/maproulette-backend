@@ -51,7 +51,7 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
           Some(true),
           None,
           None,
-          Some(List())
+          None
         )
       )
       this.userRepository.update(updateUser, "POINT (14.0 22.0)")
@@ -86,12 +86,14 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
           Some(true),
           None,
           None,
-          Some(List(
-            CustomBasemap(
-              name = "my_custom_basemap",
-              url = "http://maproulette.org/this/is/a/url"
+          Some(
+            List(
+              CustomBasemap(
+                name = "my_custom_basemap",
+                url = "http://maproulette.org/this/is/a/url"
+              )
             )
-          ))
+          )
         )
       )
       this.userRepository.update(updateUser, "POINT (14.0 22.0)")
@@ -120,7 +122,7 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
       updatedUser2.settings.customBasemaps.get.length mustEqual 2
 
       val updatedBasemaps = updatedUser2.settings.customBasemaps.getOrElse(List())
-      val first = updatedBasemaps.head
+      val first           = updatedBasemaps.head
       first.id mustEqual basemaps.head.id
       first.name mustEqual "updated_custom_basemap"
       first.url mustEqual "http://updated/url"
@@ -161,7 +163,7 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
       )
       this.userRepository.update(user5, "POINT (14.0 22.0)")
       val updatedUser5 = this.repositoryGet(user5.id).get
-      updatedUser5.settings.customBasemaps.get.length mustEqual 0
+      updatedUser5.settings.customBasemaps mustEqual None
     }
 
     "update API key" taggedAs UserRepoTag in {
