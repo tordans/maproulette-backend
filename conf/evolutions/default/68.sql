@@ -17,7 +17,7 @@ SELECT create_index_if_not_exists('user_basemaps', 'user_basemaps_user', '(user_
 -- copy existing user custom_basemap_url into new table
 INSERT INTO user_basemaps (user_id, url, name)
 SELECT id, custom_basemap_url, 'Custom'
-FROM users WHERE custom_basemap_url IS NOT NULL;;
+FROM users WHERE custom_basemap_url IS NOT NULL AND custom_basemap_url != '';;
 
 ALTER TABLE users
   DROP COLUMN custom_basemap_url;;
