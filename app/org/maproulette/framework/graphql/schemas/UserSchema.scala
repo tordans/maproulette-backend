@@ -333,6 +333,12 @@ object UserSchema extends DefaultWrites {
   import sangria.marshalling.playJson._
   implicit val settingsReads: Reads[UserSettings] = User.settingsReads
 
+  implicit val CustomBasemapInputType: InputObjectType[CustomBasemap] =
+    deriveInputObjectType[CustomBasemap](
+      InputObjectTypeName("CustomBasemapInput"),
+      InputObjectTypeDescription("Custom Basemaps for a user settings object")
+    )
+
   implicit val UserSettingsInputType: InputObjectType[UserSettings] =
     deriveInputObjectType[UserSettings](
       InputObjectTypeName("UserSettingsInput"),
