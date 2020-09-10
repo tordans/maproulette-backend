@@ -615,6 +615,21 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
       this.filterProjects(params).sql() mustEqual "NOT p.id IN (123,456)"
     }
 
+    "search by project ids including virutal" in {
+      val params = SearchParameters(projectIds = Some(List(123, 456)))
+      this.filterProjects(params, true).sql() mustEqual
+        "(p.id IN (123,456) OR c.id IN (SELECT challenge_id from virtual_project_challenges " +
+        "WHERE project_id IN (123,456)))"
+    }
+
+    "invert search project Ids including virtual" in {
+      val params =
+        SearchParameters(projectIds = Some(List(123, 456)), invertFields = Some(List("pid")))
+      this.filterProjects(params, true).sql() mustEqual
+        "NOT p.id IN (123,456) AND NOT c.id IN (SELECT challenge_id " +
+        "from virtual_project_challenges WHERE project_id IN (123,456))"
+    }
+
     "does fuzzy search" in {
       val params     = SearchParameters(projectSearch = Some("abc"), fuzzySearch = Some(2))
       val filter     = this.filterProjects(params)

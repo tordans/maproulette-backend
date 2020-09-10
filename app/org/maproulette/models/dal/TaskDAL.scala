@@ -602,7 +602,14 @@ class TaskDAL @Inject() (
       case _ => // not a bundle
     }
 
-    if (!Task.isValidStatusProgression(primaryTask.status.getOrElse(Task.STATUS_CREATED), status)) {
+    // Allow mappers who have completed the task to change status during revisions
+    val allowReset = if (primaryTask.completedBy.getOrElse(-1) == user.id) true else false
+
+    if (!Task.isValidStatusProgression(
+          primaryTask.status.getOrElse(Task.STATUS_CREATED),
+          status,
+          allowReset
+        )) {
       throw new InvalidException("Invalid task status supplied.")
     } else if (user.guest) {
       throw new IllegalAccessException("Guest users cannot make edits to tasks.")
@@ -625,7 +632,7 @@ class TaskDAL @Inject() (
 
     this.withMRTransaction { implicit c =>
       for (task <- tasks) {
-        if (task.bundleId != None && task.bundleId.get != bundleId.getOrElse(-1)) {
+        if (task.bundleId != None && task.bundleId.get != bundleId.getOrElse(-1) && !allowReset) {
           throw new InvalidException(
             "Cannot set task status on task: " +
               task.id + " as it is already assigned to a bundle."
@@ -754,7 +761,9 @@ class TaskDAL @Inject() (
                     case None    => None
                   },
                   bundleId = bundleId,
-                  isBundlePrimary = Some(task.id == primaryTask.id)
+                  isBundlePrimary =
+                    if (bundleId != None) Some(task.id == primaryTask.id)
+                    else None
                 )
               )
             }
@@ -769,7 +778,9 @@ class TaskDAL @Inject() (
                     case None    => None
                   },
                   bundleId = bundleId,
-                  isBundlePrimary = Some(task.id == primaryTask.id)
+                  isBundlePrimary =
+                    if (bundleId != None) Some(task.id == primaryTask.id)
+                    else None
                 )
               )
             }

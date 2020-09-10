@@ -7,7 +7,7 @@ package org.maproulette.framework.repository
 
 import java.util.UUID
 
-import org.maproulette.framework.model.{User, UserMetrics, UserSettings}
+import org.maproulette.framework.model.{User, UserMetrics, UserSettings, CustomBasemap}
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.service.UserService
@@ -43,13 +43,15 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
           Some(1),
           Some(2),
           Some("id"),
-          Some("basemap"),
           Some("en-US"),
           Some("email_address"),
           Some(true),
           Some(false),
           Some(5),
-          Some(true)
+          Some(true),
+          None,
+          None,
+          None
         )
       )
       this.userRepository.update(updateUser, "POINT (14.0 22.0)")
@@ -60,6 +62,108 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
       // API Key should not be allowed to updated here
       updatedUser.apiKey mustEqual insertedUser.apiKey
       updatedUser.settings mustEqual updateUser.settings
+    }
+
+    "update user's customBasemaps" taggedAs UserRepoTag in {
+      val insertedUser  = this.insertBaseUser(30, "name30")
+      val updatedApiKey = UUID.randomUUID().toString
+      val updateUser = insertedUser.copy(
+        osmProfile = insertedUser.osmProfile.copy(
+          displayName = "name31",
+          avatarURL = "UPDATE_avatarURL",
+          requestToken = RequestToken("UPDATED_TOKEN", "UPDATED_SECRET")
+        ),
+        apiKey = Some(updatedApiKey),
+        settings = UserSettings(
+          Some(1),
+          Some(2),
+          Some("id"),
+          Some("en-US"),
+          Some("email_address2"),
+          Some(true),
+          Some(false),
+          Some(5),
+          Some(true),
+          None,
+          None,
+          Some(
+            List(
+              CustomBasemap(
+                name = "my_custom_basemap",
+                url = "http://maproulette.org/this/is/a/url"
+              )
+            )
+          )
+        )
+      )
+      this.userRepository.update(updateUser, "POINT (14.0 22.0)")
+      val updatedUser = this.repositoryGet(insertedUser.id).get
+      updatedUser.osmProfile.displayName mustEqual updateUser.osmProfile.displayName
+      updatedUser.settings.customBasemaps.get.length mustEqual 1
+      updatedUser.settings.customBasemaps.get.head.name mustEqual "my_custom_basemap"
+      updatedUser.settings.customBasemaps.get.head.url mustEqual "http://maproulette.org/this/is/a/url"
+
+      // Change basemaps
+      val basemaps = List(
+        CustomBasemap(
+          id = updatedUser.settings.customBasemaps.get.head.id,
+          name = "updated_custom_basemap",
+          url = "http://updated/url",
+          overlay = true
+        ),
+        CustomBasemap(name = "new_basemap", url = "new_url")
+      )
+
+      val user2 = updatedUser.copy(
+        settings = updatedUser.settings.copy(customBasemaps = Some(basemaps))
+      )
+      this.userRepository.update(user2, "POINT (14.0 22.0)")
+      val updatedUser2 = this.repositoryGet(user2.id).get
+      updatedUser2.settings.customBasemaps.get.length mustEqual 2
+
+      val updatedBasemaps = updatedUser2.settings.customBasemaps.getOrElse(List())
+      val first           = updatedBasemaps.head
+      first.id mustEqual basemaps.head.id
+      first.name mustEqual "updated_custom_basemap"
+      first.url mustEqual "http://updated/url"
+      first.overlay mustEqual true
+
+      val second = updatedBasemaps(1)
+      second.id must not be -1
+      second.name mustEqual "new_basemap"
+      second.url mustEqual "new_url"
+
+      // Remove basemap by not including in list
+      val LessBasemaps = List(
+        CustomBasemap(
+          id = first.id,
+          name = "updated_custom_basemap",
+          url = "http://updated/url",
+          overlay = true
+        )
+      )
+      val user3 = updatedUser2.copy(
+        settings = updatedUser2.settings.copy(customBasemaps = Some(LessBasemaps))
+      )
+      this.userRepository.update(user3, "POINT (14.0 22.0)")
+      val updatedUser3 = this.repositoryGet(user3.id).get
+      updatedUser3.settings.customBasemaps.get.length mustEqual 1
+
+      // Not passing customBasemaps preserves existing ones.
+      val user4 = updatedUser3.copy(
+        settings = updatedUser.settings.copy(customBasemaps = None)
+      )
+      this.userRepository.update(user4, "POINT (14.0 22.0)")
+      val updatedUser4 = this.repositoryGet(user4.id).get
+      updatedUser4.settings.customBasemaps.get.length mustEqual 1
+
+      //Passing an empty list of customBasemaps deletes all
+      val user5 = updatedUser4.copy(
+        settings = updatedUser4.settings.copy(customBasemaps = Some(List()))
+      )
+      this.userRepository.update(user5, "POINT (14.0 22.0)")
+      val updatedUser5 = this.repositoryGet(user5.id).get
+      updatedUser5.settings.customBasemaps mustEqual None
     }
 
     "update API key" taggedAs UserRepoTag in {

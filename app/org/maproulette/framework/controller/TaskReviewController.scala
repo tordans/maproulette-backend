@@ -9,6 +9,7 @@ import akka.util.ByteString
 import org.maproulette.data.ActionManager
 import org.maproulette.framework.service.{
   ChallengeListingService,
+  ChallengeService,
   ProjectService,
   TaskReviewService,
   UserService
@@ -35,6 +36,7 @@ class TaskReviewController @Inject() (
     override val bodyParsers: PlayBodyParsers,
     service: TaskReviewService,
     challengeListingService: ChallengeListingService,
+    challengeService: ChallengeService,
     projectService: ProjectService,
     userService: UserService,
     components: ControllerComponents
@@ -313,6 +315,45 @@ class TaskReviewController @Inject() (
           onlySaved
         )
 
+        val projectName =
+          params.getProjectIds match {
+            case Some(pId) =>
+              // Searching by project, just fetch name
+              pId.map(
+                 this.projectService.retrieve(_) match {
+                  case Some(p) => p.displayName.get
+                  case None => ""
+                }
+              ).mkString("|")
+            case None =>
+              params.getChallengeIds match {
+                case Some(cId) =>
+                  // We have a list of challenges. If these challenges all belong
+                  // to the same project we can use the parent project name.
+                  val challengeList = this.challengeService.list(cId)
+                  val parentProject:Option[Long] =
+                    if (challengeList.forall(_.general.parent == challengeList.head.general.parent))
+                      Some(challengeList.head.general.parent)
+                    else None
+                  parentProject match {
+                    case Some(pp) =>
+                      this.projectService.retrieve(pp) match {
+                        case Some(p) => p.displayName.get
+                        case None => ""
+                      }
+                    case None => ""
+                  }
+                case None => ""
+              }
+          }
+
+        val challengeName =
+          params.getChallengeIds match {
+            case Some(cIds) =>
+              this.challengeService.list(cIds).map(_.name).mkString("|")
+            case None => ""
+          }
+
         val mapperNames =
           this.userService
             .retrieveListById(metrics.map(m => m.userId.get), Paging())
@@ -340,7 +381,8 @@ class TaskReviewController @Inject() (
           var mapper = mapperNames.get(row.userId.get)
 
           val result = new StringBuilder(
-            s"${mapper.get},,${row.total},,,${row.reviewRequested}," +
+            s"${mapper.get},${projectName},${if (challengeName == "") "" else s"${challengeName},"}" +
+              s",${row.total},,,${row.reviewRequested}," +
               s"${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted}," +
               s"${row.reviewDisputed},${row.fixed},${row.falsePositive},${row.alreadyFixed}," +
               s"${row.tooHard}"
@@ -352,7 +394,8 @@ class TaskReviewController @Inject() (
               val rsTimeSeconds = Math.round(rsRow.avgReviewTime / 1000)
               val rsPercent     = Math.round(rsRow.total * 100 / row.total)
               result ++=
-                s"\n${mapper.get},${Task.reviewStatusMap.get(rs).get},${rsRow.total}," +
+                s"\n${mapper.get},${projectName},${if (challengeName == "") "" else s"${challengeName},"}" +
+                  s"${Task.reviewStatusMap.get(rs).get},${rsRow.total}," +
                   s"${rsPercent},${rsTimeSeconds},,,,," +
                   s",${rsRow.fixed},${rsRow.falsePositive},${rsRow.alreadyFixed}," +
                   s"${rsRow.tooHard}"
@@ -368,10 +411,11 @@ class TaskReviewController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"Mapper,Review Status,Total Review Tasks,Coverage %,Avg Review Time (seconds),Review Requested,Approved," +
-                s"Needs Revision,Approved w/Fixes,Contested,${Task.STATUS_FIXED_NAME}," +
-                s"${Task.STATUS_FALSE_POSITIVE_NAME},${Task.STATUS_ALREADY_FIXED_NAME}," +
-                s"${Task.STATUS_TOO_HARD_NAME}\n"
+              s"Mapper,Project,${if (challengeName == "") "" else "Challenge,"}" +
+                s"Review Status,Total Review Tasks,Coverage %,Avg Review Time (seconds)," +
+                s"Review Requested,Approved,Needs Revision,Approved w/Fixes,Contested," +
+                s"${Task.STATUS_FIXED_NAME},${Task.STATUS_FALSE_POSITIVE_NAME}," +
+                s"${Task.STATUS_ALREADY_FIXED_NAME},${Task.STATUS_TOO_HARD_NAME}\n"
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )

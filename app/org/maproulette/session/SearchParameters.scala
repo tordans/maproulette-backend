@@ -50,7 +50,8 @@ case class SearchTaskParameters(
     taskProperties: Option[Map[String, String]] = None,
     taskPropertySearchType: Option[String] = None,
     taskPropertySearch: Option[TaskPropertySearch] = None,
-    taskPriorities: Option[List[Int]] = None
+    taskPriorities: Option[List[Int]] = None,
+    excludeTaskIds: Option[List[Long]] = None
 )
 
 case class SearchLeaderboardParameters(
@@ -459,6 +460,11 @@ object SearchParameters {
         request.getQueryString("priorities") match {
           case Some(v) => Utils.toIntList(v)
           case None => params.taskParams.taskPriorities
+        },
+
+        request.getQueryString("tExcl") match {
+          case Some(ids) => Utils.toLongList(ids)
+          case None => params.taskParams.excludeTaskIds
         }
       ),
       // Search Review Parameters

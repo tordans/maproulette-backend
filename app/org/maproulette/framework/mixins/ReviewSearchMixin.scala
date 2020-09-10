@@ -37,7 +37,8 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       reviewTasksType: Int = ALL_REVIEWED_TASKS,
       includeDisputed: Boolean = true,
       onlySaved: Boolean = false,
-      excludeOtherReviewers: Boolean = false
+      excludeOtherReviewers: Boolean = false,
+      includeVirtualProjects: Boolean = false
   ): Query = {
     query
       .addFilterGroup(this.userHasPermission(user, permission, reviewTasksType))
@@ -176,7 +177,7 @@ trait ReviewSearchMixin extends SearchParametersMixin {
           )
         )
       )
-      .addFilterGroup(this.filterProjects(searchParameters))
+      .addFilterGroup(this.filterProjects(searchParameters, includeVirtualProjects))
       .addFilterGroup(this.filterProjectEnabled(searchParameters))
       .addFilterGroup(this.filterChallenges(searchParameters))
       .addFilterGroup(this.filterChallengeEnabled(searchParameters))
