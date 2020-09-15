@@ -185,7 +185,7 @@ object Task extends CommonField {
   val STATUS_FIXED               = 1
   val STATUS_FIXED_NAME          = "Fixed"
   val STATUS_FALSE_POSITIVE      = 2
-  val STATUS_FALSE_POSITIVE_NAME = "False_Positive"
+  val STATUS_FALSE_POSITIVE_NAME = "Not_An_Issue"
   val STATUS_SKIPPED             = 3
   val STATUS_SKIPPED_NAME        = "Skipped"
   val STATUS_DELETED             = 4
