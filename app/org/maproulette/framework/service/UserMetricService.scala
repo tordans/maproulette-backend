@@ -78,7 +78,7 @@ class UserMetricService @Inject() (
       startDate,
       endDate,
       s"${StatusActions.FIELD_CREATED}",
-      Task.TABLE
+      StatusActions.TABLE
     )
     val taskCounts = this.repository.getUserTaskCounts(userId, timeClause)
 
@@ -166,7 +166,6 @@ class UserMetricService @Inject() (
         case _: IllegalArgumentException => (None, None)
         case e: Throwable                => throw new InvalidException(e.getMessage)
       }
-
     duration match {
       case _ if dates._1.isDefined =>
         DateParameter(
