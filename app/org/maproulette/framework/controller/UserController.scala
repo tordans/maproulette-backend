@@ -12,7 +12,7 @@ import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.permissions.Permission
 import org.maproulette.models.Task
-import org.maproulette.session.SessionManager
+import org.maproulette.session.{SessionManager, SearchParameters}
 import org.maproulette.data.{UserType}
 import org.maproulette.utils.{Crypto, Utils}
 import play.api.libs.json._
@@ -152,13 +152,11 @@ class UserController @Inject() (
   def searchUserByOSMUsername(username: String, limit: Int): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        if (StringUtils.isEmpty(username)) {
-          Ok(Json.toJson(List[JsValue]()))
-        } else {
+        SearchParameters.withSearch { implicit params =>
           Ok(
             Json.toJson(
               this.serviceManager.user
-                .searchByOSMUsername(username, Paging(limit))
+                .searchByOSMUsername(username, Paging(limit), params)
                 .map(_.toSearchResult)
             )
           )

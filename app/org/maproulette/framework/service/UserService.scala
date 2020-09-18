@@ -23,6 +23,7 @@ import org.maproulette.framework.repository.{UserRepository, UserSavedObjectsRep
 import org.maproulette.models.Task
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.permissions.Permission
+import org.maproulette.session.SearchParameters
 import org.maproulette.utils.{Crypto, Utils, Writers}
 import play.api.libs.json.{JsString, JsValue, Json}
 import play.api.libs.oauth.RequestToken
@@ -116,26 +117,60 @@ class UserService @Inject() (
     * Allow users to search for other users by OSM username.
     *
     * @param username The username or username fragment to search for.
-    * @param paging    The maximum number of results to retrieve.
+    * @param paging   The maximum number of results to retrieve.
+    * @param params   Search Parameters to help narrow results.
+    *                 Only taskId is currently supported and will search
+    *                 for users who have commented or changed the status of the task.
     * @return A (possibly empty) list of UserSearchResult objects.
     */
   def searchByOSMUsername(
       username: String,
-      paging: Paging = Paging()
+      paging: Paging = Paging(),
+      params: SearchParameters = SearchParameters()
   ): List[User] = {
-    // ordering previously was done like "ORDER BY (users.name ILIKE '${username}') DESC, users.name"
-    // which is somewhat strange and not currently supported by the Query system, so leaving out and
-    // seeing what will be the result of that.
-    this.repository
-      .query(
-        Query.simple(
-          List(
-            BaseParameter(User.FIELD_NAME, SQLUtils.search(username), Operator.ILIKE)
-          ),
-          paging = paging,
-          order = Order > (User.FIELD_NAME)
-        )
+    var query =
+      Query.simple(
+        List(
+          BaseParameter(User.FIELD_NAME, SQLUtils.search(username), Operator.ILIKE)
+        ),
+        paging = paging,
+        order = Order > (User.FIELD_NAME)
       )
+
+    this.repository.query(
+      params.taskParams.taskId match {
+        case Some(taskId) =>
+          query.addFilterGroup(
+            FilterGroup(
+              List(
+                SubQueryFilter(
+                  User.FIELD_OSM_ID,
+                  Query.simple(
+                    List(
+                      BaseParameter("task_id", params.taskParams.taskId.getOrElse(-1))
+                    ),
+                    "SELECT osm_user_id from status_actions"
+                  ),
+                  operator = Operator.IN
+                ),
+                SubQueryFilter(
+                  User.FIELD_OSM_ID,
+                  Query.simple(
+                    List(
+                      BaseParameter("task_id", params.taskParams.taskId.getOrElse(-1))
+                    ),
+                    "SELECT osm_id from task_comments"
+                  ),
+                  operator = Operator.IN
+                )
+              ),
+              OR()
+            )
+          )
+        case None => query
+      }
+
+    )
   }
 
   /**
