@@ -304,6 +304,17 @@ class TaskDAL @Inject() (
         user
       )
 
+      // If we are setting the status back to created, then we need to
+      // reset the mapper, bundling, and completion_responses back to null
+      if (status == Task.STATUS_CREATED && id > 0) {
+        this.withMRConnection { implicit c =>
+          SQL"""UPDATE tasks t SET completed_time_spent = NULL, completed_by = NULL,
+                                   completion_responses = NULL,
+                                   is_bundle_primary = false, bundle_id = NULL
+             WHERE t.id = ${id}""".executeUpdate()
+        }
+      }
+
       if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
         this.manager.challenge.updateReadyStatus()(parentId)
       } else {
@@ -432,10 +443,16 @@ class TaskDAL @Inject() (
         .as(long("create_update_task").*)
         .head
 
-      // If we are updating the task review back to None then we need to delete its entry in the task_review table
+      // If we are updating the task review back to None then we need to delete
+      // its entry in the task_review table.
+      // We also need to always delete a task_review if we are resetting the task
+      // back to created.
       cachedItem match {
         case Some(item) =>
-          if (item.review.reviewRequestedBy != None && element.review.reviewRequestedBy == None) {
+          if ((item.review.reviewRequestedBy != None &&
+              element.review.reviewRequestedBy == None) ||
+              (element.status.getOrElse(Task.STATUS_CREATED) == Task.STATUS_CREATED &&
+              element.review.reviewStatus != None)) {
             SQL("DELETE FROM task_review WHERE task_id=" + element.id).execute()
           }
         case None => // ignore
