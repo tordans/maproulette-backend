@@ -75,12 +75,8 @@ CREATE OR REPLACE FUNCTION update_task(task_name text,
     --
     -- Only update a null mapped_on if we are resetting task status back to created
     --
-    IF task_mapped_on IS NOT NULL THEN
+    IF task_mapped_on IS NOT NULL OR new_status = 0 THEN
       UPDATE tasks SET mapped_on = task_mapped_on WHERE id = update_id;;
-    ELSE
-      IF new_status = 0 THEN
-        UPDATE tasks SET mapped_on = task_mapped_on WHERE id = update_id;;
-      END IF;;
     END IF;;
 
     RETURN update_id;;
