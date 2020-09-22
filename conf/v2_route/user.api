@@ -196,8 +196,11 @@ PUT     /user/:userId/apikey                        @org.maproulette.framework.c
 #     description: The user is not authorized to make this request
 # parameters:
 #   - name: username
-#     in: path
-#     description: The OSM username or username fragment to search
+#     in: path (or in query)
+#     description: The OSM username or username fragment to search. May be excluded when including tid
+#   - name: tid
+#     in: query
+#     description: Optional field to allow searching for users who participated in a task.
 #   - name: apiKey
 #     in: header
 #     description: The user's apiKey to authorize the request
@@ -211,6 +214,7 @@ PUT     /user/:userId/apikey                        @org.maproulette.framework.c
 #     description: Used in conjunction with the limit parameter to page through X number of responses.
 ###
 GET     /users/find/:username                          @org.maproulette.framework.controller.UserController.searchUserByOSMUsername(username:String, limit:Int ?= 10)
+GET     /users/find                                    @org.maproulette.framework.controller.UserController.searchUserByOSMUsername(username:String ?= "", limit:Int ?= 10)
 ###
 # tags: [ User ]
 # summary: Retrieves Users Saved Challenged
