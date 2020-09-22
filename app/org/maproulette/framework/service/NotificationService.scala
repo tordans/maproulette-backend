@@ -219,6 +219,40 @@ class NotificationService @Inject() (
   }
 
   /**
+    * Create new notification indicating that a task review status has been revised
+    *
+    * @param fromUser     The user who caused the review status to be updated
+    * @param forUserId    The original reviewer user id
+    * @param reviewStatus The updated review status
+    * @param task         The task on which the review status was updated
+    * @param comment      An optional comment associated with the status update
+    */
+  def createReviewRevisedNotification(
+      fromUser: User,
+      forUserId: Long,
+      reviewStatus: Int,
+      task: Task,
+      comment: Option[Comment]
+  ): Unit = {
+    this.addNotification(
+      UserNotification(
+        -1,
+        userId = forUserId,
+        notificationType = UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED,
+        fromUsername = Some(fromUser.osmProfile.displayName),
+        description = Some(reviewStatus.toString()),
+        taskId = Some(task.id),
+        challengeId = Some(task.parent),
+        extra = comment match {
+          case Some(c) => Some(c.comment)
+          case None    => None
+        }
+      ),
+      User.superUser
+    )
+  }
+
+  /**
     * Create new notifications for challenge managers indicating that a
     * challenge they manage has been completed
     *
@@ -328,6 +362,7 @@ class NotificationService @Inject() (
       case UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED => subscriptions.reviewApproved
       case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED => subscriptions.reviewRejected
       case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN    => subscriptions.reviewAgain
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED  => subscriptions.reviewAgain
       case UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED =>
         subscriptions.challengeCompleted
       case UserNotification.NOTIFICATION_TYPE_MAPPER_CHALLENGE_COMPLETED =>
