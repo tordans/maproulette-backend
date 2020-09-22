@@ -785,6 +785,14 @@ class TaskReviewDAL @Inject() (
       var reviewedBy        = task.review.reviewedBy
       var reviewRequestedBy = task.review.reviewRequestedBy
 
+      // If the original reviewer is not the same as the user asking for this
+      // review status change than we have a "meta-review" situation. Let's leave
+      // the original reviewer as the reviewedBy on the task. The user will
+      // still be noted as a reviewer in the task_review_history
+      val originalReviewer =
+        if (reviewedBy != None && reviewedBy.get != user.id) reviewedBy
+        else Some(user.id)
+
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
       if (needsReReview) {
@@ -793,9 +801,10 @@ class TaskReviewDAL @Inject() (
       } else {
         reviewedBy = Some(user.id)
       }
+
       val updatedRows =
         SQL"""UPDATE task_review SET review_status = $reviewStatus,
-                                 #${fetchBy} = ${user.id},
+                                 #${fetchBy} = ${originalReviewer.get},
                                  reviewed_at = NOW(),
                                  review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
@@ -862,6 +871,18 @@ class TaskReviewDAL @Inject() (
                 task,
                 comment
               )
+
+              // Let's let the original reviewer know that the review status
+              // has been changed.
+              if (originalReviewer.get != reviewedBy.get) {
+                this.serviceManager.notification.createReviewRevisedNotification(
+                  user,
+                  originalReviewer.get,
+                  reviewStatus,
+                  task,
+                  comment
+                )
+              }
             }
           }
         } else {
