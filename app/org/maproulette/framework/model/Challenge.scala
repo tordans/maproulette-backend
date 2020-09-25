@@ -106,7 +106,8 @@ case class ChallengeGeneral(
 
 case class ChallengeCreation(
     overpassQL: Option[String] = None,
-    remoteGeoJson: Option[String] = None
+    remoteGeoJson: Option[String] = None,
+    overpassTargetType: Option[String] = None
 ) extends DefaultWrites
 
 case class ChallengePriority(

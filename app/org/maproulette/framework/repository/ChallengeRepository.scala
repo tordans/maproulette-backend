@@ -116,6 +116,7 @@ object ChallengeRepository {
       get[Option[String]]("challenges.checkin_comment") ~
       get[Option[String]]("challenges.checkin_source") ~
       get[Option[String]]("challenges.overpass_ql") ~
+      get[Option[String]]("challenges.overpass_target_type") ~
       get[Option[String]]("challenges.remote_geo_json") ~
       get[Option[Int]]("challenges.status") ~
       get[Option[String]]("challenges.status_message") ~
@@ -146,7 +147,7 @@ object ChallengeRepository {
       get[Option[List[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
-            checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
+            checkin_source ~ overpassql ~ overpassTargetType ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
             limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
@@ -186,7 +187,7 @@ object ChallengeRepository {
             virtualParents,
             requiresLocal
           ),
-          ChallengeCreation(overpassql, remoteGeoJson),
+          ChallengeCreation(overpassql, remoteGeoJson, overpassTargetType),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(
             defaultZoom,
