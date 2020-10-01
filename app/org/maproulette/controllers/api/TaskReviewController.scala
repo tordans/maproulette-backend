@@ -246,9 +246,15 @@ class TaskReviewController @Inject() (
           .toMap
       )
 
+      val allReviewers = new scala.collection.mutable.ListBuffer[Long]()
+      tasks.foreach(t => {
+        allReviewers += t.review.reviewedBy.getOrElse(0L)
+        t.review.additionalReviewers.getOrElse(List()).foreach(r => allReviewers += r)
+      })
+
       val reviewers = Some(
         this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.review.reviewedBy.getOrElse(0L)))
+          .retrieveListById(allReviewers.toList)
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )
@@ -269,6 +275,23 @@ class TaskReviewController @Inject() (
         if (task.review.reviewedBy.getOrElse(0) != 0) {
           val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
+        }
+        if (task.review.additionalReviewers != None) {
+          val additionalReviewerJson = Json
+            .toJson(
+              Map(
+                "additionalReviewers" ->
+                  task.review.additionalReviewers.getOrElse(List()).map(r => reviewers.get(r))
+              )
+            )
+            .as[JsObject]
+
+          updated = Utils.insertIntoJson(
+            updated,
+            "additionalReviewers",
+            (additionalReviewerJson \ "additionalReviewers").get,
+            true
+          )
         }
         if (includeTags && tagsMap.contains(task.id)) {
           val tagsJson = Json.toJson(tagsMap(task.id))

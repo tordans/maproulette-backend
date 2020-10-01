@@ -413,8 +413,8 @@ class ChallengeProvider @Inject() (
           case Success(result) =>
             if (result.status == Status.OK) {
               this.db.withTransaction { implicit c =>
-                var partial = false
-                val payload = result.json
+                var partial          = false
+                val payload          = result.json
                 var targetTypeFailed = false
 
                 // parse the results. Overpass has its own format and is not geojson
@@ -428,22 +428,28 @@ class ChallengeProvider @Inject() (
                           case Some("way") =>
                             if (targetType != "way") {
                               targetTypeFailed = true
-                              throw new InvalidException("Element type 'way' does not match target type of '" + targetType + "'")
+                              throw new InvalidException(
+                                "Element type 'way' does not match target type of '" + targetType + "'"
+                              )
                             }
                           case Some("node") =>
                             if (targetType != "node") {
                               targetTypeFailed = true
-                              throw new InvalidException("Element type 'node' does not match target type of '" + targetType + "'")
+                              throw new InvalidException(
+                                "Element type 'node' does not match target type of '" + targetType + "'"
+                              )
                             }
                           case x =>
                             targetTypeFailed = true
-                            throw new InvalidException("Element type " + x + " does not match target type of '" + targetType + "'")
+                            throw new InvalidException(
+                              "Element type " + x + " does not match target type of '" + targetType + "'"
+                            )
                         }
                       case _ => // do not validate
                     }
 
                     try {
-                        val geometry = (element \ "center").asOpt[JsObject] match {
+                      val geometry = (element \ "center").asOpt[JsObject] match {
                         case Some(center) =>
                           Some(
                             Json.obj(

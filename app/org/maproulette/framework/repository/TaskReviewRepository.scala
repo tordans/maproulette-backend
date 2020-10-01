@@ -65,7 +65,16 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
     }
   }
 
-  def getTaskReviewCounts(query: Query)(implicit c: Option[Connection] = None): Map[String, Int] = {
+  /**
+    * Fetches the current task review counts
+    *
+    * @param query - Query with filters
+    * @param useHistory - whether it should pull data from the task review history or
+    *                     only use the lastest statuses from the task_review table.
+    */
+  def getTaskReviewCounts(query: Query, useHistory: Boolean)(
+      implicit c: Option[Connection] = None
+  ): Map[String, Int] = {
     this.withMRTransaction { implicit c =>
       val reviewCountsParser: RowParser[Map[String, Int]] = {
         get[Int]("total") ~
@@ -75,10 +84,11 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
           get[Int]("disputedCount") ~
           get[Int]("requestedCount") ~
           get[Double]("total_review_time") ~
-          get[Int]("tasks_with_review_time") map {
+          get[Int]("tasks_with_review_time") ~
+          get[Int]("additional_reviews").? map {
           case total ~ approvedCount ~ rejectedCount ~ assistedCount ~ disputedCount ~
-                requestedCount ~ totalReviewTime ~ tasksWithReviewTime => {
-            Map(
+                requestedCount ~ totalReviewTime ~ tasksWithReviewTime ~ additionalReviews => {
+            val countMap = Map(
               "total"     -> total,
               "approved"  -> approvedCount,
               "rejected"  -> rejectedCount,
@@ -89,12 +99,22 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
                                     (totalReviewTime / tasksWithReviewTime).toInt
                                   else 0)
             )
+
+            additionalReviews match {
+              case Some(ar) => countMap + ("additionalReviews" -> ar)
+              case None     => countMap
+            }
           }
         }
       }
 
+      val additionalReviews =
+        if (useHistory)
+          ", SUM(CASE WHEN (original_reviewer IS NOT NULL) THEN 1 ELSE 0 END) additional_reviews"
+        else ""
+
       query.build(s"""
-                       |SELECT count(*) as total,
+                       |SELECT count(distinct(task_id)) as total,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_APPROVED} then 1 else 0 end), 0) approvedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) rejectedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
@@ -107,7 +127,8 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
                        |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
                        |                        reviewed_at IS NOT NULL)
                        |                  THEN 1 ELSE 0 END), 0) tasks_with_review_time
-                       |FROM task_review
+                       |${additionalReviews}
+                       |FROM ${if (useHistory) "task_review_history" else "task_review"} as task_review
         """.stripMargin).as(reviewCountsParser.single)
     }
   }

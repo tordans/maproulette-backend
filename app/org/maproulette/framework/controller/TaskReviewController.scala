@@ -319,19 +319,21 @@ class TaskReviewController @Inject() (
           params.getProjectIds match {
             case Some(pId) =>
               // Searching by project, just fetch name
-              pId.map(
-                 this.projectService.retrieve(_) match {
-                  case Some(p) => p.displayName.get
-                  case None => ""
-                }
-              ).mkString("|")
+              pId
+                .map(
+                  this.projectService.retrieve(_) match {
+                    case Some(p) => p.displayName.get
+                    case None    => ""
+                  }
+                )
+                .mkString("|")
             case None =>
               params.getChallengeIds match {
                 case Some(cId) =>
                   // We have a list of challenges. If these challenges all belong
                   // to the same project we can use the parent project name.
                   val challengeList = this.challengeService.list(cId)
-                  val parentProject:Option[Long] =
+                  val parentProject: Option[Long] =
                     if (challengeList.forall(_.general.parent == challengeList.head.general.parent))
                       Some(challengeList.head.general.parent)
                     else None
@@ -339,7 +341,7 @@ class TaskReviewController @Inject() (
                     case Some(pp) =>
                       this.projectService.retrieve(pp) match {
                         case Some(p) => p.displayName.get
-                        case None => ""
+                        case None    => ""
                       }
                     case None => ""
                   }
@@ -394,7 +396,8 @@ class TaskReviewController @Inject() (
               val rsTimeSeconds = Math.round(rsRow.avgReviewTime / 1000)
               val rsPercent     = Math.round(rsRow.total * 100 / row.total)
               result ++=
-                s"\n${mapper.get},${projectName},${if (challengeName == "") "" else s"${challengeName},"}" +
+                s"\n${mapper.get},${projectName},${if (challengeName == "") ""
+                else s"${challengeName},"}" +
                   s"${Task.reviewStatusMap.get(rs).get},${rsRow.total}," +
                   s"${rsPercent},${rsTimeSeconds},,,,," +
                   s",${rsRow.fixed},${rsRow.falsePositive},${rsRow.alreadyFixed}," +

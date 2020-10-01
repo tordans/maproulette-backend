@@ -24,7 +24,12 @@ case class LeaderboardUser(
     completedTasks: Int,
     avgTimeSpent: Long,
     created: DateTime = new DateTime(),
-    topChallenges: List[LeaderboardChallenge]
+    topChallenges: List[LeaderboardChallenge],
+    reviewsApproved: Option[Int],
+    reviewsAssisted: Option[Int],
+    reviewsRejected: Option[Int],
+    reviewsDisputed: Option[Int],
+    additionalReviews: Option[Int]
 )
 object LeaderboardUser extends CommonField {
   implicit val writes: Writes[LeaderboardUser] = Json.writes[LeaderboardUser]

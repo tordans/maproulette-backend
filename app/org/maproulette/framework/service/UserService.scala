@@ -169,7 +169,6 @@ class UserService @Inject() (
           )
         case None => query
       }
-
     )
   }
 

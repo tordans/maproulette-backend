@@ -474,16 +474,25 @@ class VirtualChallengeDAL @Inject() (
         get[Option[Long]]("completed_time_spent") ~ get[Option[Long]]("completed_by") ~
         get[Option[Int]]("review_status") ~ get[Option[Long]]("review_requested_by") ~
         get[Option[Long]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
-        get[Option[DateTime]]("review_started_at") ~ int("priority") ~
+        get[Option[DateTime]]("review_started_at") ~ get[Option[List[Long]]]("additional_reviewers") ~ int(
+        "priority"
+      ) ~
         get[Option[Long]]("bundle_id") ~ get[Option[Boolean]]("is_bundle_primary") map {
         case id ~ name ~ instruction ~ location ~ status ~ cooperativeWork ~ mappedOn ~ completedTimeSpent ~
-              completedBy ~ reviewStatus ~ reviewRequestedBy ~
-              reviewedBy ~ reviewedAt ~ reviewStartedAt ~ priority ~ bundleId ~ isBundlePrimary =>
+              completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~
+              additionalReviewers ~ priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
           val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
           val point        = Point(coordinates(1), coordinates.head)
           val pointReview =
-            PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
+            PointReview(
+              reviewStatus,
+              reviewRequestedBy,
+              reviewedBy,
+              reviewedAt,
+              reviewStartedAt,
+              additionalReviewers
+            )
           ClusteredPoint(
             id,
             -1,
@@ -510,7 +519,7 @@ class VirtualChallengeDAL @Inject() (
       }
       SQL"""SELECT tasks.id, name, instruction, status, cooperative_work_json::TEXT as cooperative_work,
                    mapped_on, completed_time_spent, completed_by, review_status, review_requested_by,
-                   reviewed_by, reviewed_at, review_started_at, ST_AsGeoJSON(location) AS location, priority,
+                   reviewed_by, reviewed_at, review_started_at, additional_reviewers, ST_AsGeoJSON(location) AS location, priority,
                    bundle_id, is_bundle_primary
               FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
               WHERE tasks.id IN

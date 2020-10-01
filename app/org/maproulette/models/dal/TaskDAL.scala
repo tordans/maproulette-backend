@@ -77,7 +77,7 @@ class TaskDAL @Inject() (
   val retrieveColumnsWithReview: String = this.retrieveColumns +
     ", task_review.review_status, task_review.review_requested_by, " +
     "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
-    "task_review.review_claimed_by, task_review.review_claimed_at "
+    "task_review.review_claimed_by, task_review.review_claimed_at, task_review.additional_reviewers "
 
   /**
     * Retrieves the object based on the name, this function is somewhat weak as there could be
@@ -126,6 +126,7 @@ class TaskDAL @Inject() (
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Option[DateTime]]("task_review.review_claimed_at") ~
+      get[Option[List[Long]]]("task_review.additional_reviewers") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[String]]("responses") ~
@@ -134,7 +135,7 @@ class TaskDAL @Inject() (
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
             reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
-            reviewClaimedAt ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
+            reviewClaimedAt ~ additionalReviewers ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
         val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
         Task(
           id,
@@ -157,7 +158,8 @@ class TaskDAL @Inject() (
             reviewedAt,
             reviewStartedAt,
             reviewClaimedBy,
-            reviewClaimedAt
+            reviewClaimedAt,
+            additionalReviewers
           ),
           priority,
           changesetId,

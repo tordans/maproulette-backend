@@ -129,8 +129,7 @@ trait SearchParametersMixin {
               )
             )
           )
-        }
-        else {
+        } else {
           FilterGroup(
             List(
               BaseParameter(

@@ -59,13 +59,15 @@ trait LeaderboardMixin {
 
   /**
     * Returns the SQL to sum a user's number of tasks they reviewed
+    * Note: Disputed tasks in the task_review_history do not count
+    * since there will already be an entry for their original task review.
     **/
   def reviewSumSQL(): String = {
     s"""COALESCE(SUM(CASE review_status
                WHEN ${Task.REVIEW_STATUS_APPROVED} THEN 1
                WHEN ${Task.REVIEW_STATUS_ASSISTED} THEN 1
                WHEN ${Task.REVIEW_STATUS_REJECTED} THEN 1
-               WHEN ${Task.REVIEW_STATUS_DISPUTED} THEN 1
+               WHEN ${Task.REVIEW_STATUS_DISPUTED} THEN 0
                ELSE 0
              END), 0)"""
   }
@@ -86,11 +88,32 @@ trait LeaderboardMixin {
     **/
   def reviewTimeSpentSQL(): String = {
     val avgReviewTime =
-      "CAST(EXTRACT(epoch FROM (task_review.reviewed_at - task_review.review_started_at)) * 1000 AS INT)"
+      "CAST(EXTRACT(epoch FROM (task_review_history.reviewed_at - task_review_history.review_started_at)) * 1000 AS INT)"
+
     s"""COALESCE(SUM(${avgReviewTime}) /
         SUM(CASE
              WHEN (${avgReviewTime}) > 0 THEN 1
              ELSE 0
            END), 0)"""
+  }
+
+  /**
+    * Returns the SQL to sum a user's number of tasks by review status
+    **/
+  def reviewStatusSumSQL(reviewStatus: Int): String = {
+    s"""COALESCE(SUM(CASE review_status
+               WHEN ${reviewStatus} THEN 1
+               ELSE 0
+             END), 0)"""
+  }
+
+  /**
+    * Returns the SQL to sum how many reviews were additional reviews
+    **/
+  def additionalReviewsSumSQL(): String = {
+    s"""COALESCE(SUM(CASE
+               WHEN original_reviewer IS NOT NULL THEN 1
+               ELSE 0
+             END), 0)"""
   }
 }
