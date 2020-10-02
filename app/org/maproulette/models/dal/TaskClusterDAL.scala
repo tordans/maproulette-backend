@@ -273,7 +273,7 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
                  tasks.completed_time_spent, tasks.completed_by,
                  tasks.bundle_id, tasks.is_bundle_primary, tasks.cooperative_work_json::TEXT as cooperative_work,
                  task_review.review_status, task_review.review_requested_by, task_review.reviewed_by, task_review.reviewed_at,
-                 task_review.review_started_at,
+                 task_review.review_started_at, task_review.additional_reviewers,
                  ST_AsGeoJSON(tasks.location) AS location, priority,
                  CASE WHEN task_review.review_started_at IS NULL
                        THEN 0
@@ -302,17 +302,25 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
         get[Option[Long]]("task_review.reviewed_by") ~
         get[Option[DateTime]]("task_review.reviewed_at") ~
         get[Option[DateTime]]("task_review.review_started_at") ~
+        get[Option[List[Long]]]("task_review.additional_reviewers") ~
         int("tasks.priority") ~
         get[Option[Long]]("tasks.bundle_id") ~
         get[Option[Boolean]]("tasks.is_bundle_primary") map {
         case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ cooperativeWork ~ mappedOn ~
               completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-              reviewStartedAt ~ priority ~ bundleId ~ isBundlePrimary =>
+              reviewStartedAt ~ additionalReviewers ~ priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
           val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
           val point        = Point(coordinates(1), coordinates.head)
           val pointReview =
-            PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
+            PointReview(
+              reviewStatus,
+              reviewRequestedBy,
+              reviewedBy,
+              reviewedAt,
+              reviewStartedAt,
+              additionalReviewers
+            )
           ClusteredPoint(
             id,
             -1,

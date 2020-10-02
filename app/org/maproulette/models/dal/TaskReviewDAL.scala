@@ -77,6 +77,7 @@ class TaskReviewDAL @Inject() (
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Option[DateTime]]("task_review.review_claimed_at") ~
+      get[Option[List[Long]]]("task_review.additional_reviewers") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[Long]]("tasks.bundle_id") ~
@@ -87,8 +88,8 @@ class TaskReviewDAL @Inject() (
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority ~
-            changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~
+            priority ~ changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
             reviewedByUsername ~ responses =>
         val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
         model.TaskWithReview(
@@ -113,7 +114,8 @@ class TaskReviewDAL @Inject() (
               reviewedAt,
               reviewStartedAt,
               reviewClaimedBy,
-              reviewClaimedAt
+              reviewClaimedAt,
+              additionalReviewers
             ),
             priority,
             changesetId,
@@ -132,6 +134,7 @@ class TaskReviewDAL @Inject() (
             reviewedByUsername,
             reviewedAt,
             reviewStartedAt,
+            additionalReviewers,
             reviewClaimedBy,
             None,
             None
@@ -782,16 +785,27 @@ class TaskReviewDAL @Inject() (
       val needsReReview = (task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
-      var reviewedBy        = task.review.reviewedBy
-      var reviewRequestedBy = task.review.reviewRequestedBy
+      var reviewedBy          = task.review.reviewedBy
+      var reviewRequestedBy   = task.review.reviewRequestedBy
+      var additionalReviewers = task.review.additionalReviewers
+
+      // Make sure we have an updated claimed at time.
+      val reviewClaimedAt = getTaskWithReview(task.id).task.review.reviewClaimedAt
 
       // If the original reviewer is not the same as the user asking for this
       // review status change than we have a "meta-review" situation. Let's leave
       // the original reviewer as the reviewedBy on the task. The user will
       // still be noted as a reviewer in the task_review_history
       val originalReviewer =
-        if (reviewedBy != None && reviewedBy.get != user.id) reviewedBy
-        else Some(user.id)
+        if (reviewedBy != None && reviewedBy.get != user.id) {
+          if (additionalReviewers == None) {
+            additionalReviewers = Some(List())
+          }
+          if (!additionalReviewers.contains(user.id)) {
+            additionalReviewers = Some(additionalReviewers.get :+ user.id)
+          }
+          reviewedBy
+        } else Some(user.id)
 
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
@@ -808,7 +822,11 @@ class TaskReviewDAL @Inject() (
                                  reviewed_at = NOW(),
                                  review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
-                                 review_claimed_by = NULL
+                                 review_claimed_by = NULL,
+                                 additional_reviewers = #${additionalReviewers match {
+          case Some(ar) => "ARRAY[" + ar.mkString(",") + "]"
+          case None     => "NULL"
+        }}
                              WHERE task_review.task_id = (
                                 SELECT tasks.id FROM tasks
                                 LEFT JOIN locked l on l.item_id = tasks.id AND l.item_type = ${task.itemType.typeId}
@@ -849,7 +867,7 @@ class TaskReviewDAL @Inject() (
             SQL"""INSERT INTO task_review_history
                               (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                   VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                          $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
+                          $reviewStatus, NOW(), NULL)""".executeUpdate()
             this.serviceManager.notification.createReviewNotification(
               user,
               task.review.reviewedBy.getOrElse(-1),
@@ -859,10 +877,15 @@ class TaskReviewDAL @Inject() (
             )
           } else {
             // Let's note in the task_review_history table that this task was reviewed
+            // and also who the original reviewer was (assuming we have one)
             SQL"""INSERT INTO task_review_history
-                              (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
+                              (task_id, requested_by, reviewed_by, review_status,
+                               reviewed_at, review_started_at, original_reviewer)
                   VALUES (${task.id}, ${task.review.reviewRequestedBy}, ${user.id},
-                          $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
+                          $reviewStatus, NOW(), ${reviewClaimedAt},
+                          #${if (originalReviewer.getOrElse(0) != user.id) originalReviewer.get
+            else "NULL"}
+                         )""".executeUpdate()
             if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
               this.serviceManager.notification.createReviewNotification(
                 user,
@@ -890,7 +913,7 @@ class TaskReviewDAL @Inject() (
           SQL"""INSERT INTO task_review_history
                             (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                 VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                        $reviewStatus, NOW(), ${task.review.reviewStartedAt})""".executeUpdate()
+                        $reviewStatus, NOW(), NULL)""".executeUpdate()
         }
       }
 

@@ -115,7 +115,8 @@ class UserMetricService @Inject() (
             )
           )
         )
-      )
+      ),
+      false
     )
 
     if (isReviewer) {
@@ -135,12 +136,13 @@ class UserMetricService @Inject() (
             reviewerTimeClause,
             BaseParameter(
               TaskReview.FIELD_REVIEW_STATUS,
-              Task.REVIEW_STATUS_UNNECESSARY,
-              Operator.EQ,
+              List(Task.REVIEW_STATUS_UNNECESSARY),
+              Operator.IN,
               true
             )
           )
-        )
+        ),
+        true
       )
       Map(
         "tasks"           -> taskCounts,

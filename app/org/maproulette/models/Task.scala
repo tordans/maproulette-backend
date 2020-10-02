@@ -22,7 +22,8 @@ case class TaskReviewFields(
     reviewedAt: Option[DateTime] = None,
     reviewStartedAt: Option[DateTime] = None,
     reviewClaimedBy: Option[Long] = None,
-    reviewClaimedAt: Option[DateTime] = None
+    reviewClaimedAt: Option[DateTime] = None,
+    additionalReviewers: Option[List[Long]] = None
 ) extends DefaultWrites
 
 /**
@@ -163,6 +164,10 @@ object Task extends CommonField {
       }
       updated = o.review.reviewClaimedBy match {
         case Some(r) => Utils.insertIntoJson(updated, "reviewClaimedBy", r, true)
+        case None    => updated
+      }
+      updated = o.review.additionalReviewers match {
+        case Some(r) => Utils.insertIntoJson(updated, "additionalReviewers", r, true)
         case None    => updated
       }
 

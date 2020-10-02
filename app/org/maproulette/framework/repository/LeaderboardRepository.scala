@@ -50,9 +50,15 @@ class LeaderboardRepository @Inject() (override val db: Database) extends Reposi
       get[Int]("user_ranking") ~
       get[DateTime]("created").? ~
       get[Int]("completed_tasks") ~
-      get[Long]("avg_time_spent") map {
+      get[Long]("avg_time_spent") ~
+      get[Int]("reviews_approved").? ~
+      get[Int]("reviews_assisted").? ~
+      get[Int]("reviews_rejected").? ~
+      get[Int]("reviews_disputed").? ~
+      get[Int]("additional_reviews").? map {
       case userId ~ name ~ avatarURL ~ score ~ rank ~ created ~
-            completedTasks ~ avgTimeSpent => {
+            completedTasks ~ avgTimeSpent ~ reviewsApproved ~ reviewsAssisted ~
+            reviewsRejected ~ reviewsDisputed ~ additional_reviews => {
         new LeaderboardUser(
           userId,
           name,
@@ -65,7 +71,12 @@ class LeaderboardRepository @Inject() (override val db: Database) extends Reposi
             case Some(c) => c
             case _       => new DateTime()
           },
-          getTopChallengesBlock(userId)
+          getTopChallengesBlock(userId),
+          reviewsApproved,
+          reviewsAssisted,
+          reviewsRejected,
+          reviewsDisputed,
+          additional_reviews
         )
       }
     }

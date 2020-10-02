@@ -505,9 +505,14 @@ class TaskController @Inject() (
           .toMap
       )
 
+      val allReviewers = tasks.flatMap(t => {
+        List(t.pointReview.reviewedBy.map(r => r)).flatMap(r => r) ++
+          t.pointReview.additionalReviewers.getOrElse(List())
+      })
+
       val reviewers = Some(
         this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.pointReview.reviewedBy.getOrElse(0L)))
+          .retrieveListById(allReviewers.toList)
           .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
           .toMap
       )
@@ -548,6 +553,26 @@ class TaskController @Inject() (
             Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
           reviewPointJson =
             Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        if (task.pointReview.additionalReviewers != None) {
+          val additionalReviewerJson = Json
+            .toJson(
+              Map(
+                "additionalReviewers" ->
+                  task.pointReview.additionalReviewers.getOrElse(List()).map(r => reviewers.get(r))
+              )
+            )
+            .as[JsObject]
+          reviewPointJson = Utils
+            .insertIntoJson(
+              reviewPointJson,
+              "additionalReviewers",
+              (additionalReviewerJson \ "additionalReviewers").get,
+              true
+            )
+            .as[JsObject]
           updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
         }
 

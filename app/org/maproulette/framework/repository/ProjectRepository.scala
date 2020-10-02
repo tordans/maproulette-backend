@@ -180,10 +180,10 @@ class ProjectRepository @Inject() (override val db: Database, grantService: Gran
 
       val baseQuery =
         s"""
-          SELECT challenges.id, users.osm_id, users.name, challenges.name, challenges.parent_id, 
-                  |projects.name, challenges.blurb, ST_AsGeoJSON(challenges.location) AS location, 
-                  |ST_AsGeoJSON(challenges.bounding) AS bounding, challenges.difficulty, 
-                  |challenges.last_updated 
+          SELECT challenges.id, users.osm_id, users.name, challenges.name, challenges.parent_id,
+                  |projects.name, challenges.blurb, ST_AsGeoJSON(challenges.location) AS location,
+                  |ST_AsGeoJSON(challenges.bounding) AS bounding, challenges.difficulty,
+                  |challenges.last_updated
           |FROM challenges
           |INNER JOIN projects ON projects.id = challenges.parent_id
           |INNER JOIN users ON users.osm_id = challenges.owner_id
@@ -358,7 +358,7 @@ object ProjectRepository extends Readers {
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
-        val pointReview  = PointReview(None, None, None, None, None)
+        val pointReview  = PointReview(None, None, None, None, None, None)
         val boundingJSON = Json.parse(bounding)
         ClusteredPoint(
           id,

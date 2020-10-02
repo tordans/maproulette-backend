@@ -243,7 +243,7 @@ class ChallengeDAL @Inject() (
             status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~
             lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~
-            preferredReviewTags ~ limitTags ~limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
+            preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
@@ -326,16 +326,24 @@ class ChallengeDAL @Inject() (
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
-      get[Option[DateTime]]("task_review.review_started_at") map {
+      get[Option[DateTime]]("task_review.review_started_at") ~
+      get[Option[List[Long]]]("task_review.additional_reviewers") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
             mappedOn ~ completedTimeSpent ~ completedBy ~ priority ~ bundleId ~
             isBundlePrimary ~ cooperativeWork ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewStartedAt =>
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ additionalReviewers =>
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
         val pointReview =
-          PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
+          PointReview(
+            reviewStatus,
+            reviewRequestedBy,
+            reviewedBy,
+            reviewedAt,
+            reviewStartedAt,
+            additionalReviewers
+          )
         ClusteredPoint(
           id,
           -1,
@@ -735,11 +743,12 @@ class ChallengeDAL @Inject() (
           get[Option[DateTime]]("task_review.review_started_at") ~
           get[Option[Long]]("task_review.review_claimed_by") ~
           get[Option[DateTime]]("task_review.review_claimed_at") ~
+          get[Option[List[Long]]]("task_review.additional_reviewers") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
                 geometry ~ cooperativeWork ~ status ~ mappedOn ~ completedTimeSpent ~
                 completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-                reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority =>
+                reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~ priority =>
             val values = taskDAL.updateAndRetrieve(id, geometry, location, cooperativeWork)
             Task(
               id,
@@ -762,7 +771,8 @@ class ChallengeDAL @Inject() (
                 reviewedAt,
                 reviewStartedAt,
                 reviewClaimedBy,
-                reviewClaimedAt
+                reviewClaimedAt,
+                additionalReviewers
               ),
               priority
             )
@@ -1222,6 +1232,7 @@ class ChallengeDAL @Inject() (
                    t.parent_id, t.bundle_id, t.is_bundle_primary,
                    tr.review_status, tr.review_requested_by,
                    tr.reviewed_by, tr.reviewed_at, tr.review_started_at,
+                   tr.additional_reviewers,
                    t.cooperative_work_json::TEXT as cooperative_work, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
