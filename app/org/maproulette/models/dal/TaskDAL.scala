@@ -1357,6 +1357,7 @@ class TaskDAL @Inject() (
         reviewedBy         <- get[Option[String]]("reviewedBy")
         reviewedAt         <- get[Option[DateTime]]("task_review.reviewed_at")
         reviewStartedAt    <- get[Option[DateTime]]("task_review.review_started_at")
+        additionalReviewers<- get[Option[List[String]]]("additionalReviewers")
         tags               <- get[Option[String]]("tags")
         responses          <- get[Option[String]]("responses")
         bundleId           <- get[Option[Long]]("bundle_id")
@@ -1376,6 +1377,7 @@ class TaskDAL @Inject() (
         reviewedBy,
         reviewedAt,
         reviewStartedAt,
+        additionalReviewers,
         tags,
         responses,
         geojson,
@@ -1408,6 +1410,7 @@ class TaskDAL @Inject() (
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
                    task_review.reviewed_at, task_review.review_started_at,
+                   (ARRAY(SELECT name FROM users WHERE id IN (SELECT UNNEST(additional_reviewers)))) AS additionalReviewers,
                    (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id = tasks.id AND tg.id = tot.tag_id),
                    tasks.completion_responses::TEXT AS responses
             FROM tasks LEFT OUTER JOIN (
@@ -1510,6 +1513,7 @@ class TaskDAL @Inject() (
       reviewedBy: Option[String],
       reviewedAt: Option[DateTime],
       reviewStartedAt: Option[DateTime],
+      additionalReviewers: Option[List[String]],
       tags: Option[String],
       completionResponses: Option[String],
       geojson: Option[String],
