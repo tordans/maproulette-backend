@@ -505,10 +505,9 @@ class TaskController @Inject() (
           .toMap
       )
 
-      val allReviewers = new scala.collection.mutable.ListBuffer[Long]()
-      tasks.foreach(t => {
-        allReviewers += t.pointReview.reviewedBy.getOrElse(0L)
-        t.pointReview.additionalReviewers.getOrElse(List()).foreach(r => allReviewers += r)
+      val allReviewers = tasks.flatMap(t => {
+        List(t.pointReview.reviewedBy.map(r => r)).flatMap(r => r) ++
+          t.pointReview.additionalReviewers.getOrElse(List())
       })
 
       val reviewers = Some(
