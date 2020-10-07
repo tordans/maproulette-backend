@@ -16,6 +16,8 @@ import org.maproulette.framework.psql.filter._
 import org.maproulette.session.{SessionManager, SearchLeaderboardParameters}
 import org.maproulette.utils.BoundingBoxFinder
 
+import org.maproulette.models.Task
+
 /**
   * Service layer for Leaderboard
   *
@@ -65,11 +67,11 @@ class LeaderboardService @Inject() (
           start,
           end,
           Operator.BETWEEN,
-          table = Some("task_review"),
+          table = Some("task_review_history"),
           useValueDirectly = true
         ),
-        CustomParameter("users.id = task_review.reviewed_by"),
-        CustomParameter("tasks.id = task_review.task_id"),
+        CustomParameter("users.id = task_review_history.reviewed_by"),
+        CustomParameter("tasks.id = task_review_history.task_id"),
         FilterParameter.conditional(
           "parent_id",
           challengeList.getOrElse(List()).mkString(","),
@@ -80,13 +82,13 @@ class LeaderboardService @Inject() (
         )
       ),
       grouping = Grouping(
-        GroupField("reviewed_by", Some("task_review")),
+        GroupField("reviewed_by", Some("task_review_history")),
         GroupField(User.FIELD_ID, Some("users"))
       ),
       order = Order(
         List(
           OrderField("user_score", Order.DESC, table = Some("")),
-          OrderField("reviewed_by", Order.ASC, table = Some("task_review"))
+          OrderField("reviewed_by", Order.ASC, table = Some("task_review_history"))
         )
       ),
       base = s"""
@@ -95,8 +97,13 @@ class LeaderboardService @Inject() (
                    ${this.reviewSumSQL()} AS completed_tasks, ${this
         .reviewTimeSpentSQL()} AS avg_time_spent,
                    ROW_NUMBER() OVER( ORDER BY ${this
-        .reviewScoreSumSQL(config)} DESC, task_review.reviewed_by ASC) as user_ranking
-            FROM users, task_review, tasks
+        .reviewScoreSumSQL(config)} DESC, task_review_history.reviewed_by ASC) as user_ranking,
+        ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_APPROVED)} AS reviews_approved,
+        ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_ASSISTED)} AS reviews_assisted,
+        ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_REJECTED)} AS reviews_rejected,
+        ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_DISPUTED)} AS reviews_disputed,
+        ${this.additionalReviewsSumSQL()} AS additional_reviews
+            FROM users, task_review_history, tasks
           """,
       paging = Paging(limit, offset)
     )

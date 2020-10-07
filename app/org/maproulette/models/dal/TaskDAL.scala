@@ -77,7 +77,7 @@ class TaskDAL @Inject() (
   val retrieveColumnsWithReview: String = this.retrieveColumns +
     ", task_review.review_status, task_review.review_requested_by, " +
     "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
-    "task_review.review_claimed_by, task_review.review_claimed_at "
+    "task_review.review_claimed_by, task_review.review_claimed_at, task_review.additional_reviewers "
 
   /**
     * Retrieves the object based on the name, this function is somewhat weak as there could be
@@ -126,6 +126,7 @@ class TaskDAL @Inject() (
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Option[DateTime]]("task_review.review_claimed_at") ~
+      get[Option[List[Long]]]("task_review.additional_reviewers") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[String]]("responses") ~
@@ -134,7 +135,7 @@ class TaskDAL @Inject() (
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
             reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
-            reviewClaimedAt ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
+            reviewClaimedAt ~ additionalReviewers ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
         val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
         Task(
           id,
@@ -157,7 +158,8 @@ class TaskDAL @Inject() (
             reviewedAt,
             reviewStartedAt,
             reviewClaimedBy,
-            reviewClaimedAt
+            reviewClaimedAt,
+            additionalReviewers
           ),
           priority,
           changesetId,
@@ -304,6 +306,17 @@ class TaskDAL @Inject() (
         user
       )
 
+      // If we are setting the status back to created, then we need to
+      // reset the mapper, bundling, and completion_responses back to null
+      if (status == Task.STATUS_CREATED && id > 0) {
+        this.withMRConnection { implicit c =>
+          SQL"""UPDATE tasks t SET completed_time_spent = NULL, completed_by = NULL,
+                                   completion_responses = NULL,
+                                   is_bundle_primary = false, bundle_id = NULL
+             WHERE t.id = ${id}""".executeUpdate()
+        }
+      }
+
       if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
         this.manager.challenge.updateReadyStatus()(parentId)
       } else {
@@ -432,10 +445,16 @@ class TaskDAL @Inject() (
         .as(long("create_update_task").*)
         .head
 
-      // If we are updating the task review back to None then we need to delete its entry in the task_review table
+      // If we are updating the task review back to None then we need to delete
+      // its entry in the task_review table.
+      // We also need to always delete a task_review if we are resetting the task
+      // back to created.
       cachedItem match {
         case Some(item) =>
-          if (item.review.reviewRequestedBy != None && element.review.reviewRequestedBy == None) {
+          if ((item.review.reviewRequestedBy != None &&
+              element.review.reviewRequestedBy == None) ||
+              (element.status.getOrElse(Task.STATUS_CREATED) == Task.STATUS_CREATED &&
+              element.review.reviewStatus != None)) {
             SQL("DELETE FROM task_review WHERE task_id=" + element.id).execute()
           }
         case None => // ignore
@@ -1338,6 +1357,7 @@ class TaskDAL @Inject() (
         reviewedBy         <- get[Option[String]]("reviewedBy")
         reviewedAt         <- get[Option[DateTime]]("task_review.reviewed_at")
         reviewStartedAt    <- get[Option[DateTime]]("task_review.review_started_at")
+        additionalReviewers<- get[Option[List[String]]]("additionalReviewers")
         tags               <- get[Option[String]]("tags")
         responses          <- get[Option[String]]("responses")
         bundleId           <- get[Option[Long]]("bundle_id")
@@ -1357,6 +1377,7 @@ class TaskDAL @Inject() (
         reviewedBy,
         reviewedAt,
         reviewStartedAt,
+        additionalReviewers,
         tags,
         responses,
         geojson,
@@ -1389,6 +1410,7 @@ class TaskDAL @Inject() (
                    (SELECT name as reviewRequestedBy FROM users WHERE users.id = task_review.review_requested_by),
                    (SELECT name as reviewedBy FROM users WHERE users.id = task_review.reviewed_by),
                    task_review.reviewed_at, task_review.review_started_at,
+                   (ARRAY(SELECT name FROM users WHERE id IN (SELECT UNNEST(additional_reviewers)))) AS additionalReviewers,
                    (SELECT STRING_AGG(tg.name, ',') AS tags FROM tags_on_tasks tot, tags tg where tot.task_id = tasks.id AND tg.id = tot.tag_id),
                    tasks.completion_responses::TEXT AS responses
             FROM tasks LEFT OUTER JOIN (
@@ -1491,6 +1513,7 @@ class TaskDAL @Inject() (
       reviewedBy: Option[String],
       reviewedAt: Option[DateTime],
       reviewStartedAt: Option[DateTime],
+      additionalReviewers: Option[List[String]],
       tags: Option[String],
       completionResponses: Option[String],
       geojson: Option[String],

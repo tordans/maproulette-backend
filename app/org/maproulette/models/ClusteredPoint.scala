@@ -19,7 +19,8 @@ case class PointReview(
     reviewRequestedBy: Option[Long],
     reviewedBy: Option[Long],
     reviewedAt: Option[DateTime],
-    reviewStartedAt: Option[DateTime]
+    reviewStartedAt: Option[DateTime],
+    additionalReviewers: Option[List[Long]]
 )
 
 /**

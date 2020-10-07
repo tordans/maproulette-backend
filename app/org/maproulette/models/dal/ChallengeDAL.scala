@@ -87,6 +87,7 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.checkin_source") ~
       get[Option[String]]("challenges.overpass_ql") ~
       get[Option[String]]("challenges.remote_geo_json") ~
+      get[Option[String]]("challenges.overpass_target_type") ~
       get[Option[Int]]("challenges.status") ~
       get[Option[String]]("challenges.status_message") ~
       get[Int]("challenges.default_priority") ~
@@ -115,9 +116,10 @@ class ChallengeDAL @Inject() (
       get[Boolean]("deleted") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
-            checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
-            mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
+            checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~ status ~ statusMessage ~
+            defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
+            minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
+            exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
             limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted =>
         val hpr = highPriorityRule match {
@@ -155,7 +157,7 @@ class ChallengeDAL @Inject() (
             None,
             requiresLocal
           ),
-          ChallengeCreation(overpassql, remoteGeoJson),
+          ChallengeCreation(overpassql, remoteGeoJson, overpassTargetType),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(
             defaultZoom,
@@ -207,6 +209,7 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("challenges.checkin_source") ~
       get[Option[String]]("challenges.overpass_ql") ~
       get[Option[String]]("challenges.remote_geo_json") ~
+      get[Option[String]]("challenges.overpass_target_type") ~
       get[Option[Int]]("challenges.status") ~
       get[Option[String]]("challenges.status_message") ~
       get[Int]("challenges.default_priority") ~
@@ -236,12 +239,12 @@ class ChallengeDAL @Inject() (
       get[Option[List[Long]]]("virtual_parent_ids") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
-            checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ status ~ statusMessage ~
-            defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
-            minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-            exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~ limitTags ~
-            limitReviewTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~
-            location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
+            checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~
+            status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~
+            lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
+            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~
+            preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
+            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -277,7 +280,7 @@ class ChallengeDAL @Inject() (
             virtualParents,
             requiresLocal
           ),
-          ChallengeCreation(overpassql, remoteGeoJson),
+          ChallengeCreation(overpassql, remoteGeoJson, overpassTargetType),
           ChallengePriority(defaultPriority, hpr, mpr, lpr),
           ChallengeExtra(
             defaultZoom,
@@ -323,16 +326,24 @@ class ChallengeDAL @Inject() (
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
-      get[Option[DateTime]]("task_review.review_started_at") map {
+      get[Option[DateTime]]("task_review.review_started_at") ~
+      get[Option[List[Long]]]("task_review.additional_reviewers") map {
       case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
             mappedOn ~ completedTimeSpent ~ completedBy ~ priority ~ bundleId ~
             isBundlePrimary ~ cooperativeWork ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewStartedAt =>
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ additionalReviewers =>
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
         val pointReview =
-          PointReview(reviewStatus, reviewRequestedBy, reviewedBy, reviewedAt, reviewStartedAt)
+          PointReview(
+            reviewStatus,
+            reviewRequestedBy,
+            reviewedBy,
+            reviewedAt,
+            reviewStartedAt,
+            additionalReviewers
+          )
         ClusteredPoint(
           id,
           -1,
@@ -431,7 +442,7 @@ class ChallengeDAL @Inject() (
       this.withMRTransaction { implicit c =>
         SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
                                       instruction, enabled, featured, checkin_comment, checkin_source,
-                                      overpass_ql, remote_geo_json, status, status_message, default_priority, high_priority_rule,
+                                      overpass_ql, remote_geo_json, overpass_target_type, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
                                       osm_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
@@ -439,7 +450,8 @@ class ChallengeDAL @Inject() (
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.featured},
-                      ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson}, ${challenge.status},
+                      ${challenge.general.checkinComment}, ${challenge.general.checkinSource}, ${challenge.creation.overpassQL}, ${challenge.creation.remoteGeoJson},
+                      ${challenge.creation.overpassTargetType}, ${challenge.status},
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks},
@@ -522,6 +534,9 @@ class ChallengeDAL @Inject() (
           val remoteGeoJson = (updates \ "remoteGeoJson")
             .asOpt[String]
             .getOrElse(cachedItem.creation.remoteGeoJson.getOrElse(""))
+          val overpassTargetType = (updates \ "overpassTargetType")
+            .asOpt[String]
+            .getOrElse(cachedItem.creation.overpassTargetType.getOrElse(""))
           val dataOriginDate = (updates \ "dataOriginDate")
             .asOpt[DateTime]
             .getOrElse(cachedItem.dataOriginDate.getOrElse(DateTime.now()))
@@ -593,7 +608,7 @@ class ChallengeDAL @Inject() (
           SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
                 description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
                 enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, checkin_source = $checkinSource, overpass_ql = $overpassQL,
-                remote_geo_json = $remoteGeoJson, status = $status, status_message = $statusMessage, default_priority = $defaultPriority,
+                remote_geo_json = $remoteGeoJson, overpass_target_type = $overpassTargetType, status = $status, status_message = $statusMessage, default_priority = $defaultPriority,
                 data_origin_date = ${dataOriginDate.toString()}::timestamptz,
                 high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) {
             Option.empty[String]
@@ -728,11 +743,12 @@ class ChallengeDAL @Inject() (
           get[Option[DateTime]]("task_review.review_started_at") ~
           get[Option[Long]]("task_review.review_claimed_by") ~
           get[Option[DateTime]]("task_review.review_claimed_at") ~
+          get[Option[List[Long]]]("task_review.additional_reviewers") ~
           get[Int]("tasks.priority") map {
           case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
                 geometry ~ cooperativeWork ~ status ~ mappedOn ~ completedTimeSpent ~
                 completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-                reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ priority =>
+                reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~ priority =>
             val values = taskDAL.updateAndRetrieve(id, geometry, location, cooperativeWork)
             Task(
               id,
@@ -755,7 +771,8 @@ class ChallengeDAL @Inject() (
                 reviewedAt,
                 reviewStartedAt,
                 reviewClaimedBy,
-                reviewClaimedAt
+                reviewClaimedAt,
+                additionalReviewers
               ),
               priority
             )
@@ -1215,6 +1232,7 @@ class ChallengeDAL @Inject() (
                    t.parent_id, t.bundle_id, t.is_bundle_primary,
                    tr.review_status, tr.review_requested_by,
                    tr.reviewed_by, tr.reviewed_at, tr.review_started_at,
+                   tr.additional_reviewers,
                    t.cooperative_work_json::TEXT as cooperative_work, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t

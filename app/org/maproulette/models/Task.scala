@@ -22,7 +22,8 @@ case class TaskReviewFields(
     reviewedAt: Option[DateTime] = None,
     reviewStartedAt: Option[DateTime] = None,
     reviewClaimedBy: Option[Long] = None,
-    reviewClaimedAt: Option[DateTime] = None
+    reviewClaimedAt: Option[DateTime] = None,
+    additionalReviewers: Option[List[Long]] = None
 ) extends DefaultWrites
 
 /**
@@ -165,6 +166,10 @@ object Task extends CommonField {
         case Some(r) => Utils.insertIntoJson(updated, "reviewClaimedBy", r, true)
         case None    => updated
       }
+      updated = o.review.additionalReviewers match {
+        case Some(r) => Utils.insertIntoJson(updated, "additionalReviewers", r, true)
+        case None    => updated
+      }
 
       Utils.insertIntoJson(updated, "geometries", Json.parse(o.geometries), true)
     }
@@ -185,7 +190,7 @@ object Task extends CommonField {
   val STATUS_FIXED               = 1
   val STATUS_FIXED_NAME          = "Fixed"
   val STATUS_FALSE_POSITIVE      = 2
-  val STATUS_FALSE_POSITIVE_NAME = "False_Positive"
+  val STATUS_FALSE_POSITIVE_NAME = "Not_An_Issue"
   val STATUS_SKIPPED             = 3
   val STATUS_SKIPPED_NAME        = "Skipped"
   val STATUS_DELETED             = 4

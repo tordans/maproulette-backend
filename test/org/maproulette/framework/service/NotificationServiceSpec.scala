@@ -390,6 +390,43 @@ class NotificationServiceSpec(implicit val application: Application) extends Fra
       notifications.head.challengeId.get mustEqual this.defaultTask.parent
     }
 
+    "add a task-review revised notification" taggedAs NotificationTag in {
+      val freshUser = this.serviceManager.user.create(
+        this.getTestUser(399911127, "Service_addTaskReviewRevisedNotificationOUser1"),
+        User.superUser
+      )
+
+      val comment = Comment(
+        98765,
+        this.defaultUser.osmProfile.id,
+        this.defaultUser.osmProfile.displayName,
+        this.defaultTask.id,
+        this.defaultChallenge.id,
+        this.defaultProject.id,
+        new DateTime(),
+        s"Some review comment"
+      )
+
+      // Notifications should be generated for both mentioned users
+      this.service.createReviewRevisedNotification(
+        this.defaultUser,
+        freshUser.id,
+        Task.REVIEW_STATUS_REJECTED,
+        this.defaultTask,
+        Some(comment)
+      )
+
+      val notifications = this.service.getUserNotifications(freshUser.id, freshUser)
+      notifications.size mustEqual 1
+      notifications.head.userId mustEqual freshUser.id
+      notifications.head.notificationType mustEqual UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED
+      notifications.head.description.get mustEqual Task.REVIEW_STATUS_REJECTED.toString()
+      notifications.head.extra.get mustEqual comment.comment
+      notifications.head.fromUsername.get mustEqual this.defaultUser.osmProfile.displayName
+      notifications.head.taskId.get mustEqual this.defaultTask.id
+      notifications.head.challengeId.get mustEqual this.defaultTask.parent
+    }
+
     "add a challenge-complete notification" taggedAs NotificationTag in {
       this.service.createChallengeCompletionNotification(this.defaultChallenge)
       val notifications = this.service.getUserNotifications(this.defaultUser.id, this.defaultUser)

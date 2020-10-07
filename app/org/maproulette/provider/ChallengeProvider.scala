@@ -413,74 +413,115 @@ class ChallengeProvider @Inject() (
           case Success(result) =>
             if (result.status == Status.OK) {
               this.db.withTransaction { implicit c =>
-                var partial = false
-                val payload = result.json
+                var partial          = false
+                val payload          = result.json
+                var targetTypeFailed = false
+
                 // parse the results. Overpass has its own format and is not geojson
                 val elements = (payload \ "elements").as[List[JsValue]]
-                elements.foreach { element =>
-                  try {
-                    val geometry = (element \ "center").asOpt[JsObject] match {
-                      case Some(center) =>
-                        Some(
-                          Json.obj(
-                            "type" -> "Point",
-                            "coordinates" -> List(
-                              (center \ "lon").as[Double],
-                              (center \ "lat").as[Double]
-                            )
-                          )
-                        )
-                      case None =>
+                try {
+                  elements.foreach { element =>
+                    // Verify target type if we are given one.
+                    challenge.creation.overpassTargetType match {
+                      case Some(targetType) if StringUtils.isNotEmpty(targetType) =>
                         (element \ "type").asOpt[String] match {
                           case Some("way") =>
-                            // TODO: ways do not have a "geometry" property, instead they have a list of "nodes"
-                            // referencing other elements in the array. So this code does not do the job.
-                            val points = (element \ "geometry").as[List[JsValue]].map { geom =>
-                              List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
-                            }
-                            Some(Json.obj("type" -> "LineString", "coordinates" -> points))
-                          case Some("node") =>
-                            Some(
-                              Json.obj(
-                                "type" -> "Point",
-                                "coordinates" -> List(
-                                  (element \ "lon").as[Double],
-                                  (element \ "lat").as[Double]
-                                )
+                            if (targetType != "way") {
+                              targetTypeFailed = true
+                              throw new InvalidException(
+                                "Element type 'way' does not match target type of '" + targetType + "'"
                               )
+                            }
+                          case Some("node") =>
+                            if (targetType != "node") {
+                              targetTypeFailed = true
+                              throw new InvalidException(
+                                "Element type 'node' does not match target type of '" + targetType + "'"
+                              )
+                            }
+                          case x =>
+                            targetTypeFailed = true
+                            throw new InvalidException(
+                              "Element type " + x + " does not match target type of '" + targetType + "'"
                             )
-                          case _ => None
                         }
+                      case _ => // do not validate
                     }
 
-                    geometry match {
-                      case Some(geom) =>
-                        this.createNewTask(
-                          user,
-                          s"${(element \ "id").as[Long]}",
-                          challenge,
-                          geom,
-                          Utils.getProperties(element, "tags")
-                        )
-                      case None => None
+                    try {
+                      val geometry = (element \ "center").asOpt[JsObject] match {
+                        case Some(center) =>
+                          Some(
+                            Json.obj(
+                              "type" -> "Point",
+                              "coordinates" -> List(
+                                (center \ "lon").as[Double],
+                                (center \ "lat").as[Double]
+                              )
+                            )
+                          )
+                        case None =>
+                          (element \ "type").asOpt[String] match {
+                            case Some("way") =>
+                              // TODO: ways do not have a "geometry" property, instead they have a list of "nodes"
+                              // referencing other elements in the array. So this code does not do the job.
+                              val points = (element \ "geometry").as[List[JsValue]].map { geom =>
+                                List((geom \ "lon").as[Double], (geom \ "lat").as[Double])
+                              }
+                              Some(Json.obj("type" -> "LineString", "coordinates" -> points))
+                            case Some("node") =>
+                              Some(
+                                Json.obj(
+                                  "type" -> "Point",
+                                  "coordinates" -> List(
+                                    (element \ "lon").as[Double],
+                                    (element \ "lat").as[Double]
+                                  )
+                                )
+                              )
+                            case _ => None
+                          }
+                      }
+
+                      geometry match {
+                        case Some(geom) =>
+                          this.createNewTask(
+                            user,
+                            s"${(element \ "id").as[Long]}",
+                            challenge,
+                            geom,
+                            Utils.getProperties(element, "tags")
+                          )
+                        case None => None
+                      }
+                    } catch {
+                      case e: Exception =>
+                        partial = true
+                        logger.error(e.getMessage, e)
                     }
-                  } catch {
-                    case e: Exception =>
-                      partial = true
-                      logger.error(e.getMessage, e)
                   }
-                }
-                partial match {
-                  case true =>
+                  partial match {
+                    case true =>
+                      this.challengeDAL.update(
+                        Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED),
+                        user
+                      )(challenge.id)
+                    case false =>
+                      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(
+                        challenge.id
+                      )
+                      this.challengeDAL.markTasksRefreshed(true)(challenge.id)
+                  }
+                } catch {
+                  case e: Exception =>
                     this.challengeDAL.update(
-                      Json.obj("status" -> Challenge.STATUS_PARTIALLY_LOADED),
+                      Json.obj(
+                        "status"        -> Challenge.STATUS_FAILED,
+                        "statusMessage" -> s"${e.getMessage}"
+                      ),
                       user
                     )(challenge.id)
-                  case false =>
-                    this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(
-                      challenge.id
-                    )
-                    this.challengeDAL.markTasksRefreshed(true)(challenge.id)
+                    throw e
                 }
               }
             } else {

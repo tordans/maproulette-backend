@@ -841,6 +841,7 @@ class ChallengeController @Inject() (
             s"""${task.completedTimeSpent.getOrElse("")},"${mapper}",""" +
             s"""${Task.reviewStatusMap.get(task.reviewStatus.getOrElse(-1)).get},""" +
             s""""${task.reviewedBy.getOrElse("")}",${reviewedAt},"${reviewTimeSeconds}",""" +
+            s""""${task.additionalReviewers.getOrElse(List()).mkString(", ")}",""" +
             s""""${comments}","${task.bundleId.getOrElse("")}","${task.isBundlePrimary
               .getOrElse("")}",""" +
             s""""${task.tags.getOrElse("")}"${propData}${responseData}""".stripMargin
@@ -855,7 +856,7 @@ class ChallengeController @Inject() (
             ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=${filename}")),
           body = HttpEntity.Strict(
             ByteString(
-              s"""TaskID,TaskLink,ChallengeID,ChallengeLink,TaskName,TaskStatus,TaskPriority,MappedOn,CompletionTime,Mapper,ReviewStatus,Reviewer,ReviewedAt,ReviewTimeSeconds,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
+              s"""TaskID,TaskLink,ChallengeID,ChallengeLink,TaskName,TaskStatus,TaskPriority,MappedOn,CompletionTime,Mapper,ReviewStatus,Reviewer,ReviewedAt,ReviewTimeSeconds,AdditionalReviewers,Comments,BundleId,IsBundlePrimary,Tags${propsToExportHeaderString}${responseHeaders}\n"""
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )

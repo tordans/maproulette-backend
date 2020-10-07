@@ -5,12 +5,14 @@
 
 package org.maproulette.framework.service
 
+import java.util.UUID
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.util.{FrameworkHelper, UserTag}
 import org.maproulette.exception.{InvalidException}
 import org.maproulette.models.Task
+import org.maproulette.session.{SearchParameters, SearchTaskParameters}
 import org.maproulette.data.{ProjectType}
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import org.scalatest.Matchers._
@@ -23,6 +25,8 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
   val userService: UserService   = this.serviceManager.user
   var randomChallenge: Challenge = null
   var randomUser: User           = null
+
+  val commentService: CommentService = this.application.injector.instanceOf(classOf[CommentService])
 
   "UserService" should {
     "not allow retrieval of user by API key if not actual user" taggedAs UserTag in {
@@ -241,6 +245,27 @@ class UserServiceSpec(implicit val application: Application) extends FrameworkHe
       searchResultsList.contains(thirdUser) mustEqual true
       thirdUser should not be firstUser
       thirdUser should not be secondUser
+
+      val comment =
+        this.commentService.create(user1, this.defaultTask.id, "UserService Comment Add", None)
+      val retrievedComment = this.commentService.retrieve(comment.id)
+      val allComments = this.commentService.find(
+        projectIdList = List(),
+        challengeIdList = List(),
+        taskIdList = List(this.defaultTask.id)
+      )
+      val users7 = this.userService.searchByOSMUsername(
+        "",
+        params =
+          SearchParameters(taskParams = SearchTaskParameters(taskId = Some(this.defaultTask.id)))
+      )
+      users7.size mustEqual 1
+
+      val users8 = this.userService.searchByOSMUsername(
+        "",
+        params = SearchParameters(taskParams = SearchTaskParameters(taskId = Some(123)))
+      )
+      users8.size mustEqual 0
     }
 
     "get users managing projects" taggedAs UserTag in {
