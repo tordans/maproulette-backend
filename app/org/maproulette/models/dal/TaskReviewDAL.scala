@@ -809,16 +809,19 @@ class TaskReviewDAL @Inject() (
 
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
-      if (needsReReview) {
-        fetchBy = "review_requested_by"
-        reviewRequestedBy = Some(user.id)
-      } else {
-        reviewedBy = Some(user.id)
-      }
+      val fetchByUser =
+        if (needsReReview) {
+          fetchBy = "review_requested_by"
+          reviewRequestedBy = Some(user.id)
+          user.id
+        } else {
+          reviewedBy = Some(user.id)
+          originalReviewer.get
+        }
 
       val updatedRows =
         SQL"""UPDATE task_review SET review_status = $reviewStatus,
-                                 #${fetchBy} = ${originalReviewer.get},
+                                 #${fetchBy} = ${fetchByUser},
                                  reviewed_at = NOW(),
                                  review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
