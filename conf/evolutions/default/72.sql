@@ -16,6 +16,6 @@ WITH wrong_reviews AS (
            WHERE th.task_id = tr.task_id)
 )
 UPDATE task_review
-SET review_requested_by = requestedBy
+SET review_requested_by = requestedBy, additional_reviewers = NULL
 FROM wrong_reviews
 WHERE id = wrong_reviews.reviewId AND task_id = wrong_reviews.taskId;
