@@ -798,11 +798,14 @@ class TaskReviewDAL @Inject() (
       // still be noted as a reviewer in the task_review_history
       val originalReviewer =
         if (reviewedBy != None && reviewedBy.get != user.id) {
-          if (additionalReviewers == None) {
-            additionalReviewers = Some(List())
-          }
-          if (!additionalReviewers.contains(user.id)) {
-            additionalReviewers = Some(additionalReviewers.get :+ user.id)
+          if (!needsReReview) {
+            // Add reviewer to the additionalReviewers if not the original
+            if (additionalReviewers == None) {
+              additionalReviewers = Some(List())
+            }
+            if (!additionalReviewers.contains(user.id) && !needsReReview) {
+              additionalReviewers = Some(additionalReviewers.get :+ user.id)
+            }
           }
           reviewedBy
         } else Some(user.id)
