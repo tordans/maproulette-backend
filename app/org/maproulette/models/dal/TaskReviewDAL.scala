@@ -798,27 +798,33 @@ class TaskReviewDAL @Inject() (
       // still be noted as a reviewer in the task_review_history
       val originalReviewer =
         if (reviewedBy != None && reviewedBy.get != user.id) {
-          if (additionalReviewers == None) {
-            additionalReviewers = Some(List())
-          }
-          if (!additionalReviewers.contains(user.id)) {
-            additionalReviewers = Some(additionalReviewers.get :+ user.id)
+          if (!needsReReview) {
+            // Add reviewer to the additionalReviewers if not the original
+            if (additionalReviewers == None) {
+              additionalReviewers = Some(List())
+            }
+            if (!additionalReviewers.contains(user.id) && !needsReReview) {
+              additionalReviewers = Some(additionalReviewers.get :+ user.id)
+            }
           }
           reviewedBy
         } else Some(user.id)
 
       // If we are changing the status back to "needsReview" then this task
       // has been fixed by the mapper and the mapper is requesting review again
-      if (needsReReview) {
-        fetchBy = "review_requested_by"
-        reviewRequestedBy = Some(user.id)
-      } else {
-        reviewedBy = Some(user.id)
-      }
+      val fetchByUser =
+        if (needsReReview) {
+          fetchBy = "review_requested_by"
+          reviewRequestedBy = Some(user.id)
+          user.id
+        } else {
+          reviewedBy = Some(user.id)
+          originalReviewer.get
+        }
 
       val updatedRows =
         SQL"""UPDATE task_review SET review_status = $reviewStatus,
-                                 #${fetchBy} = ${originalReviewer.get},
+                                 #${fetchBy} = ${fetchByUser},
                                  reviewed_at = NOW(),
                                  review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
