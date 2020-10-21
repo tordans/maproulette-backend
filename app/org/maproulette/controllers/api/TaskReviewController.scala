@@ -68,6 +68,11 @@ class TaskReviewController @Inject() (
         case None    => throw new NotFoundException(s"Task with $id not found, cannot start review.")
       }
 
+      val success = this.taskReviewDAL.lockItem(user, task)
+      if (success == 0) {
+        throw new IllegalAccessException(s"Current task [${id}] is locked by another user.")
+      }
+
       val result = this.taskReviewDAL.startTaskReview(user, task)
       Ok(Json.toJson(result))
     }
@@ -86,6 +91,7 @@ class TaskReviewController @Inject() (
         case None    => throw new NotFoundException(s"Task with $id not found, cannot cancel review.")
       }
 
+      this.taskReviewDAL.unlockItem(user, task)
       val result = this.taskReviewDAL.cancelTaskReview(user, task)
       Ok(Json.toJson(result))
     }
@@ -110,6 +116,18 @@ class TaskReviewController @Inject() (
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
+        // Cancel review claim of last task
+        try {
+          val lastTask = this.dal.retrieveById(lastTaskId) match {
+            case Some(t) => t
+            case None    => throw new NotFoundException(s"Task with $lastTaskId not found, cannot cancel review.")
+          }
+          this.taskReviewDAL.cancelTaskReview(user, lastTask)
+        }
+        catch {
+          case _: Throwable => // do nothing, it's okay if the user didn't lock the prior task
+        }
+
         val result = this.taskReviewDAL.nextTaskReview(
           user,
           params,
