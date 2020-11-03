@@ -51,7 +51,7 @@ class ReviewSearchMixinSpec() extends TestSpec with ReviewSearchMixin {
         "WHERE (task_review.review_requested_by IS NOT NULL) AND " +
           "(task_review.review_status <> {5}) AND " +
           "((tasks.bundle_id IS NULL OR tasks.is_bundle_primary)) AND " +
-          "(((p.enabled AND c.enabled) OR (p.id IN ()) OR " +
+          "(((p.enabled AND c.enabled) OR " +
           "(task_review.review_requested_by = -998) OR " +
           "(task_review.reviewed_by = -998)))"
     }
@@ -71,7 +71,7 @@ class ReviewSearchMixinSpec() extends TestSpec with ReviewSearchMixin {
           "((task_review.review_status = {0} OR task_review.review_status = {4})) " +
           "AND (task_review.review_status <> {5}) AND " +
           "((tasks.bundle_id IS NULL OR tasks.is_bundle_primary)) AND " +
-          "(((p.enabled AND c.enabled) OR (p.id IN ())) AND " +
+          "(((p.enabled AND c.enabled)) AND " +
           "task_review.review_requested_by <> -998)"
     }
 
@@ -91,7 +91,7 @@ class ReviewSearchMixinSpec() extends TestSpec with ReviewSearchMixin {
           "((task_review.review_status = {0})) " +
           "AND (task_review.review_status <> {5}) " +
           "AND ((tasks.bundle_id IS NULL OR tasks.is_bundle_primary)) AND " +
-          "(((p.enabled AND c.enabled) OR (p.id IN ())) AND task_review.review_requested_by <> -998)"
+          "(((p.enabled AND c.enabled)) AND task_review.review_requested_by <> -998)"
     }
 
     "only include saved challenges" in {
@@ -110,7 +110,7 @@ class ReviewSearchMixinSpec() extends TestSpec with ReviewSearchMixin {
           "(c.id IN (SELECT challenge_id from saved_challenges sc WHERE sc.user_id = -998)) AND " +
           "((task_review.review_status = {0})) AND (task_review.review_status <> {5}) AND " +
           "((tasks.bundle_id IS NULL OR tasks.is_bundle_primary)) AND " +
-          "(((p.enabled AND c.enabled) OR (p.id IN ())) AND " +
+          "(((p.enabled AND c.enabled)) AND " +
           "task_review.review_requested_by <> -998)"
     }
 
@@ -133,7 +133,7 @@ class ReviewSearchMixinSpec() extends TestSpec with ReviewSearchMixin {
           "((task_review.review_status = {0})) AND " +
           "(task_review.review_status <> {5}) AND " +
           "((tasks.bundle_id IS NULL OR tasks.is_bundle_primary)) AND " +
-          "(((p.enabled AND c.enabled) OR (p.id IN ())) AND task_review.review_requested_by <> -998)"
+          "(((p.enabled AND c.enabled)) AND task_review.review_requested_by <> -998)"
     }
 
     "filer by some search parameters" in {
@@ -153,7 +153,7 @@ class ReviewSearchMixinSpec() extends TestSpec with ReviewSearchMixin {
           "(task_review.review_status IN (1)) AND " +
           "(task_review.review_status <> {5}) AND " +
           "((tasks.bundle_id IS NULL OR tasks.is_bundle_primary)) AND " +
-          "(((p.enabled AND c.enabled) OR (p.id IN ()) OR " +
+          "(((p.enabled AND c.enabled) OR " +
           "(task_review.review_requested_by = -998) OR " +
           "(task_review.reviewed_by = -998)))"
     }

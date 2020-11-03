@@ -12,7 +12,7 @@ import scala.concurrent.duration.FiniteDuration
 import org.maproulette.session.{SearchParameters, SearchChallengeParameters, SearchReviewParameters}
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{GroupField, Grouping, Query}
-import org.maproulette.framework.util.{DataTag, FrameworkHelper}
+import org.maproulette.framework.util.{TaskReviewTag, FrameworkHelper}
 import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import play.api.Application
@@ -20,27 +20,80 @@ import play.api.Application
 /**
   * @author krotstan
   */
-class DataServiceSpec(implicit val application: Application) extends FrameworkHelper {
-  val service: DataService       = this.serviceManager.data
-  var randomChallenge: Challenge = null
-  var randomUser: User           = null
+class TaskReviewMetricsServiceSpec(implicit val application: Application) extends FrameworkHelper {
+  val service: TaskReviewMetricsService = this.serviceManager.taskReviewMetrics
+  var randomChallenge: Challenge        = null
+  var randomUser: User                  = null
 
-  "DataService" should {
-    "get Tag Metrics" taggedAs (DataTag) in {
-      val result = this.service.getTagMetrics(new SearchParameters())
+  "TaskReviewMetricsService" should {
+    "get Review Metrics" taggedAs (TaskReviewTag) in {
+      val result = this.service.getReviewMetrics(User.superUser, 4, new SearchParameters())
+      result.total mustEqual 2
+      result.reviewRequested mustEqual 1
+      result.reviewApproved mustEqual 1
+    }
+
+    "get Review Metrics filter on challenge" taggedAs (TaskReviewTag) in {
+      val params = new SearchParameters(
+        challengeParams = new SearchChallengeParameters(
+          challengeIds = Some(List(randomChallenge.id))
+        )
+      )
+      val result = this.service.getReviewMetrics(User.superUser, 4, params)
+      result.total mustEqual 1
+      result.reviewRequested mustEqual 1
+    }
+
+    "get Review Metrics filter by ReviewTasksType" taggedAs (TaskReviewTag) in {
+      // Limit to only requested tasks (exclude approved)
+      val result = this.service.getReviewMetrics(User.superUser, 1, new SearchParameters())
+      result.total mustEqual 1
+      result.reviewRequested mustEqual 1
+      result.reviewApproved mustEqual 0
+    }
+
+    "get Mapper Metrics" taggedAs (TaskReviewTag) in {
+      val result = this.service.getMapperMetrics(User.superUser, new SearchParameters())
+
+      // Expecting review metrics for 2 users
+      result.length mustEqual 2
+
+      // Each user expected to have one task they want reviewed
+      result(0).total mustEqual 1
+      result(1).total mustEqual 1
+    }
+
+    "get Mapper Metrics filter by mappers" taggedAs (TaskReviewTag) in {
+      val params = new SearchParameters(
+        reviewParams = new SearchReviewParameters(
+          mappers = Some(List(randomUser.id))
+        )
+      )
+      val result = this.service.getMapperMetrics(User.superUser, params)
+
+      // Expecting review metrics for only 1 user
       result.length mustEqual 1
-      result.head.tagName.get mustEqual "datatesttag"
+
+      // User expected to have one task they want reviewed
+      result(0).total mustEqual 1
+      result(0).userId mustEqual Some(randomUser.id)
+    }
+
+    "get Tag Metrics" taggedAs (TaskReviewTag) in {
+      val result = this.service.getReviewTagMetrics(User.superUser, 4, new SearchParameters())
+      result.length mustEqual 1
+      result.head.tagName.get mustEqual "testreviewmetricstag"
       result.head.total mustEqual 1
       result.head.fixed mustEqual 1
     }
   }
 
-  override implicit val projectTestName: String = "DataServiceSpecProject"
+  override implicit val projectTestName: String = "TaskReviewMetricsSpecProject"
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     val (c, u) =
-      DataServiceSpec.setup(
+      TaskReviewMetricsServiceSpec.setup(
         this.challengeDAL,
         this.taskDAL,
         this.serviceManager,
@@ -53,7 +106,7 @@ class DataServiceSpec(implicit val application: Application) extends FrameworkHe
   }
 }
 
-object DataServiceSpec {
+object TaskReviewMetricsServiceSpec {
   def setup(
       challengeDAL: ChallengeDAL,
       taskDAL: TaskDAL,
@@ -111,7 +164,7 @@ object DataServiceSpec {
       )
 
     var newTag = serviceManager.tag.create(
-      Tag(id = -1, tagType = "tasks", name = "dataTestTag"),
+      Tag(id = -1, tagType = "tasks", name = "testReviewMetricsTag"),
       User.superUser
     )
     taskDAL.updateItemTags(task2.id, List(newTag.id), User.superUser, true)

@@ -21,8 +21,9 @@ import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.framework.model.{Challenge, Project, StatusActions, User, GrantTarget}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
-import org.maproulette.framework.repository.ProjectRepository
+import org.maproulette.framework.repository.{ProjectRepository, TaskRepository}
 import org.maproulette.framework.service.{ServiceManager, TagService}
+import org.maproulette.framework.mixins.TaskParserMixin
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{Locking, SearchParametersMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
@@ -53,6 +54,7 @@ class TaskDAL @Inject() (
     override val tagService: TagService,
     override val permission: Permission,
     serviceManager: ServiceManager,
+    taskRepository: TaskRepository,
     config: Config,
     dalManager: Provider[DALManager],
     webSocketProvider: WebSocketProvider,
@@ -60,12 +62,16 @@ class TaskDAL @Inject() (
 ) extends BaseDAL[Long, Task]
     with TagDALMixin[Task]
     with Locking[Task]
-    with SearchParametersMixin {
+    with SearchParametersMixin
+    with TaskParserMixin {
 
   import scala.concurrent.ExecutionContext.Implicits.global
+
+  val parser = this.getTaskParser(this.taskRepository.updateAndRetrieve)
+
   // The cache manager for that tasks
-  override val cacheManager =
-    new CacheManager[Long, Task](config, Config.CACHE_ID_TASKS)(taskReads, taskReads)
+  override val cacheManager = this.taskRepository.cacheManager
+
   // The database table name for the tasks
   override val tableName: String = "tasks"
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
@@ -74,10 +80,6 @@ class TaskDAL @Inject() (
   override val retrieveColumns: String = "*, tasks.geojson::TEXT AS geo_json, " +
     "tasks.cooperative_work_json::TEXT AS cooperative_work, tasks.completion_responses::TEXT AS responses, " +
     "ST_AsGeoJSON(tasks.location) AS geo_location "
-  val retrieveColumnsWithReview: String = this.retrieveColumns +
-    ", task_review.review_status, task_review.review_requested_by, " +
-    "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
-    "task_review.review_claimed_by, task_review.review_claimed_at, task_review.additional_reviewers "
 
   /**
     * Retrieves the object based on the name, this function is somewhat weak as there could be
@@ -101,72 +103,6 @@ class TaskDAL @Inject() (
           s"WHERE name = {name} ${this.parentFilter(parentId)}"
         SQL(query).on(Symbol("name") -> name).as(this.parser.*).headOption
       }
-    }
-  }
-
-  // The anorm row parser to convert records from the task table to task objects
-  implicit val parser: RowParser[Task] = {
-    get[Long]("tasks.id") ~
-      get[String]("tasks.name") ~
-      get[DateTime]("tasks.created") ~
-      get[DateTime]("tasks.modified") ~
-      get[Long]("parent_id") ~
-      get[Option[String]]("tasks.instruction") ~
-      get[Option[String]]("geo_location") ~
-      get[Option[Int]]("tasks.status") ~
-      get[Option[String]]("geo_json") ~
-      get[Option[String]]("cooperative_work") ~
-      get[Option[DateTime]]("tasks.mapped_on") ~
-      get[Option[Long]]("tasks.completed_time_spent") ~
-      get[Option[Long]]("tasks.completed_by") ~
-      get[Option[Int]]("task_review.review_status") ~
-      get[Option[Long]]("task_review.review_requested_by") ~
-      get[Option[Long]]("task_review.reviewed_by") ~
-      get[Option[DateTime]]("task_review.reviewed_at") ~
-      get[Option[DateTime]]("task_review.review_started_at") ~
-      get[Option[Long]]("task_review.review_claimed_by") ~
-      get[Option[DateTime]]("task_review.review_claimed_at") ~
-      get[Option[List[Long]]]("task_review.additional_reviewers") ~
-      get[Int]("tasks.priority") ~
-      get[Option[Long]]("tasks.changeset_id") ~
-      get[Option[String]]("responses") ~
-      get[Option[Long]]("tasks.bundle_id") ~
-      get[Option[Boolean]]("tasks.is_bundle_primary") map {
-      case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
-            cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
-            reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
-            reviewClaimedAt ~ additionalReviewers ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
-        val values = this.updateAndRetrieve(id, geojson, location, cooperativeWork)
-        Task(
-          id,
-          name,
-          created,
-          modified,
-          parent_id,
-          instruction,
-          values._2,
-          values._1,
-          values._3,
-          status,
-          mappedOn,
-          completedTimeSpent,
-          completedBy,
-          TaskReviewFields(
-            reviewStatus,
-            reviewRequestedBy,
-            reviewedBy,
-            reviewedAt,
-            reviewStartedAt,
-            reviewClaimedBy,
-            reviewClaimedAt,
-            additionalReviewers
-          ),
-          priority,
-          changesetId,
-          responses,
-          bundleId,
-          isBundlePrimary
-        )
     }
   }
 
@@ -556,16 +492,7 @@ class TaskDAL @Inject() (
     * @return The object, None if not found
     */
   override def retrieveById(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
-    this.cacheManager.withCaching { () =>
-      this.withMRConnection { implicit c =>
-        val query = s"SELECT $retrieveColumnsWithReview FROM ${this.tableName} " +
-          "LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id " +
-          "WHERE tasks.id = {id}"
-        SQL(query)
-          .on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(id))
-          .as(this.parser.singleOpt)
-      }
-    }
+    this.taskRepository.retrieve(id)
   }
 
   def manager: DALManager = dalManager.get()
@@ -863,7 +790,9 @@ class TaskDAL @Inject() (
     if (reviewNeeded) {
       webSocketProvider.sendMessage(
         WebSocketMessages.reviewNew(
-          WebSocketMessages.ReviewData(this.manager.taskReview.getTaskWithReview(primaryTask.id))
+          WebSocketMessages.ReviewData(
+            this.serviceManager.taskReview.getTaskWithReview(primaryTask.id)
+          )
         )
       )
     }
@@ -1342,26 +1271,26 @@ class TaskDAL @Inject() (
   ): (List[TaskSummary], Map[Long, String]) =
     db.withConnection { implicit c =>
       val parser = for {
-        taskId             <- long("tasks.id")
-        parentId           <- long("tasks.parent_id")
-        name               <- str("tasks.name")
-        status             <- int("tasks.status")
-        priority           <- int("tasks.priority")
-        geojson            <- get[Option[String]]("geo_json")
-        username           <- get[Option[String]]("users.username")
-        mappedOn           <- get[Option[DateTime]]("mapped_on")
-        completedTimeSpent <- get[Option[Long]]("completed_time_spent")
-        completedBy        <- get[Option[String]]("completedBy")
-        reviewStatus       <- get[Option[Int]]("task_review.review_status")
-        reviewRequestedBy  <- get[Option[String]]("reviewRequestedBy")
-        reviewedBy         <- get[Option[String]]("reviewedBy")
-        reviewedAt         <- get[Option[DateTime]]("task_review.reviewed_at")
-        reviewStartedAt    <- get[Option[DateTime]]("task_review.review_started_at")
-        additionalReviewers<- get[Option[List[String]]]("additionalReviewers")
-        tags               <- get[Option[String]]("tags")
-        responses          <- get[Option[String]]("responses")
-        bundleId           <- get[Option[Long]]("bundle_id")
-        isBundlePrimary    <- get[Option[Boolean]]("is_bundle_primary")
+        taskId              <- long("tasks.id")
+        parentId            <- long("tasks.parent_id")
+        name                <- str("tasks.name")
+        status              <- int("tasks.status")
+        priority            <- int("tasks.priority")
+        geojson             <- get[Option[String]]("geo_json")
+        username            <- get[Option[String]]("users.username")
+        mappedOn            <- get[Option[DateTime]]("mapped_on")
+        completedTimeSpent  <- get[Option[Long]]("completed_time_spent")
+        completedBy         <- get[Option[String]]("completedBy")
+        reviewStatus        <- get[Option[Int]]("task_review.review_status")
+        reviewRequestedBy   <- get[Option[String]]("reviewRequestedBy")
+        reviewedBy          <- get[Option[String]]("reviewedBy")
+        reviewedAt          <- get[Option[DateTime]]("task_review.reviewed_at")
+        reviewStartedAt     <- get[Option[DateTime]]("task_review.review_started_at")
+        additionalReviewers <- get[Option[List[String]]]("additionalReviewers")
+        tags                <- get[Option[String]]("tags")
+        responses           <- get[Option[String]]("responses")
+        bundleId            <- get[Option[Long]]("bundle_id")
+        isBundlePrimary     <- get[Option[Boolean]]("is_bundle_primary")
       } yield TaskSummary(
         taskId,
         parentId,
@@ -1483,19 +1412,7 @@ class TaskDAL @Inject() (
       location: Option[String],
       cooperativeWork: Option[String]
   )(implicit c: Option[Connection] = None): (String, Option[String], Option[String]) = {
-    geojson match {
-      case Some(g) => (g, location, cooperativeWork)
-      case None =>
-        this.withMRTransaction { implicit c =>
-          SQL("SELECT * FROM update_geometry({id})")
-            .on(Symbol("id") -> ToParameterValue.apply[Long](p = keyToStatement).apply(taskId))
-            .as((str("geo") ~ get[Option[String]]("loc") ~ get[Option[String]]("fix_geo")).*)
-            .headOption match {
-            case Some(values) => (values._1._1, values._1._2, values._2)
-            case None         => throw new Exception("Failed to retrieve task data")
-          }
-        }
-    }
+    this.taskRepository.updateAndRetrieve(taskId, geojson, location, cooperativeWork)
   }
 
   case class TaskSummary(

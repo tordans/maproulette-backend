@@ -21,7 +21,6 @@ class DALManager @Inject() (
     actionManager: ActionManager,
     dataManager: DataManager,
     taskBundleDAL: TaskBundleDAL,
-    taskReviewDAL: TaskReviewDAL,
     taskClusterDAL: TaskClusterDAL,
     statusActionManager: StatusActionManager
 ) {
@@ -38,8 +37,6 @@ class DALManager @Inject() (
   def statusAction: StatusActionManager = statusActionManager
 
   def taskBundle: TaskBundleDAL = taskBundleDAL
-
-  def taskReview: TaskReviewDAL = taskReviewDAL
 
   def taskCluster: TaskClusterDAL = taskClusterDAL
 
