@@ -13,7 +13,7 @@ import org.maproulette.framework.psql.{GroupField, Grouping, Query}
 import org.maproulette.framework.util.{LeaderboardTag, FrameworkHelper}
 import org.maproulette.framework.repository.UserRepository
 import org.maproulette.models.Task
-import org.maproulette.models.dal.{ChallengeDAL, TaskDAL, TaskReviewDAL}
+import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import org.maproulette.session.{SearchParameters, SearchLeaderboardParameters}
 import play.api.Application
 import javax.inject.Inject
@@ -127,7 +127,6 @@ class LeaderboardServiceSpec(implicit val application: Application) extends Fram
     val (u, c) = LeaderboardServiceSpec.setup(
       this.challengeDAL,
       this.taskDAL,
-      this.taskReviewDAL,
       this.serviceManager,
       this.defaultProject.id,
       this.getTestTask,
@@ -154,7 +153,6 @@ class LeaderboardServiceSpec(implicit val application: Application) extends Fram
 object LeaderboardServiceSpec {
   var challengeDAL: ChallengeDAL       = null
   var taskDAL: TaskDAL                 = null
-  var taskReviewDAL: TaskReviewDAL     = null
   var serviceManager: ServiceManager   = null
   var taskFunc: (String, Long) => Task = null
   var userFunc: (Long, String) => User = null
@@ -163,7 +161,6 @@ object LeaderboardServiceSpec {
   def setup(
       challengeDAL: ChallengeDAL,
       taskDAL: TaskDAL,
-      taskReviewDAL: TaskReviewDAL,
       serviceManager: ServiceManager,
       projectId: Long,
       taskFunc: (String, Long) => Task,
@@ -172,7 +169,6 @@ object LeaderboardServiceSpec {
   ): (User, Challenge) = {
     this.challengeDAL = challengeDAL
     this.taskDAL = taskDAL
-    this.taskReviewDAL = taskReviewDAL
     this.serviceManager = serviceManager
     this.taskFunc = taskFunc
     this.userFunc = userFunc
@@ -251,7 +247,7 @@ object LeaderboardServiceSpec {
 
     if (addReview) {
       val refreshedTask = taskDAL.retrieveById(task.id).get
-      taskReviewDAL.setTaskReviewStatus(
+      serviceManager.taskReview.setTaskReviewStatus(
         refreshedTask,
         Task.REVIEW_STATUS_APPROVED,
         User.superUser,

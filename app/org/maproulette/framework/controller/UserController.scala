@@ -10,7 +10,7 @@ import org.maproulette.exception.{InvalidException, NotFoundException, StatusMes
 import org.maproulette.framework.model.{Challenge, User, UserSettings, ProjectManager, GrantTarget}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.ServiceManager
-import org.maproulette.framework.mixins.ParentProjectMixin
+import org.maproulette.framework.mixins.ParentMixin
 import org.maproulette.permissions.Permission
 import org.maproulette.models.Task
 import org.maproulette.session.{SessionManager, SearchParameters}
@@ -33,7 +33,8 @@ class UserController @Inject() (
     crypto: Crypto,
     permission: Permission
 ) extends AbstractController(components)
-    with DefaultWrites with ParentProjectMixin {
+    with DefaultWrites
+    with ParentMixin {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -205,7 +206,8 @@ class UserController @Inject() (
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
         Ok(
-          this.insertProjectJSON(this.serviceManager,
+          this.insertProjectJSON(
+            this.serviceManager,
             this.serviceManager.user.getSavedChallenges(userId, user, Paging(limit, offset))
           )
         )

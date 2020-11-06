@@ -16,7 +16,7 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, ChallengeType, ProjectType, TaskType}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.framework.model._
-import org.maproulette.framework.repository.ProjectRepository
+import org.maproulette.framework.repository.{ProjectRepository, TaskRepository}
 import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
@@ -42,6 +42,7 @@ class ChallengeDAL @Inject() (
     override val db: Database,
     serviceManager: ServiceManager,
     taskDAL: TaskDAL,
+    taskRepository: TaskRepository,
     override val tagService: TagService,
     override val permission: Permission,
     config: Config
@@ -749,7 +750,8 @@ class ChallengeDAL @Inject() (
                 geometry ~ cooperativeWork ~ status ~ mappedOn ~ completedTimeSpent ~
                 completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
                 reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~ priority =>
-            val values = taskDAL.updateAndRetrieve(id, geometry, location, cooperativeWork)
+            val values =
+              this.taskRepository.updateAndRetrieve(id, geometry, location, cooperativeWork)
             Task(
               id,
               name,

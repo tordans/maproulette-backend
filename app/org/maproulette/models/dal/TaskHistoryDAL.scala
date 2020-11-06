@@ -13,6 +13,7 @@ import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data.Actions
 import org.maproulette.framework.service.{ServiceManager, TagService}
+import org.maproulette.framework.repository.TaskRepository
 import org.maproulette.models._
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.WebSocketProvider
@@ -27,6 +28,7 @@ class TaskHistoryDAL @Inject() (
     override val db: Database,
     override val tagService: TagService,
     serviceManager: ServiceManager,
+    taskRepository: TaskRepository,
     config: Config,
     override val permission: Permission,
     dalManager: Provider[DALManager],
@@ -37,6 +39,7 @@ class TaskHistoryDAL @Inject() (
       tagService,
       permission,
       serviceManager,
+      taskRepository,
       config,
       dalManager,
       webSocketProvider,

@@ -220,18 +220,22 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       )
 
     val managesProjectFilter =
-      // user manages project ids
-      FilterGroup(
-        List(
-          BaseParameter(
-            Project.FIELD_ID,
-            user.managedProjectIds().mkString(","),
-            Operator.IN,
-            useValueDirectly = true,
-            table = Some("p")
+      if (user.managedProjectIds().nonEmpty) {
+        // user manages project ids
+        FilterGroup(
+          List(
+            BaseParameter(
+              Project.FIELD_ID,
+              user.managedProjectIds().mkString(","),
+              Operator.IN,
+              useValueDirectly = true,
+              table = Some("p")
+            )
           )
         )
-      )
+      } else {
+        FilterGroup(List())
+      }
 
     if (reviewTasksType == REVIEW_REQUESTED_TASKS) {
       // If not a super user than you are not allowed to request reviews

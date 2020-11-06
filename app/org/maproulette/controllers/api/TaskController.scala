@@ -681,7 +681,8 @@ class TaskController @Inject() (
         case None    => None
       }
 
-      this.dalManager.taskReview.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+      this.serviceManager.taskReview
+        .setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {
@@ -725,7 +726,7 @@ class TaskController @Inject() (
             t.review.reviewStatus match {
               case Some(r) =>
                 updatedCount +
-                  this.dalManager.taskReview
+                  this.serviceManager.taskReview
                     .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
               case None => updatedCount
             }

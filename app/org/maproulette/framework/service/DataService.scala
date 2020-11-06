@@ -9,7 +9,7 @@ import javax.inject.{Inject, Singleton}
 import org.maproulette.permissions.Permission
 import org.maproulette.framework.model.{ReviewMetrics, User}
 import org.maproulette.framework.mixins.SearchParametersMixin
-import org.maproulette.framework.repository.TaskReviewRepository
+import org.maproulette.framework.repository.TaskReviewMetricsRepository
 import org.maproulette.session.{SearchParameters, SessionManager}
 
 /**
@@ -19,7 +19,7 @@ import org.maproulette.session.{SearchParameters, SessionManager}
   */
 @Singleton
 class DataService @Inject() (
-    taskReviewRepository: TaskReviewRepository,
+    taskReviewMetricsRepository: TaskReviewMetricsRepository,
     permission: Permission
 ) extends SearchParametersMixin {
 
@@ -30,6 +30,6 @@ class DataService @Inject() (
     val searchParams = SearchParameters.withDefaultAllTaskStatuses(params)
     val query        = this.filterOnSearchParameters(searchParams)
 
-    this.taskReviewRepository.executeReviewMetricsQuery(query, groupByTags = true)
+    this.taskReviewMetricsRepository.executeReviewMetricsQuery(query, groupByTags = true)
   }
 }

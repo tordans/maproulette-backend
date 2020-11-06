@@ -7,129 +7,224 @@ package org.maproulette.framework.repository
 
 import java.sql.Connection
 import scala.concurrent.duration.FiniteDuration
+import scala.collection.mutable
 
 import anorm.SqlParser.get
-import anorm.ToParameterValue
-import anorm.{RowParser, ~}
+import anorm.{ToParameterValue, SimpleSql, Row, SqlParser, RowParser, ~, SQL}
 import javax.inject.{Inject, Singleton}
-import org.maproulette.framework.model.{TaskReview, ReviewMetrics}
-import org.maproulette.framework.psql.{Query, Grouping, GroupField}
+import org.joda.time.DateTime
+import org.maproulette.framework.model.{TaskReview, TaskWithReview, User}
+import org.maproulette.framework.psql.{Query, Grouping, GroupField, Order, Paging}
+import org.maproulette.framework.mixins.{Locking, TaskParserMixin}
 import org.maproulette.models.Task
 import play.api.db.Database
+import org.slf4j.LoggerFactory
 
 /**
-  * @author mcuthbert
+  * For TaskReview
   */
 @Singleton
-class TaskReviewRepository @Inject() (override val db: Database) extends RepositoryMixin {
+class TaskReviewRepository @Inject() (
+    override val db: Database,
+    taskRepository: TaskRepository
+) extends RepositoryMixin
+    with Locking[Task]
+    with TaskParserMixin {
   implicit val baseTable: String = TaskReview.TABLE
+  protected val logger           = LoggerFactory.getLogger(this.getClass)
 
-  val reviewMetricsParser: RowParser[ReviewMetrics] = {
-    get[Int]("total") ~
-      get[Int]("requested") ~
-      get[Int]("approved") ~
-      get[Int]("rejected") ~
-      get[Int]("assisted") ~
-      get[Int]("disputed") ~
-      get[Int]("fixed") ~
-      get[Int]("falsePositive") ~
-      get[Int]("skipped") ~
-      get[Int]("alreadyFixed") ~
-      get[Int]("tooHard") ~
-      get[Double]("totalReviewTime") ~
-      get[Int]("tasksWithReviewTime") ~
-      get[Long]("user_id").? ~
-      get[String]("tag_name").? ~
-      get[String]("tag_type").? map {
-      case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
-            fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
-            totalReviewTime ~ tasksWithReviewTime ~ userId ~ tagName ~ tagType => {
-        new ReviewMetrics(
-          total,
-          requested,
-          approved,
-          rejected,
-          assisted,
-          disputed,
-          fixed,
-          falsePositive,
-          skipped,
-          alreadyFixed,
-          tooHard,
-          if (tasksWithReviewTime > 0) (totalReviewTime / tasksWithReviewTime) else 0,
-          userId,
-          tagName,
-          tagType
+  val parser       = this.getTaskParser(this.taskRepository.updateAndRetrieve)
+  val reviewParser = this.getTaskWithReviewParser(this.taskRepository.updateAndRetrieve)
+
+  /**
+    * Gets a Task object with review data
+    *
+    * @param taskId
+    */
+  def getTaskWithReview(taskId: Long): TaskWithReview = {
+    this.withMRConnection { implicit c =>
+      val query = Query.simple(List())
+      query.build(s"""
+        SELECT $retrieveColumnsWithReview,
+               challenges.name as challenge_name,
+               mappers.name as review_requested_by_username,
+               reviewers.name as reviewed_by_username
+        FROM tasks
+        LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+        LEFT OUTER JOIN users mappers ON task_review.review_requested_by = mappers.id
+        LEFT OUTER JOIN users reviewers ON task_review.reviewed_by = reviewers.id
+        INNER JOIN challenges ON challenges.id = tasks.parent_id
+        WHERE tasks.id = {taskId}
+      """).on(Symbol("taskId") -> taskId).as(this.reviewParser.single)
+    }
+  }
+
+  /**
+    * Claims a task for review.
+    *
+    * @param task Task
+    * @param userId User claiming the task
+    */
+  def claimTaskReview(taskList: List[Task], user: User): Unit = {
+    this.withMRTransaction { implicit c =>
+      // Unclaim everything before starting a new task.
+      Query
+        .simple(List())
+        .build(
+          """UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE review_claimed_by = {userId}"""
         )
+        .on(Symbol("userId") -> user.id)
+        .executeUpdate()
+
+      for (task <- taskList) {
+        Query
+          .simple(List())
+          .build(
+            """UPDATE task_review SET review_claimed_by = {userId}, review_claimed_at = NOW()
+                    WHERE task_id = {taskId} AND review_claimed_at IS NULL"""
+          )
+          .on(Symbol("taskId") -> task.id, Symbol("userId") -> user.id)
+          .executeUpdate()
+
+        try {
+          this.lockItem(user, task)
+        } catch {
+          case e: Exception => logger.warn(e.getMessage)
+        }
+
+        implicit val id = task.id
+        this.taskRepository.cacheManager.withUpdatingCache(this.taskRepository.retrieve) {
+          implicit cachedItem =>
+            val result =
+              Some(task.copy(review = task.review.copy(reviewClaimedBy = Option(user.id.toInt))))
+            result
+        }(task.id, true, true)
       }
     }
   }
 
   /**
-    * Fetches the current task review counts
+    * Unclaims task reviews
     *
-    * @param query - Query with filters
-    * @param useHistory - whether it should pull data from the task review history or
-    *                     only use the lastest statuses from the task_review table.
+    * @param task
+    * @param user
     */
-  def getTaskReviewCounts(query: Query, useHistory: Boolean)(
-      implicit c: Option[Connection] = None
-  ): Map[String, Int] = {
+  def unclaimTaskReview(task: Task, user: User): Unit = {
     this.withMRTransaction { implicit c =>
-      val reviewCountsParser: RowParser[Map[String, Int]] = {
-        get[Int]("total") ~
-          get[Int]("approvedCount") ~
-          get[Int]("rejectedCount") ~
-          get[Int]("assistedCount") ~
-          get[Int]("disputedCount") ~
-          get[Int]("requestedCount") ~
-          get[Double]("total_review_time") ~
-          get[Int]("tasks_with_review_time") ~
-          get[Int]("additional_reviews").? map {
-          case total ~ approvedCount ~ rejectedCount ~ assistedCount ~ disputedCount ~
-                requestedCount ~ totalReviewTime ~ tasksWithReviewTime ~ additionalReviews => {
-            val countMap = Map(
-              "total"     -> total,
-              "approved"  -> approvedCount,
-              "rejected"  -> rejectedCount,
-              "assisted"  -> assistedCount,
-              "disputed"  -> disputedCount,
-              "requested" -> requestedCount,
-              "avgReviewTime" -> (if (tasksWithReviewTime > 0)
-                                    (totalReviewTime / tasksWithReviewTime).toInt
-                                  else 0)
-            )
+      val updatedRows =
+        Query
+          .simple(List())
+          .build(
+            """UPDATE task_review SET review_claimed_by = NULL, review_claimed_at = NULL
+              WHERE task_review.task_id = {taskId}"""
+          )
+          .on(Symbol("taskId") -> task.id)
+          .executeUpdate()
 
-            additionalReviews match {
-              case Some(ar) => countMap + ("additionalReviews" -> ar)
-              case None     => countMap
-            }
-          }
-        }
+      // if returning 0, then this is because the item is locked by a different user
+      if (updatedRows == 0) {
+        throw new IllegalAccessException(
+          s"Current task [${task.id} is locked by another user, cannot cancel review at this time."
+        )
       }
 
-      val additionalReviews =
-        if (useHistory)
-          ", SUM(CASE WHEN (original_reviewer IS NOT NULL) THEN 1 ELSE 0 END) additional_reviews"
-        else ""
+      try {
+        this.unlockItem(user, task)
+      } catch {
+        case e: Exception => logger.warn(e.getMessage)
+      }
 
-      query.build(s"""
-                       |SELECT count(distinct(task_id)) as total,
-                       |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_APPROVED} then 1 else 0 end), 0) approvedCount,
-                       |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) rejectedCount,
-                       |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
-                       |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
-                       |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount,
-                       |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
-                       |                        reviewed_at IS NOT NULL)
-                       |                  THEN (EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000)
-                       |                  ELSE 0 END), 0) total_review_time,
-                       |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
-                       |                        reviewed_at IS NOT NULL)
-                       |                  THEN 1 ELSE 0 END), 0) tasks_with_review_time
-                       |${additionalReviews}
-                       |FROM ${if (useHistory) "task_review_history" else "task_review"} as task_review
-        """.stripMargin).as(reviewCountsParser.single)
+      val updatedTask = task.copy(review = task.review.copy(reviewClaimedBy = None))
+      this.taskRepository.cacheManager.withOptionCaching { () =>
+        Some(updatedTask)
+      }
+    }
+  }
+
+  private def buildTaskQuery(query: Query): SimpleSql[Row] = {
+    query.build(
+      s"""
+        SELECT
+          ROW_NUMBER() OVER (${query.order.sql()}) as row_num,
+          tasks.${this.retrieveColumnsWithReview} FROM tasks
+          INNER JOIN challenges c ON c.id = tasks.parent_id
+          LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+          INNER JOIN projects p ON p.id = c.parent_id
+       """
+    )
+  }
+
+  /**
+    * Query Tasks
+    *
+    * @param query
+    */
+  def queryTasks(query: Query): List[Task] = {
+    this.taskRepository.cacheManager.withIDListCaching { implicit cachedItems =>
+      this.withMRTransaction { implicit c =>
+        this.buildTaskQuery(query).as(this.parser.*)
+      }
+    }
+  }
+
+  /**
+    * Query tasks with row number
+    *
+    * @param query
+    */
+  def queryTasksWithRowNumber(query: Query): Map[Long, Int] = {
+    val rowMap = mutable.Map[Long, Int]()
+    val rowNumParser: RowParser[Long] = {
+      get[Int]("row_num") ~ get[Long]("tasks.id") map {
+        case row ~ id => {
+          rowMap.put(id, row)
+          id
+        }
+      }
+    }
+
+    this.withMRTransaction { implicit c =>
+      this.buildTaskQuery(query).as(rowNumParser.*)
+    }
+
+    rowMap.toMap
+  }
+
+  /**
+    * Get the full count of tasks returned by this query.
+    *
+    * @param query - Query object. Ordering/Paging are ignored
+    */
+  def queryTaskCount(query: Query): Int = {
+    this.withMRTransaction { implicit c =>
+      // Remove ordering and paging when querying task count.
+      val simpleQuery = query.copy(order = Order(List()), paging = Paging())
+      simpleQuery
+        .build(
+          s"""SELECT count(*) FROM tasks
+            INNER JOIN challenges c ON c.id = tasks.parent_id
+            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+            INNER JOIN projects p ON p.id = c.parent_id
+        """
+        )
+        .as(SqlParser.int("count").single)
+    }
+  }
+
+  /**
+    * Queries tasks joining on the locked table
+    *
+    * @param query
+    */
+  def queryTasksWithLocked(query: Query): List[Task] = {
+    this.withMRTransaction { implicit c =>
+      query.build(s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
+          LEFT JOIN locked l ON l.item_id = tasks.id
+          INNER JOIN challenges c ON c.id = tasks.parent_id
+          LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+          INNER JOIN projects p ON p.id = c.parent_id
+        """).as(this.parser.*)
     }
   }
 
@@ -186,53 +281,73 @@ class TaskReviewRepository @Inject() (override val db: Database) extends Reposit
     }
   }
 
-  def executeReviewMetricsQuery(
-      query: Query,
-      joinClause: StringBuilder = new StringBuilder(),
-      groupByMappers: Boolean = false,
-      groupByTags: Boolean = false
-  ): List[ReviewMetrics] = {
-    var groupFields = ""
-    var groupBy =
-      if (groupByMappers) {
-        groupFields = ", review_requested_by as user_id"
-        Grouping(GroupField(TaskReview.FIELD_REVIEW_REQUESTED_BY))
-      } else if (groupByTags) {
-        groupFields = ", TRIM(tags.name) as tag_name, tags.tag_type as tag_type"
-        joinClause ++= "INNER JOIN tags_on_tasks tot ON tot.task_id = tasks.id "
-        joinClause ++= "INNER JOIN tags tags ON tags.id = tot.tag_id "
-        Grouping(GroupField("tag_name", table = Some("")), GroupField("tag_type", table = Some("")))
-      } else {
-        Grouping()
+  /**
+    * Updates the task review table.
+    */
+  def updateTaskReview(
+      user: User,
+      task: Task,
+      reviewStatus: Int,
+      updateColumn: String,
+      updateWithUser: Long,
+      additionalReviewers: Option[List[Long]]
+  ): Int = {
+    this.withMRTransaction { implicit c =>
+      val updatedRows =
+        SQL(s"""UPDATE task_review SET review_status = $reviewStatus,
+                                 ${updateColumn} = ${updateWithUser},
+                                 reviewed_at = NOW(),
+                                 review_started_at = task_review.review_claimed_at,
+                                 review_claimed_at = NULL,
+                                 review_claimed_by = NULL,
+                                 additional_reviewers = ${additionalReviewers match {
+          case Some(ar) => "ARRAY[" + ar.mkString(",") + "]"
+          case None     => "NULL"
+        }}
+                             WHERE task_review.task_id = (
+                                SELECT tasks.id FROM tasks
+                                LEFT JOIN locked l on l.item_id = tasks.id AND l.item_type = ${task.itemType.typeId}
+                                WHERE tasks.id = ${task.id} AND (l.user_id = ${user.id} OR l.user_id IS NULL)
+                              )""").executeUpdate()
+      // if returning 0, then this is because the item is locked by a different user
+      if (updatedRows == 0) {
+        throw new IllegalAccessException(
+          s"Current task [${task.id} is locked by another user, cannot update review status at this time."
+        )
       }
 
+      // if you set the status successfully on a task you will lose the lock of that task
+      try {
+        this.unlockItem(user, task)
+      } catch {
+        case e: Exception => logger.warn(e.getMessage)
+      }
+
+      updatedRows
+    }
+  }
+
+  /**
+    * Inserts a row into the task review history table.
+    */
+  def insertTaskReviewHistory(
+      task: Task,
+      reviewRequestedBy: Long,
+      reviewedBy: Long,
+      originalReviewer: Option[Long] = None,
+      reviewStatus: Int,
+      reviewClaimedAt: DateTime
+  ): Unit = {
     this.withMRTransaction { implicit c =>
-      query
-        .build(
-          s"""
-         SELECT COUNT(*) AS total,
-         COUNT(tasks.completed_time_spent) as tasksWithReviewTime,
-         COALESCE(SUM(EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000),0) as totalReviewTime,
-         COUNT(review_status) FILTER (where review_status = 0) AS requested,
-         COUNT(review_status) FILTER (where review_status = 1) AS approved,
-         COUNT(review_status) FILTER (where review_status = 2) AS rejected,
-         COUNT(review_status) FILTER (where review_status = 3) AS assisted,
-         COUNT(review_status) FILTER (where review_status = 4) AS disputed,
-         COUNT(tasks.status) FILTER (where tasks.status = 1) AS fixed,
-         COUNT(tasks.status) FILTER (where tasks.status = 2) AS falsePositive,
-         COUNT(tasks.status) FILTER (where tasks.status = 3) AS skipped,
-         COUNT(tasks.status) FILTER (where tasks.status = 5) AS alreadyFixed,
-         COUNT(tasks.status) FILTER (where tasks.status = 6) AS tooHard
-         ${groupFields}
-         FROM tasks
-         INNER JOIN challenges c ON c.id = tasks.parent_id
-         LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
-         INNER JOIN projects p ON p.id = c.parent_id
-         ${joinClause}
-        """,
-          groupBy
-        )
-        .as(reviewMetricsParser.*)
+      SQL(s"""INSERT INTO task_review_history
+                        (task_id, requested_by, reviewed_by, review_status,
+                         reviewed_at, review_started_at, original_reviewer)
+            VALUES (${task.id}, ${reviewRequestedBy}, ${reviewedBy},
+                    $reviewStatus, NOW(),
+                    ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
+                      else "NULL"},
+                    ${if (originalReviewer == None) "NULL" else originalReviewer})
+         """).executeUpdate()
     }
   }
 }

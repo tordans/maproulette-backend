@@ -12,7 +12,7 @@ import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.framework.model.{StatusActions, TaskReview, User, UserMetrics}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Query}
-import org.maproulette.framework.repository.{TaskReviewRepository, UserRepository}
+import org.maproulette.framework.repository.{TaskReviewMetricsRepository, UserRepository}
 import org.maproulette.models.Task
 import org.maproulette.permissions.Permission
 
@@ -24,7 +24,7 @@ import scala.collection.mutable
 @Singleton
 class UserMetricService @Inject() (
     repository: UserRepository,
-    taskReviewRepository: TaskReviewRepository,
+    taskReviewMetricsRepository: TaskReviewMetricsRepository,
     userService: UserService,
     permission: Permission,
     config: Config
@@ -91,7 +91,7 @@ class UserMetricService @Inject() (
         TaskReview.FIELD_REVIEWED_AT,
         TaskReview.TABLE
       )
-    val reviewCounts = this.taskReviewRepository.getTaskReviewCounts(
+    val reviewCounts = this.taskReviewMetricsRepository.getTaskReviewCounts(
       Query(
         Filter(
           List(
@@ -129,7 +129,7 @@ class UserMetricService @Inject() (
           TaskReview.TABLE
         )
 
-      val asReviewerCounts = this.taskReviewRepository.getTaskReviewCounts(
+      val asReviewerCounts = this.taskReviewMetricsRepository.getTaskReviewCounts(
         Query.simple(
           List(
             BaseParameter(TaskReview.FIELD_REVIEWED_BY, userId),

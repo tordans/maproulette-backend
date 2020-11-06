@@ -87,7 +87,6 @@ class LeaderboardRepositorySpec(implicit val application: Application) extends F
     LeaderboardServiceSpec.setup(
       this.challengeDAL,
       this.taskDAL,
-      this.taskReviewDAL,
       this.serviceManager,
       this.defaultProject.id,
       this.getTestTask,
