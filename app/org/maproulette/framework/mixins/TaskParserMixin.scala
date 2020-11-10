@@ -43,7 +43,7 @@ trait TaskParserMixin {
       get[String]("tasks.name") ~
       get[DateTime]("tasks.created") ~
       get[DateTime]("tasks.modified") ~
-      get[Long]("parent_id") ~
+      get[Long]("tasks.parent_id") ~
       get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
@@ -114,7 +114,7 @@ trait TaskParserMixin {
       get[String]("tasks.name") ~
       get[DateTime]("tasks.created") ~
       get[DateTime]("tasks.modified") ~
-      get[Long]("parent_id") ~
+      get[Long]("tasks.parent_id") ~
       get[Option[String]]("tasks.instruction") ~
       get[Option[String]]("geo_location") ~
       get[Option[Int]]("tasks.status") ~
