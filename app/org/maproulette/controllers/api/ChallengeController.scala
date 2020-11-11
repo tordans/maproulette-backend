@@ -144,7 +144,8 @@ class ChallengeController @Inject() (
       statusFilter: String,
       reviewStatusFilter: String,
       priorityFilter: String,
-      timezone: String
+      timezone: String,
+      filename: String
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -165,11 +166,16 @@ class ChallengeController @Inject() (
             } else {
               Some(Utils.split(priorityFilter).map(_.toInt))
             }
+            val attachmentFilename = if (StringUtils.isEmpty(filename)) {
+              "challenge_geojson.json"
+            } else {
+              filename
+            }
 
             Result(
               header = ResponseHeader(
                 OK,
-                Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_geojson.json")
+                Map(CONTENT_DISPOSITION -> s"attachment; filename=${attachmentFilename}")
               ),
               body = HttpEntity.Strict(
                 ByteString(
