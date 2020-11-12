@@ -223,9 +223,13 @@ class TaskController @Inject() (
           )
       }
 
-      val success = this.dal.lockItem(user, task)
-      if (success == 0) {
-        throw new IllegalAccessException(s"Current task [${taskId}] is locked by another user.")
+      val lockerId = this.dal.lockItem(user, task)
+      if (lockerId != user.id) {
+        val lockHolder = this.serviceManager.user.retrieve(lockerId) match {
+          case Some(user) => user.osmProfile.displayName
+          case None => lockerId
+        }
+        throw new IllegalAccessException(s"Task is currently locked by user ${lockHolder}")
       }
 
       webSocketProvider.sendMessage(

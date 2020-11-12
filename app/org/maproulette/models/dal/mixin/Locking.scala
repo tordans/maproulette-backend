@@ -111,7 +111,7 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
       // required to refetch the current task, and if it is locked, then will have to get another
       // task
       if (!user.guest) {
-        val resultList = results.filter(lockItem(user, _) > 0)
+        val resultList = results.filter(lockItem(user, _) == user.id)
         if (resultList.isEmpty) {
           List[T]()
         }
@@ -158,9 +158,9 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     * @param c    A sql connection that is implicitly passed in from the calling function, this is an
     *             implicit function because this will always be called from within the code and never
     *             directly from an API call
-    * @return true if successful
+    * @return user id of who now holds the lock
     */
-  def lockItem(user: User, item: T)(implicit c: Option[Connection] = None): Int =
+  def lockItem(user: User, item: T)(implicit c: Option[Connection] = None): Long =
     this.withMRTransaction { implicit c =>
       // first check to see if the item is already locked
       val checkQuery =
@@ -175,8 +175,9 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
             SQL(query)
               .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
               .executeUpdate()
+            user.id
           } else {
-            0            
+            id
           }
         case None =>
           val query =
@@ -184,6 +185,7 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
           SQL(query)
             .on(Symbol("itemId") -> ParameterValue.toParameterValue(item.id)(p = keyToStatement))
             .executeUpdate()
+          user.id
       }
     }
 

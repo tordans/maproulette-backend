@@ -16,6 +16,7 @@ import org.joda.time.DateTime
 import org.maproulette.framework.model.{TaskReview, TaskWithReview, User}
 import org.maproulette.framework.psql.{Query, Grouping, GroupField, Order, Paging}
 import org.maproulette.framework.mixins.{Locking, TaskParserMixin}
+import org.maproulette.framework.service.UserService
 import org.maproulette.models.Task
 import play.api.db.Database
 import org.slf4j.LoggerFactory
@@ -26,7 +27,8 @@ import org.slf4j.LoggerFactory
 @Singleton
 class TaskReviewRepository @Inject() (
     override val db: Database,
-    taskRepository: TaskRepository
+    taskRepository: TaskRepository,
+    userService: UserService
 ) extends RepositoryMixin
     with Locking[Task]
     with TaskParserMixin {
@@ -87,10 +89,13 @@ class TaskReviewRepository @Inject() (
           .on(Symbol("taskId") -> task.id, Symbol("userId") -> user.id)
           .executeUpdate()
 
-        try {
-          this.lockItem(user, task)
-        } catch {
-          case e: Exception => logger.warn(e.getMessage)
+        val lockerId = this.lockItem(user, task)
+        if (lockerId != user.id) {
+          val lockHolder = this.userService.retrieve(lockerId) match {
+            case Some(user) => user.osmProfile.displayName
+            case None => lockerId
+          }
+          throw new IllegalAccessException(s"Task is currently locked by user ${lockHolder}")
         }
 
         implicit val id = task.id
