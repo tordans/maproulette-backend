@@ -41,6 +41,7 @@ class TaskClusterRepository @Inject() (override val db: Database) extends Reposi
   ): List[TaskCluster] = {
     val joinClause =
       """
+        LEFT JOIN locked l ON l.item_id = tasks.id
         INNER JOIN challenges c ON c.id = tasks.parent_id
         INNER JOIN projects p ON p.id = c.parent_id
         LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id

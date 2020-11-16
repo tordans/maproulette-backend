@@ -293,6 +293,75 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     }
   }
 
+  "filterMetaReviewStatus" should {
+    "match on meta review status" in {
+      val params =
+        SearchParameters(reviewParams = SearchReviewParameters(metaReviewStatus = Some(List(1, 2))))
+      this.filterMetaReviewStatus(params).sql() mustEqual
+        "(tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE (task_review.task_id = tasks.id) AND ((task_review.meta_review_status IN (1,2)))))"
+    }
+
+    "include tasks with any meta review status when params contains -1" in {
+      val params =
+        SearchParameters(reviewParams =
+          SearchReviewParameters(metaReviewStatus = Some(List(1, 2, -1)))
+        )
+      this.filterMetaReviewStatus(params).sql() mustEqual
+        "(tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE (task_review.task_id = tasks.id) AND ((task_review.meta_review_status IN (1,2,-1)))) " +
+          "OR NOT tasks.id IN (SELECT task_id FROM task_review task_review WHERE task_review.task_id = tasks.id))"
+    }
+
+    "include tasks without meta review status when params contains -2" in {
+      val params =
+        SearchParameters(reviewParams =
+          SearchReviewParameters(metaReviewStatus = Some(List(1, 2, -2)))
+        )
+      this.filterMetaReviewStatus(params).sql() mustEqual
+        "(tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE (task_review.task_id = tasks.id) AND ((task_review.meta_review_status IN (1,2,-2) " +
+          "OR task_review.meta_review_status IS NULL))))"
+    }
+
+    "be empty" in {
+      this.filterMetaReviewStatus(SearchParameters()).sql() mustEqual ""
+    }
+
+    "be inverted" in {
+      val params = SearchParameters(
+        reviewParams = SearchReviewParameters(metaReviewStatus = Some(List(1, 2))),
+        invertFields = Some(List("mrStatus"))
+      )
+      this.filterMetaReviewStatus(params).sql() mustEqual
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE (task_review.task_id = tasks.id) AND ((task_review.meta_review_status IN (1,2))))"
+    }
+
+    "invert when contains -1" in {
+      val params = SearchParameters(
+        reviewParams = SearchReviewParameters(metaReviewStatus = Some(List(1, 2, -1))),
+        invertFields = Some(List("mrStatus"))
+      )
+      this.filterMetaReviewStatus(params).sql() mustEqual
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE (task_review.task_id = tasks.id) AND ((task_review.meta_review_status IN (1,2,-1)))) " +
+          "AND tasks.id IN (SELECT task_id FROM task_review task_review " +
+          "WHERE task_review.task_id = tasks.id)"
+    }
+
+    "invert when contains -2" in {
+      val params = SearchParameters(
+        reviewParams = SearchReviewParameters(metaReviewStatus = Some(List(1, 2, -2))),
+        invertFields = Some(List("mrStatus"))
+      )
+      this.filterMetaReviewStatus(params).sql() mustEqual
+        "NOT tasks.id IN (SELECT task_id FROM task_review " +
+          "WHERE (task_review.task_id = tasks.id) AND ((task_review.meta_review_status IN (1,2,-2) " +
+          "OR task_review.meta_review_status IS NULL)))"
+    }
+  }
+
   "filterChallengeStatus" should {
     "match on challenge status" in {
       val params = SearchParameters(challengeParams =
@@ -468,6 +537,28 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     }
   }
 
+  "filterMetaReviewer" should {
+    "be empty" in {
+      this.filterOwner(SearchParameters()).sql() mustEqual ""
+    }
+
+    "match on meta reviewer" in {
+      val params = SearchParameters(metaReviewer = Some("9230"))
+      this.filterMetaReviewer(params).sql() mustEqual
+        "tasks.id IN (SELECT task_id FROM task_review tr " +
+          "INNER JOIN users u ON u.id = tr.meta_reviewed_by " +
+          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%9230%')"
+    }
+
+    "be inverted" in {
+      val params = SearchParameters(metaReviewer = Some("1"), invertFields = Some(List("mr")))
+      this.filterMetaReviewer(params).sql() mustEqual
+        "NOT tasks.id IN (SELECT task_id FROM task_review tr " +
+          "INNER JOIN users u ON u.id = tr.meta_reviewed_by " +
+          "WHERE tr.task_id = tasks.id AND u.name ILIKE '%1%')"
+    }
+  }
+
   "filterMapper" should {
     "be empty" in {
       this.filterMapper(SearchParameters()).sql() mustEqual ""
@@ -536,6 +627,26 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("reviewers"))
       )
       this.filterReviewers(params).sql() mustEqual "NOT task_review.reviewed_by IN (1,2,3)"
+    }
+  }
+
+  "filterMetaReviewers" should {
+    "match on meta reviewers" in {
+      val params =
+        SearchParameters(reviewParams = SearchReviewParameters(metaReviewers = Some(List(1, 2, 3))))
+      this.filterMetaReviewers(params).sql() mustEqual "task_review.meta_reviewed_by IN (1,2,3)"
+    }
+
+    "be empty" in {
+      this.filterMetaReviewers(SearchParameters()).sql() mustEqual ""
+    }
+
+    "can be inverted" in {
+      val params = SearchParameters(
+        reviewParams = SearchReviewParameters(metaReviewers = Some(List(1, 2, 3))),
+        invertFields = Some(List("metaReviewers"))
+      )
+      this.filterMetaReviewers(params).sql() mustEqual "NOT task_review.meta_reviewed_by IN (1,2,3)"
     }
   }
 

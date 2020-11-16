@@ -96,6 +96,9 @@ case class TaskStatusSet(status: Int)
 case class TaskReviewStatusSet(status: Int)
     extends ActionType(Actions.ACTION_TYPE_TASK_REVIEW_STATUS_SET, Actions.ACTION_LEVEL_1)
 
+case class MetaReviewStatusSet(status: Int)
+    extends ActionType(Actions.ACTION_TYPE_META_REVIEW_STATUS_SET, Actions.ACTION_LEVEL_1)
+
 case class TagAdded() extends ActionType(Actions.ACTION_TYPE_TAG_ADDED, Actions.ACTION_LEVEL_2)
 
 case class TagRemoved() extends ActionType(Actions.ACTION_TYPE_TAG_REMOVED, Actions.ACTION_LEVEL_2)
@@ -160,6 +163,8 @@ object Actions {
   val ACTION_TYPE_QUESTION_ANSWERED_NAME      = "Question_Answered"
   val ACTION_TYPE_TASK_REVIEW_STATUS_SET      = 8
   val ACTION_TYPE_TASK_REVIEW_STATUS_SET_NAME = "Task_Review_Status_Set"
+  val ACTION_TYPE_META_REVIEW_STATUS_SET      = 9
+  val ACTION_TYPE_META_REVIEW_STATUS_SET_NAME = "Task_Meta_Review_Status_Set"
 
   val actionIDMap = Map(
     ACTION_TYPE_UPDATED                -> ACTION_TYPE_UPDATED_NAME,
@@ -170,7 +175,8 @@ object Actions {
     ACTION_TYPE_TAG_ADDED              -> ACTION_TYPE_TAG_ADDED_NAME,
     ACTION_TYPE_TAG_REMOVED            -> ACTION_TYPE_TAG_REMOVED_NAME,
     ACTION_TYPE_QUESTION_ANSWERED      -> ACTION_TYPE_QUESTION_ANSWERED_NAME,
-    ACTION_TYPE_TASK_REVIEW_STATUS_SET -> ACTION_TYPE_TASK_REVIEW_STATUS_SET_NAME
+    ACTION_TYPE_TASK_REVIEW_STATUS_SET -> ACTION_TYPE_TASK_REVIEW_STATUS_SET_NAME,
+    ACTION_TYPE_META_REVIEW_STATUS_SET -> ACTION_TYPE_META_REVIEW_STATUS_SET_NAME
   )
 
   /**

@@ -117,7 +117,8 @@ trait ParentMixin {
 
       val allReviewers = tasks.flatMap(t => {
         List(t.review.reviewedBy.map(r => r)).flatMap(r => r) ++
-          t.review.additionalReviewers.getOrElse(List())
+          t.review.additionalReviewers.getOrElse(List()) ++
+          List(t.review.metaReviewedBy.map(r => r)).flatMap(r => r)
       })
 
       val reviewers = Some(
@@ -143,6 +144,11 @@ trait ParentMixin {
         if (task.review.reviewedBy.getOrElse(0) != 0) {
           val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
+        }
+        if (task.review.metaReviewedBy.getOrElse(0) != 0) {
+          val metaReviewerJson =
+            Json.toJson(reviewers.get(task.review.metaReviewedBy.get)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "metaReviewedBy", metaReviewerJson, true)
         }
         if (task.review.additionalReviewers != None) {
           val additionalReviewerJson = Json

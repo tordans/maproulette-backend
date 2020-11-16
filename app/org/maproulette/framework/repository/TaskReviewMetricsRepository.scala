@@ -31,6 +31,10 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
       get[Int]("rejected") ~
       get[Int]("assisted") ~
       get[Int]("disputed") ~
+      get[Int]("metaRequested") ~
+      get[Int]("metaApproved") ~
+      get[Int]("metaRejected") ~
+      get[Int]("metaAssisted") ~
       get[Int]("fixed") ~
       get[Int]("falsePositive") ~
       get[Int]("skipped") ~
@@ -42,6 +46,7 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
       get[String]("tag_name").? ~
       get[String]("tag_type").? map {
       case total ~ requested ~ approved ~ rejected ~ assisted ~ disputed ~
+            metaRequested ~ metaApproved ~ metaRejected ~ metaAssisted ~
             fixed ~ falsePositive ~ skipped ~ alreadyFixed ~ tooHard ~
             totalReviewTime ~ tasksWithReviewTime ~ userId ~ tagName ~ tagType => {
         new ReviewMetrics(
@@ -51,6 +56,10 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
           rejected,
           assisted,
           disputed,
+          metaRequested,
+          metaApproved,
+          metaRejected,
+          metaAssisted,
           fixed,
           falsePositive,
           skipped,
@@ -83,18 +92,27 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
           get[Int]("assistedCount") ~
           get[Int]("disputedCount") ~
           get[Int]("requestedCount") ~
+          get[Int]("metaApprovedCount") ~
+          get[Int]("metaRejectedCount") ~
+          get[Int]("metaAssistedCount") ~
+          get[Int]("metaRequestedCount") ~
           get[Double]("total_review_time") ~
           get[Int]("tasks_with_review_time") ~
           get[Int]("additional_reviews").? map {
           case total ~ approvedCount ~ rejectedCount ~ assistedCount ~ disputedCount ~
-                requestedCount ~ totalReviewTime ~ tasksWithReviewTime ~ additionalReviews => {
+                requestedCount ~ metaApprovedCount ~ metaRejectedCount ~ metaAssistedCount ~
+                metaRequestedCount ~ totalReviewTime ~ tasksWithReviewTime ~ additionalReviews => {
             val countMap = Map(
-              "total"     -> total,
-              "approved"  -> approvedCount,
-              "rejected"  -> rejectedCount,
-              "assisted"  -> assistedCount,
-              "disputed"  -> disputedCount,
-              "requested" -> requestedCount,
+              "total"         -> total,
+              "approved"      -> approvedCount,
+              "rejected"      -> rejectedCount,
+              "assisted"      -> assistedCount,
+              "disputed"      -> disputedCount,
+              "requested"     -> requestedCount,
+              "metaApproved"  -> metaApprovedCount,
+              "metaRejected"  -> metaRejectedCount,
+              "metaAssisted"  -> metaAssistedCount,
+              "metaRequested" -> metaRequestedCount,
               "avgReviewTime" -> (if (tasksWithReviewTime > 0)
                                     (totalReviewTime / tasksWithReviewTime).toInt
                                   else 0)
@@ -120,6 +138,10 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount,
+                       |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_APPROVED} then 1 else 0 end), 0) metaApprovedCount,
+                       |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) metaRejectedCount,
+                       |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) metaAssistedCount,
+                       |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) metaRequestedCount,
                        |COALESCE(SUM(CASE WHEN (review_started_at IS NOT NULL AND
                        |                        reviewed_at IS NOT NULL)
                        |                  THEN (EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000)
@@ -137,7 +159,8 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
       query: Query,
       joinClause: StringBuilder = new StringBuilder(),
       groupByMappers: Boolean = false,
-      groupByTags: Boolean = false
+      groupByTags: Boolean = false,
+      groupByReviewers: Boolean = false
   ): List[ReviewMetrics] = {
     var groupFields = ""
     var groupBy =
@@ -149,6 +172,9 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
         joinClause ++= "INNER JOIN tags_on_tasks tot ON tot.task_id = tasks.id "
         joinClause ++= "INNER JOIN tags tags ON tags.id = tot.tag_id "
         Grouping(GroupField("tag_name", table = Some("")), GroupField("tag_type", table = Some("")))
+      } else if (groupByReviewers) {
+        groupFields = ", reviewed_by as user_id"
+        Grouping(GroupField(TaskReview.FIELD_REVIEWED_BY))
       } else {
         Grouping()
       }
@@ -165,6 +191,10 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
          COUNT(review_status) FILTER (where review_status = 2) AS rejected,
          COUNT(review_status) FILTER (where review_status = 3) AS assisted,
          COUNT(review_status) FILTER (where review_status = 4) AS disputed,
+         COUNT(meta_review_status) FILTER (where meta_review_status = 0) AS metaRequested,
+         COUNT(meta_review_status) FILTER (where meta_review_status = 1) AS metaApproved,
+         COUNT(meta_review_status) FILTER (where meta_review_status = 2) AS metaRejected,
+         COUNT(meta_review_status) FILTER (where meta_review_status = 3) AS metaAssisted,
          COUNT(tasks.status) FILTER (where tasks.status = 1) AS fixed,
          COUNT(tasks.status) FILTER (where tasks.status = 2) AS falsePositive,
          COUNT(tasks.status) FILTER (where tasks.status = 3) AS skipped,

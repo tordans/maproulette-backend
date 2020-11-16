@@ -93,7 +93,7 @@ class TaskReviewRepository @Inject() (
         if (lockerId != user.id) {
           val lockHolder = this.userService.retrieve(lockerId) match {
             case Some(user) => user.osmProfile.displayName
-            case None => lockerId
+            case None       => lockerId
           }
           throw new IllegalAccessException(s"Task is currently locked by user ${lockHolder}")
         }
@@ -153,6 +153,7 @@ class TaskReviewRepository @Inject() (
         SELECT
           ROW_NUMBER() OVER (${query.order.sql()}) as row_num,
           tasks.${this.retrieveColumnsWithReview} FROM tasks
+          LEFT JOIN locked l ON l.item_id = tasks.id
           INNER JOIN challenges c ON c.id = tasks.parent_id
           LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
           INNER JOIN projects p ON p.id = c.parent_id
@@ -208,6 +209,7 @@ class TaskReviewRepository @Inject() (
       simpleQuery
         .build(
           s"""SELECT count(*) FROM tasks
+            LEFT JOIN locked l ON l.item_id = tasks.id
             INNER JOIN challenges c ON c.id = tasks.parent_id
             LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
             INNER JOIN projects p ON p.id = c.parent_id
@@ -295,16 +297,23 @@ class TaskReviewRepository @Inject() (
       reviewStatus: Int,
       updateColumn: String,
       updateWithUser: Long,
-      additionalReviewers: Option[List[Long]]
+      additionalReviewers: Option[List[Long]],
+      metaReviewStatus: Option[Int] = None
   ): Int = {
     this.withMRTransaction { implicit c =>
+      val metaReviewStatusUpdate = metaReviewStatus match {
+        case Some(mr) if (mr == Task.REVIEW_STATUS_REQUESTED) =>
+          s"meta_review_status = ${mr}, reviewed_at = NOW(), meta_review_started_at = task_review.review_claimed_at, "
+        case Some(mr) =>
+          s"meta_review_status = ${mr}, meta_reviewed_at = NOW(), meta_review_started_at = task_review.review_claimed_at, "
+        case None => "reviewed_at = NOW(), review_started_at = task_review.review_claimed_at,"
+      }
       val updatedRows =
         SQL(s"""UPDATE task_review SET review_status = $reviewStatus,
                                  ${updateColumn} = ${updateWithUser},
-                                 reviewed_at = NOW(),
-                                 review_started_at = task_review.review_claimed_at,
                                  review_claimed_at = NULL,
                                  review_claimed_by = NULL,
+                                 ${metaReviewStatusUpdate}
                                  additional_reviewers = ${additionalReviewers match {
           case Some(ar) => "ARRAY[" + ar.mkString(",") + "]"
           case None     => "NULL"
@@ -350,8 +359,38 @@ class TaskReviewRepository @Inject() (
             VALUES (${task.id}, ${reviewRequestedBy}, ${reviewedBy},
                     $reviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
-                      else "NULL"},
-                    ${if (originalReviewer == None) "NULL" else originalReviewer})
+      else "NULL"},
+                    ${if (originalReviewer == None) "NULL" else originalReviewer.get})
+         """).executeUpdate()
+    }
+  }
+
+  /**
+    * Inserts a row into the task review history table.
+    *
+    * @param task
+    * @param reviewedBy - leave blank if this is meta review, include if it's
+    *                     the reviewer requesting another meta review
+    * @param metaReviewedBy
+    * @param metaReviewStatus
+    * @param reviewClaimedAt
+    */
+  def insertMetaTaskReviewHistory(
+      task: Task,
+      reviewedBy: Option[Long] = None,
+      metaReviewedBy: Long,
+      metaReviewStatus: Int,
+      reviewClaimedAt: DateTime
+  ): Unit = {
+    this.withMRTransaction { implicit c =>
+      SQL(s"""INSERT INTO task_review_history
+                        (task_id, requested_by, reviewed_by, meta_reviewed_by, meta_review_status,
+                         meta_reviewed_at, review_started_at)
+            VALUES (${task.id}, ${task.review.reviewRequestedBy.get},
+                    ${if (reviewedBy == None) "NULL" else reviewedBy.get}, ${metaReviewedBy},
+                    $metaReviewStatus, NOW(),
+                    ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
+      else "NULL"})
          """).executeUpdate()
     }
   }

@@ -70,26 +70,47 @@ class TaskHistoryDAL @Inject() (
 
   private val reviewEntryParser: RowParser[TaskLogEntry] = {
     get[Long]("task_id") ~
-      get[DateTime]("reviewed_at") ~
+      get[Option[DateTime]]("reviewed_at") ~
       get[Option[DateTime]]("review_started_at") ~
-      get[Int]("review_status") ~
+      get[Option[Int]]("review_status") ~
       get[Int]("requested_by") ~
-      get[Option[Int]]("reviewed_by") map {
+      get[Option[Int]]("reviewed_by") ~
+      get[Option[Int]]("meta_review_status") ~
+      get[Option[Int]]("meta_reviewed_by") ~
+      get[Option[DateTime]]("meta_reviewed_at") map {
       case taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
-            reviewedBy =>
-        new TaskLogEntry(
-          taskId,
-          reviewedAt,
-          TaskLogEntry.ACTION_REVIEW,
-          None,
-          None,
-          None,
-          reviewStartedAt,
-          Some(reviewStatus),
-          Some(requestedBy),
-          reviewedBy,
-          None
-        )
+            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt => {
+        reviewStatus match {
+          case None =>
+            new TaskLogEntry(
+              taskId,
+              metaReviewedAt.get,
+              TaskLogEntry.ACTION_META_REVIEW,
+              None,
+              None,
+              None,
+              reviewStartedAt,
+              metaReviewStatus,
+              Some(requestedBy),
+              metaReviewedBy,
+              None
+            )
+          case _ =>
+            new TaskLogEntry(
+              taskId,
+              reviewedAt.getOrElse(reviewStartedAt.get),
+              TaskLogEntry.ACTION_REVIEW,
+              None,
+              None,
+              None,
+              reviewStartedAt,
+              reviewStatus,
+              Some(requestedBy),
+              reviewedBy,
+              None
+            )
+        }
+      }
     }
   }
 
@@ -153,7 +174,7 @@ class TaskHistoryDAL @Inject() (
               WHERE task_id = $taskId""".as(this.commentEntryParser.*)
 
       val reviews =
-        SQL"""SELECT * FROM task_review_history WHERE task_id = $taskId""".as(
+        SQL"""SELECT * FROM task_review_history trh WHERE task_id = $taskId""".as(
           this.reviewEntryParser.*
         )
 

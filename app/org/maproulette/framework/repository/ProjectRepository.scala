@@ -358,7 +358,7 @@ object ProjectRepository extends Readers {
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
-        val pointReview  = PointReview(None, None, None, None, None, None)
+        val pointReview  = PointReview(None, None, None, None, None, None, None, None, None)
         val boundingJSON = Json.parse(bounding)
         ClusteredPoint(
           id,

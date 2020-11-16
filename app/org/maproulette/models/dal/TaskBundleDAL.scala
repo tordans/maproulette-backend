@@ -12,12 +12,15 @@ import org.maproulette.data.TaskType
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.model.User
 import org.maproulette.framework.psql.TransactionManager
-import org.maproulette.models.dal.mixin.Locking
+
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.models.{Task, TaskBundle}
 import org.maproulette.permissions.Permission
 import org.slf4j.LoggerFactory
 import play.api.db.Database
+
+import org.maproulette.framework.mixins.Locking
+import org.maproulette.framework.repository.RepositoryMixin
 
 /**
   * @author mcuthbert
@@ -28,10 +31,10 @@ class TaskBundleDAL @Inject() (
     permission: Permission,
     taskDAL: TaskDAL,
     challengeDAL: ChallengeDAL
-) extends DALHelper
-    with TransactionManager
+) extends RepositoryMixin
     with Locking[Task] {
   protected val logger = LoggerFactory.getLogger(this.getClass)
+  implicit val baseTable: String = Task.TABLE
 
   /**
     * Creates a new task bundle with the given tasks, assigning ownership of

@@ -219,7 +219,7 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
     * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
     * @return
     */
-  def keyToStatement[Key]: ToStatement[Key] = {
+  private def keyToStatement[Key]: ToStatement[Key] = {
     new ToStatement[Key] {
       def set(s: PreparedStatement, i: Int, identifier: Key) =
         identifier match {
