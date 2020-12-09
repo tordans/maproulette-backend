@@ -3,23 +3,25 @@
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 
-package org.maproulette.models.dal.mixin
+package org.maproulette.framework.mixins
 
 import java.sql.Connection
 
 import anorm._
+import java.sql.PreparedStatement
+
 import org.maproulette.data.ItemType
 import org.maproulette.exception.LockedException
 import org.maproulette.framework.model.User
 import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.BaseObject
-import org.maproulette.models.utils.DALHelper
+import org.maproulette.framework.repository.RepositoryMixin
 
 /**
   * @author mcuthbert
   */
 trait Locking[T <: BaseObject[_]] extends TransactionManager {
-  this: DALHelper =>
+  this: RepositoryMixin =>
 
   /**
     * Unlocks an item in the database
@@ -209,4 +211,25 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
           SQL"""DELETE FROM locked WHERE user_id = ${user.id}""".executeUpdate()
       }
     }
+
+  /**
+    * Our key for our objects are current Long, but can support String if need be. This function
+    * handles transforming java objects to SQL for a specific set related to the object key
+    *
+    * @tparam Key The type of Key, this is currently always Long, but could be changed easily enough in the future
+    * @return
+    */
+  def keyToStatement[Key]: ToStatement[Key] = {
+    new ToStatement[Key] {
+      def set(s: PreparedStatement, i: Int, identifier: Key) =
+        identifier match {
+          case id: String                  => ToStatement.stringToStatement.set(s, i, id)
+          case Some(id: String)            => ToStatement.stringToStatement.set(s, i, id)
+          case id: Long                    => ToStatement.longToStatement.set(s, i, id)
+          case Some(id: Long)              => ToStatement.longToStatement.set(s, i, id)
+          case intValue: Integer           => ToStatement.integerToStatement.set(s, i, intValue)
+          case list: List[Long @unchecked] => ToStatement.listToStatement[Long].set(s, i, list)
+        }
+    }
+  }
 }

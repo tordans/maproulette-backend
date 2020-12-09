@@ -24,6 +24,7 @@ import org.maproulette.exception.{
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.{ServiceManager, TagService}
+import org.maproulette.framework.mixins.ParentMixin
 import org.maproulette.models._
 import org.maproulette.models.dal._
 import org.maproulette.models.dal.mixin.TagDALMixin
@@ -67,7 +68,8 @@ class ChallengeController @Inject() (
     implicit val snapshotManager: SnapshotManager
 ) extends AbstractController(components)
     with ParentController[Challenge, Task]
-    with TagsMixin[Challenge] {
+    with TagsMixin[Challenge]
+    with ParentMixin {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -142,7 +144,8 @@ class ChallengeController @Inject() (
       statusFilter: String,
       reviewStatusFilter: String,
       priorityFilter: String,
-      timezone: String
+      timezone: String,
+      filename: String
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -163,11 +166,16 @@ class ChallengeController @Inject() (
             } else {
               Some(Utils.split(priorityFilter).map(_.toInt))
             }
+            val attachmentFilename = if (StringUtils.isEmpty(filename)) {
+              "challenge_geojson.json"
+            } else {
+              filename
+            }
 
             Result(
               header = ResponseHeader(
                 OK,
-                Map(CONTENT_DISPOSITION -> s"attachment; filename=challenge_geojson.json")
+                Map(CONTENT_DISPOSITION -> s"attachment; filename=${attachmentFilename}")
               ),
               body = HttpEntity.Strict(
                 ByteString(
@@ -458,9 +466,9 @@ class ChallengeController @Inject() (
     */
   def getPreferredChallenges(limit: Int): Action[AnyContent] = Action.async { implicit request =>
     val all = Map(
-      "popular"  -> _insertProjectJSON(this.dal.getHotChallenges(limit, 0)),
-      "newest"   -> _insertProjectJSON(this.dal.getNewChallenges(limit, 0)),
-      "featured" -> _insertProjectJSON(this.dal.getFeaturedChallenges(limit, 0))
+      "popular"  -> insertProjectJSON(this.serviceManager, this.dal.getHotChallenges(limit, 0)),
+      "newest"   -> insertProjectJSON(this.serviceManager, this.dal.getNewChallenges(limit, 0)),
+      "featured" -> insertProjectJSON(this.serviceManager, this.dal.getFeaturedChallenges(limit, 0))
     )
 
     Future(Ok(Json.toJson(all)))
@@ -877,61 +885,10 @@ class ChallengeController @Inject() (
       this.sessionManager.userAwareRequest { implicit user =>
         SearchParameters.withSearch { implicit params =>
           val challenges = this.dal.extendedFind(params, limit, page, sort, order)
-          Ok(_insertProjectJSON(challenges))
+          Ok(insertProjectJSON(this.serviceManager, challenges))
         }
       }
     }
-
-  /**
-    * Fetches the matching parent object and inserts it into the JSON data returned.
-    *
-    */
-  private def _insertProjectJSON(challenges: List[Challenge]): JsValue = {
-    if (challenges.isEmpty) {
-      Json.toJson(List[JsValue]())
-    } else {
-      val tags = this.tagService.listByChallenges(challenges.map(c => c.id))
-      val projects = Some(
-        this.serviceManager.project
-          .list(challenges.map(c => c.general.parent))
-          .map(p => p.id -> p)
-          .toMap
-      )
-
-      var vpIds = scala.collection.mutable.Set[Long]()
-      challenges.map(c => {
-        c.general.virtualParents match {
-          case Some(vps) =>
-            vps.map(vp => vpIds += vp)
-          case _ => // do nothing
-        }
-      })
-      val vpObjects =
-        this.serviceManager.project.list(vpIds.toList).map(p => p.id -> p).toMap
-
-      val jsonList = challenges.map { c =>
-        var updated = Utils.insertIntoJson(
-          Json.toJson(c),
-          Tag.TABLE,
-          Json.toJson(tags.getOrElse(c.id, List.empty).map(_.name))
-        )
-        val projectJson = Json
-          .toJson(projects.get(c.general.parent))
-          .as[JsObject] - Project.KEY_GRANTS
-        updated = Utils.insertIntoJson(updated, Challenge.KEY_PARENT, projectJson, true)
-
-        c.general.virtualParents match {
-          case Some(vps) =>
-            val vpJson =
-              Some(vps.map(vp => Json.toJson(vpObjects.get(vp)).as[JsObject] - Project.KEY_GRANTS))
-            updated = Utils.insertIntoJson(updated, Challenge.KEY_VIRTUAL_PARENTS, vpJson, true)
-          case _ => // do nothing
-        }
-        updated
-      }
-      Json.toJson(jsonList)
-    }
-  }
 
   /**
     * Retrieves a lightweight listing of the challenges in the given project(s).

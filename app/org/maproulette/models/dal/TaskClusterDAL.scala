@@ -15,6 +15,7 @@ import org.maproulette.data.Actions
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.model.User
 import org.maproulette.framework.psql.TransactionManager
+import org.maproulette.framework.repository.TaskClusterRepository
 import org.maproulette.models.dal.mixin.SearchParametersMixin
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.models.{ClusteredPoint, Point, PointReview, TaskCluster}
@@ -26,7 +27,9 @@ import play.api.libs.json.{JsString, Json}
   * @author mcuthbert
   */
 @Singleton
-class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: ChallengeDAL)
+class TaskClusterDAL @Inject() (override val db: Database,
+  challengeDAL: ChallengeDAL,
+  taskClusterRepository: TaskClusterRepository)
     extends DALHelper
     with TransactionManager
     with SearchParametersMixin {
@@ -60,39 +63,10 @@ class TaskClusterDAL @Inject() (override val db: Database, challengeDAL: Challen
       }
 
       val query  = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
-      val result = sqlWithParameters(query, parameters).as(getTaskClusterParser(params).*)
+      val result = sqlWithParameters(query, parameters).as(
+        this.taskClusterRepository.getTaskClusterParser(params).*)
       // Filter out invalid clusters.
       result.filter(_ != None).asInstanceOf[List[TaskCluster]]
-    }
-  }
-
-  def getTaskClusterParser(params: SearchParameters): anorm.RowParser[Serializable] = {
-    int("kmeans") ~ int("numberOfPoints") ~ get[Option[Long]]("taskId") ~
-      get[Option[Int]]("taskStatus") ~ get[Option[Int]]("taskPriority") ~ get[Option[String]](
-      "geojson"
-    ) ~ str("geom") ~
-      str("bounding") ~ get[List[Long]]("challengeIds") map {
-      case kmeans ~ totalPoints ~ taskId ~ taskStatus ~ taskPriority ~ geojson ~ geom ~ bounding ~ challengeIds =>
-        val locationJSON = Json.parse(geom)
-        val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
-        // Let's check to make sure we received valid number of coordinates.
-        if (coordinates.length > 1) {
-          val point = Point(coordinates(1), coordinates.head)
-          TaskCluster(
-            kmeans,
-            totalPoints,
-            taskId,
-            taskStatus,
-            taskPriority,
-            params,
-            point,
-            Json.parse(bounding),
-            challengeIds,
-            geojson.map(Json.parse(_))
-          )
-        } else {
-          None
-        }
     }
   }
 

@@ -223,9 +223,13 @@ class TaskController @Inject() (
           )
       }
 
-      val success = this.dal.lockItem(user, task)
-      if (success == 0) {
-        throw new IllegalAccessException(s"Current task [${taskId}] is locked by another user.")
+      val lockerId = this.dal.lockItem(user, task)
+      if (lockerId != user.id) {
+        val lockHolder = this.serviceManager.user.retrieve(lockerId) match {
+          case Some(user) => user.osmProfile.displayName
+          case None => lockerId
+        }
+        throw new IllegalAccessException(s"Task is currently locked by user ${lockHolder}")
       }
 
       webSocketProvider.sendMessage(
@@ -681,7 +685,8 @@ class TaskController @Inject() (
         case None    => None
       }
 
-      this.dalManager.taskReview.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+      this.serviceManager.taskReview
+        .setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {
@@ -725,7 +730,7 @@ class TaskController @Inject() (
             t.review.reviewStatus match {
               case Some(r) =>
                 updatedCount +
-                  this.dalManager.taskReview
+                  this.serviceManager.taskReview
                     .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
               case None => updatedCount
             }

@@ -167,7 +167,8 @@ class TaskBundleController @Inject() (
           case None    => None
         }
 
-        this.dalManager.taskReview.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+        this.serviceManager.taskReview
+          .setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
 
         if (tags.nonEmpty) {
           val tagList = tags.split(",").toList
