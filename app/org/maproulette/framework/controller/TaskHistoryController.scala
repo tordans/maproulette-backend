@@ -2,21 +2,21 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.controllers.api
+package org.maproulette.framework.controller
 
 import javax.inject.Inject
-import org.maproulette.Config
+import akka.util.ByteString
 import org.maproulette.data.ActionManager
-import org.maproulette.framework.service.{ServiceManager, TagService}
-import org.maproulette.models.TaskLogEntry
-import org.maproulette.models.dal._
-import org.maproulette.provider.osm.ChangesetProvider
-import org.maproulette.provider.websockets.WebSocketProvider
+import org.maproulette.framework.service.TaskHistoryService
+import org.maproulette.framework.psql.Paging
+import org.maproulette.framework.service.{ServiceManager, TaskHistoryService}
+import org.maproulette.framework.model.{User, TaskLogEntry}
 import org.maproulette.session.SessionManager
 import org.maproulette.utils.Utils
-import play.api.libs.json._
-import play.api.libs.ws.WSClient
 import play.api.mvc._
+import play.api.libs.json._
+import play.api.http.HttpEntity
+
 
 /**
   * TaskHistoryController is responsible for fetching the history of a task.
@@ -26,31 +26,12 @@ import play.api.mvc._
 class TaskHistoryController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
-    override val dal: TaskDAL,
-    override val tagService: TagService,
-    taskHistoryDAL: TaskHistoryDAL,
+    override val bodyParsers: PlayBodyParsers,
+    service: TaskHistoryService,
     serviceManager: ServiceManager,
-    dalManager: DALManager,
-    wsClient: WSClient,
-    webSocketProvider: WebSocketProvider,
-    config: Config,
-    components: ControllerComponents,
-    changeService: ChangesetProvider,
-    override val bodyParsers: PlayBodyParsers
-) extends TaskController(
-      sessionManager,
-      actionManager,
-      dal,
-      tagService,
-      serviceManager,
-      dalManager,
-      wsClient,
-      webSocketProvider,
-      config,
-      components,
-      changeService,
-      bodyParsers
-    ) {
+    components: ControllerComponents
+) extends AbstractController(components)
+    with MapRouletteController {
 
   /**
     * Gets the history for a task. This includes commments, status_actions, and review_actions.
@@ -60,7 +41,7 @@ class TaskHistoryController @Inject() (
     */
   def getTaskHistoryLog(taskId: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(_insertExtraJSON(this.taskHistoryDAL.getTaskHistoryLog(taskId)))
+      Ok(_insertExtraJSON(service.getTaskHistoryLog(taskId)))
     }
   }
 

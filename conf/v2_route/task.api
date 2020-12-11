@@ -15,7 +15,7 @@
 #     in: path
 #     description: The id of the task
 ###
-GET     /task/:id/history                       @org.maproulette.controllers.api.TaskHistoryController.getTaskHistoryLog(id:Long)
+GET     /task/:id/history                       @org.maproulette.framework.controller.TaskHistoryController.getTaskHistoryLog(id:Long)
 ###
 # tags: [ Task ]
 # summary: Create a Task
