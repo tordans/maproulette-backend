@@ -8,6 +8,7 @@ package org.maproulette.framework.util
 import play.api.db.Database
 import play.api.db.evolutions.Evolutions
 import play.api.inject.guice.GuiceApplicationBuilder
+import scala.util.Properties
 
 /**
   * A little helper class to create and drop test tables
@@ -17,9 +18,9 @@ import play.api.inject.guice.GuiceApplicationBuilder
 trait TestDatabase {
   implicit val application = GuiceApplicationBuilder()
     .configure(
-      "db.default.url"                 -> "jdbc:postgresql://localhost:5432/mr_test",
-      "db.default.username"            -> "osm",
-      "db.default.password"            -> "osm",
+      "db.default.url"                 -> s"jdbc:postgresql://${Properties.envOrElse("MR_TEST_DB_HOST", "localhost")}:${Properties.envOrElse("MR_TEST_DB_PORT", "5432")}/${Properties.envOrElse("MR_TEST_DB_NAME", "mr_test")}",
+      "db.default.username"            -> s"${Properties.envOrElse("MR_TEST_DB_USER", "osm")}",
+      "db.default.password"            -> s"${Properties.envOrElse("MR_TEST_DB_PASSWORD", "osm")}",
       "db.default.logSql"              -> false,
       "maproulette.osm.consumerKey"    -> "test",
       "maproulette.osm.consumerSecret" -> "test",
