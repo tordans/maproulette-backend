@@ -9,11 +9,10 @@ import javax.inject.{Inject, Singleton}
 import org.joda.time.{DateTime, Months}
 import org.maproulette.Config
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{StatusActions, TaskReview, User, UserMetrics}
+import org.maproulette.framework.model.{StatusActions, TaskReview, User, UserMetrics, Task}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Query}
 import org.maproulette.framework.repository.{TaskReviewMetricsRepository, UserRepository}
-import org.maproulette.models.Task
 import org.maproulette.permissions.Permission
 
 import scala.collection.mutable

@@ -11,13 +11,12 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.models.Task
 import org.maproulette.models.utils.WHERE
 import org.maproulette.models.dal.{ChallengeDAL}
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.Challenge
+import org.maproulette.framework.model.{Challenge, Task}
 import play.api.Application
 import play.api.db.Database
 

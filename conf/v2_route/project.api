@@ -258,7 +258,7 @@ GET     /projects/managed                           @org.maproulette.framework.c
 #   '200':
 #     description: The clustered point representation for a Challenge. If none found will return an empty list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#       $ref: '#/definitions/org.maproulette.framework.model.ClusteredPoint'
 # parameters:
 #   - name: id
 #     in: path
@@ -284,7 +284,7 @@ GET     /project/clustered/:id                      @org.maproulette.framework.c
 #   '200':
 #     description: The clustered point representation for a Challenge. If none found will return an empty list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#       $ref: '#/definitions/org.maproulette.framework.model.ClusteredPoint'
 # parameters:
 #   - name: search
 #     in: cookie
@@ -382,7 +382,7 @@ GET     /project/:projectId/tasks/extract             @org.maproulette.controlle
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: id
 #     in: path

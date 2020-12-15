@@ -21,7 +21,6 @@ class DALManager @Inject() (
     actionManager: ActionManager,
     dataManager: DataManager,
     taskBundleDAL: TaskBundleDAL,
-    taskClusterDAL: TaskClusterDAL,
     statusActionManager: StatusActionManager
 ) {
   def task: TaskDAL = taskDAL
@@ -37,8 +36,6 @@ class DALManager @Inject() (
   def statusAction: StatusActionManager = statusActionManager
 
   def taskBundle: TaskBundleDAL = taskBundleDAL
-
-  def taskCluster: TaskClusterDAL = taskClusterDAL
 
   def getManager(itemType: ItemType): BaseDAL[Long, _] = {
     itemType match {

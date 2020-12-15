@@ -112,7 +112,7 @@ definitions:
         readOnly: true
         type: array
         items:
-          $ref: "#/definitions/org.maproulette.models.Task"
+          $ref: "#/definitions/org.maproulette.framework.model.Task"
         description: "An optional list of full task objects associated with the bundle"
     required:
       - taskIds
@@ -301,5 +301,3 @@ definitions:
       settings:
         $ref: "#/definitions/PublicUserSettings"
         description: "Extra public user settings"
-
-

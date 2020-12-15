@@ -9,10 +9,8 @@ import anorm.NamedParameter
 import org.maproulette.utils.TestSpec
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.mixins.ReviewSearchMixin
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, Task}
 import org.maproulette.session._
-
-import org.maproulette.models.Task
 
 /**
   * @author krotstan

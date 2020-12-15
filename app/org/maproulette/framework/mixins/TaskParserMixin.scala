@@ -10,11 +10,9 @@ import anorm.{RowParser, ~}
 import org.joda.time.DateTime
 
 import org.maproulette.framework.service.ServiceManager
-import org.maproulette.framework.model.{TaskReview, TaskWithReview, User}
+import org.maproulette.framework.model.{TaskReview, TaskReviewFields, TaskWithReview, User, Task}
 
 import org.maproulette.utils.Utils
-import org.maproulette.models.Task
-import org.maproulette.models.{TaskReviewFields}
 
 /**
   * TaskParserMixin provides task parsers

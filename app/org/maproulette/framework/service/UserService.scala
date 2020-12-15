@@ -20,7 +20,6 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{UserRepository, UserSavedObjectsRepository}
-import org.maproulette.models.Task
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters

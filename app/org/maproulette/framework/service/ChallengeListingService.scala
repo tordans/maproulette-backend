@@ -11,7 +11,6 @@ import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
 import org.maproulette.framework.repository.ChallengeListingRepository
 import org.maproulette.permissions.Permission
-import org.maproulette.models.Task
 
 /**
   * Service layer for ChallengeListings to handle all the challenge listing business logic

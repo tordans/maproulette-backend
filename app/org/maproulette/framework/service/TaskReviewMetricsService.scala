@@ -16,8 +16,6 @@ import org.maproulette.framework.mixins.ReviewSearchMixin
 import org.maproulette.session.SearchParameters
 import org.maproulette.permissions.Permission
 
-import org.maproulette.models.Task
-
 /**
   * Service layer for TaskReviewMetrics
   *

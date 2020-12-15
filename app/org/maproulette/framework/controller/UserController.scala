@@ -7,12 +7,18 @@ package org.maproulette.framework.controller
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException, StatusMessage}
-import org.maproulette.framework.model.{Challenge, User, UserSettings, ProjectManager, GrantTarget}
+import org.maproulette.framework.model.{
+  Challenge,
+  User,
+  UserSettings,
+  ProjectManager,
+  GrantTarget,
+  Task
+}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.framework.mixins.ParentMixin
 import org.maproulette.permissions.Permission
-import org.maproulette.models.Task
 import org.maproulette.session.{SessionManager, SearchParameters}
 import org.maproulette.data.{UserType}
 import org.maproulette.utils.{Crypto, Utils}
@@ -26,7 +32,7 @@ import scala.util.{Failure, Success}
   * @author cuthbertm
   */
 class UserController @Inject() (
-    serviceManager: ServiceManager,
+    val serviceManager: ServiceManager,
     sessionManager: SessionManager,
     components: ControllerComponents,
     bodyParsers: PlayBodyParsers,
@@ -207,7 +213,6 @@ class UserController @Inject() (
       this.sessionManager.authenticatedRequest { implicit user =>
         Ok(
           this.insertProjectJSON(
-            this.serviceManager,
             this.serviceManager.user.getSavedChallenges(userId, user, Paging(limit, offset))
           )
         )

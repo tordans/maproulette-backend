@@ -10,11 +10,10 @@ import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Comment, User, VirtualProject}
+import org.maproulette.framework.model.{Comment, User, VirtualProject, Task, TaskBundle}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
-import org.maproulette.models.TaskBundle
 import org.maproulette.models.dal.{TaskBundleDAL, TaskDAL}
 import org.maproulette.permissions.Permission
 

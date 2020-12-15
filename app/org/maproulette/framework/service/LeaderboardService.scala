@@ -8,15 +8,13 @@ package org.maproulette.framework.service
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.framework.model.{User, LeaderboardUser, LeaderboardChallenge}
+import org.maproulette.framework.model.{User, LeaderboardUser, LeaderboardChallenge, Task}
 import org.maproulette.framework.mixins.LeaderboardMixin
 import org.maproulette.framework.repository.{LeaderboardRepository, ChallengeRepository}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.session.{SessionManager, SearchLeaderboardParameters}
 import org.maproulette.utils.BoundingBoxFinder
-
-import org.maproulette.models.Task
 
 /**
   * Service layer for Leaderboard

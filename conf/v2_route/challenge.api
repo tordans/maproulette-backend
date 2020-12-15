@@ -496,7 +496,7 @@ GET     /review/challenges                                 @org.maproulette.fram
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -686,7 +686,7 @@ PUT     /challenge/:id/rebuild                      @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -717,7 +717,7 @@ GET     /challenge/:cid/tasks/random                @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -748,7 +748,7 @@ GET     /challenge/:cid/tasks/randomTasks           @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: limit
 #     in: query
@@ -774,7 +774,7 @@ GET     /challenge/:cid/tasksNearby/:proximityId           @org.maproulette.cont
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -802,7 +802,7 @@ GET     /challenge/:cid/tasks/prioritizedTasks      @org.maproulette.controllers
 #   '200':
 #     description: The next task in the list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -824,7 +824,7 @@ GET     /challenge/:cid/nextTask/:id                @org.maproulette.controllers
 #   '200':
 #     description: The previous task in the list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -917,7 +917,7 @@ POST    /challenge/view/:id                         @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#         $ref: '#/definitions/org.maproulette.framework.model.ClusteredPoint'
 # parameters:
 #   - name: id
 #     in: path
@@ -1168,31 +1168,6 @@ POST     /project/:projectId/challenge/:username/:repo/:name   @org.maproulette.
 #     required: true
 ###
 GET     /challenge/:id/extract                      @org.maproulette.controllers.api.ChallengeController.extractPackage(id:Long)
-###
-# tags: [ Challenge ]
-# summary: Retrieves tasks in a cluster
-# produces: [ application/json ]
-# description: Retrieves tasks contained in a cluster retrieved from api /api/v2/challenge/:id/taskCluster
-# responses:
-#   '200':
-#     description: An array of tasks that are contained in a cluster. If none found will return an empty list.
-#     schema:
-#       type: array
-#       items:
-#         type: object
-#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
-# parameters:
-#   - name: id
-#     in: path
-#     description: The id of the parent project.
-#   - name: clusterId
-#     in: path
-#     description: The id of the single cluster.
-#   - name: points
-#     in: query
-#     description: The number of clusters that you want returned
-###
-GET     /tasksInCluster/:clusterId                  @org.maproulette.controllers.api.TaskController.getTasksInCluster(clusterId:Int, points:Int ?= 100)
 ###
 # tags: [ Challenge ]
 # summary: Create a batch of Challenges

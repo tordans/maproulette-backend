@@ -312,7 +312,8 @@ class ChallengeDAL @Inject() (
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
       get[Long]("tasks.parent_id") ~
-      get[String]("challenges.name") ~
+      get[String]("challenges.name").? ~
+      get[String]("challengeName").? ~
       get[String]("tasks.instruction") ~
       get[String]("location") ~
       get[Int]("tasks.status") ~
@@ -332,7 +333,7 @@ class ChallengeDAL @Inject() (
       get[Option[Int]]("task_review.meta_review_status") ~
       get[Option[Long]]("task_review.meta_reviewed_by") ~
       get[Option[DateTime]]("task_review.meta_reviewed_at") map {
-      case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
+      case id ~ name ~ parentId ~ parentName ~ orParentName ~ instruction ~ location ~ status ~
             mappedOn ~ completedTimeSpent ~ completedBy ~ priority ~ bundleId ~
             isBundlePrimary ~ cooperativeWork ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ reviewStartedAt ~ additionalReviewers ~
@@ -358,7 +359,7 @@ class ChallengeDAL @Inject() (
           "",
           name,
           parentId,
-          parentName,
+          parentName.getOrElse(orParentName.get),
           point,
           JsString(""),
           instruction,

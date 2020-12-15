@@ -14,7 +14,8 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.exception.InvalidException
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, ClusteredPoint, Point, PointReview, Task}
+import org.maproulette.framework.psql.Paging
 import org.maproulette.models._
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
@@ -25,6 +26,7 @@ import play.api.libs.json.{JsString, JsValue, Json}
 
 import org.maproulette.framework.mixins.Locking
 import org.maproulette.framework.repository.RepositoryMixin
+import org.maproulette.framework.service.TaskClusterService
 
 /**
   * @author mcuthbert
@@ -33,7 +35,7 @@ class VirtualChallengeDAL @Inject() (
     override val db: Database,
     override val permission: Permission,
     val taskDAL: TaskDAL,
-    val taskClusterDAL: TaskClusterDAL,
+    val taskClusterService: TaskClusterService,
     val config: Config
 ) extends RepositoryMixin
     with DALHelper
@@ -147,7 +149,8 @@ class VirtualChallengeDAL @Inject() (
   ): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      val (count, result) = this.taskClusterDAL.getTasksInBoundingBox(user, params, -1, 0)
+      val (count, result) =
+        this.taskClusterService.getTasksInBoundingBox(user, params, Paging(-1, 0))
       result
         .grouped(config.virtualChallengeBatchSize)
         .foreach(batch => {

@@ -7,8 +7,7 @@ package org.maproulette.framework.repository
 
 import java.util.UUID
 
-import org.maproulette.models.Task
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, Task}
 import org.maproulette.framework.util.{TaskReviewTag, FrameworkHelper}
 import play.api.Application
 

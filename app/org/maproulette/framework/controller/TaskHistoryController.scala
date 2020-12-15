@@ -7,7 +7,6 @@ package org.maproulette.framework.controller
 import javax.inject.Inject
 import akka.util.ByteString
 import org.maproulette.data.ActionManager
-import org.maproulette.framework.service.TaskHistoryService
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.{ServiceManager, TaskHistoryService}
 import org.maproulette.framework.model.{User, TaskLogEntry}
@@ -16,7 +15,6 @@ import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
 import play.api.http.HttpEntity
-
 
 /**
   * TaskHistoryController is responsible for fetching the history of a task.

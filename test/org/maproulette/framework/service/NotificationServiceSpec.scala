@@ -6,7 +6,6 @@
 package org.maproulette.framework
 
 import org.joda.time.DateTime
-import org.maproulette.models.Task
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter

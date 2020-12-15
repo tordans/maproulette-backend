@@ -10,11 +10,9 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.maproulette.data.TaskType
 import org.maproulette.exception.InvalidException
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model._
 import org.maproulette.framework.psql.TransactionManager
-
 import org.maproulette.models.utils.DALHelper
-import org.maproulette.models.{Task, TaskBundle}
 import org.maproulette.permissions.Permission
 import org.slf4j.LoggerFactory
 import play.api.db.Database
@@ -33,7 +31,7 @@ class TaskBundleDAL @Inject() (
     challengeDAL: ChallengeDAL
 ) extends RepositoryMixin
     with Locking[Task] {
-  protected val logger = LoggerFactory.getLogger(this.getClass)
+  protected val logger           = LoggerFactory.getLogger(this.getClass)
   implicit val baseTable: String = Task.TABLE
 
   /**

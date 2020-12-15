@@ -2,7 +2,7 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.joda.time.DateTime
 import org.maproulette.data.{BundleType, ItemType}
@@ -10,6 +10,8 @@ import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 import play.api.libs.json._
+
+import org.maproulette.models.BaseObject
 
 case class Bundle(
     override val id: Long,

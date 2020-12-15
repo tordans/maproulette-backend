@@ -7,7 +7,7 @@ package org.maproulette
 import javax.inject.{Inject, Singleton}
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.Actions
-import org.maproulette.models.MapillaryServerInfo
+import org.maproulette.framework.model.MapillaryServerInfo
 import play.api.Configuration
 import play.api.libs.oauth.ConsumerKey
 

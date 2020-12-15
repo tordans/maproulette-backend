@@ -10,8 +10,7 @@ import org.maproulette.framework.psql.SQLUtils
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.{AND, OR}
-import org.maproulette.framework.model.{TaskReview, Project, Challenge}
-import org.maproulette.models.Task
+import org.maproulette.framework.model.{TaskReview, Project, Challenge, Task}
 import play.api.libs.json.JsDefined
 
 import scala.collection.mutable.ListBuffer

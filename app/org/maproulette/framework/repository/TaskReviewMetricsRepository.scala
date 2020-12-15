@@ -12,9 +12,8 @@ import anorm.SqlParser.get
 import anorm.ToParameterValue
 import anorm.{RowParser, ~}
 import javax.inject.{Inject, Singleton}
-import org.maproulette.framework.model.{TaskReview, ReviewMetrics}
+import org.maproulette.framework.model.{Task, TaskReview, ReviewMetrics}
 import org.maproulette.framework.psql.{Query, Grouping, GroupField}
-import org.maproulette.models.Task
 import play.api.db.Database
 
 /**

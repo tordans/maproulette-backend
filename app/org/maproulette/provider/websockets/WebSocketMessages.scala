@@ -5,11 +5,10 @@
 package org.maproulette.provider.websockets
 
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{TaskWithReview, User, Challenge, Project}
+import org.maproulette.framework.model.{TaskWithReview, User, Challenge, Project, Task}
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
-import org.maproulette.models.Task
 
 /**
   * Defines case classes representing the various kinds of messages to be

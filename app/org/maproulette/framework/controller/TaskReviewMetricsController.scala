@@ -14,14 +14,19 @@ import org.maproulette.framework.service.{
   UserService
 }
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, ReviewMetrics}
+import org.maproulette.framework.model.{
+  Challenge,
+  ChallengeListing,
+  Project,
+  User,
+  ReviewMetrics,
+  Task
+}
 import org.maproulette.session.{SessionManager, SearchParameters, SearchTaskParameters}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
 import play.api.http.HttpEntity
-
-import org.maproulette.models.Task
 
 /**
   * TaskReviewController is responsible for handling functionality related to
