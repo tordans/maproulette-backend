@@ -227,7 +227,7 @@ class TaskController @Inject() (
       if (lockerId != user.id) {
         val lockHolder = this.serviceManager.user.retrieve(lockerId) match {
           case Some(user) => user.osmProfile.displayName
-          case None => lockerId
+          case None       => lockerId
         }
         throw new IllegalAccessException(s"Task is currently locked by user ${lockHolder}")
       }
@@ -511,7 +511,8 @@ class TaskController @Inject() (
 
       val allReviewers = tasks.flatMap(t => {
         List(t.pointReview.reviewedBy.map(r => r)).flatMap(r => r) ++
-          t.pointReview.additionalReviewers.getOrElse(List())
+          t.pointReview.additionalReviewers.getOrElse(List()) ++
+          List(t.pointReview.metaReviewedBy.map(r => r)).flatMap(r => r)
       })
 
       val reviewers = Some(
@@ -557,6 +558,14 @@ class TaskController @Inject() (
             Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
           reviewPointJson =
             Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
+        }
+
+        if (task.pointReview.metaReviewedBy.getOrElse(0) != 0) {
+          var reviewerJson =
+            Json.toJson(reviewers.get(task.pointReview.metaReviewedBy.get)).as[JsObject]
+          reviewPointJson =
+            Utils.insertIntoJson(reviewPointJson, "metaReviewedBy", reviewerJson, true).as[JsObject]
           updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
         }
 
@@ -634,110 +643,6 @@ class TaskController @Inject() (
       )
 
       NoContent
-    }
-  }
-
-  /**
-    * This function sets the task review status.
-    * Must be authenticated to perform operation and marked as a reviewer.
-    *
-    * @param id The id of the task
-    * @param reviewStatus The review status id to set the task's review status to
-    * @param comment An optional comment to add to the task
-    * @param tags Optional tags to add to the task
-    * @param newTaskStatus Optional new taskStatus to change the task's status
-    * @return 400 BadRequest if task with supplied id not found.
-    *         If successful then 200 NoContent
-    */
-  def setTaskReviewStatus(
-      id: Long,
-      reviewStatus: Int,
-      comment: String = "",
-      tags: String = "",
-      newTaskStatus: String = ""
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      val task = this.dal.retrieveById(id) match {
-        case Some(t) => {
-          // If the mapper wants to change the task status while revising the task after review
-          if (!newTaskStatus.isEmpty) {
-            val taskStatus = newTaskStatus.toInt
-
-            // Make sure to remove user's score credit for the prior task status first.
-            this.serviceManager.userMetrics.rollbackUserScore(t.status.get, user.id)
-
-            // Change task status. This will also credit user's score for new task status.
-            this.dal.setTaskStatus(List(t), taskStatus, user, Some(false))
-            this.actionManager
-              .setAction(Some(user), new TaskItem(t.id), TaskStatusSet(taskStatus), t.name)
-            // Refetch Task
-            this.dal.retrieveById(id).get
-          } else t
-        }
-        case None =>
-          throw new NotFoundException(s"Task with $id not found, cannot set review status.")
-      }
-
-      val action = this.actionManager
-        .setAction(Some(user), new TaskItem(task.id), TaskReviewStatusSet(reviewStatus), task.name)
-      val actionId = action match {
-        case Some(a) => Some(a.id)
-        case None    => None
-      }
-
-      this.serviceManager.taskReview
-        .setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
-
-      val tagList = tags.split(",").toList
-      if (tagList.nonEmpty) {
-        this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = "review")), user)
-      }
-
-      NoContent
-    }
-  }
-
-  /**
-    * This function will set the review status to "Unnecessary", essentially removing the
-    * review request.
-    *
-    * User must have write access to parent challenge(s).
-    *
-    * @param ids The ids of the tasks to update
-    * @return The number of tasks updated.
-    */
-  def removeReviewRequest(ids: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      SearchParameters.withSearch { p =>
-        implicit val taskIds = Utils.toLongList(ids) match {
-          case Some(l) if !l.isEmpty => l
-          case None => {
-            val params = p.location match {
-              case Some(l) => p
-              case None    =>
-                // No bounding box, so search everything
-                p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
-            }
-            val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
-            tasks.map(task => task.id)
-          }
-        }
-
-        // set the taskIds variable to `implicit` above
-        val updatedTasks = this.dal
-          .retrieveListById()
-          .foldLeft(0)((updatedCount, t) =>
-            t.review.reviewStatus match {
-              case Some(r) =>
-                updatedCount +
-                  this.serviceManager.taskReview
-                    .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
-              case None => updatedCount
-            }
-          )
-
-        Ok(Json.toJson(updatedTasks))
-      }
     }
   }
 

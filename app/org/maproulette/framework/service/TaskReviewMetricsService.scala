@@ -40,10 +40,12 @@ class TaskReviewMetricsService @Inject() (
   def getReviewMetrics(
       user: User,
       reviewTasksType: Int,
-      params: SearchParameters,
+      searchParameters: SearchParameters,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): ReviewMetrics = {
+    val params = copyParamsForMetaReview(reviewTasksType == META_REVIEW_TASKS, searchParameters)
+
     val query = this.setupReviewSearchClause(
       Query.empty,
       user,
@@ -86,6 +88,37 @@ class TaskReviewMetricsService @Inject() (
     this.repository.executeReviewMetricsQuery(
       query,
       groupByMappers = true
+    )
+  }
+
+  /**
+    * Gets a list of tasks that have been reviewed (either by this user or requested by this user)
+    *
+    * @param user      The user executing the request
+    * @param searchParameters
+    * @param onlySaved Only include saved challenges
+    * @return A list of review metrics by mapper
+    */
+  def getMetaReviewMetrics(
+      user: User,
+      params: SearchParameters,
+      onlySaved: Boolean = false
+  ): List[ReviewMetrics] = {
+    val query = this.setupReviewSearchClause(
+      Query.empty,
+      user,
+      permission,
+      params,
+      4,
+      true,
+      onlySaved,
+      excludeOtherReviewers = true,
+      includeVirtualProjects = true
+    )
+
+    this.repository.executeReviewMetricsQuery(
+      query,
+      groupByReviewers = true
     )
   }
 

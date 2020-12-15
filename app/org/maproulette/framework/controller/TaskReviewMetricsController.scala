@@ -14,7 +14,7 @@ import org.maproulette.framework.service.{
   UserService
 }
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User}
+import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, ReviewMetrics}
 import org.maproulette.session.{SessionManager, SearchParameters, SearchTaskParameters}
 import org.maproulette.utils.Utils
 import play.api.mvc._
@@ -206,52 +206,7 @@ class TaskReviewMetricsController @Inject() (
           onlySaved
         )
 
-        val projectName =
-          params.getProjectIds match {
-            case Some(pId) =>
-              // Searching by project, just fetch name
-              pId
-                .map(
-                  this.projectService.retrieve(_) match {
-                    case Some(p) => p.displayName.get
-                    case None    => ""
-                  }
-                )
-                .mkString("|")
-            case None =>
-              params.getChallengeIds match {
-                case Some(cId) =>
-                  // We have a list of challenges. If these challenges all belong
-                  // to the same project we can use the parent project name.
-                  val challengeList = this.challengeService.list(cId)
-                  val parentProject: Option[Long] =
-                    if (challengeList.forall(_.general.parent == challengeList.head.general.parent))
-                      Some(challengeList.head.general.parent)
-                    else None
-                  parentProject match {
-                    case Some(pp) =>
-                      this.projectService.retrieve(pp) match {
-                        case Some(p) => p.displayName.get
-                        case None    => ""
-                      }
-                    case None => ""
-                  }
-                case None => ""
-              }
-          }
-
-        val challengeName =
-          params.getChallengeIds match {
-            case Some(cIds) =>
-              this.challengeService.list(cIds).map(_.name).mkString("|")
-            case None => ""
-          }
-
-        val mapperNames =
-          this.userService
-            .retrieveListById(metrics.map(m => m.userId.get), Paging())
-            .map(u => u.id -> u.name)
-            .toMap
+        val (projectName, challengeName, mapperNames) = retrieveObjectNames(params, metrics)
 
         val byReviewStatusMetrics =
           allReviewStatuses
@@ -319,6 +274,98 @@ class TaskReviewMetricsController @Inject() (
   }
 
   /**
+    * Returns a CSV export of meta-review metrics per reviewer.
+    *
+    * SearchParameters:
+    *   reviewers Optional limit reviews done by specific reviewers
+    *   priorities Optional limit to only these priorities
+    *   startDate Optional start date to filter by reviewedAt date
+    *   endDate Optional end date to filter by reviewedAt date
+    * @param onlySaved Only include saved challenges
+    * @return
+    */
+  def extractMetaReviewCoverage(
+      onlySaved: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val allReviewStatuses = List(
+          Task.REVIEW_STATUS_REQUESTED,
+          Task.REVIEW_STATUS_APPROVED,
+          Task.REVIEW_STATUS_REJECTED,
+          Task.REVIEW_STATUS_ASSISTED,
+          Task.REVIEW_STATUS_DISPUTED
+        )
+
+        val metaReviewStatuses = List(
+          Task.REVIEW_STATUS_REQUESTED,
+          Task.REVIEW_STATUS_APPROVED,
+          Task.REVIEW_STATUS_REJECTED,
+          Task.REVIEW_STATUS_ASSISTED
+        )
+
+        val metrics = this.service.getMetaReviewMetrics(
+          User.userOrMocked(user),
+          params.copy(
+            taskParams = SearchTaskParameters(
+              taskReviewStatus = Some(allReviewStatuses)
+            )
+          ),
+          onlySaved
+        )
+
+        val (projectName, challengeName, reviewerNames) = retrieveObjectNames(params, metrics)
+
+        // One row will not have a userId because it's tasks that are awaiting reviews
+        // and have not reviewer assigned.
+        val seqString = metrics
+          .filter(_.userId != None)
+          .map(row => {
+            var reviewer =
+              reviewerNames.get(row.userId.getOrElse(-1)) match {
+                case None    => "Not Yet Reviewed"
+                case Some(r) => r
+              }
+
+            val metaTotal = row.metaReviewRequested + row.metaReviewApproved +
+              row.metaReviewRejected + row.metaReviewAssisted
+
+            val metaPercent =
+              if (row.total != 0) Math.round(metaTotal * 100 / row.total)
+              else 0
+
+            val result = new StringBuilder(
+              s"${reviewer},${projectName},${if (challengeName == "") "" else s"${challengeName},"}" +
+                s"${row.total},${metaTotal},${metaPercent},${row.metaReviewRequested}," +
+                s"${row.metaReviewApproved},${row.metaReviewRejected},${row.metaReviewAssisted}," +
+                s"${row.reviewRequested},${row.reviewApproved},${row.reviewRejected},${row.reviewAssisted},${row.reviewDisputed}," +
+                s"${row.fixed},${row.falsePositive},${row.alreadyFixed},${row.tooHard}"
+            )
+            result.toString
+          })
+
+        Result(
+          header = ResponseHeader(
+            OK,
+            Map(CONTENT_DISPOSITION -> s"attachment; filename=metareview_coverage.csv")
+          ),
+          body = HttpEntity.Strict(
+            ByteString(
+              s"Reviewer,Project,${if (challengeName == "") "" else "Challenge,"}" +
+                s"Total Tasks, Total Meta-Reviewed Tasks, % Meta-Reviewed," +
+                s"Meta Re-review Needed,Meta Approved,Meta Rejected,Meta-Approved w/Fixes," +
+                s"Review Requested, Approved,Needs Revision,Approved w/Fixes,Contested," +
+                s"${Task.STATUS_FIXED_NAME},${Task.STATUS_FALSE_POSITIVE_NAME}," +
+                s"${Task.STATUS_ALREADY_FIXED_NAME},${Task.STATUS_TOO_HARD_NAME}\n"
+            ).concat(ByteString(seqString.mkString("\n"))),
+            Some("text/csv; header=present")
+          )
+        )
+      }
+    }
+  }
+
+  /**
     * Returns a breakdown of tag metrics
     *
     * @return
@@ -340,5 +387,62 @@ class TaskReviewMetricsController @Inject() (
         Ok(Json.toJson(result))
       }
     }
+  }
+
+  /**
+    * Retrieves projectName, challengeName and userNames from params and metrics
+    */
+  private def retrieveObjectNames(
+      params: SearchParameters,
+      metrics: List[ReviewMetrics]
+  ): (String, String, Map[Long, String]) = {
+    val projectName =
+      params.getProjectIds match {
+        case Some(pId) =>
+          // Searching by project, just fetch name
+          pId
+            .map(
+              this.projectService.retrieve(_) match {
+                case Some(p) => p.displayName.get
+                case None    => ""
+              }
+            )
+            .mkString("|")
+        case None =>
+          params.getChallengeIds match {
+            case Some(cId) =>
+              // We have a list of challenges. If these challenges all belong
+              // to the same project we can use the parent project name.
+              val challengeList = this.challengeService.list(cId)
+              val parentProject: Option[Long] =
+                if (challengeList.forall(_.general.parent == challengeList.head.general.parent))
+                  Some(challengeList.head.general.parent)
+                else None
+              parentProject match {
+                case Some(pp) =>
+                  this.projectService.retrieve(pp) match {
+                    case Some(p) => p.displayName.get
+                    case None    => ""
+                  }
+                case None => ""
+              }
+            case None => ""
+          }
+      }
+
+    val challengeName =
+      params.getChallengeIds match {
+        case Some(cIds) =>
+          this.challengeService.list(cIds).map(_.name).mkString("|")
+        case None => ""
+      }
+
+    val userNames =
+      this.userService
+        .retrieveListById(metrics.map(m => m.userId.getOrElse(-1)), Paging())
+        .map(u => u.id -> u.name)
+        .toMap
+
+    (projectName, challengeName, userNames)
   }
 }

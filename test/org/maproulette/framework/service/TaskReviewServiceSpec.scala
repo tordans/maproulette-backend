@@ -155,6 +155,8 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
       val results =
         this.service.getNearbyReviewTasks(User.superUser, SearchParameters(), reviewTask.id)
       results.length mustEqual 0
+
+      this.service.cancelTaskReview(reviewUser, task.get)
     }
 
     "get Reviewed tasks" taggedAs (TaskReviewTag) in {
@@ -203,6 +205,123 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
         10
       )
       result3.head.numberOfPoints mustEqual 3
+    }
+
+    "get Meta Reviewed tasks" taggedAs (TaskReviewTag) in {
+      // Allow review needed
+      var (count, result) =
+        this.service.getReviewedTasks(
+          reviewUser,
+          SearchParameters(),
+          true,
+          sort = "",
+          order = "",
+          asMetaReview = true
+        )
+      count mustEqual 1
+      result.length mustEqual 1
+      result.head.review.reviewStatus.get mustEqual Task.REVIEW_STATUS_APPROVED
+    }
+
+    "get Meta Review Task Clusters" taggedAs (TaskReviewTag) in {
+      val result = this.service.getReviewTaskClusters(
+        User.superUser,
+        this.service.META_REVIEW_TASKS,
+        SearchParameters(),
+        10
+      )
+      result.head.numberOfPoints mustEqual 1
+    }
+
+    "set meta task review status approved" taggedAs (TaskReviewTag) in {
+      // Get a task to review
+      var task = this.service.nextTaskReview(reviewUser, SearchParameters(), sort = "", order = "")
+      task = this.service.startTaskReview(reviewUser, task.get)
+      this.service.setTaskReviewStatus(
+        task.get,
+        Task.REVIEW_STATUS_APPROVED,
+        reviewUser,
+        None
+      )
+      task = this.serviceManager.task.retrieve(task.get.id)
+      task = this.service.startTaskReview(User.superUser, task.get)
+
+      // Meta Review approval
+      this.service.setMetaReviewStatus(
+        task.get,
+        Task.REVIEW_STATUS_APPROVED,
+        User.superUser,
+        None
+      )
+
+      val reviewedTask = this.serviceManager.task.retrieve(task.get.id).get
+      reviewedTask.review.metaReviewedBy.getOrElse(-2) mustEqual User.superUser.id
+      reviewedTask.review.metaReviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_APPROVED
+      reviewedTask.review.reviewedBy.getOrElse(-2) mustEqual reviewUser.id
+      reviewedTask.review.reviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_APPROVED
+      reviewedTask.review.reviewClaimedAt mustEqual None
+      reviewedTask.review.reviewClaimedBy mustEqual None
+    }
+
+    "set meta task review status rejected" taggedAs (TaskReviewTag) in {
+      // reviewer approved task -> meta reviewer rejects meta-review ->
+      // review asks for another meta-review -> meta reviewer approves meta-review
+
+      // Get a task to review
+      var task = this.service.nextTaskReview(reviewUser, SearchParameters(), sort = "", order = "")
+      task = this.service.startTaskReview(reviewUser, task.get)
+      this.service.setTaskReviewStatus(
+        task.get,
+        Task.REVIEW_STATUS_APPROVED,
+        reviewUser,
+        None
+      )
+      task = this.serviceManager.task.retrieve(task.get.id)
+      task = this.service.startTaskReview(User.superUser, task.get)
+
+      // Meta Review rejected
+      this.service.setMetaReviewStatus(
+        task.get,
+        Task.REVIEW_STATUS_REJECTED,
+        User.superUser,
+        None
+      )
+
+      var reviewedTask = this.serviceManager.task.retrieve(task.get.id).get
+      reviewedTask.review.metaReviewedBy.getOrElse(-2) mustEqual User.superUser.id
+      reviewedTask.review.metaReviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_REJECTED
+      reviewedTask.review.reviewedBy.getOrElse(-2) mustEqual reviewUser.id
+      reviewedTask.review.reviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_APPROVED
+
+      reviewedTask = this.service.startTaskReview(reviewUser, reviewedTask).get
+      // Ask for meta Review again
+      this.service.setMetaReviewStatus(
+        reviewedTask,
+        Task.REVIEW_STATUS_REQUESTED,
+        reviewUser,
+        None
+      )
+
+      var fixedTask = this.serviceManager.task.retrieve(reviewedTask.id).get
+      fixedTask.review.metaReviewedBy.getOrElse(-2) mustEqual User.superUser.id
+      fixedTask.review.metaReviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_REQUESTED
+      fixedTask.review.reviewedBy.getOrElse(-2) mustEqual reviewUser.id
+      fixedTask.review.reviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_APPROVED
+
+      fixedTask = this.service.startTaskReview(User.superUser, fixedTask).get
+      // Ask for meta Review again
+      this.service.setMetaReviewStatus(
+        fixedTask,
+        Task.REVIEW_STATUS_APPROVED,
+        User.superUser,
+        None
+      )
+
+      val finalTask = this.serviceManager.task.retrieve(fixedTask.id).get
+      finalTask.review.metaReviewedBy.getOrElse(-2) mustEqual User.superUser.id
+      finalTask.review.metaReviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_APPROVED
+      finalTask.review.reviewedBy.getOrElse(-2) mustEqual reviewUser.id
+      finalTask.review.reviewStatus.getOrElse(-2) mustEqual Task.REVIEW_STATUS_APPROVED
     }
   }
 

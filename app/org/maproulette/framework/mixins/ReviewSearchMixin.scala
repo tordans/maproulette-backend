@@ -25,6 +25,7 @@ trait ReviewSearchMixin extends SearchParametersMixin {
   val MY_REVIEWED_TASKS      = 2 // Tasks reviewed by user
   val REVIEWED_TASKS_BY_ME   = 3 // Tasks completed by user and done review
   val ALL_REVIEWED_TASKS     = 4 // All review(ed) tasks
+  val META_REVIEW_TASKS      = 5 // Meta Review tasks
 
   /**
     * Setup the search clauses for searching the review tables
@@ -183,10 +184,13 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       .addFilterGroup(this.filterChallengeEnabled(searchParameters))
       .addFilterGroup(this.filterOwner(searchParameters))
       .addFilterGroup(this.filterReviewer(searchParameters))
+      .addFilterGroup(this.filterMetaReviewer(searchParameters))
       .addFilterGroup(this.filterMapper(searchParameters))
       .addFilterGroup(this.filterTaskStatus(searchParameters, List()))
+      .addFilterGroup(this.filterMetaReviewStatus(searchParameters))
       .addFilterGroup(this.filterReviewMappers(searchParameters))
       .addFilterGroup(this.filterReviewers(searchParameters))
+      .addFilterGroup(this.filterMetaReviewers(searchParameters))
       .addFilterGroup(this.filterTaskPriorities(searchParameters))
       .addFilterGroup(this.filterLocation(searchParameters))
       .addFilterGroup(this.filterProjectSearch(searchParameters))
@@ -194,6 +198,54 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       .addFilterGroup(this.filterPriority(searchParameters))
       .addFilterGroup(this.filterTaskTags(searchParameters))
       .addFilterGroup(this.filterReviewDate(searchParameters))
+  }
+
+  def copyParamsForMetaReview(
+      asMetaReview: Boolean,
+      searchParameters: SearchParameters
+  ): SearchParameters = {
+    asMetaReview match {
+      case true =>
+        searchParameters.reviewParams.metaReviewStatus match {
+          case None =>
+            val copiedParams = searchParameters.copy(
+              reviewParams = searchParameters.reviewParams.copy(
+                metaReviewStatus =
+                  Some(List(Task.REVIEW_STATUS_REQUESTED, Task.META_REVIEW_STATUS_NOT_SET))
+              )
+            )
+            copiedParams.taskParams.taskReviewStatus match {
+              case None =>
+                copiedParams.copy(
+                  taskParams = searchParameters.taskParams.copy(
+                    taskReviewStatus = Some(
+                      List(
+                        Task.REVIEW_STATUS_APPROVED,
+                        Task.REVIEW_STATUS_ASSISTED
+                      )
+                    )
+                  )
+                )
+              case _ => copiedParams
+            }
+          case _ =>
+            searchParameters.taskParams.taskReviewStatus match {
+              case None =>
+                searchParameters.copy(
+                  taskParams = searchParameters.taskParams.copy(
+                    taskReviewStatus = Some(
+                      List(
+                        Task.REVIEW_STATUS_APPROVED,
+                        Task.REVIEW_STATUS_ASSISTED
+                      )
+                    )
+                  )
+                )
+              case _ => searchParameters
+            }
+        }
+      case false => searchParameters
+    }
   }
 
   private def userHasPermission(

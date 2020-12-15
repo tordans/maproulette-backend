@@ -37,7 +37,9 @@ case class SearchReviewParameters(
     mappers: Option[List[Long]] = None,
     reviewers: Option[List[Long]] = None,
     startDate: Option[String] = None,
-    endDate: Option[String] = None
+    endDate: Option[String] = None,
+    metaReviewers: Option[List[Long]] = None,
+    metaReviewStatus: Option[List[Int]] = None
 )
 
 case class SearchTaskParameters(
@@ -81,6 +83,7 @@ case class SearchParameters(
     mapper: Option[String] = None,
     owner: Option[String] = None,
     reviewer: Option[String] = None,
+    metaReviewer: Option[String] = None,
     invertFields: Option[List[String]] = None
 ) {
   def getProjectIds: Option[List[Long]] = projectIds match {
@@ -478,7 +481,16 @@ object SearchParameters {
           case None => params.reviewParams.reviewers
         },
         this.getStringParameter(request.getQueryString("startDate"), params.reviewParams.startDate),
-        this.getStringParameter(request.getQueryString("endDate"), params.reviewParams.endDate)
+        this.getStringParameter(request.getQueryString("endDate"), params.reviewParams.endDate),
+        request.getQueryString("metaReviewers") match {
+          case Some(r) => Utils.toLongList(r)
+          case None => params.reviewParams.metaReviewers
+        },
+        //metaReviewStatus
+        request.getQueryString("mrStatus") match {
+          case Some(v) => Utils.toIntList(v)
+          case None => params.reviewParams.metaReviewStatus
+        }
       ),
       // Search Leaderboard Parameters
       new SearchLeaderboardParameters(
@@ -533,6 +545,8 @@ object SearchParameters {
       this.getStringParameter(request.getQueryString("o"), params.owner),
       //Reviewer
       this.getStringParameter(request.getQueryString("r"), params.reviewer),
+      //Meta-Reviewer
+      this.getStringParameter(request.getQueryString("mr"), params.metaReviewer),
       // Fields to invert
       request.getQueryString("invf") match {
         case Some(q) => Utils.toStringList(q)

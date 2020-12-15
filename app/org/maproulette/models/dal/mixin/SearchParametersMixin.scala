@@ -37,8 +37,10 @@ trait SearchParametersMixin
     this.paramsTaskId(params, whereClause)
     this.paramsProjectSearch(params, whereClause)
     this.paramsTaskReviewStatus(params, whereClause)
+    this.paramsMetaReviewStatus(params, whereClause)
     this.paramsOwner(params, whereClause)
     this.paramsReviewer(params, whereClause)
+    this.paramsMetaReviewer(params, whereClause)
     this.paramsMapper(params, whereClause)
     this.paramsTaskPriorities(params, whereClause)
     this.paramsTaskTags(params, whereClause)
@@ -124,6 +126,13 @@ trait SearchParametersMixin
     this.appendInWhereClause(whereClause, this.filterTaskReviewStatus(params).sql())
   }
 
+  def paramsMetaReviewStatus(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    this.appendInWhereClause(whereClause, this.filterMetaReviewStatus(params).sql())
+  }
+
   def paramsChallengeEnabled(params: SearchParameters, whereClause: StringBuilder): Unit = {
     this.appendInWhereClause(whereClause, this.filterChallengeEnabled(params).sql())
   }
@@ -172,6 +181,13 @@ trait SearchParametersMixin
       whereClause: StringBuilder
   ): Unit = {
     this.appendInWhereClause(whereClause, this.filterReviewer(params).sql())
+  }
+
+  def paramsMetaReviewer(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    this.appendInWhereClause(whereClause, this.filterMetaReviewer(params).sql())
   }
 
   def paramsMapper(

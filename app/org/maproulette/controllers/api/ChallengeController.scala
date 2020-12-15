@@ -260,6 +260,13 @@ class ChallengeController @Inject() (
           .toMap
       )
 
+      val metaReviewers = Some(
+        this.serviceManager.user
+          .retrieveListById(tasks.map(t => t.pointReview.metaReviewedBy.getOrElse(0L)), Paging())
+          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
+          .toMap
+      )
+
       val jsonList = tasks.map { task =>
         var updated = Json.toJson(task)
         if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
@@ -271,6 +278,11 @@ class ChallengeController @Inject() (
           val reviewerJson =
             Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
+        }
+        if (task.pointReview.metaReviewedBy.getOrElse(0) != 0) {
+          val metaReviewerJson =
+            Json.toJson(metaReviewers.get(task.pointReview.metaReviewedBy.get)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "metaReviewedBy", metaReviewerJson, true)
         }
 
         updated

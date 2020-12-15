@@ -15,7 +15,7 @@
 #     in: path
 #     description: The id of the task
 ###
-GET     /task/:id/history                       @org.maproulette.controllers.api.TaskHistoryController.getTaskHistoryLog(id:Long)
+GET     /task/:id/history                       @org.maproulette.framework.controller.TaskHistoryController.getTaskHistoryLog(id:Long)
 ###
 # tags: [ Task ]
 # summary: Create a Task
@@ -732,8 +732,11 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 #   - name: newTaskStatus
 #     in: query
 #     description: Optional int taskStatus to change the task status on this task to
+#   - name: asMetaReview
+#     in: query
+#     description: Optional boolean to indicate the meta review status should be set to unecessary
 ###
-PUT     /task/:id/review/:status                           @org.maproulette.controllers.api.TaskController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "")
+PUT     /task/:id/review/:status                           @org.maproulette.framework.controller.TaskReviewController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Changes review status to "Unnecessary" on tasks matching criteria
@@ -755,7 +758,7 @@ PUT     /task/:id/review/:status                           @org.maproulette.cont
 #   - name: task ids
 #     description: Task ids to change (OR search parameters can be used instead)
 ###
-PUT     /tasks/review/remove                               @org.maproulette.controllers.api.TaskController.removeReviewRequest(ids:String?="")
+PUT     /tasks/review/remove                               @org.maproulette.framework.controller.TaskReviewController.removeReviewRequest(ids:String?="", asMetaReview:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Update Task Review Status for a Bundle
@@ -790,6 +793,68 @@ PUT     /tasks/review/remove                               @org.maproulette.cont
 #     description: Optional int taskStatus to change the task status on all tasks in this bundle to
 ###
 PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "")
+###
+# tags: [ Task ]
+# summary: Update Task Meta Review Status
+# produces: [ application/json ]
+# description: Will update a Tasks meta review status to one of the following. 0 - (re)Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+# responses:
+#   '200':
+#     description: No Content, update successful
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the task
+#   - name: status
+#     in: path
+#     description: Will update a Tasks meta review status to one of the following. 0 - (re)Requested, 1 - Approved, 2 - Rejected, 3 - Assisted, 4 - Disputed, 5 - Unnecessary
+#   - name: comment
+#     in: query
+#     description: Any comment that is provided by the user when setting the meta review status
+#   - name: tags
+#     description: Optional tags to associate with this task
+###
+PUT     /task/:id/metareview/:status                           @org.maproulette.framework.controller.TaskReviewController.setMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
+###
+# tags: [ Task ]
+# summary: Update Meta Review Status for a Bundle
+# produces: [ application/json ]
+# description: Will update Tasks meta review status to one of the following. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+# responses:
+#   '200':
+#     description: Task Bundle
+#   '401':
+#     description: The user is not authorized to make this request
+#   '404':
+#     description: The task with the supplied ID was not found.
+# parameters:
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
+#   - name: id
+#     in: path
+#     description: The ID of the bundle
+#   - name: status
+#     in: path
+#     description: The review status to update the meta review status to. Following status Integers can be used. 0 - Requested, 1 - Approved, 2 - Rejected, 3 - Assisted
+#   - name: comment
+#     in: query
+#     description: Any comment that is provided by the user when setting the review status
+#   - name: tags
+#     description: Optional tags to associate with this task
+###
+PUT     /taskBundle/:id/metareview/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Task ]
 # summary: Retrieves task clusters.

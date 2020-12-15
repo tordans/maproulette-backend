@@ -21,6 +21,9 @@ case class TaskReview(
     reviewedBy: Option[Long],
     reviewedByUsername: Option[String],
     reviewedAt: Option[DateTime],
+    metaReviewedBy: Option[Long],
+    metaReviewStatus: Option[Int],
+    metaReviewedAt: Option[DateTime],
     reviewStartedAt: Option[DateTime],
     additionalReviewers: Option[List[Long]],
     reviewClaimedBy: Option[Long],
@@ -37,6 +40,9 @@ object TaskReview extends CommonField {
   val FIELD_REVIEW_REQUESTED_BY = "review_requested_by"
   val FIELD_REVIEWED_BY         = "reviewed_by"
   val FIELD_REVIEWED_AT         = "reviewed_at"
+  val FIELD_META_REVIEWED_BY    = "meta_reviewed_by"
+  val FIELD_META_REVIEWED_AT    = "meta_reviewed_at"
+  val FIELD_META_REVIEW_STATUS  = "meta_review_status"
   val FIELD_REVIEW_CLAIMED_AT   = "review_claimed_at"
   val FIELD_REVIEW_CLAIMED_BY   = "review_claimed_by"
   val FIELD_REVIEW_STARTED_AT   = "review_started_at"
@@ -55,6 +61,10 @@ case class ReviewMetrics(
     reviewRejected: Int,
     reviewAssisted: Int,
     reviewDisputed: Int,
+    metaReviewRequested: Int,
+    metaReviewApproved: Int,
+    metaReviewRejected: Int,
+    metaReviewAssisted: Int,
     fixed: Int,
     falsePositive: Int,
     skipped: Int,

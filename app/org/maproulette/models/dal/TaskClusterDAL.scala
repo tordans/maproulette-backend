@@ -27,10 +27,11 @@ import play.api.libs.json.{JsString, Json}
   * @author mcuthbert
   */
 @Singleton
-class TaskClusterDAL @Inject() (override val db: Database,
-  challengeDAL: ChallengeDAL,
-  taskClusterRepository: TaskClusterRepository)
-    extends DALHelper
+class TaskClusterDAL @Inject() (
+    override val db: Database,
+    challengeDAL: ChallengeDAL,
+    taskClusterRepository: TaskClusterRepository
+) extends DALHelper
     with TransactionManager
     with SearchParametersMixin {
 
@@ -62,9 +63,10 @@ class TaskClusterDAL @Inject() (override val db: Database,
         "WHERE " + whereClause.toString
       }
 
-      val query  = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
+      val query = getTaskClusterQuery(joinClause.toString, where, numberOfPoints)
       val result = sqlWithParameters(query, parameters).as(
-        this.taskClusterRepository.getTaskClusterParser(params).*)
+        this.taskClusterRepository.getTaskClusterParser(params).*
+      )
       // Filter out invalid clusters.
       result.filter(_ != None).asInstanceOf[List[TaskCluster]]
     }
@@ -209,10 +211,16 @@ class TaskClusterDAL @Inject() (override val db: Database,
             sortClause = this.order(Some("review_requested_by"), order, "task_review")
           case "reviewedBy" =>
             sortClause = this.order(Some("reviewed_by"), order, "task_review")
+          case "metaReviewedBy" =>
+            sortClause = this.order(Some("meta_reviewed_by"), order, "task_review")
           case "reviewStatus" =>
             sortClause = this.order(Some("review_status"), order, "task_review")
+          case "metaReviewStatus" =>
+            sortClause = this.order(Some("meta_review_status"), order, "task_review")
           case "reviewedAt" =>
             sortClause = this.order(Some("reviewed_at"), order, "task_review")
+          case "metaReviewedAt" =>
+            sortClause = this.order(Some("meta_reviewed_at"), order, "task_review")
           case "mappedOn" =>
             sortClause = this.order(Some("mapped_on"), order, "tasks")
           case "completedBy" =>
@@ -247,7 +255,8 @@ class TaskClusterDAL @Inject() (override val db: Database,
                  tasks.completed_time_spent, tasks.completed_by,
                  tasks.bundle_id, tasks.is_bundle_primary, tasks.cooperative_work_json::TEXT as cooperative_work,
                  task_review.review_status, task_review.review_requested_by, task_review.reviewed_by, task_review.reviewed_at,
-                 task_review.review_started_at, task_review.additional_reviewers,
+                 task_review.review_started_at, task_review.meta_review_status, task_review.meta_reviewed_by,
+                 task_review.meta_reviewed_at, task_review.additional_reviewers,
                  ST_AsGeoJSON(tasks.location) AS location, priority,
                  CASE WHEN task_review.review_started_at IS NULL
                        THEN 0
@@ -277,12 +286,16 @@ class TaskClusterDAL @Inject() (override val db: Database,
         get[Option[DateTime]]("task_review.reviewed_at") ~
         get[Option[DateTime]]("task_review.review_started_at") ~
         get[Option[List[Long]]]("task_review.additional_reviewers") ~
+        get[Option[Int]]("task_review.meta_review_status") ~
+        get[Option[Long]]("task_review.meta_reviewed_by") ~
+        get[Option[DateTime]]("task_review.meta_reviewed_at") ~
         int("tasks.priority") ~
         get[Option[Long]]("tasks.bundle_id") ~
         get[Option[Boolean]]("tasks.is_bundle_primary") map {
         case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~ cooperativeWork ~ mappedOn ~
               completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-              reviewStartedAt ~ additionalReviewers ~ priority ~ bundleId ~ isBundlePrimary =>
+              reviewStartedAt ~ additionalReviewers ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~
+              priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
           val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
           val point        = Point(coordinates(1), coordinates.head)
@@ -292,6 +305,9 @@ class TaskClusterDAL @Inject() (override val db: Database,
               reviewRequestedBy,
               reviewedBy,
               reviewedAt,
+              metaReviewStatus,
+              metaReviewedBy,
+              metaReviewedAt,
               reviewStartedAt,
               additionalReviewers
             )

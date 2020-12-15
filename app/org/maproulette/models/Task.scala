@@ -20,6 +20,9 @@ case class TaskReviewFields(
     reviewRequestedBy: Option[Long] = None,
     reviewedBy: Option[Long] = None,
     reviewedAt: Option[DateTime] = None,
+    metaReviewedBy: Option[Long] = None,
+    metaReviewStatus: Option[Int] = None,
+    metaReviewedAt: Option[DateTime] = None,
     reviewStartedAt: Option[DateTime] = None,
     reviewClaimedBy: Option[Long] = None,
     reviewClaimedAt: Option[DateTime] = None,
@@ -158,6 +161,20 @@ object Task extends CommonField {
         case Some(r) => Utils.insertIntoJson(updated, "reviewedAt", r, true)
         case None    => updated
       }
+      updated = o.review.metaReviewStatus match {
+        case Some(r) => {
+          Utils.insertIntoJson(updated, "metaReviewStatus", r, true)
+        }
+        case None => updated
+      }
+      updated = o.review.metaReviewedBy match {
+        case Some(r) => Utils.insertIntoJson(updated, "metaReviewedBy", r, true)
+        case None    => updated
+      }
+      updated = o.review.metaReviewedAt match {
+        case Some(r) => Utils.insertIntoJson(updated, "metaReviewedAt", r, true)
+        case None    => updated
+      }
       updated = o.review.reviewStartedAt match {
         case Some(r) => Utils.insertIntoJson(updated, "reviewStartedAt", r, true)
         case None    => updated
@@ -234,6 +251,9 @@ object Task extends CommonField {
   // For display purposes
   val REVIEW_STATUS_NOT_REQUESTED      = -1
   val REVIEW_STATUS_NOT_REQUESTED_NAME = ""
+
+  // For Meta Reviews
+  val META_REVIEW_STATUS_NOT_SET = -2 //Review status is set but meta-review is not
 
   val reviewStatusMap = Map(
     REVIEW_STATUS_NOT_REQUESTED -> REVIEW_STATUS_NOT_REQUESTED_NAME,

@@ -31,8 +31,10 @@ trait SearchParametersMixin {
       this.filterTaskId(params),
       this.filterProjectSearch(params),
       this.filterTaskReviewStatus(params),
+      this.filterMetaReviewStatus(params),
       this.filterOwner(params),
       this.filterReviewer(params),
+      this.filterMetaReviewer(params),
       this.filterMapper(params),
       this.filterTaskPriorities(params),
       this.filterTaskTags(params),
@@ -172,7 +174,7 @@ trait SearchParametersMixin {
                   List(
                     FuzzySearchParameter(
                       Project.FIELD_DISPLAY_NAME,
-                      ps,
+                      s"'${ps.replace("'", "''")}'",
                       x,
                       table = Some("p")
                     )
@@ -194,7 +196,7 @@ trait SearchParametersMixin {
                       s"(c.id IN " +
                         s"(SELECT vp2.challenge_id FROM virtual_project_challenges vp2 " +
                         s" INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE " +
-                        s" LOWER(p2.display_name) LIKE LOWER('%${ps}%') AND p2.enabled=true))"
+                        s" LOWER(p2.display_name) LIKE LOWER('%${ps.replace("'", "''")}%') AND p2.enabled=true))"
                     )
                   ),
                   OR()
@@ -443,6 +445,91 @@ trait SearchParametersMixin {
                   Some(Task.TABLE)
                 ),
                 statuses.contains(-1)
+              )
+            ),
+            if (invert) AND() else OR()
+          )
+        query
+      case Some(statuses) if statuses.isEmpty => FilterGroup(List())
+      case _                                  => FilterGroup(List())
+    }
+  }
+
+  /**
+    * Filters by meta review status
+    * @param params with inverting on 'mrStatus'
+    */
+  def filterMetaReviewStatus(params: SearchParameters): FilterGroup = {
+    params.reviewParams.metaReviewStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        val invert = params.invertFields.getOrElse(List()).contains("mrStatus")
+        val query =
+          FilterGroup(
+            List(
+              SubQueryFilter(
+                Task.FIELD_ID,
+                Query(
+                  Filter(
+                    List(
+                      FilterGroup(
+                        List(
+                          BaseParameter(
+                            "task_id",
+                            s"${Task.TABLE}.${Task.FIELD_ID}",
+                            useValueDirectly = true,
+                            table = Some(TaskReview.TABLE)
+                          )
+                        )
+                      ),
+                      FilterGroup(
+                        List(
+                          BaseParameter(
+                            TaskReview.FIELD_META_REVIEW_STATUS,
+                            statuses.mkString(","),
+                            Operator.IN,
+                            negate = false,
+                            useValueDirectly = true,
+                            table = Some(TaskReview.TABLE)
+                          ),
+                          FilterParameter.conditional(
+                            TaskReview.FIELD_META_REVIEW_STATUS,
+                            None,
+                            Operator.NULL,
+                            negate = false,
+                            useValueDirectly = true,
+                            includeOnlyIfTrue = statuses.contains(Task.META_REVIEW_STATUS_NOT_SET),
+                            table = Some(TaskReview.TABLE)
+                          )
+                        ),
+                        OR()
+                      )
+                    )
+                  ),
+                  "SELECT task_id FROM task_review"
+                ),
+                negate = invert,
+                Operator.IN,
+                Some(Task.TABLE)
+              ),
+              ConditionalFilterParameter(
+                SubQueryFilter(
+                  Task.FIELD_ID,
+                  Query.simple(
+                    List(
+                      BaseParameter(
+                        "task_id",
+                        s"${Task.TABLE}.${Task.FIELD_ID}",
+                        useValueDirectly = true,
+                        table = Some(TaskReview.TABLE)
+                      )
+                    ),
+                    "SELECT task_id FROM task_review task_review"
+                  ),
+                  negate = !invert,
+                  Operator.IN,
+                  Some(Task.TABLE)
+                ),
+                statuses.contains(Task.REVIEW_STATUS_NOT_REQUESTED)
               )
             ),
             if (invert) AND() else OR()
@@ -741,6 +828,18 @@ trait SearchParametersMixin {
   }
 
   /**
+    * Filters on tasks task_review.meta_reviewed_by
+    * @param params with inverting on 'r'
+    */
+  def filterMetaReviewer(params: SearchParameters): FilterGroup = {
+    params.metaReviewer match {
+      case Some(r) if r.nonEmpty =>
+        this.buildReviewSubQuerySearch(params, TaskReview.FIELD_META_REVIEWED_BY, r, "mr")
+      case _ => FilterGroup(List())
+    }
+  }
+
+  /**
     * Filters on tasks.completedBy
     * @param params with inverting on 'm'
     */
@@ -817,6 +916,27 @@ trait SearchParametersMixin {
           params.invertFields.getOrElse(List()).contains("reviewers"),
           true,
           !params.reviewParams.reviewers.getOrElse(List()).isEmpty,
+          Some(TaskReview.TABLE)
+        )
+      )
+    )
+  }
+
+  /**
+    * Filters on task_review.meta_reviewed_by.
+    *
+    * @param params with inverting on 'reviewers'
+    */
+  def filterMetaReviewers(params: SearchParameters): FilterGroup = {
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          TaskReview.FIELD_META_REVIEWED_BY,
+          params.reviewParams.metaReviewers.getOrElse(List()).mkString(","),
+          Operator.IN,
+          params.invertFields.getOrElse(List()).contains("metaReviewers"),
+          true,
+          !params.reviewParams.metaReviewers.getOrElse(List()).isEmpty,
           Some(TaskReview.TABLE)
         )
       )

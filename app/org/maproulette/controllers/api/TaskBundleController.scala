@@ -184,6 +184,57 @@ class TaskBundleController @Inject() (
   }
 
   /**
+    * This function sets the meta review status.
+    * Must be authenticated to perform operation and marked as a reviewer.
+    *
+    * @param id           The id of the task
+    * @param reviewStatus The review status id to set the task's review status to
+    * @param comment      An optional comment to add to the task
+    * @param tags         Optional tags to add to the task
+    * @return 400 BadRequest if task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setBundleMetaReviewStatus(
+      id: Long,
+      reviewStatus: Int,
+      comment: String = "",
+      tags: String = ""
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val tasks = this.dalManager.taskBundle.getTaskBundle(user, id).tasks match {
+        case Some(t) => t
+        case None    => throw new InvalidException("No tasks found in this bundle.")
+      }
+
+      for (task <- tasks) {
+        val action = this.dalManager.action.setAction(
+          Some(user),
+          new TaskItem(task.id),
+          MetaReviewStatusSet(reviewStatus),
+          task.name
+        )
+        val actionId = action match {
+          case Some(a) => Some(a.id)
+          case None    => None
+        }
+
+        this.serviceManager.taskReview
+          .setMetaReviewStatus(task, reviewStatus, user, actionId, comment)
+
+        if (tags.nonEmpty) {
+          val tagList = tags.split(",").toList
+          if (tagList.nonEmpty) {
+            this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tableName)), user)
+          }
+        }
+      }
+
+      // Refetch to get updated data
+      Ok(Json.toJson(this.dalManager.taskBundle.getTaskBundle(user, id)))
+    }
+  }
+
+  /**
     * Creates a new task bundle with the task ids in the json body, assigning
     * ownership of the bundle to the logged-in user
     *
