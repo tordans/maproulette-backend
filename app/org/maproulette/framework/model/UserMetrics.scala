@@ -30,4 +30,30 @@ object UserMetrics {
   val FIELD_TASKS_WITH_TIME            = "tasks_with_time"
   val FIELD_TOTAL_REVIEW_TIME          = "total_review_time"
   val FIELD_TASKS_WITH_REVIEW_TIME     = "tasks_with_review_time"
+  val FIELD_ACHIEVEMENTS               = "achievements"
+}
+
+trait Achievement {}
+object Achievement {
+  val MAPPED_ROADS = 1
+  val MAPPED_WATER = 2
+  val MAPPED_TRANSIT = 3
+  val MAPPED_LANDUSE = 4
+  val MAPPED_BUILDINGS = 5
+  val MAPPED_POI = 6
+  val POINTS_100 = 7
+  val POINTS_500 = 8
+  val POINTS_1000 = 9
+  val POINTS_5000 = 10
+  val POINTS_10000 = 11
+  val POINTS_50000 = 12
+  val POINTS_100000 = 13
+  val POINTS_500000 = 14
+  val POINTS_1000000 = 15
+  val FIXED_TASK = 16
+  val REVIEWED_TASK = 17
+  val CREATED_CHALLENGE = 18
+  val FIXED_FINAL_TASK = 19
+  val FIXED_COOP_TASK = 20
+  val CHALLENGE_COMPLETED = 21
 }
