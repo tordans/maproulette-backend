@@ -9,10 +9,8 @@ import org.maproulette.framework.psql.SQLUtils
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.{AND, OR}
-import org.maproulette.framework.model.{TaskReview, Project, Challenge, User}
+import org.maproulette.framework.model.{TaskReview, Project, Challenge, User, Task}
 import org.maproulette.permissions.Permission
-
-import org.maproulette.models.Task
 
 /**
   * ReviewSearchMixin provides a method to setup the Query filters for a

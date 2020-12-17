@@ -11,7 +11,6 @@ import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.util.{FrameworkHelper, UserTag}
 import org.maproulette.exception.{InvalidException}
-import org.maproulette.models.Task
 import org.maproulette.session.{SearchParameters, SearchTaskParameters}
 import org.maproulette.data.{ProjectType}
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}

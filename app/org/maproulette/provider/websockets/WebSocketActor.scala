@@ -8,8 +8,7 @@ import play.api.libs.json._
 import akka.actor._
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, Unsubscribe}
-import org.maproulette.framework.model.{Challenge, TaskReview, TaskWithReview}
-import org.maproulette.models.Task
+import org.maproulette.framework.model.{Challenge, TaskReview, TaskWithReview, Task}
 
 /**
   * WebSocketActors are responsible for bi-directional communication with client

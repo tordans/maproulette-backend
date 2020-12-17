@@ -9,9 +9,8 @@ import javax.inject.Inject
 import org.maproulette.data._
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.controller.SessionController
-import org.maproulette.framework.model.Tag
+import org.maproulette.framework.model.{Tag, Task}
 import org.maproulette.framework.service.{CommentService, ServiceManager, TagService}
-import org.maproulette.models.Task
 import org.maproulette.models.dal.DALManager
 import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.session.SessionManager

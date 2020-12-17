@@ -7,21 +7,21 @@ package org.maproulette.framework.mixins
 import play.api.libs.json._
 
 import org.maproulette.framework.service.ServiceManager
-import org.maproulette.framework.model.{Challenge, Tag, Project}
+import org.maproulette.framework.model.{Challenge, Tag, Project, Task}
 
 import org.maproulette.utils.Utils
-import org.maproulette.models.Task
 
 /**
   * ParentMixin provides a method to insert parent data into the JSON
   */
 trait ParentMixin {
+  val serviceManager: ServiceManager
 
   /**
     * Fetches the matching parent project object and inserts it into the JSON data returned.
     *
     */
-  def insertProjectJSON(serviceManager: ServiceManager, challenges: List[Challenge]): JsValue = {
+  def insertProjectJSON(challenges: List[Challenge]): JsValue = {
     // json writes for automatically writing Challenges to a json body response
     implicit val cWrites: Writes[Challenge] = Challenge.writes.challengeWrites
 
@@ -77,7 +77,6 @@ trait ParentMixin {
     * 'reviewRequestedBy' and 'reviewBy'
     */
   def insertChallengeJSON(
-      serviceManager: ServiceManager,
       tasks: List[Task],
       includeTags: Boolean = false
   ): JsValue = {

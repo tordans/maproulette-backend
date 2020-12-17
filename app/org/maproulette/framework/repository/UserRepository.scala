@@ -19,7 +19,6 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.service.{ServiceManager, GrantService}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
-import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
 import play.api.libs.oauth.RequestToken

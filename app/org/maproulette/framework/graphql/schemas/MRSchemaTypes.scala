@@ -9,7 +9,6 @@ import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.framework.graphql.fetchers._
 import org.maproulette.framework.graphql.UserContext
-import org.maproulette.models.{MapillaryImage, Task, TaskBundle, TaskReviewFields}
 import org.maproulette.data._
 import play.api.libs.oauth.RequestToken
 import sangria.ast.StringValue

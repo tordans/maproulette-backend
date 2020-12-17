@@ -7,10 +7,9 @@ package org.maproulette.framework.repository
 
 import java.util.UUID
 
-import org.maproulette.models.Task
 import org.maproulette.data._
 import org.maproulette.data.{Actions, TaskItem, ActionManager, TaskStatusSet}
-import org.maproulette.framework.model.{User, TaskLogEntry}
+import org.maproulette.framework.model.{User, TaskLogEntry, Task}
 import org.maproulette.framework.util.{TaskTag, FrameworkHelper}
 import play.api.Application
 
@@ -27,8 +26,8 @@ class TaskHistoryRepositorySpec(implicit val application: Application) extends F
 
   "TaskHistoryRepository" should {
     "getComments" taggedAs TaskTag in {
-      val task = this.taskDAL.insert(this.getTestTask("xyzTaskForComments",
-        this.defaultChallenge.id), User.superUser)
+      val task = this.taskDAL
+        .insert(this.getTestTask("xyzTaskForComments", this.defaultChallenge.id), User.superUser)
       this.commentRepository.create(User.superUser, task.id, "my comment", None)
 
       val taskLogs = this.repository.getComments(task.id)
@@ -40,7 +39,8 @@ class TaskHistoryRepositorySpec(implicit val application: Application) extends F
 
     "getReviews" taggedAs TaskTag in {
       var task =
-        this.taskDAL.insert(this.getTestTask("xyzTaskForReviews", this.defaultChallenge.id), User.superUser)
+        this.taskDAL
+          .insert(this.getTestTask("xyzTaskForReviews", this.defaultChallenge.id), User.superUser)
       this.taskDAL.setTaskStatus(List(task), 2, User.superUser, Some(true))
       task = this.serviceManager.task.retrieve(task.id).get
       this.serviceManager.taskReview.setTaskReviewStatus(
@@ -85,8 +85,8 @@ class TaskHistoryRepositorySpec(implicit val application: Application) extends F
   }
 
   "getStatusActions" taggedAs TaskTag in {
-    val task = this.taskDAL.insert(this.getTestTask("xyzTaskForStatusActions",
-      this.defaultChallenge.id), User.superUser)
+    val task = this.taskDAL
+      .insert(this.getTestTask("xyzTaskForStatusActions", this.defaultChallenge.id), User.superUser)
     this.taskDAL.setTaskStatus(List(task), 3, User.superUser, Some(true))
 
     val taskLogs = this.repository.getStatusActions(task.id)
@@ -98,10 +98,14 @@ class TaskHistoryRepositorySpec(implicit val application: Application) extends F
   }
 
   "getActions" taggedAs TaskTag in {
-    val task = this.taskDAL.insert(this.getTestTask("xyzTaskForStatusActions",
-      this.defaultChallenge.id), User.superUser)
-    this.actionManager.setAction(Some(User.superUser), new TaskItem(task.id),
-      TaskStatusSet(1), task.name)
+    val task = this.taskDAL
+      .insert(this.getTestTask("xyzTaskForStatusActions", this.defaultChallenge.id), User.superUser)
+    this.actionManager.setAction(
+      Some(User.superUser),
+      new TaskItem(task.id),
+      TaskStatusSet(1),
+      task.name
+    )
 
     val taskLogs = this.repository.getActions(task.id, Actions.ACTION_TYPE_TASK_STATUS_SET)
     taskLogs.head.taskId mustEqual task.id

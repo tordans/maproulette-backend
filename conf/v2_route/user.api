@@ -313,7 +313,7 @@ DELETE   /user/:userId/unsave/:challengeId          @org.maproulette.framework.c
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '401':
 #     description: The user is not authorized to make this request
 # parameters:

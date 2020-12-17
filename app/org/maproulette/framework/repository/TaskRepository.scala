@@ -17,8 +17,7 @@ import org.maproulette.Config
 import org.maproulette.framework.mixins.TaskParserMixin
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.{BaseParameter, CustomParameter}
-import org.maproulette.models.Task
-import org.maproulette.framework.model.{User, Project}
+import org.maproulette.framework.model.{User, Project, Task}
 import org.maproulette.cache.CacheManager
 import play.api.db.Database
 import play.api.libs.json._

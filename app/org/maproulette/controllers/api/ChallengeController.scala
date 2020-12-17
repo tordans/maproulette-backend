@@ -59,7 +59,7 @@ class ChallengeController @Inject() (
     dalManager: DALManager,
     override val tagService: TagService,
     challengeProvider: ChallengeProvider,
-    serviceManager: ServiceManager,
+    val serviceManager: ServiceManager,
     wsClient: WSClient,
     permission: Permission,
     config: Config,
@@ -478,9 +478,9 @@ class ChallengeController @Inject() (
     */
   def getPreferredChallenges(limit: Int): Action[AnyContent] = Action.async { implicit request =>
     val all = Map(
-      "popular"  -> insertProjectJSON(this.serviceManager, this.dal.getHotChallenges(limit, 0)),
-      "newest"   -> insertProjectJSON(this.serviceManager, this.dal.getNewChallenges(limit, 0)),
-      "featured" -> insertProjectJSON(this.serviceManager, this.dal.getFeaturedChallenges(limit, 0))
+      "popular"  -> insertProjectJSON(this.dal.getHotChallenges(limit, 0)),
+      "newest"   -> insertProjectJSON(this.dal.getNewChallenges(limit, 0)),
+      "featured" -> insertProjectJSON(this.dal.getFeaturedChallenges(limit, 0))
     )
 
     Future(Ok(Json.toJson(all)))
@@ -897,7 +897,7 @@ class ChallengeController @Inject() (
       this.sessionManager.userAwareRequest { implicit user =>
         SearchParameters.withSearch { implicit params =>
           val challenges = this.dal.extendedFind(params, limit, page, sort, order)
-          Ok(insertProjectJSON(this.serviceManager, challenges))
+          Ok(insertProjectJSON(challenges))
         }
       }
     }

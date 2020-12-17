@@ -8,17 +8,9 @@ import javax.inject.Inject
 import akka.util.ByteString
 import org.maproulette.data.ActionManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.service.{
-  ChallengeListingService,
-  ChallengeService,
-  ProjectService,
-  TaskReviewService,
-  UserService,
-  TagService,
-  ServiceManager
-}
+import org.maproulette.framework.service.{TaskReviewService, TagService, ServiceManager}
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, Tag}
+import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, Tag, Task}
 import org.maproulette.framework.mixins.ParentMixin
 import org.maproulette.framework.repository.TaskRepository
 import org.maproulette.session.{
@@ -39,10 +31,8 @@ import org.maproulette.data.{
   TaskType,
   MetaReviewStatusSet
 }
-import org.maproulette.models.Task
 
 import org.maproulette.models.dal.TaskDAL
-import org.maproulette.models.dal.TaskClusterDAL
 import org.maproulette.controllers.api.TagsMixin
 import org.maproulette.models.dal.mixin.TagDALMixin
 
@@ -58,14 +48,9 @@ class TaskReviewController @Inject() (
     override val bodyParsers: PlayBodyParsers,
     service: TaskReviewService,
     taskRepository: TaskRepository,
-    challengeListingService: ChallengeListingService,
-    challengeService: ChallengeService,
-    projectService: ProjectService,
-    userService: UserService,
     components: ControllerComponents,
-    serviceManager: ServiceManager,
-    taskDAL: TaskDAL,
-    taskClusterDAL: TaskClusterDAL
+    val serviceManager: ServiceManager,
+    val taskDAL: TaskDAL
 ) extends AbstractController(components)
     with MapRouletteController
     with ParentMixin
@@ -209,7 +194,6 @@ class TaskReviewController @Inject() (
           Json.obj(
             "total" -> count,
             "tasks" -> insertChallengeJSON(
-              this.serviceManager,
               result,
               includeTags
             )
@@ -254,7 +238,6 @@ class TaskReviewController @Inject() (
           Json.obj(
             "total" -> count,
             "tasks" -> insertChallengeJSON(
-              this.serviceManager,
               result,
               includeTags
             )
@@ -421,7 +404,8 @@ class TaskReviewController @Inject() (
                   // No bounding box, so search everything
                   p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
               }
-              val (count, tasks) = this.taskClusterDAL.getTasksInBoundingBox(user, params, -1)
+              val (count, tasks) =
+                this.serviceManager.taskCluster.getTasksInBoundingBox(user, params, Paging(-1))
               tasks.map(task => task.id)
             }
           }
@@ -472,7 +456,7 @@ class TaskReviewController @Inject() (
           case _               => None
         }
 
-        val challenges = this.challengeListingService.withReviewList(
+        val challenges = this.serviceManager.challengeListing.withReviewList(
           reviewTasksType,
           user,
           taskStatus,
@@ -482,7 +466,7 @@ class TaskReviewController @Inject() (
 
         // Populate some parent/virtual parent project data
         val projects = Some(
-          this.projectService
+          this.serviceManager.project
             .list(challenges.map(c => c.parent))
             .map(p => p.id -> p)
             .toMap
@@ -497,7 +481,7 @@ class TaskReviewController @Inject() (
           }
         })
         val vpObjects =
-          this.projectService.list(vpIds.toList).map(p => p.id -> p).toMap
+          this.serviceManager.project.list(vpIds.toList).map(p => p.id -> p).toMap
 
         val jsonList = challenges.map { c =>
           val projectJson = Json

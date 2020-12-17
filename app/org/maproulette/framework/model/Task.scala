@@ -2,18 +2,20 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.data.{ItemType, TaskType}
-import org.maproulette.framework.model.{Challenge, Identifiable}
+import org.maproulette.framework.model.{Challenge, Identifiable, MapillaryImage}
 import org.maproulette.framework.psql.CommonField
 import org.maproulette.utils.Utils
 import play.api.data.format.Formats
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
+
+import org.maproulette.models.BaseObject
 
 case class TaskReviewFields(
     reviewStatus: Option[Int] = None,

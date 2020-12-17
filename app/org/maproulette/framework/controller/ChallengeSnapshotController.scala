@@ -10,8 +10,7 @@ import org.maproulette.data.ActionManager
 import org.maproulette.data._
 import org.maproulette.framework.service.ChallengeSnapshotService
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{User, Challenge}
-import org.maproulette.models.Task
+import org.maproulette.framework.model.{User, Challenge, Task}
 import org.maproulette.session.SessionManager
 import org.maproulette.utils.Utils
 import play.api.mvc._

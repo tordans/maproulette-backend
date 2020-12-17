@@ -9,7 +9,7 @@
 #     description: List of log entries
 #     schema:
 #       type: object
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -27,7 +27,7 @@ GET     /task/:id/history                       @org.maproulette.framework.contr
 #   '200':
 #     description: The newly created Task with a unique id.
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '304':
 #     description: Not updated responding with empty payload if Task already exists and nothing to update
 #   '400':
@@ -45,7 +45,7 @@ GET     /task/:id/history                       @org.maproulette.framework.contr
 #     description: The JSON structure for the Task body.
 #     required: true
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 ###
 POST    /task                                       @org.maproulette.controllers.api.TaskController.create
 ###
@@ -79,7 +79,7 @@ POST    /task                                       @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 ###
 POST    /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPost
 ###
@@ -92,7 +92,7 @@ POST    /tasks                                      @org.maproulette.controllers
 #   '200':
 #     description: The updated JSON Task
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '304':
 #     description: Not updated responding with empty payload if Task already exists and nothing to update
 #   '400':
@@ -113,7 +113,7 @@ POST    /tasks                                      @org.maproulette.controllers
 #     description: The JSON structure for the Task body.
 #     required: true
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 ###
 PUT     /task/:id                                   @org.maproulette.controllers.api.TaskController.update(id:Long)
 ###
@@ -147,7 +147,7 @@ PUT     /task/:id                                   @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 ###
 PUT     /tasks                                      @org.maproulette.controllers.api.TaskController.batchUploadPut
 ###
@@ -178,7 +178,7 @@ PUT     /tasks/changeStatus                        @org.maproulette.controllers.
 #   '200':
 #     description: The retrieved Task
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '404':
 #     description: ID field supplied but no Task found matching the id
 # parameters:
@@ -196,7 +196,7 @@ GET     /task/:id                                   @org.maproulette.controllers
 #   '200':
 #     description: The locked Task
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '404':
 #     description: ID field supplied but no Task found matching the id
 # parameters:
@@ -219,7 +219,7 @@ GET     /task/:id/start                               @org.maproulette.controlle
 #   '200':
 #     description: The change XML data
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '404':
 #     description: No Task found matching the id, or no change data found on the task
 # parameters:
@@ -291,7 +291,7 @@ GET     /task/:id/attachment/$attachmentId<[\w\d-_~\.]+>/data/$filename<[\w\d-_\
 #   '200':
 #     description: The unlocked Task
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '404':
 #     description: ID field supplied but no Task found matching the id
 # parameters:
@@ -312,7 +312,7 @@ GET     /task/:id/release                               @org.maproulette.control
 #   '200':
 #     description: The lock was successfully refreshed
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '403':
 #     description: The user does not own a lock on the task
 #   '404':
@@ -332,7 +332,7 @@ GET     /task/:id/refreshLock                           @org.maproulette.control
 #   '200':
 #     description: The retrieved Task
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '404':
 #     description: No Task found matching the provided name
 # parameters:
@@ -380,7 +380,7 @@ DELETE  /task/:id                                   @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: q
 #     in: query
@@ -430,7 +430,7 @@ GET     /task/:id/tags                              @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '400':
 #     description: If no tags are supplied a BadRequest response will be returned
 # parameters:
@@ -509,7 +509,7 @@ DELETE  /task/:id/tags                              @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: ps
 #     in: query
@@ -546,7 +546,7 @@ GET     /tasks/random                               @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#         $ref: '#/definitions/org.maproulette.framework.model.ClusteredPoint'
 # parameters:
 #   - name: left
 #     in: path
@@ -572,8 +572,11 @@ GET     /tasks/random                               @org.maproulette.controllers
 #   - name: includeTags
 #     in: query
 #     description: Optional flag to have tag data returned for each task.
+#   - name: excludeLocked
+#     in: query
+#     description: Ignore the lock status of the task. So true will include all tasks, including ones locked by another user.
 ###
-PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false, includeTags:Boolean ?= false)
+PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.framework.controller.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false, includeTags:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Update Task Changeset
@@ -583,7 +586,7 @@ PUT     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers
 #   '200':
 #     description: The task that was updated. With the updated changeset value
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 #   '401':
 #     description: The user is not authorized to make this request
 #   '404':
@@ -867,22 +870,47 @@ PUT     /taskBundle/:id/metareview/:status                     @org.maproulette.
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
+#         $ref: '#/definitions/org.maproulette.framework.model.TaskCluster'
 # parameters:
 #   - name: points
 #     in: query
 #     description: The number of clusters that you want returned
 ###
-PUT     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+PUT     /taskCluster                                @org.maproulette.framework.controller.TaskController.getTaskClusters(points:Int ?= 100)
+###
+# tags: [ Task ]
+# summary: Retrieves tasks in a cluster
+# produces: [ application/json ]
+# description: Retrieves tasks contained in a cluster retrieved from api /api/v2/challenge/:id/taskCluster
+# responses:
+#   '200':
+#     description: An array of tasks that are contained in a cluster. If none found will return an empty list.
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.ClusteredPoint'
+# parameters:
+#   - name: id
+#     in: path
+#     description: The id of the parent project.
+#   - name: clusterId
+#     in: path
+#     description: The id of the single cluster.
+#   - name: points
+#     in: query
+#     description: The number of clusters that you want returned
+###
+GET     /tasksInCluster/:clusterId                  @org.maproulette.framework.controller.TaskController.getTasksInCluster(clusterId:Int, points:Int ?= 100)
 ###
 # tags: [ Task ]
 # summary: Retrieves Tasks within a bounding box
 # deprecated: true
 ###
-GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.controllers.api.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false, includeTags:Boolean ?= false)
+GET     /tasks/box/:left/:bottom/:right/:top        @org.maproulette.framework.controller.TaskController.getTasksInBoundingBox(left:Double, bottom:Double, right:Double, top:Double, limit:Int ?= 10000, page:Int ?= 0, excludeLocked:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", includeTotal:Boolean ?= false, includeGeometries:Boolean ?=false, includeTags:Boolean ?= false)
 ###
 # tags: [ Task ]
 # summary: Retrieves task clusters. USE PUT METHOD
 # deprecated: true
 ###
-GET     /taskCluster                                @org.maproulette.controllers.api.TaskController.getTaskClusters(points:Int ?= 100)
+GET     /taskCluster                                @org.maproulette.framework.controller.TaskController.getTaskClusters(points:Int ?= 100)

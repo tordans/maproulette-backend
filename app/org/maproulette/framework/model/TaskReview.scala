@@ -6,7 +6,7 @@ package org.maproulette.framework.model
 
 import org.joda.time.DateTime
 import org.maproulette.framework.psql.CommonField
-import org.maproulette.models.Task
+import org.maproulette.framework.model.Task
 import play.api.libs.json.{Json, Reads, Writes}
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._

@@ -2,7 +2,7 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.joda.time.DateTime
 import play.api.libs.json.{JsValue, Json, Reads, Writes}

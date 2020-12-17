@@ -14,12 +14,11 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
 import org.maproulette.framework.repository.TaskRepository
-import org.maproulette.models.Task
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.cache.CacheManager
 
 /**
-  * Service layer for TaskReview
+  * Service layer for Task
   *
   * @author krotstan
   */

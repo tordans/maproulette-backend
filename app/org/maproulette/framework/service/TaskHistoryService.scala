@@ -18,7 +18,6 @@ import org.maproulette.permissions.Permission
 import org.maproulette.data.Actions
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 
-
 /**
   * Service layer for TaskHistory
   *
@@ -31,6 +30,7 @@ class TaskHistoryService @Inject() (
     permission: Permission,
     webSocketProvider: WebSocketProvider
 ) {
+
   /**
     * Returns a history log for the task -- includes comments, status actions,
     * review actions
@@ -38,10 +38,10 @@ class TaskHistoryService @Inject() (
     * @return List of TaskLogEntry
     */
   def getTaskHistoryLog(taskId: Long): List[TaskLogEntry] = {
-    val comments = repository.getComments(taskId)
-    val reviews = repository.getReviews(taskId)
+    val comments      = repository.getComments(taskId)
+    val reviews       = repository.getReviews(taskId)
     val statusActions = repository.getStatusActions(taskId)
-    val actions = repository.getActions(taskId, Actions.ACTION_TYPE_UPDATED)
+    val actions       = repository.getActions(taskId, Actions.ACTION_TYPE_UPDATED)
 
     ((comments ++ reviews ++ statusActions ++ actions).sortWith(sortByDate)).reverse
   }

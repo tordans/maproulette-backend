@@ -17,7 +17,7 @@ import org.maproulette.framework.psql.filter.{
   SubQueryFilter
 }
 import org.maproulette.framework.psql._
-import org.maproulette.models.Task
+import org.maproulette.framework.model.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import play.api.db.Database
 

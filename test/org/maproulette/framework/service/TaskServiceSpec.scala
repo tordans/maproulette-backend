@@ -13,7 +13,6 @@ import play.api.libs.json._
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Query, Paging}
 import org.maproulette.framework.util.{TaskTag, FrameworkHelper}
-import org.maproulette.models.Task
 import org.maproulette.exception.NotFoundException
 import play.api.Application
 

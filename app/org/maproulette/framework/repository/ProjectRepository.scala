@@ -12,11 +12,10 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.data.Actions
-import org.maproulette.framework.model.{Challenge, Grant, GrantTarget, Project, Tag, User}
+import org.maproulette.framework.model._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.service.GrantService
-import org.maproulette.models.{ClusteredPoint, Point, PointReview, Task}
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.Readers
 import play.api.db.Database

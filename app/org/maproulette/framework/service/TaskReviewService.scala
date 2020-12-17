@@ -25,7 +25,6 @@ import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider
 import org.maproulette.data.ChallengeType
 
 // deprecated and will be removed as they are converted
-import org.maproulette.models.{Task, TaskCluster}
 import org.maproulette.models.dal.TaskBundleDAL
 
 /**
@@ -281,17 +280,17 @@ class TaskReviewService @Inject() (
     query = addClaimedByFilter(query, user.id)
     query = addLockedFilter(query)
     query = query.addFilterGroup(
-        FilterGroup(
-          List(
-            BaseParameter(
-              Task.FIELD_ID,
-              proximityId,
-              Operator.NE,
-              table = Some("tasks")
-            )
+      FilterGroup(
+        List(
+          BaseParameter(
+            Task.FIELD_ID,
+            proximityId,
+            Operator.NE,
+            table = Some("tasks")
           )
         )
       )
+    )
 
     this.repository.queryTasksWithLocked(query)
   }

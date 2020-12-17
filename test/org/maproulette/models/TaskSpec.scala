@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 
-package org.maproulette.models
+package org.maproulette.framework.model
 
-import org.maproulette.models.Task
+import org.maproulette.framework.model.Task
 import org.scalatestplus.play.PlaySpec
 import org.joda.time.DateTime
 

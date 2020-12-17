@@ -14,7 +14,6 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{ChallengeRepository, ProjectRepository}
-import org.maproulette.models.ClusteredPoint
 import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters
 import org.maproulette.exception.{InvalidException}
