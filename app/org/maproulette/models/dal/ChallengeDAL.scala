@@ -648,6 +648,18 @@ class ChallengeDAL @Inject() (
         updateTaskPriorities(user)
       }
     }
+
+    updatedChallenge match {
+      case Some(challenge) =>
+        if (challenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_READY &&
+            challenge.general.enabled) {
+          Future {
+            this.serviceManager.achievement.awardChallengeCreationAchievements(challenge)
+          }
+        }
+      case None => // nothing to do
+    }
+
     updatedChallenge
   }
 
@@ -1326,8 +1338,10 @@ class ChallengeDAL @Inject() (
               SQL(updateStatusQuery).as(this.parser.*).headOption match {
                 case Some(updatedChallenge) =>
                   if (updatedChallenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_FINISHED) {
-                    this.serviceManager.notification
-                      .createChallengeCompletionNotification(challenge)
+                    Future {
+                      this.serviceManager.achievement.awardChallengeCompletionAchievements(updatedChallenge)
+                      this.serviceManager.notification.createChallengeCompletionNotification(updatedChallenge)
+                    }
                   }
                   Some(updatedChallenge)
                 case None => None

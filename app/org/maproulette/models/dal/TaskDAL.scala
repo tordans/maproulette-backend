@@ -18,7 +18,7 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Challenge, Project, StatusActions, User, GrantTarget, Task}
+import org.maproulette.framework.model.{Challenge, Project, StatusActions, User, GrantTarget, Task, Achievement}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.{ProjectRepository, TaskRepository}
@@ -792,6 +792,10 @@ class TaskDAL @Inject() (
     }
 
     this.manager.challenge.updateFinishedStatus()(primaryTask.parent)
+
+    Future {
+      this.serviceManager.achievement.awardTaskCompletionAchievements(user, primaryTask, status)
+    }
 
     if (reviewNeeded) {
       webSocketProvider.sendMessage(

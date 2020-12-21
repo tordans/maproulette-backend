@@ -655,6 +655,12 @@ class TaskReviewService @Inject() (
       }
     }
 
+    if (reviewStatus == Task.REVIEW_STATUS_APPROVED ||
+        reviewStatus == Task.REVIEW_STATUS_REJECTED ||
+        reviewStatus == Task.REVIEW_STATUS_ASSISTED) {
+      this.serviceManager.achievement.awardTaskReviewAchievements(user, task, reviewStatus)
+    }
+
     updatedRows
   }
 

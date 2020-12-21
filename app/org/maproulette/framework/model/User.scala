@@ -226,7 +226,8 @@ case class User(
     properties: Option[String] = None,
     score: Option[Int] = None,
     followingGroupId: Option[Long] = None,
-    followersGroupId: Option[Long] = None
+    followersGroupId: Option[Long] = None,
+    achievements: Option[List[Int]] = None,
 ) extends CacheObject[Long]
     with Identifiable {
   // for users the display name is always retrieved from OSM
@@ -415,18 +416,7 @@ object User extends CommonField {
       case Some(key) if key.nonEmpty =>
         try {
           val decryptedAPIKey = Some(s"${user.id}|${crypto.decrypt(key)}")
-          new User(
-            user.id,
-            user.created,
-            user.modified,
-            user.osmProfile,
-            user.grants,
-            decryptedAPIKey,
-            user.guest,
-            user.settings,
-            user.properties,
-            user.score
-          )
+          user.copy(apiKey = decryptedAPIKey)
         } catch {
           case _: BadPaddingException | _: IllegalBlockSizeException =>
             LoggerFactory

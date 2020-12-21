@@ -86,7 +86,7 @@ class TaskClusterServiceSpec(implicit val application: Application) extends Fram
             challengeIds = Some(List(randomChallenge.id))
           )
         ),
-        excludeLocked = true
+        ignoreLocked = true
       )
       count mustEqual 3
       response.length mustEqual 3
@@ -102,7 +102,7 @@ class TaskClusterServiceSpec(implicit val application: Application) extends Fram
           )
         ),
         Paging(1, 0),
-        excludeLocked = true
+        ignoreLocked = true
       )
       count mustEqual 3
       response.length mustEqual 1
@@ -117,7 +117,7 @@ class TaskClusterServiceSpec(implicit val application: Application) extends Fram
             challengeIds = Some(List(randomChallenge.id))
           )
         ),
-        excludeLocked = true,
+        ignoreLocked = true,
         sort = "id",
         orderDirection = "DESC"
       )
@@ -138,7 +138,7 @@ class TaskClusterServiceSpec(implicit val application: Application) extends Fram
           excludeTaskIds = Some(List(randomTask.id))
         )
       ),
-      excludeLocked = true
+      ignoreLocked = true
     )
     count mustEqual 2
     response.length mustEqual 2
