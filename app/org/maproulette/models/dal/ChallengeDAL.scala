@@ -1339,8 +1339,10 @@ class ChallengeDAL @Inject() (
                 case Some(updatedChallenge) =>
                   if (updatedChallenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_FINISHED) {
                     Future {
-                      this.serviceManager.achievement.awardChallengeCompletionAchievements(updatedChallenge)
-                      this.serviceManager.notification.createChallengeCompletionNotification(updatedChallenge)
+                      this.serviceManager.achievement
+                        .awardChallengeCompletionAchievements(updatedChallenge)
+                      this.serviceManager.notification
+                        .createChallengeCompletionNotification(updatedChallenge)
                     }
                   }
                   Some(updatedChallenge)

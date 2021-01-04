@@ -18,8 +18,9 @@ import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider
 class AchievementService @Inject() (
     repository: UserRepository,
     serviceManager: ServiceManager,
-    webSocketProvider: WebSocketProvider,
+    webSocketProvider: WebSocketProvider
 ) {
+
   /**
     * Award any appropriate achievements based on completion of a task
     */
@@ -46,8 +47,7 @@ class AchievementService @Inject() (
 
       this.appendPointBasedAchievements(user, achievements)
       this.addAchievementsToUser(user, achievements.toList)
-    }
-    else {
+    } else {
       Some(user)
     }
   }
@@ -88,7 +88,7 @@ class AchievementService @Inject() (
     * Award any appropriate achievements based on creation of a new challenge
     */
   def awardChallengeCreationAchievements(challenge: Challenge): Option[User] = {
-        // Achievements are only awarded if the challenge is ready and public
+    // Achievements are only awarded if the challenge is ready and public
     if (challenge.status.getOrElse(Challenge.STATUS_NA) != Challenge.STATUS_READY ||
         !challenge.general.enabled) {
       return None
@@ -115,19 +115,22 @@ class AchievementService @Inject() (
     }
 
     // We need to invalidate the user in the cache
-    this.serviceManager.user.cacheManager.withDeletingCache(id => this.serviceManager.user.retrieve(id)) {
-      implicit cachedItem =>
-        this.repository.addAchievements(user.id, achievements)
-        Some(cachedItem)
+    this.serviceManager.user.cacheManager.withDeletingCache(id =>
+      this.serviceManager.user.retrieve(id)
+    ) { implicit cachedItem =>
+      this.repository.addAchievements(user.id, achievements)
+      Some(cachedItem)
     }(id = user.id)
 
     // Notify websocket clients of any new awards
     val latestUser = this.serviceManager.user.retrieve(user.id)
     latestUser match {
       case Some(latest) =>
-        val justAwarded = latest.achievements.getOrElse(List.empty).filterNot(
-          user.achievements.getOrElse(List.empty).toSet
-        )
+        val justAwarded = latest.achievements
+          .getOrElse(List.empty)
+          .filterNot(
+            user.achievements.getOrElse(List.empty).toSet
+          )
         if (!justAwarded.isEmpty) {
           webSocketProvider.sendMessage(
             WebSocketMessages.achievementAwarded(
@@ -142,10 +145,13 @@ class AchievementService @Inject() (
   }
 
   /**
-   * Appends achievements related to completing a task in a specific category
-   * as determined by the tags on the parent challenge
-   */
-  private def appendTaskCompletionCategoryAchievements(challengeTags: List[Tag], achievements: ListBuffer[Int]) = {
+    * Appends achievements related to completing a task in a specific category
+    * as determined by the tags on the parent challenge
+    */
+  private def appendTaskCompletionCategoryAchievements(
+      challengeTags: List[Tag],
+      achievements: ListBuffer[Int]
+  ) = {
     if (challengeTags.exists(t => t.name == "highway")) {
       achievements += Achievement.MAPPED_ROADS
     }

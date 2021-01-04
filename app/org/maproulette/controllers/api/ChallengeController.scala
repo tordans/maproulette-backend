@@ -24,7 +24,7 @@ import org.maproulette.exception.{
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.{ServiceManager, TagService}
-import org.maproulette.framework.mixins.ParentMixin
+import org.maproulette.framework.mixins.{ParentMixin, TagsControllerMixin}
 import org.maproulette.models._
 import org.maproulette.models.dal._
 import org.maproulette.models.dal.mixin.TagDALMixin
@@ -68,7 +68,7 @@ class ChallengeController @Inject() (
     implicit val snapshotManager: SnapshotManager
 ) extends AbstractController(components)
     with ParentController[Challenge, Task]
-    with TagsMixin[Challenge]
+    with TagsControllerMixin[Challenge]
     with ParentMixin {
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -83,7 +83,7 @@ class ChallengeController @Inject() (
   override protected val cReads: Reads[Task] = Task.TaskFormat
   // The type of object that this controller deals with.
   override implicit val itemType: ItemType = ChallengeType()
-  override implicit val tableName: String  = this.dal.tableName
+  override implicit val tagType: String    = Challenge.TABLE
 
   // implicit writes used for various JSON responses
   implicit val commentWrites                                    = Comment.writes
