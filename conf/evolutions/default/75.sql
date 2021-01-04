@@ -137,4 +137,4 @@ ALTER TABLE IF EXISTS user_metrics
   DROP COLUMN achievements;;
 
 -- Remove array_distinct function
-DROP FUNCTION IF EXISTS array_distinct;;
+DROP FUNCTION IF EXISTS array_distinct(arr anyarray);;
