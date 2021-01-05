@@ -20,7 +20,6 @@ class DALManager @Inject() (
     virtualChallengeDAL: VirtualChallengeDAL,
     actionManager: ActionManager,
     dataManager: DataManager,
-    taskBundleDAL: TaskBundleDAL,
     statusActionManager: StatusActionManager
 ) {
   def task: TaskDAL = taskDAL
@@ -34,8 +33,6 @@ class DALManager @Inject() (
   def data: DataManager = dataManager
 
   def statusAction: StatusActionManager = statusActionManager
-
-  def taskBundle: TaskBundleDAL = taskBundleDAL
 
   def getManager(itemType: ItemType): BaseDAL[Long, _] = {
     itemType match {

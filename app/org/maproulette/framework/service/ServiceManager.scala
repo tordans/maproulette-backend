@@ -30,6 +30,7 @@ class ServiceManager @Inject() (
     userMetricService: Provider[UserMetricService],
     achievementService: Provider[AchievementService],
     virtualProjectService: Provider[VirtualProjectService],
+    taskBundleService: Provider[TaskBundleService],
     taskClusterService: Provider[TaskClusterService],
     taskReviewService: Provider[TaskReviewService],
     taskReviewMetricsService: Provider[TaskReviewMetricsService],
@@ -75,6 +76,8 @@ class ServiceManager @Inject() (
   def challengeListing: ChallengeListingService = challengeListingService.get()
 
   def challengeSnapshot: ChallengeSnapshotService = challengeSnapshotService.get()
+
+  def taskBundle: TaskBundleService = taskBundleService.get()
 
   def taskCluster: TaskClusterService = taskClusterService.get()
 

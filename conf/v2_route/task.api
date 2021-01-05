@@ -702,7 +702,7 @@ PUT     /task/:id/:status                           @org.maproulette.controllers
 #   - name: tags
 #     description: Optional tags to associate with this task
 ###
-PUT     /taskBundle/:bundleId/:status                           @org.maproulette.controllers.api.TaskBundleController.setBundleTaskStatus(bundleId:Long, primaryId:Long, status:Int, comment:String ?= "", tags:String ?="")
+PUT     /taskBundle/:bundleId/:status                           @org.maproulette.framework.controller.TaskBundleController.setBundleTaskStatus(bundleId:Long, primaryId:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Task ]
 # summary: Update Task Review Status
@@ -795,7 +795,7 @@ PUT     /tasks/review/remove                               @org.maproulette.fram
 #     in: query
 #     description: Optional int taskStatus to change the task status on all tasks in this bundle to
 ###
-PUT     /taskBundle/:id/review/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "")
+PUT     /taskBundle/:id/review/:status                     @org.maproulette.framework.controller.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Update Task Meta Review Status
@@ -857,7 +857,7 @@ PUT     /task/:id/metareview/:status                           @org.maproulette.
 #   - name: tags
 #     description: Optional tags to associate with this task
 ###
-PUT     /taskBundle/:id/metareview/:status                     @org.maproulette.controllers.api.TaskBundleController.setBundleMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
+PUT     /taskBundle/:id/metareview/:status                     @org.maproulette.framework.controller.TaskBundleController.setBundleMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="")
 ###
 # tags: [ Task ]
 # summary: Retrieves task clusters.

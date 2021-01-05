@@ -227,7 +227,7 @@ case class User(
     score: Option[Int] = None,
     followingGroupId: Option[Long] = None,
     followersGroupId: Option[Long] = None,
-    achievements: Option[List[Int]] = None,
+    achievements: Option[List[Int]] = None
 ) extends CacheObject[Long]
     with Identifiable {
   // for users the display name is always retrieved from OSM

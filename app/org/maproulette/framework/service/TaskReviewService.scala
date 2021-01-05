@@ -24,9 +24,6 @@ import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.data.ChallengeType
 
-// deprecated and will be removed as they are converted
-import org.maproulette.models.dal.TaskBundleDAL
-
 /**
   * Service layer for TaskReview
   *
@@ -36,7 +33,6 @@ import org.maproulette.models.dal.TaskBundleDAL
 class TaskReviewService @Inject() (
     repository: TaskReviewRepository,
     serviceManager: ServiceManager,
-    taskBundleDAL: TaskBundleDAL,
     taskRepository: TaskRepository,
     taskClusterRepository: TaskClusterRepository,
     permission: Permission,
@@ -70,7 +66,7 @@ class TaskReviewService @Inject() (
     if (primaryTask.isBundlePrimary.getOrElse(false)) {
       primaryTask.bundleId match {
         case Some(bId) =>
-          this.taskBundleDAL.getTaskBundle(user, bId).tasks match {
+          this.serviceManager.taskBundle.getTaskBundle(user, bId).tasks match {
             case Some(tList) =>
               taskList = tList
             case None => // do nothing -- just use our current task

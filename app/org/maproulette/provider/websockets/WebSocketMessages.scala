@@ -162,8 +162,8 @@ object WebSocketMessages {
   }
 
   private def createAchievementMessage(
-    messageType: String,
-    data: AchievementData
+      messageType: String,
+      data: AchievementData
   ): AchievementMessage = {
     AchievementMessage(
       messageType,
@@ -213,7 +213,10 @@ object WebSocketMessages {
     FollowMessage(messageType, data, ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_FOLLOWING)))
   }
 
-  private def createAchievementMessage(messageType: String, data: FollowUpdateData): FollowMessage = {
+  private def createAchievementMessage(
+      messageType: String,
+      data: FollowUpdateData
+  ): FollowMessage = {
     FollowMessage(messageType, data, ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_FOLLOWING)))
   }
 
@@ -231,7 +234,7 @@ object WebSocketMessages {
   implicit val notificationDataWrites: Writes[NotificationData] = Json.writes[NotificationData]
   implicit val notificationMessageWrites: Writes[NotificationMessage] =
     Json.writes[NotificationMessage]
-  implicit val achievementDataWrites: Writes[AchievementData]   = Json.writes[AchievementData]
+  implicit val achievementDataWrites: Writes[AchievementData] = Json.writes[AchievementData]
   implicit val achievementMessageWrites: Writes[AchievementMessage] =
     Json.writes[AchievementMessage]
   implicit val reviewDataWrites: Writes[ReviewData]             = Json.writes[ReviewData]

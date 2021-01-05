@@ -21,6 +21,7 @@ import org.maproulette.exception.{
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.{ServiceManager, TagService, TaskClusterService}
+import org.maproulette.framework.mixins.TagsControllerMixin
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.models.dal.{DALManager, TaskDAL}
@@ -68,7 +69,7 @@ class TaskController @Inject() (
     override val bodyParsers: PlayBodyParsers
 ) extends AbstractController(components)
     with CRUDController[Task]
-    with TagsMixin[Task] {
+    with TagsControllerMixin[Task] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -80,8 +81,8 @@ class TaskController @Inject() (
   implicit val cWrites: Writes[Challenge] = Challenge.writes.challengeWrites
 
   // The type of object that this controller deals with.
-  override implicit val itemType  = TaskType()
-  override implicit val tableName = this.dal.tableName
+  override implicit val itemType = TaskType()
+  override implicit val tagType  = this.dal.tableName
   // json reads for automatically reading Tags from a posted json body
   implicit val tagReads: Reads[Tag]           = Tag.tagReads
   implicit val commentReads: Reads[Comment]   = Comment.reads

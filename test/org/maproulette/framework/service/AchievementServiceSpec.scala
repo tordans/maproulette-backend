@@ -15,11 +15,13 @@ import org.mockito.Mockito._
 /**
   * @author nrotstan
   */
-class AchievementServiceSpec(implicit val application: Application) extends FrameworkHelper with MockitoSugar {
+class AchievementServiceSpec(implicit val application: Application)
+    extends FrameworkHelper
+    with MockitoSugar {
   val service: AchievementService = this.serviceManager.achievement
 
-  var randomUser: User   = null
-  var anotherUser: User  = null
+  var randomUser: User  = null
+  var anotherUser: User = null
 
   "AchievementService" should {
     "award an achievement if user fixes their first task" taggedAs UserTag in {
@@ -27,15 +29,20 @@ class AchievementServiceSpec(implicit val application: Application) extends Fram
       val updatedUser =
         this.service.awardTaskCompletionAchievements(this.defaultUser, task, Task.STATUS_FIXED)
 
-      updatedUser.get.achievements.getOrElse(List.empty).contains(Achievement.FIXED_TASK) mustEqual true
+      updatedUser.get.achievements
+        .getOrElse(List.empty)
+        .contains(Achievement.FIXED_TASK) mustEqual true
     }
 
     "does not award an achievement if the task isn't fixed" taggedAs UserTag in {
       val task = this.serviceManager.task.retrieve(defaultTask.id).get
       val updatedUser =
-        this.service.awardTaskCompletionAchievements(this.anotherUser, task, Task.STATUS_FALSE_POSITIVE)
-      
-      updatedUser.get.achievements.getOrElse(List.empty).contains(Achievement.FIXED_TASK) mustEqual false
+        this.service
+          .awardTaskCompletionAchievements(this.anotherUser, task, Task.STATUS_FALSE_POSITIVE)
+
+      updatedUser.get.achievements
+        .getOrElse(List.empty)
+        .contains(Achievement.FIXED_TASK) mustEqual false
     }
 
     "award an achievement if user crosses points threshold" taggedAs UserTag in {
@@ -44,23 +51,31 @@ class AchievementServiceSpec(implicit val application: Application) extends Fram
       val updatedUser =
         this.service.awardTaskCompletionAchievements(user, task, Task.STATUS_FIXED)
 
-      updatedUser.get.achievements.getOrElse(List.empty).contains(Achievement.POINTS_100) mustEqual true
+      updatedUser.get.achievements
+        .getOrElse(List.empty)
+        .contains(Achievement.POINTS_100) mustEqual true
     }
 
     "award an achievement if user reviews their first task" taggedAs UserTag in {
       val task = this.serviceManager.task.retrieve(defaultTask.id).get
       val updatedUser =
-        this.service.awardTaskReviewAchievements(this.defaultUser, task, Task.REVIEW_STATUS_APPROVED)
+        this.service
+          .awardTaskReviewAchievements(this.defaultUser, task, Task.REVIEW_STATUS_APPROVED)
 
-      updatedUser.get.achievements.getOrElse(List.empty).contains(Achievement.REVIEWED_TASK) mustEqual true
+      updatedUser.get.achievements
+        .getOrElse(List.empty)
+        .contains(Achievement.REVIEWED_TASK) mustEqual true
     }
 
     "does not award an achievement if the task isn't completed" taggedAs UserTag in {
       val task = this.serviceManager.task.retrieve(defaultTask.id).get
       val updatedUser =
-        this.service.awardTaskCompletionAchievements(this.anotherUser, task, Task.REVIEW_STATUS_DISPUTED)
-      
-      updatedUser.get.achievements.getOrElse(List.empty).contains(Achievement.REVIEWED_TASK) mustEqual false
+        this.service
+          .awardTaskCompletionAchievements(this.anotherUser, task, Task.REVIEW_STATUS_DISPUTED)
+
+      updatedUser.get.achievements
+        .getOrElse(List.empty)
+        .contains(Achievement.REVIEWED_TASK) mustEqual false
     }
   }
 

@@ -11,7 +11,7 @@ import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.service.{TaskReviewService, TagService, ServiceManager}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, Tag, Task}
-import org.maproulette.framework.mixins.ParentMixin
+import org.maproulette.framework.mixins.{ParentMixin, TagsControllerMixin}
 import org.maproulette.framework.repository.TaskRepository
 import org.maproulette.session.{
   SessionManager,
@@ -33,7 +33,6 @@ import org.maproulette.data.{
 }
 
 import org.maproulette.models.dal.TaskDAL
-import org.maproulette.controllers.api.TagsMixin
 import org.maproulette.models.dal.mixin.TagDALMixin
 
 /**
@@ -54,7 +53,7 @@ class TaskReviewController @Inject() (
 ) extends AbstractController(components)
     with MapRouletteController
     with ParentMixin
-    with TagsMixin[Task] {
+    with TagsControllerMixin[Task] {
 
   implicit val challengeListingWrites: Writes[ChallengeListing] = Json.writes[ChallengeListing]
 
@@ -62,7 +61,7 @@ class TaskReviewController @Inject() (
   override def dalWithTags: TagDALMixin[Task] = this.taskDAL
   def tagService: TagService                  = this.serviceManager.tag
   override implicit val itemType              = TaskType()
-  override implicit val tableName             = this.taskDAL.tableName
+  override implicit val tagType               = Task.TABLE
   override implicit val tReads: Reads[Task]   = Task.TaskFormat
   override implicit val tWrites: Writes[Task] = Task.TaskFormat
 

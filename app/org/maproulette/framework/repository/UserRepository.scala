@@ -407,8 +407,8 @@ class UserRepository @Inject() (
   }
 
   /**
-   * Ensure a row exists in the user_metrics table for the user
-   */
+    * Ensure a row exists in the user_metrics table for the user
+    */
   private def ensureUserMetrics(userId: Long) = {
     this.withMRTransaction { implicit c =>
       SQL("""INSERT INTO user_metrics (user_id, score, total_fixed, total_false_positive,
