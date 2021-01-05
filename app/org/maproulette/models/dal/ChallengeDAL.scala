@@ -1318,23 +1318,30 @@ class ChallengeDAL @Inject() (
     * there are no tasks remaining in CREATED or SKIPPED status
     *
     * @param id The id of the challenge
+    * @param finishOnEmpty Boolean to indicate whether status of an empty challenge should
+    *                      still be marked finished. Defaults to false.
     */
-  def updateFinishedStatus()(implicit id: Long, c: Option[Connection] = None): Unit = {
+  def updateFinishedStatus(finishOnEmpty: Boolean = false)(implicit id: Long, c: Option[Connection] = None): Unit = {
     this.withMRConnection { implicit c =>
       this.retrieveById(id) match {
         case Some(challenge) =>
           if (challenge.status.getOrElse(Challenge.STATUS_NA) != Challenge.STATUS_FINISHED) {
             this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+              val emptyChallengeCheck =
+                finishOnEmpty match {
+                  case true => ""
+                  case false => s"0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND"
+                }
+
               // If the challenge has no tasks in the created status it need to be marked finished.
               val updateStatusQuery =
                 s"""UPDATE challenges SET status = ${Challenge.STATUS_FINISHED}
                             WHERE id = ${id} AND
-                            0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND
+                            ${emptyChallengeCheck}
                             0 = (SELECT COUNT(*) AS total FROM tasks
                                       WHERE tasks.parent_id = ${id}
                                       AND status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}))
                             RETURNING ${this.retrieveColumns}"""
-
               SQL(updateStatusQuery).as(this.parser.*).headOption match {
                 case Some(updatedChallenge) =>
                   if (updatedChallenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_FINISHED) {
