@@ -18,8 +18,10 @@ import org.maproulette.exception.{
   NotFoundException,
   StatusMessage
 }
-import org.maproulette.framework.model.{Challenge, Comment, Tag, User}
-import org.maproulette.framework.service.{ServiceManager, TagService}
+import org.maproulette.framework.model._
+import org.maproulette.framework.psql.Paging
+import org.maproulette.framework.service.{ServiceManager, TagService, TaskClusterService}
+import org.maproulette.framework.mixins.TagsControllerMixin
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.models.dal.{DALManager, TaskDAL}
@@ -63,10 +65,11 @@ class TaskController @Inject() (
     config: Config,
     components: ControllerComponents,
     changeService: ChangesetProvider,
+    taskClusterService: TaskClusterService,
     override val bodyParsers: PlayBodyParsers
 ) extends AbstractController(components)
     with CRUDController[Task]
-    with TagsMixin[Task] {
+    with TagsControllerMixin[Task] {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -78,8 +81,8 @@ class TaskController @Inject() (
   implicit val cWrites: Writes[Challenge] = Challenge.writes.challengeWrites
 
   // The type of object that this controller deals with.
-  override implicit val itemType  = TaskType()
-  override implicit val tableName = this.dal.tableName
+  override implicit val itemType = TaskType()
+  override implicit val tagType  = this.dal.tableName
   // json reads for automatically reading Tags from a posted json body
   implicit val tagReads: Reads[Tag]           = Tag.tagReads
   implicit val commentReads: Reads[Comment]   = Comment.reads
@@ -227,7 +230,7 @@ class TaskController @Inject() (
       if (lockerId != user.id) {
         val lockHolder = this.serviceManager.user.retrieve(lockerId) match {
           case Some(user) => user.osmProfile.displayName
-          case None => lockerId
+          case None       => lockerId
         }
         throw new IllegalAccessException(s"Task is currently locked by user ${lockHolder}")
       }
@@ -435,170 +438,6 @@ class TaskController @Inject() (
   }
 
   /**
-    * Gets all the tasks within a bounding box
-    *
-    * @param left   The minimum latitude for the bounding box
-    * @param bottom The minimum longitude for the bounding box
-    * @param right  The maximum latitude for the bounding box
-    * @param top    The maximum longitude for the bounding box
-    * @param limit  Limit for the number of returned tasks
-    * @param offset The offset used for paging
-    * @return
-    */
-  def getTasksInBoundingBox(
-      left: Double,
-      bottom: Double,
-      right: Double,
-      top: Double,
-      limit: Int,
-      page: Int,
-      excludeLocked: Boolean,
-      sort: String = "",
-      order: String = "ASC",
-      includeTotal: Boolean = false,
-      includeGeometries: Boolean = false,
-      includeTags: Boolean = false
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      SearchParameters.withSearch { p =>
-        val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
-        val (count, result) = this.dalManager.taskCluster.getTasksInBoundingBox(
-          User.userOrMocked(user),
-          params,
-          limit,
-          page,
-          excludeLocked,
-          sort,
-          order
-        )
-
-        val resultJson = _insertExtraJSON(result, includeGeometries, includeTags)
-
-        if (includeTotal) {
-          Ok(Json.obj("total" -> count, "tasks" -> resultJson))
-        } else {
-          Ok(resultJson)
-        }
-      }
-    }
-  }
-
-  /**
-    * Fetches and inserts usernames for 'reviewRequestedBy' and 'reviewBy' into
-    * the ClusteredPoint.pointReview
-    */
-  private def _insertExtraJSON(
-      tasks: List[ClusteredPoint],
-      includeGeometries: Boolean = false,
-      includeTags: Boolean = false
-  ): JsValue = {
-    if (tasks.isEmpty) {
-      Json.toJson(List[JsValue]())
-    } else {
-      val mappers = Some(
-        this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.completedBy.getOrElse(0L)))
-          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
-          .toMap
-      )
-
-      val reviewRequesters = Some(
-        this.serviceManager.user
-          .retrieveListById(tasks.map(t => t.pointReview.reviewRequestedBy.getOrElse(0L)))
-          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
-          .toMap
-      )
-
-      val allReviewers = tasks.flatMap(t => {
-        List(t.pointReview.reviewedBy.map(r => r)).flatMap(r => r) ++
-          t.pointReview.additionalReviewers.getOrElse(List())
-      })
-
-      val reviewers = Some(
-        this.serviceManager.user
-          .retrieveListById(allReviewers.toList)
-          .map(u => u.id -> Json.obj("username" -> u.name, "id" -> u.id))
-          .toMap
-      )
-
-      val taskDetailsMap: Map[Long, Task] =
-        includeGeometries match {
-          case true =>
-            val taskDetails = this.dalManager.task.retrieveListById()(tasks.map(t => t.id))
-            taskDetails.map(t => t.id -> t).toMap
-          case false => null
-        }
-
-      val tagsMap: Map[Long, List[Tag]] = includeTags match {
-        case true => this.serviceManager.tag.listByTasks(tasks.map(t => t.id))
-        case _    => null
-      }
-
-      val jsonList = tasks.map { task =>
-        var updated         = Json.toJson(task)
-        var reviewPointJson = Json.toJson(task.pointReview).as[JsObject]
-
-        if (task.completedBy.getOrElse(0) != 0) {
-          val mappersJson = Json.toJson(mappers.get(task.completedBy.get)).as[JsObject]
-          updated = Utils.insertIntoJson(updated, "completedBy", mappersJson, true)
-        }
-
-        if (task.pointReview.reviewRequestedBy.getOrElse(0) != 0) {
-          val reviewRequestersJson =
-            Json.toJson(reviewRequesters.get(task.pointReview.reviewRequestedBy.get)).as[JsObject]
-          reviewPointJson = Utils
-            .insertIntoJson(reviewPointJson, "reviewRequestedBy", reviewRequestersJson, true)
-            .as[JsObject]
-          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
-        }
-
-        if (task.pointReview.reviewedBy.getOrElse(0) != 0) {
-          var reviewerJson =
-            Json.toJson(reviewers.get(task.pointReview.reviewedBy.get)).as[JsObject]
-          reviewPointJson =
-            Utils.insertIntoJson(reviewPointJson, "reviewedBy", reviewerJson, true).as[JsObject]
-          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
-        }
-
-        if (task.pointReview.additionalReviewers != None) {
-          val additionalReviewerJson = Json
-            .toJson(
-              Map(
-                "additionalReviewers" ->
-                  task.pointReview.additionalReviewers.getOrElse(List()).map(r => reviewers.get(r))
-              )
-            )
-            .as[JsObject]
-          reviewPointJson = Utils
-            .insertIntoJson(
-              reviewPointJson,
-              "additionalReviewers",
-              (additionalReviewerJson \ "additionalReviewers").get,
-              true
-            )
-            .as[JsObject]
-          updated = Utils.insertIntoJson(updated, "pointReview", reviewPointJson, true)
-        }
-
-        if (includeGeometries) {
-          val geometries = Json.parse(taskDetailsMap(task.id).geometries)
-          updated = Utils.insertIntoJson(updated, "geometries", geometries, true)
-        }
-
-        if (includeTags) {
-          if (tagsMap.contains(task.id)) {
-            val tagsJson = Json.toJson(tagsMap(task.id))
-            updated = Utils.insertIntoJson(updated, "tags", tagsJson, true)
-          }
-        }
-
-        updated
-      }
-      Json.toJson(jsonList)
-    }
-  }
-
-  /**
     * This is the generic function that is leveraged by all the specific functions above. So it
     * sets the task status to the specific status ID's provided by those functions.
     * Must be authenticated to perform operation
@@ -638,110 +477,6 @@ class TaskController @Inject() (
   }
 
   /**
-    * This function sets the task review status.
-    * Must be authenticated to perform operation and marked as a reviewer.
-    *
-    * @param id The id of the task
-    * @param reviewStatus The review status id to set the task's review status to
-    * @param comment An optional comment to add to the task
-    * @param tags Optional tags to add to the task
-    * @param newTaskStatus Optional new taskStatus to change the task's status
-    * @return 400 BadRequest if task with supplied id not found.
-    *         If successful then 200 NoContent
-    */
-  def setTaskReviewStatus(
-      id: Long,
-      reviewStatus: Int,
-      comment: String = "",
-      tags: String = "",
-      newTaskStatus: String = ""
-  ): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      val task = this.dal.retrieveById(id) match {
-        case Some(t) => {
-          // If the mapper wants to change the task status while revising the task after review
-          if (!newTaskStatus.isEmpty) {
-            val taskStatus = newTaskStatus.toInt
-
-            // Make sure to remove user's score credit for the prior task status first.
-            this.serviceManager.userMetrics.rollbackUserScore(t.status.get, user.id)
-
-            // Change task status. This will also credit user's score for new task status.
-            this.dal.setTaskStatus(List(t), taskStatus, user, Some(false))
-            this.actionManager
-              .setAction(Some(user), new TaskItem(t.id), TaskStatusSet(taskStatus), t.name)
-            // Refetch Task
-            this.dal.retrieveById(id).get
-          } else t
-        }
-        case None =>
-          throw new NotFoundException(s"Task with $id not found, cannot set review status.")
-      }
-
-      val action = this.actionManager
-        .setAction(Some(user), new TaskItem(task.id), TaskReviewStatusSet(reviewStatus), task.name)
-      val actionId = action match {
-        case Some(a) => Some(a.id)
-        case None    => None
-      }
-
-      this.serviceManager.taskReview
-        .setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
-
-      val tagList = tags.split(",").toList
-      if (tagList.nonEmpty) {
-        this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = "review")), user)
-      }
-
-      NoContent
-    }
-  }
-
-  /**
-    * This function will set the review status to "Unnecessary", essentially removing the
-    * review request.
-    *
-    * User must have write access to parent challenge(s).
-    *
-    * @param ids The ids of the tasks to update
-    * @return The number of tasks updated.
-    */
-  def removeReviewRequest(ids: String): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      SearchParameters.withSearch { p =>
-        implicit val taskIds = Utils.toLongList(ids) match {
-          case Some(l) if !l.isEmpty => l
-          case None => {
-            val params = p.location match {
-              case Some(l) => p
-              case None    =>
-                // No bounding box, so search everything
-                p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
-            }
-            val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
-            tasks.map(task => task.id)
-          }
-        }
-
-        // set the taskIds variable to `implicit` above
-        val updatedTasks = this.dal
-          .retrieveListById()
-          .foldLeft(0)((updatedCount, t) =>
-            t.review.reviewStatus match {
-              case Some(r) =>
-                updatedCount +
-                  this.serviceManager.taskReview
-                    .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
-              case None => updatedCount
-            }
-          )
-
-        Ok(Json.toJson(updatedTasks))
-      }
-    }
-  }
-
-  /**
     * Changes the status on tasks that meet the search criteria (SearchParameters)
     *
     * @param newStatus The status to change all the tasks to
@@ -757,7 +492,7 @@ class TaskController @Inject() (
             // No bounding box, so search everything
             params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
         }
-        val (count, tasks) = this.dalManager.taskCluster.getTasksInBoundingBox(user, params, -1)
+        val (count, tasks) = this.taskClusterService.getTasksInBoundingBox(user, params, Paging(-1))
         tasks.foreach(task => {
           val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
           this.dal.update(taskJson, user)(task.id)
@@ -786,42 +521,6 @@ class TaskController @Inject() (
         case None => throw new NotFoundException("Task not found to update taskId with")
       }
     }
-  }
-
-  /**
-    * Gets clusters of tasks for the challenge. Uses kmeans method in postgis.
-    *
-    * @param numberOfPoints Number of clustered points you wish to have returned
-    * @return A list of ClusteredPoint's that represent clusters of tasks
-    */
-  def getTaskClusters(numberOfPoints: Int): Action[AnyContent] = Action.async { implicit request =>
-    this.sessionManager.userAwareRequest { implicit user =>
-      SearchParameters.withSearch { implicit params =>
-        Ok(Json.toJson(this.dalManager.taskCluster.getTaskClusters(params, numberOfPoints)))
-      }
-    }
-  }
-
-  /**
-    * Gets the list of tasks that are contained within the single cluster
-    *
-    * @param clusterId      The cluster id, when "getTaskClusters" is executed it will return single point clusters
-    *                       representing all the tasks in the cluster. Each cluster will contain an id, supplying
-    *                       that id to this method will allow you to retrieve all the tasks in the cluster
-    * @param numberOfPoints Number of clustered points that was originally used to get all the clusters
-    * @return A list of ClusteredPoint's that represent each of the tasks within a single cluster
-    */
-  def getTasksInCluster(clusterId: Int, numberOfPoints: Int): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.userAwareRequest { implicit user =>
-        SearchParameters.withSearch { implicit params =>
-          Ok(
-            Json.toJson(
-              this.dalManager.taskCluster.getTasksInCluster(clusterId, params, numberOfPoints)
-            )
-          )
-        }
-      }
   }
 
   def applyTagFix(taskId: Long, comment: String = "", tags: String = ""): Action[JsValue] =

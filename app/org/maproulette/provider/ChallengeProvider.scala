@@ -11,9 +11,8 @@ import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.InvalidException
-import org.maproulette.framework.model.{Challenge, User}
+import org.maproulette.framework.model.{Challenge, User, Task}
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
-import org.maproulette.models.Task
 import org.maproulette.utils.Utils
 import org.slf4j.LoggerFactory
 import play.api.db.Database
@@ -511,6 +510,9 @@ class ChallengeProvider @Inject() (
                         challenge.id
                       )
                       this.challengeDAL.markTasksRefreshed(true)(challenge.id)
+                      // If no tasks were created by this overpass query or all tasks are
+                      // fixed, then we need to update the status to finished.
+                      this.challengeDAL.updateFinishedStatus(true)(challenge.id)
                   }
                 } catch {
                   case e: Exception =>

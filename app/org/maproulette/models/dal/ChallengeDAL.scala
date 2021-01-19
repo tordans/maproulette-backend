@@ -312,7 +312,8 @@ class ChallengeDAL @Inject() (
     get[Long]("tasks.id") ~
       get[String]("tasks.name") ~
       get[Long]("tasks.parent_id") ~
-      get[String]("challenges.name") ~
+      get[String]("challenges.name").? ~
+      get[String]("challengeName").? ~
       get[String]("tasks.instruction") ~
       get[String]("location") ~
       get[Int]("tasks.status") ~
@@ -328,11 +329,15 @@ class ChallengeDAL @Inject() (
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") ~
-      get[Option[List[Long]]]("task_review.additional_reviewers") map {
-      case id ~ name ~ parentId ~ parentName ~ instruction ~ location ~ status ~
+      get[Option[List[Long]]]("task_review.additional_reviewers") ~
+      get[Option[Int]]("task_review.meta_review_status") ~
+      get[Option[Long]]("task_review.meta_reviewed_by") ~
+      get[Option[DateTime]]("task_review.meta_reviewed_at") map {
+      case id ~ name ~ parentId ~ parentName ~ orParentName ~ instruction ~ location ~ status ~
             mappedOn ~ completedTimeSpent ~ completedBy ~ priority ~ bundleId ~
             isBundlePrimary ~ cooperativeWork ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ additionalReviewers =>
+            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ additionalReviewers ~
+            metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt =>
         val locationJSON = Json.parse(location)
         val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
         val point        = Point(coordinates(1), coordinates.head)
@@ -342,6 +347,9 @@ class ChallengeDAL @Inject() (
             reviewRequestedBy,
             reviewedBy,
             reviewedAt,
+            metaReviewStatus,
+            metaReviewedBy,
+            metaReviewedAt,
             reviewStartedAt,
             additionalReviewers
           )
@@ -351,7 +359,7 @@ class ChallengeDAL @Inject() (
           "",
           name,
           parentId,
-          parentName,
+          parentName.getOrElse(orParentName.get),
           point,
           JsString(""),
           instruction,
@@ -640,6 +648,18 @@ class ChallengeDAL @Inject() (
         updateTaskPriorities(user)
       }
     }
+
+    updatedChallenge match {
+      case Some(challenge) =>
+        if (challenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_READY &&
+            challenge.general.enabled) {
+          Future {
+            this.serviceManager.achievement.awardChallengeCreationAchievements(challenge)
+          }
+        }
+      case None => // nothing to do
+    }
+
     updatedChallenge
   }
 
@@ -722,65 +742,7 @@ class ChallengeDAL @Inject() (
   )(implicit id: Long, c: Option[Connection] = None): List[Task] = {
     // add a child caching option that will keep a list of children for the parent
     this.withMRConnection { implicit c =>
-      // slightly different from the standard parser, in that it retrieves the geojson within the sql
-      val geometryParser: RowParser[Task] = {
-        get[Long]("tasks.id") ~
-          get[String]("tasks.name") ~
-          get[DateTime]("tasks.created") ~
-          get[DateTime]("tasks.modified") ~
-          get[Long]("parent_id") ~
-          get[Option[String]]("tasks.instruction") ~
-          get[Option[String]]("geo_location") ~
-          get[Option[String]]("geo_json") ~
-          get[Option[String]]("cooperative_work") ~
-          get[Option[Int]]("tasks.status") ~
-          get[Option[DateTime]]("tasks.mapped_on") ~
-          get[Option[Long]]("tasks.completed_time_spent") ~
-          get[Option[Long]]("tasks.completed_by") ~
-          get[Option[Int]]("task_review.review_status") ~
-          get[Option[Long]]("task_review.review_requested_by") ~
-          get[Option[Long]]("task_review.reviewed_by") ~
-          get[Option[DateTime]]("task_review.reviewed_at") ~
-          get[Option[DateTime]]("task_review.review_started_at") ~
-          get[Option[Long]]("task_review.review_claimed_by") ~
-          get[Option[DateTime]]("task_review.review_claimed_at") ~
-          get[Option[List[Long]]]("task_review.additional_reviewers") ~
-          get[Int]("tasks.priority") map {
-          case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~
-                geometry ~ cooperativeWork ~ status ~ mappedOn ~ completedTimeSpent ~
-                completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~
-                reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~ priority =>
-            val values =
-              this.taskRepository.updateAndRetrieve(id, geometry, location, cooperativeWork)
-            Task(
-              id,
-              name,
-              created,
-              modified,
-              parent_id,
-              instruction,
-              values._2,
-              values._1,
-              values._3,
-              status,
-              mappedOn,
-              completedTimeSpent,
-              completedBy,
-              TaskReviewFields(
-                reviewStatus,
-                reviewRequestedBy,
-                reviewedBy,
-                reviewedAt,
-                reviewStartedAt,
-                reviewClaimedBy,
-                reviewClaimedAt,
-                additionalReviewers
-              ),
-              priority
-            )
-        }
-      }
-
+      val geometryParser = this.taskRepository.getTaskParser(this.taskRepository.updateAndRetrieve)
       val query =
         s"""SELECT ${taskDAL.retrieveColumns}
                       FROM tasks
@@ -1234,7 +1196,8 @@ class ChallengeDAL @Inject() (
                    t.parent_id, t.bundle_id, t.is_bundle_primary,
                    tr.review_status, tr.review_requested_by,
                    tr.reviewed_by, tr.reviewed_at, tr.review_started_at,
-                   tr.additional_reviewers,
+                   tr.additional_reviewers, tr.meta_review_status, tr.meta_reviewed_by,
+                   tr.meta_reviewed_at,
                    t.cooperative_work_json::TEXT as cooperative_work, c.name,
                    ST_AsGeoJSON(t.location) AS location, t.priority
             FROM tasks t
@@ -1355,28 +1318,39 @@ class ChallengeDAL @Inject() (
     * there are no tasks remaining in CREATED or SKIPPED status
     *
     * @param id The id of the challenge
+    * @param finishOnEmpty Boolean to indicate whether status of an empty challenge should
+    *                      still be marked finished. Defaults to false.
     */
-  def updateFinishedStatus()(implicit id: Long, c: Option[Connection] = None): Unit = {
+  def updateFinishedStatus(finishOnEmpty: Boolean = false)(implicit id: Long, c: Option[Connection] = None): Unit = {
     this.withMRConnection { implicit c =>
       this.retrieveById(id) match {
         case Some(challenge) =>
           if (challenge.status.getOrElse(Challenge.STATUS_NA) != Challenge.STATUS_FINISHED) {
             this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit item =>
+              val emptyChallengeCheck =
+                finishOnEmpty match {
+                  case true => ""
+                  case false => s"0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND"
+                }
+
               // If the challenge has no tasks in the created status it need to be marked finished.
               val updateStatusQuery =
                 s"""UPDATE challenges SET status = ${Challenge.STATUS_FINISHED}
                             WHERE id = ${id} AND
-                            0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND
+                            ${emptyChallengeCheck}
                             0 = (SELECT COUNT(*) AS total FROM tasks
                                       WHERE tasks.parent_id = ${id}
                                       AND status IN (${Task.STATUS_CREATED}, ${Task.STATUS_SKIPPED}))
                             RETURNING ${this.retrieveColumns}"""
-
               SQL(updateStatusQuery).as(this.parser.*).headOption match {
                 case Some(updatedChallenge) =>
                   if (updatedChallenge.status.getOrElse(Challenge.STATUS_NA) == Challenge.STATUS_FINISHED) {
-                    this.serviceManager.notification
-                      .createChallengeCompletionNotification(challenge)
+                    Future {
+                      this.serviceManager.achievement
+                        .awardChallengeCompletionAchievements(updatedChallenge)
+                      this.serviceManager.notification
+                        .createChallengeCompletionNotification(updatedChallenge)
+                    }
                   }
                   Some(updatedChallenge)
                 case None => None

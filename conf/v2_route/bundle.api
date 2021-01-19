@@ -24,7 +24,7 @@
 #     schema:
 #       $ref: '#/definitions/TaskBundle'
 ###
-POST    /taskBundle                                 @org.maproulette.controllers.api.TaskBundleController.createTaskBundle
+POST    /taskBundle                                 @org.maproulette.framework.controller.TaskBundleController.createTaskBundle
 ##
 # tags: [ Bundle ]
 # summary: Gets a Task Bundle
@@ -51,7 +51,7 @@ POST    /taskBundle                                 @org.maproulette.controllers
 #     description: The id of the Task Bundle
 #     required: true
 ###
-GET     /taskBundle/:id                             @org.maproulette.controllers.api.TaskBundleController.getTaskBundle(id:Long)
+GET     /taskBundle/:id                             @org.maproulette.framework.controller.TaskBundleController.getTaskBundle(id:Long)
 ##
 # tags: [ Bundle ]
 # summary: Deletes a Task Bundle
@@ -76,7 +76,7 @@ GET     /taskBundle/:id                             @org.maproulette.controllers
 #   - name: primaryId
 #     in: query
 ###
-DELETE     /taskBundle/:id                          @org.maproulette.controllers.api.TaskBundleController.deleteTaskBundle(id:Long, primaryId:Option[Long])
+DELETE     /taskBundle/:id                          @org.maproulette.framework.controller.TaskBundleController.deleteTaskBundle(id:Long, primaryId:Option[Long])
 ##
 # tags: [ Bundle ]
 # summary: Unbundles tasks from Task Bundle
@@ -107,4 +107,4 @@ DELETE     /taskBundle/:id                          @org.maproulette.controllers
 #     description: The list of task ids to remove from the bundle
 #     required: true
 ###
-GET        /taskBundle/:id/unbundle                 @org.maproulette.controllers.api.TaskBundleController.unbundleTasks(id:Long, taskIds:List[Long])
+GET        /taskBundle/:id/unbundle                 @org.maproulette.framework.controller.TaskBundleController.unbundleTasks(id:Long, taskIds:List[Long])

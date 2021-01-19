@@ -11,8 +11,7 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.models.Task
-import org.maproulette.framework.model.ReviewMetrics
+import org.maproulette.framework.model.{ReviewMetrics, Task}
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import org.maproulette.models.dal.mixin.SearchParametersMixin
 import org.maproulette.session.{SearchParameters, SearchTaskParameters}

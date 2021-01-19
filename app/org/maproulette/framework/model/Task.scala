@@ -2,12 +2,12 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.data.{ItemType, TaskType}
-import org.maproulette.framework.model.{Challenge, Identifiable}
+import org.maproulette.framework.model.{Challenge, Identifiable, MapillaryImage}
 import org.maproulette.framework.psql.CommonField
 import org.maproulette.utils.Utils
 import play.api.data.format.Formats
@@ -15,11 +15,16 @@ import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
+import org.maproulette.models.BaseObject
+
 case class TaskReviewFields(
     reviewStatus: Option[Int] = None,
     reviewRequestedBy: Option[Long] = None,
     reviewedBy: Option[Long] = None,
     reviewedAt: Option[DateTime] = None,
+    metaReviewedBy: Option[Long] = None,
+    metaReviewStatus: Option[Int] = None,
+    metaReviewedAt: Option[DateTime] = None,
     reviewStartedAt: Option[DateTime] = None,
     reviewClaimedBy: Option[Long] = None,
     reviewClaimedAt: Option[DateTime] = None,
@@ -158,6 +163,20 @@ object Task extends CommonField {
         case Some(r) => Utils.insertIntoJson(updated, "reviewedAt", r, true)
         case None    => updated
       }
+      updated = o.review.metaReviewStatus match {
+        case Some(r) => {
+          Utils.insertIntoJson(updated, "metaReviewStatus", r, true)
+        }
+        case None => updated
+      }
+      updated = o.review.metaReviewedBy match {
+        case Some(r) => Utils.insertIntoJson(updated, "metaReviewedBy", r, true)
+        case None    => updated
+      }
+      updated = o.review.metaReviewedAt match {
+        case Some(r) => Utils.insertIntoJson(updated, "metaReviewedAt", r, true)
+        case None    => updated
+      }
       updated = o.review.reviewStartedAt match {
         case Some(r) => Utils.insertIntoJson(updated, "reviewStartedAt", r, true)
         case None    => updated
@@ -234,6 +253,9 @@ object Task extends CommonField {
   // For display purposes
   val REVIEW_STATUS_NOT_REQUESTED      = -1
   val REVIEW_STATUS_NOT_REQUESTED_NAME = ""
+
+  // For Meta Reviews
+  val META_REVIEW_STATUS_NOT_SET = -2 //Review status is set but meta-review is not
 
   val reviewStatusMap = Map(
     REVIEW_STATUS_NOT_REQUESTED -> REVIEW_STATUS_NOT_REQUESTED_NAME,

@@ -7,8 +7,8 @@ package org.maproulette.utils
 import org.apache.commons.lang3.{StringEscapeUtils, StringUtils}
 import org.joda.time.DateTime
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.User
-import org.maproulette.models.{Lock, Task}
+import org.maproulette.framework.model.{User, Task}
+import org.maproulette.models.Lock
 import play.api.libs.json._
 import play.api.mvc.Result
 import play.api.mvc.Results._

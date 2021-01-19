@@ -10,11 +10,9 @@ import anorm.{RowParser, ~}
 import org.joda.time.DateTime
 
 import org.maproulette.framework.service.ServiceManager
-import org.maproulette.framework.model.{TaskReview, TaskWithReview, User}
+import org.maproulette.framework.model.{TaskReview, TaskReviewFields, TaskWithReview, User, Task}
 
 import org.maproulette.utils.Utils
-import org.maproulette.models.Task
-import org.maproulette.models.{TaskReviewFields}
 
 /**
   * TaskParserMixin provides task parsers
@@ -29,6 +27,7 @@ trait TaskParserMixin {
       "ST_AsGeoJSON(tasks.location) AS geo_location " +
       ", task_review.review_status, task_review.review_requested_by, " +
       "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
+      "task_review.meta_reviewed_by, task_review.meta_review_status, task_review.meta_reviewed_at, " +
       "task_review.review_claimed_by, task_review.review_claimed_at, task_review.additional_reviewers "
 
   // The anorm row parser to convert records from the task table to task objects
@@ -56,6 +55,9 @@ trait TaskParserMixin {
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
+      get[Option[Long]]("task_review.meta_reviewed_by") ~
+      get[Option[Int]]("task_review.meta_review_status") ~
+      get[Option[DateTime]]("task_review.meta_reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Option[DateTime]]("task_review.review_claimed_at") ~
@@ -67,7 +69,8 @@ trait TaskParserMixin {
       get[Option[Boolean]]("tasks.is_bundle_primary") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
-            reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
+            reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ metaReviewedBy ~
+            metaReviewStatus ~ metaReviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
             reviewClaimedAt ~ additionalReviewers ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
         val values = updateAndRetrieve(id, geojson, location, cooperativeWork)
         Task(
@@ -89,6 +92,9 @@ trait TaskParserMixin {
             reviewRequestedBy,
             reviewedBy,
             reviewedAt,
+            metaReviewedBy = metaReviewedBy,
+            metaReviewStatus = metaReviewStatus,
+            metaReviewedAt,
             reviewStartedAt,
             reviewClaimedBy,
             reviewClaimedAt,
@@ -127,6 +133,9 @@ trait TaskParserMixin {
       get[Option[Long]]("task_review.review_requested_by") ~
       get[Option[Long]]("task_review.reviewed_by") ~
       get[Option[DateTime]]("task_review.reviewed_at") ~
+      get[Option[Long]]("task_review.meta_reviewed_by") ~
+      get[Option[Int]]("task_review.meta_review_status") ~
+      get[Option[DateTime]]("task_review.meta_reviewed_at") ~
       get[Option[DateTime]]("task_review.review_started_at") ~
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Option[DateTime]]("task_review.review_claimed_at") ~
@@ -141,7 +150,8 @@ trait TaskParserMixin {
       get[Option[String]]("responses") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
-            reviewedBy ~ reviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~
+            reviewedBy ~ reviewedAt ~ metaReviewedBy ~ metaReviewStatus ~ metaReviewedAt ~ reviewStartedAt ~
+            reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~
             priority ~ changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
             reviewedByUsername ~ responses =>
         val values = updateAndRetrieve(id, geojson, location, cooperativeWork)
@@ -165,6 +175,9 @@ trait TaskParserMixin {
               reviewRequestedBy,
               reviewedBy,
               reviewedAt,
+              metaReviewedBy,
+              metaReviewStatus,
+              metaReviewedAt,
               reviewStartedAt,
               reviewClaimedBy,
               reviewClaimedAt,
@@ -186,6 +199,9 @@ trait TaskParserMixin {
             reviewedBy,
             reviewedByUsername,
             reviewedAt,
+            metaReviewedBy,
+            metaReviewStatus,
+            metaReviewedAt,
             reviewStartedAt,
             additionalReviewers,
             reviewClaimedBy,

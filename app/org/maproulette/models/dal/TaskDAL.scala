@@ -18,14 +18,22 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data._
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Challenge, Project, StatusActions, User, GrantTarget}
+import org.maproulette.framework.model.{
+  Challenge,
+  Project,
+  StatusActions,
+  User,
+  GrantTarget,
+  Task,
+  Achievement
+}
 import org.maproulette.framework.psql.filter.{BaseParameter, SubQueryFilter}
 import org.maproulette.framework.psql.{Order, Paging, Query}
 import org.maproulette.framework.repository.{ProjectRepository, TaskRepository}
 import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.framework.mixins.TaskParserMixin
 import org.maproulette.models._
-import org.maproulette.models.dal.mixin.{Locking, SearchParametersMixin, TagDALMixin}
+import org.maproulette.models.dal.mixin.{SearchParametersMixin, TagDALMixin}
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.SearchParameters
@@ -43,6 +51,9 @@ import scala.util.control.Exception.allCatch
 import scala.util.{Failure, Success, Try}
 import scala.xml.XML
 
+import org.maproulette.framework.mixins.Locking
+import org.maproulette.framework.repository.RepositoryMixin
+
 /**
   * The data access layer for the Task objects
   *
@@ -59,7 +70,8 @@ class TaskDAL @Inject() (
     dalManager: Provider[DALManager],
     webSocketProvider: WebSocketProvider,
     ws: WSClient
-) extends BaseDAL[Long, Task]
+) extends RepositoryMixin
+    with BaseDAL[Long, Task]
     with TagDALMixin[Task]
     with Locking[Task]
     with SearchParametersMixin
@@ -74,6 +86,8 @@ class TaskDAL @Inject() (
 
   // The database table name for the tasks
   override val tableName: String = "tasks"
+  implicit val baseTable: String = tableName
+
   // The columns to be retrieved for the task. Reason this is required is because one of the columns
   // "tasks.location" is a PostGIS object in the database and we want it returned in GeoJSON instead
   // so the ST_AsGeoJSON function is used to convert it to geoJSON
@@ -267,7 +281,7 @@ class TaskDAL @Inject() (
           // task could end up with a different status than other tasks
           // in that bundle.
           if (cachedItem.status != t.status && t.bundleId != None) {
-            this.manager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
+            this.serviceManager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
           }
 
           // Get the latest task data and notify clients of the update
@@ -641,7 +655,7 @@ class TaskDAL @Inject() (
               SQL"""INSERT INTO task_review_history
                                  (task_id, requested_by, reviewed_by, review_status, reviewed_at, review_started_at)
                      VALUES (${task.id}, ${user.id}, ${task.review.reviewedBy},
-                             ${Task.REVIEW_STATUS_REQUESTED}, ${Instant.now()},
+                             ${Task.REVIEW_STATUS_REQUESTED}, NOW(),
                              ${task.review.reviewStartedAt})""".executeUpdate()
 
               // Create notification only if task has reviewer
@@ -689,8 +703,8 @@ class TaskDAL @Inject() (
 
           if (reviewNeeded) {
             // Let's note in the task_review_history table that this task needs review
-            SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status)
-                  VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED})"""
+            SQL"""INSERT INTO task_review_history (task_id, requested_by, review_status, reviewed_at)
+                  VALUES (${task.id}, ${user.id}, ${Task.REVIEW_STATUS_REQUESTED}, NOW())"""
               .executeUpdate()
 
             this.cacheManager.withOptionCaching { () =>
@@ -786,6 +800,10 @@ class TaskDAL @Inject() (
     }
 
     this.manager.challenge.updateFinishedStatus()(primaryTask.parent)
+
+    Future {
+      this.serviceManager.achievement.awardTaskCompletionAchievements(user, primaryTask, status)
+    }
 
     if (reviewNeeded) {
       webSocketProvider.sendMessage(

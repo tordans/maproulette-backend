@@ -9,8 +9,8 @@ import org.joda.time.DateTime
 import org.maproulette.data.{ChallengeType, ItemType}
 import org.maproulette.exception.InvalidException
 import org.maproulette.framework.psql.CommonField
-import org.maproulette.framework.model.Identifiable
-import org.maproulette.models.{BaseObject, Task}
+import org.maproulette.framework.model.{Identifiable, Task}
+import org.maproulette.models.BaseObject
 import org.maproulette.models.utils.{ChallengeReads, ChallengeWrites}
 import play.api.libs.json._
 import org.maproulette.utils.Utils
@@ -267,6 +267,7 @@ object Challenge extends CommonField {
   val FIELD_PARENT_ID = "parent_id"
   val FIELD_ENABLED   = "enabled"
   val FIELD_STATUS    = "status"
+  val FIELD_DELETED   = "deleted"
 
   /**
     * This will check to make sure that the rule string is fully valid.

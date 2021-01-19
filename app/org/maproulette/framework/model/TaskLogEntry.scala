@@ -2,7 +2,7 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.models
+package org.maproulette.framework.model
 
 import org.joda.time.DateTime
 import play.api.libs.json.{DefaultWrites, Json, Reads, Writes}
@@ -36,4 +36,5 @@ object TaskLogEntry {
   val ACTION_STATUS_CHANGE = 1
   val ACTION_REVIEW        = 2
   val ACTION_UPDATE        = 3
+  val ACTION_META_REVIEW   = 4
 }

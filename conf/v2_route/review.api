@@ -8,7 +8,7 @@
 #     description: The task
 #     schema:
 #       type: object
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -25,7 +25,7 @@ GET     /task/:id/review/start                       @org.maproulette.framework.
 #     description: The task
 #     schema:
 #       type: object
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -44,7 +44,7 @@ GET     /task/:id/review/cancel                       @org.maproulette.framework
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: onlySaved
 #     in: query
@@ -92,7 +92,7 @@ GET     /tasks/review                          @org.maproulette.framework.contro
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: startDate
 #     in: query
@@ -129,8 +129,11 @@ GET     /tasks/review                          @org.maproulette.framework.contro
 #   - name: includeTags
 #     in: query
 #     description: In response include list of tags for each task
+#   - name: asMetaReview
+#     in: query
+#     description: Limit response to include tasks ready for meta review (already review approved/assisted)
 ###
-GET     /tasks/reviewed                          @org.maproulette.framework.controller.TaskReviewController.getReviewedTasks(allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", includeTags:Boolean ?= false)
+GET     /tasks/reviewed                          @org.maproulette.framework.controller.TaskReviewController.getReviewedTasks(allowReviewNeeded:Boolean ?= false, limit:Int ?= 10, page:Int ?= 0, sort:String ?= "", order:String ?= "ASC", includeTags:Boolean ?= false, asMetaReview: Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves and claims a the next review needed Task
@@ -141,7 +144,7 @@ GET     /tasks/reviewed                          @org.maproulette.framework.cont
 #     description: The task
 #     schema:
 #       type: object
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: onlySaved
 #     in: query
@@ -158,6 +161,9 @@ GET     /tasks/reviewed                          @org.maproulette.framework.cont
 #   - name: lastTaskId
 #     in: query
 #     description: Fetch the next task after the lastTaskId. (so if you want to 'skip' a task you can get the next one)
+#   - name: asMetaReview
+#     in: query
+#     description: Fetch the next task for a meta review.
 #   - name: cs
 #     in: query
 #     description: The search string used to match the Challenge names. Default value is empty string, ie. will match all challenges.
@@ -168,7 +174,7 @@ GET     /tasks/reviewed                          @org.maproulette.framework.cont
 #     in: query
 #     description: The search string used to match the Reviewer names. (reviewed_by)
 ###
-GET     /tasks/review/next                       @org.maproulette.framework.controller.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastTaskId:Long ?= -1, excludeOtherReviewers:Boolean ?= false)
+GET     /tasks/review/next                       @org.maproulette.framework.controller.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastTaskId:Long ?= -1, excludeOtherReviewers:Boolean ?= false, asMetaReview: Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves nearby Tasks
@@ -181,7 +187,7 @@ GET     /tasks/review/next                       @org.maproulette.framework.cont
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: limit
 #     in: query
@@ -209,7 +215,7 @@ GET     /tasks/review/nearby/:proximityId           @org.maproulette.framework.c
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: reviewTasksType
 #     in: query
@@ -255,7 +261,7 @@ GET     /tasks/review/metrics                          @org.maproulette.framewor
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.TaskCluster'
+#         $ref: '#/definitions/org.maproulette.framework.model.TaskCluster'
 # parameters:
 #   - name: reviewTasksType
 #     in: query
@@ -305,6 +311,31 @@ GET     /taskCluster/review                                @org.maproulette.fram
 #     description: Only show challenges that have been saved.
 ###
 GET     /tasks/review/mappers/export                          @org.maproulette.framework.controller.TaskReviewMetricsController.extractMapperMetrics(onlySaved:Boolean ?= false)
+###
+# tags: [ Review ]
+# summary: Retrieve a summary of meta-review coverage for reviewers
+# description: This will retrieve a summary of meta-review coverage for each reviewer and respond with a csv
+# response:
+#   '200':
+#     description: A CSV file containing the following data "Reviewer,Re-ReviewNeeded,Approved,Rejected,ApprovedWithFixes,Total"
+# parameters:
+#   - name: reviewers
+#     in: query
+#     description: the reviewer ids to search by (reviewed_by)
+#   - name: priorities
+#     in: query
+#     description: the priorities to search by
+#   - name: startDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed after this date (format 'YYYY-MM-DD')
+#   - name: endDate
+#     in: query
+#     description: Whether results should be tasks that have been reviewed before this date (format 'YYYY-MM-DD')
+#   - name: onlySaved
+#     in: query
+#     description: Only show challenges that have been saved.
+###
+GET     /tasks/metareview/reviewers/export                          @org.maproulette.framework.controller.TaskReviewMetricsController.extractMetaReviewCoverage(onlySaved:Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves metrics grouped by tag

@@ -19,14 +19,10 @@ import org.maproulette.framework.repository.{
 }
 import org.maproulette.framework.mixins.ReviewSearchMixin
 import org.maproulette.exception.InvalidException
-import org.maproulette.session.SearchParameters
+import org.maproulette.session.{SearchParameters, SearchReviewParameters}
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.data.ChallengeType
-
-// deprecated and will be removed as they are converted
-import org.maproulette.models.{Task, TaskCluster}
-import org.maproulette.models.dal.TaskBundleDAL
 
 /**
   * Service layer for TaskReview
@@ -37,7 +33,6 @@ import org.maproulette.models.dal.TaskBundleDAL
 class TaskReviewService @Inject() (
     repository: TaskReviewRepository,
     serviceManager: ServiceManager,
-    taskBundleDAL: TaskBundleDAL,
     taskRepository: TaskRepository,
     taskClusterRepository: TaskClusterRepository,
     permission: Permission,
@@ -71,7 +66,7 @@ class TaskReviewService @Inject() (
     if (primaryTask.isBundlePrimary.getOrElse(false)) {
       primaryTask.bundleId match {
         case Some(bId) =>
-          this.taskBundleDAL.getTaskBundle(user, bId).tasks match {
+          this.serviceManager.taskBundle.getTaskBundle(user, bId).tasks match {
             case Some(tList) =>
               taskList = tList
             case None => // do nothing -- just use our current task
@@ -146,12 +141,15 @@ class TaskReviewService @Inject() (
       sort: String,
       order: String,
       lastTaskId: Option[Long] = None,
-      excludeOtherReviewers: Boolean = false
+      excludeOtherReviewers: Boolean = false,
+      asMetaReview: Boolean = false
   ): Option[Task] = {
     // If User is not a reviewer, then there is no next task to review
     if (!user.settings.isReviewer.getOrElse(false) && !permission.isSuperUser(user)) {
       return None
     }
+
+    val params = copyParamsForMetaReview(asMetaReview, searchParameters)
 
     val position = lastTaskId match {
       case Some(taskId) => {
@@ -159,15 +157,17 @@ class TaskReviewService @Inject() (
         val rowMap = this.repository.queryTasksWithRowNumber(
           getReviewRequestedQueries(
             user,
-            searchParameters,
+            params,
             onlySaved,
             Paging(-1, 0),
             sort,
             order,
             false,
-            excludeOtherReviewers
+            excludeOtherReviewers,
+            asMetaReview
           )
         )
+        rowMap.get(taskId)
 
         // If our task id is in the row map, we have a position for it
         rowMap.get(taskId) match {
@@ -182,13 +182,14 @@ class TaskReviewService @Inject() (
       .queryTasks(
         getReviewRequestedQueries(
           user,
-          searchParameters,
+          params,
           onlySaved,
           Paging(1, position),
           sort,
           order,
           false,
-          excludeOtherReviewers
+          excludeOtherReviewers,
+          asMetaReview
         )
       )
       .headOption
@@ -229,7 +230,8 @@ class TaskReviewService @Inject() (
         sort,
         order,
         includeDisputed,
-        excludeOtherReviewers
+        excludeOtherReviewers,
+        false
       )
 
     (this.repository.queryTaskCount(query), this.repository.queryTasks(query))
@@ -272,6 +274,7 @@ class TaskReviewService @Inject() (
     )
 
     query = addClaimedByFilter(query, user.id)
+    query = addLockedFilter(query)
     query = query.addFilterGroup(
       FilterGroup(
         List(
@@ -280,12 +283,6 @@ class TaskReviewService @Inject() (
             proximityId,
             Operator.NE,
             table = Some("tasks")
-          ),
-          BaseParameter(
-            "id",
-            "",
-            Operator.NULL,
-            table = Some("l")
           )
         )
       )
@@ -312,20 +309,30 @@ class TaskReviewService @Inject() (
       limit: Int = -1,
       offset: Int = 0,
       sort: String,
-      order: String
+      order: String,
+      asMetaReview: Boolean = false
   ): (Int, List[Task]) = {
     // If User is not a reviewer, then there is no next task to review
     if (!user.settings.isReviewer.getOrElse(false) && !permission.isSuperUser(user)) {
       return (0, List[Task]())
     }
 
+    // If this is as meta review than we need to limit by task review status to those
+    // tasks that have all ready been review approved.
+    val params = copyParamsForMetaReview(asMetaReview, searchParameters)
+
     var query = setupReviewSearchClause(
       Query.simple(List(), order = buildOrdering(sort, order), paging = Paging(limit, offset)),
       user,
       permission,
-      searchParameters,
+      params,
       if (allowReviewNeeded) ALL_REVIEWED_TASKS else MY_REVIEWED_TASKS
     )
+
+    if (asMetaReview) {
+      query = addClaimedByFilter(query, user.id)
+    }
+    query = addLockedFilter(query)
 
     (this.repository.queryTaskCount(query), this.repository.queryTasks(query))
   }
@@ -343,11 +350,13 @@ class TaskReviewService @Inject() (
   def getReviewTaskClusters(
       user: User,
       reviewTasksType: Int,
-      params: SearchParameters,
+      searchParameters: SearchParameters,
       numberOfPoints: Int = this.taskClusterRepository.DEFAULT_NUMBER_OF_POINTS,
       onlySaved: Boolean = false,
       excludeOtherReviewers: Boolean = false
   ): List[TaskCluster] = {
+    val params = copyParamsForMetaReview(reviewTasksType == META_REVIEW_TASKS, searchParameters)
+
     var query = setupReviewSearchClause(
       Query.simple(List()),
       user,
@@ -358,6 +367,11 @@ class TaskReviewService @Inject() (
       onlySaved,
       excludeOtherReviewers
     )
+
+    if (reviewTasksType == META_REVIEW_TASKS) {
+      query = addClaimedByFilter(query, user.id)
+      query = addLockedFilter(query)
+    }
 
     val reviewField = reviewTasksType match {
       case MY_REVIEWED_TASKS    => TaskReview.FIELD_REVIEW_REQUESTED_BY
@@ -421,6 +435,12 @@ class TaskReviewService @Inject() (
     val needsReReview = (task.review.reviewStatus.getOrElse(-1) != Task.REVIEW_STATUS_REQUESTED &&
       reviewStatus == Task.REVIEW_STATUS_REQUESTED) || isDisputed
 
+    // We need to mark this task as needing to be meta reviewed again if
+    // the initial meta review was rejected and this review doesn't need a re-review first
+    val needsMetaReviewAgain = task.review.metaReviewStatus
+      .getOrElse(-1) == Task.REVIEW_STATUS_REJECTED &&
+      !needsReReview
+
     var reviewedBy          = task.review.reviewedBy
     var reviewRequestedBy   = task.review.reviewRequestedBy
     var additionalReviewers = task.review.additionalReviewers
@@ -464,7 +484,8 @@ class TaskReviewService @Inject() (
       reviewStatus,
       fetchBy,
       fetchByUser,
-      additionalReviewers
+      additionalReviewers,
+      if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED) else None
     )
 
     webSocketProvider.sendMessage(
@@ -515,13 +536,28 @@ class TaskReviewService @Inject() (
           )
 
           if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
-            this.serviceManager.notification.createReviewNotification(
-              user,
-              task.review.reviewRequestedBy.getOrElse(-1),
-              reviewStatus,
-              task,
-              comment
-            )
+            // Only if the review status changes should we send a message
+            if (task.review.reviewStatus.get != reviewStatus) {
+              this.serviceManager.notification.createReviewNotification(
+                user,
+                task.review.reviewRequestedBy.getOrElse(-1),
+                reviewStatus,
+                task,
+                comment
+              )
+            }
+
+            if (needsMetaReviewAgain) {
+              // Let the meta reviewer know that they need to meta review this task again
+              this.serviceManager.notification.createReviewRevisedNotification(
+                user,
+                task.review.metaReviewedBy.get,
+                Task.REVIEW_STATUS_REQUESTED,
+                task,
+                comment,
+                true
+              )
+            }
 
             // Let's let the original reviewer know that the review status
             // has been changed.
@@ -555,7 +591,12 @@ class TaskReviewService @Inject() (
           reviewStatus = Some(reviewStatus),
           reviewRequestedBy = reviewRequestedBy,
           reviewedBy = reviewedBy,
-          reviewedAt = Some(new DateTime())
+          reviewedAt = Some(new DateTime()),
+          reviewClaimedBy = None,
+          reviewClaimedAt = None,
+          metaReviewStatus =
+            if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED)
+            else task.review.metaReviewStatus
         )
         )
       )
@@ -610,6 +651,158 @@ class TaskReviewService @Inject() (
       }
     }
 
+    if (reviewStatus == Task.REVIEW_STATUS_APPROVED ||
+        reviewStatus == Task.REVIEW_STATUS_REJECTED ||
+        reviewStatus == Task.REVIEW_STATUS_ASSISTED) {
+      this.serviceManager.achievement.awardTaskReviewAchievements(user, task, reviewStatus)
+    }
+
+    updatedRows
+  }
+
+  /**
+    * Sets the Meta Review Status
+    *
+    * @param task         The task to set the status for
+    * @param reviewStatus The review status to set
+    * @param user         The user setting the meta review status
+    * @return The number of rows updated, should only ever be 1
+    */
+  def setMetaReviewStatus(
+      task: Task,
+      reviewStatus: Int,
+      user: User,
+      actionId: Option[Long],
+      commentContent: String = ""
+  ): Int = {
+    if (task.review.reviewStatus == None) {
+      // A meta reviewer cannot review a task that has not been reviewed yet.
+      throw new InvalidException(
+        "Unable to set meta review status on a task that has not been reviewed." +
+          "meta reviewer has not initially reviewed this task yet."
+      )
+    }
+    // 1. The meta reviewer must be a reviewer to set the meta review status.
+    // 2. Reviewer cannot meta review their own reviews
+    // 3. Reviewer may set meta review status back to 'requested'
+    // 4. Super users can do anuything
+    // 5. Only challenge admins can mark meta review status as unnecessary
+    if (!permission.isSuperUser(user)) {
+      if (!user.settings.isReviewer.get) {
+        throw new IllegalAccessException(
+          "User must be a reviewer to change meta task review status."
+        )
+      }
+
+      if (reviewStatus == Task.REVIEW_STATUS_DISPUTED) {
+        // Disputed is not supported as a valid meta review status
+        throw new InvalidException("Disputed is not supported as a valid meta review status.")
+      }
+      if (reviewStatus == Task.REVIEW_STATUS_UNNECESSARY) {
+        // Only challenge admins can set status to unnecessary
+        this.permission.hasWriteAccess(ChallengeType(), user)(task.parent)
+      } else if (reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
+        if (task.review.reviewedBy.getOrElse(-1) != user.id) {
+          throw new IllegalAccessException(
+            "Only the original reviewer can request another meta-review on this task."
+          )
+        } else if (task.review.metaReviewedBy == None) {
+          // A meta reviewer must have already completed a review to request a meta review again
+          throw new InvalidException(
+            "Unable to set meta review status to 'requested' as a " +
+              "meta reviewer has not initially reviewed this task yet."
+          )
+        }
+      } else {
+        // cannot not meta review your own work
+        if (task.review.reviewedBy.getOrElse(-1) == user.id) {
+          throw new IllegalAccessException(
+            "Reviewers cannot change the meta-review status on a task they reviewed."
+          )
+        }
+      }
+    }
+
+    // Make sure we have an updated claimed at time.
+    val reviewClaimedAt = this.getTaskWithReview(task.id).task.review.reviewClaimedAt
+
+    val metaReviewer = task.review.metaReviewedBy match {
+      case Some(m) => m
+      case None    => user.id
+    }
+
+    // Update the meta_review_by and meta_review_status column on the task_review
+    val updatedRows = this.repository.updateTaskReview(
+      user,
+      task,
+      task.review.reviewStatus.get,
+      "meta_reviewed_by",
+      metaReviewer,
+      task.review.additionalReviewers,
+      Some(reviewStatus)
+    )
+
+    // Notify the Task Review has been updated
+    webSocketProvider.sendMessage(
+      WebSocketMessages.reviewUpdate(
+        WebSocketMessages.ReviewData(this.getTaskWithReview(task.id))
+      )
+    )
+
+    val comment = commentContent.nonEmpty match {
+      case true =>
+        Some(this.serviceManager.comment.create(user, task.id, commentContent, actionId))
+      case false => None
+    }
+
+    // Don't send a notification for every task in a task bundle, only the
+    // primary task
+    if (task.bundleId.isEmpty || task.isBundlePrimary.getOrElse(false)) {
+      // Let's note in the task_review_history table that this task was meta reviewed (or requested)
+      this.repository.insertMetaTaskReviewHistory(
+        task,
+        if (metaReviewer != user.id) Some(task.review.reviewedBy.get) else None,
+        metaReviewer,
+        reviewStatus,
+        reviewClaimedAt.getOrElse(null)
+      )
+
+      if (reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
+        // Let the meta reviewer know that they need to meta review this task again
+        this.serviceManager.notification.createReviewRevisedNotification(
+          user,
+          metaReviewer,
+          reviewStatus,
+          task,
+          comment,
+          true
+        )
+      } else if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
+        // Let reviewer know their task has been meta reviewed
+        this.serviceManager.notification.createReviewNotification(
+          user,
+          task.review.reviewedBy.getOrElse(-1),
+          reviewStatus,
+          task,
+          comment,
+          true
+        )
+      }
+    }
+
+    this.taskRepository.cacheManager.withOptionCaching { () =>
+      Some(
+        task.copy(review = task.review.copy(
+          metaReviewStatus = Some(reviewStatus),
+          metaReviewedBy = Some(metaReviewer),
+          reviewedAt = Some(new DateTime()),
+          reviewClaimedAt = None,
+          reviewClaimedBy = None
+        )
+        )
+      )
+    }
+
     updatedRows
   }
 
@@ -642,21 +835,26 @@ class TaskReviewService @Inject() (
       sort: String,
       order: String,
       includeDisputed: Boolean = true,
-      excludeOtherReviewers: Boolean = false
+      excludeOtherReviewers: Boolean = false,
+      asMetaReview: Boolean = false
   ): Query = {
 
     val query = this.setupReviewSearchClause(
-      Query.simple(List(), order = this.buildOrdering(sort, order), paging = paging),
+      Query.simple(
+        List(),
+        order = this.buildOrdering(if (sort == "name") "tasks.name" else sort, order),
+        paging = paging
+      ),
       user,
       permission,
       searchParameters,
-      REVIEW_REQUESTED_TASKS,
+      if (asMetaReview) META_REVIEW_TASKS else REVIEW_REQUESTED_TASKS,
       includeDisputed,
       onlySaved,
       excludeOtherReviewers
     )
 
-    addClaimedByFilter(query, user.id)
+    addLockedFilter(addClaimedByFilter(query, user.id))
   }
 
   private def addClaimedByFilter(query: Query, userId: Long): Query = {
@@ -679,6 +877,21 @@ class TaskReviewService @Inject() (
           )
         ),
         OR()
+      )
+    )
+  }
+
+  private def addLockedFilter(query: Query): Query = {
+    query.addFilterGroup(
+      FilterGroup(
+        List(
+          BaseParameter(
+            "id",
+            "",
+            Operator.NULL,
+            table = Some("l")
+          )
+        )
       )
     )
   }

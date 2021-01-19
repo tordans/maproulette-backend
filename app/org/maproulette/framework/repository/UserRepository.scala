@@ -19,7 +19,6 @@ import org.maproulette.framework.model._
 import org.maproulette.framework.service.{ServiceManager, GrantService}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Grouping, Query, SQLUtils}
-import org.maproulette.models.Task
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
 import play.api.libs.oauth.RequestToken
@@ -84,7 +83,7 @@ class UserRepository @Inject() (
   def query(query: Query)(implicit c: Option[Connection] = None): List[User] = {
     this.withMRTransaction { implicit c =>
       query
-        .build(s"""SELECT ${UserRepository.standardColumns}, score FROM users
+        .build(s"""SELECT ${UserRepository.standardColumns}, score, achievements FROM users
                       LEFT JOIN user_metrics ON users.id = user_metrics.user_id""")
         .as(this.parser().*)
     }
@@ -114,7 +113,8 @@ class UserRepository @Inject() (
                                           needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, allow_following = {allowFollowing},
                                           properties = {properties}
                         WHERE id = {id} RETURNING ${UserRepository.standardColumns},
-                        (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score"""
+                        (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score,
+                        (SELECT achievements FROM user_metrics um WHERE um.user_id = ${user.id}) as achievements"""
       SQL(query)
         .on(
           Symbol("name")              -> user.osmProfile.displayName,
@@ -156,7 +156,8 @@ class UserRepository @Inject() (
       val query =
         s"""UPDATE users SET api_key = {apiKey} WHERE id = {id}
                         RETURNING ${UserRepository.standardColumns},
-                        (SELECT score FROM user_metrics um WHERE um.user_id = {id}) as score"""
+                        (SELECT score FROM user_metrics um WHERE um.user_id = {id}) as score,
+                        (SELECT achievements FROM user_metrics um WHERE um.user_id = {id}) as achievements"""
       SQL(query)
         .on(Symbol("apiKey") -> apiKey, Symbol("id") -> id)
         .as(this.parser().*)
@@ -227,10 +228,7 @@ class UserRepository @Inject() (
     } else {
       this.withMRTransaction { implicit c =>
         // We need to make sure the user is in the database first.
-        SQL("""INSERT INTO user_metrics (user_id, score, total_fixed, total_false_positive,
-                total_already_fixed, total_too_hard, total_skipped)
-                VALUES ({uid}, 0, 0, 0, 0, 0, 0)
-                ON CONFLICT (user_id) DO NOTHING""").on(Symbol("uid") -> userId).executeUpdate()
+        ensureUserMetrics(userId)
 
         val updateString = updates.map(update => update.sql()).mkString(",")
         val updateScoreQuery =
@@ -296,6 +294,29 @@ class UserRepository @Inject() (
   }
 
   /**
+    * Add the given achievements to the user's metrics. Only new achievements
+    * not already possessed by the user will be added
+    *
+    * @param userId       The id of the user who is to receive the achievements
+    * @param achievements List of the achievements to award to the user
+    */
+  def addAchievements(userId: Long, achievements: List[Int])(
+      implicit c: Option[Connection] = None
+  ) = {
+    this.withMRTransaction { implicit c =>
+      // We need to make sure the user is in the database first
+      ensureUserMetrics(userId)
+
+      val achievementArray = s"'{${achievements.mkString(",")}}'::int[]"
+      SQL"""
+        UPDATE user_metrics
+        SET achievements=array_distinct(achievements || #$achievementArray)
+        WHERE user_id = ${userId}
+      """.executeUpdate()
+    }
+  }
+
+  /**
     * Assigns a group id to a group column on a user, returning the updated User
     *
     * @param groupColumn The name of the group column to set
@@ -307,7 +328,8 @@ class UserRepository @Inject() (
       val query =
         s"""UPDATE users SET ${groupColumn} = {groupId} WHERE id = {userId}
             RETURNING ${UserRepository.standardColumns},
-            (SELECT score FROM user_metrics um WHERE um.user_id = {userId}) as score"""
+            (SELECT score FROM user_metrics um WHERE um.user_id = {userId}) as score,
+            (SELECT achievements FROM user_metrics um WHERE um.user_id = {userId}) as achievements"""
       SQL(query)
         .on(
           Symbol("groupId") -> groupId,
@@ -381,6 +403,18 @@ class UserRepository @Inject() (
           }
         case None => // no custom basemaps
       }
+    }
+  }
+
+  /**
+    * Ensure a row exists in the user_metrics table for the user
+    */
+  private def ensureUserMetrics(userId: Long) = {
+    this.withMRTransaction { implicit c =>
+      SQL("""INSERT INTO user_metrics (user_id, score, total_fixed, total_false_positive,
+              total_already_fixed, total_too_hard, total_skipped)
+              VALUES ({uid}, 0, 0, 0, 0, 0, 0)
+              ON CONFLICT (user_id) DO NOTHING""").on(Symbol("uid") -> userId).executeUpdate()
     }
   }
 }
@@ -478,6 +512,7 @@ object UserRepository {
       get[Option[Int]]("users.theme") ~
       get[Option[String]]("properties") ~
       get[Option[Int]]("score") ~
+      get[List[Int]]("achievements").? ~
       get[Option[Boolean]]("users.allow_following") ~
       get[Option[Long]]("users.following_group") ~
       get[Option[Long]]("users.followers_group") map {
@@ -485,7 +520,7 @@ object UserRepository {
             homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
             defaultBasemapId ~ customBasemapList ~
             email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
-            properties ~ score ~ allowFollowing ~ followingGroupId ~ followersGroupId =>
+            properties ~ score ~ achievements ~ allowFollowing ~ followingGroupId ~ followersGroupId =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None      => new GeometryFactory().createPoint(new Coordinate(0, 0))
@@ -535,7 +570,8 @@ object UserRepository {
           properties,
           score,
           followingGroupId,
-          followersGroupId
+          followersGroupId,
+          achievements
         )
     }
   }

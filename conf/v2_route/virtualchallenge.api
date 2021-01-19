@@ -167,7 +167,7 @@ GET     /virtualchallenges                              @org.maproulette.control
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: id
 #     in: path
@@ -189,7 +189,7 @@ GET     /virtualchallenge/:id/tasks                     @org.maproulette.control
 #   '200':
 #     description: The task if any is found
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -208,7 +208,7 @@ GET     /virtualchallenge/:cid/task                 @org.maproulette.controllers
 #   '200':
 #     description: The next task in the list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -227,7 +227,7 @@ GET     /virtualchallenge/:cid/nextTask/:id         @org.maproulette.controllers
 #   '200':
 #     description: The previous task in the list
 #     schema:
-#       $ref: '#/definitions/org.maproulette.models.Task'
+#       $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: cid
 #     in: path
@@ -269,7 +269,7 @@ GET     /virtualchallenge/view/:id                  @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.ClusteredPoint'
+#         $ref: '#/definitions/org.maproulette.framework.model.ClusteredPoint'
 # parameters:
 #   - name: id
 #     in: path
@@ -291,7 +291,7 @@ GET     /virtualchallenge/clustered/:id             @org.maproulette.controllers
 #       type: array
 #       items:
 #         type: object
-#         $ref: '#/definitions/org.maproulette.models.Task'
+#         $ref: '#/definitions/org.maproulette.framework.model.Task'
 # parameters:
 #   - name: limit
 #     in: query

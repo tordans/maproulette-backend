@@ -10,7 +10,6 @@ import java.util.UUID
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
 import org.maproulette.framework.service.ServiceManager
-import org.maproulette.models.Task
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import org.maproulette.permissions.Permission
 import org.scalatest.{BeforeAndAfterAll, Tag}

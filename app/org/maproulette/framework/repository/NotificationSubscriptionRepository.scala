@@ -76,12 +76,15 @@ class NotificationSubscriptionRepository @Inject() (
       SQL(
         """
         |INSERT INTO user_notification_subscriptions (user_id, system, mention, review_approved,
-        |                                             review_rejected, review_again, challenge_completed)
-        |VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain}, {challengeCompleted})
+        |                                             review_rejected, review_again, challenge_completed,
+        |                                             meta_review)
+        |VALUES({userId}, {system}, {mention}, {reviewApproved}, {reviewRejected}, {reviewAgain},
+        |       {challengeCompleted}, {metaReview})
         |ON CONFLICT (user_id) DO
         |UPDATE SET system=EXCLUDED.system, mention=EXCLUDED.mention,
         |           review_approved=EXCLUDED.review_approved, review_rejected=EXCLUDED.review_rejected,
-        |           review_again=EXCLUDED.review_again, challenge_completed=EXCLUDED.challenge_completed
+        |           review_again=EXCLUDED.review_again, challenge_completed=EXCLUDED.challenge_completed,
+        |           meta_review=EXCLUDED.meta_review
         """.stripMargin
       ).on(
           Symbol("userId")             -> userId,
@@ -90,7 +93,8 @@ class NotificationSubscriptionRepository @Inject() (
           Symbol("reviewApproved")     -> subscriptions.reviewApproved,
           Symbol("reviewRejected")     -> subscriptions.reviewRejected,
           Symbol("reviewAgain")        -> subscriptions.reviewAgain,
-          Symbol("challengeCompleted") -> subscriptions.challengeCompleted
+          Symbol("challengeCompleted") -> subscriptions.challengeCompleted,
+          Symbol("metaReview")         -> subscriptions.metaReview
         )
         .executeUpdate()
     }
@@ -109,9 +113,10 @@ object NotificationSubscriptionRepository {
       get[Int]("review_again") ~
       get[Int]("challenge_completed") ~
       get[Int]("team") ~
-      get[Int]("follow") map {
+      get[Int]("follow") ~
+      get[Int]("meta_review") map {
       case id ~ userId ~ system ~ mention ~ reviewApproved ~ reviewRejected ~ reviewAgain ~
-            challengeCompleted ~ team ~ follow =>
+            challengeCompleted ~ team ~ follow ~ metaReview =>
         NotificationSubscriptions(
           id,
           userId,
@@ -122,7 +127,8 @@ object NotificationSubscriptionRepository {
           reviewAgain,
           challengeCompleted,
           team,
-          follow
+          follow,
+          metaReview
         )
     }
   }

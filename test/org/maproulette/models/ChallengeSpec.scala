@@ -5,7 +5,7 @@
 
 package org.maproulette.models
 
-import org.maproulette.framework.model.PriorityRule
+import org.maproulette.framework.model.{PriorityRule, Task}
 import org.scalatestplus.play.PlaySpec
 import org.joda.time.DateTime
 

@@ -8,8 +8,7 @@ import play.api.libs.json._
 import akka.actor._
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, Unsubscribe}
-import org.maproulette.framework.model.{Challenge, TaskReview, TaskWithReview}
-import org.maproulette.models.Task
+import org.maproulette.framework.model.{Challenge, TaskReview, TaskWithReview, Task}
 
 /**
   * WebSocketActors are responsible for bi-directional communication with client
@@ -44,6 +43,8 @@ class WebSocketActor(out: ActorRef) extends Actor {
   implicit val pongMessageWrites                  = WebSocketMessages.pongMessageWrites
   implicit val notificationDataWrites             = WebSocketMessages.notificationDataWrites
   implicit val notificationMessageWrites          = WebSocketMessages.notificationMessageWrites
+  implicit val achievementDataWrites              = WebSocketMessages.achievementDataWrites
+  implicit val achievementMessageWrites           = WebSocketMessages.achievementMessageWrites
   implicit val reviewDataWrites                   = WebSocketMessages.reviewDataWrites
   implicit val reviewMessageWrites                = WebSocketMessages.reviewMessageWrites
   implicit val taskWithReviewWrites               = TaskWithReview.taskWithReviewWrites
@@ -57,6 +58,8 @@ class WebSocketActor(out: ActorRef) extends Actor {
 
   def receive = {
     case serverMessage: WebSocketMessages.NotificationMessage =>
+      out ! Json.toJson(serverMessage)
+    case serverMessage: WebSocketMessages.AchievementMessage =>
       out ! Json.toJson(serverMessage)
     case serverMessage: WebSocketMessages.ReviewMessage =>
       out ! Json.toJson(serverMessage)

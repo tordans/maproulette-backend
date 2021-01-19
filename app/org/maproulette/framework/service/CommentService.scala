@@ -10,12 +10,11 @@ import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Comment, User, VirtualProject}
+import org.maproulette.framework.model.{Comment, User, VirtualProject, Task, TaskBundle}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
-import org.maproulette.models.TaskBundle
-import org.maproulette.models.dal.{TaskBundleDAL, TaskDAL}
+import org.maproulette.models.dal.TaskDAL
 import org.maproulette.permissions.Permission
 
 /**
@@ -30,8 +29,7 @@ class CommentService @Inject() (
     repository: CommentRepository,
     serviceManager: ServiceManager,
     permission: Permission,
-    taskDAL: TaskDAL,
-    taskBundleDAL: TaskBundleDAL
+    taskDAL: TaskDAL
 ) extends ServiceMixin[Comment] {
 
   /**
@@ -107,7 +105,7 @@ class CommentService @Inject() (
       comment: String,
       actionId: Option[Long]
   ): TaskBundle = {
-    val bundle = this.taskBundleDAL.getTaskBundle(user, bundleId)
+    val bundle = this.serviceManager.taskBundle.getTaskBundle(user, bundleId)
     val tasks = bundle.tasks match {
       case Some(t) => t
       case None    => throw new InvalidException("No tasks found in this bundle.")

@@ -14,15 +14,19 @@ import org.maproulette.Config
 import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, TaskType, VirtualChallengeType}
 import org.maproulette.exception.InvalidException
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, ClusteredPoint, Point, PointReview, Task}
+import org.maproulette.framework.psql.Paging
 import org.maproulette.models._
-import org.maproulette.models.dal.mixin.Locking
 import org.maproulette.models.utils.DALHelper
 import org.maproulette.permissions.Permission
 import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters}
 import play.api.db.Database
 import play.api.libs.json.JodaReads._
 import play.api.libs.json.{JsString, JsValue, Json}
+
+import org.maproulette.framework.mixins.Locking
+import org.maproulette.framework.repository.RepositoryMixin
+import org.maproulette.framework.service.TaskClusterService
 
 /**
   * @author mcuthbert
@@ -31,15 +35,17 @@ class VirtualChallengeDAL @Inject() (
     override val db: Database,
     override val permission: Permission,
     val taskDAL: TaskDAL,
-    val taskClusterDAL: TaskClusterDAL,
+    val taskClusterService: TaskClusterService,
     val config: Config
-) extends BaseDAL[Long, VirtualChallenge]
+) extends RepositoryMixin
     with DALHelper
+    with BaseDAL[Long, VirtualChallenge]
     with Locking[Task] {
 
   override val cacheManager =
     new CacheManager[Long, VirtualChallenge](config, Config.CACHE_ID_VIRTUAL_CHALLENGES)
   override val tableName: String = "virtual_challenges"
+  implicit val baseTable: String = tableName
 
   implicit val searchLocationWrites = Json.writes[SearchLocation]
   implicit val searchLocationReads  = Json.reads[SearchLocation]
@@ -143,7 +149,8 @@ class VirtualChallengeDAL @Inject() (
   ): Unit = {
     permission.hasWriteAccess(VirtualChallengeType(), user)(id)
     withMRTransaction { implicit c =>
-      val (count, result) = this.taskClusterDAL.getTasksInBoundingBox(user, params, -1, 0)
+      val (count, result) =
+        this.taskClusterService.getTasksInBoundingBox(user, params, Paging(-1, 0))
       result
         .grouped(config.virtualChallengeBatchSize)
         .foreach(batch => {
@@ -474,13 +481,14 @@ class VirtualChallengeDAL @Inject() (
         get[Option[Long]]("completed_time_spent") ~ get[Option[Long]]("completed_by") ~
         get[Option[Int]]("review_status") ~ get[Option[Long]]("review_requested_by") ~
         get[Option[Long]]("reviewed_by") ~ get[Option[DateTime]]("reviewed_at") ~
-        get[Option[DateTime]]("review_started_at") ~ get[Option[List[Long]]]("additional_reviewers") ~ int(
-        "priority"
-      ) ~
+        get[Option[DateTime]]("review_started_at") ~ get[Option[List[Long]]]("additional_reviewers") ~
+        get[Option[Int]]("meta_review_status") ~ get[Option[Long]]("meta_reviewed_by") ~
+        get[Option[DateTime]]("meta_reviewed_at") ~ int("priority") ~
         get[Option[Long]]("bundle_id") ~ get[Option[Boolean]]("is_bundle_primary") map {
         case id ~ name ~ instruction ~ location ~ status ~ cooperativeWork ~ mappedOn ~ completedTimeSpent ~
               completedBy ~ reviewStatus ~ reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ reviewStartedAt ~
-              additionalReviewers ~ priority ~ bundleId ~ isBundlePrimary =>
+              additionalReviewers ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~
+              priority ~ bundleId ~ isBundlePrimary =>
           val locationJSON = Json.parse(location)
           val coordinates  = (locationJSON \ "coordinates").as[List[Double]]
           val point        = Point(coordinates(1), coordinates.head)
@@ -490,6 +498,9 @@ class VirtualChallengeDAL @Inject() (
               reviewRequestedBy,
               reviewedBy,
               reviewedAt,
+              metaReviewStatus,
+              metaReviewedBy,
+              metaReviewedAt,
               reviewStartedAt,
               additionalReviewers
             )
@@ -519,7 +530,8 @@ class VirtualChallengeDAL @Inject() (
       }
       SQL"""SELECT tasks.id, name, instruction, status, cooperative_work_json::TEXT as cooperative_work,
                    mapped_on, completed_time_spent, completed_by, review_status, review_requested_by,
-                   reviewed_by, reviewed_at, review_started_at, additional_reviewers, ST_AsGeoJSON(location) AS location, priority,
+                   reviewed_by, reviewed_at, review_started_at, meta_review_status, meta_reviewed_by,
+                   meta_reviewed_at, additional_reviewers, ST_AsGeoJSON(location) AS location, priority,
                    bundle_id, is_bundle_primary
               FROM tasks LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
               WHERE tasks.id IN
@@ -544,7 +556,7 @@ class VirtualChallengeDAL @Inject() (
       parentId: Long,
       c: Option[Connection] = None
   ): Option[VirtualChallenge] = {
-    super.retrieveByName match {
+    super.retrieveByName(name, parentId) match {
       case Some(vc) if vc.isExpired =>
         this.delete(vc.id, User.superUser)
         None

@@ -12,14 +12,13 @@ import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data.SnapshotManager
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, Task}
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
-import org.maproulette.models.Task.STATUS_CREATED
+import org.maproulette.framework.model.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.models.{Task}
 import org.maproulette.framework.model.{UserNotification, UserNotificationEmailDigest}
 import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder

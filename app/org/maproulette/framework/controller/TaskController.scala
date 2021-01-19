@@ -7,15 +7,18 @@ package org.maproulette.framework.controller
 import akka.util.ByteString
 import javax.inject.Inject
 import org.maproulette.data.ActionManager
-import org.maproulette.framework.service.TaskService
+import org.maproulette.framework.service.{ServiceManager, TaskService, TaskClusterService}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.model.User
-import org.maproulette.session.SessionManager
+import org.maproulette.framework.mixins.TaskJSONMixin
+import org.maproulette.session.{SessionManager, SearchParameters, SearchLocation}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
 import play.api.http.HttpEntity
 import org.maproulette.exception.NotFoundException
+
+import org.maproulette.models.dal.TaskDAL
 
 /**
   * TaskController is responsible for handling functionality related to
@@ -28,9 +31,97 @@ class TaskController @Inject() (
     override val actionManager: ActionManager,
     override val bodyParsers: PlayBodyParsers,
     taskService: TaskService,
-    components: ControllerComponents
+    taskClusterService: TaskClusterService,
+    components: ControllerComponents,
+    val taskDAL: TaskDAL,
+    val serviceManager: ServiceManager
 ) extends AbstractController(components)
-    with MapRouletteController {
+    with MapRouletteController
+    with TaskJSONMixin {
+
+  /**
+    * Gets clusters of tasks for the challenge. Uses kmeans method in postgis.
+    *
+    * @param numberOfPoints Number of clustered points you wish to have returned
+    * @return A list of ClusteredPoint's that represent clusters of tasks
+    */
+  def getTaskClusters(numberOfPoints: Int): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        Ok(Json.toJson(this.taskClusterService.getTaskClusters(params, numberOfPoints)))
+      }
+    }
+  }
+
+  /**
+    * Gets the list of tasks that are contained within the single cluster
+    *
+    * @param clusterId      The cluster id, when "getTaskClusters" is executed it will return single point clusters
+    *                       representing all the tasks in the cluster. Each cluster will contain an id, supplying
+    *                       that id to this method will allow you to retrieve all the tasks in the cluster
+    * @param numberOfPoints Number of clustered points that was originally used to get all the clusters
+    * @return A list of ClusteredPoint's that represent each of the tasks within a single cluster
+    */
+  def getTasksInCluster(clusterId: Int, numberOfPoints: Int): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.userAwareRequest { implicit user =>
+        SearchParameters.withSearch { implicit params =>
+          Ok(
+            Json.toJson(
+              this.taskClusterService.getTasksInCluster(clusterId, params, numberOfPoints)
+            )
+          )
+        }
+      }
+  }
+
+  /**
+    * Gets all the tasks within a bounding box
+    *
+    * @param left   The minimum latitude for the bounding box
+    * @param bottom The minimum longitude for the bounding box
+    * @param right  The maximum latitude for the bounding box
+    * @param top    The maximum longitude for the bounding box
+    * @param limit  Limit for the number of returned tasks
+    * @param offset The offset used for paging
+    * @return
+    */
+  def getTasksInBoundingBox(
+      left: Double,
+      bottom: Double,
+      right: Double,
+      top: Double,
+      limit: Int,
+      page: Int,
+      excludeLocked: Boolean,
+      sort: String = "",
+      order: String = "ASC",
+      includeTotal: Boolean = false,
+      includeGeometries: Boolean = false,
+      includeTags: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { p =>
+        val params = p.copy(location = Some(SearchLocation(left, bottom, right, top)))
+        val (count, result) = this.taskClusterService.getTasksInBoundingBox(
+          User.userOrMocked(user),
+          params,
+          Paging(limit, page),
+          excludeLocked,
+          sort,
+          order
+        )
+
+        val resultJson = this.insertExtraTaskJSON(result, includeGeometries, includeTags)
+
+        if (includeTotal) {
+          Ok(Json.obj("total" -> count, "tasks" -> resultJson))
+        } else {
+          Ok(resultJson)
+        }
+      }
+    }
+  }
 
   /**
     * Updates the completion responses asked in the task instructions. Request

@@ -67,6 +67,10 @@ object UserNotification extends CommonField {
   val NOTIFICATION_TYPE_MAPPER_CHALLENGE_COMPLETED_NAME = "Mapper Challenge Completed"
   val NOTIFICATION_TYPE_REVIEW_REVISED                  = 9
   val NOTIFICATION_TYPE_REVIEW_REVISED_NAME             = "Review Revised"
+  val NOTIFICATION_TYPE_META_REVIEW                     = 10
+  val NOTIFICATION_TYPE_META_REVIEW_NAME                = "Meta-Review"
+  val NOTIFICATION_TYPE_META_REVIEW_AGAIN               = 11
+  val NOTIFICATION_TYPE_META_REVIEW_AGAIN_NAME          = "Meta-Review Again"
 
   val notificationTypeMap = Map(
     NOTIFICATION_TYPE_SYSTEM                     -> NOTIFICATION_TYPE_SYSTEM_NAME,
@@ -75,6 +79,8 @@ object UserNotification extends CommonField {
     NOTIFICATION_TYPE_REVIEW_REJECTED            -> NOTIFICATION_TYPE_REVIEW_REJECTED_NAME,
     NOTIFICATION_TYPE_REVIEW_AGAIN               -> NOTIFICATION_TYPE_REVIEW_AGAIN_NAME,
     NOTIFICATION_TYPE_REVIEW_REVISED             -> NOTIFICATION_TYPE_REVIEW_REVISED_NAME,
+    NOTIFICATION_TYPE_META_REVIEW                -> NOTIFICATION_TYPE_META_REVIEW_NAME,
+    NOTIFICATION_TYPE_META_REVIEW_AGAIN          -> NOTIFICATION_TYPE_META_REVIEW_AGAIN_NAME,
     NOTIFICATION_TYPE_CHALLENGE_COMPLETED        -> NOTIFICATION_TYPE_CHALLENGE_COMPLETED_NAME,
     NOTIFICATION_TYPE_TEAM                       -> NOTIFICATION_TYPE_TEAM_NAME,
     NOTIFICATION_TYPE_FOLLOW                     -> NOTIFICATION_TYPE_FOLLOW_NAME,
@@ -98,7 +104,8 @@ case class NotificationSubscriptions(
     val reviewAgain: Int,
     val challengeCompleted: Int,
     val team: Int,
-    val follow: Int
+    val follow: Int,
+    val metaReview: Int
 )
 object NotificationSubscriptions {
   implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] =

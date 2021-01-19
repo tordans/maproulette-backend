@@ -208,6 +208,23 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
           )
         )
       )
+      this.userRepository.deleteByOSMID(61)
+    }
+
+    "add user achievements" taggedAs UserRepoTag in {
+      val insertedUser = this.userRepository
+        .upsert(this.getTestUser(62, "AddAchievementsTest"), "TestAPIKey", "POINT (20 40)")
+
+      // Brand-new users have no achievements
+      insertedUser.achievements.getOrElse(List.empty).length mustEqual 0
+
+      this.userRepository.addAchievements(insertedUser.id, List(1, 2, 3))
+      this.repositoryGet(insertedUser.id).get.achievements.getOrElse(List.empty).length mustEqual 3
+
+      // Make sure dup achievements don't get added
+      this.userRepository.addAchievements(insertedUser.id, List(3, 4, 5))
+      this.repositoryGet(insertedUser.id).get.achievements.getOrElse(List.empty).length mustEqual 5
+      this.userRepository.deleteByOSMID(62)
     }
   }
 

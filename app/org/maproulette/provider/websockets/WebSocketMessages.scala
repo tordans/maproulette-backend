@@ -5,11 +5,10 @@
 package org.maproulette.provider.websockets
 
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{TaskWithReview, User, Challenge, Project}
+import org.maproulette.framework.model.{TaskWithReview, User, Challenge, Project, Task}
 import play.api.libs.json._
 import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
-import org.maproulette.models.Task
 
 /**
   * Defines case classes representing the various kinds of messages to be
@@ -77,6 +76,11 @@ object WebSocketMessages {
   case class FollowMessage(messageType: String, data: FollowUpdateData, meta: ServerMeta)
       extends ServerMessage
 
+  case class AchievementData(userId: Long, achievement: List[Int])
+
+  case class AchievementMessage(messageType: String, data: AchievementData, meta: ServerMeta)
+      extends ServerMessage
+
   // Public helper methods for creation of individual messages and data objects
   def pong(): PongMessage = PongMessage("pong", ServerMeta(None))
 
@@ -128,6 +132,9 @@ object WebSocketMessages {
   def followUpdate(data: FollowUpdateData): FollowMessage =
     createFollowMessage("follow-update", data)
 
+  def achievementAwarded(data: AchievementData): AchievementMessage =
+    createAchievementMessage("achievement-awarded", data)
+
   def userSummary(user: User): UserSummary =
     UserSummary(user.id, user.osmProfile.id, user.osmProfile.displayName, user.osmProfile.avatarURL)
 
@@ -148,6 +155,17 @@ object WebSocketMessages {
       data: NotificationData
   ): NotificationMessage = {
     NotificationMessage(
+      messageType,
+      data,
+      ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_USER + s"_${data.userId}"))
+    )
+  }
+
+  private def createAchievementMessage(
+      messageType: String,
+      data: AchievementData
+  ): AchievementMessage = {
+    AchievementMessage(
       messageType,
       data,
       ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_USER + s"_${data.userId}"))
@@ -195,6 +213,13 @@ object WebSocketMessages {
     FollowMessage(messageType, data, ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_FOLLOWING)))
   }
 
+  private def createAchievementMessage(
+      messageType: String,
+      data: FollowUpdateData
+  ): FollowMessage = {
+    FollowMessage(messageType, data, ServerMeta(Some(WebSocketMessages.SUBSCRIPTION_FOLLOWING)))
+  }
+
   // Reads for client messages
   implicit val clientMessageReads: Reads[ClientMessage]       = Json.reads[ClientMessage]
   implicit val subscriptionDataReads: Reads[SubscriptionData] = Json.reads[SubscriptionData]
@@ -209,6 +234,9 @@ object WebSocketMessages {
   implicit val notificationDataWrites: Writes[NotificationData] = Json.writes[NotificationData]
   implicit val notificationMessageWrites: Writes[NotificationMessage] =
     Json.writes[NotificationMessage]
+  implicit val achievementDataWrites: Writes[AchievementData] = Json.writes[AchievementData]
+  implicit val achievementMessageWrites: Writes[AchievementMessage] =
+    Json.writes[AchievementMessage]
   implicit val reviewDataWrites: Writes[ReviewData]             = Json.writes[ReviewData]
   implicit val reviewMessageWrites: Writes[ReviewMessage]       = Json.writes[ReviewMessage]
   implicit val taskActionWrites: Writes[TaskAction]             = Json.writes[TaskAction]

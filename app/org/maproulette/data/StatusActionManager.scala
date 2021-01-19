@@ -11,8 +11,7 @@ import java.sql.Timestamp
 import javax.inject.Inject
 import org.joda.time.DateTime
 import org.maproulette.Config
-import org.maproulette.framework.model.User
-import org.maproulette.models.Task
+import org.maproulette.framework.model.{User, Task}
 import org.maproulette.models.utils.{AND, DALHelper}
 import play.api.Application
 import play.api.db.Database

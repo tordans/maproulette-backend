@@ -9,8 +9,7 @@ import java.net.URLDecoder
 
 import javax.inject.Inject
 import org.maproulette.data.ActionManager
-import org.maproulette.framework.service.CommentService
-import org.maproulette.models.dal.TaskBundleDAL
+import org.maproulette.framework.service.{CommentService, ServiceManager}
 import org.maproulette.session.SessionManager
 import play.api.libs.json.Json
 import play.api.mvc._
@@ -24,7 +23,7 @@ class CommentController @Inject() (
     override val bodyParsers: PlayBodyParsers,
     commentService: CommentService,
     components: ControllerComponents,
-    taskBundleDAL: TaskBundleDAL
+    serviceManager: ServiceManager
 ) extends AbstractController(components)
     with MapRouletteController {
 
@@ -92,7 +91,7 @@ class CommentController @Inject() (
     this.sessionManager.authenticatedRequest { implicit user =>
       this.commentService.addToBundle(user, bundleId, comment, actionId)
 
-      Ok(Json.toJson(this.taskBundleDAL.getTaskBundle(user, bundleId)))
+      Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, bundleId)))
     }
   }
 

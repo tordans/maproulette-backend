@@ -12,7 +12,6 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.data.{UserType}
 import org.maproulette.framework.model._
-import org.maproulette.models.{Task}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{
@@ -86,6 +85,7 @@ class NotificationService @Inject() (
         NotificationSubscriptions(
           -1,
           userId,
+          UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
@@ -190,14 +190,19 @@ class NotificationService @Inject() (
       forUserId: Long,
       reviewStatus: Int,
       task: Task,
-      comment: Option[Comment]
+      comment: Option[Comment],
+      isMetaReview: Boolean = false
   ): Unit = {
-    val notificationType = reviewStatus match {
-      case Task.REVIEW_STATUS_REQUESTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
-      case Task.REVIEW_STATUS_APPROVED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
-      case Task.REVIEW_STATUS_ASSISTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
-      case Task.REVIEW_STATUS_REJECTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
-      case Task.REVIEW_STATUS_DISPUTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
+    val notificationType = isMetaReview match {
+      case true => UserNotification.NOTIFICATION_TYPE_META_REVIEW
+      case false =>
+        reviewStatus match {
+          case Task.REVIEW_STATUS_REQUESTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
+          case Task.REVIEW_STATUS_APPROVED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+          case Task.REVIEW_STATUS_ASSISTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+          case Task.REVIEW_STATUS_REJECTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
+          case Task.REVIEW_STATUS_DISPUTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
+        }
     }
 
     this.addNotification(
@@ -232,13 +237,16 @@ class NotificationService @Inject() (
       forUserId: Long,
       reviewStatus: Int,
       task: Task,
-      comment: Option[Comment]
+      comment: Option[Comment],
+      isMetaReview: Boolean = false
   ): Unit = {
     this.addNotification(
       UserNotification(
         -1,
         userId = forUserId,
-        notificationType = UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED,
+        notificationType =
+          if (isMetaReview) UserNotification.NOTIFICATION_TYPE_META_REVIEW_AGAIN
+          else UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED,
         fromUsername = Some(fromUser.osmProfile.displayName),
         description = Some(reviewStatus.toString()),
         taskId = Some(task.id),
@@ -357,12 +365,14 @@ class NotificationService @Inject() (
     permission.hasWriteAccess(UserType(), user)(notification.userId)
     val subscriptions = this.getNotificationSubscriptions(notification.userId, user)
     val subscriptionType = notification.notificationType match {
-      case UserNotification.NOTIFICATION_TYPE_SYSTEM          => subscriptions.system
-      case UserNotification.NOTIFICATION_TYPE_MENTION         => subscriptions.mention
-      case UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED => subscriptions.reviewApproved
-      case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED => subscriptions.reviewRejected
-      case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN    => subscriptions.reviewAgain
-      case UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED  => subscriptions.reviewAgain
+      case UserNotification.NOTIFICATION_TYPE_SYSTEM            => subscriptions.system
+      case UserNotification.NOTIFICATION_TYPE_MENTION           => subscriptions.mention
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED   => subscriptions.reviewApproved
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED   => subscriptions.reviewRejected
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN      => subscriptions.reviewAgain
+      case UserNotification.NOTIFICATION_TYPE_REVIEW_REVISED    => subscriptions.reviewAgain
+      case UserNotification.NOTIFICATION_TYPE_META_REVIEW       => subscriptions.metaReview
+      case UserNotification.NOTIFICATION_TYPE_META_REVIEW_AGAIN => subscriptions.metaReview
       case UserNotification.NOTIFICATION_TYPE_CHALLENGE_COMPLETED =>
         subscriptions.challengeCompleted
       case UserNotification.NOTIFICATION_TYPE_MAPPER_CHALLENGE_COMPLETED =>

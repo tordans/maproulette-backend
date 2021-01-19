@@ -6,7 +6,6 @@
 package org.maproulette.framework
 
 import org.joda.time.DateTime
-import org.maproulette.models.Task
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter
@@ -651,6 +650,7 @@ class NotificationServiceSpec(implicit val application: Application) extends Fra
       userId,
       system,
       mention,
+      UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,

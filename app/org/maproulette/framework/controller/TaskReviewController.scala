@@ -8,25 +8,32 @@ import javax.inject.Inject
 import akka.util.ByteString
 import org.maproulette.data.ActionManager
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.service.{
-  ChallengeListingService,
-  ChallengeService,
-  ProjectService,
-  TaskReviewService,
-  UserService,
-  ServiceManager
-}
+import org.maproulette.framework.service.{TaskReviewService, TagService, ServiceManager}
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User}
-import org.maproulette.framework.mixins.ParentMixin
+import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, Tag, Task}
+import org.maproulette.framework.mixins.{ParentMixin, TagsControllerMixin}
 import org.maproulette.framework.repository.TaskRepository
-import org.maproulette.session.{SessionManager, SearchParameters, SearchTaskParameters}
+import org.maproulette.session.{
+  SessionManager,
+  SearchParameters,
+  SearchTaskParameters,
+  SearchLocation
+}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
 import play.api.http.HttpEntity
 
-import org.maproulette.models.Task
+import org.maproulette.data.{
+  TaskItem,
+  TaskStatusSet,
+  TaskReviewStatusSet,
+  TaskType,
+  MetaReviewStatusSet
+}
+
+import org.maproulette.models.dal.TaskDAL
+import org.maproulette.models.dal.mixin.TagDALMixin
 
 /**
   * TaskReviewController is responsible for handling functionality related to
@@ -40,17 +47,23 @@ class TaskReviewController @Inject() (
     override val bodyParsers: PlayBodyParsers,
     service: TaskReviewService,
     taskRepository: TaskRepository,
-    challengeListingService: ChallengeListingService,
-    challengeService: ChallengeService,
-    projectService: ProjectService,
-    userService: UserService,
     components: ControllerComponents,
-    serviceManager: ServiceManager
+    val serviceManager: ServiceManager,
+    val taskDAL: TaskDAL
 ) extends AbstractController(components)
     with MapRouletteController
-    with ParentMixin {
+    with ParentMixin
+    with TagsControllerMixin[Task] {
 
   implicit val challengeListingWrites: Writes[ChallengeListing] = Json.writes[ChallengeListing]
+
+  // For TagsMixin
+  override def dalWithTags: TagDALMixin[Task] = this.taskDAL
+  def tagService: TagService                  = this.serviceManager.tag
+  override implicit val itemType              = TaskType()
+  override implicit val tagType               = Task.TABLE
+  override implicit val tReads: Reads[Task]   = Task.TaskFormat
+  override implicit val tWrites: Writes[Task] = Task.TaskFormat
 
   /**
     * Gets and claims a task that needs to be reviewed.
@@ -103,7 +116,8 @@ class TaskReviewController @Inject() (
       sort: String,
       order: String,
       lastTaskId: Long = -1,
-      excludeOtherReviewers: Boolean = false
+      excludeOtherReviewers: Boolean = false,
+      asMetaReview: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -126,7 +140,8 @@ class TaskReviewController @Inject() (
           sort,
           order,
           (if (lastTaskId == -1) None else Some(lastTaskId)),
-          excludeOtherReviewers
+          excludeOtherReviewers,
+          asMetaReview
         )
         val nextTask = result match {
           case Some(task) =>
@@ -178,7 +193,6 @@ class TaskReviewController @Inject() (
           Json.obj(
             "total" -> count,
             "tasks" -> insertChallengeJSON(
-              this.serviceManager,
               result,
               includeTags
             )
@@ -204,7 +218,8 @@ class TaskReviewController @Inject() (
       page: Int,
       sort: String,
       order: String,
-      includeTags: Boolean = false
+      includeTags: Boolean = false,
+      asMetaReview: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.userAwareRequest { implicit user =>
       SearchParameters.withSearch { implicit params =>
@@ -215,13 +230,13 @@ class TaskReviewController @Inject() (
           limit,
           page,
           sort,
-          order
+          order,
+          asMetaReview
         )
         Ok(
           Json.obj(
             "total" -> count,
             "tasks" -> insertChallengeJSON(
-              this.serviceManager,
               result,
               includeTags
             )
@@ -234,7 +249,7 @@ class TaskReviewController @Inject() (
   /**
     * Gets clusters of review tasks. Uses kmeans method in postgis.
     *
-    * @param reviewTasksType Type of review tasks (1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users)
+    * @param reviewTasksType Type of review tasks (1: To Be Reviewed 2: User's reviewed Tasks 3: All reviewed by users 4:Meta Review)
     * @param numberOfPoints Number of clustered points you wish to have returned
     * @param onlySaved include challenges that have been saved
     * @param excludeOtherReviewers exclude tasks that have been reviewed by someone else
@@ -266,9 +281,162 @@ class TaskReviewController @Inject() (
   }
 
   /**
+    * This function sets the task review status.
+    * Must be authenticated to perform operation and marked as a reviewer.
+    *
+    * @param id The id of the task
+    * @param reviewStatus The review status id to set the task's review status to
+    * @param comment An optional comment to add to the task
+    * @param tags Optional tags to add to the task
+    * @param newTaskStatus Optional new taskStatus to change the task's status
+    * @return 400 BadRequest if task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setTaskReviewStatus(
+      id: Long,
+      reviewStatus: Int,
+      comment: String = "",
+      tags: String = "",
+      newTaskStatus: String = ""
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val task = this.taskRepository.retrieve(id) match {
+        case Some(t) => {
+          // If the mapper wants to change the task status while revising the task after review
+          if (!newTaskStatus.isEmpty) {
+            val taskStatus = newTaskStatus.toInt
+
+            // Make sure to remove user's score credit for the prior task status first.
+            this.serviceManager.userMetrics.rollbackUserScore(t.status.get, user.id)
+
+            // Change task status. This will also credit user's score for new task status.
+            this.taskDAL.setTaskStatus(List(t), taskStatus, user, Some(false))
+            this.actionManager
+              .setAction(Some(user), new TaskItem(t.id), TaskStatusSet(taskStatus), t.name)
+            // Refetch Task
+            this.taskRepository.retrieve(id).get
+          } else t
+        }
+        case None =>
+          throw new NotFoundException(s"Task with $id not found, cannot set review status.")
+      }
+
+      val action = this.actionManager
+        .setAction(Some(user), new TaskItem(task.id), TaskReviewStatusSet(reviewStatus), task.name)
+      val actionId = action match {
+        case Some(a) => Some(a.id)
+        case None    => None
+      }
+
+      this.service.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+
+      val tagList = tags.split(",").toList
+      if (tagList.nonEmpty) {
+        this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = "review")), user)
+      }
+
+      NoContent
+    }
+  }
+
+  /**
+    * This function sets the task meta review status.
+    * Must be authenticated to perform operation and marked as a reviewer.
+    *
+    * @param id The id of the task
+    * @param reviewStatus The review status id to set the task's meta review status to
+    * @param comment An optional comment to add to the task
+    * @param tags Optional tags to add to the task
+    * @return 400 BadRequest if task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setMetaReviewStatus(
+      id: Long,
+      reviewStatus: Int,
+      comment: String = "",
+      tags: String = ""
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val task = this.taskRepository.retrieve(id) match {
+        case Some(t) => t
+        case None =>
+          throw new NotFoundException(s"Task with $id not found, cannot set review status.")
+      }
+
+      val action = this.actionManager
+        .setAction(Some(user), new TaskItem(task.id), MetaReviewStatusSet(reviewStatus), task.name)
+      val actionId = action match {
+        case Some(a) => Some(a.id)
+        case None    => None
+      }
+
+      this.service.setMetaReviewStatus(task, reviewStatus, user, actionId, comment)
+
+      val tagList = tags.split(",").toList
+      if (tagList.nonEmpty) {
+        this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = "review")), user)
+      }
+
+      NoContent
+    }
+  }
+
+  /**
+    * This function will set the review status to "Unnecessary", essentially removing the
+    * review request.
+    *
+    * User must have write access to parent challenge(s).
+    *
+    * @param ids The ids of the tasks to update
+    * @return The number of tasks updated.
+    */
+  def removeReviewRequest(ids: String, asMetaReview: Boolean = false): Action[AnyContent] =
+    Action.async { implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        SearchParameters.withSearch { p =>
+          implicit val taskIds = Utils.toLongList(ids) match {
+            case Some(l) if !l.isEmpty => l
+            case None => {
+              val params = p.location match {
+                case Some(l) => p
+                case None    =>
+                  // No bounding box, so search everything
+                  p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
+              }
+              val (count, tasks) =
+                this.serviceManager.taskCluster.getTasksInBoundingBox(user, params, Paging(-1))
+              tasks.map(task => task.id)
+            }
+          }
+
+          // set the taskIds variable to `implicit` above
+          val updatedTasks = this.taskDAL
+            .retrieveListById()
+            .foldLeft(0)((updatedCount, t) =>
+              t.review.reviewStatus match {
+                case Some(r) =>
+                  if (asMetaReview) {
+                    updatedCount +
+                      this.service
+                        .setMetaReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+                  } else {
+                    updatedCount +
+                      this.service
+                        .setTaskReviewStatus(t, Task.REVIEW_STATUS_UNNECESSARY, user, None, "")
+                  }
+                case None => updatedCount
+              }
+            )
+
+          Ok(Json.toJson(updatedTasks))
+        }
+      }
+    }
+
+  /**
     * Returns a list of challenges that have reviews/review requests.
     *
-    * @param reviewTasksType  The type of reviews (1: To Be Reviewed,  2: User's reviewed Tasks, 3: All reviewed by users)
+    * @param reviewTasksType  The type of reviews (1: To Be Reviewed,  2: User's reviewed Tasks, 3: All reviewed by users 4: meta review tasks)
     * @param tStatus The task statuses to include
     * @param excludeOtherReviewers Whether tasks completed by other reviewers should be included
     * @return JSON challenge list
@@ -287,7 +455,7 @@ class TaskReviewController @Inject() (
           case _               => None
         }
 
-        val challenges = this.challengeListingService.withReviewList(
+        val challenges = this.serviceManager.challengeListing.withReviewList(
           reviewTasksType,
           user,
           taskStatus,
@@ -297,7 +465,7 @@ class TaskReviewController @Inject() (
 
         // Populate some parent/virtual parent project data
         val projects = Some(
-          this.projectService
+          this.serviceManager.project
             .list(challenges.map(c => c.parent))
             .map(p => p.id -> p)
             .toMap
@@ -312,7 +480,7 @@ class TaskReviewController @Inject() (
           }
         })
         val vpObjects =
-          this.projectService.list(vpIds.toList).map(p => p.id -> p).toMap
+          this.serviceManager.project.list(vpIds.toList).map(p => p.id -> p).toMap
 
         val jsonList = challenges.map { c =>
           val projectJson = Json

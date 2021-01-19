@@ -3,48 +3,46 @@
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 
-package org.maproulette.controllers.api
+package org.maproulette.framework.controller
+
+import java.net.URLDecoder
 
 import javax.inject.Inject
+import org.maproulette.exception.{NotFoundException, InvalidException}
 import org.maproulette.data._
-import org.maproulette.exception.InvalidException
-import org.maproulette.framework.controller.SessionController
-import org.maproulette.framework.model.Tag
-import org.maproulette.framework.service.{CommentService, ServiceManager, TagService}
-import org.maproulette.models.Task
-import org.maproulette.models.dal.DALManager
-import org.maproulette.models.dal.mixin.TagDALMixin
+import org.maproulette.framework.model.{Task, Tag}
+import org.maproulette.framework.service.{TaskBundleService, ServiceManager, TagService}
+import org.maproulette.framework.mixins.TagsControllerMixin
 import org.maproulette.session.SessionManager
-import play.api.libs.json.{JsValue, Json, Reads, Writes}
+import play.api.libs.json._
 import play.api.mvc._
 
-/**
-  * @author mcuthbert
-  */
+//// deprecated and to be removed after conversion
+import org.maproulette.models.dal.TaskDAL
+import org.maproulette.models.dal.mixin.TagDALMixin
+
 class TaskBundleController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val bodyParsers: PlayBodyParsers,
-    commentService: CommentService,
-    dalManager: DALManager,
+    service: TaskBundleService,
+    val tagService: TagService,
+    components: ControllerComponents,
     serviceManager: ServiceManager,
-    components: ControllerComponents
+    taskDAL: TaskDAL
 ) extends AbstractController(components)
-    with SessionController
-    with TagsMixin[Task] {
+    with MapRouletteController
+    with TagsControllerMixin[Task] {
 
   // json reads for automatically reading Tasks from a posted json body
   override implicit val tReads: Reads[Task] = Task.TaskFormat
   // json writes for automatically writing Tasks to a json body response
   override implicit val tWrites: Writes[Task] = Task.TaskFormat
 
-  override def tagService: TagService = serviceManager.tag
-
-  override def dalWithTags: TagDALMixin[Task] = dalManager.task
-
-  // this is the itemType for the TagDALMixin that is dealing with Task objects
-  implicit val itemType: ItemType = TaskType()
-  override implicit val tableName = dalManager.task.tableName
+  // For Tags
+  implicit val tagType                        = Task.TABLE
+  implicit val itemType: ItemType             = TaskType()
+  override def dalWithTags: TagDALMixin[Task] = this.taskDAL
 
   /**
     * This performs setTaskStatus on a bundle of tasks.
@@ -70,13 +68,13 @@ class TaskBundleController @Inject() (
         case None    => None
       }
 
-      val tasks = this.dalManager.taskBundle.getTaskBundle(user, bundleId).tasks match {
+      val tasks = this.serviceManager.taskBundle.getTaskBundle(user, bundleId).tasks match {
         case Some(t) => t
         case None    => throw new InvalidException("No tasks found in this bundle.")
       }
 
       val completionResponses = request.body.asJson
-      this.dalManager.task.setTaskStatus(
+      this.taskDAL.setTaskStatus(
         tasks,
         status,
         user,
@@ -87,7 +85,7 @@ class TaskBundleController @Inject() (
       )
 
       for (task <- tasks) {
-        val action = this.dalManager.action
+        val action = this.actionManager
           .setAction(Some(user), new TaskItem(task.id), TaskStatusSet(status), task.name)
         // add comment to each task if any provided
         if (comment.nonEmpty) {
@@ -95,18 +93,18 @@ class TaskBundleController @Inject() (
             case Some(a) => Some(a.id)
             case None    => None
           }
-          this.commentService.create(user, task.id, comment, actionId)
+          this.serviceManager.comment.create(user, task.id, comment, actionId)
         }
 
         // Add tags to each task
         val tagList = tags.split(",").toList
         if (tagList.nonEmpty) {
-          this.addTagstoItem(task.id, tagList.map(new Tag(-1, _, tagType = this.tableName)), user)
+          this.addTagstoItem(task.id, tagList.map(new Tag(-1, _, tagType = this.tagType)), user)
         }
       }
 
       // Refetch to get updated data
-      Ok(Json.toJson(this.dalManager.taskBundle.getTaskBundle(user, bundleId)))
+      Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, bundleId)))
     }
   }
 
@@ -130,7 +128,7 @@ class TaskBundleController @Inject() (
       newTaskStatus: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      val tasks = this.dalManager.taskBundle.getTaskBundle(user, id).tasks match {
+      val tasks = this.serviceManager.taskBundle.getTaskBundle(user, id).tasks match {
         case Some(t) => {
           // If the mapper wants to change the task status while revising the task after review
           if (!newTaskStatus.isEmpty) {
@@ -142,8 +140,8 @@ class TaskBundleController @Inject() (
             }
 
             // Change task status. This will also credit user's score for new task status.
-            this.dalManager.task.setTaskStatus(t, taskStatus, user, Some(false))
-            val updatedTasks = this.dalManager.task.retrieveListById()(t.map(_.id))
+            this.taskDAL.setTaskStatus(t, taskStatus, user, Some(false))
+            val updatedTasks = this.serviceManager.task.retrieveListById(t.map(_.id))
 
             for (task <- t) {
               this.actionManager
@@ -156,7 +154,7 @@ class TaskBundleController @Inject() (
       }
 
       for (task <- tasks) {
-        val action = this.dalManager.action.setAction(
+        val action = this.actionManager.setAction(
           Some(user),
           new TaskItem(task.id),
           TaskReviewStatusSet(reviewStatus),
@@ -173,13 +171,64 @@ class TaskBundleController @Inject() (
         if (tags.nonEmpty) {
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
-            this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tableName)), user)
+            this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tagType)), user)
           }
         }
       }
 
       // Refetch to get updated data
-      Ok(Json.toJson(this.dalManager.taskBundle.getTaskBundle(user, id)))
+      Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, id)))
+    }
+  }
+
+  /**
+    * This function sets the meta review status.
+    * Must be authenticated to perform operation and marked as a reviewer.
+    *
+    * @param id           The id of the task
+    * @param reviewStatus The review status id to set the task's review status to
+    * @param comment      An optional comment to add to the task
+    * @param tags         Optional tags to add to the task
+    * @return 400 BadRequest if task with supplied id not found.
+    *         If successful then 200 NoContent
+    */
+  def setBundleMetaReviewStatus(
+      id: Long,
+      reviewStatus: Int,
+      comment: String = "",
+      tags: String = ""
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val tasks = this.serviceManager.taskBundle.getTaskBundle(user, id).tasks match {
+        case Some(t) => t
+        case None    => throw new InvalidException("No tasks found in this bundle.")
+      }
+
+      for (task <- tasks) {
+        val action = this.actionManager.setAction(
+          Some(user),
+          new TaskItem(task.id),
+          MetaReviewStatusSet(reviewStatus),
+          task.name
+        )
+        val actionId = action match {
+          case Some(a) => Some(a.id)
+          case None    => None
+        }
+
+        this.serviceManager.taskReview
+          .setMetaReviewStatus(task, reviewStatus, user, actionId, comment)
+
+        if (tags.nonEmpty) {
+          val tagList = tags.split(",").toList
+          if (tagList.nonEmpty) {
+            this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tagType)), user)
+          }
+        }
+      }
+
+      // Refetch to get updated data
+      Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, id)))
     }
   }
 
@@ -196,7 +245,7 @@ class TaskBundleController @Inject() (
         case Some(tasks) => tasks
         case None        => throw new InvalidException("No task ids provided for task bundle")
       }
-      val bundle = dalManager.taskBundle.createTaskBundle(user, name, taskIds)
+      val bundle = this.serviceManager.taskBundle.createTaskBundle(user, name, taskIds)
       Created(Json.toJson(bundle))
     }
   }
@@ -209,7 +258,7 @@ class TaskBundleController @Inject() (
     */
   def getTaskBundle(id: Long): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      Ok(Json.toJson(this.dalManager.taskBundle.getTaskBundle(user, id)))
+      Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, id)))
     }
   }
 
@@ -223,8 +272,8 @@ class TaskBundleController @Inject() (
   def unbundleTasks(id: Long, taskIds: List[Long]): Action[AnyContent] = Action.async {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        this.dalManager.taskBundle.unbundleTasks(user, id, taskIds)
-        Ok(Json.toJson(this.dalManager.taskBundle.getTaskBundle(user, id)))
+        this.serviceManager.taskBundle.unbundleTasks(user, id, taskIds)
+        Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, id)))
       }
   }
 
@@ -237,7 +286,7 @@ class TaskBundleController @Inject() (
   def deleteTaskBundle(id: Long, primaryId: Option[Long] = None): Action[AnyContent] =
     Action.async { implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        this.dalManager.taskBundle.deleteTaskBundle(user, id, primaryId)
+        this.serviceManager.taskBundle.deleteTaskBundle(user, id, primaryId)
         Ok
       }
     }

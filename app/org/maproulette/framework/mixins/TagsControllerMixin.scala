@@ -2,7 +2,7 @@
  * Copyright (C) 2020 MapRoulette contributors (see CONTRIBUTORS.md).
  * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
-package org.maproulette.controllers.api
+package org.maproulette.framework.mixins
 
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.data._
@@ -19,7 +19,7 @@ import play.api.mvc.{Action, AnyContent}
 /**
   * @author cuthbertm
   */
-trait TagsMixin[T <: BaseObject[Long]] {
+trait TagsControllerMixin[T <: BaseObject[Long]] {
   this: SessionController =>
 
   // The default reads that allows the class to read the json from a posted json body
@@ -33,7 +33,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
   // the type of object that the controller is executing against
   implicit val itemType: ItemType
   // The name of the base table that the tags would be pulling from ie. Task table
-  implicit val tableName: String
+  implicit val tagType: String
 
   /**
     * Gets tasks based on tags, this is regardless of the project or challenge parents.
@@ -91,7 +91,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
         val tagList    = tags.split(",").toList
-        val tagObjects = tagList.map((tag) => new Tag(-1, tag.trim, tagType = this.tableName))
+        val tagObjects = tagList.map((tag) => new Tag(-1, tag.trim, tagType = this.tagType))
         val tagIds     = this.tagService.updateTagList(tagObjects, user).map(_.id)
 
         // now we have the ids for the supplied tags, then lets map them to the item created
@@ -178,7 +178,7 @@ trait TagsMixin[T <: BaseObject[Long]] {
                   this.tagService.retrieveByName(tag) match {
                     case Some(t) => t.asInstanceOf[Tag]
                     case None =>
-                      Tag(-1, tag, tagType = this.tableName)
+                      Tag(-1, tag, tagType = this.tagType)
                   }
               }
             }))

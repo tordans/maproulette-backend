@@ -7,21 +7,21 @@ package org.maproulette.framework.mixins
 import play.api.libs.json._
 
 import org.maproulette.framework.service.ServiceManager
-import org.maproulette.framework.model.{Challenge, Tag, Project}
+import org.maproulette.framework.model.{Challenge, Tag, Project, Task}
 
 import org.maproulette.utils.Utils
-import org.maproulette.models.Task
 
 /**
   * ParentMixin provides a method to insert parent data into the JSON
   */
 trait ParentMixin {
+  val serviceManager: ServiceManager
 
   /**
     * Fetches the matching parent project object and inserts it into the JSON data returned.
     *
     */
-  def insertProjectJSON(serviceManager: ServiceManager, challenges: List[Challenge]): JsValue = {
+  def insertProjectJSON(challenges: List[Challenge]): JsValue = {
     // json writes for automatically writing Challenges to a json body response
     implicit val cWrites: Writes[Challenge] = Challenge.writes.challengeWrites
 
@@ -77,7 +77,6 @@ trait ParentMixin {
     * 'reviewRequestedBy' and 'reviewBy'
     */
   def insertChallengeJSON(
-      serviceManager: ServiceManager,
       tasks: List[Task],
       includeTags: Boolean = false
   ): JsValue = {
@@ -117,7 +116,8 @@ trait ParentMixin {
 
       val allReviewers = tasks.flatMap(t => {
         List(t.review.reviewedBy.map(r => r)).flatMap(r => r) ++
-          t.review.additionalReviewers.getOrElse(List())
+          t.review.additionalReviewers.getOrElse(List()) ++
+          List(t.review.metaReviewedBy.map(r => r)).flatMap(r => r)
       })
 
       val reviewers = Some(
@@ -143,6 +143,11 @@ trait ParentMixin {
         if (task.review.reviewedBy.getOrElse(0) != 0) {
           val reviewerJson = Json.toJson(reviewers.get(task.review.reviewedBy.get)).as[JsObject]
           updated = Utils.insertIntoJson(updated, "reviewedBy", reviewerJson, true)
+        }
+        if (task.review.metaReviewedBy.getOrElse(0) != 0) {
+          val metaReviewerJson =
+            Json.toJson(reviewers.get(task.review.metaReviewedBy.get)).as[JsObject]
+          updated = Utils.insertIntoJson(updated, "metaReviewedBy", metaReviewerJson, true)
         }
         if (task.review.additionalReviewers != None) {
           val additionalReviewerJson = Json

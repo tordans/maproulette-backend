@@ -11,9 +11,9 @@ import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data.{ActionManager, TaskViewed, VirtualChallengeType}
 import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.model.User
+import org.maproulette.framework.model.{User, ClusteredPoint, Point, PointReview, Task}
 import org.maproulette.models.dal.{TaskDAL, VirtualChallengeDAL}
-import org.maproulette.models.{ClusteredPoint, Task, VirtualChallenge}
+import org.maproulette.models.VirtualChallenge
 import org.maproulette.session.{
   SearchChallengeParameters,
   SearchTaskParameters,
