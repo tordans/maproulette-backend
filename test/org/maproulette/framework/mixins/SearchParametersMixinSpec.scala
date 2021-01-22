@@ -24,7 +24,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
           SearchChallengeParameters(challengeTags = Some(List("my_tag", "tag2")))
         )
       this.filterChallengeTags(params).sql() mustEqual
-        "c.id IN (SELECT task_id from tags_on_challenges tc " +
+        "c.id IN (SELECT challenge_id from tags_on_challenges tc " +
           "INNER JOIN tags ON tags.id = tc.tag_id WHERE tags.name IN ('my_tag','tag2'))"
     }
 
@@ -35,10 +35,10 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     "be inverted" in {
       val params = SearchParameters(
         challengeParams = SearchChallengeParameters(challengeTags = Some(List("my_tag", "tag2"))),
-        invertFields = Some(List("tc"))
+        invertFields = Some(List("ct"))
       )
       this.filterChallengeTags(params).sql() mustEqual
-        "NOT c.id IN (SELECT task_id from tags_on_challenges tc " +
+        "NOT c.id IN (SELECT challenge_id from tags_on_challenges tc " +
           "INNER JOIN tags ON tags.id = tc.tag_id WHERE tags.name IN ('my_tag','tag2'))"
     }
   }
