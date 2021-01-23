@@ -368,10 +368,25 @@ class DataManager @Inject() (
         }
       )
 
-      val challengeFilter = challengeId match {
-        case Some(id) if id != -1 => s"AND tasks.parent_id = $id"
-        case _                    => buildProjectSearch(projectList, "c.parent_id", "c.id")
+      var challenges = challengeId match {
+        case Some(id) if id != -1 => Some(List(id))
+        case _ =>
+          // Let's determine all the challenges that are in these projects
+          // to make our query faster.
+          if (projectList != None) {
+            findRelevantChallenges(projectList)
+          }
+          else {
+            None
+          }
       }
+
+      val withTable = challenges match {
+        case Some(ids) =>
+          s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id IN (${ids.mkString(",")}))"
+        case None => ""
+      }
+
       val priorityFilter = priority match {
         case Some(p) =>
           val invert =
@@ -381,7 +396,7 @@ class DataManager @Inject() (
       }
 
       val searchFilters = new StringBuilder(
-        s"1=1 $challengeFilter $priorityFilter ${if (searchString != "") searchField("c.name")
+        s"1=1 $priorityFilter ${if (searchString != "") searchField("c.name")
         else ""}"
       )
 
@@ -396,7 +411,9 @@ class DataManager @Inject() (
       // It won't decrease performance as this is simple basic math calculations, but it certainly
       // isn't pretty
       val query =
-        s"""SELECT tasks.parent_id, c.name,
+        s"""
+          ${withTable}
+          SELECT tasks.parent_id, c.name,
               COUNT(tasks.completed_time_spent) as tasksWithTime,
               COALESCE(SUM(tasks.completed_time_spent), 0) as totalTimeSpent,
               SUM(CASE WHEN tasks.status != 4 THEN 1 ELSE 0 END) as total,
