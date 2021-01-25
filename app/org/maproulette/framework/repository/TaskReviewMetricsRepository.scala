@@ -203,10 +203,10 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
       // Try limiting tasks table to just the challenges we are interested in
       val withTable =
         challengeList match {
-          case Some(ids) =>
+          case Some(ids) if (!ids.isEmpty) =>
             s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id " +
             s"IN (${ids.mkString(",")}))"
-          case None => ""
+          case _ => ""
         }
 
       query
