@@ -8,9 +8,9 @@ package org.maproulette.framework.repository
 import java.sql.Connection
 import scala.concurrent.duration.FiniteDuration
 
-import anorm.SqlParser.get
+import anorm.SqlParser.{get, long}
 import anorm.ToParameterValue
-import anorm.{RowParser, ~}
+import anorm.{RowParser, ~, SQL}
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.model.{Task, TaskReview, ReviewMetrics}
 import org.maproulette.framework.psql.{Query, Grouping, GroupField}
@@ -159,7 +159,9 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
       joinClause: StringBuilder = new StringBuilder(),
       groupByMappers: Boolean = false,
       groupByTags: Boolean = false,
-      groupByReviewers: Boolean = false
+      groupByReviewers: Boolean = false,
+      projectIds: Option[List[Long]] = None,
+      challengeIds: Option[List[Long]] = None
   ): List[ReviewMetrics] = {
     var groupFields = ""
     var groupBy =
@@ -179,9 +181,38 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
       }
 
     this.withMRTransaction { implicit c =>
+      // Attempt to fetch challenges to filter by
+      val challengeList =
+        challengeIds match {
+          case Some(ids) => Some(ids)
+          case None =>
+            projectIds match {
+              case Some(ids) =>
+                val projectChallenges =
+                  SQL(
+                    s"SELECT id FROM challenges WHERE parent_id IN (${ids.mkString(",")})"
+                  ).as(long("id").*)
+                if (projectChallenges.size > 100) {
+                  None
+                }
+                else Some(projectChallenges)
+              case None => None
+            }
+        }
+
+      // Try limiting tasks table to just the challenges we are interested in
+      val withTable =
+        challengeList match {
+          case Some(ids) =>
+            s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id " +
+            s"IN (${ids.mkString(",")}))"
+          case None => ""
+        }
+
       query
         .build(
           s"""
+         ${withTable}
          SELECT COUNT(*) AS total,
          COUNT(tasks.completed_time_spent) as tasksWithReviewTime,
          COALESCE(SUM(EXTRACT(EPOCH FROM (reviewed_at - review_started_at)) * 1000),0) as totalReviewTime,

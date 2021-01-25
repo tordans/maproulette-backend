@@ -134,7 +134,8 @@ class TaskClusterService @Inject() (repository: TaskClusterRepository)
     this.repository.queryTasksInBoundingBox(
       query,
       this.getOrder(sort, orderDirection),
-      paging
+      paging,
+      params.challengeParams.challengeIds
     )
   }
 }

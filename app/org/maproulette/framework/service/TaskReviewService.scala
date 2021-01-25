@@ -22,7 +22,7 @@ import org.maproulette.exception.InvalidException
 import org.maproulette.session.{SearchParameters, SearchReviewParameters}
 import org.maproulette.permissions.Permission
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
-import org.maproulette.data.ChallengeType
+import org.maproulette.data.{ChallengeType, Actions}
 
 /**
   * Service layer for TaskReview
@@ -885,11 +885,23 @@ class TaskReviewService @Inject() (
     query.addFilterGroup(
       FilterGroup(
         List(
-          BaseParameter(
-            "id",
-            "",
-            Operator.NULL,
-            table = Some("l")
+          SubQueryFilter(
+            Task.FIELD_ID,
+            Query.simple(
+              List(
+                BaseParameter(
+                  "item_type",
+                  Actions.ITEM_TYPE_TASK,
+                  Operator.EQ,
+                  useValueDirectly = true,
+                  table = None
+                )
+              ),
+              s"SELECT item_id from locked"
+            ),
+            negate = true,
+            Operator.IN,
+            Some("tasks")
           )
         )
       )
