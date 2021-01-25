@@ -146,13 +146,15 @@ class TaskReviewRepository @Inject() (
     }
   }
 
-  private def buildTaskQuery(query: Query): SimpleSql[Row] = {
+  private def buildTaskQuery(query: Query, includeRowNumber: Boolean = false): SimpleSql[Row] = {
+    val rowNumber = includeRowNumber match {
+      case true => s" ROW_NUMBER() OVER (${query.order.sql()}) as row_num, "
+      case false => ""
+    }
     query.build(
       s"""
-        SELECT
-          ROW_NUMBER() OVER (${query.order.sql()}) as row_num,
+        SELECT ${rowNumber}
           tasks.${this.retrieveColumnsWithReview} FROM tasks
-          LEFT JOIN locked l ON l.item_id = tasks.id
           INNER JOIN challenges c ON c.id = tasks.parent_id
           LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
           INNER JOIN projects p ON p.id = c.parent_id
@@ -190,7 +192,7 @@ class TaskReviewRepository @Inject() (
     }
 
     this.withMRTransaction { implicit c =>
-      this.buildTaskQuery(query).as(rowNumParser.*)
+      this.buildTaskQuery(query, true).as(rowNumParser.*)
     }
 
     rowMap.toMap
@@ -208,7 +210,6 @@ class TaskReviewRepository @Inject() (
       simpleQuery
         .build(
           s"""SELECT count(*) FROM tasks
-            LEFT JOIN locked l ON l.item_id = tasks.id
             INNER JOIN challenges c ON c.id = tasks.parent_id
             LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
             INNER JOIN projects p ON p.id = c.parent_id
@@ -226,7 +227,6 @@ class TaskReviewRepository @Inject() (
   def queryTasksWithLocked(query: Query): List[Task] = {
     this.withMRTransaction { implicit c =>
       query.build(s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
-          LEFT JOIN locked l ON l.item_id = tasks.id
           INNER JOIN challenges c ON c.id = tasks.parent_id
           LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
           INNER JOIN projects p ON p.id = c.parent_id

@@ -65,7 +65,7 @@ trait SearchParametersMixin {
         })
         .mkString(",")
 
-      val invert = params.invertFields.getOrElse(List()).contains("tc")
+      val invert = params.invertFields.getOrElse(List()).contains("ct")
       FilterGroup(
         List(
           SubQueryFilter(
@@ -80,7 +80,7 @@ trait SearchParametersMixin {
                   table = Some("tags")
                 )
               ),
-              "SELECT task_id from tags_on_challenges tc INNER JOIN tags ON tags.id = tc.tag_id"
+              "SELECT challenge_id from tags_on_challenges tc INNER JOIN tags ON tags.id = tc.tag_id"
             ),
             invert,
             Operator.IN,
