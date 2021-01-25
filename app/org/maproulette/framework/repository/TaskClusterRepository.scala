@@ -142,10 +142,10 @@ class TaskClusterRepository @Inject() (override val db: Database, challengeDAL: 
     this.withMRTransaction { implicit c =>
       val withTable =
         challengeIds match {
-          case Some(ids) =>
+          case Some(ids) if (!ids.isEmpty) =>
             s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id " +
             s"IN (${ids.mkString(",")}))"
-          case None => ""
+          case _ => ""
         }
 
       val count =

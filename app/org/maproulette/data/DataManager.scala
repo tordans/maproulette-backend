@@ -382,9 +382,9 @@ class DataManager @Inject() (
       }
 
       val withTable = challenges match {
-        case Some(ids) =>
+        case Some(ids) if (!ids.isEmpty) =>
           s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id IN (${ids.mkString(",")}))"
-        case None => ""
+        case _ => ""
       }
 
       val priorityFilter = priority match {
