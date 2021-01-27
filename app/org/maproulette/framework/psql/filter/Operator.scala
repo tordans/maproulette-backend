@@ -48,7 +48,7 @@ object Operator extends Enumeration {
       case SIMILAR_TO => s"$negation$key SIMILAR TO $rightValue"
       case EXISTS     => s"${negation}EXISTS ($rightValue)"
       case BOOL       => s"${negation}$key"
-      case AT         => s"${negation}$key @ $rightValue"
+      case AT         => s"${negation}$key && $rightValue"
       case _ =>
         throw new InvalidException("Operator not supported by standard filter")
     }

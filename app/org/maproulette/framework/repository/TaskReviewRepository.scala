@@ -17,6 +17,7 @@ import org.maproulette.framework.model.{Task, TaskReview, TaskWithReview, User}
 import org.maproulette.framework.psql.{Query, Grouping, GroupField, Order, Paging}
 import org.maproulette.framework.mixins.{Locking, TaskParserMixin}
 import org.maproulette.framework.service.UserService
+import org.maproulette.session.SearchParameters
 import play.api.db.Database
 import org.slf4j.LoggerFactory
 
@@ -51,7 +52,7 @@ class TaskReviewRepository @Inject() (
                mappers.name as review_requested_by_username,
                reviewers.name as reviewed_by_username
         FROM tasks
-        LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+        INNER JOIN task_review ON task_review.task_id = tasks.id
         LEFT OUTER JOIN users mappers ON task_review.review_requested_by = mappers.id
         LEFT OUTER JOIN users reviewers ON task_review.reviewed_by = reviewers.id
         INNER JOIN challenges ON challenges.id = tasks.parent_id
@@ -146,17 +147,83 @@ class TaskReviewRepository @Inject() (
     }
   }
 
-  private def buildTaskQuery(query: Query, includeRowNumber: Boolean = false): SimpleSql[Row] = {
+  // We will try to use some of the known filters to reduce the amount of
+  // rows being iterated over by using a WITH clause. Currently it checks
+  // in this order:
+  // 1. Mapper (owner)
+  // 2. Reviewer
+  // 3. ReviewStatus
+  // 4. Default to ReviewStatus != 5 (unnecessary)
+  private def buildWithTable(params: SearchParameters): String = {
+    val defaultWith =
+      s"""
+        WITH task_review AS (
+          SELECT * FROM task_review WHERE review_status <> ${Task.REVIEW_STATUS_UNNECESSARY}
+        )
+      """
+    params.owner match {
+      case Some(owner) =>
+        params.invertFields.getOrElse(List()).contains("o") match {
+          case true => defaultWith
+          case false =>
+            s"""
+              WITH task_review AS (
+              SELECT * FROM task_review tr INNER JOIN users u
+              ON u.id = tr.review_requested_by WHERE u.name ILIKE '%${owner}%'
+            )
+            """
+        }
+      case None =>
+        params.reviewer match {
+          case Some(reviewer) =>
+            params.invertFields.getOrElse(List()).contains("r") match {
+              case true => defaultWith
+              case false =>
+                s"""
+                  WITH task_review AS (
+                  SELECT * FROM task_review tr INNER JOIN users u
+                  ON u.id = tr.reviewed_by WHERE u.name ILIKE '%${reviewer}%'
+                )"""
+            }
+          case None =>
+            params.taskParams.taskReviewStatus match {
+              case Some(rs) =>
+                params.invertFields.getOrElse(List()).contains("trStatus") match {
+                  case true => defaultWith
+                  case false =>
+                    s"""
+                      WITH task_review AS (
+                        SELECT * FROM task_review WHERE review_status IN (${rs.mkString(",")})
+                      )
+                    """
+                }
+              case None => defaultWith
+            }
+        }
+    }
+  }
+
+  private def buildTaskQuery(query: Query, includeRowNumber: Boolean = false,
+    params: Option[SearchParameters] = None): SimpleSql[Row] = {
     val rowNumber = includeRowNumber match {
       case true => s" ROW_NUMBER() OVER (${query.order.sql()}) as row_num, "
       case false => ""
     }
+
+    val withTable =
+      params match {
+        case Some(searchParams) =>
+          this.buildWithTable(searchParams)
+        case None => ""
+      }
+
     query.build(
       s"""
+        ${withTable}
         SELECT ${rowNumber}
           tasks.${this.retrieveColumnsWithReview} FROM tasks
           INNER JOIN challenges c ON c.id = tasks.parent_id
-          LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+          INNER JOIN task_review ON task_review.task_id = tasks.id
           INNER JOIN projects p ON p.id = c.parent_id
        """
     )
@@ -167,10 +234,10 @@ class TaskReviewRepository @Inject() (
     *
     * @param query
     */
-  def queryTasks(query: Query): List[Task] = {
+  def queryTasks(query: Query, params: SearchParameters): List[Task] = {
     this.taskRepository.cacheManager.withIDListCaching { implicit cachedItems =>
       this.withMRTransaction { implicit c =>
-        this.buildTaskQuery(query).as(this.parser.*)
+        this.buildTaskQuery(query, false, Some(params)).as(this.parser.*)
       }
     }
   }
@@ -203,15 +270,19 @@ class TaskReviewRepository @Inject() (
     *
     * @param query - Query object. Ordering/Paging are ignored
     */
-  def queryTaskCount(query: Query): Int = {
+  def queryTaskCount(query: Query, searchParams: SearchParameters): Int = {
     this.withMRTransaction { implicit c =>
       // Remove ordering and paging when querying task count.
       val simpleQuery = query.copy(order = Order(List()), paging = Paging())
+      val withTable = this.buildWithTable(searchParams)
+
       simpleQuery
         .build(
-          s"""SELECT count(*) FROM tasks
+          s"""
+          ${withTable}
+          SELECT count(*) FROM tasks
             INNER JOIN challenges c ON c.id = tasks.parent_id
-            LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+            INNER JOIN task_review ON task_review.task_id = tasks.id
             INNER JOIN projects p ON p.id = c.parent_id
         """
         )
@@ -228,7 +299,7 @@ class TaskReviewRepository @Inject() (
     this.withMRTransaction { implicit c =>
       query.build(s"""SELECT tasks.$retrieveColumnsWithReview FROM tasks
           INNER JOIN challenges c ON c.id = tasks.parent_id
-          LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
+          INNER JOIN task_review ON task_review.task_id = tasks.id
           INNER JOIN projects p ON p.id = c.parent_id
         """).as(this.parser.*)
     }
