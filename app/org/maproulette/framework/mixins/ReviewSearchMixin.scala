@@ -185,7 +185,7 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       .addFilterGroup(this.filterMetaReviewer(searchParameters))
       .addFilterGroup(this.filterMapper(searchParameters))
       .addFilterGroup(this.filterTaskStatus(searchParameters, List()))
-      .addFilterGroup(this.filterMetaReviewStatus(searchParameters))
+      .addFilterGroup(this.filterMetaReviewStatusDirect(searchParameters))
       .addFilterGroup(this.filterReviewMappers(searchParameters))
       .addFilterGroup(this.filterReviewers(searchParameters))
       .addFilterGroup(this.filterMetaReviewers(searchParameters))
@@ -243,6 +243,38 @@ trait ReviewSearchMixin extends SearchParametersMixin {
             }
         }
       case false => searchParameters
+    }
+  }
+
+  private def filterMetaReviewStatusDirect(params: SearchParameters): FilterGroup = {
+    params.reviewParams.metaReviewStatus match {
+      case Some(statuses) if statuses.nonEmpty =>
+        FilterGroup(
+          List(
+            FilterParameter.conditional(
+              TaskReview.FIELD_META_REVIEW_STATUS,
+              params.reviewParams.metaReviewStatus.getOrElse(List()).mkString(","),
+              Operator.IN,
+              params.invertFields.getOrElse(List()).contains("mrStatus"),
+              true,
+              params.reviewParams.metaReviewStatus.getOrElse(List()).nonEmpty,
+              table = Some(TaskReview.TABLE)
+            ),
+            FilterParameter.conditional(
+              TaskReview.FIELD_META_REVIEW_STATUS,
+              None,
+              Operator.NULL,
+              params.invertFields.getOrElse(List()).contains("mrStatus"),
+              true,
+              params.reviewParams.metaReviewStatus.getOrElse(List()).
+                contains(Task.META_REVIEW_STATUS_NOT_SET),
+              table = Some(TaskReview.TABLE)
+            ),
+          ),
+          if (params.invertFields.getOrElse(List()).contains("mrStatus")) AND()
+          else OR()
+        )
+      case _ => FilterGroup(List())
     }
   }
 

@@ -110,11 +110,11 @@ class FilterOperatorSpec extends PlaySpec {
     }
 
     "format AT operator correctly" in {
-      Operator.format(KEY, parameterKey, Operator.AT) mustEqual s"$KEY @ {$parameterKey}"
+      Operator.format(KEY, parameterKey, Operator.AT) mustEqual s"$KEY && {$parameterKey}"
     }
 
     "format NOT AT operator correctly" in {
-      Operator.format(KEY, parameterKey, Operator.AT, negate = true) mustEqual s"NOT $KEY @ {$parameterKey}"
+      Operator.format(KEY, parameterKey, Operator.AT, negate = true) mustEqual s"NOT $KEY && {$parameterKey}"
     }
 
     "format rightValue correctly if set" in {
