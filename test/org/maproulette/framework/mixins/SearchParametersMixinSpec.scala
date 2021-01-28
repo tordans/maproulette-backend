@@ -69,7 +69,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     "match on location" in {
       val params = new SearchParameters(location = Some(SearchLocation(0.0, 0.0, 1.0, 1.0)))
       this.filterLocation(params).sql() mustEqual
-        "tasks.location @ ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
+        "tasks.location && ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
     }
 
     "be inverted" in {
@@ -78,7 +78,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("tbb"))
       )
       this.filterLocation(params).sql() mustEqual
-        "NOT tasks.location @ ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
+        "NOT tasks.location && ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
     }
 
     "be empty" in {
@@ -90,7 +90,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
     "match on location" in {
       val params = new SearchParameters(bounding = Some(SearchLocation(0.0, 0.0, 1.0, 1.0)))
       this.filterBounding(params).sql() mustEqual
-        "c.bounding @ ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
+        "c.bounding && ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
     }
 
     "be inverted" in {
@@ -99,7 +99,7 @@ class SearchParametersMixinSpec() extends PlaySpec with SearchParametersMixin {
         invertFields = Some(List("bb"))
       )
       this.filterBounding(params).sql() mustEqual
-        "NOT c.bounding @ ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
+        "NOT c.bounding && ST_MakeEnvelope (0.0, 0.0, 1.0, 1.0, 4326)"
     }
 
     "be empty" in {

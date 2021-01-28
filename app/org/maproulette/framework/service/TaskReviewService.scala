@@ -190,7 +190,8 @@ class TaskReviewService @Inject() (
           false,
           excludeOtherReviewers,
           asMetaReview
-        )
+        ),
+        params
       )
       .headOption
   }
@@ -234,7 +235,24 @@ class TaskReviewService @Inject() (
         false
       )
 
-    (this.repository.queryTaskCount(query), this.repository.queryTasks(query))
+    // Let's copy into our search params that we are searching only by
+    // reviewRequested and Contested task reviews. The repository can
+    // then use this information to help performance of the queries by
+    // pre-filtering task_review table with a WITH () clause.
+    val params = searchParameters.taskParams.taskReviewStatus match {
+      case Some(rs) => searchParameters
+      case None => searchParameters.copy(
+        taskParams = searchParameters.taskParams.copy(
+          taskReviewStatus = Some(
+            List(Task.REVIEW_STATUS_REQUESTED,
+                 Task.REVIEW_STATUS_DISPUTED)
+          )
+        )
+      )
+    }
+
+    (this.repository.queryTaskCount(query, params),
+     this.repository.queryTasks(query, params))
   }
 
   /**
@@ -332,9 +350,8 @@ class TaskReviewService @Inject() (
     if (asMetaReview) {
       query = addClaimedByFilter(query, user.id)
     }
-    query = addLockedFilter(query)
 
-    (this.repository.queryTaskCount(query), this.repository.queryTasks(query))
+    (this.repository.queryTaskCount(query, params), this.repository.queryTasks(query, params))
   }
 
   /**
@@ -370,7 +387,6 @@ class TaskReviewService @Inject() (
 
     if (reviewTasksType == META_REVIEW_TASKS) {
       query = addClaimedByFilter(query, user.id)
-      query = addLockedFilter(query)
     }
 
     val reviewField = reviewTasksType match {
@@ -854,7 +870,7 @@ class TaskReviewService @Inject() (
       excludeOtherReviewers
     )
 
-    addLockedFilter(addClaimedByFilter(query, user.id))
+    addClaimedByFilter(query, user.id)
   }
 
   private def addClaimedByFilter(query: Query, userId: Long): Query = {
