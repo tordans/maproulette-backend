@@ -155,52 +155,7 @@ class TaskReviewRepository @Inject() (
   // 3. ReviewStatus
   // 4. Default to ReviewStatus != 5 (unnecessary)
   private def buildWithTable(params: SearchParameters): String = {
-    val defaultWith =
-      s"""
-        WITH task_review AS (
-          SELECT * FROM task_review WHERE review_status <> ${Task.REVIEW_STATUS_UNNECESSARY}
-        )
-      """
-    params.owner match {
-      case Some(owner) =>
-        params.invertFields.getOrElse(List()).contains("o") match {
-          case true => defaultWith
-          case false =>
-            s"""
-              WITH task_review AS (
-              SELECT * FROM task_review tr INNER JOIN users u
-              ON u.id = tr.review_requested_by WHERE u.name ILIKE '%${owner}%'
-            )
-            """
-        }
-      case None =>
-        params.reviewer match {
-          case Some(reviewer) =>
-            params.invertFields.getOrElse(List()).contains("r") match {
-              case true => defaultWith
-              case false =>
-                s"""
-                  WITH task_review AS (
-                  SELECT * FROM task_review tr INNER JOIN users u
-                  ON u.id = tr.reviewed_by WHERE u.name ILIKE '%${reviewer}%'
-                )"""
-            }
-          case None =>
-            params.taskParams.taskReviewStatus match {
-              case Some(rs) =>
-                params.invertFields.getOrElse(List()).contains("trStatus") match {
-                  case true => defaultWith
-                  case false =>
-                    s"""
-                      WITH task_review AS (
-                        SELECT * FROM task_review WHERE review_status IN (${rs.mkString(",")})
-                      )
-                    """
-                }
-              case None => defaultWith
-            }
-        }
-    }
+    return ""
   }
 
   private def buildTaskQuery(query: Query, includeRowNumber: Boolean = false,

@@ -36,7 +36,6 @@ class TaskClusterRepository @Inject() (override val db: Database, challengeDAL: 
   private val joinClause =
     new StringBuilder(
       """
-        LEFT JOIN locked l ON l.item_id = tasks.id
         INNER JOIN challenges c ON c.id = tasks.parent_id
         INNER JOIN projects p ON p.id = c.parent_id
         LEFT OUTER JOIN task_review ON task_review.task_id = tasks.id
@@ -136,21 +135,11 @@ class TaskClusterRepository @Inject() (override val db: Database, challengeDAL: 
   def queryTasksInBoundingBox(
       query: Query,
       order: Order,
-      paging: Paging,
-      challengeIds: Option[List[Long]] = None
+      paging: Paging
   ): (Int, List[ClusteredPoint]) = {
     this.withMRTransaction { implicit c =>
-      val withTable =
-        challengeIds match {
-          case Some(ids) if (!ids.isEmpty) =>
-            s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id " +
-            s"IN (${ids.mkString(",")}))"
-          case _ => ""
-        }
-
       val count =
         query.build(s"""
-            ${withTable}
             SELECT count(*) FROM tasks
             ${joinClause.toString()}
           """).as(SqlParser.int("count").single)
@@ -163,7 +152,6 @@ class TaskClusterRepository @Inject() (override val db: Database, challengeDAL: 
           )
           .build(
             s"""
-              ${withTable}
               SELECT tasks.id, tasks.name, tasks.parent_id, c.name, tasks.instruction, tasks.status, tasks.mapped_on,
                      tasks.completed_time_spent, tasks.completed_by,
                      tasks.bundle_id, tasks.is_bundle_primary, tasks.cooperative_work_json::TEXT as cooperative_work,
