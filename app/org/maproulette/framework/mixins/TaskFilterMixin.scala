@@ -10,6 +10,7 @@ import org.maproulette.framework.service.ServiceManager
 import org.maproulette.framework.model.{Task, User, Challenge, Project}
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter._
+import org.maproulette.data.Actions
 
 import org.maproulette.utils.Utils
 
@@ -75,22 +76,12 @@ trait TaskFilterMixin {
         query.addFilterGroup(
           FilterGroup(
             List(
-              BaseParameter(
-                "id",
-                None,
-                Operator.NULL,
-                useValueDirectly = true,
-                table = Some("l")
-              ),
-              BaseParameter(
-                "user_id",
-                user.id,
-                Operator.EQ,
-                useValueDirectly = true,
-                table = Some("l")
+              CustomParameter(
+                s"""tasks.id NOT IN (select item_id from locked WHERE
+                  item_id = tasks.id AND item_type = ${Actions.ITEM_TYPE_TASK}
+                  AND user_id != ${user.id})"""
               )
-            ),
-            OR()
+            )
           )
         )
     }

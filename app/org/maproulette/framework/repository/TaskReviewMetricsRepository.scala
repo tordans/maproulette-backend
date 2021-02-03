@@ -200,19 +200,9 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
             }
         }
 
-      // Try limiting tasks table to just the challenges we are interested in
-      val withTable =
-        challengeList match {
-          case Some(ids) if (!ids.isEmpty) =>
-            s"WITH tasks AS (SELECT * FROM tasks WHERE tasks.parent_id " +
-            s"IN (${ids.mkString(",")}))"
-          case _ => ""
-        }
-
       query
         .build(
           s"""
-         ${withTable}
          SELECT COUNT(*) AS total,
          COUNT(tasks.completed_time_spent) as tasksWithReviewTime,
          COALESCE(SUM(EXTRACT(EPOCH FROM (task_review.reviewed_at - task_review.review_started_at)) * 1000),0) as totalReviewTime,

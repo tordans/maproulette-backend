@@ -827,7 +827,10 @@ class TaskReviewService @Inject() (
       case sortColumn if sortColumn.nonEmpty =>
         // We have two "id" columns: one for Tasks and one for taskReview. So
         // we need to specify which one to sort by for the SQL query.
-        val table     = if (sortColumn == "id" || sortColumn == "status") Some("tasks") else Some("")
+        val table     =
+          if (sortColumn == "id" || sortColumn == "status") Some("tasks")
+          else if (sortColumn == "reviewed_at") Some("task_review")
+          else Some("")
         val direction = if (order == "DESC") Order.DESC else Order.ASC
 
         Order(
