@@ -165,7 +165,8 @@ class TaskReviewService @Inject() (
             false,
             excludeOtherReviewers,
             asMetaReview
-          )
+          ),
+          taskId
         )
         rowMap.get(taskId)
 
