@@ -202,7 +202,7 @@ class TaskReviewRepository @Inject() (
     *
     * @param query
     */
-  def queryTasksWithRowNumber(query: Query): Map[Long, Int] = {
+  def queryTasksWithRowNumber(query: Query, taskId: Long): Map[Long, Int] = {
     val rowMap = mutable.Map[Long, Int]()
     val rowNumParser: RowParser[Long] = {
       get[Int]("row_num") ~ get[Long]("tasks.id") map {
@@ -214,7 +214,21 @@ class TaskReviewRepository @Inject() (
     }
 
     this.withMRTransaction { implicit c =>
-      this.buildTaskQuery(query, true).as(rowNumParser.*)
+      this.buildTaskQuery(query, true)
+      val baseQuery =
+        s"""
+          SELECT ROW_NUMBER() OVER (${query.order.sql()}) as row_num,
+            tasks.id FROM tasks
+            INNER JOIN challenges c ON c.id = tasks.parent_id
+            INNER JOIN task_review ON task_review.task_id = tasks.id
+            INNER JOIN projects p ON p.id = c.parent_id
+         """
+      val parameters = query.parameters()
+      val sql        = query.sqlWithBaseQuery(baseQuery, false, Grouping())
+
+      SQL(
+       s"SELECT row_num, tasks.id FROM (${sql}) tasks WHERE tasks.id = ${taskId}"
+      ).on(parameters: _*).as(rowNumParser.*)
     }
 
     rowMap.toMap
