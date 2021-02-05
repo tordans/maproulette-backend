@@ -237,7 +237,8 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") ~
-      get[Option[List[Long]]]("virtual_parent_ids") map {
+      get[Option[List[Long]]]("virtual_parent_ids") ~
+      get[Option[List[String]]]("presets") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~
@@ -245,7 +246,8 @@ class ChallengeDAL @Inject() (
             lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents =>
+            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
+            presets =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -297,7 +299,8 @@ class ChallengeDAL @Inject() (
             preferredReviewTags,
             limitTags,
             limitReviewTags,
-            taskStyles
+            taskStyles,
+            presets
           ),
           status,
           statusMessage,
@@ -448,8 +451,9 @@ class ChallengeDAL @Inject() (
 
     this.permission.hasObjectWriteAccess(challenge, user)
     this.cacheManager.withOptionCaching { () =>
-      this.withMRTransaction { implicit c =>
-        SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
+      val insertedChallenge =
+        this.withMRTransaction { implicit c =>
+          SQL"""INSERT INTO challenges (name, owner_id, parent_id, difficulty, description, info_link, blurb,
                                       instruction, enabled, featured, checkin_comment, checkin_source,
                                       overpass_ql, remote_geo_json, overpass_target_type, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
@@ -473,12 +477,41 @@ class ChallengeDAL @Inject() (
           .as(this.parser.*)
           .headOption
       }
+
+      // Now insert presets if we have any
+      insertedChallenge match {
+        case Some(newChallenge) =>
+          challenge.extra.presets match {
+            case Some(ps) => Some(this.insertPresets(newChallenge, ps))
+            case None => insertedChallenge
+          }
+        case None => insertedChallenge
+      }
     } match {
       case Some(value) => value
       case None =>
         throw new UniqueViolationException(
           s"Challenge with name ${challenge.name} already exists in the database"
         )
+    }
+  }
+
+  private def insertPresets(challenge: Challenge, presets: List[String])
+    (implicit c: Option[Connection] = None): Challenge = {
+    this.withMRConnection { implicit c =>
+      presets.map(preset => {
+          SQL(
+            """INSERT INTO challenge_presets (challenge_id, preset)
+               VALUES ({challengeId}, {preset})"""
+          ).on(
+              Symbol("challengeId") -> challenge.id,
+              Symbol("preset") -> preset
+          ).executeUpdate()
+        }
+      )
+      challenge.copy(
+        extra = challenge.extra.copy(presets = Some(presets))
+      )
     }
   }
 
@@ -614,32 +647,50 @@ class ChallengeDAL @Inject() (
             .asOpt[Boolean]
             .getOrElse(cachedItem.general.requiresLocal)
 
-          SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
-                description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
-                enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, checkin_source = $checkinSource, overpass_ql = $overpassQL,
-                remote_geo_json = $remoteGeoJson, overpass_target_type = $overpassTargetType, status = $status, status_message = $statusMessage, default_priority = $defaultPriority,
-                data_origin_date = ${dataOriginDate.toString()}::timestamptz,
-                high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) {
-            Option.empty[String]
-          } else {
-            Some(highPriorityRule)
-          }},
-                medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) {
-            Option.empty[String]
-          } else {
-            Some(mediumPriorityRule)
-          }},
-                low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) {
-            Option.empty[String]
-          } else {
-            Some(lowPriorityRule)
-          }},
-                default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
-                custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
-                limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
-                requires_local = $requiresLocal
-              WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
+          val presets: List[String] = (updates \ "presets")
+            .asOpt[List[String]]
+            .getOrElse(cachedItem.extra.presets.getOrElse(null))
+
+          val updatedChallenge =
+            SQL"""UPDATE challenges SET name = $name, owner_id = $ownerId, parent_id = $parentId, difficulty = $difficulty,
+                  description = $description, info_link = $infoLink, blurb = $blurb, instruction = $instruction,
+                  enabled = $enabled, featured = $featured, checkin_comment = $checkinComment, checkin_source = $checkinSource, overpass_ql = $overpassQL,
+                  remote_geo_json = $remoteGeoJson, overpass_target_type = $overpassTargetType, status = $status, status_message = $statusMessage, default_priority = $defaultPriority,
+                  data_origin_date = ${dataOriginDate.toString()}::timestamptz,
+                  high_priority_rule = ${if (StringUtils.isEmpty(highPriorityRule)) {
+              Option.empty[String]
+            } else {
+              Some(highPriorityRule)
+            }},
+                  medium_priority_rule = ${if (StringUtils.isEmpty(mediumPriorityRule)) {
+              Option.empty[String]
+            } else {
+              Some(mediumPriorityRule)
+            }},
+                  low_priority_rule = ${if (StringUtils.isEmpty(lowPriorityRule)) {
+              Option.empty[String]
+            } else {
+              Some(lowPriorityRule)
+            }},
+                  default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
+                  custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
+                  osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
+                  limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
+                  requires_local = $requiresLocal
+                WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
+
+          updatedChallenge match {
+            case Some(uc) =>
+              if (presets != null) {
+                //drop and reinsert presets
+                SQL(s"DELETE FROM challenge_presets WHERE challenge_id=${uc.id}").executeUpdate()
+                Some(this.insertPresets(uc, presets))
+              }
+              else {
+                updatedChallenge
+              }
+            case None => None
+          }
         }
     }
     // update the task priorities in the background
@@ -1384,9 +1435,11 @@ class ChallengeDAL @Inject() (
       this.withMRConnection { implicit c =>
         val query =
           s"""
-            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids
+            |SELECT c.$retrieveColumns, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids,
+            |array_remove(array_agg(cp.preset), NULL) AS presets
             |FROM challenges c
             |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
+            |LEFT OUTER JOIN challenge_presets cp ON c.id = cp.challenge_id
             |WHERE c.id = {id}
             |GROUP BY c.id
            """.stripMargin
@@ -1628,9 +1681,12 @@ class ChallengeDAL @Inject() (
 
       val query =
         s"""
-           |SELECT c.${this.retrieveColumns}, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids FROM challenges c
+           |SELECT c.${this.retrieveColumns}, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids,
+           |array_remove(array_agg(cp.preset), NULL) AS presets
+           |FROM challenges c
            |INNER JOIN projects p ON p.id = c.parent_id
            |LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
+           |LEFT OUTER JOIN challenge_presets cp ON c.id = cp.challenge_id
            |$joinClause
            |${s"WHERE $whereClause"}
            |GROUP BY c.id
