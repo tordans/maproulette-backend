@@ -17,6 +17,7 @@ import org.maproulette.session.SearchParameters
 import org.maproulette.utils.BoundingBoxFinder
 import org.maproulette.exception.NotFoundException
 import org.maproulette.framework.model.{Challenge, Task}
+import org.maproulette.framework.service.ServiceManager
 import play.api.Application
 import play.api.db.Database
 
@@ -51,9 +52,10 @@ class SnapshotManager @Inject() (
     config: Config,
     db: Database,
     challengeDAL: ChallengeDAL,
-    boundingBoxFinder: BoundingBoxFinder
+    boundingBoxFinder: BoundingBoxFinder,
+    serviceManager: ServiceManager
 )(implicit application: Application)
-    extends DataManager(config, db, boundingBoxFinder) {
+    extends DataManager(config, db, boundingBoxFinder, serviceManager) {
 
   val snapshotBriefParser: RowParser[Snapshot] = {
     get[Long]("id") ~
