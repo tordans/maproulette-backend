@@ -12,6 +12,7 @@ import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.framework.model.{ReviewMetrics, Task}
+import org.maproulette.framework.service.ServiceManager
 import org.maproulette.models.utils.{AND, DALHelper, WHERE}
 import org.maproulette.models.dal.mixin.SearchParametersMixin
 import org.maproulette.session.{SearchParameters, SearchTaskParameters}
@@ -102,7 +103,8 @@ case class RawActivity(
 class DataManager @Inject() (
     config: Config,
     db: Database,
-    boundingBoxFinder: BoundingBoxFinder
+    boundingBoxFinder: BoundingBoxFinder,
+    serviceManager: ServiceManager
 )(
     implicit application: Application
 ) extends DALHelper
@@ -562,6 +564,17 @@ class DataManager @Inject() (
       challengeColumn: String
   ): String = {
     projectList match {
+      case Some(idList) if idList.length > 0 =>
+        val project = this.serviceManager.project.retrieve(idList.head).get
+        project.isVirtual match {
+          case Some(false) =>
+            s"AND $projectColumn IN (${idList.mkString(",")})"
+          case Some(true) =>
+            s"""AND ($projectColumn IN (${idList.mkString(",")})
+                   OR 1 IN (SELECT 1 FROM unnest(ARRAY[${idList.mkString(",")}]) AS pIds
+                       WHERE pIds IN (SELECT vp.project_id FROM virtual_project_challenges vp
+                                      WHERE vp.challenge_id = ${challengeColumn})))"""
+        }
       case Some(idList) if idList.nonEmpty =>
         s"""AND ($projectColumn IN (${idList.mkString(",")})
                  OR 1 IN (SELECT 1 FROM unnest(ARRAY[${idList.mkString(",")}]) AS pIds
