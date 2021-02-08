@@ -175,7 +175,7 @@ trait TagsControllerMixin[T <: BaseObject[Long]] {
                 case e: NumberFormatException =>
                   // this is the case where a name is supplied, so we will either search for a tag with
                   // the same name or create a new tag with the current name
-                  this.tagService.retrieveByName(tag) match {
+                  this.tagService.retrieveByName(tag, this.tagType) match {
                     case Some(t) => t.asInstanceOf[Tag]
                     case None =>
                       Tag(-1, tag, tagType = this.tagType)

@@ -90,7 +90,7 @@ trait TagDALMixin[T <: BaseObject[Long]] {
   ): Unit = {
     val tagIds = tags.filter(_.nonEmpty).flatMap { tag =>
       {
-        this.tagService.retrieveByName(tag) match {
+        this.tagService.retrieveByName(tag, this.tableName) match {
           case Some(t) => Some(t.id)
           case None    => Some(this.tagService.create(Tag(-1, tag), user).id)
         }
