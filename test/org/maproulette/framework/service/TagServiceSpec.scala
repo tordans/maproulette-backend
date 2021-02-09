@@ -72,7 +72,7 @@ class TagServiceSpec(implicit val application: Application) extends FrameworkHel
 
     "retrieve a tag by name" taggedAs KeywordTag in {
       val createdTag   = this.service.create(Tag(-1, "RetrieveServiceTagTest"), User.superUser)
-      val retrievedTag = this.service.retrieveByName("RetrieveServiceTagTest")
+      val retrievedTag = this.service.retrieveByName("RetrieveServiceTagTest", "challenges")
       retrievedTag.get.id mustEqual createdTag.id
       retrievedTag.get.name mustEqual createdTag.name
       retrievedTag.get.description mustEqual createdTag.description

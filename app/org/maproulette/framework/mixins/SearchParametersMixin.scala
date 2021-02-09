@@ -102,7 +102,7 @@ trait SearchParametersMixin {
       List(
         FilterParameter.conditional(
           Project.FIELD_DISPLAY_NAME,
-          s"'${SQLUtils.search(params.projectSearch.getOrElse("").replace("'", "''"))}'",
+          s"'${SQLUtils.search(params.projectSearch.getOrElse(""))}'",
           Operator.ILIKE,
           params.invertFields.getOrElse(List()).contains("ps"),
           true,
@@ -184,7 +184,7 @@ trait SearchParametersMixin {
                   List(
                     FilterParameter.conditional(
                       Project.FIELD_DISPLAY_NAME,
-                      s"'${SQLUtils.search(params.projectSearch.getOrElse("").replace("'", "''"))}'",
+                      s"'${SQLUtils.search(params.projectSearch.getOrElse(""))}'",
                       Operator.ILIKE,
                       params.invertFields.getOrElse(List()).contains("ps"),
                       true,
@@ -195,7 +195,7 @@ trait SearchParametersMixin {
                       s"(c.id IN " +
                         s"(SELECT vp2.challenge_id FROM virtual_project_challenges vp2 " +
                         s" INNER JOIN projects p2 ON p2.id = vp2.project_id WHERE " +
-                        s" LOWER(p2.display_name) LIKE LOWER('%${ps.replace("'", "''")}%') AND p2.enabled=true))"
+                        s" LOWER(p2.display_name) LIKE LOWER('${SQLUtils.search(ps)}') AND p2.enabled=true))"
                     )
                   ),
                   OR()
@@ -627,7 +627,7 @@ trait SearchParametersMixin {
                   List(
                     BaseParameter(
                       Challenge.FIELD_NAME,
-                      s"'%${cs}%'",
+                      s"'${SQLUtils.search(cs)}'",
                       Operator.ILIKE,
                       useValueDirectly = true,
                       negate = params.invertFields.getOrElse(List()).contains("cs"),
@@ -785,7 +785,7 @@ trait SearchParametersMixin {
                     case SearchParameters.TASK_PROP_SEARCH_TYPE_NOT_EQUAL =>
                       query ++= s" AND features->'properties'->>'${k}' != '${v}' "
                     case SearchParameters.TASK_PROP_SEARCH_TYPE_CONTAINS =>
-                      query ++= s" AND features->'properties'->>'${k}' LIKE '%${v}%' "
+                      query ++= s" AND features->'properties'->>'${k}' LIKE '${SQLUtils.search(v)}' "
                     case SearchParameters.TASK_PROP_SEARCH_TYPE_EXISTS =>
                       query ++= s" AND features->'properties'->>'${k}' IS NOT NULL "
                     case SearchParameters.TASK_PROP_SEARCH_TYPE_MISSING =>
@@ -856,7 +856,7 @@ trait SearchParametersMixin {
                     s"${Task.TABLE}.${Task.FIELD_ID}",
                     useValueDirectly = true
                   ),
-                  BaseParameter("u.name", s"'%${m}%'", Operator.ILIKE, useValueDirectly = true)
+                  BaseParameter("u.name", s"'${SQLUtils.search(m)}'", Operator.ILIKE, useValueDirectly = true)
                 ),
                 "SELECT t2.id FROM tasks t2 INNER JOIN users u ON u.id = t2.completed_by"
               ),
@@ -1018,7 +1018,7 @@ trait SearchParametersMixin {
                 s"${Task.TABLE}.${Task.FIELD_ID}",
                 useValueDirectly = true
               ),
-              BaseParameter("u.name", s"'%${value}%'", Operator.ILIKE, useValueDirectly = true)
+              BaseParameter("u.name", s"'${SQLUtils.search(value)}'", Operator.ILIKE, useValueDirectly = true)
             ),
             s"SELECT task_id FROM task_review tr INNER JOIN users u ON u.id = tr.${column}"
           ),
