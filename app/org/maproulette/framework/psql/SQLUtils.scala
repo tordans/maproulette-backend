@@ -47,9 +47,15 @@ object SQLUtils {
     * @param value The search string that you are using to match with
     * @return
     */
-  def search(value: String, usePrefix: Boolean = false): String = {
+  def search(value: String, usePrefix: Boolean = false, escapeSingleQuote: Boolean = true): String = {
     val firstChar = if (usePrefix) "" else "%"
-    if (value.nonEmpty) s"$firstChar$value%" else "%"
+    val searchString = escapeSingleQuote match {
+      case true => 
+        if (value.nonEmpty) value.replace("'", "''")
+        else value
+      case false => value
+    }
+    if (value.nonEmpty) s"$firstChar$searchString%" else "%"
   }
 
   def toParameterValue[T](value: T): ParameterValue =
