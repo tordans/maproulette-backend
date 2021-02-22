@@ -331,9 +331,12 @@ class TaskReviewService @Inject() (
       order: String,
       asMetaReview: Boolean = false
   ): (Int, List[Task]) = {
-    // If User is not a reviewer, then there is no next task to review
+    // If User is not a reviewer only allow if not searching for this user's
+    // mapped tasks which have been reviewed.
     if (!user.settings.isReviewer.getOrElse(false) && !permission.isSuperUser(user)) {
-      return (0, List[Task]())
+      if (searchParameters.reviewParams.mappers != Some(List(user.id))) {
+        return (0, List[Task]())
+      }
     }
 
     // If this is as meta review than we need to limit by task review status to those
