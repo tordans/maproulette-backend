@@ -134,12 +134,13 @@ class TagService @Inject() (
     * @param parentId The parent identifier of the tag, set to -1 if you don't want to filter by it's parent
     * @return The tag, None if not found
     */
-  def retrieveByName(name: String, parentId: Long = -1): Option[Tag] = {
+  def retrieveByName(name: String, tagType: String, parentId: Long = -1): Option[Tag] = {
     this
       .query(
         Query.simple(
           List(
             BaseParameter(Tag.FIELD_NAME, name.toLowerCase),
+            BaseParameter(Tag.FIELD_TAG_TYPE, tagType),
             FilterParameter
               .conditional(Tag.FIELD_PARENT_ID, parentId, includeOnlyIfTrue = parentId != -1)
           )

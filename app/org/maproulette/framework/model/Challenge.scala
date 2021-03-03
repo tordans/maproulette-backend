@@ -131,7 +131,8 @@ case class ChallengeExtra(
     preferredReviewTags: Option[String] = None,
     limitTags: Boolean = false,       // If true, only preferred tags should be used
     limitReviewTags: Boolean = false, // If true, only preferred review tags should be used
-    taskStyles: Option[String] = None
+    taskStyles: Option[String] = None,
+    presets: Option[List[String]] = None
 ) extends DefaultWrites
 
 case class ChallengeListing(

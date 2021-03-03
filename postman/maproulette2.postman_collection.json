@@ -21,8 +21,7 @@
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
-								],
-								"id": "231a8134-b6e9-4868-a321-0078f50b555c"
+								]
 							}
 						}
 					],
@@ -65,7 +64,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "9fbcede5-798b-488b-8d90-84213058b931",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -116,7 +114,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "160803bf-805a-4ea2-a245-7f05f83a70df",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SimpleChallengeID\", jsonData.id);",
@@ -168,7 +165,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "247015f3-fa1c-498f-9b53-48288af53d0f",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -221,8 +217,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "f87645bd-7ba8-480f-83b9-fd9004cc1435"
+								]
 							}
 						}
 					],
@@ -266,7 +261,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "39abed0e-77a9-4d57-bed2-e498f7575795",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -318,8 +312,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "c464e592-1523-480d-9075-73e50fb99482"
+								]
 							}
 						}
 					],
@@ -369,7 +362,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f847279d-8814-45df-97e1-9d95ff039d38",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TagsChallengeID\", jsonData.id);",
@@ -421,7 +413,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "4d1fc10a-51d6-4d12-b93d-2524f741f3bd",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -469,7 +460,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "bbe4392a-5122-46d7-bd1b-3a85432a102f",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -519,7 +509,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "6410a87a-93e0-4438-988c-89839ce8b904",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -572,7 +561,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5fba065b-2da6-4256-b6c6-991a82ba7568",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -620,7 +608,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b3079928-6846-4a23-9f2d-31cd00370aa1",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -668,7 +655,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "567b200f-f37f-42fc-84cd-b6ad23153325",
 								"exec": [
 									"tests[\"response code is 201\"] = responseCode.code === 201;"
 								],
@@ -725,8 +711,7 @@
 									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";",
 									"tests[\"Task3\"] = jsonData[2].name === \"Task 3\";",
 									"tests[\"Task4\"] = jsonData[3].name === \"Task 4\";"
-								],
-								"id": "b43ec435-ee06-4fc6-b175-681b5e70c6d8"
+								]
 							}
 						}
 					],
@@ -767,7 +752,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "00915723-f15b-4853-852b-b0ac378c80d4",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -825,7 +809,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "4c308cb6-a435-433f-b091-f32e80a109ca",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -876,8 +859,7 @@
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 204\"] = responseCode.code === 204;"
-								],
-								"id": "43c1531e-554e-4175-aad5-3470dfbb6f81"
+								]
 							}
 						}
 					],
@@ -933,8 +915,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"tag1\"] = jsonData[0].name === \"tag2\""
-								],
-								"id": "3df5a45a-7229-4eea-af65-b3270f603d72"
+								]
 							}
 						}
 					],
@@ -975,7 +956,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "05d2fa85-5f1a-468c-8651-27618e343cfc",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1032,8 +1012,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "de9238fe-3095-4cb6-a4a1-ce08e068b22b"
+								]
 							}
 						}
 					],
@@ -1083,7 +1062,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "38134f32-286d-4ea1-9c07-3504f2dc07fe",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TagsTaskChallengeID\", jsonData.id);",
@@ -1134,7 +1112,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "2f0ea73a-e6ef-4db0-86ae-566a2bc95ae3",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1193,7 +1170,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "2be65800-8544-4390-b81c-66b3355ed90b",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1254,8 +1230,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "a6d461e1-34b7-468f-a95e-c668ce70478f"
+								]
 							}
 						}
 					],
@@ -1310,8 +1285,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "98e3420d-18d9-434f-82c3-e50a05bd2d00"
+								]
 							}
 						}
 					],
@@ -1355,8 +1329,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "task",
@@ -1374,8 +1347,7 @@
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"TestProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project.\";"
-								],
-								"id": "b579548f-572f-43bf-bbed-22dbf21897c1"
+								]
 							}
 						}
 					],
@@ -1418,7 +1390,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "1e9cf7c3-bf1b-45ba-b7c5-b8ba0b7d5b8e",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TestChallenge\", jsonData.id);",
@@ -1470,7 +1441,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "2248f9dc-51ba-4b6b-88e7-769dd2a500fb",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1536,7 +1506,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "fcb7d330-5633-4cd9-ae16-0d010b191ea0",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1606,7 +1575,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "fdf45776-1867-4c4f-9408-70968d3c6321",
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
@@ -1655,7 +1623,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "df99ba38-f62a-4a6a-bb83-ecbe6528a4d2",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
@@ -1708,8 +1675,7 @@
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"NewTask\";",
 									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
-								],
-								"id": "93cf82dc-cf43-45cc-af64-54c623336df7"
+								]
 							}
 						}
 					],
@@ -1758,8 +1724,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"name\"] = jsonData.name === \"NewTask\";",
 									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
-								],
-								"id": "8eac98a0-9b2c-42d4-8a07-b8898be41e78"
+								]
 							}
 						}
 					],
@@ -1799,7 +1764,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "79e6cdbd-0f27-435f-aced-2cf9041cab52",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1850,7 +1814,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "4a3b3510-d61b-4187-ad35-fa5d9b212bee",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1901,7 +1864,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "6f685cfa-8775-40a9-b37d-ffa7e4e95f13",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -1952,7 +1914,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5f86dd5f-4390-45eb-9875-d441e6b27306",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -2002,7 +1963,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "a1b0cb85-1385-4389-86a4-e719c6ccfe5f",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -2054,7 +2014,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f8e25f9a-72b9-4734-bf41-689c97ecc605",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -2102,7 +2061,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5cf6883e-f928-40bc-a709-31b1eae9f871",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -2154,7 +2112,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "07ff16de-a48a-42c5-a733-5cc3dc7d36e8",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -2208,8 +2165,7 @@
 									"postman.setGlobalVariable(\"NewComment\", jsonData.id);",
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"comment\"] = jsonData.comment === \"This is a comment\";"
-								],
-								"id": "f2d24de4-98af-442e-b1f9-88df7e9c3666"
+								]
 							}
 						}
 					],
@@ -2261,8 +2217,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
-								],
-								"id": "da50511d-2975-4536-a182-18c311b1dbf8"
+								]
 							}
 						}
 					],
@@ -2313,8 +2268,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"comment\"] = jsonData.comment === \"This is a comment Number2\";"
-								],
-								"id": "c6343e21-8ef5-44e7-9732-889177c787e0"
+								]
 							}
 						}
 					],
@@ -2366,8 +2320,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"comment\"] = jsonData.comment === \"This is an updated comment\";"
-								],
-								"id": "972ada35-33f3-4c37-85ec-fb146d9d3dcf"
+								]
 							}
 						}
 					],
@@ -2408,8 +2361,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"Comment1\"] = jsonData.length == 2;"
-								],
-								"id": "5a53167d-a943-4f03-ab40-1f242ab45f56"
+								]
 							}
 						}
 					],
@@ -2449,8 +2401,7 @@
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
-								],
-								"id": "e9aa8f96-a603-435d-b0eb-24d9949b8887"
+								]
 							}
 						}
 					],
@@ -2492,7 +2443,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "a0992fb8-a384-49f9-8949-c79045f9c469",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -2543,7 +2493,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "626ac657-f7d4-45ee-be7a-ff8a1790c62b",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"NewTask1\", jsonData.id);",
@@ -2594,7 +2543,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b242b499-608b-45c7-a6b0-9debca9d533e",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -2653,7 +2601,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "708425b3-10e0-49cd-9b5d-cf9d19784aeb",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -2710,7 +2657,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "3b1c30fd-611d-48ae-a9f3-55c6ec2ea539",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -2760,7 +2706,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "00036af1-94b5-4f9b-b066-2e47b930dcf9",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -2823,8 +2768,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "366ea077-4ba1-4b29-9baf-df20225b4553"
+								]
 							}
 						}
 					],
@@ -2868,8 +2812,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "TaskReview",
@@ -2887,8 +2830,7 @@
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"TestProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project.\";"
-								],
-								"id": "d6b195c7-9444-4bcc-9ff0-462a993c93e8"
+								]
 							}
 						}
 					],
@@ -2931,7 +2873,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "8b7e235f-e1c9-4bb3-afb0-18760da67b6b",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TestChallenge\", jsonData.id);",
@@ -2990,8 +2931,7 @@
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"NewTask\";",
 									"tests[\"instruction\"] = jsonData.instruction === \"NewTask instruction\";"
-								],
-								"id": "e04cbc57-4d52-4de0-9760-385b94373edc"
+								]
 							}
 						}
 					],
@@ -3034,7 +2974,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f8595fcf-a0fe-4518-a660-d4b169f55769",
 								"exec": [
 									""
 								],
@@ -3089,7 +3028,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5d4ee5d7-7950-4c9f-b4b0-3e93cde14f22",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3138,7 +3076,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "06a361b1-537e-4e6f-bbd0-672b42f0f499",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3190,7 +3127,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b0382850-3483-4d24-bfd9-e0005d1b4a5c",
 								"exec": [
 									""
 								],
@@ -3240,7 +3176,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b622c0c6-2ab3-4ddd-88bc-1de064067fbe",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3289,7 +3224,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "baad85d9-d10f-4a3b-8863-288be16b2afd",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3341,7 +3275,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "fe752fbb-05ab-4949-b2f8-304ccfe1d0e3",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3397,7 +3330,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "8280dabd-ad26-491e-9260-6449dd181180",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3449,7 +3381,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5e19f1dc-0844-4100-9f8a-bd46c293791e",
 								"exec": [
 									""
 								],
@@ -3498,7 +3429,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "6339eb7f-e836-413b-a153-cd338b23ea12",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3548,7 +3478,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "0c9fbd3f-1ac1-419a-9181-42a1e96660b9",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3600,7 +3529,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "2cbb69e4-8cc1-42a2-93cf-a6fd638e48e0",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3656,7 +3584,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f25f6593-1ca0-4f76-b22c-7fccad107f6a",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3713,8 +3640,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "a31e0ed0-bcf2-4924-a7d5-1a03454621f8"
+								]
 							}
 						}
 					],
@@ -3758,8 +3684,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "VirtualChallenge",
@@ -3770,7 +3695,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "d2f4221e-7279-40b4-9c90-48a74a2dbb63",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -3821,7 +3745,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "245a4ab2-5e91-4674-aae3-eee24c4a6acf",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"pm.globals.set(\"TagsChallengeID\", jsonData.id);",
@@ -3873,7 +3796,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "e26f3054-6028-46c3-821a-4eb1c7c2712b",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -3927,8 +3849,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"Task1\"] = jsonData[0].name === \"Task 1\";",
 									"tests[\"Task2\"] = jsonData[1].name === \"Task 2\";"
-								],
-								"id": "ba1a8642-33ee-4c03-9062-66dbb6171abf"
+								]
 							}
 						}
 					],
@@ -3969,7 +3890,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "135f0299-20dd-4994-91de-e3903c58d995",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4018,7 +3938,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "6e7f47b6-7eb8-45b6-9a7a-c37390be3896",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4059,7 +3978,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "8282c40c-9f8b-4078-83fe-60d901557f2c",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4100,7 +4018,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "4ea283bb-e82a-4b58-9685-9ca00c373c4e",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4149,7 +4066,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "02c21783-4b95-4deb-a5f4-492d97fe4597",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4189,7 +4105,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "3d12bcd1-4d4f-4601-a7bf-641a3bb98547",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4233,7 +4148,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "bf78990d-d030-4c2b-a073-bc94bc35c607",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4274,7 +4188,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "a1c1a292-e609-49c2-9282-67eab04cb492",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4322,7 +4235,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "ecbd1488-fa7b-4591-a4e8-7410956b572e",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4370,7 +4282,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "d44889bd-b1dd-456c-a527-2e7bd5ccac7a",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -4425,7 +4336,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "05b6f095-1386-42bc-9e40-d5c7eab54f96",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4466,7 +4376,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "40ac2c92-1733-4492-b513-ebea0046f384",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4507,7 +4416,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "75eae6ce-a5c3-41b8-b3f0-8b4acb394e5b",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4548,7 +4456,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f4ad4419-4135-409f-abfd-65388e575512",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4597,7 +4504,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "38ab81c1-1b4e-47e0-9597-2dda4fc026b5",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4639,7 +4545,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "a65b5b74-85e6-4320-8335-ac5dffe0739b",
 								"type": "text/javascript",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
@@ -4680,7 +4585,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "17971f35-f527-4221-b098-0247d072882a",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"pm.globals.set(\"VirtualChallengeID\", jsonData.id);",
@@ -4729,7 +4633,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "dc5407f4-0974-4d5c-9253-84d47bc4f695",
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 404\"] = responseCode.code === 404;"
@@ -4768,7 +4671,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "2dd2c2bc-bbbe-4ed2-aeb4-554f7db2af02",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"pm.globals.set(\"VirtualChallengeID\", jsonData.id);",
@@ -4822,8 +4724,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "4e499e64-f5fd-4d2e-ab61-d130c2cc6ac9"
+								]
 							}
 						}
 					],
@@ -4867,8 +4768,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "data",
@@ -4907,8 +4807,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "project",
@@ -4919,7 +4818,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "9bd8f497-235e-4922-af00-5b07c5404e1d",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SimpleProjectID\", jsonData.id);",
@@ -4971,7 +4869,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "8199cb8a-c368-4d19-80a2-cfa96aa73b9a",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"ProjectWithChildren\", jsonData.id);",
@@ -5022,7 +4919,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "d142e44a-df5d-4d33-803a-e2e224e509d5",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
 								],
@@ -5069,7 +4965,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "3d3f8d03-e170-4394-be1a-db101c511211",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -5116,7 +5011,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "463ef6da-ae3f-4c39-b37b-2cc0f939ee3d",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -5166,7 +5060,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "df41b016-08af-4020-8056-87ca279aec3e",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -5223,7 +5116,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "0949313f-8102-4558-9300-25f48f7cddad",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);"
@@ -5284,8 +5176,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "02fe6091-7140-4791-9720-595214dcbe0a"
+								]
 							}
 						}
 					],
@@ -5341,8 +5232,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing. (Update)\";"
-								],
-								"id": "3e49c5fe-4a7a-4036-ab01-c271bc0ea472"
+								]
 							}
 						}
 					],
@@ -5392,8 +5282,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing. (Update)\";"
-								],
-								"id": "50d19de6-f2da-4407-b9c9-59e789f8222f"
+								]
 							}
 						}
 					],
@@ -5433,7 +5322,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "ccf67395-d4f3-4314-a021-41dc5cca303f",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -5490,8 +5378,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Body matches name\"] = responseBody.has(\"SimpleProject\");",
 									"tests[\"Body matches description\"] = responseBody.has(\"Test project containing all children used for api testing. (Update)\");"
-								],
-								"id": "af4f6bc3-f39c-4a1b-b423-12331770cb33"
+								]
 							}
 						}
 					],
@@ -5543,8 +5430,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing. (Update)\";"
-								],
-								"id": "ec3200a1-e879-4488-b492-2c834de5af77"
+								]
 							}
 						}
 					],
@@ -5589,8 +5475,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "33caff0d-309f-476f-914a-773970c8301e"
+								]
 							}
 						}
 					],
@@ -5634,8 +5519,314 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
+		},
+		{
+			"name": "ChallengePresets",
+			"item": [
+				{
+					"name": "Challenge Project Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleProjectPMID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"SimpleProjectPM\";",
+									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"SimpleProjectPM\",\n    \"description\":\"Test project containing all children used for api testing.\",\n    \"enabled\":false\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project"
+							]
+						},
+						"description": "Creates a base project for all the other Map Roulette API Testing"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Creation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"postman.setGlobalVariable(\"SimpleChallengePMID\", jsonData.id);",
+									"tests[\"response code is 201\"] = responseCode.code === 201;",
+									"tests[\"name\"] = jsonData.name === \"CHN-23005\";",
+									"tests[\"description\"] = jsonData.description === \"A simple challenge containing only the basic elements for a challenge\";",
+									"tests[\"instruction\"] = jsonData.instruction === \"Instruction for the simple challenge\";",
+									"tests[\"presets\"] = jsonData.presets.length === 2;"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\":\"CHN-23005\",\n    \"description\":\"A simple challenge containing only the basic elements for a challenge\",\n    \"parent\":{{SimpleProjectPMID}},\n    \"instruction\":\"Instruction for the simple challenge\",\n    \"overpassQL\":\"way[\\\"building\\\"][amenity=community_centre](48.47605,-120.18935,48.48011,-120.17966);out body geom qt;\",    \n    \"enabled\":false,\n    \"presets\":[\"building\", \"golf/bunker\"]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge"
+							]
+						},
+						"description": "Creates the most basic challenge with the least set of options in the body json"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Read",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"CHN-23005\";",
+									"tests[\"presets\"] = jsonData.presets.length === 2;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengePMID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengePMID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Update",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"description\"] = jsonData.description === \"Updated challenge description\";",
+									"tests[\"presets\"] = jsonData.presets.length === 1;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\":\"Updated challenge description\",\n    \"presets\": [\"roads/highway\"]\n}"
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengePMID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengePMID}}"
+							]
+						},
+						"description": "Updates the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Read Again",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"tests[\"name\"] = jsonData.name === \"CHN-23005\";",
+									"tests[\"presets\"] = jsonData.presets.length === 1;",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:9000/api/v2/challenge/{{SimpleChallengePMID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"challenge",
+								"{{SimpleChallengePMID}}"
+							]
+						},
+						"description": "Gets the challenge for the provided ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Challenge Project Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"tests[\"response code is 200\"] = responseCode.code === 200;",
+									"var jsonData = JSON.parse(responseBody);",
+									"tests[\"Status\"] = jsonData.status === \"OK\";"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "apiKey",
+								"value": "test"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v2/project/{{SimpleProjectPMID}}?immediate=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v2",
+								"project",
+								"{{SimpleProjectPMID}}"
+							],
+							"query": [
+								{
+									"key": "immediate",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Deletes the project that was used for the challenge tests."
+					},
+					"response": []
+				}
+			]
 		},
 		{
 			"name": "VirtualProject",
@@ -5646,7 +5837,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "3de7061b-3e77-4b6a-9d62-a098a2155d9c",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"VPProjectID\", jsonData.id);",
@@ -5698,7 +5888,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "819fe180-2e57-444a-9211-3f0f46e49d24",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SimpleProjectID1\", jsonData.id);",
@@ -5749,7 +5938,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f4d2905d-a9d1-4a27-bb48-a8c1d09de065",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SimpleChallengeID1\", jsonData.id);",
@@ -5801,7 +5989,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f6d9cc04-b468-4845-a73d-33130653a969",
 								"exec": [
 									"tests[\"response code is 201\"] = responseCode.code === 200;",
 									""
@@ -5853,7 +6040,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "0497ff9c-ab06-4f5b-9f39-1bbae022c766",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"tests[\"Body matches name\"] = responseBody.has(\"VPProject\");",
@@ -5904,7 +6090,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "1fcf6a65-da9e-4edf-95b2-6af8ddcc3c35",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -5951,7 +6136,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "3644833a-2cd4-49ea-a553-1141cf4e402a",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -5998,7 +6182,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b27bc37b-e0e0-4def-97ee-1f2af1a99d47",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
 								],
@@ -6114,7 +6297,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "afe60243-8a04-4f08-b800-05f558a907d9",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -6166,7 +6348,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "e444c668-d81d-478a-a0ce-39d327de50e4",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -6218,7 +6399,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b293ee3e-189a-4b57-a4b4-5e4bf11e85dd",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -6270,7 +6450,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "e6f01fd6-5bd5-4053-8e79-572b6fde770b",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"pm.test(\"Body is correct\", function () {",
@@ -6324,7 +6503,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f71b80bc-e480-4b57-88c4-f1ee22d48629",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -6376,7 +6554,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "019c73bb-23d4-442a-8cc2-d949268d8b87",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -6423,7 +6600,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "9cae8163-4fc2-4505-8936-cbfd35a1a120",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -6479,7 +6655,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "6b3807b2-84e0-4b84-881b-8978eae6aac4",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -6529,8 +6704,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "tag",
@@ -6541,7 +6715,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "22a303e4-df5e-4710-9dee-4f3746e4eab4",
 								"exec": [
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -6598,8 +6771,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"name\"] = jsonData.name === \"testtag1\";",
 									"tests[\"description\"] = jsonData.description === \"TestTag1 description\";"
-								],
-								"id": "0fc86032-621b-4c41-ad56-aeda9f6b6666"
+								]
 							}
 						}
 					],
@@ -6645,8 +6817,7 @@
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"name\"] = jsonData.name === \"updatedtesttag1\";",
 									"tests[\"description\"] = jsonData.description === \"Updated Tag description\";"
-								],
-								"id": "25d7f164-4a77-41f9-bce1-fcc381715c61"
+								]
 							}
 						}
 					],
@@ -6695,8 +6866,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "39b377a2-6545-4044-ab94-581703d6a3be"
+								]
 							}
 						}
 					],
@@ -6734,8 +6904,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "user",
@@ -6746,7 +6915,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "395484ba-2c59-4fbc-9c90-58fce987d86a",
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -6799,7 +6967,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "048a6f84-34e4-46b8-8851-0f585ef4b1a3",
 								"type": "text/javascript",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -6839,8 +7006,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "Following",
@@ -6851,7 +7017,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "46124876-12c7-4776-ad79-47dc6e718c39",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -6905,7 +7070,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "4812ab75-846c-4e92-ab53-0f84bf7cf1e9",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -6958,7 +7122,6 @@
 				{
 					"listen": "prerequest",
 					"script": {
-						"id": "3a53990f-02f2-490b-98c1-a72d74db6017",
 						"type": "text/javascript",
 						"exec": [
 							""
@@ -6968,15 +7131,13 @@
 				{
 					"listen": "test",
 					"script": {
-						"id": "c1e07e2f-48fc-4668-866d-7e3660df3c18",
 						"type": "text/javascript",
 						"exec": [
 							""
 						]
 					}
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "CooperativeWork",
@@ -6987,7 +7148,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "d64af459-b11e-47c1-8669-045d85e0ff30",
 								"exec": [
 									"pm.test(\"Successful POST request\", function () {",
 									"    pm.expect(pm.response.code).to.be.oneOf([200]);",
@@ -7066,8 +7226,7 @@
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
 									"tests[\"name\"] = jsonData.name === \"SimpleProject\";",
 									"tests[\"description\"] = jsonData.description === \"Test project containing all children used for api testing.\";"
-								],
-								"id": "94ca685e-8ece-4b40-81ca-2105b46291b3"
+								]
 							}
 						}
 					],
@@ -7110,7 +7269,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "9bb10981-8a92-482f-955f-d962dce2a28f",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SimpleChallengeID\", jsonData.id);",
@@ -7161,7 +7319,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "20f5eaa9-9e2f-4096-861d-9135f3904da6",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SimpleChallengeID1\", jsonData.id);",
@@ -7212,7 +7369,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "6610b149-f9c4-4083-bc7a-d0a62d615f33",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"SFTagID\", jsonData[0].id);",
@@ -7261,7 +7417,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "5dddd860-0daa-4ee4-ab0a-66ac2d4a7ec3",
 								"exec": [
 									"pm.test(\"Successful POST request\", function () {",
 									"    pm.expect(pm.response.code).to.be.oneOf([200]);",
@@ -7337,7 +7492,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "0ac67891-ae87-4c95-8ecf-af62438a2981",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -7384,7 +7538,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "35bec095-54f1-4e93-9d50-a8eb9126c9ae",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -7437,8 +7590,7 @@
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"Status\"] = jsonData.status === \"OK\";"
-								],
-								"id": "b350d64b-f867-4efc-b1b3-1751c4ae0f46"
+								]
 							}
 						}
 					],
@@ -7482,8 +7634,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "taskBundles",
@@ -7494,7 +7645,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "7367abe0-8a4e-41b5-a525-25c193dd4c42",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TestBundleProject\", jsonData.id);",
@@ -7544,7 +7694,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "2bf09f1a-17b9-40ba-990f-7712ebd06f56",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TestBundleChallenge\", jsonData.id);",
@@ -7595,7 +7744,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "aaadc5d1-fcec-479b-8316-0b7307672a07",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"NewTask1\", jsonData.id);",
@@ -7645,7 +7793,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "ebdb2abe-d174-4ed2-9424-d063b61e047d",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"NewTask2\", jsonData.id);",
@@ -7695,7 +7842,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "fde03f36-2a25-46eb-a6ec-5b69d94424d7",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"NewBundle\", jsonData.bundleId);",
@@ -7744,7 +7890,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "abbb482f-c232-4084-8b60-4688c93ad3f8",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"NewComment\", jsonData.id);",
@@ -7796,7 +7941,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "7989f3c0-a3c9-4127-b9e8-b7c9332ff679",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -7860,7 +8004,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "468963e7-dffa-4764-8291-7b690583f987",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -7907,7 +8050,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "7c716bae-877f-4bec-9d7f-2278f5f03ba6",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 400\"] = responseCode.code === 400;",
@@ -7955,7 +8097,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "c134e52e-69af-459b-b7a1-44c2b9b66bda",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 400\"] = responseCode.code === 400;",
@@ -8015,7 +8156,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "27f9b672-d797-4f29-9d4a-edb18f0e6a44",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8064,7 +8204,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "39ec5c15-ad26-4fe3-913b-1438cdf58cb1",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8112,7 +8251,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "cc14d9de-9bad-4917-a22c-9c7613170755",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8173,7 +8311,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "88112472-4080-4440-a7a6-1476b1bba3a3",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8221,7 +8358,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "9fdc011b-9d38-4fb7-b75a-492b712d0f29",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8267,7 +8403,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "f04ad906-6654-431c-97cf-b476d501a8d0",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8327,7 +8462,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "03573b2a-8520-40be-8900-d641dfea8fc4",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -8381,7 +8515,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "80ebfba6-f6f8-4c34-8786-b01e950efcd2",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -8430,8 +8563,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		},
 		{
 			"name": "teams",
@@ -8442,7 +8574,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "27e1051c-657f-4d10-9877-ef441b6fc9f3",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TestTeam\", jsonData.id);",
@@ -8500,7 +8631,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "da3bcb50-a12b-4232-96b6-9141e837549a",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8513,7 +8643,6 @@
 						{
 							"listen": "prerequest",
 							"script": {
-								"id": "b61b29d3-9cdf-4f5b-a1ff-ec0da17e0187",
 								"exec": [
 									""
 								],
@@ -8568,7 +8697,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "d30b6656-955d-492e-bdc0-63f731bd5100",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8620,7 +8748,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "e9fa7538-9291-412e-9ce0-14bd4b38a9ad",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 201\"] = responseCode.code === 201;",
@@ -8678,7 +8805,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b509a609-a1cb-4337-83cb-c78aa8186344",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8734,7 +8860,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "e16feca2-c275-42dd-9826-f269be028dc3",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"postman.setGlobalVariable(\"TeamProject\", jsonData.id);",
@@ -8784,7 +8909,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "711c9f39-cd4a-475a-833b-7f205a632b0a",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -8834,7 +8958,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "d489565a-a253-4a1b-9e96-c891b69452f7",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -8883,7 +9006,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "b0eee68d-7b2e-47ab-8db4-6ca496655f21",
 								"exec": [
 									"var jsonData = JSON.parse(responseBody);",
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
@@ -8935,7 +9057,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "86cf715e-91ce-4f51-8069-141060af95c4",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -8985,7 +9106,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "15bdb079-e27d-4162-b574-8e397e88d3bd",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -9034,7 +9154,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "4d6166d2-d658-4ba5-bd7c-a15a943f34b7",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									""
@@ -9083,7 +9202,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "0119d882-b14e-491b-81d2-a245befeb32a",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -9132,7 +9250,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "0c06127a-7e9a-4da0-8984-2672daf8166d",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
 								],
@@ -9178,7 +9295,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "65f2923a-5d99-4289-88b7-d4dfca2edc12",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;"
 								],
@@ -9224,7 +9340,6 @@
 						{
 							"listen": "test",
 							"script": {
-								"id": "dde75faa-4001-4989-ae55-e1c5d81e1c52",
 								"exec": [
 									"tests[\"response code is 200\"] = responseCode.code === 200;",
 									"var jsonData = JSON.parse(responseBody);",
@@ -9274,9 +9389,7 @@
 					},
 					"response": []
 				}
-			],
-			"protocolProfileBehavior": {}
+			]
 		}
-	],
-	"protocolProfileBehavior": {}
+	]
 }
