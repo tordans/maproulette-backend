@@ -755,8 +755,8 @@ class ChallengeController @Inject() (
           challenge.extra.exportableProperties match {
             case Some(ex) =>
               if (!ex.isEmpty) {
-                var propsToExport = ex.replaceAll("\\s", "").split(",")
-                propsToExport.foreach(pe => propsToExportHeaders += pe)
+                var propsToExport = ex.split(",")
+                propsToExport.foreach(pe => propsToExportHeaders += pe.trim)
               }
             case None => // do nothing
           }
