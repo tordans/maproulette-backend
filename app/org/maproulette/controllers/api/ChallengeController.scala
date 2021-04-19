@@ -1285,14 +1285,7 @@ class ChallengeController @Inject() (
                   // todo this should probably be streamed instead of all pulled into memory
                   val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
                   if (lineByLine) {
-                    c.extra.taskBundleIdProperty match {
-                      case Some(_) =>
-                        var newSourceData = sourceData
-                        newSourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
-                      case _ =>
-                        sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
-                    }
-
+                    sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
                   } else {
                     challengeProvider.createTasksFromJson(user, c, sourceData.mkString)
                   }
