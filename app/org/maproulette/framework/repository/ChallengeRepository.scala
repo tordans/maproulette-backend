@@ -144,14 +144,15 @@ object ChallengeRepository {
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("deleted") ~
-      get[Option[List[Long]]]("virtual_parent_ids") map {
+      get[Option[List[Long]]]("virtual_parent_ids") ~
+      get[Boolean]("challenges.is_archived") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ overpassTargetType ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
             limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ requiresLocal ~ location ~ bounding ~ deleted ~ virtualParents =>
+            dataOriginDate ~ requiresLocal ~ location ~ bounding ~ deleted ~ virtualParents ~ isArchived =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -203,7 +204,8 @@ object ChallengeRepository {
             preferredReviewTags,
             limitTags,
             limitReviewTags,
-            taskStyles
+            taskStyles,
+            isArchived
           ),
           status,
           statusMessage,
