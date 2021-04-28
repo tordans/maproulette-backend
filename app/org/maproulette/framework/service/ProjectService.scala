@@ -305,7 +305,7 @@ class ProjectService @Inject() (
           case None    => cachedItem.featured
         }
         val isVirtual = cachedItem.isVirtual // Don't allow updates to virtual status
-        val isArchived = cachedItem.isArchived
+        val isArchived = (updates \ "isArchived").asOpt[Boolean].getOrElse(cachedItem.isArchived)
 
         this.repository.update(
           Project(

@@ -111,7 +111,8 @@ class ProjectRepository @Inject() (override val db: Database, grantService: Gran
            description = {description},
            enabled = {enabled},
            is_virtual = {virtual},
-           featured = {featured}
+           featured = {featured},
+           is_archived = {isArchived}
            WHERE id = {id}
            RETURNING *
         """)
@@ -123,6 +124,7 @@ class ProjectRepository @Inject() (override val db: Database, grantService: Gran
           Symbol("enabled")     -> project.enabled,
           Symbol("virtual")     -> project.isVirtual,
           Symbol("featured")    -> project.featured,
+          Symbol("isArchived")  -> project.isArchived,
           Symbol("id")          -> project.id
         )
         .as(this.parser.*)
@@ -397,8 +399,9 @@ object ProjectRepository extends Readers {
       get[Option[String]]("projects.display_name") ~
       get[Boolean]("projects.deleted") ~
       get[Boolean]("projects.is_virtual") ~
-      get[Boolean]("projects.featured") map {
-      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName ~ deleted ~ isVirtual ~ featured =>
+      get[Boolean]("projects.featured") ~
+      get[Boolean]("projects.is_archived") map {
+      case id ~ ownerId ~ name ~ created ~ modified ~ description ~ enabled ~ displayName ~ deleted ~ isVirtual ~ featured ~ isArchived =>
         new Project(
           id,
           ownerId,
@@ -411,7 +414,8 @@ object ProjectRepository extends Readers {
           displayName,
           deleted,
           Some(isVirtual),
-          featured
+          featured,
+          isArchived
         )
     }
   }
