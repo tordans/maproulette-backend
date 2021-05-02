@@ -158,7 +158,7 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     val archiving = (requestBody \ "isArchived").validate[Boolean]
     archiving match {
       case JsSuccess(isArchived, _) => println("isArchived is $isArchived");
-      case e: JsError => this.extractAndUpdate(requestBody, updatedObject, user)
+      case e: JsError               => this.extractAndUpdate(requestBody, updatedObject, user)
     }
 
     updatedObject match {
