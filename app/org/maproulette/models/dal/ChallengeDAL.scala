@@ -16,7 +16,11 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, ChallengeType, ProjectType, TaskType}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.framework.model._
-import org.maproulette.framework.repository.{ProjectRepository, TaskRepository}
+import org.maproulette.framework.repository.{
+  ProjectRepository,
+  TaskRepository,
+  ChallengeListingRepository
+}
 import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
@@ -383,18 +387,6 @@ class ChallengeDAL @Inject() (
           bundleId,
           isBundlePrimary
         )
-    }
-  }
-  val listingParser: RowParser[ChallengeListing] = {
-    get[Long]("challenges.id") ~
-      get[Long]("challenges.parent_id") ~
-      get[String]("challenges.name") ~
-      get[Boolean]("challenges.enabled") ~
-      get[Option[Array[Long]]]("virtual_parent_ids") ~
-      get[Option[Int]]("challenges.status") ~
-      get[Boolean]("challenges.is_archived") map {
-      case id ~ parent ~ name ~ enabled ~ virtualParents ~ status ~ isArchived =>
-        ChallengeListing(id, parent, name, enabled, virtualParents, status, isArchived)
     }
   }
 
@@ -885,7 +877,7 @@ class ChallengeDAL @Inject() (
                       GROUP BY c.id
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-      SQL(query).on(Symbol("offset") -> offset).as(this.listingParser.*)
+      SQL(query).on(Symbol("offset") -> offset).as(ChallengeListingRepository.parser.*)
     }
   }
 
