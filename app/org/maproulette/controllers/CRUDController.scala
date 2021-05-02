@@ -152,7 +152,14 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     } else {
       this.dal.updateByName(requestBody, user)
     }
-    this.extractAndUpdate(requestBody, updatedObject, user)
+
+    // we are checking to see if payload provides "isArchived".  If so, bypass updating the tasks
+    val archiving = (requestBody \ "isArchived").validate[Boolean]
+    archiving match {
+      case JsSuccess(isArchived, _) => println("isArchived is $isArchived");
+      case e: JsError => this.extractAndUpdate(requestBody, updatedObject, user)
+    }
+
     updatedObject match {
       case Some(obj) =>
         this.actionManager.setAction(Some(user), this.itemType.convertToItem(obj.id), Updated(), "")

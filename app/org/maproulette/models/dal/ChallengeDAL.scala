@@ -115,7 +115,8 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("challenges.requires_local") ~
-      get[Boolean]("deleted") map {
+      get[Boolean]("deleted") ~
+      get[Boolean]("challenges.is_archived") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~ status ~ statusMessage ~
@@ -123,7 +124,7 @@ class ChallengeDAL @Inject() (
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
             exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~ preferredReviewTags ~
             limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted =>
+            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ isArchived =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -176,7 +177,8 @@ class ChallengeDAL @Inject() (
             limitTags,
             limitReviewTags,
             taskStyles,
-            taskBundleIdProperty
+            taskBundleIdProperty,
+            isArchived
           ),
           status,
           statusMessage,
@@ -241,7 +243,8 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") ~
       get[Option[List[Long]]]("virtual_parent_ids") ~
-      get[Option[List[String]]]("presets") map {
+      get[Option[List[String]]]("presets") ~
+      get[Boolean]("challenges.is_archived") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~
@@ -250,7 +253,7 @@ class ChallengeDAL @Inject() (
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
-            presets =>
+            presets ~ isArchived =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -304,6 +307,7 @@ class ChallengeDAL @Inject() (
             limitReviewTags,
             taskStyles,
             taskBundleIdProperty,
+            isArchived,
             presets
           ),
           status,
@@ -390,9 +394,11 @@ class ChallengeDAL @Inject() (
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.name") ~
       get[Boolean]("challenges.enabled") ~
-      get[Option[Array[Long]]]("virtual_parent_ids") map {
-      case id ~ parent ~ name ~ enabled ~ virtualParents =>
-        ChallengeListing(id, parent, name, enabled, virtualParents)
+      get[Option[Array[Long]]]("virtual_parent_ids") ~
+      get[Option[Int]]("challenges.status") ~
+      get[Boolean]("challenges.is_archived") map {
+      case id ~ parent ~ name ~ enabled ~ virtualParents ~ status ~ isArchived =>
+        ChallengeListing(id, parent, name, enabled, virtualParents, status, isArchived)
     }
   }
 
@@ -463,7 +469,7 @@ class ChallengeDAL @Inject() (
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
                                       osm_id_property, task_bundle_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
-                                      limit_tags, limit_review_tags, task_styles, requires_local)
+                                      limit_tags, limit_review_tags, task_styles, requires_local, is_archived)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.featured},
@@ -476,7 +482,7 @@ class ChallengeDAL @Inject() (
                       ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.extra.preferredTags}, ${challenge.extra.preferredReviewTags}, ${challenge.extra.limitTags},
-                      ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
+                      ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal}, ${challenge.extra.isArchived})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}"""
           .as(this.parser.*)
           .headOption
@@ -654,6 +660,10 @@ class ChallengeDAL @Inject() (
             .asOpt[Boolean]
             .getOrElse(cachedItem.general.requiresLocal)
 
+          val isArchived = (updates \ "isArchived")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.extra.isArchived)
+
           val presets: List[String] = (updates \ "presets")
             .asOpt[List[String]]
             .getOrElse(cachedItem.extra.presets.getOrElse(null))
@@ -683,7 +693,7 @@ class ChallengeDAL @Inject() (
                   custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
                   osm_id_property = $osmIdProperty, task_bundle_id_property = $taskBundleIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
                   limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
-                  requires_local = $requiresLocal
+                  requires_local = $requiresLocal, is_archived = $isArchived
                 WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
 
           updatedChallenge match {
@@ -873,7 +883,7 @@ class ChallengeDAL @Inject() (
       }
 
       val query =
-        s"""SELECT c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids FROM challenges c
+        s"""SELECT c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids, c.status, c.is_archived FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
                       LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
                       WHERE c.deleted = false AND p.deleted = false
