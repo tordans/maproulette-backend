@@ -55,9 +55,13 @@ class TaskReviewMetricsService @Inject() (
       excludeOtherReviewers
     )
 
-    this.repository.executeReviewMetricsQuery(query,
-      projectIds = params.projectIds,
-      challengeIds = params.challengeParams.challengeIds).head
+    this.repository
+      .executeReviewMetricsQuery(
+        query,
+        projectIds = params.projectIds,
+        challengeIds = params.challengeParams.challengeIds
+      )
+      .head
   }
 
   /**

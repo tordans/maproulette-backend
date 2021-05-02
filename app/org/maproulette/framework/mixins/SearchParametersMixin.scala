@@ -856,7 +856,12 @@ trait SearchParametersMixin {
                     s"${Task.TABLE}.${Task.FIELD_ID}",
                     useValueDirectly = true
                   ),
-                  BaseParameter("u.name", s"'${SQLUtils.search(m)}'", Operator.ILIKE, useValueDirectly = true)
+                  BaseParameter(
+                    "u.name",
+                    s"'${SQLUtils.search(m)}'",
+                    Operator.ILIKE,
+                    useValueDirectly = true
+                  )
                 ),
                 "SELECT t2.id FROM tasks t2 INNER JOIN users u ON u.id = t2.completed_by"
               ),
@@ -1018,7 +1023,12 @@ trait SearchParametersMixin {
                 s"${Task.TABLE}.${Task.FIELD_ID}",
                 useValueDirectly = true
               ),
-              BaseParameter("u.name", s"'${SQLUtils.search(value)}'", Operator.ILIKE, useValueDirectly = true)
+              BaseParameter(
+                "u.name",
+                s"'${SQLUtils.search(value)}'",
+                Operator.ILIKE,
+                useValueDirectly = true
+              )
             ),
             s"SELECT task_id FROM task_review tr INNER JOIN users u ON u.id = tr.${column}"
           ),

@@ -478,16 +478,16 @@ class ChallengeDAL @Inject() (
                       ${challenge.extra.preferredTags}, ${challenge.extra.preferredReviewTags}, ${challenge.extra.limitTags},
                       ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}"""
-          .as(this.parser.*)
-          .headOption
-      }
+            .as(this.parser.*)
+            .headOption
+        }
 
       // Now insert presets if we have any
       insertedChallenge match {
         case Some(newChallenge) =>
           challenge.extra.presets match {
             case Some(ps) => Some(this.insertPresets(newChallenge, ps))
-            case None => insertedChallenge
+            case None     => insertedChallenge
           }
         case None => insertedChallenge
       }
@@ -500,19 +500,20 @@ class ChallengeDAL @Inject() (
     }
   }
 
-  private def insertPresets(challenge: Challenge, presets: List[String])
-    (implicit c: Option[Connection] = None): Challenge = {
+  private def insertPresets(challenge: Challenge, presets: List[String])(
+      implicit c: Option[Connection] = None
+  ): Challenge = {
     this.withMRConnection { implicit c =>
       presets.map(preset => {
-          SQL(
-            """INSERT INTO challenge_presets (challenge_id, preset)
+        SQL(
+          """INSERT INTO challenge_presets (challenge_id, preset)
                VALUES ({challengeId}, {preset})"""
-          ).on(
-              Symbol("challengeId") -> challenge.id,
-              Symbol("preset") -> preset
-          ).executeUpdate()
-        }
-      )
+        ).on(
+            Symbol("challengeId") -> challenge.id,
+            Symbol("preset")      -> preset
+          )
+          .executeUpdate()
+      })
       challenge.copy(
         extra = challenge.extra.copy(presets = Some(presets))
       )
@@ -692,8 +693,7 @@ class ChallengeDAL @Inject() (
                 //drop and reinsert presets
                 SQL(s"DELETE FROM challenge_presets WHERE challenge_id=${uc.id}").executeUpdate()
                 Some(this.insertPresets(uc, presets))
-              }
-              else {
+              } else {
                 updatedChallenge
               }
             case None => None
@@ -1379,7 +1379,9 @@ class ChallengeDAL @Inject() (
     * @param finishOnEmpty Boolean to indicate whether status of an empty challenge should
     *                      still be marked finished. Defaults to false.
     */
-  def updateFinishedStatus(finishOnEmpty: Boolean = false)(implicit id: Long, c: Option[Connection] = None): Unit = {
+  def updateFinishedStatus(
+      finishOnEmpty: Boolean = false
+  )(implicit id: Long, c: Option[Connection] = None): Unit = {
     this.withMRConnection { implicit c =>
       this.retrieveById(id) match {
         case Some(challenge) =>
@@ -1388,7 +1390,8 @@ class ChallengeDAL @Inject() (
               val emptyChallengeCheck =
                 finishOnEmpty match {
                   case true => ""
-                  case false => s"0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND"
+                  case false =>
+                    s"0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND"
                 }
 
               // If the challenge has no tasks in the created status it need to be marked finished.

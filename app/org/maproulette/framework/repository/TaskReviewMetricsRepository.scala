@@ -194,8 +194,7 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
                   ).as(long("id").*)
                 if (projectChallenges.size > 100) {
                   None
-                }
-                else Some(projectChallenges)
+                } else Some(projectChallenges)
               case None => None
             }
         }

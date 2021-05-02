@@ -57,7 +57,8 @@ class TagSchema @Inject() (override val service: TagService)
         this.service.retrieveByName(
           context.arg(MRSchema.nameArg),
           context.arg(TagSchema.tagTypeArg),
-          context.arg(TagSchema.parentArg))
+          context.arg(TagSchema.parentArg)
+        )
     ),
     Field(
       name = "keywordsByTask",

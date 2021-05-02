@@ -242,18 +242,17 @@ class TaskReviewService @Inject() (
     // pre-filtering task_review table with a WITH () clause.
     val params = searchParameters.taskParams.taskReviewStatus match {
       case Some(rs) => searchParameters
-      case None => searchParameters.copy(
-        taskParams = searchParameters.taskParams.copy(
-          taskReviewStatus = Some(
-            List(Task.REVIEW_STATUS_REQUESTED,
-                 Task.REVIEW_STATUS_DISPUTED)
+      case None =>
+        searchParameters.copy(
+          taskParams = searchParameters.taskParams.copy(
+            taskReviewStatus = Some(
+              List(Task.REVIEW_STATUS_REQUESTED, Task.REVIEW_STATUS_DISPUTED)
+            )
           )
         )
-      )
     }
 
-    (this.repository.queryTaskCount(query, params),
-     this.repository.queryTasks(query, params))
+    (this.repository.queryTaskCount(query, params), this.repository.queryTasks(query, params))
   }
 
   /**
@@ -831,7 +830,7 @@ class TaskReviewService @Inject() (
       case sortColumn if sortColumn.nonEmpty =>
         // We have two "id" columns: one for Tasks and one for taskReview. So
         // we need to specify which one to sort by for the SQL query.
-        val table     =
+        val table =
           if (sortColumn == "id" || sortColumn == "status") Some("tasks")
           else if (sortColumn == "reviewed_at") Some("task_review")
           else Some("")
