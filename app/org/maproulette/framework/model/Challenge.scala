@@ -132,6 +132,7 @@ case class ChallengeExtra(
     limitTags: Boolean = false,       // If true, only preferred tags should be used
     limitReviewTags: Boolean = false, // If true, only preferred review tags should be used
     taskStyles: Option[String] = None,
+    isArchived: Boolean = false,
     presets: Option[List[String]] = None
 ) extends DefaultWrites
 
@@ -140,7 +141,9 @@ case class ChallengeListing(
     parent: Long,
     name: String,
     enabled: Boolean,
-    virtualParents: Option[Array[Long]] = None
+    virtualParents: Option[Array[Long]] = None,
+    status: Option[Int],
+    isArchived: Boolean
 )
 
 /**

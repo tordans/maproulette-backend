@@ -53,7 +53,9 @@ object ChallengeListingRepository {
       |challenges.parent_id, 
       |challenges.name, 
       |challenges.enabled, 
-      |array_remove(array_agg(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids""".stripMargin
+      |array_remove(array_agg(virtual_project_challenges.project_id), NULL) AS virtual_parent_ids,
+      |challenges.status,
+      |challenges.is_archived""".stripMargin
 
   /**
     * The row parser for Anorm to enable the object to be read from the retrieved row directly
@@ -64,9 +66,11 @@ object ChallengeListingRepository {
       get[Long]("challenges.parent_id") ~
       get[String]("challenges.name") ~
       get[Boolean]("challenges.enabled") ~
-      get[Option[Array[Long]]]("virtual_parent_ids") map {
-      case id ~ parent ~ name ~ enabled ~ virtualParents =>
-        ChallengeListing(id, parent, name, enabled, virtualParents)
+      get[Option[Array[Long]]]("virtual_parent_ids") ~
+      get[Option[Int]]("challenges.status") ~
+      get[Boolean]("challenges.is_archived") map {
+      case id ~ parent ~ name ~ enabled ~ virtualParents ~ status ~ isArchived =>
+        ChallengeListing(id, parent, name, enabled, virtualParents, status, isArchived)
     }
   }
 }

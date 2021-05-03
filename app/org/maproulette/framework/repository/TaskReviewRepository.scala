@@ -158,10 +158,13 @@ class TaskReviewRepository @Inject() (
     return ""
   }
 
-  private def buildTaskQuery(query: Query, includeRowNumber: Boolean = false,
-    params: Option[SearchParameters] = None): SimpleSql[Row] = {
+  private def buildTaskQuery(
+      query: Query,
+      includeRowNumber: Boolean = false,
+      params: Option[SearchParameters] = None
+  ): SimpleSql[Row] = {
     val rowNumber = includeRowNumber match {
-      case true => s" ROW_NUMBER() OVER (${query.order.sql()}) as row_num, "
+      case true  => s" ROW_NUMBER() OVER (${query.order.sql()}) as row_num, "
       case false => ""
     }
 
@@ -227,7 +230,7 @@ class TaskReviewRepository @Inject() (
       val sql        = query.sqlWithBaseQuery(baseQuery, false, Grouping())
 
       SQL(
-       s"SELECT row_num, tasks.id FROM (${sql}) tasks WHERE tasks.id = ${taskId}"
+        s"SELECT row_num, tasks.id FROM (${sql}) tasks WHERE tasks.id = ${taskId}"
       ).on(parameters: _*).as(rowNumParser.*)
     }
 
@@ -243,7 +246,7 @@ class TaskReviewRepository @Inject() (
     this.withMRTransaction { implicit c =>
       // Remove ordering and paging when querying task count.
       val simpleQuery = query.copy(order = Order(List()), paging = Paging())
-      val withTable = this.buildWithTable(searchParams)
+      val withTable   = this.buildWithTable(searchParams)
 
       simpleQuery
         .build(

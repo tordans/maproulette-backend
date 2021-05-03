@@ -32,7 +32,8 @@ case class Project(
     displayName: Option[String] = None,
     deleted: Boolean = false,
     isVirtual: Option[Boolean] = Some(false),
-    featured: Boolean = false
+    featured: Boolean = false,
+    isArchived: Boolean = false
 ) extends CacheObject[Long]
     with Identifiable {
   def grantsToType(granteeType: ItemType) =
@@ -53,6 +54,7 @@ object Project extends CommonField {
   val FIELD_DELETED      = "deleted"
   val FIELD_VIRTUAL      = "is_virtual"
   val FIELD_FEATURED     = "featured"
+  val FIELD_IS_ARCHIVED  = "is_archived"
 
   def emptyProject: Project =
     Project(-1, User.DEFAULT_SUPER_USER_ID, "", DateTime.now(), DateTime.now())

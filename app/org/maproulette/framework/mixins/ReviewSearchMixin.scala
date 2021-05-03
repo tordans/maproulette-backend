@@ -266,10 +266,11 @@ trait ReviewSearchMixin extends SearchParametersMixin {
               Operator.NULL,
               params.invertFields.getOrElse(List()).contains("mrStatus"),
               true,
-              params.reviewParams.metaReviewStatus.getOrElse(List()).
-                contains(Task.META_REVIEW_STATUS_NOT_SET),
+              params.reviewParams.metaReviewStatus
+                .getOrElse(List())
+                .contains(Task.META_REVIEW_STATUS_NOT_SET),
               table = Some(TaskReview.TABLE)
-            ),
+            )
           ),
           if (params.invertFields.getOrElse(List()).contains("mrStatus")) AND()
           else OR()
