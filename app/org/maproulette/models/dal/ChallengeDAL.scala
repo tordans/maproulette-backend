@@ -108,6 +108,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
+      get[Option[String]]("challenges.task_bundle_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
       get[Option[String]]("challenges.preferred_review_tags") ~
       get[Boolean]("challenges.limit_tags") ~
@@ -125,7 +126,7 @@ class ChallengeDAL @Inject() (
             checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~ status ~ statusMessage ~
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-            exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
+            exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~ preferredReviewTags ~
             limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ isArchived =>
         val hpr = highPriorityRule match {
@@ -180,6 +181,7 @@ class ChallengeDAL @Inject() (
             limitTags,
             limitReviewTags,
             taskStyles,
+            taskBundleIdProperty,
             isArchived
           ),
           status,
@@ -232,6 +234,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
+      get[Option[String]]("challenges.task_bundle_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
       get[Option[String]]("challenges.preferred_review_tags") ~
       get[Boolean]("challenges.limit_tags") ~
@@ -251,7 +254,7 @@ class ChallengeDAL @Inject() (
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~
             status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~
             lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~
+            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
             presets ~ isArchived =>
@@ -307,6 +310,7 @@ class ChallengeDAL @Inject() (
             limitTags,
             limitReviewTags,
             taskStyles,
+            taskBundleIdProperty,
             isArchived,
             presets
           ),
@@ -456,7 +460,7 @@ class ChallengeDAL @Inject() (
                                       overpass_ql, remote_geo_json, overpass_target_type, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
-                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
+                                      osm_id_property, task_bundle_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
                                       limit_tags, limit_review_tags, task_styles, requires_local, is_archived)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
@@ -466,7 +470,7 @@ class ChallengeDAL @Inject() (
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks},
-                      ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty},
+                      ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty}, ${challenge.extra.taskBundleIdProperty},
                       ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.extra.preferredTags}, ${challenge.extra.preferredReviewTags}, ${challenge.extra.limitTags},
@@ -626,6 +630,9 @@ class ChallengeDAL @Inject() (
           val osmIdProperty = (updates \ "osmIdProperty")
             .asOpt[String]
             .getOrElse(cachedItem.extra.osmIdProperty.getOrElse(""))
+          val taskBundleIdProperty = (updates \ "taskBundleIdProperty")
+            .asOpt[String]
+            .getOrElse(cachedItem.extra.taskBundleIdProperty.getOrElse(""))
           val preferredTags = (updates \ "preferredTags")
             .asOpt[String]
             .getOrElse(cachedItem.extra.preferredTags.getOrElse(null))
@@ -677,7 +684,7 @@ class ChallengeDAL @Inject() (
             }},
                   default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                   custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                  osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
+                  osm_id_property = $osmIdProperty, task_bundle_id_property = $taskBundleIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
                   limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
                   requires_local = $requiresLocal, is_archived = $isArchived
                 WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
