@@ -577,7 +577,8 @@ class ChallengeDAL @Inject() (
             (updates \ "checkinComment").asOpt[String].getOrElse(cachedItem.general.checkinComment)
           val checkinSource =
             (updates \ "checkinSource").asOpt[String].getOrElse(cachedItem.general.checkinSource)
-          val changesetUrl = (updates \ "changesetUrl").asOpt[Boolean].getOrElse(cachedItem.general.changesetUrl)
+          val changesetUrl =
+            (updates \ "changesetUrl").asOpt[Boolean].getOrElse(cachedItem.general.changesetUrl)
           val overpassQL = (updates \ "overpassQL")
             .asOpt[String]
             .getOrElse(cachedItem.creation.overpassQL.getOrElse(""))
