@@ -130,3 +130,10 @@ case class UserNotificationEmailDigest(
     val userId: Long,
     val notifications: List[UserNotificationEmail]
 )
+
+case class UserRevisionCount(
+    val userId: Long,
+    val name: String = "",
+    val email: String = "",
+    val count: BigInt
+                            )

@@ -291,6 +291,10 @@ object Config {
     s"$SUB_GROUP_SCHEDULER.notifications.immediateEmail.interval"
   val KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_BATCH_SIZE =
     s"$SUB_GROUP_SCHEDULER.notifications.immediateEmail.batchSize"
+  val KEY_SCHEDULER_REVIEW_NOTIFICATION_EMAILS_INTERVAL =
+    s"$SUB_GROUP_SCHEDULER.notifications.reviewEmail.interval"
+  val KEY_SCHEDULER_REVIEW_NOTIFICATION_EMAILS_START =
+    s"$SUB_GROUP_SCHEDULER.notifications.reviewEmail.startTime"
   val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_INTERVAL =
     s"$SUB_GROUP_SCHEDULER.notifications.digestEmail.interval"
   val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_START =

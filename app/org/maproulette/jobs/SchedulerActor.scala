@@ -79,6 +79,7 @@ class SchedulerActor @Inject() (
     case RunJob("sendImmediateNotificationEmails", action) =>
       this.sendImmediateNotificationEmails(action)
     case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
+    case RunJob("sendRevisionNotificationEmails", action) => this.sendRevisionNotificationEmails(action)
   }
 
   /**
@@ -495,6 +496,25 @@ class SchedulerActor @Inject() (
           case e: Exception => logger.error("Failed to send immediate email: " + e)
         }
       })
+  }
+
+
+  def sendRevisionNotificationEmails(action: String) = {
+    logger.info(action)
+
+    this.serviceManager.notification
+      .usersWithTasksToBeRevised(
+        User.superUser
+      ).foreach(user => {
+        try {
+          if (user.email.nonEmpty) {
+            this.emailProvider.emailUserRevisionNotification(user.email, user.name, user.count)
+          }
+        } catch {
+          case e: Exception => logger.error("Failed to send revision email: " + e)
+        }
+      }
+    )
   }
 
   def sendDigestNotificationEmails(action: String) = {

@@ -12,6 +12,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.data.{UserType}
 import org.maproulette.framework.model._
+import org.maproulette.framework.model.{UserRevisionCount}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{
@@ -451,5 +452,15 @@ class NotificationService @Inject() (
   def usersWithNotificationEmails(user: User, emailStatus: Int): List[Long] = {
     permission.hasSuperAccess(user)
     this.repository.usersWithNotificationEmails(emailStatus)
+  }
+
+  /**
+    * Retrieve a list of users and their associated revisions
+    *
+    * @param user The user making the request (must be superuser)
+    */
+  def usersWithTasksToBeRevised(user: User): List[UserRevisionCount] = {
+    permission.hasSuperAccess(user)
+    this.repository.usersWithTasksToBeRevised()
   }
 }

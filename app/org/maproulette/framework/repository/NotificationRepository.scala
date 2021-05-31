@@ -5,13 +5,12 @@
 package org.maproulette.framework.repository
 
 import java.sql.Connection
-
 import anorm.SqlParser._
 import anorm._
 import javax.inject.{Inject, Singleton}
 import scala.collection.mutable.ListBuffer
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{UserNotification, UserNotificationEmail}
+import org.maproulette.framework.model.{UserNotification, UserNotificationEmail, UserRevisionCount}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import play.api.db.Database
@@ -231,6 +230,24 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         .as(SqlParser.long("user_id").*)
     }
   }
+
+  /**
+    * Retrieve a list of users and their associated revision tasks
+    */
+  def usersWithTasksToBeRevised()(implicit c: Option[Connection] = None): List[UserRevisionCount] = {
+    withMRConnection { implicit c =>
+      SQL(
+        """
+          |SELECT a.id, name, email, count(*)
+          |	FROM users a
+          |	inner join task_review as b
+          |	on a.id = b.review_requested_by
+          |	and b.review_status = 2
+          | group by a.id;
+        """.stripMargin
+      ).as(NotificationRepository.userRevisionCountParser.*)
+    }
+  }
 }
 
 object NotificationRepository {
@@ -281,6 +298,16 @@ object NotificationRepository {
       get[Int]("user_notifications.email_status") map {
       case id ~ userId ~ notificationType ~ extra ~ created ~ emailStatus =>
         new UserNotificationEmail(id, userId, notificationType, extra, created, emailStatus)
+    }
+  }
+
+  val userRevisionCountParser: RowParser[UserRevisionCount] = {
+    get[Long]("id") ~
+      get[String]("name") ~
+      get[String]("email") ~
+      get[BigInt]("count") map {
+      case id ~ name ~ email ~ count =>
+        new UserRevisionCount(id, name, email, count)
     }
   }
 }

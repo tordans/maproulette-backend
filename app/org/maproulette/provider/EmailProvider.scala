@@ -63,6 +63,23 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
     mailerClient.send(email)
   }
 
+  def emailUserRevisionNotification (toAddress: String, name: String, count: BigInt) = {
+    val notificationName = "Task Revisions"
+    val emailSubject = s"New MapRoulette notification: ${notificationName}"
+    val notificationDetails = s"${name}, you have ${count} revision/s pending."
+
+    val emailBody = s"""
+                       |You have received a new MapRoulette notification:
+                       |
+                       |${notificationName}
+                       |${notificationDetails}
+                       |${this.notificationFooter}""".stripMargin
+
+    val email =
+      Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))
+    mailerClient.send(email)
+  }
+
   private def notificationFooter: String = {
     val urlPrefix = config.getPublicOrigin.get
     s"""
