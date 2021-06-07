@@ -93,6 +93,11 @@ trait ChallengeReads extends DefaultReads {
         case None        => Utils.insertIntoJson(jsonWithExtras, "limitReviewTags", false, true)
       }
 
+      jsonWithExtras = (jsonWithExtras \ "isArchived").asOpt[JsValue] match {
+        case Some(value) => jsonWithExtras
+        case None        => Utils.insertIntoJson(jsonWithExtras, "isArchived", false, false)
+      }
+
       Json.fromJson[ChallengeExtra](jsonWithExtras)(Json.reads[ChallengeExtra])
     }
   }

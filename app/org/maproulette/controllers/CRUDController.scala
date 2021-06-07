@@ -91,7 +91,6 @@ trait CRUDController[T <: BaseObject[Long]] extends SessionController {
     jsonBody =
       Utils.insertIntoJson(jsonBody, "created", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
     Utils.insertIntoJson(jsonBody, "modified", DateTime.now())(JodaWrites.JodaDateTimeNumberWrites)
-    Utils.insertIntoJson(jsonBody, "isArchived", false)
   }
 
   /**
