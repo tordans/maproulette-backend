@@ -656,6 +656,8 @@ class NotificationServiceSpec(implicit val application: Application) extends Fra
       UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,
+      UserNotification.NOTIFICATION_EMAIL_NONE,
+      UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE
     )
   }

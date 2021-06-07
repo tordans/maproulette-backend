@@ -94,6 +94,8 @@ class NotificationService @Inject() (
           UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
+          UserNotification.NOTIFICATION_EMAIL_NONE,
+          UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE
         )
     }
