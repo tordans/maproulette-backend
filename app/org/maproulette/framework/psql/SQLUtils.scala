@@ -47,10 +47,14 @@ object SQLUtils {
     * @param value The search string that you are using to match with
     * @return
     */
-  def search(value: String, usePrefix: Boolean = false, escapeSingleQuote: Boolean = true): String = {
+  def search(
+      value: String,
+      usePrefix: Boolean = false,
+      escapeSingleQuote: Boolean = true
+  ): String = {
     val firstChar = if (usePrefix) "" else "%"
     val searchString = escapeSingleQuote match {
-      case true => 
+      case true =>
         if (value.nonEmpty) value.replace("'", "''")
         else value
       case false => value

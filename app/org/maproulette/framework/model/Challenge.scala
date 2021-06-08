@@ -100,6 +100,7 @@ case class ChallengeGeneral(
     popularity: Option[Int] = None,
     checkinComment: String = "",
     checkinSource: String = "",
+    changesetUrl: Boolean = false,
     virtualParents: Option[List[Long]] = None,
     requiresLocal: Boolean = false
 ) extends DefaultWrites
@@ -132,6 +133,8 @@ case class ChallengeExtra(
     limitTags: Boolean = false,       // If true, only preferred tags should be used
     limitReviewTags: Boolean = false, // If true, only preferred review tags should be used
     taskStyles: Option[String] = None,
+    taskBundleIdProperty: Option[String] = None,
+    isArchived: Boolean = false,
     presets: Option[List[String]] = None
 ) extends DefaultWrites
 
@@ -140,7 +143,9 @@ case class ChallengeListing(
     parent: Long,
     name: String,
     enabled: Boolean,
-    virtualParents: Option[Array[Long]] = None
+    virtualParents: Option[Array[Long]] = None,
+    status: Option[Int],
+    isArchived: Boolean
 )
 
 /**

@@ -16,7 +16,11 @@ import org.maproulette.cache.CacheManager
 import org.maproulette.data.{Actions, ChallengeType, ProjectType, TaskType}
 import org.maproulette.exception.{InvalidException, NotFoundException, UniqueViolationException}
 import org.maproulette.framework.model._
-import org.maproulette.framework.repository.{ProjectRepository, TaskRepository}
+import org.maproulette.framework.repository.{
+  ProjectRepository,
+  TaskRepository,
+  ChallengeListingRepository
+}
 import org.maproulette.framework.service.{ServiceManager, TagService}
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.{OwnerMixin, TagDALMixin}
@@ -104,6 +108,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
+      get[Option[String]]("challenges.task_bundle_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
       get[Option[String]]("challenges.preferred_review_tags") ~
       get[Boolean]("challenges.limit_tags") ~
@@ -114,15 +119,17 @@ class ChallengeDAL @Inject() (
       get[Option[String]]("locationJSON") ~
       get[Option[String]]("boundingJSON") ~
       get[Boolean]("challenges.requires_local") ~
-      get[Boolean]("deleted") map {
+      get[Boolean]("deleted") ~
+      get[Boolean]("challenges.is_archived") ~
+      get[Boolean]("challenges.changeset_url") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~ status ~ statusMessage ~
             defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~
             minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~ customBasemap ~ updateTasks ~
-            exportableProperties ~ osmIdProperty ~ preferredTags ~ preferredReviewTags ~
+            exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~ preferredReviewTags ~
             limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted =>
+            dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ isArchived ~ changesetUrl =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -155,6 +162,7 @@ class ChallengeDAL @Inject() (
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
+            changesetUrl,
             None,
             requiresLocal
           ),
@@ -174,7 +182,9 @@ class ChallengeDAL @Inject() (
             preferredReviewTags,
             limitTags,
             limitReviewTags,
-            taskStyles
+            taskStyles,
+            taskBundleIdProperty,
+            isArchived
           ),
           status,
           statusMessage,
@@ -226,6 +236,7 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.updatetasks") ~
       get[Option[String]]("challenges.exportable_properties") ~
       get[Option[String]]("challenges.osm_id_property") ~
+      get[Option[String]]("challenges.task_bundle_id_property") ~
       get[Option[String]]("challenges.preferred_tags") ~
       get[Option[String]]("challenges.preferred_review_tags") ~
       get[Boolean]("challenges.limit_tags") ~
@@ -238,16 +249,18 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.requires_local") ~
       get[Boolean]("deleted") ~
       get[Option[List[Long]]]("virtual_parent_ids") ~
-      get[Option[List[String]]]("presets") map {
+      get[Option[List[String]]]("presets") ~
+      get[Boolean]("challenges.is_archived") ~
+      get[Boolean]("challenges.changeset_url") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~
             status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~ mediumPriorityRule ~
             lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
-            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ preferredTags ~
+            customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
-            presets =>
+            presets ~ isArchived ~ changesetUrl =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -280,6 +293,7 @@ class ChallengeDAL @Inject() (
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
+            changesetUrl,
             virtualParents,
             requiresLocal
           ),
@@ -300,6 +314,8 @@ class ChallengeDAL @Inject() (
             limitTags,
             limitReviewTags,
             taskStyles,
+            taskBundleIdProperty,
+            isArchived,
             presets
           ),
           status,
@@ -381,16 +397,6 @@ class ChallengeDAL @Inject() (
         )
     }
   }
-  val listingParser: RowParser[ChallengeListing] = {
-    get[Long]("challenges.id") ~
-      get[Long]("challenges.parent_id") ~
-      get[String]("challenges.name") ~
-      get[Boolean]("challenges.enabled") ~
-      get[Option[Array[Long]]]("virtual_parent_ids") map {
-      case id ~ parent ~ name ~ enabled ~ virtualParents =>
-        ChallengeListing(id, parent, name, enabled, virtualParents)
-    }
-  }
 
   private val DEFAULT_NUM_CHILDREN_LIST = 1000
 
@@ -458,8 +464,8 @@ class ChallengeDAL @Inject() (
                                       overpass_ql, remote_geo_json, overpass_target_type, status, status_message, default_priority, high_priority_rule,
                                       medium_priority_rule, low_priority_rule, default_zoom, min_zoom, max_zoom,
                                       default_basemap, default_basemap_id, custom_basemap, updatetasks, exportable_properties,
-                                      osm_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
-                                      limit_tags, limit_review_tags, task_styles, requires_local)
+                                      osm_id_property, task_bundle_id_property, last_task_refresh, data_origin_date, preferred_tags, preferred_review_tags,
+                                      limit_tags, limit_review_tags, task_styles, requires_local, is_archived, changeset_url)
               VALUES (${challenge.name}, ${challenge.general.owner}, ${challenge.general.parent}, ${challenge.general.difficulty},
                       ${challenge.description}, ${challenge.infoLink}, ${challenge.general.blurb}, ${challenge.general.instruction},
                       ${challenge.general.enabled}, ${challenge.general.featured},
@@ -468,22 +474,22 @@ class ChallengeDAL @Inject() (
                       ${challenge.statusMessage}, ${challenge.priority.defaultPriority}, ${challenge.priority.highPriorityRule},
                       ${challenge.priority.mediumPriorityRule}, ${challenge.priority.lowPriorityRule}, ${challenge.extra.defaultZoom}, ${challenge.extra.minZoom},
                       ${challenge.extra.maxZoom}, ${challenge.extra.defaultBasemap}, ${challenge.extra.defaultBasemapId}, ${challenge.extra.customBasemap}, ${challenge.extra.updateTasks},
-                      ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty},
+                      ${challenge.extra.exportableProperties}, ${challenge.extra.osmIdProperty}, ${challenge.extra.taskBundleIdProperty},
                       ${challenge.lastTaskRefresh.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.dataOriginDate.getOrElse(DateTime.now()).toString}::timestamptz,
                       ${challenge.extra.preferredTags}, ${challenge.extra.preferredReviewTags}, ${challenge.extra.limitTags},
-                      ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal})
+                      ${challenge.extra.limitReviewTags}, ${challenge.extra.taskStyles}, ${challenge.general.requiresLocal}, ${challenge.extra.isArchived}, ${challenge.general.changesetUrl})
                       ON CONFLICT(parent_id, LOWER(name)) DO NOTHING RETURNING #${this.retrieveColumns}"""
-          .as(this.parser.*)
-          .headOption
-      }
+            .as(this.parser.*)
+            .headOption
+        }
 
       // Now insert presets if we have any
       insertedChallenge match {
         case Some(newChallenge) =>
           challenge.extra.presets match {
             case Some(ps) => Some(this.insertPresets(newChallenge, ps))
-            case None => insertedChallenge
+            case None     => insertedChallenge
           }
         case None => insertedChallenge
       }
@@ -496,19 +502,20 @@ class ChallengeDAL @Inject() (
     }
   }
 
-  private def insertPresets(challenge: Challenge, presets: List[String])
-    (implicit c: Option[Connection] = None): Challenge = {
+  private def insertPresets(challenge: Challenge, presets: List[String])(
+      implicit c: Option[Connection] = None
+  ): Challenge = {
     this.withMRConnection { implicit c =>
       presets.map(preset => {
-          SQL(
-            """INSERT INTO challenge_presets (challenge_id, preset)
+        SQL(
+          """INSERT INTO challenge_presets (challenge_id, preset)
                VALUES ({challengeId}, {preset})"""
-          ).on(
-              Symbol("challengeId") -> challenge.id,
-              Symbol("preset") -> preset
-          ).executeUpdate()
-        }
-      )
+        ).on(
+            Symbol("challengeId") -> challenge.id,
+            Symbol("preset")      -> preset
+          )
+          .executeUpdate()
+      })
       challenge.copy(
         extra = challenge.extra.copy(presets = Some(presets))
       )
@@ -570,6 +577,8 @@ class ChallengeDAL @Inject() (
             (updates \ "checkinComment").asOpt[String].getOrElse(cachedItem.general.checkinComment)
           val checkinSource =
             (updates \ "checkinSource").asOpt[String].getOrElse(cachedItem.general.checkinSource)
+          val changesetUrl =
+            (updates \ "changesetUrl").asOpt[Boolean].getOrElse(cachedItem.general.changesetUrl)
           val overpassQL = (updates \ "overpassQL")
             .asOpt[String]
             .getOrElse(cachedItem.creation.overpassQL.getOrElse(""))
@@ -627,6 +636,9 @@ class ChallengeDAL @Inject() (
           val osmIdProperty = (updates \ "osmIdProperty")
             .asOpt[String]
             .getOrElse(cachedItem.extra.osmIdProperty.getOrElse(""))
+          val taskBundleIdProperty = (updates \ "taskBundleIdProperty")
+            .asOpt[String]
+            .getOrElse(cachedItem.extra.taskBundleIdProperty.getOrElse(""))
           val preferredTags = (updates \ "preferredTags")
             .asOpt[String]
             .getOrElse(cachedItem.extra.preferredTags.getOrElse(null))
@@ -646,6 +658,10 @@ class ChallengeDAL @Inject() (
           val requiresLocal = (updates \ "requiresLocal")
             .asOpt[Boolean]
             .getOrElse(cachedItem.general.requiresLocal)
+
+          val isArchived = (updates \ "isArchived")
+            .asOpt[Boolean]
+            .getOrElse(cachedItem.extra.isArchived)
 
           val presets: List[String] = (updates \ "presets")
             .asOpt[List[String]]
@@ -674,9 +690,9 @@ class ChallengeDAL @Inject() (
             }},
                   default_zoom = $defaultZoom, min_zoom = $minZoom, max_zoom = $maxZoom, default_basemap = $defaultBasemap, default_basemap_id = $defaultBasemapId,
                   custom_basemap = $customBasemap, updatetasks = $updateTasks, exportable_properties = $exportableProperties,
-                  osm_id_property = $osmIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
+                  osm_id_property = $osmIdProperty, task_bundle_id_property = $taskBundleIdProperty, preferred_tags = $preferredTags, preferred_review_tags = $preferredReviewTags,
                   limit_tags = $limitTags, limit_review_tags = $limitReviewTags, task_styles = $taskStyles,
-                  requires_local = $requiresLocal
+                  requires_local = $requiresLocal, is_archived = $isArchived, changeset_url = $changesetUrl
                 WHERE id = $id RETURNING #${this.retrieveColumns}""".as(parser.*).headOption
 
           updatedChallenge match {
@@ -685,8 +701,7 @@ class ChallengeDAL @Inject() (
                 //drop and reinsert presets
                 SQL(s"DELETE FROM challenge_presets WHERE challenge_id=${uc.id}").executeUpdate()
                 Some(this.insertPresets(uc, presets))
-              }
-              else {
+              } else {
                 updatedChallenge
               }
             case None => None
@@ -866,7 +881,7 @@ class ChallengeDAL @Inject() (
       }
 
       val query =
-        s"""SELECT c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids FROM challenges c
+        s"""SELECT c.id, c.parent_id, c.name, c.enabled, array_remove(array_agg(vp.project_id), NULL) AS virtual_parent_ids, c.status, c.is_archived FROM challenges c
                       INNER JOIN projects p ON p.id = c.parent_id
                       LEFT OUTER JOIN virtual_project_challenges vp ON c.id = vp.challenge_id
                       WHERE c.deleted = false AND p.deleted = false
@@ -875,7 +890,7 @@ class ChallengeDAL @Inject() (
                       GROUP BY c.id
                       LIMIT ${this.sqlLimit(limit)} OFFSET {offset}"""
 
-      SQL(query).on(Symbol("offset") -> offset).as(this.listingParser.*)
+      SQL(query).on(Symbol("offset") -> offset).as(ChallengeListingRepository.parser.*)
     }
   }
 
@@ -1372,7 +1387,9 @@ class ChallengeDAL @Inject() (
     * @param finishOnEmpty Boolean to indicate whether status of an empty challenge should
     *                      still be marked finished. Defaults to false.
     */
-  def updateFinishedStatus(finishOnEmpty: Boolean = false)(implicit id: Long, c: Option[Connection] = None): Unit = {
+  def updateFinishedStatus(
+      finishOnEmpty: Boolean = false
+  )(implicit id: Long, c: Option[Connection] = None): Unit = {
     this.withMRConnection { implicit c =>
       this.retrieveById(id) match {
         case Some(challenge) =>
@@ -1381,7 +1398,8 @@ class ChallengeDAL @Inject() (
               val emptyChallengeCheck =
                 finishOnEmpty match {
                   case true => ""
-                  case false => s"0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND"
+                  case false =>
+                    s"0 < (SELECT COUNT(*) FROM tasks where tasks.parent_id = ${id}) AND"
                 }
 
               // If the challenge has no tasks in the created status it need to be marked finished.
