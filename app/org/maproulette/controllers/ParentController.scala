@@ -184,10 +184,9 @@ trait ParentController[T <: BaseObject[Long], C <: BaseObject[Long]] extends CRU
     implicit request =>
       implicit val writes: Writes[C] = cWrites
       this.sessionManager.userAwareRequest { implicit user =>
+        val offset = limit * page
+
         // now replace the parent field in the parent with a children array
-
-        var offset = limit * page
-
         Json
           .toJson(this.dal.retrieveById(id))
           .transform(this.childrenAddition(this.dal.listChildren(limit, offset)(id))) match {
