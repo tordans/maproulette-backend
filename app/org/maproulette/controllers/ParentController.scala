@@ -186,10 +186,7 @@ trait ParentController[T <: BaseObject[Long], C <: BaseObject[Long]] extends CRU
       this.sessionManager.userAwareRequest { implicit user =>
         // now replace the parent field in the parent with a children array
 
-        var offset = 0
-        if (page > 0) {
-          offset = limit * page
-        }
+        var offset = limit * page
 
         Json
           .toJson(this.dal.retrieveById(id))
