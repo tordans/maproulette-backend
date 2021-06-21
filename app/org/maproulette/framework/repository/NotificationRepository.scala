@@ -260,8 +260,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           |SELECT a.id, name, email, count(*)
           |	FROM users a
           |	inner join task_review as b
-          |	on a.id = b.review_requested_by
-          |	and b.review_status = 2
+          |	on a.id = b.reviewed_by
+          |	and b.review_status = 0
           | group by a.id;
         """.stripMargin
       ).as(NotificationRepository.userRevisionCountParser.*)
@@ -271,7 +271,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
   /**
     * Retrieve user settings for review and revision counts
     */
-  def userCountSubscriptions(userId: Long)(implicit c: Option[Connection] = None): Option[UserCountSubscriptions] = {
+  def userCountSubscriptions(userId: Long)(implicit c: Option[Connection] = None): UserCountSubscriptions = {
     withMRConnection { implicit c =>
       SQL(
         s"""
@@ -279,7 +279,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
            |	FROM user_notification_subscriptions s
            |	WHERE s.user_id = $userId
       """.stripMargin)
-        .as(NotificationRepository.userCountSubscriptionParser.*).headOption
+        .as(NotificationRepository.userCountSubscriptionParser.*).head
     }
   }
 }

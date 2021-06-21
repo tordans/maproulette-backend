@@ -511,11 +511,9 @@ class SchedulerActor @Inject() (
         if (user.email.nonEmpty) {
           val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
 
-          logger.info("hi")
-//          countSubscriptions.reviewCountSubscriptionType match {
-//            case 1 => return null;
-//
-//          }
+          if (countSubscriptions.reviewCountSubscriptionType == 4) {
+            this.emailProvider.emailReviewCountNotification(user.email, user.name, user.count)
+          }
         }
       } catch {
         case e: Exception => logger.error("Failed to send count daily email: " + e)
@@ -531,11 +529,9 @@ class SchedulerActor @Inject() (
           if (user.email.nonEmpty) {
             val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
 
-            logger.info("hi")
-//            countSubscriptions.revisionCountSubscriptionType match {
-//              case 1 => return null;
-//
-//            }
+            if (countSubscriptions.revisionCountSubscriptionType == 4) {
+              this.emailProvider.emailRevisionCountNotification(user.email, user.name, user.count)
+            }
           }
         } catch {
           case e: Exception => logger.error("Failed to send count daily email: " + e)
@@ -555,11 +551,9 @@ class SchedulerActor @Inject() (
         if (user.email.nonEmpty) {
           val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
 
-          logger.info("hi")
-//          countSubscriptions.reviewCountSubscriptionType match {
-//            case 1 => return null;
-//
-//          }
+          if (countSubscriptions.reviewCountSubscriptionType == 5) {
+            this.emailProvider.emailReviewCountNotification(user.email, user.name, user.count)
+          }
         }
       } catch {
         case e: Exception => logger.error("Failed to send count weekly email: " + e)
@@ -575,11 +569,9 @@ class SchedulerActor @Inject() (
         if (user.email.nonEmpty) {
           val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
 
-          logger.info("hi")
-//          countSubscriptions.revisionCountSubscriptionType match {
-//            case 1 => return null;
-//
-//          }
+          if (countSubscriptions.revisionCountSubscriptionType == 5) {
+            this.emailProvider.emailRevisionCountNotification(user.email, user.name, user.count)
+          }
         }
       } catch {
         case e: Exception => logger.error("Failed to send count weekly email: " + e)

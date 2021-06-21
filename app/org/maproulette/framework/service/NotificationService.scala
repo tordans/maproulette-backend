@@ -482,7 +482,7 @@ class NotificationService @Inject() (
     * @param user The user making the request (must be superuser)
     * @param userId The user id to retrieve counts for
     */
-  def userSubscriptionCountNotifications(user: User, userId: Long): Option[UserCountSubscriptions] = {
+  def userSubscriptionCountNotifications(user: User, userId: Long): UserCountSubscriptions = {
     permission.hasSuperAccess(user)
     this.repository.userCountSubscriptions(userId)
   }
