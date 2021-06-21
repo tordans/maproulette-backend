@@ -139,7 +139,7 @@ case class UserNotificationEmailDigest(
     val notifications: List[UserNotificationEmail]
 )
 
-case class UserRevisionCount(
+case class UserRevCount(
     val userId: Long,
     val name: String = "",
     val email: String = "",
@@ -147,7 +147,7 @@ case class UserRevisionCount(
 )
 
 case class UserCountSubscriptions(
-    val reviewCount: Int,
-    val revisionCount: Int
+    val reviewCountSubscriptionType: Int,
+    val revisionCountSubscriptionType: Int
 )
 

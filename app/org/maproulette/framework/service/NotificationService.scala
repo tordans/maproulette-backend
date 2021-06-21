@@ -12,7 +12,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.data.{UserType}
 import org.maproulette.framework.model._
-import org.maproulette.framework.model.{UserRevisionCount}
+import org.maproulette.framework.model.{UserRevCount}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{
@@ -457,19 +457,30 @@ class NotificationService @Inject() (
   }
 
   /**
-    * Retrieve a list of users and their associated revisions
+    * Retrieve a list of users and their count of tasks to be revised
     *
     * @param user The user making the request (must be superuser)
     */
-  def usersWithTasksToBeRevised(user: User): List[UserRevisionCount] = {
+  def usersWithTasksToBeRevised(user: User): List[UserRevCount] = {
     permission.hasSuperAccess(user)
     this.repository.usersWithTasksToBeRevised()
   }
 
   /**
+    * Retrieve a list of users and their count of tasks to be reviewed
+    *
+    * @param user The user making the request (must be superuser)
+    */
+  def usersWithTasksToBeReviewed(user: User): List[UserRevCount] = {
+    permission.hasSuperAccess(user)
+    this.repository.usersWithTasksToBeReviewed()
+  }
+
+  /**
     * Retrieve count subscriptions for a given user
     *
-    * @param user_id The user id for finding subscription notifications
+    * @param user The user making the request (must be superuser)
+    * @param userId The user id to retrieve counts for
     */
   def userSubscriptionCountNotifications(user: User, userId: Long): Option[UserCountSubscriptions] = {
     permission.hasSuperAccess(user)

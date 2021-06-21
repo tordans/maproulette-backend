@@ -97,10 +97,17 @@ class Scheduler @Inject() (
   )
 
   scheduleAtTime(
-    "sendRevisionNotificationEmails",
-    "Sending Review Notification Emails",
-    config.getValue(Config.KEY_SCHEDULER_REVIEW_NOTIFICATION_EMAILS_START),
-    Config.KEY_SCHEDULER_REVIEW_NOTIFICATION_EMAILS_INTERVAL
+    "sendCountNotificationDailyEmails",
+    "Sending Count Notification Daily Emails",
+    config.getValue(Config.KEY_SCHEDULER_COUNT_NOTIFICATION_DAILY_START),
+    Config.KEY_SCHEDULER_COUNT_NOTIFICATION_DAILY_INTERVAL
+  )
+
+  scheduleAtTime(
+    "sendCountNotificationWeeklyEmails",
+    "Sending Count Notification Weekly Emails",
+    config.getValue(Config.KEY_SCHEDULER_COUNT_NOTIFICATION_WEEKLY_START),
+    Config.KEY_SCHEDULER_COUNT_NOTIFICATION_WEEKLY_INTERVAL
   )
 
   scheduleAtTime(

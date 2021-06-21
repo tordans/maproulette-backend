@@ -79,7 +79,8 @@ class SchedulerActor @Inject() (
     case RunJob("sendImmediateNotificationEmails", action) =>
       this.sendImmediateNotificationEmails(action)
     case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
-    case RunJob("sendRevisionNotificationEmails", action) => this.sendRevisionNotificationEmails(action)
+    case RunJob("sendCountNotificationDailyEmails", action) => this.sendCountNotificationDailyEmails(action)
+    case RunJob("sendCountNotificationWeeklyEmails", action) => this.sendCountNotificationWeeklyEmails(action)
   }
 
   /**
@@ -499,8 +500,28 @@ class SchedulerActor @Inject() (
   }
 
 
-  def sendRevisionNotificationEmails(action: String) = {
+  def sendCountNotificationDailyEmails(action: String) = {
     logger.info(action)
+
+    this.serviceManager.notification
+      .usersWithTasksToBeReviewed(
+        User.superUser
+      ).foreach(user => {
+      try {
+        if (user.email.nonEmpty) {
+          val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
+
+          logger.info("hi")
+//          countSubscriptions.reviewCountSubscriptionType match {
+//            case 1 => return null;
+//
+//          }
+        }
+      } catch {
+        case e: Exception => logger.error("Failed to send count daily email: " + e)
+      }
+    }
+    )
 
     this.serviceManager.notification
       .usersWithTasksToBeRevised(
@@ -510,15 +531,60 @@ class SchedulerActor @Inject() (
           if (user.email.nonEmpty) {
             val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
 
-            countSubscriptions.reviewCount match {
-              case 1 => return null;
-
-            }
+            logger.info("hi")
+//            countSubscriptions.revisionCountSubscriptionType match {
+//              case 1 => return null;
+//
+//            }
           }
         } catch {
-          case e: Exception => logger.error("Failed to send revision email: " + e)
+          case e: Exception => logger.error("Failed to send count daily email: " + e)
         }
       }
+    )
+  }
+
+  def sendCountNotificationWeeklyEmails(action: String) = {
+    logger.info(action)
+
+    this.serviceManager.notification
+      .usersWithTasksToBeReviewed(
+        User.superUser
+      ).foreach(user => {
+      try {
+        if (user.email.nonEmpty) {
+          val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
+
+          logger.info("hi")
+//          countSubscriptions.reviewCountSubscriptionType match {
+//            case 1 => return null;
+//
+//          }
+        }
+      } catch {
+        case e: Exception => logger.error("Failed to send count weekly email: " + e)
+      }
+    }
+    )
+
+    this.serviceManager.notification
+      .usersWithTasksToBeRevised(
+        User.superUser
+      ).foreach(user => {
+      try {
+        if (user.email.nonEmpty) {
+          val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
+
+          logger.info("hi")
+//          countSubscriptions.revisionCountSubscriptionType match {
+//            case 1 => return null;
+//
+//          }
+        }
+      } catch {
+        case e: Exception => logger.error("Failed to send count weekly email: " + e)
+      }
+    }
     )
   }
 
