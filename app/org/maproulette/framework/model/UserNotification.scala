@@ -144,4 +144,10 @@ case class UserRevisionCount(
     val name: String = "",
     val email: String = "",
     val count: BigInt
-                            )
+)
+
+case class UserCountSubscriptions(
+    val reviewCount: Int,
+    val revisionCount: Int
+)
+

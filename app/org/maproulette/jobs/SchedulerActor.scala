@@ -508,7 +508,12 @@ class SchedulerActor @Inject() (
       ).foreach(user => {
         try {
           if (user.email.nonEmpty) {
-            this.emailProvider.emailUserRevisionNotification(user.email, user.name, user.count)
+            val countSubscriptions = this.serviceManager.notification.userSubscriptionCountNotifications(User.superUser, user.userId)
+
+            countSubscriptions.reviewCount match {
+              case 1 => return null;
+
+            }
           }
         } catch {
           case e: Exception => logger.error("Failed to send revision email: " + e)
