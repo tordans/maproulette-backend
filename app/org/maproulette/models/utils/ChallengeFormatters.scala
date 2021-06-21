@@ -71,20 +71,9 @@ trait ChallengeWrites extends DefaultWrites {
 }
 
 trait ChallengeReads extends DefaultReads {
+  implicit val challengeGeneralReads: Reads[ChallengeGeneral]   = Json.reads[ChallengeGeneral]
   implicit val challengeCreationReads: Reads[ChallengeCreation] = Json.reads[ChallengeCreation]
   implicit val challengePriorityReads: Reads[ChallengePriority] = Json.reads[ChallengePriority]
-
-  implicit val challengeGeneralReads = new Reads[ChallengeGeneral] {
-    def reads(json: JsValue): JsResult[ChallengeGeneral] = {
-      val jsonWithExtras =
-        (json \ "changesetUrl").asOpt[JsValue] match {
-          case Some(value) => json
-          case None        => Utils.insertIntoJson(json, "changesetUrl", false, false)
-        }
-
-      Json.fromJson[ChallengeGeneral](jsonWithExtras)(Json.reads[ChallengeGeneral])
-    }
-  }
 
   implicit val challengeExtraReads = new Reads[ChallengeExtra] {
     def reads(json: JsValue): JsResult[ChallengeExtra] = {
