@@ -147,7 +147,7 @@ object ChallengeRepository {
       get[Boolean]("deleted") ~
       get[Option[List[Long]]]("virtual_parent_ids") ~
       get[Boolean]("challenges.is_archived") ~
-      get[Boolean]("challenges.changeset_url") map {
+      get[Option[Boolean]]("challenges.changeset_url") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ overpassTargetType ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
@@ -187,7 +187,7 @@ object ChallengeRepository {
             popularity,
             checkin_comment.getOrElse(""),
             checkin_source.getOrElse(""),
-            changesetUrl,
+            changesetUrl.getOrElse(false),
             virtualParents,
             requiresLocal
           ),
