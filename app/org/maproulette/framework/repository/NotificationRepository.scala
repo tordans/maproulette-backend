@@ -11,7 +11,12 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import scala.collection.mutable.ListBuffer
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{UserCountSubscriptions, UserNotification, UserNotificationEmail, UserRevCount}
+import org.maproulette.framework.model.{
+  UserCountSubscriptions,
+  UserNotification,
+  UserNotificationEmail,
+  UserRevCount
+}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import play.api.db.Database
@@ -38,17 +43,17 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra})
         """.stripMargin
       ).on(
-        Symbol("userId") -> notification.userId,
+          Symbol("userId")           -> notification.userId,
           Symbol("notificationType") -> notification.notificationType,
-        Symbol("description") -> notification.description,
-        Symbol("fromUsername") -> notification.fromUsername,
-        Symbol("isRead") -> false,
-        Symbol("emailStatus") -> notification.emailStatus,
-        Symbol("taskId") -> notification.taskId,
-        Symbol("challengeId") -> notification.challengeId,
-        Symbol("projectId") -> notification.projectId,
-        Symbol("targetId") -> notification.targetId,
-        Symbol("extra") -> notification.extra
+          Symbol("description")      -> notification.description,
+          Symbol("fromUsername")     -> notification.fromUsername,
+          Symbol("isRead")           -> false,
+          Symbol("emailStatus")      -> notification.emailStatus,
+          Symbol("taskId")           -> notification.taskId,
+          Symbol("challengeId")      -> notification.challengeId,
+          Symbol("projectId")        -> notification.projectId,
+          Symbol("targetId")         -> notification.targetId,
+          Symbol("extra")            -> notification.extra
         )
         .execute()
     }
@@ -271,15 +276,17 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
   /**
     * Retrieve user settings for review and revision counts
     */
-  def userCountSubscriptions(userId: Long)(implicit c: Option[Connection] = None): UserCountSubscriptions = {
+  def userCountSubscriptions(
+      userId: Long
+  )(implicit c: Option[Connection] = None): UserCountSubscriptions = {
     withMRConnection { implicit c =>
-      SQL(
-        s"""
+      SQL(s"""
            |SELECT s.revision_count, s.review_count
            |	FROM user_notification_subscriptions s
            |	WHERE s.user_id = $userId
       """.stripMargin)
-        .as(NotificationRepository.userCountSubscriptionParser.*).head
+        .as(NotificationRepository.userCountSubscriptionParser.*)
+        .head
     }
   }
 }

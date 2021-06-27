@@ -150,4 +150,3 @@ case class UserCountSubscriptions(
     val reviewCountSubscriptionType: Int,
     val revisionCountSubscriptionType: Int
 )
-
