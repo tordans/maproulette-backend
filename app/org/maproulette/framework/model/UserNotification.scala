@@ -143,10 +143,7 @@ case class UserRevCount(
     val userId: Long,
     val name: String = "",
     val email: String = "",
-    val count: BigInt
-)
-
-case class UserCountSubscriptions(
+    val count: BigInt,
     val reviewCountSubscriptionType: Int,
     val revisionCountSubscriptionType: Int
 )

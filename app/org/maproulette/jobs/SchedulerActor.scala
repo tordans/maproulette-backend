@@ -86,9 +86,9 @@ class SchedulerActor @Inject() (
       this.sendImmediateNotificationEmails(action)
     case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
     case RunJob("sendCountNotificationDailyEmails", action) =>
-      this.handleSendCountNotificationEmails(action)
+      this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_DAILY)
     case RunJob("sendCountNotificationWeeklyEmails", action) =>
-      this.handleSendCountNotificationEmails(action)
+      this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_WEEKLY)
   }
 
   /**
@@ -510,19 +510,14 @@ class SchedulerActor @Inject() (
   def sendCountNotificationEmails(user: UserRevCount, taskType: String): Unit = {
     try {
       if (user.email.nonEmpty) {
-        val countSubscriptions = this.serviceManager.notification
-          .userSubscriptionCountNotifications(User.superUser, user.userId)
-
-        if (countSubscriptions.reviewCountSubscriptionType == 4) {
-          this.emailProvider.emailCountNotification(user.email, user.name, user.count, "review")
-        }
+        this.emailProvider.emailCountNotification(user.email, user.name, user.count, taskType)
       }
     } catch {
       case e: Exception => logger.error("Failed to send count daily email: " + e)
     }
   }
 
-  def handleSendCountNotificationEmails(action: String) = {
+  def handleSendCountNotificationEmails(action: String, subscriptionType: Int) = {
     logger.info(action)
 
     this.serviceManager.notification
@@ -530,7 +525,9 @@ class SchedulerActor @Inject() (
         User.superUser
       )
       .foreach(user => {
-        sendCountNotificationEmails(user, "review")
+        if (user.reviewCountSubscriptionType == subscriptionType) {
+          sendCountNotificationEmails(user, "review")
+        }
       })
 
     this.serviceManager.notification
@@ -538,7 +535,9 @@ class SchedulerActor @Inject() (
         User.superUser
       )
       .foreach(user => {
-        sendCountNotificationEmails(user, "revision")
+        if (user.revisionCountSubscriptionType == subscriptionType) {
+          sendCountNotificationEmails(user, "revision")
+        }
       })
   }
 

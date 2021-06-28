@@ -475,15 +475,4 @@ class NotificationService @Inject() (
     permission.hasSuperAccess(user)
     this.repository.usersWithTasksToBeReviewed()
   }
-
-  /**
-    * Retrieve count subscriptions for a given user
-    *
-    * @param user The user making the request (must be superuser)
-    * @param userId The user id to retrieve counts for
-    */
-  def userSubscriptionCountNotifications(user: User, userId: Long): UserCountSubscriptions = {
-    permission.hasSuperAccess(user)
-    this.repository.userCountSubscriptions(userId)
-  }
 }

@@ -12,7 +12,6 @@ import javax.inject.{Inject, Singleton}
 import scala.collection.mutable.ListBuffer
 import org.joda.time.DateTime
 import org.maproulette.framework.model.{
-  UserCountSubscriptions,
   UserNotification,
   UserNotificationEmail,
   UserRevCount
@@ -37,24 +36,24 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     this.withMRTransaction { implicit c =>
       SQL(
         """
-        |INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
-        |                                email_status, task_id, challenge_id, project_id, target_id, extra)
-        |VALUES ({userId}, {notificationType}, {description}, {fromUsername}, {isRead},
-        |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra})
+          |INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
+          |                                email_status, task_id, challenge_id, project_id, target_id, extra)
+          |VALUES ({userId}, {notificationType}, {description}, {fromUsername}, {isRead},
+          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra})
         """.stripMargin
       ).on(
-          Symbol("userId")           -> notification.userId,
-          Symbol("notificationType") -> notification.notificationType,
-          Symbol("description")      -> notification.description,
-          Symbol("fromUsername")     -> notification.fromUsername,
-          Symbol("isRead")           -> false,
-          Symbol("emailStatus")      -> notification.emailStatus,
-          Symbol("taskId")           -> notification.taskId,
-          Symbol("challengeId")      -> notification.challengeId,
-          Symbol("projectId")        -> notification.projectId,
-          Symbol("targetId")         -> notification.targetId,
-          Symbol("extra")            -> notification.extra
-        )
+        Symbol("userId") -> notification.userId,
+        Symbol("notificationType") -> notification.notificationType,
+        Symbol("description") -> notification.description,
+        Symbol("fromUsername") -> notification.fromUsername,
+        Symbol("isRead") -> false,
+        Symbol("emailStatus") -> notification.emailStatus,
+        Symbol("taskId") -> notification.taskId,
+        Symbol("challengeId") -> notification.challengeId,
+        Symbol("projectId") -> notification.projectId,
+        Symbol("targetId") -> notification.targetId,
+        Symbol("extra") -> notification.extra
+      )
         .execute()
     }
   }
@@ -72,14 +71,14 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @param page             Desired page of results
     */
   def getUserNotifications(
-      userId: Long,
-      notificationType: Option[Int] = None,
-      isRead: Option[Boolean] = None,
-      fromUsername: Option[String] = None,
-      challengeId: Option[Long] = None,
-      order: OrderField = OrderField(UserNotification.FIELD_IS_READ, Order.ASC),
-      page: Paging = Paging()
-  )(implicit c: Option[Connection] = None): List[UserNotification] = {
+                            userId: Long,
+                            notificationType: Option[Int] = None,
+                            isRead: Option[Boolean] = None,
+                            fromUsername: Option[String] = None,
+                            challengeId: Option[Long] = None,
+                            order: OrderField = OrderField(UserNotification.FIELD_IS_READ, Order.ASC),
+                            page: Paging = Paging()
+                          )(implicit c: Option[Connection] = None): List[UserNotification] = {
     withMRConnection { implicit c =>
       // In addition to the requested sort, we always add a sort by created desc
       // (unless created was the requested sort column)
@@ -117,9 +116,9 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         )
         .build(
           """
-        |SELECT user_notifications.*, challenges.name
-        |FROM user_notifications
-        |LEFT OUTER JOIN challenges on user_notifications.challenge_id = challenges.id
+            |SELECT user_notifications.*, challenges.name
+            |FROM user_notifications
+            |LEFT OUTER JOIN challenges on user_notifications.challenge_id = challenges.id
         """.stripMargin
         )
         .as(NotificationRepository.parser.*)
@@ -133,7 +132,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @param notificationIds The ids of the notifications to be marked read
     */
   def markNotificationsRead(userId: Long, notificationIds: List[Long])(
-      implicit c: Option[Connection] = None
+    implicit c: Option[Connection] = None
   ): Boolean = {
     withMRConnection { implicit c =>
       Query
@@ -156,7 +155,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @return
     */
   def deleteNotifications(userId: Long, notificationIds: List[Long])(
-      implicit c: Option[Connection] = None
+    implicit c: Option[Connection] = None
   ): Boolean = {
     withMRConnection { implicit c =>
       Query
@@ -184,7 +183,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @param limit       The maximum number of notifications to process
     */
   def prepareNotificationsForEmail(emailStatus: Int, userId: Option[Long], limit: Int)(
-      implicit c: Option[Connection] = None
+    implicit c: Option[Connection] = None
   ): List[UserNotificationEmail] = {
     withMRConnection { implicit c =>
       Query
@@ -212,8 +211,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         )
         .build(
           s"""
-        |UPDATE user_notifications
-        |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
+             |UPDATE user_notifications
+             |SET email_status = ${UserNotification.NOTIFICATION_EMAIL_SENT}
         """.stripMargin
         )
         .as(NotificationRepository.userNotificationEmailParser.*)
@@ -225,8 +224,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * the given email status
     */
   def usersWithNotificationEmails(
-      emailStatus: Int
-  )(implicit c: Option[Connection] = None): List[Long] = {
+                                   emailStatus: Int
+                                 )(implicit c: Option[Connection] = None): List[Long] = {
     withMRConnection { implicit c =>
       Query
         .simple(
@@ -244,12 +243,11 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     withMRConnection { implicit c =>
       SQL(
         """
-          |SELECT a.id, name, email, count(*)
-          |	FROM users a
-          |	inner join task_review as b
-          |	on a.id = b.review_requested_by
-          |	and b.review_status = 2
-          | group by a.id;
+          |SELECT a.id, name, email, u.revision_count, u.review_count, count(*)
+          | FROM users a
+          | inner join task_review as b on a.id = b.review_requested_by and b.review_status = 2
+          | inner join user_notification_subscriptions as u on a.id = u.user_id
+          | group by a.id, u.revision_count, u.review_count;
         """.stripMargin
       ).as(NotificationRepository.userRevisionCountParser.*)
     }
@@ -262,31 +260,13 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     withMRConnection { implicit c =>
       SQL(
         """
-          |SELECT a.id, name, email, count(*)
+          |SELECT a.id, name, email, u.revision_count, u.review_count, count(*)
           |	FROM users a
-          |	inner join task_review as b
-          |	on a.id = b.reviewed_by
-          |	and b.review_status = 0
-          | group by a.id;
+          |	inner join task_review as b on a.id = b.reviewed_by and b.review_status = 0
+          | inner join user_notification_subscriptions as u on a.id = u.user_id
+          | group by a.id, u.revision_count, u.review_count;
         """.stripMargin
       ).as(NotificationRepository.userRevisionCountParser.*)
-    }
-  }
-
-  /**
-    * Retrieve user settings for review and revision counts
-    */
-  def userCountSubscriptions(
-      userId: Long
-  )(implicit c: Option[Connection] = None): UserCountSubscriptions = {
-    withMRConnection { implicit c =>
-      SQL(s"""
-           |SELECT s.revision_count, s.review_count
-           |	FROM user_notification_subscriptions s
-           |	WHERE s.user_id = $userId
-      """.stripMargin)
-        .as(NotificationRepository.userCountSubscriptionParser.*)
-        .head
     }
   }
 }
@@ -346,17 +326,11 @@ object NotificationRepository {
     get[Long]("id") ~
       get[String]("name") ~
       get[String]("email") ~
-      get[BigInt]("count") map {
-      case id ~ name ~ email ~ count =>
-        new UserRevCount(id, name, email, count)
-    }
-  }
-
-  val userCountSubscriptionParser: RowParser[UserCountSubscriptions] = {
-    get[Int]("review_count") ~
-      get[Int]("revision_count") map {
-      case reviewCount ~ revisionCount =>
-        new UserCountSubscriptions(reviewCount, revisionCount)
+      get[BigInt]("count") ~
+      get[Int]("review_count") ~
+      get[Int]("revision_count") map{
+      case id ~ name ~ email ~ count ~ reviewCount ~ revisionCount =>
+        new UserRevCount(id, name, email, count, reviewCount, revisionCount)
     }
   }
 }
