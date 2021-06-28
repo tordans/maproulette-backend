@@ -141,7 +141,10 @@ class TaskBundleController @Inject() (
 
             // Change task status. This will also credit user's score for new task status.
             this.taskDAL.setTaskStatus(t, taskStatus, user, Some(false))
-            val updatedTasks = this.serviceManager.task.retrieveListById(t.map(_.id))
+            val updatedTasks = this.serviceManager.taskBundle.getTaskBundle(user, id).tasks match {
+              case Some(t) => t
+              case None => throw new InvalidException("No tasks found in this bundle.")
+            }
 
             for (task <- t) {
               this.actionManager
