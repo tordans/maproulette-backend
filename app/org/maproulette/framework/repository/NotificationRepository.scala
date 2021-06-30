@@ -11,11 +11,7 @@ import anorm._
 import javax.inject.{Inject, Singleton}
 import scala.collection.mutable.ListBuffer
 import org.joda.time.DateTime
-import org.maproulette.framework.model.{
-  UserNotification,
-  UserNotificationEmail,
-  UserRevCount
-}
+import org.maproulette.framework.model.{UserNotification, UserNotificationEmail, UserRevCount}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import play.api.db.Database
@@ -42,18 +38,18 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra})
         """.stripMargin
       ).on(
-        Symbol("userId") -> notification.userId,
-        Symbol("notificationType") -> notification.notificationType,
-        Symbol("description") -> notification.description,
-        Symbol("fromUsername") -> notification.fromUsername,
-        Symbol("isRead") -> false,
-        Symbol("emailStatus") -> notification.emailStatus,
-        Symbol("taskId") -> notification.taskId,
-        Symbol("challengeId") -> notification.challengeId,
-        Symbol("projectId") -> notification.projectId,
-        Symbol("targetId") -> notification.targetId,
-        Symbol("extra") -> notification.extra
-      )
+          Symbol("userId")           -> notification.userId,
+          Symbol("notificationType") -> notification.notificationType,
+          Symbol("description")      -> notification.description,
+          Symbol("fromUsername")     -> notification.fromUsername,
+          Symbol("isRead")           -> false,
+          Symbol("emailStatus")      -> notification.emailStatus,
+          Symbol("taskId")           -> notification.taskId,
+          Symbol("challengeId")      -> notification.challengeId,
+          Symbol("projectId")        -> notification.projectId,
+          Symbol("targetId")         -> notification.targetId,
+          Symbol("extra")            -> notification.extra
+        )
         .execute()
     }
   }
@@ -71,14 +67,14 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @param page             Desired page of results
     */
   def getUserNotifications(
-                            userId: Long,
-                            notificationType: Option[Int] = None,
-                            isRead: Option[Boolean] = None,
-                            fromUsername: Option[String] = None,
-                            challengeId: Option[Long] = None,
-                            order: OrderField = OrderField(UserNotification.FIELD_IS_READ, Order.ASC),
-                            page: Paging = Paging()
-                          )(implicit c: Option[Connection] = None): List[UserNotification] = {
+      userId: Long,
+      notificationType: Option[Int] = None,
+      isRead: Option[Boolean] = None,
+      fromUsername: Option[String] = None,
+      challengeId: Option[Long] = None,
+      order: OrderField = OrderField(UserNotification.FIELD_IS_READ, Order.ASC),
+      page: Paging = Paging()
+  )(implicit c: Option[Connection] = None): List[UserNotification] = {
     withMRConnection { implicit c =>
       // In addition to the requested sort, we always add a sort by created desc
       // (unless created was the requested sort column)
@@ -132,7 +128,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @param notificationIds The ids of the notifications to be marked read
     */
   def markNotificationsRead(userId: Long, notificationIds: List[Long])(
-    implicit c: Option[Connection] = None
+      implicit c: Option[Connection] = None
   ): Boolean = {
     withMRConnection { implicit c =>
       Query
@@ -155,7 +151,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @return
     */
   def deleteNotifications(userId: Long, notificationIds: List[Long])(
-    implicit c: Option[Connection] = None
+      implicit c: Option[Connection] = None
   ): Boolean = {
     withMRConnection { implicit c =>
       Query
@@ -183,7 +179,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * @param limit       The maximum number of notifications to process
     */
   def prepareNotificationsForEmail(emailStatus: Int, userId: Option[Long], limit: Int)(
-    implicit c: Option[Connection] = None
+      implicit c: Option[Connection] = None
   ): List[UserNotificationEmail] = {
     withMRConnection { implicit c =>
       Query
@@ -224,8 +220,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     * the given email status
     */
   def usersWithNotificationEmails(
-                                   emailStatus: Int
-                                 )(implicit c: Option[Connection] = None): List[Long] = {
+      emailStatus: Int
+  )(implicit c: Option[Connection] = None): List[Long] = {
     withMRConnection { implicit c =>
       Query
         .simple(
@@ -328,7 +324,7 @@ object NotificationRepository {
       get[String]("email") ~
       get[List[Int]]("tasks") ~
       get[Int]("review_count") ~
-      get[Int]("revision_count") map{
+      get[Int]("revision_count") map {
       case id ~ name ~ email ~ tasks ~ reviewCount ~ revisionCount =>
         new UserRevCount(id, name, email, tasks, reviewCount, revisionCount)
     }

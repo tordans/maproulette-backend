@@ -143,7 +143,7 @@ class TaskBundleController @Inject() (
             this.taskDAL.setTaskStatus(t, taskStatus, user, Some(false))
             val updatedTasks = this.serviceManager.taskBundle.getTaskBundle(user, id).tasks match {
               case Some(t) => t
-              case None => throw new InvalidException("No tasks found in this bundle.")
+              case None    => throw new InvalidException("No tasks found in this bundle.")
             }
 
             for (task <- t) {

@@ -63,11 +63,16 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
     mailerClient.send(email)
   }
 
-  def emailCountNotification(toAddress: String, name: String, tasks: List[Int], taskType: String) = {
+  def emailCountNotification(
+      toAddress: String,
+      name: String,
+      tasks: List[Int],
+      taskType: String
+  ) = {
     val notificationName    = s"Task ${taskType.capitalize}s"
     val emailSubject        = s"New MapRoulette notification: ${notificationName}"
     val notificationDetails = s"${name}, you have ${tasks.length} ${taskType}/s pending."
-    var subRoute = "";
+    var subRoute            = "";
 
     if (taskType == "Review") {
       subRoute = "/review";
@@ -79,7 +84,9 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
                        |${notificationName}
                        |${notificationDetails}
                        |
-                       |${tasks.map(task => s"${config.getPublicOrigin.get}/task/${task}${subRoute}").mkString("\n")}
+                       |${tasks
+                         .map(task => s"${config.getPublicOrigin.get}/task/${task}${subRoute}")
+                         .mkString("\n")}
                        |
                        |${this.notificationFooter}
                        |
