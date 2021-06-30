@@ -510,7 +510,7 @@ class SchedulerActor @Inject() (
   def sendCountNotificationEmails(user: UserRevCount, taskType: String): Unit = {
     try {
       if (user.email.nonEmpty) {
-        this.emailProvider.emailCountNotification(user.email, user.name, user.count, taskType)
+        this.emailProvider.emailCountNotification(user.email, user.name, user.tasks, taskType)
       }
     } catch {
       case e: Exception => logger.error("Failed to send count daily email: " + e)

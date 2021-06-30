@@ -243,7 +243,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     withMRConnection { implicit c =>
       SQL(
         """
-          |SELECT a.id, name, email, u.revision_count, u.review_count, count(*)
+          |SELECT a.id, name, email, u.revision_count, u.review_count, ARRAY_AGG (b.task_id) tasks
           | FROM users a
           | inner join task_review as b on a.id = b.review_requested_by and b.review_status = 2
           | inner join user_notification_subscriptions as u on a.id = u.user_id
@@ -260,7 +260,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     withMRConnection { implicit c =>
       SQL(
         """
-          |SELECT a.id, name, email, u.revision_count, u.review_count, count(*)
+          |SELECT a.id, name, email, u.revision_count, u.review_count, ARRAY_AGG (b.task_id) tasks
           |	FROM users a
           |	inner join task_review as b on a.id = b.reviewed_by and b.review_status = 0
           | inner join user_notification_subscriptions as u on a.id = u.user_id
@@ -326,11 +326,11 @@ object NotificationRepository {
     get[Long]("id") ~
       get[String]("name") ~
       get[String]("email") ~
-      get[BigInt]("count") ~
+      get[List[Int]]("tasks") ~
       get[Int]("review_count") ~
       get[Int]("revision_count") map{
-      case id ~ name ~ email ~ count ~ reviewCount ~ revisionCount =>
-        new UserRevCount(id, name, email, count, reviewCount, revisionCount)
+      case id ~ name ~ email ~ tasks ~ reviewCount ~ revisionCount =>
+        new UserRevCount(id, name, email, tasks, reviewCount, revisionCount)
     }
   }
 }
