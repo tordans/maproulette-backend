@@ -8,25 +8,31 @@ import akka.actor.{Actor, Props}
 import anorm.JodaParameterMetaData._
 import anorm.SqlParser._
 import anorm._
+
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.data.SnapshotManager
-import org.maproulette.framework.model.{User, Task}
+import org.maproulette.framework.model.{
+  Task,
+  User,
+  UserNotification,
+  UserNotificationEmailDigest,
+  UserRevCount
+}
 import org.maproulette.framework.service.ServiceManager
 import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
 import org.maproulette.framework.model.Task.STATUS_CREATED
 import org.maproulette.models.dal.DALManager
-import org.maproulette.framework.model.{UserNotification, UserNotificationEmailDigest}
 import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder
 import org.slf4j.LoggerFactory
 import play.api.Application
 import play.api.db.Database
-import java.time.Instant
 
+import java.time.Instant
 import scala.util.{Failure, Success}
 
 /**
@@ -79,6 +85,10 @@ class SchedulerActor @Inject() (
     case RunJob("sendImmediateNotificationEmails", action) =>
       this.sendImmediateNotificationEmails(action)
     case RunJob("sendDigestNotificationEmails", action) => this.sendDigestNotificationEmails(action)
+    case RunJob("sendCountNotificationDailyEmails", action) =>
+      this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_DAILY)
+    case RunJob("sendCountNotificationWeeklyEmails", action) =>
+      this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_WEEKLY)
   }
 
   /**
@@ -493,6 +503,40 @@ class SchedulerActor @Inject() (
           }
         } catch {
           case e: Exception => logger.error("Failed to send immediate email: " + e)
+        }
+      })
+  }
+
+  def sendCountNotificationEmails(user: UserRevCount, taskType: String): Unit = {
+    try {
+      if (user.email.nonEmpty) {
+        this.emailProvider.emailCountNotification(user.email, user.name, user.tasks, taskType)
+      }
+    } catch {
+      case e: Exception => logger.error("Failed to send count daily email: " + e)
+    }
+  }
+
+  def handleSendCountNotificationEmails(action: String, subscriptionType: Int) = {
+    logger.info(action)
+
+    this.serviceManager.notification
+      .usersWithTasksToBeReviewed(
+        User.superUser
+      )
+      .foreach(user => {
+        if (user.reviewCountSubscriptionType == subscriptionType) {
+          sendCountNotificationEmails(user, "review")
+        }
+      })
+
+    this.serviceManager.notification
+      .usersWithTasksToBeRevised(
+        User.superUser
+      )
+      .foreach(user => {
+        if (user.revisionCountSubscriptionType == subscriptionType) {
+          sendCountNotificationEmails(user, "revision")
         }
       })
   }

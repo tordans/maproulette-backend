@@ -71,6 +71,10 @@ object UserNotification extends CommonField {
   val NOTIFICATION_TYPE_META_REVIEW_NAME                = "Meta-Review"
   val NOTIFICATION_TYPE_META_REVIEW_AGAIN               = 11
   val NOTIFICATION_TYPE_META_REVIEW_AGAIN_NAME          = "Meta-Review Again"
+  val NOTIFICATION_TYPE_REVIEW_COUNT                    = 12
+  val NOTIFICATION_TYPE_REVIEW_COUNT_NAME               = "Review Count"
+  val NOTIFICATION_TYPE_REVISION_COUNT                  = 13
+  val NOTIFICATION_TYPE_REVISION_COUNT_NAME             = "Revision Count"
 
   val notificationTypeMap = Map(
     NOTIFICATION_TYPE_SYSTEM                     -> NOTIFICATION_TYPE_SYSTEM_NAME,
@@ -92,6 +96,8 @@ object UserNotification extends CommonField {
   val NOTIFICATION_EMAIL_IMMEDIATE = 2 // send email immediately
   val NOTIFICATION_EMAIL_DIGEST    = 3 // include in daily digest
   val NOTIFICATION_EMAIL_SENT      = 4 // requested email sent
+  val NOTIFICATION_EMAIL_DAILY     = 5 // daily email
+  val NOTIFICATION_EMAIL_WEEKLY    = 6 // weekly email
 }
 
 case class NotificationSubscriptions(
@@ -105,7 +111,9 @@ case class NotificationSubscriptions(
     val challengeCompleted: Int,
     val team: Int,
     val follow: Int,
-    val metaReview: Int
+    val metaReview: Int,
+    val reviewCount: Int,
+    val revisionCount: Int
 )
 object NotificationSubscriptions {
   implicit val notificationSubscriptionReads: Reads[NotificationSubscriptions] =
@@ -129,4 +137,13 @@ case class UserNotificationEmail(
 case class UserNotificationEmailDigest(
     val userId: Long,
     val notifications: List[UserNotificationEmail]
+)
+
+case class UserRevCount(
+    val userId: Long,
+    val name: String = "",
+    val email: String = "",
+    val tasks: List[Int],
+    val reviewCountSubscriptionType: Int,
+    val revisionCountSubscriptionType: Int
 )
