@@ -21,6 +21,7 @@ case class Comment(
     id: Long,
     osm_id: Long,
     osm_username: String,
+    avatarUrl: String,
     taskId: Long,
     challengeId: Long,
     projectId: Long,
@@ -36,6 +37,7 @@ object Comment extends CommonField {
   val TABLE              = "task_comments"
   val FIELD_OSM_ID       = "osm_id"
   val FIELD_OSM_USERNAME = "name"
+  val FIELD_AVATAR_URL   = "avatar_url"
   val FIELD_TASK_ID      = "task_id"
   val FIELD_CHALLENGE_ID = "challenge_id"
   val FIELD_PROJECT_ID   = "project_id"

@@ -33,7 +33,7 @@ class ChallengeCommentRepository @Inject() (override val db: Database) extends R
     withMRConnection { implicit c =>
       val query =
         s"""
-           |SELECT c.id, c.project_id, c.challenge_id, c.created, c.comment, c.osm_id, u.name FROM CHALLENGE_COMMENTS c
+           |SELECT c.id, c.project_id, c.challenge_id, c.created, c.comment, c.osm_id, u.name, u.avatar_url FROM CHALLENGE_COMMENTS c
            |inner join users as u on c.osm_id = u.osm_id
            |WHERE challenge_id = ${challengeId}
          """.stripMargin
@@ -73,6 +73,7 @@ class ChallengeCommentRepository @Inject() (override val db: Database) extends R
               id,
               user.osmProfile.id,
               user.osmProfile.displayName,
+              user.osmProfile.avatarURL,
               challengeId: Long,
               projectId: Long,
               created: DateTime,
@@ -86,12 +87,13 @@ class ChallengeCommentRepository @Inject() (override val db: Database) extends R
 object ChallengeCommentRepository {
   val parser: RowParser[ChallengeComment] = {
     long("id") ~ long("project_id") ~ long("challenge_id") ~ get[DateTime]("created") ~
-      get[String]("comment") ~ long("osm_id") ~ get[String]("name") map {
-      case id ~ projectId ~ challengeId ~ created ~ comment ~ osm_id ~ name =>
+      get[String]("comment") ~ long("osm_id") ~ get[String]("name") ~ get[String]("avatar_url") map {
+      case id ~ projectId ~ challengeId ~ created ~ comment ~ osmId ~ name ~ avatarUrl =>
         ChallengeComment(
           id,
-          osm_id,
+          osmId,
           name,
+          avatarUrl,
           challengeId,
           projectId,
           created,
