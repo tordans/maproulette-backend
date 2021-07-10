@@ -145,10 +145,10 @@ class CommentService @Inject() (
   }
 
   /**
-    * Adds a comment to a challenge
+    * Adds a challenge comment to a challenge
     *
     * @param user The user adding the comment
-    * @param challengeId The id of the task that the user is adding the comment too
+    * @param challengeId The id of the challenge that the user is adding the challenge comment too
     * @param comment The actual comment being added
     * @return The newly created comment object
     */
@@ -164,9 +164,7 @@ class CommentService @Inject() (
       throw new InvalidException("Invalid empty string supplied. Comment could not be created.")
     }
     val newComment = this.challengeCommentRepository.create(user, challenge.id, comment, challenge.general.parent);
-
-    //this.serviceManager.notification.createMentionNotifications(user, newComment, entity)
-
+    this.serviceManager.notification.createChallengeMentionNotifications(user, newComment, challenge)
     newComment
   }
 
