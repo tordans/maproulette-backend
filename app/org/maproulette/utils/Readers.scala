@@ -26,7 +26,8 @@ trait Readers extends ChallengeReads {
   implicit val pointReads: Reads[Point]                   = ClusteredPoint.pointReads
   implicit val clusteredPointReads: Reads[ClusteredPoint] = ClusteredPoint.clusteredPointReads
   // Comment Readers
-  implicit val commentReads: Reads[Comment] = Comment.reads
+  implicit val commentReads: Reads[Comment]                   = Comment.reads
+  implicit val challengeCommentReads: Reads[ChallengeComment] = ChallengeComment.reads
   // Project Readers
   implicit val projectReads: Reads[Project] = Project.reads
   // Tag Readers

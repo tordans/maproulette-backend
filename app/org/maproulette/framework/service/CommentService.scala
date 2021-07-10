@@ -10,11 +10,13 @@ import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
-import org.maproulette.framework.model.{Comment, User, VirtualProject, Task, TaskBundle}
+import org.maproulette.framework.model.{Comment, ChallengeComment, User, VirtualProject, TaskBundle}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql._
 import org.maproulette.framework.repository.CommentRepository
+import org.maproulette.framework.repository.ChallengeCommentRepository
 import org.maproulette.models.dal.TaskDAL
+import org.maproulette.models.dal.ChallengeDAL
 import org.maproulette.permissions.Permission
 
 /**
@@ -27,9 +29,11 @@ import org.maproulette.permissions.Permission
 @Singleton
 class CommentService @Inject() (
     repository: CommentRepository,
+    challengeCommentRepository: ChallengeCommentRepository,
     serviceManager: ServiceManager,
     permission: Permission,
-    taskDAL: TaskDAL
+    taskDAL: TaskDAL,
+    challengeDAL: ChallengeDAL
 ) extends ServiceMixin[Comment] {
 
   /**
@@ -139,6 +143,43 @@ class CommentService @Inject() (
     this.serviceManager.notification.createMentionNotifications(user, newComment, task)
     newComment
   }
+
+  /**
+    * Adds a comment to a challenge
+    *
+    * @param user The user adding the comment
+    * @param challengeId The id of the task that the user is adding the comment too
+    * @param comment The actual comment being added
+    * @return The newly created comment object
+    */
+  def createChallengeComment(user: User, challengeId: Long, comment: String): ChallengeComment = {
+    val challenge = challengeDAL.retrieveById(challengeId) match {
+      case Some(t) => t
+      case None =>
+        throw new NotFoundException(
+          s"Challenge with ID $challengeId not found, can not add comment."
+        )
+    }
+    if (StringUtils.isEmpty(comment)) {
+      throw new InvalidException("Invalid empty string supplied. Comment could not be created.")
+    }
+    val newComment = this.challengeCommentRepository.create(user, challenge.id, comment, challenge.general.parent);
+
+    //this.serviceManager.notification.createMentionNotifications(user, newComment, entity)
+
+    newComment
+  }
+
+  /**
+    * Finds a challenge comments for a challenge
+    *
+    * @param challengeId The id of the task that the user is adding the comment too
+    * @return a list of comments
+    */
+  def findChallengeComments(challengeId: Long): List[ChallengeComment] = {
+    this.challengeCommentRepository.queryByChallengeId(challengeId);
+  }
+
 
   /**
     * Retrieves the comments based on the input criteria
