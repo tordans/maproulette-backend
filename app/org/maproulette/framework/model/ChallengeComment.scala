@@ -11,36 +11,31 @@ import play.api.libs.json.JodaWrites._
 import play.api.libs.json.JodaReads._
 
 /**
-  * A comment can be associated to a Task, a comment contains the osm user that made the comment,
-  * when it was created, the Task it is associated with, the actual comment and potentially the
-  * action that was associated with the comment.
+  * A challenge comment is only associated to the challenge, a comment contains the osm user that made the comment,
+  * when it was created, and the actual comment
   *
-  * @author cuthbertm
+  * @author jschwarzenberger
   */
-case class Comment(
+case class ChallengeComment(
     id: Long,
     osm_id: Long,
     osm_username: String,
     avatarUrl: String,
-    taskId: Long,
     challengeId: Long,
     projectId: Long,
     created: DateTime,
-    comment: String,
-    actionId: Option[Long] = None
+    comment: String
 )
 
-object Comment extends CommonField {
-  implicit val writes: Writes[Comment] = Json.writes[Comment]
-  implicit val reads: Reads[Comment]   = Json.reads[Comment]
+object ChallengeComment extends CommonField {
+  implicit val writes: Writes[ChallengeComment] = Json.writes[ChallengeComment]
+  implicit val reads: Reads[ChallengeComment]   = Json.reads[ChallengeComment]
 
-  val TABLE              = "task_comments"
+  val TABLE              = "challenge_comments"
   val FIELD_OSM_ID       = "osm_id"
   val FIELD_OSM_USERNAME = "name"
   val FIELD_AVATAR_URL   = "avatar_url"
-  val FIELD_TASK_ID      = "task_id"
   val FIELD_CHALLENGE_ID = "challenge_id"
   val FIELD_PROJECT_ID   = "project_id"
   val FIELD_COMMENT      = "comment"
-  val FIELD_ACTION_ID    = "action_id"
 }

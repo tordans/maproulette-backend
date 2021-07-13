@@ -44,7 +44,7 @@ class CommentRepository @Inject() (override val db: Database) extends Repository
     * Add comment to a task
     *
     * @param user     The user adding the comment
-    * @param taskId     Id of the task that is having the comment added too
+    * @param taskId     Id of the task that is having the comment added to
     * @param comment  The actual comment
     * @param actionId the id for the action if any action associated
     * @param c        Implicit provided optional connection
@@ -72,6 +72,7 @@ class CommentRepository @Inject() (override val db: Database) extends Repository
               id,
               user.osmProfile.id,
               user.osmProfile.displayName,
+              user.osmProfile.avatarURL,
               taskId,
               challengeId,
               projectId,
@@ -142,6 +143,7 @@ object CommentRepository {
     "task_comments.id",
     "task_comments.osm_id",
     "users.name",
+    "users.avatar_url",
     "task_comments.task_id",
     "task_comments.challenge_id",
     "task_comments.project_id",
