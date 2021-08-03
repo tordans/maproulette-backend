@@ -49,11 +49,11 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
               .executeUpdate()
           } else {
             throw new LockedException(
-              s"Item [${item.id}] currently locked by different user. [${user.id}"
+              s"Item ${item.id} currently locked by user ${user.id}"
             )
           }
         case None =>
-          throw new LockedException(s"Item [${item.id}] trying to unlock does not exist.")
+          throw new LockedException(s"Item ${item.id} trying to unlock does not exist.")
       }
     }
 
@@ -83,10 +83,10 @@ trait Locking[T <: BaseObject[_]] extends TransactionManager {
               .executeUpdate()
           } else {
             throw new LockedException(
-              s"Item [${item.id}] currently locked by different user. [${user.id}]"
+              s"Item ${item.id} currently locked by user ${user.id}"
             )
           }
-        case None => throw new LockedException(s"Lock on item [${item.id}] does not exist.")
+        case None => throw new LockedException(s"Lock on item ${item.id} does not exist.")
       }
     }
 

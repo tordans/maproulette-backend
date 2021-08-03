@@ -618,7 +618,7 @@ class TaskDAL @Inject() (
           // if returning 0, then this is because the item is locked by a  different user
           if (updatedRows == 0) {
             throw new IllegalAccessException(
-              s"Current task [${task.id} is locked by another user, cannot update status at this time."
+              s"This task is locked by another user, cannot update status at this time."
             )
           }
         }
