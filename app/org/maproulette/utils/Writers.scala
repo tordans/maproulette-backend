@@ -26,7 +26,8 @@ trait Writers extends ChallengeWrites {
   implicit val pointWrites: Writes[Point]                   = ClusteredPoint.pointWrites
   implicit val clusteredPointWrites: Writes[ClusteredPoint] = ClusteredPoint.clusteredPointWrites
   // Comment Writers
-  implicit val commentWrites: Writes[Comment] = Comment.writes
+  implicit val commentWrites: Writes[Comment]                   = Comment.writes
+  implicit val challengeCommentWrites: Writes[ChallengeComment] = ChallengeComment.writes
   // Project Writers
   implicit val projectWrites: Writes[Project] = Project.writes
   // Tag Writers

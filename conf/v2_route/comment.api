@@ -123,3 +123,44 @@ PUT    /comment/:commentId                          @org.maproulette.framework.c
 #     description: The ID for the Comment
 ###
 DELETE  /task/:id/comment/:commentId                @org.maproulette.framework.controller.CommentController.delete(id:Long, commentId:Long)
+###
+# tags: [ Comment ]
+# summary: Adds comment to Challenge
+# description: Adds a comment to a Task
+# responses:
+#   '201':
+#     description: The comment that was added with the new ID
+#     schema:
+#       $ref: '#/definitions/org.maproulette.framework.model.ChallengeComment'
+#   '404':
+#     description: If the Challenge is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the Challenge
+#   - name: comment
+#     in: query
+#     description: A URLEncoded comment for the Challenge
+###
+POST    /challenge/:id/comment                           @org.maproulette.framework.controller.CommentController.addChallengeComment(id:Long, comment:String)
+###
+# tags: [ Comment ]
+# summary: Retrieves comments for a Challenge
+# produces: [ application/json ]
+# description: Retrieves all the challenge comments for a specific Challenge
+# responses:
+#   '200':
+#     description: The comments
+#     schema:
+#       type: array
+#       items:
+#         type: object
+#         $ref: '#/definitions/org.maproulette.framework.model.ChallengeComment'
+#   '404':
+#     description: If the Challenge is not found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID for the Challenge
+###
+GET     /challenge/:id/challengeComments                          @org.maproulette.framework.controller.CommentController.findChallengeComments(id:Long)

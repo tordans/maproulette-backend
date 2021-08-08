@@ -95,6 +95,21 @@ class Scheduler @Inject() (
     1.minute,
     Config.KEY_SCHEDULER_NOTIFICATION_IMMEDIATE_EMAIL_INTERVAL
   )
+
+  scheduleAtTime(
+    "sendCountNotificationDailyEmails",
+    "Sending Count Notification Daily Emails",
+    config.getValue(Config.KEY_SCHEDULER_COUNT_NOTIFICATION_DAILY_START),
+    Config.KEY_SCHEDULER_COUNT_NOTIFICATION_DAILY_INTERVAL
+  )
+
+  scheduleAtTime(
+    "sendCountNotificationWeeklyEmails",
+    "Sending Count Notification Weekly Emails",
+    config.getValue(Config.KEY_SCHEDULER_COUNT_NOTIFICATION_WEEKLY_START),
+    Config.KEY_SCHEDULER_COUNT_NOTIFICATION_WEEKLY_INTERVAL
+  )
+
   scheduleAtTime(
     "sendDigestNotificationEmails",
     "Sending Notification Email Digests",

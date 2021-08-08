@@ -12,6 +12,7 @@ import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
 import org.maproulette.data.{UserType}
 import org.maproulette.framework.model._
+import org.maproulette.framework.model.{UserRevCount}
 import org.maproulette.framework.psql._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.{
@@ -93,6 +94,8 @@ class NotificationService @Inject() (
           UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE,
+          UserNotification.NOTIFICATION_EMAIL_NONE,
+          UserNotification.NOTIFICATION_EMAIL_NONE,
           UserNotification.NOTIFICATION_EMAIL_NONE
         )
     }
@@ -166,6 +169,44 @@ class NotificationService @Inject() (
               fromUsername = Some(fromUser.osmProfile.displayName),
               taskId = Some(task.id),
               challengeId = Some(task.parent),
+              targetId = Some(comment.id),
+              extra = Some(comment.comment)
+            ),
+            User.superUser
+          )
+        case None => None
+      }
+    }
+  }
+
+
+  /**
+    * Create one or more new notifications for users mentioned by name in a
+    * comment. The recipient user(s) will be extracted from the comment
+    *
+    * @param fromUser The author of the comment
+    * @param comment  The comment mentioning the user
+    * @param challenge     The task on which the comment was added
+    */
+  def createChallengeMentionNotifications(fromUser: User, comment: ChallengeComment, challenge: Challenge): Unit = {
+    // match [@username] (username may contain spaces) or @username (no spaces allowed)
+    val mentionRegex = """\[@([^\]]+)\]|@([\w\d_-]+)""".r.unanchored
+
+    for (m <- mentionRegex.findAllMatchIn(comment.comment)) {
+      // use first non-null group
+      val username = m.subgroups.filter(_ != null).head
+
+      // Retrieve and notify mentioned user
+      this.serviceManager.user.retrieveByOSMUsername(username, User.superUser) match {
+        case Some(mentionedUser) =>
+          this.addNotification(
+            UserNotification(
+              -1,
+              userId = mentionedUser.id,
+              notificationType = UserNotification.NOTIFICATION_TYPE_MENTION,
+              fromUsername = Some(fromUser.osmProfile.displayName),
+              taskId = Some(challenge.id),
+              challengeId = Some(challenge.general.parent),
               targetId = Some(comment.id),
               extra = Some(comment.comment)
             ),
@@ -451,5 +492,25 @@ class NotificationService @Inject() (
   def usersWithNotificationEmails(user: User, emailStatus: Int): List[Long] = {
     permission.hasSuperAccess(user)
     this.repository.usersWithNotificationEmails(emailStatus)
+  }
+
+  /**
+    * Retrieve a list of users and their count of tasks to be revised
+    *
+    * @param user The user making the request (must be superuser)
+    */
+  def usersWithTasksToBeRevised(user: User): List[UserRevCount] = {
+    permission.hasSuperAccess(user)
+    this.repository.usersWithTasksToBeRevised()
+  }
+
+  /**
+    * Retrieve a list of users and their count of tasks to be reviewed
+    *
+    * @param user The user making the request (must be superuser)
+    */
+  def usersWithTasksToBeReviewed(user: User): List[UserRevCount] = {
+    permission.hasSuperAccess(user)
+    this.repository.usersWithTasksToBeReviewed()
   }
 }

@@ -126,6 +126,8 @@ class NotificationSubscriptionRepositorySpec(implicit val application: Applicati
       UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE,
+      UserNotification.NOTIFICATION_EMAIL_NONE,
+      UserNotification.NOTIFICATION_EMAIL_NONE,
       UserNotification.NOTIFICATION_EMAIL_NONE
     )
   }

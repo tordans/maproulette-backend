@@ -63,6 +63,40 @@ class EmailProvider @Inject() (mailerClient: MailerClient, config: Config) {
     mailerClient.send(email)
   }
 
+  def emailCountNotification(
+      toAddress: String,
+      name: String,
+      tasks: List[Int],
+      taskType: String
+  ) = {
+    val notificationName    = s"Task ${taskType.capitalize}s"
+    val emailSubject        = s"New MapRoulette notification: ${notificationName}"
+    val notificationDetails = s"${name}, you have ${tasks.length} ${taskType}/s pending."
+    var subRoute            = "";
+
+    if (taskType == UserNotification.TASK_TYPE_REVIEW) {
+      subRoute = "/review";
+    }
+
+    val emailBody = s"""
+                       |You have received a new MapRoulette notification:
+                       |
+                       |${notificationName}
+                       |${notificationDetails}
+                       |
+                       |${tasks
+                         .map(task => s"${config.getPublicOrigin.get}/task/${task}${subRoute}")
+                         .mkString("\n")}
+                       |
+                       |${this.notificationFooter}
+                       |
+                       |""".stripMargin;
+
+    val email =
+      Email(emailSubject, config.getEmailFrom.get, Seq(toAddress), bodyText = Some(emailBody))
+    mailerClient.send(email)
+  }
+
   private def notificationFooter: String = {
     val urlPrefix = config.getPublicOrigin.get
     s"""

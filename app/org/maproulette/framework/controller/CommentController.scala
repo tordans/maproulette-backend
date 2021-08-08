@@ -57,6 +57,20 @@ class CommentController @Inject() (
   }
 
   /**
+    * Retrieves all the challenge comments for a Challenge
+    *
+    * @param challengeId The challenge to retrieve the comments for
+    * @return A list of comments
+    */
+  def findChallengeComments(challengeId: Long): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(
+        Json.toJson(this.commentService.findChallengeComments(challengeId))
+      )
+    }
+  }
+
+  /**
     * Adds a comment for a specific task
     *
     * @param taskId   The id for a task
@@ -70,6 +84,25 @@ class CommentController @Inject() (
         Created(
           Json.toJson(
             this.commentService.create(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)
+          )
+        )
+      }
+    }
+
+  /**
+    * Adds a comment for a specific challenge
+    *
+    * @param challengeId   The id for a challenge
+    * @param comment  The comment the user is leaving
+    * @return Ok if successful.
+    */
+  def addChallengeComment(challengeId: Long, comment: String): Action[AnyContent] =
+    Action.async { implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        Created(
+          Json.toJson(
+            this.commentService
+              .createChallengeComment(user, challengeId, URLDecoder.decode(comment, "UTF-8"))
           )
         )
       }
