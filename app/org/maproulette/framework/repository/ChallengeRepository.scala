@@ -6,16 +6,15 @@
 package org.maproulette.framework.repository
 
 import java.sql.Connection
-
 import anorm.SqlParser._
-import anorm.{RowParser, ~}
+import anorm.{RowParser, SQL, ~}
+
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.{Query, Grouping, GroupField, OR}
+import org.maproulette.framework.psql.{GroupField, Grouping, OR, Query}
 import org.maproulette.framework.psql.filter._
-
 import play.api.db.Database
 
 /**
@@ -85,6 +84,51 @@ class ChallengeRepository @Inject() (override val db: Database) extends Reposito
           .build("SELECT id FROM challenges")
           .as(long("id").*)
       )
+    }
+  }
+
+  /**
+    * Retrieve all challenges that are not yet deleted or archived
+    */
+  def staleChallenges()(implicit c: Option[Connection] = None): List[ArchivableChallenge] = {
+    withMRConnection { implicit c =>
+      SQL(
+        s"""
+           |SELECT c.id, c.created, c.name, c.deleted, c.is_archived
+           |FROM challenges as c
+           |WHERE c.is_archived = false AND c.deleted = false
+        """.stripMargin
+      ).as(ChallengeRepository.archivedChallengesParser.*)
+    }
+  }
+
+  /**
+    * Retrieve all tasks by challenge ID
+    */
+  def getTasksByParentId(id: Long)(implicit c: Option[Connection] = None): List[ArchivableTask] = {
+    withMRConnection { implicit c =>
+      SQL(
+        s"""
+           |SELECT id, modified
+           |FROM tasks
+           |WHERE parent_id = ${id}
+        """.stripMargin
+      ).as(ChallengeRepository.archivedTaskParser.*)
+    }
+  }
+
+  /**
+    * Archive challenge by ID
+    */
+  def archiveChallenge(challengeId: Long)(implicit c: Option[Connection] = None): Unit = {
+    withMRConnection { implicit c =>
+      SQL(
+        s"""
+           |UPDATE CHALLENGES
+           |	SET is_archived = true
+           |	WHERE id = ${challengeId}
+        """.stripMargin
+      ).execute()
     }
   }
 }
@@ -217,6 +261,35 @@ object ChallengeRepository {
           dataOriginDate,
           location,
           bounding
+        )
+    }
+  }
+
+
+    */
+  val archivedChallengesParser: RowParser[ArchivableChallenge] = {
+    get[Long]("challenges.id") ~
+      get[DateTime]("challenges.created") ~
+      get[String]("challenges.name") ~
+      get[Boolean]("challenges.deleted") ~
+      get[Boolean]("challenges.is_archived") map {
+      case id ~ created ~ name ~ deleted ~ isArchived =>
+        new ArchivableChallenge(
+          id, created, name, deleted, isArchived
+        )
+    }
+  }
+
+  /**
+    *
+    */
+  val archivedTaskParser: RowParser[ArchivableTask] = {
+    get[Long]("tasks.id") ~
+      get[DateTime]("tasks.modified") map {
+      case id ~ modified  =>
+        new ArchivableTask(
+          id,
+          modified
         )
     }
   }

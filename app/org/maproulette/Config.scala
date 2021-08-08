@@ -299,6 +299,10 @@ object Config {
     s"$SUB_GROUP_SCHEDULER.notifications.countNotificationWeekly.interval"
   val KEY_SCHEDULER_COUNT_NOTIFICATION_WEEKLY_START =
     s"$SUB_GROUP_SCHEDULER.notifications.countNotificationWeekly.startTime"
+  val KEY_SCHEDULER_ARCHIVE_CHALLENGES_INTERVAL =
+    s"$SUB_GROUP_SCHEDULER.archiveChallenges.interval"
+  val KEY_SCHEDULER_ARCHIVE_CHALLENGES_START =
+    s"$SUB_GROUP_SCHEDULER.archiveChallenges.startTime"
   val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_INTERVAL =
     s"$SUB_GROUP_SCHEDULER.notifications.digestEmail.interval"
   val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_START =

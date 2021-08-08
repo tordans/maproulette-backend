@@ -324,3 +324,17 @@ object Challenge extends CommonField {
     ChallengeExtra()
   )
 }
+
+case class ArchivableChallenge(
+   val id: Long,
+   val created: DateTime,
+   val name: String = "",
+   val deleted: Boolean,
+   val is_archived: Boolean
+//   val tasks: Array[Long]
+)
+
+case class ArchivableTask(
+    val id: Long,
+    val modified: DateTime
+  )
