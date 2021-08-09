@@ -265,7 +265,8 @@ object ChallengeRepository {
     }
   }
 
-
+  /**
+    *
     */
   val archivedChallengesParser: RowParser[ArchivableChallenge] = {
     get[Long]("challenges.id") ~
