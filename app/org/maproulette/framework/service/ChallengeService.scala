@@ -7,9 +7,9 @@ package org.maproulette.framework.service
 
 import javax.inject.{Inject, Singleton}
 import org.maproulette.permissions.Permission
-import org.maproulette.framework.model.{Challenge, Grant, Project, User}
-import org.maproulette.data.{UserType, ProjectType}
-import org.maproulette.framework.psql.{Query, OR, Paging}
+import org.maproulette.framework.model.{ArchivableChallenge, ArchivableTask, Challenge, Grant, Project, User, UserRevCount}
+import org.maproulette.data.{ProjectType, UserType}
+import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.ChallengeRepository
 
@@ -82,5 +82,30 @@ class ChallengeService @Inject() (
       OR(),
       !permission.isSuperUser(user)
     )
+  }
+
+  /**
+    * Retrieve a list of challenges not yet archived
+    * @return list of challenges
+    */
+  def staleChallenges(): List[ArchivableChallenge] = {
+    this.repository.staleChallenges()
+  }
+
+  /**
+    * Retrieve a list of tasks by challenge id
+    * @param challengeId
+    * @return list of tasks
+    */
+  def getTasksByParentId(id: Long): List[ArchivableTask] = {
+    this.repository.getTasksByParentId(id);
+  }
+
+  /**
+    * archive challenge
+    * @param challenge
+    */
+  def archiveChallenge(challenge: ArchivableChallenge): Unit = {
+    this.repository.archiveChallenge(challenge.id)
   }
 }
