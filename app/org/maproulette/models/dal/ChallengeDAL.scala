@@ -1684,6 +1684,10 @@ class ChallengeDAL @Inject() (
         case _                      =>
       }
 
+      if (searchParameters.challengeParams.archived == false) {
+        this.appendInWhereClause(whereClause, s"c.is_archived = false")
+      }
+
       searchParameters.challengeParams.requiresLocal match {
         case Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE) =>
           this.appendInWhereClause(whereClause, s"c.requires_local = false")
