@@ -335,5 +335,6 @@ case class ArchivableChallenge(
 
 case class ArchivableTask(
     val id: Long,
-    val modified: DateTime
+    val modified: DateTime,
+    val status: Long
   )
