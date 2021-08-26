@@ -1282,6 +1282,33 @@ class ChallengeDAL @Inject() (
   }
 
   /**
+   * Archive or unarchive a list of challenges
+   *
+   * @param challengeIds  The list of challengeIds
+   * @param archive  boolean determining if challenges should be archived(true) or unarchived(false)
+   * @return
+   */
+  def bulkArchive(challengeIds: List[Long], archive: Boolean)(implicit c: Option[Connection] = None): List[Long] = {
+    this.withMRConnection { implicit c =>
+      try {
+        val ids = challengeIds.mkString(",")
+        val query =
+          s"""UPDATE challenges
+             |	SET is_archived = ${archive}
+             |	WHERE id IN (${ids});""".stripMargin
+        SQL(query).executeUpdate()
+
+        challengeIds
+      } catch {
+        case e: Exception =>
+          logger.error(e.getMessage, e)
+          throw e
+      }
+
+    }
+  }
+
+  /**
     * The summary for a challenge is the status with the number of tasks associated with each status
     * underneath the given challenge
     *
