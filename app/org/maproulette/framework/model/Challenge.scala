@@ -169,7 +169,9 @@ case class Challenge(
     lastTaskRefresh: Option[DateTime] = None,
     dataOriginDate: Option[DateTime] = None,
     location: Option[String] = None,
-    bounding: Option[String] = None
+    bounding: Option[String] = None,
+    completionPercentage: Option[Int] = Some(0),
+    tasksRemaining: Option[Int] = Some(0),
 ) extends BaseObject[Long]
     with DefaultWrites
     with Identifiable {
