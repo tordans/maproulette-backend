@@ -90,8 +90,8 @@ class SchedulerActor @Inject() (
       this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_DAILY)
     case RunJob("sendCountNotificationWeeklyEmails", action) =>
       this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_WEEKLY)
-    case RunJob("archiveChallenges", action) =>
-      this.handleArchiveChallenges(action)
+    // case RunJob("archiveChallenges", action) =>
+    //   this.handleArchiveChallenges(action)
   }
 
   /**
