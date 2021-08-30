@@ -67,13 +67,13 @@ class SchedulerActor @Inject() (
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   override def receive: Receive = {
-    case RunJob("rebuildChallengesLeaderboard", action) => this.rebuildChallengesLeaderboard(action)
+    //case RunJob("rebuildChallengesLeaderboard", action) => this.rebuildChallengesLeaderboard(action)
     case RunJob("rebuildCountryLeaderboard", action)    => this.rebuildCountryLeaderboard(action)
     case RunJob("cleanLocks", action)                   => this.cleanLocks(action)
     case RunJob("cleanClaimLocks", action)              => this.cleanClaimLocks(action)
     case RunJob("runChallengeSchedules", action)        => this.runChallengeSchedules(action)
-    case RunJob("updateLocations", action)              => this.updateLocations(action)
-    case RunJob("cleanOldTasks", action)                => this.cleanOldTasks(action)
+    //case RunJob("updateLocations", action)              => this.updateLocations(action)
+    //case RunJob("cleanOldTasks", action)                => this.cleanOldTasks(action)
     case RunJob("expireTaskReviews", action)            => this.expireTaskReviews(action)
     case RunJob("cleanExpiredVirtualChallenges", action) =>
       this.cleanExpiredVirtualChallenges(action)
