@@ -257,7 +257,8 @@ class ChallengeDAL @Inject() (
       get[Boolean]("challenges.is_archived") ~
       get[Boolean]("challenges.changeset_url") ~
       get[Option[Int]]("challenges.completion_percentage") ~
-      get[Option[Int]]("challenges.tasks_remaining") map {
+      get[Option[Int]]("challenges.tasks_remaining") ~
+      get[Option[DateTime]]("challenges.system_archived_at") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
             checkin_comment ~ checkin_source ~ overpassql ~ remoteGeoJson ~ overpassTargetType ~
@@ -266,7 +267,7 @@ class ChallengeDAL @Inject() (
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
-            presets ~ isArchived ~ changesetUrl ~ completionPercentage ~ tasksRemaining =>
+            presets ~ isArchived ~ changesetUrl ~ completionPercentage ~ tasksRemaining ~ systemArchivedAt =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -322,6 +323,7 @@ class ChallengeDAL @Inject() (
             taskStyles,
             taskBundleIdProperty,
             isArchived,
+            systemArchivedAt,
             presets
           ),
           status,

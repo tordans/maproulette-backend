@@ -127,18 +127,27 @@ class ChallengeRepository @Inject() (override val db: Database) extends Reposito
   }
 
   /**
-    * Archive challenge by ID
-    * @param challengeId
+    * Update challenge archive status
+    * @param challengeId id of challenge
+    * @param archiving boolean indicating whether to archive or unarchive the challenge
+    * @param systemArchive boolean indicating if the system scheduler is performing the event
     */
-  def archiveChallenge(challengeId: Long)(implicit c: Option[Connection] = None): Unit = {
-    withMRConnection { implicit c =>
-      SQL(
-        s"""
-           |UPDATE CHALLENGES
-           |	SET is_archived = true
-           |	WHERE id = ${challengeId}
+  def archiveChallenge(challengeId: Long, archiving: Boolean = true, systemArchive: Boolean = false)(implicit c: Option[Connection] = None): Boolean = {
+    this.withMRConnection { implicit c =>
+      var systemArchiveStatement = s", system_archived_at = NULL";
+      if (systemArchive && archiving) {
+        systemArchiveStatement = s", system_archived_at = '${DateTime.now()}'"
+      }
+
+      val query = s"""
+         |UPDATE CHALLENGES
+         |	SET is_archived = ${archiving}${systemArchiveStatement}
+         |	WHERE id = ${challengeId}
         """.stripMargin
-      ).execute()
+
+      SQL(query).execute()
+
+      archiving
     }
   }
 
@@ -219,14 +228,15 @@ object ChallengeRepository {
       get[Boolean]("deleted") ~
       get[Option[List[Long]]]("virtual_parent_ids") ~
       get[Boolean]("challenges.is_archived") ~
+      get[Option[DateTime]]("challenges.system_archived_at") ~
       get[Option[Boolean]]("challenges.changeset_url") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ overpassTargetType ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~ preferredReviewTags ~
-            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ requiresLocal ~ location ~ bounding ~ deleted ~ virtualParents ~ isArchived ~ changesetUrl =>
+            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~ requiresLocal ~ location ~ bounding ~
+            deleted ~ virtualParents ~ isArchived ~ systemArchivedAt ~ changesetUrl =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -281,7 +291,8 @@ object ChallengeRepository {
             limitReviewTags,
             taskStyles,
             taskBundleIdProperty,
-            isArchived
+            isArchived,
+            systemArchivedAt
           ),
           status,
           statusMessage,

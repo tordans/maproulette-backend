@@ -562,14 +562,15 @@ class SchedulerActor @Inject() (
     val currentDate = DateTime.now()
     val sixMonthsAgo = currentDate.minusMonths(6).toString("yyyy-MM-dd");
 
-    this.serviceManager.challenge.activeChallenges().filter(challenge =>
+    this.serviceManager.challenge.activeChallenges().filter(challenge => {
       challenge.created.toString("yyyy-MM-dd") < sixMonthsAgo
-    ).foreach(challenge => {
+    }).foreach(challenge => {
+
       val tasks = this.serviceManager.challenge.getTasksByParentId(challenge.id);
       val nonStaleTasks = findNonStaleTask(tasks, sixMonthsAgo)
 
       if (nonStaleTasks.isEmpty) {
-        this.serviceManager.challenge.archiveChallenge(challenge);
+        this.serviceManager.challenge.archiveChallenge(challenge.id, true, true);
       }
     })
   }
