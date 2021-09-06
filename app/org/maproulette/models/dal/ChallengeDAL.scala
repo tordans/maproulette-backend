@@ -251,6 +251,7 @@ class ChallengeDAL @Inject() (
       get[Option[List[Long]]]("virtual_parent_ids") ~
       get[Option[List[String]]]("presets") ~
       get[Boolean]("challenges.is_archived") ~
+      get[Option[DateTime]]("challenges.system_archived_at") ~
       get[Boolean]("challenges.changeset_url") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~
@@ -260,7 +261,7 @@ class ChallengeDAL @Inject() (
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
-            presets ~ isArchived ~ changesetUrl =>
+            presets ~ isArchived ~ systemArchivedAt ~ changesetUrl =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -316,6 +317,7 @@ class ChallengeDAL @Inject() (
             taskStyles,
             taskBundleIdProperty,
             isArchived,
+            systemArchivedAt,
             presets
           ),
           status,

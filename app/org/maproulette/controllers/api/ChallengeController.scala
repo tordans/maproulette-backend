@@ -1321,4 +1321,27 @@ class ChallengeController @Inject() (
         Ok(Json.toJson(dalManager.challenge.moveChallenge(newProjectId, challengeId, user)))
       }
   }
+
+  /**
+   * Archives a challenge
+   *
+   * @param challengeId  The challenge id
+   * @body isArchived  boolean indicating whether you are archiving or unarchiving
+   */
+  def archiveChallenge(challengeId: Long): Action[JsValue] = Action.async(bodyParsers.json) {
+    implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        try {
+          val body = request.body;
+          val archiving = (body \ "isArchived").asOpt[Boolean].getOrElse(true);
+          val result = serviceManager.challenge.archiveChallenge(challengeId, archiving)
+
+          Ok(Json.toJson(result))
+        } catch {
+          case e: Exception =>
+            logger.error(e.getMessage, e)
+            BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
+        }
+      }
+  }
 }

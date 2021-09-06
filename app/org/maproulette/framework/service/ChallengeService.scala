@@ -102,10 +102,13 @@ class ChallengeService @Inject() (
   }
 
   /**
-    * archive challenge
-    * @param challenge
+    * update challenge archive status
+    * @param challengeId
+    * @param archiving boolean indicating if you are archiving or unarchiving
+    * @param systemArchive boolean indicating if system is performing this
     */
-  def archiveChallenge(challenge: ArchivableChallenge): Unit = {
-    this.repository.archiveChallenge(challenge.id)
+  def archiveChallenge(challengeId: Long, archiving: Boolean = true, systemArchive: Boolean = false): Boolean = {
+    val result = this.repository.archiveChallenge(challengeId, archiving, systemArchive)
+    result
   }
 }
