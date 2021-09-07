@@ -255,6 +255,7 @@ class ChallengeDAL @Inject() (
       get[Option[List[Long]]]("virtual_parent_ids") ~
       get[Option[List[String]]]("presets") ~
       get[Boolean]("challenges.is_archived") ~
+      get[Option[DateTime]]("challenges.system_archived_at") ~
       get[Boolean]("challenges.changeset_url") ~
       get[Option[Int]]("challenges.completion_percentage") ~
       get[Option[Int]]("challenges.tasks_remaining") map {
@@ -266,7 +267,7 @@ class ChallengeDAL @Inject() (
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~
             preferredReviewTags ~ limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
             dataOriginDate ~ location ~ bounding ~ requiresLocal ~ deleted ~ virtualParents ~
-            presets ~ isArchived ~ changesetUrl ~ completionPercentage ~ tasksRemaining =>
+            presets ~ isArchived ~ systemArchivedAt ~ changesetUrl ~ completionPercentage ~ tasksRemaining =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -322,6 +323,7 @@ class ChallengeDAL @Inject() (
             taskStyles,
             taskBundleIdProperty,
             isArchived,
+            systemArchivedAt,
             presets
           ),
           status,
@@ -817,7 +819,7 @@ class ChallengeDAL @Inject() (
     // add a child caching option that will keep a list of children for the parent
     this.withMRConnection { implicit c =>
       val geometryParser = this.taskRepository.getTaskParser(this.taskRepository.updateAndRetrieve)
-      val offset = page * limit;
+      val offset         = page * limit;
       val query =
         s"""SELECT ${taskDAL.retrieveColumns}
                       FROM tasks
@@ -1290,13 +1292,15 @@ class ChallengeDAL @Inject() (
   }
 
   /**
-   * Archive or unarchive a list of challenges
-   *
-   * @param challengeIds  The list of challengeIds
-   * @param archive  boolean determining if challenges should be archived(true) or unarchived(false)
-   * @return
-   */
-  def bulkArchive(challengeIds: List[Long], archive: Boolean)(implicit c: Option[Connection] = None): List[Long] = {
+    * Archive or unarchive a list of challenges
+    *
+    * @param challengeIds  The list of challengeIds
+    * @param archive  boolean determining if challenges should be archived(true) or unarchived(false)
+    * @return
+    */
+  def bulkArchive(challengeIds: List[Long], archive: Boolean)(
+      implicit c: Option[Connection] = None
+  ): List[Long] = {
     this.withMRConnection { implicit c =>
       try {
         val ids = challengeIds.mkString(",")
