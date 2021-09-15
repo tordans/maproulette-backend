@@ -367,6 +367,7 @@ object Config {
   val DEFAULT_MATCHER_BATCH_SIZE                      = 5000
   val DEFAULT_MAPILLARY_BORDER                        = 10
   val DEFAULT_REVIEW_NEEDED                           = 0
+  val DEFAULT_MAX_TASKS_PER_CHALLENGE                 = 50000
 
   // Redis Cache id's for different caches
   val CACHE_ID_TAGS               = "1";

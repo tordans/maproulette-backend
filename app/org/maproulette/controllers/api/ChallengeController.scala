@@ -111,6 +111,7 @@ class ChallengeController @Inject() (
       case Some(local) => Some(Json.stringify(local))
       case None        => None
     }
+
     if (!this.challengeProvider.buildTasks(user, createdObject, localJson)) {
       super.extractAndCreate(body, createdObject, user)
     }
@@ -1297,6 +1298,8 @@ class ChallengeController @Inject() (
                 case _ => // just ignore
               }
 
+              val currentTaskCount = dalManager.challenge.getTaskCount(challengeId);
+
               if (!skipSnapshot) {
                 // First create a snapshot of the challenge before we add tasks.
                 this.snapshotManager.recordChallengeSnapshot(challengeId)
@@ -1311,9 +1314,37 @@ class ChallengeController @Inject() (
                   // todo this should probably be streamed instead of all pulled into memory
                   val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
                   if (lineByLine) {
-                    sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
+                    val total = currentTaskCount + sourceData.size;
+                    if (total > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
+                      if (currentTaskCount == 0) {
+                        val statusMessage =
+                          s"Tasks were not accepted. Your total challenge tasks would exceed the ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE} cap."
+                        dalManager.challenge.update(
+                          Json.obj(
+                            "status"        -> Challenge.STATUS_FAILED,
+                            "statusMessage" -> statusMessage
+                          ),
+                          user
+                        )(challengeId)
+                        logger.error(
+                          s"${sourceData.size} tasks failed to be created from json file.",
+                          statusMessage
+                        )
+                      } else {
+                        throw new InvalidException(
+                          s"Total challenge tasks would exceed cap of ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}"
+                        )
+                      }
+                    } else {
+                      sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
+                    }
                   } else {
-                    challengeProvider.createTasksFromJson(user, c, sourceData.mkString)
+                    challengeProvider.createTasksFromJson(
+                      user,
+                      c,
+                      sourceData.mkString,
+                      currentTaskCount
+                    )
                   }
                   dataOriginDate match {
                     case Some(d) =>

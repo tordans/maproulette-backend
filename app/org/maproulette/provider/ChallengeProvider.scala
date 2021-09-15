@@ -5,13 +5,12 @@
 package org.maproulette.provider
 
 import java.util.UUID
-
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.Config
 import org.maproulette.exception.InvalidException
-import org.maproulette.framework.model.{Challenge, User, Task}
+import org.maproulette.framework.model.{Challenge, Task, User}
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
 import org.maproulette.utils.Utils
 import org.slf4j.LoggerFactory
@@ -20,6 +19,7 @@ import play.api.http.Status
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 
+import scala.collection.View.Empty
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
@@ -168,9 +168,14 @@ class ChallengeProvider @Inject() (
     * @param json      The geojson for the task
     * @return
     */
-  def createTasksFromJson(user: User, challenge: Challenge, json: String): List[Task] = {
+  def createTasksFromJson(
+      user: User,
+      challenge: Challenge,
+      json: String,
+      currentTaskCount: Int = 0
+  ): List[Task] = {
     try {
-      this.createTasksFromFeatures(user, challenge, Json.parse(json))
+      this.createTasksFromFeatures(user, challenge, Json.parse(json), false, currentTaskCount)
     } catch {
       case e: Exception =>
         this.challengeDAL.update(
@@ -211,22 +216,39 @@ class ChallengeProvider @Inject() (
         logger.debug("Creating tasks from remote GeoJSON file")
         try {
           val splitJson = resp.body.split("\n")
-          if (this.isLineByLineGeoJson(splitJson)) {
-            splitJson.foreach { line =>
-              val jsonData = Json.parse(normalizeRFC7464Sequence(line))
-              this.createNewTask(
-                user,
-                taskNameFromJsValue(jsonData, challenge),
-                challenge,
-                jsonData
-              )
-            }
-            this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(
-              challenge.id
+
+          if (splitJson.size > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE.toInt) {
+            val statusMessage =
+              s"Tasks were not accepted. Your feature list size must be under ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}."
+            this.challengeDAL.update(
+              Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> statusMessage),
+              user
+            )(challenge.id)
+            logger.error(
+              s"${splitJson.size} tasks failed to be created from json file.",
+              statusMessage
             )
-            this.challengeDAL.markTasksRefreshed()(challenge.id)
           } else {
-            this.createTasksFromFeatures(user, challenge, Json.parse(resp.body))
+            if (this.isLineByLineGeoJson(splitJson)) {
+
+              splitJson.foreach { line =>
+                val jsonData = Json.parse(normalizeRFC7464Sequence(line))
+                this.createNewTask(
+                  user,
+                  taskNameFromJsValue(jsonData, challenge),
+                  challenge,
+                  jsonData
+                )
+              }
+              this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(
+                challenge.id
+              )
+
+              this.challengeDAL.markTasksRefreshed()(challenge.id)
+
+            } else {
+              this.createTasksFromFeatures(user, challenge, Json.parse(resp.body))
+            }
           }
         } catch {
           case e: Exception =>
@@ -347,35 +369,53 @@ class ChallengeProvider @Inject() (
       user: User,
       parent: Challenge,
       jsonData: JsValue,
-      single: Boolean = false
+      single: Boolean = false,
+      currentTaskCount: Int = 0
   ): List[Task] = {
     this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(parent.id)
     val featureList = (jsonData \ "features").as[List[JsValue]]
     try {
-      val createdTasks = featureList.flatMap { value =>
-        if (!single) {
-          this.createNewTask(
-            user,
-            taskNameFromJsValue(value, parent),
-            parent,
-            (value \ "geometry").as[JsObject],
-            Utils.getProperties(value, "properties")
+      if (featureList.size + currentTaskCount > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
+        if (currentTaskCount == 0) {
+          val statusMessage = s"Tasks were not accepted. Your feature list size must be under ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}."
+          this.challengeDAL.update(
+            Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> statusMessage),
+            user
+          )(parent.id)
+          logger.error(
+            s"${featureList.size} tasks failed to be created from json file.",
+            statusMessage
           )
+          List.empty
         } else {
-          None
-        }
-      }
-
-      this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(parent.id)
-      this.challengeDAL.markTasksRefreshed()(parent.id)
-      if (single) {
-        this.createNewTask(user, taskNameFromJsValue(jsonData, parent), parent, jsonData) match {
-          case Some(t) => List(t)
-          case None    => List.empty
+          throw new InvalidException(s"Total challenge tasks would exceed cap of ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}")
         }
       } else {
-        logger.debug(s"${featureList.size} tasks created from json file.")
-        createdTasks
+        val createdTasks = featureList.flatMap { value =>
+          if (!single) {
+            this.createNewTask(
+              user,
+              taskNameFromJsValue(value, parent),
+              parent,
+              (value \ "geometry").as[JsObject],
+              Utils.getProperties(value, "properties")
+            )
+          } else {
+            None
+          }
+        }
+
+        this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(parent.id)
+        this.challengeDAL.markTasksRefreshed()(parent.id)
+        if (single) {
+          this.createNewTask(user, taskNameFromJsValue(jsonData, parent), parent, jsonData) match {
+            case Some(t) => List(t)
+            case None    => List.empty
+          }
+        } else {
+          logger.debug(s"${featureList.size} tasks created from json file.")
+          createdTasks
+        }
       }
     } catch {
       case e: Exception =>
