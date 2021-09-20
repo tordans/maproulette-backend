@@ -215,9 +215,10 @@ class ChallengeProvider @Inject() (
       case Success(resp) =>
         logger.debug("Creating tasks from remote GeoJSON file")
         try {
-          val splitJson = resp.body.split("\n")
+          val splitJson       = resp.body.split("\n")
+          val splitJsonLength = resp.body.split("\n").length;
 
-          if (splitJson.size > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE.toInt) {
+          if (splitJsonLength > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
             val statusMessage =
               s"Tasks were not accepted. Your feature list size must be under ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}."
             this.challengeDAL.update(
@@ -225,7 +226,7 @@ class ChallengeProvider @Inject() (
               user
             )(challenge.id)
             logger.error(
-              s"${splitJson.size} tasks failed to be created from json file.",
+              s"${splitJsonLength} tasks failed to be created from json file.",
               statusMessage
             )
           } else {
@@ -373,22 +374,26 @@ class ChallengeProvider @Inject() (
       currentTaskCount: Int = 0
   ): List[Task] = {
     this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_BUILDING), user)(parent.id)
-    val featureList = (jsonData \ "features").as[List[JsValue]]
+    val featureList       = (jsonData \ "features").as[List[JsValue]]
+    val featureListLength = (jsonData \ "features").as[List[JsValue]].length
     try {
-      if (featureList.size + currentTaskCount > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
+      if (featureListLength + currentTaskCount > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
         if (currentTaskCount == 0) {
-          val statusMessage = s"Tasks were not accepted. Your feature list size must be under ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}."
+          val statusMessage =
+            s"Tasks were not accepted. Your feature list size must be under ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}."
           this.challengeDAL.update(
             Json.obj("status" -> Challenge.STATUS_FAILED, "statusMessage" -> statusMessage),
             user
           )(parent.id)
           logger.error(
-            s"${featureList.size} tasks failed to be created from json file.",
+            s"${featureListLength} tasks failed to be created from json file.",
             statusMessage
           )
           List.empty
         } else {
-          throw new InvalidException(s"Total challenge tasks would exceed cap of ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}")
+          throw new InvalidException(
+            s"Total challenge tasks would exceed cap of ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}"
+          )
         }
       } else {
         val createdTasks = featureList.flatMap { value =>
