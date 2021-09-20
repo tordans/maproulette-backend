@@ -1312,9 +1312,10 @@ class ChallengeController @Inject() (
                   }
 
                   // todo this should probably be streamed instead of all pulled into memory
-                  val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
+                  val sourceData       = Source.fromFile(f.ref.getAbsoluteFile).getLines()
+                  val sourceDataLength = Source.fromFile(f.ref.getAbsoluteFile).getLines().length
                   if (lineByLine) {
-                    val total = currentTaskCount + sourceData.size;
+                    val total = currentTaskCount + sourceDataLength;
                     if (total > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
                       if (currentTaskCount == 0) {
                         val statusMessage =
@@ -1327,7 +1328,7 @@ class ChallengeController @Inject() (
                           user
                         )(challengeId)
                         logger.error(
-                          s"${sourceData.size} tasks failed to be created from json file.",
+                          s"${sourceDataLength} tasks failed to be created from json file.",
                           statusMessage
                         )
                       } else {
