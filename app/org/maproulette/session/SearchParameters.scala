@@ -30,7 +30,8 @@ case class SearchChallengeParameters(
     challengeEnabled: Option[Boolean] = None,
     challengeDifficulty: Option[Int] = None,
     challengeStatus: Option[List[Int]] = None,
-    requiresLocal: Option[Int] = Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)
+    requiresLocal: Option[Int] = Some(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE),
+    archived: Boolean = false
 )
 
 case class SearchReviewParameters(
@@ -356,6 +357,17 @@ object SearchParameters {
       case None => params.challengeParams.challengeIds
     }
 
+    val archived = request.getQueryString("ca") match {
+      case Some(q) => {
+        if (q == "true") {
+          true
+        } else {
+          false
+        }
+      }
+      case None => false
+    }
+
     var taskPropertySearch:Option[TaskPropertySearch] = None
 
     // If we are submitting the taskPropertySearch JSON as POST form data
@@ -425,7 +437,9 @@ object SearchParameters {
           case None => params.challengeParams.challengeStatus
         },
         //requiresLocal
-        this.getIntParameter(request.getQueryString("cLocal"), Some(params.challengeParams.requiresLocal.getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE)))
+        this.getIntParameter(request.getQueryString("cLocal"), Some(params.challengeParams.requiresLocal.getOrElse(SearchParameters.CHALLENGE_REQUIRES_LOCAL_EXCLUDE))),
+        //includeArchived
+        archived
       ),
       new SearchTaskParameters(
       //taskTags

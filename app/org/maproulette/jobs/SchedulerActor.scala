@@ -25,6 +25,7 @@ import org.maproulette.jobs.SchedulerActor.RunJob
 import org.maproulette.jobs.utils.LeaderboardHelper
 import org.maproulette.metrics.Metrics
 import org.maproulette.framework.model.Task.STATUS_CREATED
+import org.maproulette.framework.model._
 import org.maproulette.models.dal.DALManager
 import org.maproulette.provider.{EmailProvider, KeepRightBox, KeepRightError, KeepRightProvider}
 import org.maproulette.utils.BoundingBoxFinder
@@ -89,6 +90,10 @@ class SchedulerActor @Inject() (
       this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_DAILY)
     case RunJob("sendCountNotificationWeeklyEmails", action) =>
       this.handleSendCountNotificationEmails(action, UserNotification.NOTIFICATION_EMAIL_WEEKLY)
+    case RunJob("archiveChallenges", action) =>
+      this.handleArchiveChallenges(action)
+    case RunJob("updateChallengeCompletionMetrics", action) =>
+      this.handleUpdateChallengeCompletionMetrics(action)
   }
 
   /**
@@ -538,6 +543,69 @@ class SchedulerActor @Inject() (
         if (user.revisionCountSubscriptionType == subscriptionType) {
           sendCountNotificationEmails(user, UserNotification.TASK_TYPE_REVISION)
         }
+      })
+  }
+
+  /**
+    * finds the first task with a modified data sooner than the restriction param
+    * @param tasks - the list of tasks in question
+    * @param restrictionDate - the date used to check against the modifiedDate of the tasks
+    * @return a task or undefined
+    */
+  def findNonStaleTask = (tasks: List[ArchivableTask], restrictionDate: String) => {
+    tasks.find(task => task.modified.toString() > restrictionDate)
+  }
+
+  def handleArchiveChallenges(action: String) = {
+    logger.info(action)
+
+    val currentDate  = DateTime.now()
+    val sixMonthsAgo = currentDate.minusMonths(6).toString("yyyy-MM-dd");
+
+    this.serviceManager.challenge
+      .activeChallenges()
+      .filter(challenge => challenge.created.toString("yyyy-MM-dd") < sixMonthsAgo)
+      .foreach(challenge => {
+
+        val tasks         = this.serviceManager.challenge.getTasksByParentId(challenge.id);
+        val nonStaleTasks = findNonStaleTask(tasks, sixMonthsAgo)
+
+        if (nonStaleTasks.isEmpty) {
+          this.serviceManager.challenge.archiveChallenge(challenge.id, true, true);
+        }
+      })
+  }
+
+  def handleUpdateChallengeCompletionMetrics(action: String) = {
+    logger.info(action)
+
+    this.serviceManager.challenge
+      .activeChallenges(true)
+      .foreach(challenge => {
+        val tasks = this.serviceManager.challenge.getTasksByParentId(challenge.id);
+
+        val taskCount            = tasks.length;
+        var tasksRemaining       = 0;
+        var completionPercentage = 0;
+
+        if (taskCount == 0) {
+          completionPercentage = 100;
+        } else {
+          tasks.foreach(task => {
+            if (task.status == 0) {
+              tasksRemaining = tasksRemaining + 1;
+            }
+          })
+
+          val tasksCompleted = taskCount - tasksRemaining;
+
+          if (tasksCompleted != 0) {
+            completionPercentage = tasksCompleted * 100 / taskCount
+          }
+        }
+
+        this.serviceManager.challenge
+          .updateChallengeCompletionMetrics(challenge.id, tasksRemaining, completionPercentage);
       })
   }
 

@@ -299,6 +299,14 @@ object Config {
     s"$SUB_GROUP_SCHEDULER.notifications.countNotificationWeekly.interval"
   val KEY_SCHEDULER_COUNT_NOTIFICATION_WEEKLY_START =
     s"$SUB_GROUP_SCHEDULER.notifications.countNotificationWeekly.startTime"
+  val KEY_SCHEDULER_ARCHIVE_CHALLENGES_INTERVAL =
+    s"$SUB_GROUP_SCHEDULER.archiveChallenges.interval"
+  val KEY_SCHEDULER_ARCHIVE_CHALLENGES_START =
+    s"$SUB_GROUP_SCHEDULER.archiveChallenges.startTime"
+  val KEY_SCHEDULER_UPDATE_CHALLENGE_COMPLETION_INTERVAL =
+    s"$SUB_GROUP_SCHEDULER.updateChallengeCompletionMetrics.interval"
+  val KEY_SCHEDULER_UPDATE_CHALLENGE_COMPLETION_START =
+    s"$SUB_GROUP_SCHEDULER.updateChallengeCompletionMetrics.startTime"
   val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_INTERVAL =
     s"$SUB_GROUP_SCHEDULER.notifications.digestEmail.interval"
   val KEY_SCHEDULER_NOTIFICATION_DIGEST_EMAIL_START =
@@ -359,6 +367,7 @@ object Config {
   val DEFAULT_MATCHER_BATCH_SIZE                      = 5000
   val DEFAULT_MAPILLARY_BORDER                        = 10
   val DEFAULT_REVIEW_NEEDED                           = 0
+  val DEFAULT_MAX_TASKS_PER_CHALLENGE                 = 50000
 
   // Redis Cache id's for different caches
   val CACHE_ID_TAGS               = "1";

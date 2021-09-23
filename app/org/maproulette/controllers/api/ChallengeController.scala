@@ -7,8 +7,8 @@ package org.maproulette.controllers.api
 import java.io._
 import java.sql.Connection
 import java.util.zip.{ZipEntry, ZipOutputStream}
-
 import akka.util.ByteString
+
 import javax.inject.Inject
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.{DateTime, DateTimeZone}
@@ -111,6 +111,7 @@ class ChallengeController @Inject() (
       case Some(local) => Some(Json.stringify(local))
       case None        => None
     }
+
     if (!this.challengeProvider.buildTasks(user, createdObject, localJson)) {
       super.extractAndCreate(body, createdObject, user)
     }
@@ -391,6 +392,31 @@ class ChallengeController @Inject() (
       val results = this.dalManager.task
         .getNearbyTasks(User.userOrMocked(user), challengeId, proximityId, excludeSelfLocked, limit)
       Ok(Json.toJson(results))
+    }
+  }
+
+  /**
+    * Archive or unarchive a list of challenges
+    *
+    * @body ids  The list of challengeIds
+    * @body isArchived  boolean determining if challenges should be archived(true) or unarchived(false)
+    * @return
+    */
+  def bulkArchive(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      try {
+        val body         = request.body;
+        val challengeIds = (body \ "ids").as[List[Long]]
+        val archiving    = (body \ "isArchived").asOpt[Boolean].getOrElse(true);
+
+        this.dalManager.challenge.bulkArchive(challengeIds, archiving);
+
+        Ok(Json.toJson(archiving))
+      } catch {
+        case e: Exception =>
+          logger.error(e.getMessage, e)
+          BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
+      }
     }
   }
 
@@ -1272,6 +1298,8 @@ class ChallengeController @Inject() (
                 case _ => // just ignore
               }
 
+              val currentTaskCount = dalManager.challenge.getTaskCount(challengeId);
+
               if (!skipSnapshot) {
                 // First create a snapshot of the challenge before we add tasks.
                 this.snapshotManager.recordChallengeSnapshot(challengeId)
@@ -1284,11 +1312,40 @@ class ChallengeController @Inject() (
                   }
 
                   // todo this should probably be streamed instead of all pulled into memory
-                  val sourceData = Source.fromFile(f.ref.getAbsoluteFile).getLines()
+                  val sourceData       = Source.fromFile(f.ref.getAbsoluteFile).getLines()
+                  val sourceDataLength = Source.fromFile(f.ref.getAbsoluteFile).getLines().length
                   if (lineByLine) {
-                    sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
+                    val total = currentTaskCount + sourceDataLength;
+                    if (total > Config.DEFAULT_MAX_TASKS_PER_CHALLENGE) {
+                      if (currentTaskCount == 0) {
+                        val statusMessage =
+                          s"Tasks were not accepted. Your total challenge tasks would exceed the ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE} cap."
+                        dalManager.challenge.update(
+                          Json.obj(
+                            "status"        -> Challenge.STATUS_FAILED,
+                            "statusMessage" -> statusMessage
+                          ),
+                          user
+                        )(challengeId)
+                        logger.error(
+                          s"${sourceDataLength} tasks failed to be created from json file.",
+                          statusMessage
+                        )
+                      } else {
+                        throw new InvalidException(
+                          s"Total challenge tasks would exceed cap of ${Config.DEFAULT_MAX_TASKS_PER_CHALLENGE}"
+                        )
+                      }
+                    } else {
+                      sourceData.foreach(challengeProvider.createTaskFromJson(user, c, _))
+                    }
                   } else {
-                    challengeProvider.createTasksFromJson(user, c, sourceData.mkString)
+                    challengeProvider.createTasksFromJson(
+                      user,
+                      c,
+                      sourceData.mkString,
+                      currentTaskCount
+                    )
                   }
                   dataOriginDate match {
                     case Some(d) =>
@@ -1319,6 +1376,29 @@ class ChallengeController @Inject() (
     implicit request =>
       sessionManager.authenticatedRequest { implicit user =>
         Ok(Json.toJson(dalManager.challenge.moveChallenge(newProjectId, challengeId, user)))
+      }
+  }
+
+  /**
+    * Archives a challenge
+    *
+    * @param challengeId  The challenge id
+    * @body isArchived  boolean indicating whether you are archiving or unarchiving
+    */
+  def archiveChallenge(challengeId: Long): Action[JsValue] = Action.async(bodyParsers.json) {
+    implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        try {
+          val body      = request.body;
+          val archiving = (body \ "isArchived").asOpt[Boolean].getOrElse(true);
+          val result    = serviceManager.challenge.archiveChallenge(challengeId, archiving)
+
+          Ok(Json.toJson(result))
+        } catch {
+          case e: Exception =>
+            logger.error(e.getMessage, e)
+            BadRequest(Json.toJson(StatusMessage("KO", JsString(e.getMessage))))
+        }
       }
   }
 }

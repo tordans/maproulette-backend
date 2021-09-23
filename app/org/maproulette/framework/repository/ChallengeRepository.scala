@@ -6,16 +6,15 @@
 package org.maproulette.framework.repository
 
 import java.sql.Connection
-
 import anorm.SqlParser._
-import anorm.{RowParser, ~}
+import anorm.{RowParser, SQL, ~}
+
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.joda.time.DateTime
 import org.maproulette.framework.model._
-import org.maproulette.framework.psql.{Query, Grouping, GroupField, OR}
+import org.maproulette.framework.psql.{GroupField, Grouping, OR, Query}
 import org.maproulette.framework.psql.filter._
-
 import play.api.db.Database
 
 /**
@@ -87,6 +86,98 @@ class ChallengeRepository @Inject() (override val db: Database) extends Reposito
       )
     }
   }
+
+  /**
+    * Retrieve all challenges that are not yet deleted or archived
+    * @param archived: include or exclude archived challenges
+    * @return list of challenges
+    */
+  def activeChallenges(
+      archived: Boolean = false
+  )(implicit c: Option[Connection] = None): List[ArchivableChallenge] = {
+    withMRConnection { implicit c =>
+      var archiveQuery = "";
+
+      if (!archived) {
+        archiveQuery = " c.is_archived = false AND";
+      }
+
+      SQL(
+        s"""
+           |SELECT c.id, c.created, c.name, c.deleted, c.is_archived
+           |FROM challenges as c
+           |WHERE${archiveQuery} c.deleted = false
+        """.stripMargin
+      ).as(ChallengeRepository.archivedChallengesParser.*)
+    }
+  }
+
+  /**
+    * Retrieve all tasks by challenge ID
+    * @return list of tasks
+    */
+  def getTasksByParentId(id: Long)(implicit c: Option[Connection] = None): List[ArchivableTask] = {
+    withMRConnection { implicit c =>
+      SQL(
+        s"""
+           |SELECT id, modified, status
+           |FROM tasks
+           |WHERE parent_id = ${id}
+        """.stripMargin
+      ).as(ChallengeRepository.archivedTaskParser.*)
+    }
+  }
+
+  /**
+    * Update challenge archive status
+    * @param challengeId id of challenge
+    * @param archiving boolean indicating whether to archive or unarchive the challenge
+    * @param systemArchive boolean indicating if the system scheduler is performing the event
+    */
+  def archiveChallenge(
+      challengeId: Long,
+      archiving: Boolean = true,
+      systemArchive: Boolean = false
+  )(implicit c: Option[Connection] = None): Boolean = {
+    this.withMRConnection { implicit c =>
+      var systemArchiveStatement = s", system_archived_at = NULL";
+      if (systemArchive && archiving) {
+        systemArchiveStatement = s", system_archived_at = '${DateTime.now()}'"
+      }
+
+      val query = s"""
+         |UPDATE CHALLENGES
+         |	SET is_archived = ${archiving}${systemArchiveStatement}
+         |	WHERE id = ${challengeId}
+        """.stripMargin
+
+      SQL(query).execute()
+
+      archiving
+    }
+  }
+
+  /**
+    * Update challenge completion metrics
+    * @param challengeId
+    * @param tasksRemaining
+    * @param completionPercentage
+    */
+  def updateChallengeCompletionMetrics(
+      challengeId: Long,
+      tasksRemaining: Integer,
+      completionPercentage: Integer
+  )(implicit c: Option[Connection] = None): Unit = {
+    withMRConnection { implicit c =>
+      SQL(
+        s"""
+           |UPDATE CHALLENGES
+           |	SET tasks_remaining = ${tasksRemaining}, completion_percentage = ${completionPercentage}
+           |	WHERE id = ${challengeId}
+        """.stripMargin
+      ).execute()
+    }
+  }
 }
 
 object ChallengeRepository {
@@ -147,14 +238,15 @@ object ChallengeRepository {
       get[Boolean]("deleted") ~
       get[Option[List[Long]]]("virtual_parent_ids") ~
       get[Boolean]("challenges.is_archived") ~
+      get[Option[DateTime]]("challenges.system_archived_at") ~
       get[Option[Boolean]]("challenges.changeset_url") map {
       case id ~ name ~ created ~ modified ~ description ~ infoLink ~ ownerId ~ parentId ~ instruction ~
             difficulty ~ blurb ~ enabled ~ featured ~ cooperativeType ~ popularity ~ checkin_comment ~
             checkin_source ~ overpassql ~ overpassTargetType ~ remoteGeoJson ~ status ~ statusMessage ~ defaultPriority ~ highPriorityRule ~
             mediumPriorityRule ~ lowPriorityRule ~ defaultZoom ~ minZoom ~ maxZoom ~ defaultBasemap ~ defaultBasemapId ~
             customBasemap ~ updateTasks ~ exportableProperties ~ osmIdProperty ~ taskBundleIdProperty ~ preferredTags ~ preferredReviewTags ~
-            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~
-            dataOriginDate ~ requiresLocal ~ location ~ bounding ~ deleted ~ virtualParents ~ isArchived ~ changesetUrl =>
+            limitTags ~ limitReviewTags ~ taskStyles ~ lastTaskRefresh ~ dataOriginDate ~ requiresLocal ~ location ~ bounding ~
+            deleted ~ virtualParents ~ isArchived ~ systemArchivedAt ~ changesetUrl =>
         val hpr = highPriorityRule match {
           case Some(c) if StringUtils.isEmpty(c) || StringUtils.equals(c, "{}") => None
           case r                                                                => r
@@ -209,7 +301,8 @@ object ChallengeRepository {
             limitReviewTags,
             taskStyles,
             taskBundleIdProperty,
-            isArchived
+            isArchived,
+            systemArchivedAt
           ),
           status,
           statusMessage,
@@ -217,6 +310,42 @@ object ChallengeRepository {
           dataOriginDate,
           location,
           bounding
+        )
+    }
+  }
+
+  /**
+    * The row parser for archive-related chalenge data
+    */
+  val archivedChallengesParser: RowParser[ArchivableChallenge] = {
+    get[Long]("challenges.id") ~
+      get[DateTime]("challenges.created") ~
+      get[String]("challenges.name") ~
+      get[Boolean]("challenges.deleted") ~
+      get[Boolean]("challenges.is_archived") map {
+      case id ~ created ~ name ~ deleted ~ isArchived =>
+        new ArchivableChallenge(
+          id,
+          created,
+          name,
+          deleted,
+          isArchived
+        )
+    }
+  }
+
+  /**
+    * The row parser for archive-related task data
+    */
+  val archivedTaskParser: RowParser[ArchivableTask] = {
+    get[Long]("tasks.id") ~
+      get[DateTime]("tasks.modified") ~
+      get[Long]("tasks.status") map {
+      case id ~ modified ~ status =>
+        new ArchivableTask(
+          id,
+          modified,
+          status
         )
     }
   }

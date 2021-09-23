@@ -7,9 +7,17 @@ package org.maproulette.framework.service
 
 import javax.inject.{Inject, Singleton}
 import org.maproulette.permissions.Permission
-import org.maproulette.framework.model.{Challenge, Grant, Project, User}
-import org.maproulette.data.{UserType, ProjectType}
-import org.maproulette.framework.psql.{Query, OR, Paging}
+import org.maproulette.framework.model.{
+  ArchivableChallenge,
+  ArchivableTask,
+  Challenge,
+  Grant,
+  Project,
+  User,
+  UserRevCount
+}
+import org.maproulette.data.{ProjectType, UserType}
+import org.maproulette.framework.psql.{OR, Paging, Query}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.repository.ChallengeRepository
 
@@ -82,5 +90,53 @@ class ChallengeService @Inject() (
       OR(),
       !permission.isSuperUser(user)
     )
+  }
+
+  /**
+    * Retrieve a list of active challenges
+    * @param archived: include archived if true
+    * @return list of challenges
+    */
+  def activeChallenges(archived: Boolean = false): List[ArchivableChallenge] = {
+    this.repository.activeChallenges(archived);
+  }
+
+  /**
+    * Retrieve a list of tasks by challenge id
+    * @param challengeId
+    * @return list of tasks
+    */
+  def getTasksByParentId(id: Long): List[ArchivableTask] = {
+    this.repository.getTasksByParentId(id);
+  }
+
+  /**
+    * update challenge archive status
+    * @param challengeId
+    * @param archiving boolean indicating if you are archiving or unarchiving
+    * @param systemArchive boolean indicating if system is performing this
+    */
+  def archiveChallenge(
+      challengeId: Long,
+      archiving: Boolean = true,
+      systemArchive: Boolean = false
+  ): Boolean = {
+    val result = this.repository.archiveChallenge(challengeId, archiving, systemArchive)
+    result
+  }
+
+  /**
+    * update challenge completion metrics
+    * @param challengeId
+    * @param tasksRemaining
+    * @param completionPercentage
+    */
+  def updateChallengeCompletionMetrics(
+      challengeId: Long,
+      tasksRemaining: Integer,
+      completionPercentage: Integer
+  ): Unit = {
+    this.repository
+      .updateChallengeCompletionMetrics(challengeId, tasksRemaining, completionPercentage);
   }
 }
