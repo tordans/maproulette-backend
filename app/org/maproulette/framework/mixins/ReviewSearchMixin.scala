@@ -219,6 +219,7 @@ trait ReviewSearchMixin extends SearchParametersMixin {
                     taskReviewStatus = Some(
                       List(
                         Task.REVIEW_STATUS_APPROVED,
+                        Task.REVIEW_STATUS_APPROVED_WITH_REVISION,
                         Task.REVIEW_STATUS_ASSISTED
                       )
                     )
@@ -234,6 +235,7 @@ trait ReviewSearchMixin extends SearchParametersMixin {
                     taskReviewStatus = Some(
                       List(
                         Task.REVIEW_STATUS_APPROVED,
+                        Task.REVIEW_STATUS_APPROVED_WITH_REVISION,
                         Task.REVIEW_STATUS_ASSISTED
                       )
                     )

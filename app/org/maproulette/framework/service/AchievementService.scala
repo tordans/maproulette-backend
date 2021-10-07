@@ -58,6 +58,7 @@ class AchievementService @Inject() (
   def awardTaskReviewAchievements(user: User, task: Task, newReviewStatus: Int): Option[User] = {
     // Achievements are only awarded if the review was completed
     if (newReviewStatus != Task.REVIEW_STATUS_APPROVED &&
+        newReviewStatus != Task.REVIEW_STATUS_APPROVED_WITH_REVISION &&
         newReviewStatus != Task.REVIEW_STATUS_REJECTED &&
         newReviewStatus != Task.REVIEW_STATUS_ASSISTED) {
       return Some(user)

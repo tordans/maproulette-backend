@@ -243,6 +243,7 @@ class NotificationService @Inject() (
         reviewStatus match {
           case Task.REVIEW_STATUS_REQUESTED => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
           case Task.REVIEW_STATUS_APPROVED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
+          case Task.REVIEW_STATUS_APPROVED_WITH_REVISION => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
           case Task.REVIEW_STATUS_ASSISTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_APPROVED
           case Task.REVIEW_STATUS_REJECTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_REJECTED
           case Task.REVIEW_STATUS_DISPUTED  => UserNotification.NOTIFICATION_TYPE_REVIEW_AGAIN
