@@ -251,7 +251,14 @@ class UserMetricService @Inject() (
                 insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_INITIAL_APPROVED))
               }
             }
-          case Some(Task.REVIEW_STATUS_APPROVED_WITH_REVISION) =>
+          case Some(Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS) =>
+            if (!asReviewer) {
+              insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_TOTAL_APPROVED))
+              if (!isReviewRevision) {
+                insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_INITIAL_APPROVED))
+              }
+            }
+          case Some(Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS) =>
             if (!asReviewer) {
               insertBuffer.addOne(this.customFilter(UserMetrics.FIELD_TOTAL_APPROVED))
               if (!isReviewRevision) {

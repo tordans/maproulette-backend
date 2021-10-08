@@ -196,7 +196,8 @@ class TaskReviewMetricsController @Inject() (
         val allReviewStatuses = List(
           Task.REVIEW_STATUS_REQUESTED,
           Task.REVIEW_STATUS_APPROVED,
-          Task.REVIEW_STATUS_APPROVED_WITH_REVISION,
+          Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS,
+          Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS,
           Task.REVIEW_STATUS_REJECTED,
           Task.REVIEW_STATUS_ASSISTED,
           Task.REVIEW_STATUS_DISPUTED
@@ -298,7 +299,8 @@ class TaskReviewMetricsController @Inject() (
         val allReviewStatuses = List(
           Task.REVIEW_STATUS_REQUESTED,
           Task.REVIEW_STATUS_APPROVED,
-          Task.REVIEW_STATUS_APPROVED_WITH_REVISION,
+          Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS,
+          Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS,
           Task.REVIEW_STATUS_REJECTED,
           Task.REVIEW_STATUS_ASSISTED,
           Task.REVIEW_STATUS_DISPUTED
@@ -307,7 +309,8 @@ class TaskReviewMetricsController @Inject() (
         val metaReviewStatuses = List(
           Task.REVIEW_STATUS_REQUESTED,
           Task.REVIEW_STATUS_APPROVED,
-          Task.REVIEW_STATUS_APPROVED_WITH_REVISION,
+          Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS,
+          Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS,
           Task.REVIEW_STATUS_REJECTED,
           Task.REVIEW_STATUS_ASSISTED
         )

@@ -35,7 +35,8 @@ trait LeaderboardMixin {
   def reviewScoreSumSQL(config: Config): String = {
     s"""SUM(CASE review_status
          WHEN ${Task.REVIEW_STATUS_APPROVED} THEN 1
-         WHEN ${Task.REVIEW_STATUS_APPROVED_WITH_REVISION} THEN 1
+         WHEN ${Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS} THEN 1
+         WHEN ${Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS} THEN 1
          WHEN ${Task.REVIEW_STATUS_ASSISTED} THEN 1
          WHEN ${Task.REVIEW_STATUS_REJECTED} THEN 1
          WHEN ${Task.REVIEW_STATUS_DISPUTED} THEN 0
@@ -65,7 +66,8 @@ trait LeaderboardMixin {
   def reviewSumSQL(): String = {
     s"""COALESCE(SUM(CASE review_status
                WHEN ${Task.REVIEW_STATUS_APPROVED} THEN 1
-               WHEN ${Task.REVIEW_STATUS_APPROVED_WITH_REVISION} THEN 1
+               WHEN ${Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS} THEN 1
+               WHEN ${Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS} THEN 1
                WHEN ${Task.REVIEW_STATUS_ASSISTED} THEN 1
                WHEN ${Task.REVIEW_STATUS_REJECTED} THEN 1
                WHEN ${Task.REVIEW_STATUS_DISPUTED} THEN 0

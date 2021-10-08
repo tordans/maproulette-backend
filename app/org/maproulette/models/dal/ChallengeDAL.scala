@@ -1153,7 +1153,8 @@ class ChallengeDAL @Inject() (
                                           (CASE
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_REQUESTED} THEN ${Task.REVIEW_STATUS_REQUESTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_APPROVED} THEN ${Task.REVIEW_STATUS_APPROVED_NAME}
-                                            WHEN t.review_status = #${Task.REVIEW_STATUS_APPROVED_WITH_REVISION} THEN ${Task.REVIEW_STATUS_APPROVED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS} THEN ${Task.REVIEW_STATUS_APPROVED_NAME}
+                                            WHEN t.review_status = #${Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS} THEN ${Task.REVIEW_STATUS_APPROVED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_REJECTED} THEN ${Task.REVIEW_STATUS_REJECTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_ASSISTED} THEN ${Task.REVIEW_STATUS_ASSISTED_NAME}
                                             WHEN t.review_status = #${Task.REVIEW_STATUS_DISPUTED} THEN ${Task.REVIEW_STATUS_DISPUTED_NAME}
