@@ -13,7 +13,7 @@ import anorm.ToParameterValue
 import anorm.{RowParser, ~, SQL}
 import javax.inject.{Inject, Singleton}
 import org.maproulette.framework.psql.{Query, Grouping, GroupField}
-import org.maproulette.framework.model.TaskLogEntry
+import org.maproulette.framework.model.{TaskLogEntry, TaskReview}
 import play.api.db.Database
 
 /**
@@ -41,6 +41,43 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           None,
           None,
           Some(comment)
+        )
+    }
+  }
+
+  private val reviewHistoryParser: RowParser[TaskReview] = {
+    get[Long]("id") ~
+      get[Long]("task_id") ~
+      get[Option[DateTime]]("reviewed_at") ~
+      get[Option[DateTime]]("review_started_at") ~
+      get[Option[Int]]("review_status") ~
+      get[Option[Long]]("requested_by") ~
+      get[Option[Long]]("reviewed_by") ~
+      get[Option[Int]]("original_reviewer") ~
+      get[Option[Int]]("meta_review_status") ~
+      get[Option[Long]]("meta_reviewed_by") ~
+      get[Option[DateTime]]("meta_reviewed_at") map {
+      case id ~ taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
+            reviewedBy ~ originalReviewer ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt =>
+        new TaskReview(
+          id,
+          taskId,
+          reviewStatus,
+          None,
+          requestedBy,
+          None,
+          reviewedBy,
+          None,
+          reviewedAt,
+          metaReviewedBy,
+          metaReviewStatus,
+          metaReviewedAt,
+          reviewStartedAt,
+          None,
+          None,
+          None,
+          None,
+          originalReviewer
         )
     }
   }
@@ -159,6 +196,19 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
     this.withMRConnection { implicit c =>
       SQL(s"""SELECT * FROM task_review_history trh WHERE task_id = $taskId""").as(
         this.reviewEntryParser.*
+      )
+    }
+  }
+
+  /**
+    * Returns reviews with a review history specific format
+    * @param taskId
+    * @return List of TaskLogEntry
+    */
+  def getReviewLogs(taskId: Long): List[TaskReview] = {
+    this.withMRConnection { implicit c =>
+      SQL(s"""SELECT * FROM task_review_history trh WHERE task_id = $taskId""").as(
+        this.reviewHistoryParser.*
       )
     }
   }

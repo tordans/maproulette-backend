@@ -237,18 +237,22 @@ object Task extends CommonField {
     STATUS_DISABLED       -> STATUS_DISABLED_NAME
   )
 
-  val REVIEW_STATUS_REQUESTED        = 0
-  val REVIEW_STATUS_REQUESTED_NAME   = "Requested"
-  val REVIEW_STATUS_APPROVED         = 1
-  val REVIEW_STATUS_APPROVED_NAME    = "Approved"
-  val REVIEW_STATUS_REJECTED         = 2
-  val REVIEW_STATUS_REJECTED_NAME    = "Rejected"
-  val REVIEW_STATUS_ASSISTED         = 3
-  val REVIEW_STATUS_ASSISTED_NAME    = "Assisted"
-  val REVIEW_STATUS_DISPUTED         = 4
-  val REVIEW_STATUS_DISPUTED_NAME    = "Disputed"
-  val REVIEW_STATUS_UNNECESSARY      = 5
-  val REVIEW_STATUS_UNNECESSARY_NAME = "Unnecessary"
+  val REVIEW_STATUS_REQUESTED                                = 0
+  val REVIEW_STATUS_REQUESTED_NAME                           = "Requested"
+  val REVIEW_STATUS_APPROVED                                 = 1
+  val REVIEW_STATUS_APPROVED_NAME                            = "Approved"
+  val REVIEW_STATUS_REJECTED                                 = 2
+  val REVIEW_STATUS_REJECTED_NAME                            = "Rejected"
+  val REVIEW_STATUS_ASSISTED                                 = 3
+  val REVIEW_STATUS_ASSISTED_NAME                            = "Assisted"
+  val REVIEW_STATUS_DISPUTED                                 = 4
+  val REVIEW_STATUS_DISPUTED_NAME                            = "Disputed"
+  val REVIEW_STATUS_UNNECESSARY                              = 5
+  val REVIEW_STATUS_UNNECESSARY_NAME                         = "Unnecessary"
+  val REVIEW_STATUS_APPROVED_WITH_REVISIONS                  = 6
+  val REVIEW_STATUS_APPROVED_WITH_REVISIONS_NAME             = "Approved With Revisions"
+  val REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS      = 7
+  val REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS_NAME = "Approved With Fixes After Revisions"
 
   // For display purposes
   val REVIEW_STATUS_NOT_REQUESTED      = -1
@@ -258,13 +262,15 @@ object Task extends CommonField {
   val META_REVIEW_STATUS_NOT_SET = -2 //Review status is set but meta-review is not
 
   val reviewStatusMap = Map(
-    REVIEW_STATUS_NOT_REQUESTED -> REVIEW_STATUS_NOT_REQUESTED_NAME,
-    REVIEW_STATUS_REQUESTED     -> REVIEW_STATUS_REQUESTED_NAME,
-    REVIEW_STATUS_APPROVED      -> REVIEW_STATUS_APPROVED_NAME,
-    REVIEW_STATUS_REJECTED      -> REVIEW_STATUS_REJECTED_NAME,
-    REVIEW_STATUS_ASSISTED      -> REVIEW_STATUS_ASSISTED_NAME,
-    REVIEW_STATUS_DISPUTED      -> REVIEW_STATUS_DISPUTED_NAME,
-    REVIEW_STATUS_UNNECESSARY   -> REVIEW_STATUS_UNNECESSARY_NAME
+    REVIEW_STATUS_NOT_REQUESTED                       -> REVIEW_STATUS_NOT_REQUESTED_NAME,
+    REVIEW_STATUS_REQUESTED                           -> REVIEW_STATUS_REQUESTED_NAME,
+    REVIEW_STATUS_APPROVED                            -> REVIEW_STATUS_APPROVED_NAME,
+    REVIEW_STATUS_REJECTED                            -> REVIEW_STATUS_REJECTED_NAME,
+    REVIEW_STATUS_ASSISTED                            -> REVIEW_STATUS_ASSISTED_NAME,
+    REVIEW_STATUS_DISPUTED                            -> REVIEW_STATUS_DISPUTED_NAME,
+    REVIEW_STATUS_UNNECESSARY                         -> REVIEW_STATUS_UNNECESSARY_NAME,
+    REVIEW_STATUS_APPROVED_WITH_REVISIONS             -> REVIEW_STATUS_APPROVED_WITH_REVISIONS_NAME,
+    REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS -> REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS_NAME
   )
 
   /**

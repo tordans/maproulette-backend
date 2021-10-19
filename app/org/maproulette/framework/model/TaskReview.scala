@@ -28,7 +28,8 @@ case class TaskReview(
     additionalReviewers: Option[List[Long]],
     reviewClaimedBy: Option[Long],
     reviewClaimedByUsername: Option[String],
-    reviewClaimedAt: Option[DateTime]
+    reviewClaimedAt: Option[DateTime],
+    originalReviewer: Option[Int] = None
 )
 object TaskReview extends CommonField {
   implicit val writes: Writes[TaskReview] = Json.writes[TaskReview]
