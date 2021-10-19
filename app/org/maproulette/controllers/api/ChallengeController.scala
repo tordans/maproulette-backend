@@ -928,6 +928,11 @@ class ChallengeController @Inject() (
       }
     }
 
+  def healthCheck(): Action[AnyContent] =
+    Action { implicit request =>
+      Ok(Json.toJson(StatusMessage("OK", JsString("We good"))))
+    }
+
   /**
     * Retrieves a lightweight listing of the challenges in the given project(s).
     *
