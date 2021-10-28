@@ -244,7 +244,7 @@ object Task extends CommonField {
   val REVIEW_STATUS_REJECTED                                 = 2
   val REVIEW_STATUS_REJECTED_NAME                            = "Rejected"
   val REVIEW_STATUS_ASSISTED                                 = 3
-  val REVIEW_STATUS_ASSISTED_NAME                            = "Assisted"
+  val REVIEW_STATUS_ASSISTED_NAME                            = "Approved With Fixes"
   val REVIEW_STATUS_DISPUTED                                 = 4
   val REVIEW_STATUS_DISPUTED_NAME                            = "Disputed"
   val REVIEW_STATUS_UNNECESSARY                              = 5
