@@ -51,25 +51,24 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
       get[Option[DateTime]]("reviewed_at") ~
       get[Option[DateTime]]("review_started_at") ~
       get[Option[Int]]("review_status") ~
-      get[Option[Long]]("requested_by") ~
-      get[Option[Long]]("reviewed_by") ~
-      get[Option[Int]]("original_reviewer") ~
+      get[Option[String]]("requested_by") ~
+      get[Option[String]]("reviewed_by") ~
       get[Option[Int]]("meta_review_status") ~
-      get[Option[Long]]("meta_reviewed_by") ~
+      get[Option[String]]("meta_reviewed_by") ~
       get[Option[DateTime]]("meta_reviewed_at") map {
       case id ~ taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
-            reviewedBy ~ originalReviewer ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt =>
+            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt =>
         new TaskReview(
           id,
           taskId,
           reviewStatus,
           None,
+          None,
           requestedBy,
           None,
           reviewedBy,
-          None,
           reviewedAt,
-          metaReviewedBy,
+          None,
           metaReviewStatus,
           metaReviewedAt,
           reviewStartedAt,
@@ -77,7 +76,8 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           None,
           None,
           None,
-          originalReviewer
+          None,
+          metaReviewedBy
         )
     }
   }
@@ -200,6 +200,18 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
     }
   }
 
+//  get[Long]("id") ~
+//    get[Long]("task_id") ~
+//    get[Option[DateTime]]("reviewed_at") ~
+//    get[Option[DateTime]]("review_started_at") ~
+//    get[Option[Int]]("review_status") ~
+//    get[Option[String]]("requested_by") ~
+//    get[Option[String]]("reviewed_by") ~
+//    get[Option[Int]]("original_reviewer") ~
+//    get[Option[Int]]("meta_review_status") ~
+//    get[Option[String]]("meta_reviewed_by") ~
+//    get[Option[DateTime]]("meta_reviewed_at") map {
+
   /**
     * Returns reviews with a review history specific format
     * @param taskId
@@ -207,7 +219,15 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
     */
   def getReviewLogs(taskId: Long): List[TaskReview] = {
     this.withMRConnection { implicit c =>
-      SQL(s"""SELECT * FROM task_review_history trh WHERE task_id = $taskId""").as(
+      SQL(
+        s"""SELECT trh.id, trh.task_id, trh.reviewed_at, trh.review_started_at, trh.review_status,
+           | (SELECT name as requested_by FROM users WHERE users.id = trh.requested_by),
+           | (SELECT name as reviewed_by FROM users WHERE users.id = trh.reviewed_by),
+           | trh.meta_review_status,
+           | (SELECT name as meta_reviewed_by FROM users WHERE users.id = trh.meta_reviewed_by),
+           | trh.meta_reviewed_at
+           |FROM task_review_history trh
+           |WHERE task_id = $taskId""".stripMargin).as(
         this.reviewHistoryParser.*
       )
     }
