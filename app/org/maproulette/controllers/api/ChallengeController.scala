@@ -939,7 +939,8 @@ class ChallengeController @Inject() (
             s"""${Task.reviewStatusMap.get(taskReviewLog.reviewStatus.getOrElse(-1)).get},""" +
             s"""${taskReviewLog.reviewedAt.getOrElse("")},${taskReviewLog.reviewStartedAt
               .getOrElse("")},""" +
-            s"""${taskReviewLog.metaReviewStatus.getOrElse("")},${taskReviewLog.metaReviewedByUsername
+            s"""${taskReviewLog.metaReviewStatus
+                 .getOrElse("")},${taskReviewLog.metaReviewedByUsername
                  .getOrElse("")},${taskReviewLog.metaReviewedAt.getOrElse("")}""".stripMargin
         })
 

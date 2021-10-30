@@ -219,8 +219,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
     */
   def getReviewLogs(taskId: Long): List[TaskReview] = {
     this.withMRConnection { implicit c =>
-      SQL(
-        s"""SELECT trh.id, trh.task_id, trh.reviewed_at, trh.review_started_at, trh.review_status,
+      SQL(s"""SELECT trh.id, trh.task_id, trh.reviewed_at, trh.review_started_at, trh.review_status,
            | (SELECT name as requested_by FROM users WHERE users.id = trh.requested_by),
            | (SELECT name as reviewed_by FROM users WHERE users.id = trh.reviewed_by),
            | trh.meta_review_status,
