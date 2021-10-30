@@ -200,18 +200,6 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
     }
   }
 
-//  get[Long]("id") ~
-//    get[Long]("task_id") ~
-//    get[Option[DateTime]]("reviewed_at") ~
-//    get[Option[DateTime]]("review_started_at") ~
-//    get[Option[Int]]("review_status") ~
-//    get[Option[String]]("requested_by") ~
-//    get[Option[String]]("reviewed_by") ~
-//    get[Option[Int]]("original_reviewer") ~
-//    get[Option[Int]]("meta_review_status") ~
-//    get[Option[String]]("meta_reviewed_by") ~
-//    get[Option[DateTime]]("meta_reviewed_at") map {
-
   /**
     * Returns reviews with a review history specific format
     * @param taskId
