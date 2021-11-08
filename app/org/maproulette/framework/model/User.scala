@@ -180,7 +180,8 @@ case class UserSettings(
     isReviewer: Option[Boolean] = None,
     allowFollowing: Option[Boolean] = None,
     theme: Option[Int] = None,
-    customBasemaps: Option[List[CustomBasemap]] = None
+    customBasemaps: Option[List[CustomBasemap]] = None,
+    seeTagFixSuggestions: Option[Boolean] = None,
 ) {
   def getTheme: String = theme match {
     case Some(t) =>

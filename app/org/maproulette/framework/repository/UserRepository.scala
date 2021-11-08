@@ -111,7 +111,7 @@ class UserRepository @Inject() (
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId},
                                           locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
                                           needs_review = {needsReview}, is_reviewer = {isReviewer}, theme = {theme}, allow_following = {allowFollowing},
-                                          properties = {properties}
+                                          properties = {properties}, see_tag_fix_suggestions = {seeTagFixSuggestions}
                         WHERE id = {id} RETURNING ${UserRepository.standardColumns},
                         (SELECT score FROM user_metrics um WHERE um.user_id = ${user.id}) as score,
                         (SELECT achievements FROM user_metrics um WHERE um.user_id = ${user.id}) as achievements"""
@@ -135,7 +135,8 @@ class UserRepository @Inject() (
           Symbol("isReviewer")        -> user.settings.isReviewer,
           Symbol("theme")             -> user.settings.theme,
           Symbol("allowFollowing")    -> user.settings.allowFollowing,
-          Symbol("properties")        -> user.properties
+          Symbol("properties")        -> user.properties,
+          Symbol("seeTagFixSuggestions") -> user.settings.seeTagFixSuggestions
         )
         .as(this.parser().*)
         .head
@@ -515,12 +516,13 @@ object UserRepository {
       get[List[Int]]("achievements").? ~
       get[Option[Boolean]]("users.allow_following") ~
       get[Option[Long]]("users.following_group") ~
-      get[Option[Long]]("users.followers_group") map {
+      get[Option[Long]]("users.followers_group") ~
+      get[Option[Boolean]]("users.see_tag_fix_suggestions") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
             homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
             defaultBasemapId ~ customBasemapList ~
             email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
-            properties ~ score ~ achievements ~ allowFollowing ~ followingGroupId ~ followersGroupId =>
+            properties ~ score ~ achievements ~ allowFollowing ~ followingGroupId ~ followersGroupId ~ seeTagFixSuggestions =>
         val locationWKT = homeLocation match {
           case Some(wkt) => new WKTReader().read(wkt).asInstanceOf[Point]
           case None      => new GeometryFactory().createPoint(new Coordinate(0, 0))
@@ -565,7 +567,8 @@ object UserRepository {
             isReviewer,
             allowFollowing,
             theme,
-            customBasemaps
+            customBasemaps,
+            seeTagFixSuggestions
           ),
           properties,
           score,

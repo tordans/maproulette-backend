@@ -352,6 +352,9 @@ class UserService @Inject() (
       val allowFollowing = (value \ "settings" \ "allowFollowing")
         .asOpt[Boolean]
         .getOrElse(cachedItem.settings.allowFollowing.getOrElse(true))
+      val seeTagFixSuggestions = (value \ "settings" \ "seeTagFixSuggestions")
+        .asOpt[Boolean]
+        .getOrElse(cachedItem.settings.seeTagFixSuggestions.getOrElse(true))
       val theme = (value \ "settings" \ "theme")
         .asOpt[Int]
         .getOrElse(cachedItem.settings.theme.getOrElse(-1))
@@ -394,7 +397,8 @@ class UserService @Inject() (
               Some(isReviewer),
               Some(allowFollowing),
               Some(theme),
-              customBasemaps
+              customBasemaps,
+              Some(seeTagFixSuggestions)
             ),
             properties = Some(properties)
           ),
