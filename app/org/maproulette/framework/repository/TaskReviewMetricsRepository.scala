@@ -132,12 +132,12 @@ class TaskReviewMetricsRepository @Inject() (override val db: Database) extends 
 
       query.build(s"""
                        |SELECT count(distinct(task_id)) as total,
-                       |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_APPROVED} then 1 else 0 end), 0) approvedCount,
+                       |COALESCE(sum(case when review_status in (${Task.REVIEW_STATUS_APPROVED}, ${Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS}, ${Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS}) then 1 else 0 end), 0) approvedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) rejectedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) assistedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_DISPUTED} then 1 else 0 end), 0) disputedCount,
                        |COALESCE(sum(case when review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) requestedCount,
-                       |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_APPROVED} then 1 else 0 end), 0) metaApprovedCount,
+                       |COALESCE(sum(case when meta_review_status in (${Task.REVIEW_STATUS_APPROVED}, ${Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS}, ${Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS}) then 1 else 0 end), 0) metaApprovedCount,
                        |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_REJECTED} then 1 else 0 end), 0) metaRejectedCount,
                        |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_ASSISTED} then 1 else 0 end), 0) metaAssistedCount,
                        |COALESCE(sum(case when meta_review_status = ${Task.REVIEW_STATUS_REQUESTED} then 1 else 0 end), 0) metaRequestedCount,

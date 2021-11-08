@@ -97,6 +97,10 @@ class LeaderboardService @Inject() (
                    ROW_NUMBER() OVER( ORDER BY ${this
         .reviewScoreSumSQL(config)} DESC, task_review_history.reviewed_by ASC) as user_ranking,
         ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_APPROVED)} AS reviews_approved,
+        ${this
+        .reviewStatusSumSQL(Task.REVIEW_STATUS_APPROVED_WITH_REVISIONS)} AS reviews_approved_with_revisions,
+        ${this
+        .reviewStatusSumSQL(Task.REVIEW_STATUS_APPROVED_WITH_FIXES_AFTER_REVISIONS)} AS reviews_approved_with_fixes_after_revisions,
         ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_ASSISTED)} AS reviews_assisted,
         ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_REJECTED)} AS reviews_rejected,
         ${this.reviewStatusSumSQL(Task.REVIEW_STATUS_DISPUTED)} AS reviews_disputed,
