@@ -1083,6 +1083,22 @@ GET     /challenge/:id/comments/extract             @org.maproulette.controllers
 GET     /challenge/:id/tasks/extract             @org.maproulette.controllers.api.ChallengeController.extractTaskSummaries(id:Long, limit:Int ?= -1, page:Int ?= 0, status:String ?= "", reviewStatus:String ?= "", priority:String ?= "", exportProperties:String ?= "", timezone:String ?= "")
 ###
 # tags: [ Challenge ]
+# summary: Retrieve task review history of a Challenge
+# description: This will retrieve review history of all the tasks of a given challenge and respond with a csv
+# response:
+#   '200':
+#     description: A CSV file containing the following data "ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,OriginalReviewer,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt"
+#   '404':
+#     description: No Challenge with provided ID found
+# parameters:
+#   - name: id
+#     in: path
+#     description: The ID of the challenge
+#     required: true
+###
+GET     /challenge/:id/extractReviewHistory             @org.maproulette.controllers.api.ChallengeController.extractChallengeReviewHistory(id:Long)
+###
+# tags: [ Challenge ]
 # summary: Retrieve summaries of all tasks for Challenge
 # description: This will retrieve summaries of all the tasks of a given challenge and respond with a csv
 # response:
