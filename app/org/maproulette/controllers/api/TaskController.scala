@@ -214,8 +214,6 @@ class TaskController @Inject() (
       if (parentChallenge.id > 0) {
         val updatedPriority = element.getTaskPriority(parentChallenge, updatedTask)
 
-        logger.info("hi")
-
         taskRepository.updatePriority(updatedPriority, element.id);
       }
     }
