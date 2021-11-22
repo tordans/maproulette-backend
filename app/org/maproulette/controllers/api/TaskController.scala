@@ -14,7 +14,12 @@ import org.locationtech.jts.geom.Envelope
 import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
-import org.maproulette.exception.{InvalidException, LockedException, NotFoundException, StatusMessage}
+import org.maproulette.exception.{
+  InvalidException,
+  LockedException,
+  NotFoundException,
+  StatusMessage
+}
 import org.maproulette.framework.model._
 import org.maproulette.framework.model.{Challenge}
 import org.maproulette.framework.psql.Paging
@@ -26,7 +31,13 @@ import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.models.dal.{DALManager, TaskDAL}
 import org.maproulette.provider.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
-import org.maproulette.session.{SearchChallengeParameters, SearchLocation, SearchParameters, SearchTaskParameters, SessionManager}
+import org.maproulette.session.{
+  SearchChallengeParameters,
+  SearchLocation,
+  SearchParameters,
+  SearchTaskParameters,
+  SessionManager
+}
 import org.maproulette.utils.Utils
 import org.wololo.geojson.{FeatureCollection, GeoJSONFactory}
 import org.wololo.jts2geojson.GeoJSONReader
@@ -186,17 +197,19 @@ class TaskController @Inject() (
   }
 
   /**
-   * This updates the priority of the task based on parent requirements.
-   *
-   * @param element The task that needs to be updated
-   * @return
-   */
+    * This updates the priority of the task based on parent requirements.
+    *
+    * @param element The task that needs to be updated
+    * @return
+    */
   private def updatePriority(
-    element: Task
+      element: Task
   ): Unit = {
     if (element.location == None) {
       val updatedTask = taskRepository.retrieve(element.id);
-      val parentChallenge = dalManager.challenge.retrieveById(element.parent).getOrElse(Challenge.emptyChallenge(-1,-1));
+      val parentChallenge = dalManager.challenge
+        .retrieveById(element.parent)
+        .getOrElse(Challenge.emptyChallenge(-1, -1));
 
       if (parentChallenge.id > 0) {
         val updatedPriority = element.getTaskPriority(parentChallenge, updatedTask)
