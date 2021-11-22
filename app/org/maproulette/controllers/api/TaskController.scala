@@ -5,8 +5,10 @@
 package org.maproulette.controllers.api
 
 import java.sql.Connection
-
 import akka.util.ByteString
+import anorm.SQL
+import org.joda.time.DateTime
+
 import javax.inject.Inject
 import org.locationtech.jts.geom.Envelope
 import org.maproulette.Config
@@ -19,9 +21,11 @@ import org.maproulette.exception.{
   StatusMessage
 }
 import org.maproulette.framework.model._
+import org.maproulette.framework.model.{Challenge}
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.{ServiceManager, TagService, TaskClusterService}
 import org.maproulette.framework.mixins.TagsControllerMixin
+import org.maproulette.framework.repository.TaskRepository
 import org.maproulette.models._
 import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.models.dal.{DALManager, TaskDAL}
@@ -29,9 +33,9 @@ import org.maproulette.provider.osm._
 import org.maproulette.provider.websockets.{WebSocketMessages, WebSocketProvider}
 import org.maproulette.session.{
   SearchChallengeParameters,
-  SearchTaskParameters,
   SearchLocation,
   SearchParameters,
+  SearchTaskParameters,
   SessionManager
 }
 import org.maproulette.utils.Utils
@@ -66,7 +70,8 @@ class TaskController @Inject() (
     components: ControllerComponents,
     changeService: ChangesetProvider,
     taskClusterService: TaskClusterService,
-    override val bodyParsers: PlayBodyParsers
+    override val bodyParsers: PlayBodyParsers,
+    taskRepository: TaskRepository
 ) extends AbstractController(components)
     with CRUDController[Task]
     with TagsControllerMixin[Task] {
@@ -181,10 +186,39 @@ class TaskController @Inject() (
   override def extractAndCreate(body: JsValue, createdObject: Task, user: User)(
       implicit c: Option[Connection] = None
   ): Unit = {
+    //newly created tasks don't have locations until they're created in SQL.  After creation, we need to set
+    //priority based on location and parent priority rules.
+    updatePriority(createdObject);
+
     // If we have added a new task to a 'finished' challenge, we need to make
     // sure to set challenge back to 'ready'
     this.dalManager.challenge.updateReadyStatus()(createdObject.parent)
     this.extractTags(body, createdObject, User.superUser, true)
+  }
+
+  /**
+    * This updates the priority of the task based on parent requirements.
+    *
+    * @param element The task that needs to be updated
+    * @return
+    */
+  private def updatePriority(
+      element: Task
+  ): Unit = {
+    if (element.location == None) {
+      val updatedTask = taskRepository.retrieve(element.id);
+      val parentChallenge = dalManager.challenge
+        .retrieveById(element.parent)
+        .getOrElse(Challenge.emptyChallenge(-1, -1));
+
+      if (parentChallenge.id > 0) {
+        val updatedPriority = element.getTaskPriority(parentChallenge, updatedTask)
+
+        logger.info("hi")
+
+        taskRepository.updatePriority(updatedPriority, element.id);
+      }
+    }
   }
 
   /**
