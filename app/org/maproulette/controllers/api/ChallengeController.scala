@@ -912,6 +912,57 @@ class ChallengeController @Inject() (
   }
 
   /**
+    * Extracts task review history in csv format.
+    *
+    * @param challengeId The id of the challenge
+    * @return A csv list of tasks for the challenge
+    */
+  def extractChallengeReviewHistory(
+      challengeId: Long
+  ): Action[AnyContent] = {
+    this._extractChallengeReviewHistory(
+      challengeId
+    )
+  }
+
+  def _extractChallengeReviewHistory(
+      challengeId: Long
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val challengeTasks    = this.serviceManager.challenge.getTasksByParentId(challengeId);
+        val taskReviewHistory = this.serviceManager.taskHistory.getTaskReviewHistory(challengeTasks);
+
+        val seqString = taskReviewHistory.map(taskReviewLog => {
+          s"""${taskReviewLog.id},${taskReviewLog.taskId},${taskReviewLog.reviewRequestedByUsername
+            .getOrElse("")},${taskReviewLog.reviewedByUsername.getOrElse("")},""" +
+            s"""${Task.reviewStatusMap.get(taskReviewLog.reviewStatus.getOrElse(-1)).get},""" +
+            s"""${taskReviewLog.reviewedAt.getOrElse("")},${taskReviewLog.reviewStartedAt
+              .getOrElse("")},""" +
+            s"""${taskReviewLog.metaReviewStatus
+                 .getOrElse("")},${taskReviewLog.metaReviewedByUsername
+                 .getOrElse("")},${taskReviewLog.metaReviewedAt.getOrElse("")}""".stripMargin
+        })
+
+        Result(
+          header = ResponseHeader(
+            OK,
+            Map(
+              CONTENT_DISPOSITION -> s"attachment; filename=challenge_${challengeId}_review_history.csv"
+            )
+          ),
+          body = HttpEntity.Strict(
+            ByteString(
+              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt\n"""
+            ).concat(ByteString(seqString.mkString("\n"))),
+            Some("text/csv; header=present")
+          )
+        )
+      }
+    }
+  }
+
+  /**
     * Uses the search parameters from the query string to find challenges
     *
     * @param limit limits the amount of results returned
@@ -926,6 +977,11 @@ class ChallengeController @Inject() (
           Ok(insertProjectJSON(challenges))
         }
       }
+    }
+
+  def healthCheck(): Action[AnyContent] =
+    Action { implicit request =>
+      Ok(Json.toJson(StatusMessage("OK", JsString("We good"))))
     }
 
   /**

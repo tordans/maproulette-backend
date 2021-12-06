@@ -8,8 +8,7 @@ package org.maproulette.framework.service
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.duration.FiniteDuration
 import org.joda.time.DateTime
-
-import org.maproulette.framework.model.TaskLogEntry
+import org.maproulette.framework.model.{ArchivableTask, TaskLogEntry, TaskReview}
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
 import org.maproulette.framework.repository.TaskHistoryRepository
@@ -44,6 +43,21 @@ class TaskHistoryService @Inject() (
     val actions       = repository.getActions(taskId, Actions.ACTION_TYPE_UPDATED)
 
     ((comments ++ reviews ++ statusActions ++ actions).sortWith(sortByDate)).reverse
+  }
+
+  /**
+    * Returns a review history log for a list of tasks
+    * @param tasks
+    * @return List of TaskLogEntry
+    */
+  def getTaskReviewHistory(tasks: List[ArchivableTask]): List[TaskReview] = {
+    var reviews: List[TaskReview] = List();
+    tasks.foreach(task => {
+      val taskHistory = repository.getReviewLogs(task.id)
+      reviews = reviews.concat(taskHistory)
+    })
+
+    reviews
   }
 
   private def sortByDate(entry1: TaskLogEntry, entry2: TaskLogEntry) = {
