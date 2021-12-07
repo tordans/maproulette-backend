@@ -624,18 +624,19 @@ class SchedulerActor @Inject() (
 
   def handleArchiveChallenges(action: String) = {
     val start = System.currentTimeMillis
-    logger.info(action)
 
     val currentDate  = DateTime.now()
-    val sixMonthsAgo = currentDate.minusMonths(6).toString("yyyy-MM-dd");
+    val staleDate = currentDate.minusMonths(this.config.archiveStaleTimeInMonths).toString("yyyy-MM-dd");
+
+    logger.info(action + " - Stale Date: " + staleDate);
 
     this.serviceManager.challenge
       .activeChallenges()
-      .filter(challenge => challenge.created.toString("yyyy-MM-dd") < sixMonthsAgo)
+      .filter(challenge => challenge.created.toString("yyyy-MM-dd") < staleDate)
       .foreach(challenge => {
 
         val tasks         = this.serviceManager.challenge.getTasksByParentId(challenge.id);
-        val nonStaleTasks = findNonStaleTask(tasks, sixMonthsAgo)
+        val nonStaleTasks = findNonStaleTask(tasks, staleDate)
 
         if (nonStaleTasks.isEmpty) {
           this.serviceManager.challenge.archiveChallenge(challenge.id, true, true);
