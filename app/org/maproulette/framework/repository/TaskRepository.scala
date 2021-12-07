@@ -115,6 +115,14 @@ class TaskRepository @Inject() (override val db: Database, config: Config)
     }
   }
 
+  def updatePriority(updatedPriority: Int, id: Long): Unit = {
+    this.withMRConnection { implicit c =>
+      SQL(
+        s"""UPDATE tasks SET priority = ${updatedPriority} WHERE id = ${id}"""
+      ).executeUpdate()
+    }
+  }
+
   /**
     * Retrieve a task attachment identified by attachmentId
     *
