@@ -83,13 +83,18 @@ case class Task(
     * @param parent The parent Challenge
     * @return Priority HIGH = 0, MEDIUM = 1, LOW = 2
     */
-  def getTaskPriority(parent: Challenge): Int = {
+  def getTaskPriority(parent: Challenge, updatedTask: Option[Task] = None): Int = {
+    var element = this;
+    if (updatedTask.nonEmpty) {
+      element = updatedTask.get
+    }
+
     val matchingList = getGeometryProperties().flatMap { props =>
-      if (parent.isHighPriority(props, this)) {
+      if (parent.isHighPriority(props, element)) {
         Some(Challenge.PRIORITY_HIGH)
-      } else if (parent.isMediumPriority(props, this)) {
+      } else if (parent.isMediumPriority(props, element)) {
         Some(Challenge.PRIORITY_MEDIUM)
-      } else if (parent.isLowRulePriority(props, this)) {
+      } else if (parent.isLowRulePriority(props, element)) {
         Some(Challenge.PRIORITY_LOW)
       } else {
         None
