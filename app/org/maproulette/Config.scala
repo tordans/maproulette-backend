@@ -117,6 +117,10 @@ class Config @Inject() (implicit val configuration: Configuration) {
     this.config
       .getOptional[Int](Config.KEY_REVIEW_NEEDED_DEFAULT)
       .getOrElse(Config.DEFAULT_REVIEW_NEEDED)
+  lazy val archiveStaleTimeInMonths: Int =
+    this.config
+      .getOptional[Int](Config.KEY_SCHEDULER_ARCHIVE_CHALLENGES_STALE_TIME_IN_MONTHS)
+      .getOrElse(Config.DEFAULT_ARCHIVE_STALE_TIME_IN_MONTHS)
   lazy val osmMatcherEnabled: Boolean =
     this.config
       .getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED)
@@ -303,6 +307,8 @@ object Config {
     s"$SUB_GROUP_SCHEDULER.archiveChallenges.interval"
   val KEY_SCHEDULER_ARCHIVE_CHALLENGES_START =
     s"$SUB_GROUP_SCHEDULER.archiveChallenges.startTime"
+  val KEY_SCHEDULER_ARCHIVE_CHALLENGES_STALE_TIME_IN_MONTHS =
+    s"$SUB_GROUP_SCHEDULER.archiveChallenges.staleTimeInMonths"
   val KEY_SCHEDULER_UPDATE_CHALLENGE_COMPLETION_INTERVAL =
     s"$SUB_GROUP_SCHEDULER.updateChallengeCompletionMetrics.interval"
   val KEY_SCHEDULER_UPDATE_CHALLENGE_COMPLETION_START =
@@ -368,6 +374,7 @@ object Config {
   val DEFAULT_MAPILLARY_BORDER                        = 10
   val DEFAULT_REVIEW_NEEDED                           = 0
   val DEFAULT_MAX_TASKS_PER_CHALLENGE                 = 50000
+  val DEFAULT_ARCHIVE_STALE_TIME_IN_MONTHS            = 6
 
   // Redis Cache id's for different caches
   val CACHE_ID_TAGS               = "1";
