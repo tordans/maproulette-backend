@@ -941,7 +941,7 @@ class ChallengeController @Inject() (
               .getOrElse("")},""" +
             s"""${taskReviewLog.metaReviewStatus
                  .getOrElse("")},${taskReviewLog.metaReviewedByUsername
-                 .getOrElse("")},${taskReviewLog.metaReviewedAt.getOrElse("")}""".stripMargin
+                 .getOrElse("")},${taskReviewLog.metaReviewedAt.getOrElse("")},${taskReviewLog.rejectTag.getOrElse("")}""".stripMargin
         })
 
         Result(
@@ -953,7 +953,7 @@ class ChallengeController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt\n"""
+              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt,RejectTag\n"""
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )
