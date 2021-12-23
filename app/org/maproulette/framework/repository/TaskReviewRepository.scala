@@ -392,17 +392,19 @@ class TaskReviewRepository @Inject() (
       reviewedBy: Long,
       originalReviewer: Option[Long] = None,
       reviewStatus: Int,
-      reviewClaimedAt: DateTime
+      reviewClaimedAt: DateTime,
+      rejectTag: Long = -1
   ): Unit = {
     this.withMRTransaction { implicit c =>
       SQL(s"""INSERT INTO task_review_history
                         (task_id, requested_by, reviewed_by, review_status,
-                         reviewed_at, review_started_at, original_reviewer)
+                         reviewed_at, review_started_at, original_reviewer, reject_tag)
             VALUES (${task.id}, ${reviewRequestedBy}, ${reviewedBy},
                     $reviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
       else "NULL"},
-                    ${if (originalReviewer == None) "NULL" else originalReviewer.get})
+                    ${if (originalReviewer == None) "NULL" else originalReviewer.get},
+                     ${if (rejectTag > 0) rejectTag else "NULL"})
          """).executeUpdate()
     }
   }
@@ -422,17 +424,18 @@ class TaskReviewRepository @Inject() (
       reviewedBy: Option[Long] = None,
       metaReviewedBy: Long,
       metaReviewStatus: Int,
-      reviewClaimedAt: DateTime
+      reviewClaimedAt: DateTime,
+      rejectTag: Long = -1
   ): Unit = {
     this.withMRTransaction { implicit c =>
       SQL(s"""INSERT INTO task_review_history
                         (task_id, requested_by, reviewed_by, meta_reviewed_by, meta_review_status,
-                         meta_reviewed_at, review_started_at)
+                         meta_reviewed_at, review_started_at, reject_tag)
             VALUES (${task.id}, ${task.review.reviewRequestedBy.get},
                     ${if (reviewedBy == None) "NULL" else reviewedBy.get}, ${metaReviewedBy},
                     $metaReviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
-      else "NULL"})
+      else "NULL"}), ${if (rejectTag > 0) rejectTag else "NULL"}
          """).executeUpdate()
     }
   }

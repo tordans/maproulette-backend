@@ -738,8 +738,11 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 #   - name: asMetaReview
 #     in: query
 #     description: Optional boolean to indicate the meta review status should be set to unecessary
+#   - name: rejectTag
+#     in: query
+#     description: Optional long to provide reject tag in the review history
 ###
-PUT     /task/:id/review/:status                           @org.maproulette.framework.controller.TaskReviewController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "")
+PUT     /task/:id/review/:status                           @org.maproulette.framework.controller.TaskReviewController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "", rejectTag:Long ?= -1)
 ###
 # tags: [ Task ]
 # summary: Changes review status to "Unnecessary" on tasks matching criteria
