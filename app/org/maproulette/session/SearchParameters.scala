@@ -54,7 +54,8 @@ case class SearchTaskParameters(
     taskPropertySearchType: Option[String] = None,
     taskPropertySearch: Option[TaskPropertySearch] = None,
     taskPriorities: Option[List[Int]] = None,
-    excludeTaskIds: Option[List[Long]] = None
+    excludeTaskIds: Option[List[Long]] = None,
+    taskMappedOn: Option[String] = None,
 )
 
 case class SearchLeaderboardParameters(
@@ -482,7 +483,9 @@ object SearchParameters {
         request.getQueryString("tExcl") match {
           case Some(ids) => Utils.toLongList(ids)
           case None => params.taskParams.excludeTaskIds
-        }
+        },
+
+        this.getStringParameter(request.getQueryString("mo"), params.taskParams.taskMappedOn)
       ),
       // Search Review Parameters
       new SearchReviewParameters(
@@ -561,6 +564,8 @@ object SearchParameters {
       this.getStringParameter(request.getQueryString("r"), params.reviewer),
       //Meta-Reviewer
       this.getStringParameter(request.getQueryString("mr"), params.metaReviewer),
+      //Mapped On Date
+      //this.getStringParameter(request.getQueryString("mo"), params.mappedOn),
       // Fields to invert
       request.getQueryString("invf") match {
         case Some(q) => Utils.toStringList(q)

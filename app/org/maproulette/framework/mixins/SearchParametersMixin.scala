@@ -1004,6 +1004,43 @@ trait SearchParametersMixin {
     )
   }
 
+
+  /**
+   * Filters on task.mappedOn
+   */
+  def filterMappedOnDate(params: SearchParameters): FilterGroup = {
+    val mappedOnDate = params.taskParams.taskMappedOn.getOrElse(null)
+
+    if (mappedOnDate == null) {
+      return FilterGroup(List())
+    }
+
+    FilterGroup(
+      List(
+        FilterParameter.conditional(
+          Task.FIELD_MAPPED_ON,
+          "'" + mappedOnDate + " 00:00:00'",
+          Operator.GTE,
+          false,
+          true,
+          mappedOnDate != null &&
+            mappedOnDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"),
+          Some(Task.TABLE)
+        ),
+        FilterParameter.conditional(
+          Task.FIELD_MAPPED_ON,
+          "'" + mappedOnDate + " 23:59:59'",
+          Operator.LTE,
+          false,
+          true,
+          mappedOnDate != null &&
+            mappedOnDate.matches("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"),
+          Some(Task.TABLE)
+        )
+      )
+    )
+  }
+
   /**
     * Private method to build a bounding box search
     */
