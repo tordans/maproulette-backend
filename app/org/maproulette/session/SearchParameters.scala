@@ -55,7 +55,7 @@ case class SearchTaskParameters(
     taskPropertySearch: Option[TaskPropertySearch] = None,
     taskPriorities: Option[List[Int]] = None,
     excludeTaskIds: Option[List[Long]] = None,
-    taskMappedOn: Option[String] = None,
+    taskMappedOn: Option[String] = None
 )
 
 case class SearchLeaderboardParameters(

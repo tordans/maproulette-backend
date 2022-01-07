@@ -1004,10 +1004,9 @@ trait SearchParametersMixin {
     )
   }
 
-
   /**
-   * Filters on task.mappedOn
-   */
+    * Filters on task.mappedOn
+    */
   def filterMappedOnDate(params: SearchParameters): FilterGroup = {
     val mappedOnDate = params.taskParams.taskMappedOn.getOrElse(null)
 

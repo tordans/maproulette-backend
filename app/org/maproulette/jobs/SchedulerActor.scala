@@ -149,12 +149,13 @@ class SchedulerActor @Inject() (
     */
   def updateLocations(action: String): Unit = {
     logger.info(action)
-    val start       = System.currentTimeMillis
-    val currentTime = DateTime.now()
+    val start           = System.currentTimeMillis
+    val currentTime     = DateTime.now()
     val challengeFilter = "deleted = false AND is_archived = false AND enabled = true";
     val staleChallengeIds = db.withTransaction { implicit c =>
-      SQL(s"SELECT id FROM challenges WHERE ${challengeFilter} AND (modified > last_updated OR last_updated IS NULL)")
-        .as(SqlParser.long("id").*)
+      SQL(
+        s"SELECT id FROM challenges WHERE ${challengeFilter} AND (modified > last_updated OR last_updated IS NULL)"
+      ).as(SqlParser.long("id").*)
     }
 
     staleChallengeIds.foreach(id => {
@@ -626,8 +627,9 @@ class SchedulerActor @Inject() (
   def handleArchiveChallenges(action: String) = {
     val start = System.currentTimeMillis
 
-    val currentDate  = DateTime.now()
-    val staleDate = currentDate.minusMonths(this.config.archiveStaleTimeInMonths).toString("yyyy-MM-dd");
+    val currentDate = DateTime.now()
+    val staleDate =
+      currentDate.minusMonths(this.config.archiveStaleTimeInMonths).toString("yyyy-MM-dd");
 
     logger.info(action + " - Stale Date: " + staleDate);
 
