@@ -151,8 +151,9 @@ class SchedulerActor @Inject() (
     logger.info(action)
     val start       = System.currentTimeMillis
     val currentTime = DateTime.now()
+    val challengeFilter = "deleted = false AND is_archived = false AND enabled = true";
     val staleChallengeIds = db.withTransaction { implicit c =>
-      SQL("SELECT id FROM challenges WHERE modified > last_updated OR last_updated IS NULL")
+      SQL(s"SELECT id FROM challenges WHERE ${challengeFilter} AND (modified > last_updated OR last_updated IS NULL)")
         .as(SqlParser.long("id").*)
     }
 
@@ -180,7 +181,7 @@ class SchedulerActor @Inject() (
     })
 
     db.withTransaction { implicit c =>
-      SQL("SELECT id FROM challenges WHERE last_updated > {currentTime}")
+      SQL(s"SELECT id FROM challenges WHERE ${challengeFilter} AND (last_updated > {currentTime})")
         .on(Symbol("currentTime") -> ToParameterValue.apply[DateTime].apply(currentTime))
         .as(SqlParser.long("id").*)
         .foreach(id => {
@@ -624,18 +625,19 @@ class SchedulerActor @Inject() (
 
   def handleArchiveChallenges(action: String) = {
     val start = System.currentTimeMillis
-    logger.info(action)
 
     val currentDate  = DateTime.now()
-    val sixMonthsAgo = currentDate.minusMonths(6).toString("yyyy-MM-dd");
+    val staleDate = currentDate.minusMonths(this.config.archiveStaleTimeInMonths).toString("yyyy-MM-dd");
+
+    logger.info(action + " - Stale Date: " + staleDate);
 
     this.serviceManager.challenge
       .activeChallenges()
-      .filter(challenge => challenge.created.toString("yyyy-MM-dd") < sixMonthsAgo)
+      .filter(challenge => challenge.created.toString("yyyy-MM-dd") < staleDate)
       .foreach(challenge => {
 
         val tasks         = this.serviceManager.challenge.getTasksByParentId(challenge.id);
-        val nonStaleTasks = findNonStaleTask(tasks, sixMonthsAgo)
+        val nonStaleTasks = findNonStaleTask(tasks, staleDate)
 
         if (nonStaleTasks.isEmpty) {
           this.serviceManager.challenge.archiveChallenge(challenge.id, true, true);
