@@ -131,6 +131,7 @@ object Task extends CommonField {
   val FIELD_PRIORITY       = "priority"
   val FIELD_BUNDLE_ID      = "bundle_id"
   val FIELD_BUNDLE_PRIMARY = "is_bundle_primary"
+  val FIELD_MAPPED_ON      = "mapped_on"
 
   implicit object TaskFormat extends Format[Task] {
     override def writes(o: Task): JsValue = {
