@@ -174,7 +174,7 @@ class TaskBundleController @Inject() (
         if (tags.nonEmpty) {
           val tagList = tags.split(",").toList
           if (tagList.nonEmpty) {
-            this.addTagstoItem(id, tagList.map(new Tag(-1, _, tagType = this.tagType)), user)
+            this.addTagstoItem(task.id, tagList.map(new Tag(-1, _, tagType = this.tagType)), user)
           }
         }
       }
