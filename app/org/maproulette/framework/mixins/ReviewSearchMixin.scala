@@ -196,6 +196,7 @@ trait ReviewSearchMixin extends SearchParametersMixin {
       .addFilterGroup(this.filterPriority(searchParameters))
       .addFilterGroup(this.filterTaskTags(searchParameters))
       .addFilterGroup(this.filterReviewDate(searchParameters))
+      .addFilterGroup(this.filterMappedOnDate(searchParameters))
   }
 
   def copyParamsForMetaReview(

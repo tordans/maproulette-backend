@@ -217,4 +217,11 @@ trait SearchParametersMixin
   ): Unit = {
     this.appendInWhereClause(whereClause, this.filterReviewDate(params).sql())
   }
+
+  def paramsMappedOnDate(
+      params: SearchParameters,
+      whereClause: StringBuilder
+  ): Unit = {
+    this.appendInWhereClause(whereClause, this.filterMappedOnDate(params).sql())
+  }
 }
