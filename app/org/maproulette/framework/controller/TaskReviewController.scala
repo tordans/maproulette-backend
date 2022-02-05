@@ -289,7 +289,7 @@ class TaskReviewController @Inject() (
     * @param comment An optional comment to add to the task
     * @param tags Optional tags to add to the task
     * @param newTaskStatus Optional new taskStatus to change the task's status
-    * @param rejectTag Optional long for reject reason tag
+    * @param rejectTags Optional string for reject reason tags
     * @return 400 BadRequest if task with supplied id not found.
     *         If successful then 200 NoContent
     */
@@ -299,7 +299,7 @@ class TaskReviewController @Inject() (
       comment: String = "",
       tags: String = "",
       newTaskStatus: String = "",
-      rejectTag: Long = -1
+      rejectTags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val task = this.taskRepository.retrieve(id) match {
@@ -330,7 +330,7 @@ class TaskReviewController @Inject() (
         case None    => None
       }
 
-      this.service.setTaskReviewStatus(task, reviewStatus, user, actionId, comment, rejectTag)
+      this.service.setTaskReviewStatus(task, reviewStatus, user, actionId, comment, rejectTags)
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {

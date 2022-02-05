@@ -393,19 +393,20 @@ class TaskReviewRepository @Inject() (
       originalReviewer: Option[Long] = None,
       reviewStatus: Int,
       reviewClaimedAt: DateTime,
-      rejectTag: Long = -1
+      rejectTags: String = ""
   ): Unit = {
     this.withMRTransaction { implicit c =>
-      SQL(s"""INSERT INTO task_review_history
+      val sql = s"""INSERT INTO task_review_history
                         (task_id, requested_by, reviewed_by, review_status,
-                         reviewed_at, review_started_at, original_reviewer, reject_tag)
+                         reviewed_at, review_started_at, original_reviewer, reject_tags)
             VALUES (${task.id}, ${reviewRequestedBy}, ${reviewedBy},
                     $reviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
       else "NULL"},
                     ${if (originalReviewer == None) "NULL" else originalReviewer.get},
-                     ${if (rejectTag > 0) rejectTag else "NULL"})
-         """).executeUpdate()
+                     ${if (!rejectTags.isEmpty) s"'${rejectTags}'" else "NULL"})"""
+
+      SQL(sql).executeUpdate()
     }
   }
 

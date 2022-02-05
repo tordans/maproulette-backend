@@ -434,7 +434,7 @@ class TaskReviewService @Inject() (
       user: User,
       actionId: Option[Long],
       commentContent: String = "",
-      rejectTag: Long = -1
+      rejectTags: String = ""
   ): Int = {
     if (!permission.isSuperUser(user) && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus != Task.REVIEW_STATUS_DISPUTED && reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
@@ -553,7 +553,7 @@ class TaskReviewService @Inject() (
             else None,
             reviewStatus,
             reviewClaimedAt.getOrElse(null),
-            rejectTag
+            rejectTags
           )
 
           if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
