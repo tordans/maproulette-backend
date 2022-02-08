@@ -70,7 +70,8 @@ case class Task(
     completionResponses: Option[String] = None,
     bundleId: Option[Long] = None,
     isBundlePrimary: Option[Boolean] = None,
-    mapillaryImages: Option[List[MapillaryImage]] = None
+    mapillaryImages: Option[List[MapillaryImage]] = None,
+    rejectTags: String = ""
 ) extends BaseObject[Long]
     with DefaultReads
     with LowPriorityDefaultReads

@@ -33,9 +33,9 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
       SQL(
         """
           |INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
-          |                                email_status, task_id, challenge_id, project_id, target_id, extra)
+          |                                email_status, task_id, challenge_id, project_id, target_id, extra, reject_tags)
           |VALUES ({userId}, {notificationType}, {description}, {fromUsername}, {isRead},
-          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra})
+          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra}, {rejectTags})
         """.stripMargin
       ).on(
           Symbol("userId")           -> notification.userId,
@@ -48,7 +48,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           Symbol("challengeId")      -> notification.challengeId,
           Symbol("projectId")        -> notification.projectId,
           Symbol("targetId")         -> notification.targetId,
-          Symbol("extra")            -> notification.extra
+          Symbol("extra")            -> notification.extra,
+          Symbol("rejectTags")         -> notification.rejectTags
         )
         .execute()
     }
@@ -83,7 +84,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         orderFields += OrderField(UserNotification.FIELD_CREATED, Order.DESC)
       }
 
-      Query
+      val data = Query
         .simple(
           List(
             BaseParameter(UserNotification.FIELD_USER_ID, userId),
@@ -118,6 +119,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         """.stripMargin
         )
         .as(NotificationRepository.parser.*)
+
+      data
     }
   }
 

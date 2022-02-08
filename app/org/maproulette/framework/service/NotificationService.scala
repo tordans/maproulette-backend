@@ -170,7 +170,8 @@ class NotificationService @Inject() (
               taskId = Some(task.id),
               challengeId = Some(task.parent),
               targetId = Some(comment.id),
-              extra = Some(comment.comment)
+              extra = Some(comment.comment),
+              rejectTags = task.rejectTags
             ),
             User.superUser
           )

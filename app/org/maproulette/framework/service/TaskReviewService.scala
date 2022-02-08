@@ -505,7 +505,8 @@ class TaskReviewService @Inject() (
       fetchBy,
       fetchByUser,
       additionalReviewers,
-      if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED) else None
+      if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED) else None,
+      rejectTags
     )
 
     webSocketProvider.sendMessage(

@@ -340,7 +340,8 @@ class TaskReviewRepository @Inject() (
       updateColumn: String,
       updateWithUser: Long,
       additionalReviewers: Option[List[Long]],
-      metaReviewStatus: Option[Int] = None
+      metaReviewStatus: Option[Int] = None,
+      rejectTags: String = ""
   ): Int = {
     this.withMRTransaction { implicit c =>
       val metaReviewStatusUpdate = metaReviewStatus match {
@@ -359,7 +360,7 @@ class TaskReviewRepository @Inject() (
                                  additional_reviewers = ${additionalReviewers match {
           case Some(ar) => "ARRAY[" + ar.mkString(",") + "]"
           case None     => "NULL"
-        }}
+        }}, reject_tags = ${if (!rejectTags.isEmpty) s"'${rejectTags}'" else "NULL"}
                              WHERE task_review.task_id = (
                                 SELECT tasks.id FROM tasks
                                 LEFT JOIN locked l on l.item_id = tasks.id AND l.item_type = ${task.itemType.typeId}
@@ -419,6 +420,7 @@ class TaskReviewRepository @Inject() (
     * @param metaReviewedBy
     * @param metaReviewStatus
     * @param reviewClaimedAt
+    * @param rejectTags
     */
   def insertMetaTaskReviewHistory(
       task: Task,
@@ -426,17 +428,17 @@ class TaskReviewRepository @Inject() (
       metaReviewedBy: Long,
       metaReviewStatus: Int,
       reviewClaimedAt: DateTime,
-      rejectTag: Long = -1
+      rejectTags: String = ""
   ): Unit = {
     this.withMRTransaction { implicit c =>
       SQL(s"""INSERT INTO task_review_history
                         (task_id, requested_by, reviewed_by, meta_reviewed_by, meta_review_status,
-                         meta_reviewed_at, review_started_at, reject_tag)
+                         meta_reviewed_at, review_started_at, reject_tags)
             VALUES (${task.id}, ${task.review.reviewRequestedBy.get},
                     ${if (reviewedBy == None) "NULL" else reviewedBy.get}, ${metaReviewedBy},
                     $metaReviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
-      else "NULL"}), ${if (rejectTag > 0) rejectTag else "NULL"}
+      else "NULL"}), ${if (!rejectTags.isEmpty) s"'${rejectTags}'" else "NULL"}
          """).executeUpdate()
     }
   }
