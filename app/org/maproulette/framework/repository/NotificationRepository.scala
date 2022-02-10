@@ -30,6 +30,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     */
   def create(notification: UserNotification)(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
+      val rejectTags = if (!notification.rejectTags.isEmpty) notification.rejectTags else null;
       SQL(
         """
           |INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
@@ -49,7 +50,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           Symbol("projectId")        -> notification.projectId,
           Symbol("targetId")         -> notification.targetId,
           Symbol("extra")            -> notification.extra,
-          Symbol("rejectTags")         -> notification.rejectTags
+          Symbol("rejectTags")       -> rejectTags
         )
         .execute()
     }
@@ -287,8 +288,9 @@ object NotificationRepository {
       get[Option[Long]]("user_notifications.challenge_id") ~
       get[Option[Long]]("user_notifications.project_id") ~
       get[Option[Long]]("user_notifications.target_id") ~
-      get[Option[String]]("user_notifications.extra") map {
-      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra =>
+      get[Option[String]]("user_notifications.extra") ~
+      get[Option[String]]("reject_tags") map {
+      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra ~ rejectTags =>
         new UserNotification(
           id,
           userId,
@@ -304,7 +306,8 @@ object NotificationRepository {
           challengeId,
           projectId,
           targetId,
-          extra
+          extra,
+          rejectTags.getOrElse("")
         )
     }
   }

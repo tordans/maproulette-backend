@@ -541,7 +541,8 @@ class TaskReviewService @Inject() (
             task.review.reviewedBy.getOrElse(-1),
             reviewStatus,
             task,
-            comment
+            comment,
+            rejectTags = rejectTags
           )
         } else {
           // Let's note in the task_review_history table that this task was reviewed
@@ -565,7 +566,8 @@ class TaskReviewService @Inject() (
                 task.review.reviewRequestedBy.getOrElse(-1),
                 reviewStatus,
                 task,
-                comment
+                comment,
+                rejectTags = rejectTags
               )
             }
 
