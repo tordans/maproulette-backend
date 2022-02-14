@@ -351,6 +351,10 @@ class TaskReviewRepository @Inject() (
           s"meta_review_status = ${mr}, meta_reviewed_at = NOW(), meta_review_started_at = task_review.review_claimed_at, "
         case None => "reviewed_at = NOW(), "
       }
+      var rejectTagString = "";
+       if (reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
+         rejectTagString = s", reject_tags = ${if (!rejectTags.isEmpty) s"'${rejectTags}'" else "NULL"}"
+       }
       val updatedRows =
         SQL(s"""UPDATE task_review SET review_status = $reviewStatus,
                                  ${updateColumn} = ${updateWithUser},
@@ -360,7 +364,7 @@ class TaskReviewRepository @Inject() (
                                  additional_reviewers = ${additionalReviewers match {
           case Some(ar) => "ARRAY[" + ar.mkString(",") + "]"
           case None     => "NULL"
-        }}, reject_tags = ${if (!rejectTags.isEmpty) s"'${rejectTags}'" else "NULL"}
+        }}${rejectTagString}
                              WHERE task_review.task_id = (
                                 SELECT tasks.id FROM tasks
                                 LEFT JOIN locked l on l.item_id = tasks.id AND l.item_type = ${task.itemType.typeId}

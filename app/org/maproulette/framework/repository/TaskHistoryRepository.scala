@@ -56,9 +56,9 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
       get[Option[Int]]("meta_review_status") ~
       get[Option[String]]("meta_reviewed_by") ~
       get[Option[DateTime]]("meta_reviewed_at") ~
-      get[Option[String]]("reject_tag") map {
+      get[Option[String]]("reject_tags") map {
       case id ~ taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
-            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~ rejectTag =>
+            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~ rejectTags =>
         new TaskReview(
           id,
           taskId,
@@ -79,7 +79,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           None,
           None,
           metaReviewedBy,
-          rejectTag
+          rejectTags = rejectTags.getOrElse("")
         )
     }
   }

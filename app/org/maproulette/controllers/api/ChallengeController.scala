@@ -942,7 +942,7 @@ class ChallengeController @Inject() (
             s"""${taskReviewLog.metaReviewStatus
                  .getOrElse("")},${taskReviewLog.metaReviewedByUsername
                  .getOrElse("")},${taskReviewLog.metaReviewedAt
-                 .getOrElse("")},${taskReviewLog.rejectTag.getOrElse("")}""".stripMargin
+                 .getOrElse("")},${taskReviewLog.rejectTags}""".stripMargin
         })
 
         Result(

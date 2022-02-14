@@ -356,7 +356,8 @@ class TaskReviewController @Inject() (
       id: Long,
       reviewStatus: Int,
       comment: String = "",
-      tags: String = ""
+      tags: String = "",
+      rejectTags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val task = this.taskRepository.retrieve(id) match {
@@ -372,7 +373,7 @@ class TaskReviewController @Inject() (
         case None    => None
       }
 
-      this.service.setMetaReviewStatus(task, reviewStatus, user, actionId, comment)
+      this.service.setMetaReviewStatus(task, reviewStatus, user, actionId, comment, rejectTags)
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {

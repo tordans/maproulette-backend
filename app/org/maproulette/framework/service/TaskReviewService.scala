@@ -699,7 +699,8 @@ class TaskReviewService @Inject() (
       reviewStatus: Int,
       user: User,
       actionId: Option[Long],
-      commentContent: String = ""
+      commentContent: String = "",
+      rejectTags: String = ""
   ): Int = {
     if (task.review.reviewStatus == None) {
       // A meta reviewer cannot review a task that has not been reviewed yet.
@@ -711,7 +712,7 @@ class TaskReviewService @Inject() (
     // 1. The meta reviewer must be a reviewer to set the meta review status.
     // 2. Reviewer cannot meta review their own reviews
     // 3. Reviewer may set meta review status back to 'requested'
-    // 4. Super users can do anuything
+    // 4. Super users can do anything
     // 5. Only challenge admins can mark meta review status as unnecessary
     if (!permission.isSuperUser(user)) {
       if (!user.settings.isReviewer.get) {
@@ -765,7 +766,8 @@ class TaskReviewService @Inject() (
       "meta_reviewed_by",
       metaReviewer,
       task.review.additionalReviewers,
-      Some(reviewStatus)
+      Some(reviewStatus),
+      rejectTags = rejectTags
     )
 
     // Notify the Task Review has been updated
@@ -790,7 +792,8 @@ class TaskReviewService @Inject() (
         if (metaReviewer != user.id) Some(task.review.reviewedBy.get) else None,
         metaReviewer,
         reviewStatus,
-        reviewClaimedAt.getOrElse(null)
+        reviewClaimedAt.getOrElse(null),
+        rejectTags = rejectTags
       )
 
       if (reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
@@ -811,7 +814,8 @@ class TaskReviewService @Inject() (
           reviewStatus,
           task,
           comment,
-          true
+          true,
+          rejectTags = rejectTags
         )
       }
     }
