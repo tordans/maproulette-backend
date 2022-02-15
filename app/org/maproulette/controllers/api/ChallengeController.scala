@@ -926,7 +926,7 @@ class ChallengeController @Inject() (
   }
 
   def formatErrorTagNames(
-    errorTagIds: String
+      errorTagIds: String
   ): String = {
     if (!errorTagIds.isEmpty) {
       val arr = errorTagIds.split(",")

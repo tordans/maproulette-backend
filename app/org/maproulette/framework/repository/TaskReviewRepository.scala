@@ -352,9 +352,9 @@ class TaskReviewRepository @Inject() (
         case None => "reviewed_at = NOW(), "
       }
       var errorTagString = "";
-       if (reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
-         errorTagString = s", error_tags = ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"}"
-       }
+      if (reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
+        errorTagString = s", error_tags = ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"}"
+      }
       val updatedRows =
         SQL(s"""UPDATE task_review SET review_status = $reviewStatus,
                                  ${updateColumn} = ${updateWithUser},

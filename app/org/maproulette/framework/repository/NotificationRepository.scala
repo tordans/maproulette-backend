@@ -50,7 +50,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           Symbol("projectId")        -> notification.projectId,
           Symbol("targetId")         -> notification.targetId,
           Symbol("extra")            -> notification.extra,
-          Symbol("errorTags")       -> errorTags
+          Symbol("errorTags")        -> errorTags
         )
         .execute()
     }
