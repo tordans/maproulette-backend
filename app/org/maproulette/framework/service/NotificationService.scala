@@ -171,7 +171,7 @@ class NotificationService @Inject() (
               challengeId = Some(task.parent),
               targetId = Some(comment.id),
               extra = Some(comment.comment),
-              rejectTags = task.rejectTags
+              errorTags = task.errorTags
             ),
             User.superUser
           )
@@ -237,7 +237,7 @@ class NotificationService @Inject() (
       task: Task,
       comment: Option[Comment],
       isMetaReview: Boolean = false,
-      rejectTags: String = ""
+      errorTags: String = ""
   ): Unit = {
     val notificationType = isMetaReview match {
       case true => UserNotification.NOTIFICATION_TYPE_META_REVIEW
@@ -268,7 +268,7 @@ class NotificationService @Inject() (
           case Some(c) => Some(c.comment)
           case None    => None
         },
-        rejectTags = rejectTags
+        errorTags = errorTags
       ),
       User.superUser
     )

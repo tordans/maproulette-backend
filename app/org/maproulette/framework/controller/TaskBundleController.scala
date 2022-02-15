@@ -126,7 +126,7 @@ class TaskBundleController @Inject() (
       comment: String = "",
       tags: String = "",
       newTaskStatus: String = "",
-      rejectTags: String = ""
+      errorTags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val tasks = this.serviceManager.taskBundle.getTaskBundle(user, id).tasks match {
@@ -170,7 +170,7 @@ class TaskBundleController @Inject() (
         }
 
         this.serviceManager.taskReview
-          .setTaskReviewStatus(task, reviewStatus, user, actionId, comment, rejectTags)
+          .setTaskReviewStatus(task, reviewStatus, user, actionId, comment, errorTags)
 
         if (tags.nonEmpty) {
           val tagList = tags.split(",").toList
@@ -201,7 +201,7 @@ class TaskBundleController @Inject() (
       reviewStatus: Int,
       comment: String = "",
       tags: String = "",
-      rejectTags: String = ""
+      errorTags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val tasks = this.serviceManager.taskBundle.getTaskBundle(user, id).tasks match {
@@ -222,7 +222,7 @@ class TaskBundleController @Inject() (
         }
 
         this.serviceManager.taskReview
-          .setMetaReviewStatus(task, reviewStatus, user, actionId, comment, rejectTags)
+          .setMetaReviewStatus(task, reviewStatus, user, actionId, comment, errorTags)
 
         if (tags.nonEmpty) {
           val tagList = tags.split(",").toList

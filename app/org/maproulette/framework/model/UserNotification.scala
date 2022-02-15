@@ -33,7 +33,7 @@ case class UserNotification(
     var projectId: Option[Long] = None,
     var targetId: Option[Long] = None,
     var extra: Option[String] = None,
-    var rejectTags: String = ""
+    var errorTags: String = ""
 )
 
 object UserNotification extends CommonField {

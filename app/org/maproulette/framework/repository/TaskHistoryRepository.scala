@@ -56,9 +56,9 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
       get[Option[Int]]("meta_review_status") ~
       get[Option[String]]("meta_reviewed_by") ~
       get[Option[DateTime]]("meta_reviewed_at") ~
-      get[Option[String]]("reject_tags") map {
+      get[Option[String]]("error_tags") map {
       case id ~ taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
-            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~ rejectTags =>
+            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~ errorTags =>
         new TaskReview(
           id,
           taskId,
@@ -79,7 +79,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           None,
           None,
           metaReviewedBy,
-          rejectTags = rejectTags.getOrElse("")
+          errorTags = errorTags.getOrElse("")
         )
     }
   }
@@ -215,7 +215,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
            | trh.meta_review_status,
            | (SELECT name as meta_reviewed_by FROM users WHERE users.id = trh.meta_reviewed_by),
            | trh.meta_reviewed_at,
-           | trh.reject_tags
+           | trh.error_tags
            |FROM task_review_history trh
            |WHERE task_id = $taskId""".stripMargin).as(
         this.reviewHistoryParser.*

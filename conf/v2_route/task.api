@@ -738,11 +738,11 @@ PUT     /taskBundle/:bundleId/:status                           @org.maproulette
 #   - name: asMetaReview
 #     in: query
 #     description: Optional boolean to indicate the meta review status should be set to unecessary
-#   - name: rejectTags
+#   - name: errorTags
 #     in: query
-#     description: Optional string to provide reject tags in the review history
+#     description: Optional string to provide error tags in the review history
 ###
-PUT     /task/:id/review/:status                           @org.maproulette.framework.controller.TaskReviewController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "", rejectTags:String ?= "")
+PUT     /task/:id/review/:status                           @org.maproulette.framework.controller.TaskReviewController.setTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "", errorTags:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Changes review status to "Unnecessary" on tasks matching criteria
@@ -797,11 +797,11 @@ PUT     /tasks/review/remove                               @org.maproulette.fram
 #   - name: newTaskStatus
 #     in: query
 #     description: Optional int taskStatus to change the task status on all tasks in this bundle to
-#   - name: rejectTags
+#   - name: errorTags
 #     in: query
-#     description: Optional string to provide reject tags in the review history
+#     description: Optional string to provide error tags in the review history
 ###
-PUT     /taskBundle/:id/review/:status                     @org.maproulette.framework.controller.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "", rejectTags:String ?= "")
+PUT     /taskBundle/:id/review/:status                     @org.maproulette.framework.controller.TaskBundleController.setBundleTaskReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", newTaskStatus:String ?= "", errorTags:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Update Task Meta Review Status
@@ -831,11 +831,11 @@ PUT     /taskBundle/:id/review/:status                     @org.maproulette.fram
 #     description: Any comment that is provided by the user when setting the meta review status
 #   - name: tags
 #     description: Optional tags to associate with this task
-#   - name: rejectTags
+#   - name: errorTags
 #     in: query
 #     description: Optional string to provide reject tags in the review history
 ###
-PUT     /task/:id/metareview/:status                           @org.maproulette.framework.controller.TaskReviewController.setMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", rejectTags:String ?= "")
+PUT     /task/:id/metareview/:status                           @org.maproulette.framework.controller.TaskReviewController.setMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", errorTags:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Update Meta Review Status for a Bundle
@@ -865,11 +865,11 @@ PUT     /task/:id/metareview/:status                           @org.maproulette.
 #     description: Any comment that is provided by the user when setting the review status
 #   - name: tags
 #     description: Optional tags to associate with this task
-#   - name: rejectTags
+#   - name: errorTags
 #     in: query
-#     description: Optional string to provide reject tags in the review history
+#     description: Optional string to provide error tags in the review history
 ###
-PUT     /taskBundle/:id/metareview/:status                     @org.maproulette.framework.controller.TaskBundleController.setBundleMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", rejectTags:String ?= "")
+PUT     /taskBundle/:id/metareview/:status                     @org.maproulette.framework.controller.TaskBundleController.setBundleMetaReviewStatus(id:Long, status:Int, comment:String ?= "", tags:String ?="", errorTags:String ?= "")
 ###
 # tags: [ Task ]
 # summary: Retrieves task clusters.

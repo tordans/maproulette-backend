@@ -434,7 +434,7 @@ class TaskReviewService @Inject() (
       user: User,
       actionId: Option[Long],
       commentContent: String = "",
-      rejectTags: String = ""
+      errorTags: String = ""
   ): Int = {
     if (!permission.isSuperUser(user) && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus != Task.REVIEW_STATUS_DISPUTED && reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
@@ -506,7 +506,7 @@ class TaskReviewService @Inject() (
       fetchByUser,
       additionalReviewers,
       if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED) else None,
-      rejectTags
+      errorTags
     )
 
     webSocketProvider.sendMessage(
@@ -542,7 +542,7 @@ class TaskReviewService @Inject() (
             reviewStatus,
             task,
             comment,
-            rejectTags = rejectTags
+            errorTags = errorTags
           )
         } else {
           // Let's note in the task_review_history table that this task was reviewed
@@ -555,7 +555,7 @@ class TaskReviewService @Inject() (
             else None,
             reviewStatus,
             reviewClaimedAt.getOrElse(null),
-            rejectTags
+            errorTags
           )
 
           if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
@@ -567,7 +567,7 @@ class TaskReviewService @Inject() (
                 reviewStatus,
                 task,
                 comment,
-                rejectTags = rejectTags
+                errorTags = errorTags
               )
             }
 
@@ -700,7 +700,7 @@ class TaskReviewService @Inject() (
       user: User,
       actionId: Option[Long],
       commentContent: String = "",
-      rejectTags: String = ""
+      errorTags: String = ""
   ): Int = {
     if (task.review.reviewStatus == None) {
       // A meta reviewer cannot review a task that has not been reviewed yet.
@@ -767,7 +767,7 @@ class TaskReviewService @Inject() (
       metaReviewer,
       task.review.additionalReviewers,
       Some(reviewStatus),
-      rejectTags = rejectTags
+      errorTags = errorTags
     )
 
     // Notify the Task Review has been updated
@@ -793,7 +793,7 @@ class TaskReviewService @Inject() (
         metaReviewer,
         reviewStatus,
         reviewClaimedAt.getOrElse(null),
-        rejectTags = rejectTags
+        errorTags = errorTags
       )
 
       if (reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
@@ -815,7 +815,7 @@ class TaskReviewService @Inject() (
           task,
           comment,
           true,
-          rejectTags = rejectTags
+          errorTags = errorTags
         )
       }
     }

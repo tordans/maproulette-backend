@@ -30,13 +30,13 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     */
   def create(notification: UserNotification)(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
-      val rejectTags = if (!notification.rejectTags.isEmpty) notification.rejectTags else null;
+      val errorTags = if (!notification.errorTags.isEmpty) notification.errorTags else null;
       SQL(
         """
           |INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
-          |                                email_status, task_id, challenge_id, project_id, target_id, extra, reject_tags)
+          |                                email_status, task_id, challenge_id, project_id, target_id, extra, error_tags)
           |VALUES ({userId}, {notificationType}, {description}, {fromUsername}, {isRead},
-          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra}, {rejectTags})
+          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra}, {errorTags})
         """.stripMargin
       ).on(
           Symbol("userId")           -> notification.userId,
@@ -50,7 +50,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           Symbol("projectId")        -> notification.projectId,
           Symbol("targetId")         -> notification.targetId,
           Symbol("extra")            -> notification.extra,
-          Symbol("rejectTags")       -> rejectTags
+          Symbol("errorTags")       -> errorTags
         )
         .execute()
     }
@@ -289,8 +289,8 @@ object NotificationRepository {
       get[Option[Long]]("user_notifications.project_id") ~
       get[Option[Long]]("user_notifications.target_id") ~
       get[Option[String]]("user_notifications.extra") ~
-      get[Option[String]]("reject_tags") map {
-      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra ~ rejectTags =>
+      get[Option[String]]("error_tags") map {
+      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra ~ errorTags =>
         new UserNotification(
           id,
           userId,
@@ -307,7 +307,7 @@ object NotificationRepository {
           projectId,
           targetId,
           extra,
-          rejectTags.getOrElse("")
+          errorTags.getOrElse("")
         )
     }
   }

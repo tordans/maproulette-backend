@@ -925,14 +925,14 @@ class ChallengeController @Inject() (
     )
   }
 
-  def formatRejectTagNames(
-    rejectTagIds: String
+  def formatErrorTagNames(
+    errorTagIds: String
   ): String = {
-    if (!rejectTagIds.isEmpty) {
-      val arr = rejectTagIds.split(",")
+    if (!errorTagIds.isEmpty) {
+      val arr = errorTagIds.split(",")
       val statement = arr.map(id => {
-        val rejectTagId = id.toInt;
-        this.tagService.retrieve(rejectTagId).getOrElse(Tag(-1, "null")).name
+        val errorTagId = id.toInt;
+        this.tagService.retrieve(errorTagId).getOrElse(Tag(-1, "null")).name
       })
 
       return s""""${statement.mkString("\n")}"""";
@@ -950,7 +950,7 @@ class ChallengeController @Inject() (
         val taskReviewHistory = this.serviceManager.taskHistory.getTaskReviewHistory(challengeTasks);
 
         val seqString = taskReviewHistory.map(taskReviewLog => {
-          val rejectTagNames = formatRejectTagNames(taskReviewLog.rejectTags);
+          val errorTagNames = formatErrorTagNames(taskReviewLog.errorTags);
 
           s"""${taskReviewLog.id},${taskReviewLog.taskId},${taskReviewLog.reviewRequestedByUsername
             .getOrElse("")},${taskReviewLog.reviewedByUsername.getOrElse("")},""" +
@@ -960,7 +960,7 @@ class ChallengeController @Inject() (
             s"""${taskReviewLog.metaReviewStatus
                  .getOrElse("")},${taskReviewLog.metaReviewedByUsername
                  .getOrElse("")},${taskReviewLog.metaReviewedAt
-                 .getOrElse("")},${rejectTagNames}""".stripMargin
+                 .getOrElse("")},${errorTagNames}""".stripMargin
         })
 
         Result(
@@ -972,7 +972,7 @@ class ChallengeController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt,RejectTags\n"""
+              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt,ErrorTags\n"""
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )
