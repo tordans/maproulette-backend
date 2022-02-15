@@ -925,6 +925,22 @@ class ChallengeController @Inject() (
     )
   }
 
+  def formatRejectTagNames(
+    rejectTagIds: String
+  ): String = {
+    if (!rejectTagIds.isEmpty) {
+      val arr = rejectTagIds.split(",")
+      val statement = arr.map(id => {
+        val rejectTagId = id.toInt;
+        this.tagService.retrieve(rejectTagId).getOrElse(Tag(-1, "null")).name
+      })
+
+      return s""""${statement.mkString("\n")}"""";
+    }
+
+    ""
+  }
+
   def _extractChallengeReviewHistory(
       challengeId: Long
   ): Action[AnyContent] = Action.async { implicit request =>
@@ -934,6 +950,8 @@ class ChallengeController @Inject() (
         val taskReviewHistory = this.serviceManager.taskHistory.getTaskReviewHistory(challengeTasks);
 
         val seqString = taskReviewHistory.map(taskReviewLog => {
+          val rejectTagNames = formatRejectTagNames(taskReviewLog.rejectTags);
+
           s"""${taskReviewLog.id},${taskReviewLog.taskId},${taskReviewLog.reviewRequestedByUsername
             .getOrElse("")},${taskReviewLog.reviewedByUsername.getOrElse("")},""" +
             s"""${Task.reviewStatusMap.get(taskReviewLog.reviewStatus.getOrElse(-1)).get},""" +
@@ -942,7 +960,7 @@ class ChallengeController @Inject() (
             s"""${taskReviewLog.metaReviewStatus
                  .getOrElse("")},${taskReviewLog.metaReviewedByUsername
                  .getOrElse("")},${taskReviewLog.metaReviewedAt
-                 .getOrElse("")},${taskReviewLog.rejectTags}""".stripMargin
+                 .getOrElse("")},${rejectTagNames}""".stripMargin
         })
 
         Result(
@@ -954,7 +972,7 @@ class ChallengeController @Inject() (
           ),
           body = HttpEntity.Strict(
             ByteString(
-              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt,RejectTag\n"""
+              s"""ID,TaskID,RequestedBy,ReviewedBy,ReviewStatus,ReviewedAt,ReviewStartedAt,MetaReviewStatus,MetaReviewedBy,MetaReviewedAt,RejectTags\n"""
             ).concat(ByteString(seqString.mkString("\n"))),
             Some("text/csv; header=present")
           )

@@ -215,7 +215,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
            | trh.meta_review_status,
            | (SELECT name as meta_reviewed_by FROM users WHERE users.id = trh.meta_reviewed_by),
            | trh.meta_reviewed_at,
-           | (SELECT name as reject_tag FROM tags WHERE tags.id = trh.reject_tag)
+           | trh.reject_tags
            |FROM task_review_history trh
            |WHERE task_id = $taskId""".stripMargin).as(
         this.reviewHistoryParser.*
