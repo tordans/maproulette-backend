@@ -759,6 +759,7 @@ class TaskReviewService @Inject() (
     }
 
     // Update the meta_review_by and meta_review_status column on the task_review
+    // if error tags are currently on the review, and if this meta review provides no error tags, retain the existing tags
     val updatedRows = this.repository.updateTaskReview(
       user,
       task,
@@ -767,7 +768,7 @@ class TaskReviewService @Inject() (
       metaReviewer,
       task.review.additionalReviewers,
       Some(reviewStatus),
-      errorTags = errorTags
+      errorTags = if (errorTags.isEmpty) task.errorTags else errorTags
     )
 
     // Notify the Task Review has been updated
