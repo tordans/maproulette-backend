@@ -442,7 +442,7 @@ class TaskReviewRepository @Inject() (
                     ${if (reviewedBy == None) "NULL" else reviewedBy.get}, ${metaReviewedBy},
                     $metaReviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
-      else "NULL"}), ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"}
+      else "NULL"}, ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"})
          """).executeUpdate()
     }
   }
