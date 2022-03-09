@@ -30,12 +30,13 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
     */
   def create(notification: UserNotification)(implicit c: Option[Connection] = None): Unit = {
     this.withMRTransaction { implicit c =>
+      val errorTags = if (!notification.errorTags.isEmpty) notification.errorTags else null;
       SQL(
         """
           |INSERT INTO user_notifications (user_id, notification_type, description, from_username, is_read,
-          |                                email_status, task_id, challenge_id, project_id, target_id, extra)
+          |                                email_status, task_id, challenge_id, project_id, target_id, extra, error_tags)
           |VALUES ({userId}, {notificationType}, {description}, {fromUsername}, {isRead},
-          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra})
+          |        {emailStatus}, {taskId}, {challengeId}, {projectId}, {targetId}, {extra}, {errorTags})
         """.stripMargin
       ).on(
           Symbol("userId")           -> notification.userId,
@@ -48,7 +49,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
           Symbol("challengeId")      -> notification.challengeId,
           Symbol("projectId")        -> notification.projectId,
           Symbol("targetId")         -> notification.targetId,
-          Symbol("extra")            -> notification.extra
+          Symbol("extra")            -> notification.extra,
+          Symbol("errorTags")        -> errorTags
         )
         .execute()
     }
@@ -83,7 +85,7 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         orderFields += OrderField(UserNotification.FIELD_CREATED, Order.DESC)
       }
 
-      Query
+      val data = Query
         .simple(
           List(
             BaseParameter(UserNotification.FIELD_USER_ID, userId),
@@ -118,6 +120,8 @@ class NotificationRepository @Inject() (override val db: Database) extends Repos
         """.stripMargin
         )
         .as(NotificationRepository.parser.*)
+
+      data
     }
   }
 
@@ -284,8 +288,9 @@ object NotificationRepository {
       get[Option[Long]]("user_notifications.challenge_id") ~
       get[Option[Long]]("user_notifications.project_id") ~
       get[Option[Long]]("user_notifications.target_id") ~
-      get[Option[String]]("user_notifications.extra") map {
-      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra =>
+      get[Option[String]]("user_notifications.extra") ~
+      get[Option[String]]("error_tags") map {
+      case id ~ userId ~ notificationType ~ created ~ modified ~ description ~ fromUsername ~ challengeName ~ isRead ~ emailStatus ~ taskId ~ challengeId ~ projectId ~ targetId ~ extra ~ errorTags =>
         new UserNotification(
           id,
           userId,
@@ -301,7 +306,8 @@ object NotificationRepository {
           challengeId,
           projectId,
           targetId,
-          extra
+          extra,
+          errorTags.getOrElse("")
         )
     }
   }

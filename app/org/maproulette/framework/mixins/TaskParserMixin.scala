@@ -28,7 +28,7 @@ trait TaskParserMixin {
       ", task_review.review_status, task_review.review_requested_by, " +
       "task_review.reviewed_by, task_review.reviewed_at, task_review.review_started_at, " +
       "task_review.meta_reviewed_by, task_review.meta_review_status, task_review.meta_reviewed_at, " +
-      "task_review.review_claimed_by, task_review.review_claimed_at, task_review.additional_reviewers "
+      "task_review.review_claimed_by, task_review.review_claimed_at, task_review.additional_reviewers, task_review.error_tags "
 
   // The anorm row parser to convert records from the task table to task objects
   def getTaskParser(
@@ -66,12 +66,13 @@ trait TaskParserMixin {
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[String]]("responses") ~
       get[Option[Long]]("tasks.bundle_id") ~
-      get[Option[Boolean]]("tasks.is_bundle_primary") map {
+      get[Option[Boolean]]("tasks.is_bundle_primary") ~
+      get[Option[String]]("task_review.error_tags") map {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~
             reviewRequestedBy ~ reviewedBy ~ reviewedAt ~ metaReviewedBy ~
-            metaReviewStatus ~ metaReviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~
-            reviewClaimedAt ~ additionalReviewers ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary =>
+            metaReviewStatus ~ metaReviewedAt ~ reviewStartedAt ~ reviewClaimedBy ~ reviewClaimedAt ~
+            additionalReviewers ~ priority ~ changesetId ~ responses ~ bundleId ~ isBundlePrimary ~ errorTags =>
         val values = updateAndRetrieve(id, geojson, location, cooperativeWork)
         Task(
           id,
@@ -104,7 +105,8 @@ trait TaskParserMixin {
           changesetId,
           responses,
           bundleId,
-          isBundlePrimary
+          isBundlePrimary,
+          errorTags = errorTags.getOrElse("")
         )
     }
   }
@@ -140,6 +142,7 @@ trait TaskParserMixin {
       get[Option[Long]]("task_review.review_claimed_by") ~
       get[Option[DateTime]]("task_review.review_claimed_at") ~
       get[Option[List[Long]]]("task_review.additional_reviewers") ~
+      get[Option[String]]("task_review.error_tags") ~
       get[Int]("tasks.priority") ~
       get[Option[Long]]("tasks.changeset_id") ~
       get[Option[Long]]("tasks.bundle_id") ~
@@ -151,7 +154,7 @@ trait TaskParserMixin {
       case id ~ name ~ created ~ modified ~ parent_id ~ instruction ~ location ~ status ~ geojson ~
             cooperativeWork ~ mappedOn ~ completedTimeSpent ~ completedBy ~ reviewStatus ~ reviewRequestedBy ~
             reviewedBy ~ reviewedAt ~ metaReviewedBy ~ metaReviewStatus ~ metaReviewedAt ~ reviewStartedAt ~
-            reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~
+            reviewClaimedBy ~ reviewClaimedAt ~ additionalReviewers ~ errorTags ~
             priority ~ changesetId ~ bundleId ~ isBundlePrimary ~ challengeName ~ reviewRequestedByUsername ~
             reviewedByUsername ~ responses =>
         val values = updateAndRetrieve(id, geojson, location, cooperativeWork)
@@ -187,7 +190,8 @@ trait TaskParserMixin {
             changesetId,
             responses,
             bundleId,
-            isBundlePrimary
+            isBundlePrimary,
+            errorTags = errorTags.getOrElse("")
           ),
           TaskReview(
             -1,
@@ -206,7 +210,8 @@ trait TaskParserMixin {
             additionalReviewers,
             reviewClaimedBy,
             None,
-            None
+            None,
+            errorTags = errorTags.getOrElse("")
           )
         )
     }

@@ -289,6 +289,7 @@ class TaskReviewController @Inject() (
     * @param comment An optional comment to add to the task
     * @param tags Optional tags to add to the task
     * @param newTaskStatus Optional new taskStatus to change the task's status
+    * @param errorTags Optional string for error tags
     * @return 400 BadRequest if task with supplied id not found.
     *         If successful then 200 NoContent
     */
@@ -297,7 +298,8 @@ class TaskReviewController @Inject() (
       reviewStatus: Int,
       comment: String = "",
       tags: String = "",
-      newTaskStatus: String = ""
+      newTaskStatus: String = "",
+      errorTags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val task = this.taskRepository.retrieve(id) match {
@@ -328,7 +330,7 @@ class TaskReviewController @Inject() (
         case None    => None
       }
 
-      this.service.setTaskReviewStatus(task, reviewStatus, user, actionId, comment)
+      this.service.setTaskReviewStatus(task, reviewStatus, user, actionId, comment, errorTags)
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {
@@ -354,7 +356,8 @@ class TaskReviewController @Inject() (
       id: Long,
       reviewStatus: Int,
       comment: String = "",
-      tags: String = ""
+      tags: String = "",
+      errorTags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
       val task = this.taskRepository.retrieve(id) match {
@@ -370,7 +373,7 @@ class TaskReviewController @Inject() (
         case None    => None
       }
 
-      this.service.setMetaReviewStatus(task, reviewStatus, user, actionId, comment)
+      this.service.setMetaReviewStatus(task, reviewStatus, user, actionId, comment, errorTags)
 
       val tagList = tags.split(",").toList
       if (tagList.nonEmpty) {
