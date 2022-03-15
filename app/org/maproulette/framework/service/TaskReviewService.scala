@@ -433,7 +433,8 @@ class TaskReviewService @Inject() (
       reviewStatus: Int,
       user: User,
       actionId: Option[Long],
-      commentContent: String = ""
+      commentContent: String = "",
+      errorTags: String = ""
   ): Int = {
     if (!permission.isSuperUser(user) && !user.settings.isReviewer.get && reviewStatus != Task.REVIEW_STATUS_REQUESTED &&
         reviewStatus != Task.REVIEW_STATUS_DISPUTED && reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
@@ -504,7 +505,8 @@ class TaskReviewService @Inject() (
       fetchBy,
       fetchByUser,
       additionalReviewers,
-      if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED) else None
+      if (needsMetaReviewAgain) Some(Task.REVIEW_STATUS_REQUESTED) else None,
+      errorTags
     )
 
     webSocketProvider.sendMessage(
@@ -539,7 +541,8 @@ class TaskReviewService @Inject() (
             task.review.reviewedBy.getOrElse(-1),
             reviewStatus,
             task,
-            comment
+            comment,
+            errorTags = errorTags
           )
         } else {
           // Let's note in the task_review_history table that this task was reviewed
@@ -551,7 +554,8 @@ class TaskReviewService @Inject() (
             if (originalReviewer.getOrElse(0) != user.id) Some(originalReviewer.get)
             else None,
             reviewStatus,
-            reviewClaimedAt.getOrElse(null)
+            reviewClaimedAt.getOrElse(null),
+            errorTags
           )
 
           if (reviewStatus != Task.REVIEW_STATUS_UNNECESSARY) {
@@ -562,7 +566,8 @@ class TaskReviewService @Inject() (
                 task.review.reviewRequestedBy.getOrElse(-1),
                 reviewStatus,
                 task,
-                comment
+                comment,
+                errorTags = errorTags
               )
             }
 
@@ -694,7 +699,8 @@ class TaskReviewService @Inject() (
       reviewStatus: Int,
       user: User,
       actionId: Option[Long],
-      commentContent: String = ""
+      commentContent: String = "",
+      errorTags: String = ""
   ): Int = {
     if (task.review.reviewStatus == None) {
       // A meta reviewer cannot review a task that has not been reviewed yet.
@@ -706,7 +712,7 @@ class TaskReviewService @Inject() (
     // 1. The meta reviewer must be a reviewer to set the meta review status.
     // 2. Reviewer cannot meta review their own reviews
     // 3. Reviewer may set meta review status back to 'requested'
-    // 4. Super users can do anuything
+    // 4. Super users can do anything
     // 5. Only challenge admins can mark meta review status as unnecessary
     if (!permission.isSuperUser(user)) {
       if (!user.settings.isReviewer.get) {
@@ -753,6 +759,7 @@ class TaskReviewService @Inject() (
     }
 
     // Update the meta_review_by and meta_review_status column on the task_review
+    // if error tags are currently on the review, and if this meta review provides no error tags, retain the existing tags
     val updatedRows = this.repository.updateTaskReview(
       user,
       task,
@@ -760,7 +767,8 @@ class TaskReviewService @Inject() (
       "meta_reviewed_by",
       metaReviewer,
       task.review.additionalReviewers,
-      Some(reviewStatus)
+      Some(reviewStatus),
+      errorTags = if (errorTags.isEmpty) task.errorTags else errorTags
     )
 
     // Notify the Task Review has been updated
@@ -785,7 +793,8 @@ class TaskReviewService @Inject() (
         if (metaReviewer != user.id) Some(task.review.reviewedBy.get) else None,
         metaReviewer,
         reviewStatus,
-        reviewClaimedAt.getOrElse(null)
+        reviewClaimedAt.getOrElse(null),
+        errorTags = errorTags
       )
 
       if (reviewStatus == Task.REVIEW_STATUS_REQUESTED) {
@@ -806,7 +815,8 @@ class TaskReviewService @Inject() (
           reviewStatus,
           task,
           comment,
-          true
+          true,
+          errorTags = errorTags
         )
       }
     }

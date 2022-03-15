@@ -340,7 +340,8 @@ class TaskReviewRepository @Inject() (
       updateColumn: String,
       updateWithUser: Long,
       additionalReviewers: Option[List[Long]],
-      metaReviewStatus: Option[Int] = None
+      metaReviewStatus: Option[Int] = None,
+      errorTags: String = ""
   ): Int = {
     this.withMRTransaction { implicit c =>
       val metaReviewStatusUpdate = metaReviewStatus match {
@@ -349,6 +350,10 @@ class TaskReviewRepository @Inject() (
         case Some(mr) =>
           s"meta_review_status = ${mr}, meta_reviewed_at = NOW(), meta_review_started_at = task_review.review_claimed_at, "
         case None => "reviewed_at = NOW(), "
+      }
+      var errorTagString = "";
+      if (reviewStatus != Task.REVIEW_STATUS_REQUESTED) {
+        errorTagString = s", error_tags = ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"}"
       }
       val updatedRows =
         SQL(s"""UPDATE task_review SET review_status = $reviewStatus,
@@ -359,7 +364,7 @@ class TaskReviewRepository @Inject() (
                                  additional_reviewers = ${additionalReviewers match {
           case Some(ar) => "ARRAY[" + ar.mkString(",") + "]"
           case None     => "NULL"
-        }}
+        }}${errorTagString}
                              WHERE task_review.task_id = (
                                 SELECT tasks.id FROM tasks
                                 LEFT JOIN locked l on l.item_id = tasks.id AND l.item_type = ${task.itemType.typeId}
@@ -392,18 +397,21 @@ class TaskReviewRepository @Inject() (
       reviewedBy: Long,
       originalReviewer: Option[Long] = None,
       reviewStatus: Int,
-      reviewClaimedAt: DateTime
+      reviewClaimedAt: DateTime,
+      errorTags: String = ""
   ): Unit = {
     this.withMRTransaction { implicit c =>
-      SQL(s"""INSERT INTO task_review_history
+      val sql = s"""INSERT INTO task_review_history
                         (task_id, requested_by, reviewed_by, review_status,
-                         reviewed_at, review_started_at, original_reviewer)
+                         reviewed_at, review_started_at, original_reviewer, error_tags)
             VALUES (${task.id}, ${reviewRequestedBy}, ${reviewedBy},
                     $reviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
       else "NULL"},
-                    ${if (originalReviewer == None) "NULL" else originalReviewer.get})
-         """).executeUpdate()
+                    ${if (originalReviewer == None) "NULL" else originalReviewer.get},
+                     ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"})"""
+
+      SQL(sql).executeUpdate()
     }
   }
 
@@ -416,23 +424,25 @@ class TaskReviewRepository @Inject() (
     * @param metaReviewedBy
     * @param metaReviewStatus
     * @param reviewClaimedAt
+    * @param errorTags
     */
   def insertMetaTaskReviewHistory(
       task: Task,
       reviewedBy: Option[Long] = None,
       metaReviewedBy: Long,
       metaReviewStatus: Int,
-      reviewClaimedAt: DateTime
+      reviewClaimedAt: DateTime,
+      errorTags: String = ""
   ): Unit = {
     this.withMRTransaction { implicit c =>
       SQL(s"""INSERT INTO task_review_history
                         (task_id, requested_by, reviewed_by, meta_reviewed_by, meta_review_status,
-                         meta_reviewed_at, review_started_at)
+                         meta_reviewed_at, review_started_at, error_tags)
             VALUES (${task.id}, ${task.review.reviewRequestedBy.get},
                     ${if (reviewedBy == None) "NULL" else reviewedBy.get}, ${metaReviewedBy},
                     $metaReviewStatus, NOW(),
                     ${if (reviewClaimedAt != null) s"'${reviewClaimedAt}'"
-      else "NULL"})
+      else "NULL"}, ${if (!errorTags.isEmpty) s"'${errorTags}'" else "NULL"})
          """).executeUpdate()
     }
   }
