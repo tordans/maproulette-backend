@@ -534,7 +534,9 @@ class TaskDAL @Inject() (
       bundleId: Option[Long] = None,
       primaryTaskId: Option[Long] = None
   )(implicit c: Connection = null): Int = {
-    if (tasks.length < 1) {
+    val tasksLength = tasks.length
+    val isBundle = bundleId.isDefined
+    if (tasksLength < 1) {
       throw new InvalidException("Must be at least one task in list to setTaskStatus.")
     }
 
@@ -630,13 +632,23 @@ class TaskDAL @Inject() (
         var completedTimeSpent: Option[Long] = None
         if (!skipStatusUpdate) {
           startedLock match {
-            case Some(l) =>
-              completedTimeSpent = Some(
-                SQL"""UPDATE tasks SET completed_time_spent = (SELECT (extract(epoch from NOW()) * 1000 - ${l
-                  .getMillis()}))
+            case Some(l) => {
+              if (isBundle) {
+                completedTimeSpent = Some(
+                  SQL"""UPDATE tasks SET completed_time_spent =
+                  (SELECT ((extract(epoch from NOW()) * 1000 - ${l.getMillis()}) / ${tasksLength}))
                      WHERE id = ${task.id} RETURNING completed_time_spent"""
-                  .as(SqlParser.long("completed_time_spent").single)
-              )
+                    .as(SqlParser.long("completed_time_spent").single)
+                )
+              } else {
+                completedTimeSpent = Some(
+                  SQL"""UPDATE tasks SET completed_time_spent =
+                  (SELECT (extract(epoch from NOW()) * 1000 - ${l.getMillis()}))
+                     WHERE id = ${task.id} RETURNING completed_time_spent"""
+                    .as(SqlParser.long("completed_time_spent").single)
+                )
+              }
+            }
             case _ => // do nothing
           }
         }
