@@ -261,6 +261,11 @@ class ChallengeProvider @Inject() (
         } else {
           this.challengeDAL.update(Json.obj("status" -> Challenge.STATUS_READY), user)(challenge.id)
           this.challengeDAL.markTasksRefreshed()(challenge.id)
+
+          //we need to reapply task priority rules since task locations were updated
+          Future {
+            this.challengeDAL.updateTaskPriorities(user)(challenge.id)
+          }
         }
       case Failure(f) =>
         if (fileNumber > 1) {
