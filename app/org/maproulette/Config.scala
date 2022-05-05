@@ -121,6 +121,10 @@ class Config @Inject() (implicit val configuration: Configuration) {
     this.config
       .getOptional[Int](Config.KEY_SCHEDULER_ARCHIVE_CHALLENGES_STALE_TIME_IN_MONTHS)
       .getOrElse(Config.DEFAULT_ARCHIVE_STALE_TIME_IN_MONTHS)
+  lazy val baseCompletedTimeSpent: Int =
+    this.config
+      .getOptional[Int](Config.KEY_TASK_BASE_COMPLETED_TIME_SPENT)
+      .getOrElse(Config.DEFAULT_TASK_BASE_COMPLETED_TIME_SPENT)
   lazy val osmMatcherEnabled: Boolean =
     this.config
       .getOptional[Boolean](Config.KEY_SCHEDULER_OSM_MATCHER_ENABLED)
@@ -228,43 +232,44 @@ class Config @Inject() (implicit val configuration: Configuration) {
 }
 
 object Config {
-  val GROUP_MAPROULETTE             = "maproulette"
-  val GROUP_MAPROULETTE_CACHING     = s"$GROUP_MAPROULETTE.caching"
-  val KEY_CACHING_TYPE              = s"$GROUP_MAPROULETTE_CACHING.type"
-  val KEY_CACHING_CACHE_LIMIT       = s"$GROUP_MAPROULETTE_CACHING.cacheLimit"
-  val KEY_CACHING_CACHE_EXPIRY      = s"$GROUP_MAPROULETTE_CACHING.cacheExpiry"
-  val KEY_CACHING_REDIS_HOST        = s"$GROUP_MAPROULETTE_CACHING.redis.host"
-  val KEY_CACHING_REDIS_PORT        = s"$GROUP_MAPROULETTE_CACHING.redis.port"
-  val KEY_CACHING_REDIS_RESET       = s"$GROUP_MAPROULETTE_CACHING.redis.resetOnStart"
-  val KEY_BOOTSTRAP                 = s"$GROUP_MAPROULETTE.bootstrap"
-  val KEY_PROXY_PORT                = s"$GROUP_MAPROULETTE.proxy.port"
-  val KEY_PROXY_SSL                 = s"$GROUP_MAPROULETTE.proxy.ssl"
-  val KEY_LOGO                      = s"$GROUP_MAPROULETTE.logo"
-  val KEY_SUPER_KEY                 = s"$GROUP_MAPROULETTE.super.key"
-  val KEY_SUPER_ACCOUNTS            = s"$GROUP_MAPROULETTE.super.accounts"
-  val KEY_DEBUG                     = s"$GROUP_MAPROULETTE.debug"
-  val KEY_DEVMODE                   = s"$GROUP_MAPROULETTE.devMode"
-  val KEY_SKIP_TOOHARD              = s"$GROUP_MAPROULETTE.skipTooHard"
-  val KEY_IMPERSONATE_USER          = s"$GROUP_MAPROULETTE.impersonateUser"
-  val KEY_ACTION_LEVEL              = s"$GROUP_MAPROULETTE.action.level"
-  val KEY_NUM_OF_CHALLENGES         = s"$GROUP_MAPROULETTE.limits.challenges"
-  val KEY_RECENT_ACTIVITY           = s"$GROUP_MAPROULETTE.limits.activities"
-  val KEY_CHANGESET_TIME_LIMIT      = s"$GROUP_MAPROULETTE.tasks.changesets.timeLimit"
-  val KEY_CHANGESET_ENABLED         = s"$GROUP_MAPROULETTE.tasks.changesets.enabled"
-  val KEY_MAX_SAVED_CHALLENGES      = s"$GROUP_MAPROULETTE.limits.saved"
-  val KEY_SEMANTIC_VERSION          = s"$GROUP_MAPROULETTE.version"
-  val KEY_SESSION_TIMEOUT           = s"$GROUP_MAPROULETTE.session.timeout"
-  val KEY_PUBLIC_ORIGIN             = s"$GROUP_MAPROULETTE.publicOrigin"
-  val KEY_EMAIL_FROM                = s"$GROUP_MAPROULETTE.emailFrom"
-  val KEY_TASK_RESET                = s"$GROUP_MAPROULETTE.task.reset"
-  val KEY_SIGNIN                    = s"$GROUP_MAPROULETTE.signin"
-  val KEY_TASK_LOCK_EXPIRY          = s"$GROUP_MAPROULETTE.task.lock.expiry"
-  val KEY_TASK_SCORE_FIXED          = s"$GROUP_MAPROULETTE.task.score.fixed"
-  val KEY_TASK_SCORE_FALSE_POSITIVE = s"$GROUP_MAPROULETTE.task.score.falsePositive"
-  val KEY_TASK_SCORE_ALREADY_FIXED  = s"$GROUP_MAPROULETTE.task.score.alreadyFixed"
-  val KEY_TASK_SCORE_TOO_HARD       = s"$GROUP_MAPROULETTE.task.score.tooHard"
-  val KEY_TASK_SCORE_SKIPPED        = s"$GROUP_MAPROULETTE.task.score.skipped"
-  val KEY_REVIEW_NEEDED_DEFAULT     = s"$GROUP_MAPROULETTE.review.default"
+  val GROUP_MAPROULETTE                  = "maproulette"
+  val GROUP_MAPROULETTE_CACHING          = s"$GROUP_MAPROULETTE.caching"
+  val KEY_CACHING_TYPE                   = s"$GROUP_MAPROULETTE_CACHING.type"
+  val KEY_CACHING_CACHE_LIMIT            = s"$GROUP_MAPROULETTE_CACHING.cacheLimit"
+  val KEY_CACHING_CACHE_EXPIRY           = s"$GROUP_MAPROULETTE_CACHING.cacheExpiry"
+  val KEY_CACHING_REDIS_HOST             = s"$GROUP_MAPROULETTE_CACHING.redis.host"
+  val KEY_CACHING_REDIS_PORT             = s"$GROUP_MAPROULETTE_CACHING.redis.port"
+  val KEY_CACHING_REDIS_RESET            = s"$GROUP_MAPROULETTE_CACHING.redis.resetOnStart"
+  val KEY_BOOTSTRAP                      = s"$GROUP_MAPROULETTE.bootstrap"
+  val KEY_PROXY_PORT                     = s"$GROUP_MAPROULETTE.proxy.port"
+  val KEY_PROXY_SSL                      = s"$GROUP_MAPROULETTE.proxy.ssl"
+  val KEY_LOGO                           = s"$GROUP_MAPROULETTE.logo"
+  val KEY_SUPER_KEY                      = s"$GROUP_MAPROULETTE.super.key"
+  val KEY_SUPER_ACCOUNTS                 = s"$GROUP_MAPROULETTE.super.accounts"
+  val KEY_DEBUG                          = s"$GROUP_MAPROULETTE.debug"
+  val KEY_DEVMODE                        = s"$GROUP_MAPROULETTE.devMode"
+  val KEY_SKIP_TOOHARD                   = s"$GROUP_MAPROULETTE.skipTooHard"
+  val KEY_IMPERSONATE_USER               = s"$GROUP_MAPROULETTE.impersonateUser"
+  val KEY_ACTION_LEVEL                   = s"$GROUP_MAPROULETTE.action.level"
+  val KEY_NUM_OF_CHALLENGES              = s"$GROUP_MAPROULETTE.limits.challenges"
+  val KEY_RECENT_ACTIVITY                = s"$GROUP_MAPROULETTE.limits.activities"
+  val KEY_CHANGESET_TIME_LIMIT           = s"$GROUP_MAPROULETTE.tasks.changesets.timeLimit"
+  val KEY_CHANGESET_ENABLED              = s"$GROUP_MAPROULETTE.tasks.changesets.enabled"
+  val KEY_MAX_SAVED_CHALLENGES           = s"$GROUP_MAPROULETTE.limits.saved"
+  val KEY_SEMANTIC_VERSION               = s"$GROUP_MAPROULETTE.version"
+  val KEY_SESSION_TIMEOUT                = s"$GROUP_MAPROULETTE.session.timeout"
+  val KEY_PUBLIC_ORIGIN                  = s"$GROUP_MAPROULETTE.publicOrigin"
+  val KEY_EMAIL_FROM                     = s"$GROUP_MAPROULETTE.emailFrom"
+  val KEY_TASK_RESET                     = s"$GROUP_MAPROULETTE.task.reset"
+  val KEY_SIGNIN                         = s"$GROUP_MAPROULETTE.signin"
+  val KEY_TASK_LOCK_EXPIRY               = s"$GROUP_MAPROULETTE.task.lock.expiry"
+  val KEY_TASK_SCORE_FIXED               = s"$GROUP_MAPROULETTE.task.score.fixed"
+  val KEY_TASK_SCORE_FALSE_POSITIVE      = s"$GROUP_MAPROULETTE.task.score.falsePositive"
+  val KEY_TASK_SCORE_ALREADY_FIXED       = s"$GROUP_MAPROULETTE.task.score.alreadyFixed"
+  val KEY_TASK_SCORE_TOO_HARD            = s"$GROUP_MAPROULETTE.task.score.tooHard"
+  val KEY_TASK_SCORE_SKIPPED             = s"$GROUP_MAPROULETTE.task.score.skipped"
+  val KEY_TASK_BASE_COMPLETED_TIME_SPENT = s"$GROUP_MAPROULETTE.task.base_completed_time_spent"
+  val KEY_REVIEW_NEEDED_DEFAULT          = s"$GROUP_MAPROULETTE.review.default"
 
   val SUB_GROUP_SCHEDULER                      = s"$GROUP_MAPROULETTE.scheduler"
   val KEY_SCHEDULER_CLEAN_LOCKS_INTERVAL       = s"$SUB_GROUP_SCHEDULER.cleanLocks.interval"
@@ -375,6 +380,7 @@ object Config {
   val DEFAULT_REVIEW_NEEDED                           = 0
   val DEFAULT_MAX_TASKS_PER_CHALLENGE                 = 50000
   val DEFAULT_ARCHIVE_STALE_TIME_IN_MONTHS            = 6
+  val DEFAULT_TASK_BASE_COMPLETED_TIME_SPENT          = 14000
 
   // Redis Cache id's for different caches
   val CACHE_ID_TAGS               = "1";
