@@ -535,7 +535,7 @@ class TaskDAL @Inject() (
       primaryTaskId: Option[Long] = None
   )(implicit c: Connection = null): Int = {
     val tasksLength = tasks.length
-    val isBundle = bundleId.isDefined
+    val isBundle    = bundleId.isDefined
     if (tasksLength < 1) {
       throw new InvalidException("Must be at least one task in list to setTaskStatus.")
     }
@@ -649,7 +649,15 @@ class TaskDAL @Inject() (
                 )
               }
             }
-            case _ => // do nothing
+            case _ =>
+              val completedTime =
+                if (isBundle) this.config.baseCompletedTimeSpent / tasksLength
+                else this.config.baseCompletedTimeSpent
+              completedTimeSpent = Some(
+                SQL"""UPDATE tasks SET completed_time_spent = ${completedTime}
+                     WHERE id = ${task.id} RETURNING completed_time_spent"""
+                  .as(SqlParser.long("completed_time_spent").single)
+              )
           }
         }
 
