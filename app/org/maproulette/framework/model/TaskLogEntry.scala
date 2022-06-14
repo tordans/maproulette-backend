@@ -25,7 +25,8 @@ case class TaskLogEntry(
     reviewStatus: Option[Int],
     reviewRequestedBy: Option[Int],
     reviewedBy: Option[Int],
-    comment: Option[String]
+    comment: Option[String],
+    errorTags: Option[String],
 ) {}
 
 object TaskLogEntry {

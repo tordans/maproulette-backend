@@ -40,7 +40,8 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           None,
           None,
           None,
-          Some(comment)
+          Some(comment),
+          None
         )
     }
   }
@@ -93,9 +94,10 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
       get[Option[Int]]("reviewed_by") ~
       get[Option[Int]]("meta_review_status") ~
       get[Option[Int]]("meta_reviewed_by") ~
-      get[Option[DateTime]]("meta_reviewed_at") map {
+      get[Option[DateTime]]("meta_reviewed_at") ~
+      get[Option[String]]("error_tags") map {
       case taskId ~ reviewedAt ~ reviewStartedAt ~ reviewStatus ~ requestedBy ~
-            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt => {
+            reviewedBy ~ metaReviewStatus ~ metaReviewedBy ~ metaReviewedAt ~ errorTags => {
         reviewStatus match {
           case None =>
             new TaskLogEntry(
@@ -109,7 +111,8 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
               metaReviewStatus,
               Some(requestedBy),
               metaReviewedBy,
-              None
+              None,
+              errorTags = errorTags
             )
           case _ =>
             new TaskLogEntry(
@@ -123,7 +126,8 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
               reviewStatus,
               Some(requestedBy),
               reviewedBy,
-              None
+              None,
+              errorTags = errorTags
             )
         }
       }
@@ -150,6 +154,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           None,
           None,
           None,
+          None,
           None
         )
     }
@@ -165,6 +170,7 @@ class TaskHistoryRepository @Inject() (override val db: Database) extends Reposi
           created,
           TaskLogEntry.ACTION_UPDATE,
           userId,
+          None,
           None,
           None,
           None,
