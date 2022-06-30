@@ -360,14 +360,17 @@ GET     /project/:id/comments                     @org.maproulette.framework.con
 #     in: path
 #     description: The ID of the project
 #     required: true
+#   - name: apiKey
+#     in: header
+#     description: The user's apiKey to authorize the request
+#     required: true
+#     type: string
 #   - name: cId
 #     in: query
 #     description: A list of challengeIds to include. If not provided, then all challenges in the project are used.
-#     required: optional
 #   - name: timezone
 #     in: query
 #     description: A timezone offset to apply to time fields. Format should be like '+HH:MM'. Default is GMT (+00:00)
-#     required: optional
 ###
 GET     /project/:projectId/tasks/extract             @org.maproulette.controllers.api.ChallengeController.extractAllTaskSummaries(projectId:Long, cId:Option[String], timezone:String ?= "")
 ###
