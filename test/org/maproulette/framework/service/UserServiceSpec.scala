@@ -5,7 +5,6 @@
 
 package org.maproulette.framework.service
 
-import java.util.UUID
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{OR, Paging, Query}
@@ -14,7 +13,7 @@ import org.maproulette.exception.{InvalidException}
 import org.maproulette.session.{SearchParameters, SearchTaskParameters}
 import org.maproulette.data.{ProjectType}
 import org.maproulette.models.dal.{ChallengeDAL, TaskDAL}
-import org.scalatest.Matchers._
+import org.scalatest.matchers.should.Matchers._
 import play.api.Application
 
 /**
