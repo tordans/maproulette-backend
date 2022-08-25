@@ -529,7 +529,7 @@ class TaskController @Inject() (
         val (count, tasks) = this.taskClusterService.getTasksInBoundingBox(user, params, Paging(-1))
         tasks.foreach(task => {
           val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
-          this.dal.update(taskJson, user)(task.id)
+          this.dal.updateStatus(taskJson, user)(task.id)
         })
         Ok(Json.toJson(tasks.length))
       }

@@ -298,6 +298,73 @@ class TaskDAL @Inject() (
   }
 
   /**
+    * Updates a task object in the database.
+    *
+    * @param value A json object containing fields to be updated for the task
+    * @param user  The user executing the task
+    * @param id    The id of the object that you are updating
+    * @return An optional object, it will return None if no object found with a matching id that was supplied
+    */
+  def updateStatus(
+     value: JsValue,
+     user: User
+   )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+    this.cacheManager.withUpdatingCache(Long => retrieveById) { implicit cachedItem =>
+      val parentId = (value \ "parentId").asOpt[Long].getOrElse(cachedItem.parent)
+      // status should probably not be allowed to be set through the update function, and rather
+      // it should be forced to use the setTaskStatus function
+      val status = (value \ "status").asOpt[Int].getOrElse(cachedItem.status.getOrElse(0))
+      if (!Task.isValidStatusProgression(cachedItem.status.getOrElse(0), status) &&
+        allCatch.opt(this.permission.hasWriteAccess(TaskType(), user)) == None) {
+        throw new InvalidException(
+          s"Could not set status for task [$id], " +
+            s"progression from ${cachedItem.status.getOrElse(0)} to $status not valid."
+        )
+      }
+
+      val task = this.mergeUpdateStatus(
+        cachedItem.copy(
+          status = Some(status)
+        )
+      )
+
+      // If we are setting the status back to created, then we need to
+      // reset the mapper, bundling, and completion_responses back to null
+      if (status == Task.STATUS_CREATED && id > 0) {
+        this.withMRConnection { implicit c =>
+          SQL"""UPDATE tasks t SET completed_time_spent = NULL, completed_by = NULL,
+                                   completion_responses = NULL,
+                                   is_bundle_primary = false, bundle_id = NULL
+             WHERE t.id = ${id}""".executeUpdate()
+        }
+      }
+
+      if (status == Task.STATUS_CREATED || status == Task.STATUS_SKIPPED) {
+        this.manager.challenge.updateReadyStatus()(parentId)
+      } else {
+        this.manager.challenge.updateFinishedStatus()(parentId)
+      }
+
+      task match {
+        case Some(t) =>
+          // If the status is changing and if we have a bundle id, then we need
+          // to clear it out along with any other tasks that also have that
+          // bundle id -- essentially breaking up the bundle. Otherwise this
+          // task could end up with a different status than other tasks
+          // in that bundle.
+          if (cachedItem.status != t.status && t.bundleId != None) {
+            this.serviceManager.taskBundle.deleteTaskBundle(user, t.bundleId.get)
+          }
+
+        case None => // do NOTHING
+      }
+
+      task
+    }
+  }
+
+
+  /**
     * This is a merge update function that will update the task if it exists otherwise it will
     * insert a new item.
     *
@@ -413,6 +480,42 @@ class TaskDAL @Inject() (
       Some(updatedElement)
     }
   }
+
+  /**
+    * This is a merge update function that will update the task if it exists otherwise it will
+    * insert a new item.
+    *
+    * @param element The element that needs to be inserted or updated. Although it could be updated,
+    *                it requires the element itself in case it needs to be inserted
+    * @param user    The user that is executing the function
+    * @param id      The id of the element that is being updated/inserted
+    * @param c       A connection to execute against
+    * @return
+    */
+  def mergeUpdateStatus(
+    element: Task,
+  )(implicit id: Long, c: Option[Connection] = None): Option[Task] = {
+
+    // before clearing the cache grab the cachedItem
+    // by setting the delete implicit to true we clear out the cache for the element
+    // The cachedItem could be
+    val cachedItem = this.cacheManager.withUpdatingCache(Long => retrieveById) {
+      implicit cachedItem =>
+        Some(cachedItem)
+    }(id, true, true)
+    this.withMRTransaction { implicit c =>
+      val query =
+        s"""UPDATE tasks SET status = ${element.status.getOrElse(0)} WHERE id = ${element.id}"""
+      SQL(query).executeUpdate()
+
+      //SQL"""UPDATE tasks SET status = ${element.status.getOrElse(0)} WHERE id = ${element.id}""".executeUpdate()
+
+      val updatedElement = element.copy(id = element.id)
+      this.cacheManager.cache.remove(element.id)
+      Some(updatedElement)
+    }
+  }
+
 
   /**
     * Function that extracts the cooperativeWork from the geometries
