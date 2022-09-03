@@ -266,7 +266,7 @@ object Challenge extends CommonField {
   val STATUS_FINISHED         = 5
   val STATUS_DELETING_TASKS   = 6
 
-  val STATUS_MESSAGE_NONE     = ""
+  val STATUS_MESSAGE_NONE                   = ""
   val STATUS_MESSAGE_UPDATING_TASK_STATUSES = "Updating Task Statuses"
 
   // COOPERATIVE TYPES
