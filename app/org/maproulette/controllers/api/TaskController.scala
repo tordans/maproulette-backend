@@ -527,10 +527,42 @@ class TaskController @Inject() (
             params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
         }
         val (count, tasks) = this.taskClusterService.getTasksInBoundingBox(user, params, Paging(-1))
-        tasks.foreach(task => {
-          val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
-          this.dal.update(taskJson, user)(task.id)
+        val challengeIds = params.challengeParams.challengeIds.getOrElse(List())
+
+        //update challenge status to building
+        challengeIds.foreach(challengeId => {
+          this.dalManager.challenge.update(Json.obj("status" -> Challenge.STATUS_BUILDING, "statusMessage" -> Challenge.STATUS_MESSAGE_UPDATING_TASK_STATUSES), user)(challengeId)
         })
+
+        def resetStatuses(): Unit = {
+          challengeIds.foreach (challengeId => {
+            val challenge = this.serviceManager.challenge.retrieve (challengeId).get
+
+            // We need to check if the Challenge status changed during the bulk task update
+            // and ensure we don't overwrite it.
+            // If it didn't get updated, change status to Ready.
+            if (challenge.status.get == Challenge.STATUS_BUILDING) {
+              this.dalManager.challenge.update (Json.obj ("status" -> Challenge.STATUS_READY, "statusMessage" -> Challenge.STATUS_MESSAGE_NONE), user) (challengeId)
+            } else {
+              this.dalManager.challenge.update (Json.obj ("statusMessage" -> Challenge.STATUS_MESSAGE_NONE), user) (challengeId)
+            }
+          })
+        }
+
+        Future(
+          try {
+            tasks.foreach(task => {
+              val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
+              this.dal.update(taskJson, user)(task.id)
+            })
+
+            resetStatuses()
+          } catch {
+            case e: Exception =>
+              resetStatuses()
+          }
+        )
+
         Ok(Json.toJson(tasks.length))
       }
     }
