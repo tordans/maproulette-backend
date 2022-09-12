@@ -19,11 +19,12 @@ import org.maproulette.exception.{
   StatusMessage
 }
 import org.maproulette.framework.model._
-import org.maproulette.framework.model.{Challenge}
+import org.maproulette.framework.model.Challenge
 import org.maproulette.framework.psql.Paging
 import org.maproulette.framework.service.{ServiceManager, TagService, TaskClusterService}
 import org.maproulette.framework.mixins.TagsControllerMixin
 import org.maproulette.framework.repository.TaskRepository
+import org.maproulette.metrics.Metrics
 import org.maproulette.models.dal.mixin.TagDALMixin
 import org.maproulette.models.dal.{DALManager, TaskDAL}
 import org.maproulette.provider.osm._
@@ -527,10 +528,87 @@ class TaskController @Inject() (
             params = p.copy(location = Some(SearchLocation(-180, -90, 180, 90)))
         }
         val (count, tasks) = this.taskClusterService.getTasksInBoundingBox(user, params, Paging(-1))
-        tasks.foreach(task => {
-          val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
-          this.dal.update(taskJson, user)(task.id)
+        val challengeIds   = params.challengeParams.challengeIds.getOrElse(List()).distinct.sorted
+
+        // Update challenge status to building
+        challengeIds.foreach(challengeId => {
+          this.dalManager.challenge.update(
+            Json.obj(
+              "status"        -> Challenge.STATUS_BUILDING,
+              "statusMessage" -> Challenge.STATUS_MESSAGE_UPDATING_TASK_STATUSES
+            ),
+            user
+          )(challengeId)
         })
+
+        def resetStatuses(): Unit = {
+          challengeIds.foreach(challengeId => {
+            val challenge = this.serviceManager.challenge.retrieve(challengeId).get
+
+            // We need to check if the Challenge status changed during the bulk task update
+            // and ensure we don't overwrite it.
+            // If it didn't get updated, change status to Ready.
+            if (challenge.status.get == Challenge.STATUS_BUILDING) {
+              this.dalManager.challenge.update(
+                Json.obj(
+                  "status"        -> Challenge.STATUS_READY,
+                  "statusMessage" -> Challenge.STATUS_MESSAGE_NONE
+                ),
+                user
+              )(challengeId)
+            } else {
+              this.dalManager.challenge.update(
+                Json.obj("statusMessage" -> Challenge.STATUS_MESSAGE_NONE),
+                user
+              )(challengeId)
+            }
+          })
+        }
+
+        val requestId     = request.id
+        val challengesStr = challengeIds.mkString(",")
+
+        Future {
+          logger.info(
+            "Starting bulkStatusChange for requestId={} challenges={} on {} tasks",
+            requestId,
+            challengesStr,
+            tasks.length
+          )
+          try {
+            Metrics.timer(s"bulkStatusChange_${requestId}_${challengesStr}") { () =>
+              tasks.foreach(task => {
+                val taskJson = Json.obj("id" -> task.id, "status" -> newStatus)
+                this.dal.update(taskJson, user)(task.id)
+              })
+            }
+          } finally {
+            logger.info(
+              "Finished running bulkStatusChange requestId={} challenges={} on {} tasks",
+              requestId,
+              challengesStr,
+              tasks.length
+            )
+            resetStatuses()
+          }
+        }.onComplete {
+          case Success(_) =>
+            logger.info(
+              "Successful bulkStatusChange update for requestId={} and challenges={} on {} tasks",
+              requestId,
+              challengesStr,
+              tasks.length
+            )
+          case Failure(e) =>
+            logger.warn(
+              "FAILED bulkStatusChange update for requestId={} and challenges={} on {} tasks",
+              requestId,
+              challengesStr,
+              tasks.length,
+              e
+            )
+        }
+
         Ok(Json.toJson(tasks.length))
       }
     }
