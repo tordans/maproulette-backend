@@ -116,7 +116,7 @@ class CommentService @Inject() (
     }
 
     for (task <- tasks) {
-      this.create(user, task.id, URLDecoder.decode(comment, "UTF-8"), actionId)
+      this.create(user, task.id, comment, actionId)
     }
     bundle
   }

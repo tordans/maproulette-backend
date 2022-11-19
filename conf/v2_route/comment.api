@@ -53,13 +53,13 @@ GET     /task/:id/comments                          @org.maproulette.framework.c
 #     in: path
 #     description: The ID for the Task
 #   - name: comment
-#     in: query
-#     description: A URLEncoded comment for the Task
+#     in: body
+#     description: The comment text
 #   - name: actionId
 #     in: query
 #     description: An optional action ID that may be associated with the comment
 ###
-POST    /task/:id/comment                           @org.maproulette.framework.controller.CommentController.add(id:Long, comment:String, actionId:Option[Long])
+POST    /task/:id/comment                           @org.maproulette.framework.controller.CommentController.add(id:Long, actionId:Option[Long])
 ###
 # tags: [ Comment ]
 # summary: Adds comment to each Task in a Task Bundle
@@ -76,13 +76,13 @@ POST    /task/:id/comment                           @org.maproulette.framework.c
 #     in: path
 #     description: The ID for the bundle
 #   - name: comment
-#     in: query
-#     description: A URLEncoded comment for the Task
+#     in: body
+#     description: The comment text
 #   - name: actionId
 #     in: query
 #     description: An optional action ID that may be associated with the comment
 ###
-POST    /taskBundle/:id/comment                     @org.maproulette.framework.controller.CommentController.addToBundleTasks(id:Long, comment:String, actionId:Option[Long])
+POST    /taskBundle/:id/comment                     @org.maproulette.framework.controller.CommentController.addToBundleTasks(id:Long, actionId:Option[Long])
 ###
 # tags: [ Comment ]
 # summary: Update comment on Task
@@ -101,10 +101,10 @@ POST    /taskBundle/:id/comment                     @org.maproulette.framework.c
 #     in: path
 #     description: The ID of the original comment
 #   - name: comment
-#     in: query
-#     description: A URLEncoded comment for the Task
+#     in: body
+#     description: The comment text
 ###
-PUT    /comment/:commentId                          @org.maproulette.framework.controller.CommentController.update(commentId:Long, comment:String)
+PUT    /comment/:commentId                          @org.maproulette.framework.controller.CommentController.update(commentId:Long)
 ###
 # tags: [ Comment ]
 # summary: Deletes comment from Task
@@ -139,10 +139,10 @@ DELETE  /task/:id/comment/:commentId                @org.maproulette.framework.c
 #     in: path
 #     description: The ID for the Challenge
 #   - name: comment
-#     in: query
-#     description: A URLEncoded comment for the Challenge
+#     in: body
+#     description: The comment text
 ###
-POST    /challenge/:id/comment                           @org.maproulette.framework.controller.CommentController.addChallengeComment(id:Long, comment:String)
+POST    /challenge/:id/comment                           @org.maproulette.framework.controller.CommentController.addChallengeComment(id:Long)
 ###
 # tags: [ Comment ]
 # summary: Retrieves comments for a Challenge
