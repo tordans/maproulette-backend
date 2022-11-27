@@ -42,8 +42,8 @@ For more details on the app registration process, see the [OSM OAuth wiki page](
 
 ### Server Configuration
 
-* Clone MapRoulette 2 `git clone https://github.com/maproulette/maproulette2.git`
-* `cd` into the newly created directory `cd maproulette2`
+* Clone MapRoulette 2 `git clone https://github.com/maproulette/maproulette-backend.git`
+* `cd` into the newly created directory `cd maproulette-backend`
 * Create a configuration file by copying the template file `cp conf/dev.conf.example conf/dev.conf`
 * Open `dev.conf` in a text editor and change at least the following entries:
     * `super.key`: a randomly chosen API key for superuser access
