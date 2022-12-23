@@ -5,13 +5,12 @@
 package org.maproulette.framework.controller
 
 import javax.inject.Inject
-import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.StatusMessage
 import org.maproulette.framework.service.{NotificationService}
 import org.maproulette.framework.model.{NotificationSubscriptions}
 import org.maproulette.framework.psql.{Order, OrderField, Paging}
 import org.maproulette.session.SessionManager
-import org.maproulette.utils.{Crypto, Utils}
+import org.maproulette.utils.Crypto
 import play.api.libs.json._
 import play.api.mvc._
 
@@ -67,23 +66,24 @@ class NotificationController @Inject() (
     }
   }
 
-  def markNotificationsRead(userId: Long, notificationIds: String): Action[AnyContent] =
-    Action.async { implicit request =>
+  def markNotificationsRead(userId: Long): Action[JsValue] =
+    Action.async(bodyParsers.json) { implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        if (!StringUtils.isEmpty(notificationIds)) {
-          val parsedNotificationIds = Utils.split(notificationIds).map(_.toLong)
-          this.service.markNotificationsRead(userId, user, parsedNotificationIds)
+        val notificationIds = (request.body \ "notificationIds").as[List[Long]]
+        if (!notificationIds.isEmpty) {
+          this.service.markNotificationsRead(userId, user, notificationIds)
         }
         Ok(Json.toJson(StatusMessage("OK", JsString(s"Notifications marked as read"))))
       }
     }
 
-  def deleteNotifications(userId: Long, notificationIds: String): Action[AnyContent] =
-    Action.async { implicit request =>
+  def deleteNotifications(userId: Long): Action[JsValue] =
+    Action.async(bodyParsers.json) { implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        if (!StringUtils.isEmpty(notificationIds)) {
-          val parsedNotificationIds = Utils.split(notificationIds).map(_.toLong)
-          this.service.deleteNotifications(userId, user, parsedNotificationIds)
+        val notificationIds = (request.body \ "notificationIds").as[List[Long]]
+
+        if (!notificationIds.isEmpty) {
+          this.service.deleteNotifications(userId, user, notificationIds)
         }
         Ok(Json.toJson(StatusMessage("OK", JsString(s"Notifications deleted"))))
       }
