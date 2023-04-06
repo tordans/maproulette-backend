@@ -28,6 +28,9 @@ import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 import scala.concurrent.Future
 
+import java.security.SecureRandom
+import java.math.BigInteger
+
 /**
   * All the authentication actions go in this class
   *
@@ -88,6 +91,46 @@ class AuthController @Inject() (
           }
       }
       p.future
+    }
+  }
+
+  def authenticate2(): Action[AnyContent] = Action.async { implicit request =>
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      val LENGTH = 48
+      val UNICODE_ASCII_CHARACTER_SET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toSeq
+
+      // Generate a random state string of a given length using a given set of characters
+      def generateRandomState(length: Int = LENGTH, chars: Seq[Char] = UNICODE_ASCII_CHARACTER_SET): String = {
+        val rand = new SecureRandom()
+        val state = new Array[Char](length)
+        for (i <- 0 until length) {
+          state(i) = chars(rand.nextInt(chars.length))
+        }
+        new String(state)
+      }
+
+      val state = generateRandomState()
+      val clientId = "1XwylJEHenPwRlQkZmjQ2zmbIm-274E640qIlIbfWoU"
+      val clientSecret = "gRWXeNqlNg4UCu_js12FpC6Gnd3BREW3_ymAnNNRRGg"
+      val tokenEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/token"
+      val authorizeEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/authorize"
+
+      val params = Map(
+        "client_id" -> clientId,
+        "response_type" -> "code",
+        "redirect_uri" -> "http://127.0.0.1:3000/",
+        "scope" -> "read_prefs write_api",
+        "state" -> state
+      )
+
+      val url = wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
+      wsClient.close()
+
+      val json = Json.obj(
+        "auth_url" -> url,
+        "state" -> state
+      )
+      Future(Ok(json))
     }
   }
 
