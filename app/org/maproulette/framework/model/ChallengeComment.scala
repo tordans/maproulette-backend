@@ -24,7 +24,9 @@ case class ChallengeComment(
     challengeId: Long,
     projectId: Long,
     created: DateTime,
-    comment: String
+    comment: String,
+    challengeName: Option[String] = None,
+    fullCount: Int = 0
 )
 
 object ChallengeComment extends CommonField {

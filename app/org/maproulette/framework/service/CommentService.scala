@@ -201,6 +201,41 @@ class CommentService @Inject() (
   }
 
   /**
+    * Finds task comments from a user
+    *
+    * @param userId The id of the challenge being searched
+    * @return a list of comments
+    */
+  def findUserComments(
+      userId: Long,
+      sort: String = "created",
+      order: String = "DESC",
+      limit: Int = 25,
+      page: Int = 0
+  ): List[Comment] = {
+    val taskComments = this.repository.queryByUserId(userId, sort, order, limit, page)
+    taskComments
+  }
+
+  /**
+    * Finds challenge comments from a user
+    *
+    * @param userId The id of the challenge being searched
+    * @return a list of comments
+    */
+  def findUserChallengeComments(
+      userId: Long,
+      sort: String = "created",
+      order: String = "DESC",
+      limit: Int = 25,
+      page: Int = 0
+  ): List[ChallengeComment] = {
+    val challengeComments =
+      this.challengeCommentRepository.queryByUserId(userId, sort, order, limit, page);
+    challengeComments
+  }
+
+  /**
     * Retrieves the comments based on the input criteria
     *
     * @param projectIdList Filter by any projects in the project id list
