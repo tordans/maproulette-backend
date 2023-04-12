@@ -44,6 +44,7 @@ trait SearchParametersMixin {
       this.filterChallenges(params),
       this.filterChallengeTags(params),
       this.filterChallengeEnabled(params),
+      this.filterProjectEnabled(params),
       this.filterChallengeArchived(params)
     )
 
