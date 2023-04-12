@@ -111,31 +111,4 @@ trait TaskFilterMixin {
       )
     )
   }
-
-  /**
-    * Adds filter on disabled projects and challenges to query
-    */
-  def filterOutDisabledParents(query: Query): Query = {
-    query.addFilterGroup(
-      FilterGroup(
-        List(
-          BaseParameter(
-            Project.FIELD_ENABLED,
-            true,
-            Operator.BOOL,
-            useValueDirectly = true,
-            table = Some("p")
-          ),
-          BaseParameter(
-            Challenge.FIELD_ENABLED,
-            true,
-            Operator.BOOL,
-            useValueDirectly = true,
-            table = Some("c")
-          )
-        ),
-        AND()
-      )
-    )
-  }
 }

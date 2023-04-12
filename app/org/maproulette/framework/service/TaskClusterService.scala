@@ -93,9 +93,7 @@ class TaskClusterService @Inject() (repository: TaskClusterRepository)
     var query =
       this.filterOutLocked(
         user,
-        this.filterOutDisabledParents(
-          this.filterOutDeletedParents(this.filterOnSearchParameters(params)(false))
-        ),
+        this.filterOutDeletedParents(this.filterOnSearchParameters(params)(false)),
         ignoreLocked
       )
 
