@@ -38,7 +38,7 @@ class TaskClusterService @Inject() (repository: TaskClusterRepository)
       numberOfPoints: Int = this.repository.DEFAULT_NUMBER_OF_POINTS
   ): List[TaskCluster] = {
     val filtered = this.filterOnSearchParameters(params)(false)
-    val query    = this.filterOutDeletedParents(filtered)
+    val query    = this.filterOutDisabledParents(this.filterOutDeletedParents(filtered))
 
     this.repository.queryTaskClusters(query, numberOfPoints, params)
   }
@@ -56,7 +56,9 @@ class TaskClusterService @Inject() (repository: TaskClusterRepository)
       params: SearchParameters,
       numberOfPoints: Int = this.repository.DEFAULT_NUMBER_OF_POINTS
   ): List[ClusteredPoint] = {
-    val query = this.filterOutDeletedParents(this.filterOnSearchParameters(params)(false))
+    val query = this.filterOutDisabledParents(
+      this.filterOutDeletedParents(this.filterOnSearchParameters(params)(false))
+    )
     this.repository.queryTasksInCluster(query, clusterId, numberOfPoints)
   }
 
@@ -92,23 +94,10 @@ class TaskClusterService @Inject() (repository: TaskClusterRepository)
     var query =
       this.filterOutLocked(
         user,
-        this.filterOutDeletedParents(this.filterOnSearchParameters(params)(false)),
+        this.filterOutDisabledParents(
+          this.filterOutDeletedParents(this.filterOnSearchParameters(params)(false))
+        ),
         ignoreLocked
-      )
-
-    if (params.projectEnabled.getOrElse(false))
-      query = query.addFilterGroup(
-        FilterGroup(
-          List(
-            BaseParameter(
-              Project.FIELD_ENABLED,
-              true,
-              Operator.BOOL,
-              useValueDirectly = true,
-              table = Some("p")
-            )
-          )
-        )
       )
 
     query = params.taskParams.excludeTaskIds match {
