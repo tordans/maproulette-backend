@@ -6,6 +6,7 @@ package org.maproulette.framework.mixins
 
 import org.maproulette.framework.model.{User, Challenge, Project}
 import org.maproulette.framework.psql.{Query, _}
+import org.maproulette.framework.psql.{AND}
 import org.maproulette.framework.psql.filter._
 import org.maproulette.data.Actions
 
@@ -89,19 +90,51 @@ trait TaskFilterMixin {
     query.addFilterGroup(
       FilterGroup(
         List(
-          FilterParameter.conditional(
+          BaseParameter(
             Challenge.FIELD_DELETED,
-            false,
+            true,
             Operator.BOOL,
+            true,
+            useValueDirectly = true,
             table = Some("c")
           ),
-          FilterParameter.conditional(
+          BaseParameter(
             Project.FIELD_DELETED,
-            false,
+            true,
             Operator.BOOL,
+            true,
+            useValueDirectly = true,
             table = Some("p")
           )
-        )
+        ),
+        AND()
+      )
+    )
+  }
+
+  /**
+    * Adds filter on disabled projects and challenges to query
+    */
+  def filterOutDisabledParents(query: Query): Query = {
+    query.addFilterGroup(
+      FilterGroup(
+        List(
+          BaseParameter(
+            Project.FIELD_ENABLED,
+            true,
+            Operator.BOOL,
+            useValueDirectly = true,
+            table = Some("p")
+          ),
+          BaseParameter(
+            Challenge.FIELD_ENABLED,
+            true,
+            Operator.BOOL,
+            useValueDirectly = true,
+            table = Some("c")
+          )
+        ),
+        AND()
       )
     )
   }
