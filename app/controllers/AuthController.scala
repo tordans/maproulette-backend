@@ -94,6 +94,67 @@ class AuthController @Inject() (
     }
   }
 
+//  def authenticate2: Action[AnyContent] = Action { implicit request =>
+//    val clientId = "cFogtzRCeVtKryYGonnmjXy6yHx2hUHDYmsWA1ZYtnE"
+//    val clientSecret = "56JSEHqLK3bVq5C9Z48sI0w53SUJ9wFOU4QiAsDtzkw"
+//    val authorizeEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/authorize"
+//    val redirectUrl = "http://127.0.0.1:9000/api/v2/callback"
+//
+//    def generateRandomState(length: Int = LENGTH, chars: Seq[Char] = UNICODE_ASCII_CHARACTER_SET): String = {
+//      val rand = new SecureRandom()
+//      val state = new Array[Char](length)
+//      for (i <- 0 until length) {
+//        state(i) = chars(rand.nextInt(chars.length))
+//      }
+//      new String(state)
+//    }
+//
+//    val oauthUrl = s"$authorizeEndpoint?client_id=$clientId&redirect_uri=$redirectUrl&response_type=code&scope=read%20write%20prefs"
+//    Redirect(oauthUrl)
+//  }
+
+  def callback(code: String): Action[AnyContent] = Action.async { implicit request =>
+    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
+      val tokenEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/token"
+      val clientId = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
+      val clientSecret = "MtLDgWWn-KvdWCFbmVf54EVP2KRP_B8RWEzNbJwghys"
+
+      val requestBody = Json.obj(
+        "grant_type" -> "authorization_code",
+        "code" -> code,
+        "client_id" -> clientId,
+        "client_secret" -> clientSecret,
+        "redirect_uri" -> "http://127.0.0.1:3000"
+      )
+
+      val responseFuture = for {
+        response <- wsClient.url(tokenEndpoint).post(requestBody)
+        result <- response.status match {
+          case OK =>
+            // Handle a successful response
+            val accessToken = (response.json \ "access_token").as[String]
+            // Store the access token securely for future use
+            // e.g., in a session or a secure database
+            Future.successful(Ok(s"Access token obtained successfully: $accessToken"))
+          case _ =>
+            // Handle a non-successful response
+            val errorMessage = (response.json \ "error_description").asOpt[String].getOrElse("Failed to obtain access token")
+            Future.successful(InternalServerError(errorMessage))
+        }
+      } yield result
+
+      responseFuture.recover {
+        case ex: Exception =>
+          // Handle any exceptions that may occur during the POST request
+          // e.g., log the error, return an error response, etc.
+          ex.printStackTrace()
+          val errorMessage = s"Failed to obtain access token: ${ex.getMessage()}"
+          InternalServerError(errorMessage)
+      }
+
+    }
+  }
+
   def authenticate2(): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val LENGTH = 48
@@ -110,15 +171,13 @@ class AuthController @Inject() (
       }
 
       val state = generateRandomState()
-      val clientId = "1XwylJEHenPwRlQkZmjQ2zmbIm-274E640qIlIbfWoU"
-      val clientSecret = "gRWXeNqlNg4UCu_js12FpC6Gnd3BREW3_ymAnNNRRGg"
-      val tokenEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/token"
+      val clientId = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
       val authorizeEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/authorize"
 
       val params = Map(
         "client_id" -> clientId,
         "response_type" -> "code",
-        "redirect_uri" -> "http://127.0.0.1:3000/",
+        "redirect_uri" -> "http://127.0.0.1:3000",
         "scope" -> "read_prefs write_api",
         "state" -> state
       )

@@ -5,6 +5,7 @@ GET     /ping                                                           @control
 # Authentication Routes
 GET     /auth/authenticate                                              @controllers.AuthController.authenticate
 GET     /auth/authenticate2                                             @controllers.AuthController.authenticate2
+GET     /auth/callback                                                  @controllers.AuthController.callback(code: String)
 GET     /auth/signout                                                   @controllers.AuthController.signOut
 POST    /auth/signIn                                                    @controllers.AuthController.signIn(redirect:String ?= "")
 GET     /auth/generateAPIKey                                            @controllers.AuthController.generateAPIKey(userId:Long ?= -1)
