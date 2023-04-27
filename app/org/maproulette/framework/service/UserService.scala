@@ -194,21 +194,20 @@ class UserService @Inject() (
   }
 
   /**
-    * Match the user based on the token, secret and id for the user.
+    * Match the user based on the token and id for the user.
     *
     * @param id           The id of the user
-    * @param requestToken The request token containing the access token and secret
+    * @param requestToken The osm oauth2 token
     * @return The matched user, None if User not found
     */
-  def matchByRequestToken(id: Long, requestToken: RequestToken, user: User): Option[User] = {
+  def matchByRequestToken(id: Long, requestToken: String, user: User): Option[User] = {
     val requestedUser = this.cacheManager.withCaching { () =>
       this
         .query(
           Query.simple(
             List(
               FilterParameter.conditional(User.FIELD_ID, id, includeOnlyIfTrue = id > 0),
-              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken.token),
-              BaseParameter(User.FIELD_OAUTH_SECRET, requestToken.secret)
+              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken),
             )
           ),
           user
@@ -218,13 +217,16 @@ class UserService @Inject() (
     requestedUser match {
       case Some(u) =>
         // double check that the token and secret still match, in case it came from the cache
-        if (StringUtils.equals(u.osmProfile.requestToken.token, requestToken.token) &&
-            StringUtils.equals(u.osmProfile.requestToken.secret, requestToken.secret)) {
-          this.permission.hasObjectReadAccess(u, user)
-          Some(u)
-        } else {
-          None
-        }
+//        if (StringUtils.equals(u.osmProfile.requestToken.token, requestToken.token) &&
+//            StringUtils.equals(u.osmProfile.requestToken.secret, requestToken.secret)) {
+//          this.permission.hasObjectReadAccess(u, user)
+//          Some(u)
+//        } else {
+//          None
+//        }
+        //not sure what we need to do here now
+        var a = 'a'
+        None
       case None => None
     }
   }
@@ -331,10 +333,7 @@ class UserService @Inject() (
         .getOrElse(cachedItem.osmProfile.avatarURL)
       val token = (value \ "osmProfile" \ "token")
         .asOpt[String]
-        .getOrElse(cachedItem.osmProfile.requestToken.token)
-      val secret = (value \ "osmProfile" \ "secret")
-        .asOpt[String]
-        .getOrElse(cachedItem.osmProfile.requestToken.secret)
+        .getOrElse(cachedItem.osmProfile.requestToken)
       // todo: allow to insert in WKT, WKB or latitude/longitude
       val latitude = (value \ "osmProfile" \ "homeLocation" \ "latitude")
         .asOpt[Double]
@@ -405,7 +404,7 @@ class UserService @Inject() (
               avatarURL,
               null,
               DateTime.now(),
-              RequestToken(token, secret)
+              token
             ),
             settings = UserSettings(
               Some(defaultEditor),

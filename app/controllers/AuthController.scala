@@ -56,7 +56,7 @@ class AuthController @Inject() (
     *
     * @return Redirects back to the index page containing a valid session
     */
-  def authenticate(): Action[AnyContent] = Action.async { implicit request =>
+  def authenticate2(): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val p        = Promise[Result]()
       val redirect = request.getQueryString("redirect").getOrElse("")
@@ -119,7 +119,7 @@ class AuthController @Inject() (
       val clientId = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
       val clientSecret = "MtLDgWWn-KvdWCFbmVf54EVP2KRP_B8RWEzNbJwghys"
 
-      val requestBody = Json.obj(
+      val requestBody = Map(
         "grant_type" -> "authorization_code",
         "code" -> code,
         "client_id" -> clientId,
@@ -128,16 +128,29 @@ class AuthController @Inject() (
       )
 
       val responseFuture = for {
-        response <- wsClient.url(tokenEndpoint).post(requestBody)
+        response <- wsClient.url(tokenEndpoint).withHttpHeaders(ACCEPT -> JSON).withHttpHeaders(CONTENT_TYPE -> FORM).post(requestBody)
         result <- response.status match {
           case OK =>
-            // Handle a successful response
             val accessToken = (response.json \ "access_token").as[String]
-            // Store the access token securely for future use
-            // e.g., in a session or a secure database
-            Future.successful(Ok(s"Access token obtained successfully: $accessToken"))
+            val p        = Promise[Result]()
+            sessionManager.retrieveUser(accessToken) onComplete {
+              case Success(user) =>
+                p success this.withOSMSession(
+                  user,
+                  Redirect("http://127.0.0.1:3000", SEE_OTHER).withHeaders(("Cache-Control", "no-cache"))
+                )
+
+                Future(storeAPIKeyInOSM(user))
+
+              case Failure(e) => p failure e
+            }
+
+            val json = Json.obj(
+              "token" -> accessToken,
+            )
+
+            Future.successful(Ok(json))
           case _ =>
-            // Handle a non-successful response
             val errorMessage = (response.json \ "error_description").asOpt[String].getOrElse("Failed to obtain access token")
             Future.successful(InternalServerError(errorMessage))
         }
@@ -155,7 +168,7 @@ class AuthController @Inject() (
     }
   }
 
-  def authenticate2(): Action[AnyContent] = Action.async { implicit request =>
+  def authenticate(): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val LENGTH = 48
       val UNICODE_ASCII_CHARACTER_SET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toSeq
@@ -183,20 +196,22 @@ class AuthController @Inject() (
       )
 
       val url = wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
-      wsClient.close()
+      //wsClient.close()
 
       val json = Json.obj(
         "auth_url" -> url,
         "state" -> state
       )
-      Future(Ok(json))
+
+      Future(Redirect(url, SEE_OTHER).withHeaders(("Cache-Control", "no-cache")))
+
+//      Future(Ok(json))
     }
   }
 
   def withOSMSession(user: User, result: Result): Result = {
     result.withSession(
-      SessionManager.KEY_TOKEN     -> user.osmProfile.requestToken.token,
-      SessionManager.KEY_SECRET    -> user.osmProfile.requestToken.secret,
+      SessionManager.KEY_TOKEN     -> user.osmProfile.requestToken,
       SessionManager.KEY_USER_ID   -> user.id.toString,
       SessionManager.KEY_OSM_ID    -> user.osmProfile.id.toString,
       SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
@@ -242,7 +257,7 @@ class AuthController @Inject() (
               p success this.withOSMSession(
                 user,
                 Redirect(getRedirectURL(request, redirect))
-                  .withHeaders(("Cache-Control", "no-chache"))
+                  .withHeaders(("Cache-Control", "no-cache"))
               )
             case None =>
               p failure new OAuthNotAuthorizedException("Invalid username or apiKey provided")
@@ -286,8 +301,8 @@ class AuthController @Inject() (
 
       wsClient
         .url(s"${config.getOSMServer}${config.getOSMPreferences}")
-        .withHttpHeaders(ACCEPT -> JSON)
-        .sign(OAuthCalculator(config.getOSMOauth.consumerKey, user.osmProfile.requestToken))
+        .withHttpHeaders(ACCEPT -> JSON, "Authorization" -> s"Bearer ${user.osmProfile.requestToken}")
+        //.sign(OAuthCalculator(config.getOSMOauth.consumerKey, user.osmProfile.requestToken))
         .put(decryptedAPIKey) onComplete {
         case Success(response) =>
           if (response.status != 200) {

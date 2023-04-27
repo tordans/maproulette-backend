@@ -135,7 +135,7 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
         "",
         Location(1.0, 2.0),
         DateTime.now(),
-        RequestToken("token", "secret")
+        "token"
       ),
       List.empty,
       Some(UUID.randomUUID().toString)

@@ -62,8 +62,7 @@ class UserRepository @Inject() (
           Symbol("name")        -> user.osmProfile.displayName,
           Symbol("description") -> user.osmProfile.description,
           Symbol("avatarURL")   -> user.osmProfile.avatarURL,
-          Symbol("token")       -> user.osmProfile.requestToken.token,
-          Symbol("secret")      -> user.osmProfile.requestToken.secret,
+          Symbol("token")       -> user.osmProfile.requestToken,
           Symbol("wkt")         -> s"SRID=4326;$ewkt",
           Symbol("id")          -> user.id
         )
@@ -119,8 +118,7 @@ class UserRepository @Inject() (
           Symbol("name")                 -> user.osmProfile.displayName,
           Symbol("description")          -> user.osmProfile.description,
           Symbol("avatarURL")            -> user.osmProfile.avatarURL,
-          Symbol("token")                -> user.osmProfile.requestToken.token,
-          Symbol("secret")               -> user.osmProfile.requestToken.secret,
+          Symbol("token")                -> user.osmProfile.requestToken,
           Symbol("wkt")                  -> s"SRID=4326;$ewkt",
           Symbol("id")                   -> user.id,
           Symbol("defaultEditor")        -> user.settings.defaultEditor,
@@ -549,7 +547,7 @@ object UserRepository {
             avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY),
             osmCreated,
-            RequestToken(oauthToken, oauthSecret)
+            oauthToken
           ),
           grantFunc.apply(id),
           apiKey,
