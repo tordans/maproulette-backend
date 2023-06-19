@@ -113,6 +113,9 @@ class AuthController @Inject() (
 //    Redirect(oauthUrl)
 //  }
 
+  //oauth2 endpoint.  takes the authcode provided by OSM and uses it to retrieve a token.
+  //we also check to see if there is a user associated with the token in the system.
+  //if not, we create a new user
   def callback(code: String): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val tokenEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/token"
@@ -133,15 +136,21 @@ class AuthController @Inject() (
           case OK =>
             val accessToken = (response.json \ "access_token").as[String]
             val p        = Promise[Result]()
+
+            //use the accessToken to retrieve the user.  if not found, create a new user
             sessionManager.retrieveUser(accessToken) onComplete {
               case Success(user) =>
+                // We received the authorized token in the OAuth object - store it before we proceed
                 p success this.withOSMSession(
                   user,
+                  //should we really be redirecting? MR calls this endpoint, so probably not needed anymore
                   Redirect("http://127.0.0.1:3000", SEE_OTHER).withHeaders(("Cache-Control", "no-cache"))
                 )
 
                 Future(storeAPIKeyInOSM(user))
 
+                //this failure would occur if a user isn't found in the system.
+                //we should create a user here
               case Failure(e) => p failure e
             }
 
@@ -151,6 +160,7 @@ class AuthController @Inject() (
 
             Future.successful(Ok(json))
           case _ =>
+            //this error would occur if the oauth2 /token endpoint fails for whatever reason
             val errorMessage = (response.json \ "error_description").asOpt[String].getOrElse("Failed to obtain access token")
             Future.successful(InternalServerError(errorMessage))
         }

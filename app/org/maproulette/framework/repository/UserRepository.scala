@@ -48,11 +48,11 @@ class UserRepository @Inject() (
       val query =
         s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
                               name = {name}, description = {description}, avatar_url = {avatarURL},
-                              oauth_token = {token}, oauth_secret = {secret},  home_location = ST_GeomFromEWKT({wkt})
+                              oauth_token = {token},  home_location = ST_GeomFromEWKT({wkt})
                             WHERE id = {id} OR osm_id = {osmID} RETURNING ${UserRepository.standardColumns})
             INSERT INTO users (api_key, osm_id, osm_created, name, description,
-                               avatar_url, oauth_token, oauth_secret, home_location)
-            SELECT {apiKey}, {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, {secret}, ST_GeomFromEWKT({wkt})
+                               avatar_url, oauth_token, home_location)
+            SELECT {apiKey}, {osmID}, {osmCreated}, {name}, {description}, {avatarURL}, {token}, ST_GeomFromEWKT({wkt})
             WHERE NOT EXISTS (SELECT * FROM upsert)"""
       SQL(query)
         .on(

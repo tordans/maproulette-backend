@@ -75,7 +75,7 @@ class SessionManager @Inject() (
           case Some(u) =>
             var a = 'a'
             //need to do stuff here
-            //p success u.copy(osmProfile = u.osmProfile.copy(requestToken = token))
+            p success u.copy(osmProfile = u.osmProfile.copy(requestToken = token))
           case None => p failure new OAuthNotAuthorizedException()
         }
 
@@ -229,6 +229,8 @@ class SessionManager @Inject() (
     *
     * @param token The token pair, None if no token pair is found.
     * @param create    default false, if true will create a new user in the database from the OSM User details.
+    *                  Clarification: if true, it will still only create a user if a user isn't found. The toggle
+    *                    will not create duplicate users if set to true
     * @param request   The http request that initiated the requirement for retrieving the user
     * @return A Future for an optional user, if user not found, or could not be created will return
     *         None.
@@ -372,7 +374,7 @@ class SessionManager @Inject() (
 //      .url(this.osmOAuth.userDetailsURL)
 //      .sign(OAuthCalculator(this.osmOAuth.consumerKey, accessToken))
 
-    val endpoint = s"https://api.openstreetmap.org/api/0.6/user/${user.osmProfile.id}.json"
+    val endpoint = s"https://master.apis.dev.openstreetmap.org/api/0.6/user/details"
 
     ws.url(endpoint)
       .withHttpHeaders(
@@ -382,6 +384,8 @@ class SessionManager @Inject() (
       .map { response =>
         if (response.status == 200) {
           try {
+            val responseBody = response.body
+            val bbb = "a"
             val newUser = User.generate(response.body, accessToken, config)
             val osmUser = this.serviceManager.user.create(newUser, user)
             p success Some(this.serviceManager.user.initializeHomeProject(osmUser))
