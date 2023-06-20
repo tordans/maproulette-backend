@@ -216,15 +216,13 @@ class UserService @Inject() (
     }(id = id)
     requestedUser match {
       case Some(u) =>
-        // double check that the token and secret still match, in case it came from the cache
+        // double check that the token still matches, in case it came from the cache
         if (StringUtils.equals(u.osmProfile.requestToken, requestToken)) {
           this.permission.hasObjectReadAccess(u, user)
           Some(u)
         } else {
           None
         }
-
-        None
       case None => None
     }
   }

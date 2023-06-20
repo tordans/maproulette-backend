@@ -129,7 +129,7 @@ class SessionManager @Inject() (
       block: Option[User] => Result
   )(implicit request: Request[Any]): Future[Result] = {
     val p = Promise[Result]()
-    this.sessionUser(sessionTokenPair) onComplete {
+    this.sessionUser(retrieveSessionToken) onComplete {
       case Success(result) =>
         Try(block(result)) match {
           case Success(res) => p success res
@@ -162,7 +162,7 @@ class SessionManager @Inject() (
   )(implicit request: Request[Any], requireSuperUser: Boolean = false): Future[Result] = {
     val p = Promise[Result]()
     try {
-      this.sessionUser(sessionTokenPair) onComplete {
+      this.sessionUser(retrieveSessionToken) onComplete {
         case Success(result) =>
           result match {
             case Some(user) =>
@@ -210,7 +210,7 @@ class SessionManager @Inject() (
     * @return The OSM request token. None if
     *         no session has been established yet
     */
-  def sessionTokenPair(implicit request: RequestHeader): Option[String] = {
+  def retrieveSessionToken(implicit request: RequestHeader): Option[String] = {
     for {
       token  <- request.session.get(SessionManager.KEY_TOKEN)
       tick   <- request.session.get(SessionManager.KEY_USER_TICK)
@@ -441,4 +441,5 @@ object SessionManager {
   val KEY_USER_ID   = "userId"
   val KEY_OSM_ID    = "osmId"
   val KEY_API       = "apiKey"
+  val KEY_STATE     = "state"
 }

@@ -141,11 +141,24 @@ class AuthController @Inject() (
             sessionManager.retrieveUser(accessToken) onComplete {
               case Success(user) =>
                 // We received the authorized token in the OAuth object - store it before we proceed
-                p success this.withOSMSession(
-                  user,
-                  //should we really be redirecting? MR calls this endpoint, so probably not needed anymore
-                  Redirect("http://127.0.0.1:3000", SEE_OTHER).withHeaders(("Cache-Control", "no-cache"))
+                val json = Json.obj(
+                  "token" -> accessToken,
                 )
+
+                p success
+                  Ok(json).withHeaders(("Cache-Control", "no-cache")).withSession(
+                    SessionManager.KEY_TOKEN -> user.osmProfile.requestToken,
+                    SessionManager.KEY_USER_ID -> user.id.toString,
+                    SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
+                    SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
+                  )
+
+
+//                val json = Json.obj(
+//                  "token" -> accessToken,
+//                )
+//
+//                Future.successful(this.withOSMSession(user, Ok(json)))
 
                 Future(storeAPIKeyInOSM(user))
 
@@ -154,11 +167,7 @@ class AuthController @Inject() (
               case Failure(e) => p failure e
             }
 
-            val json = Json.obj(
-              "token" -> accessToken,
-            )
-
-            Future.successful(Ok(json))
+            p.future
           case _ =>
             //this error would occur if the oauth2 /token endpoint fails for whatever reason
             val errorMessage = (response.json \ "error_description").asOpt[String].getOrElse("Failed to obtain access token")
