@@ -140,7 +140,9 @@ class Config @Inject() (implicit val configuration: Configuration) {
   lazy val proxyPort: Option[Int] = this.config.getOptional[Int](Config.KEY_PROXY_PORT)
   lazy val isProxySSL: Boolean =
     this.config.getOptional[Boolean](Config.KEY_PROXY_SSL).getOrElse(false);
-  lazy val allowMatchOSM        = changeSetEnabled || osmMatcherEnabled || osmMatcherManualOnly
+  lazy val allowMatchOSM = changeSetEnabled || osmMatcherEnabled || osmMatcherManualOnly
+  lazy val getMRFrontend: String =
+    this.config.getOptional[String](Config.KEY_MAPROULETTE_FRONTEND).get
   lazy val getOSMServer: String = this.config.getOptional[String](Config.KEY_OSM_SERVER).get
   lazy val getOSMPreferences: String =
     this.config.getOptional[String](Config.KEY_OSM_PREFERENCES).get
@@ -340,10 +342,11 @@ object Config {
     s"$SUB_GROUP_SCHEDULER.challengesSnapshot.interval"
   val KEY_SCHEDULER_SNAPSHOT_CHALLENGES_START = s"$SUB_GROUP_SCHEDULER.challengesSnapshot.startTime"
 
-  val SUB_GROUP_MAPILLARY     = s"$GROUP_MAPROULETTE.mapillary"
-  val KEY_MAPILLARY_HOST      = s"$SUB_GROUP_MAPILLARY.host"
-  val KEY_MAPILLARY_CLIENT_ID = s"$SUB_GROUP_MAPILLARY.clientId"
-  val KEY_MAPILLARY_BORDER    = s"$SUB_GROUP_MAPILLARY.border"
+  val KEY_MAPROULETTE_FRONTEND = s"$GROUP_MAPROULETTE.frontend"
+  val SUB_GROUP_MAPILLARY      = s"$GROUP_MAPROULETTE.mapillary"
+  val KEY_MAPILLARY_HOST       = s"$SUB_GROUP_MAPILLARY.host"
+  val KEY_MAPILLARY_CLIENT_ID  = s"$SUB_GROUP_MAPILLARY.clientId"
+  val KEY_MAPILLARY_BORDER     = s"$SUB_GROUP_MAPILLARY.border"
 
   val GROUP_OSM                         = "osm"
   val KEY_OSM_SERVER                    = s"$GROUP_OSM.server"

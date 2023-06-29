@@ -26,7 +26,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Promise
 import scala.util.{Failure, Success}
 import scala.concurrent.Future
-
 import java.security.SecureRandom
 
 /**
@@ -54,16 +53,16 @@ class AuthController @Inject() (
   //if not, we create a new user
   def callback(code: String): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      val tokenEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/token"
-      val clientId      = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
-      val clientSecret  = "MtLDgWWn-KvdWCFbmVf54EVP2KRP_B8RWEzNbJwghys"
+      val tokenEndpoint = s"${config.getOSMServer}/oauth2/token"
+      val clientId      = s"${config.getOSMOauth.consumerKey.key}"
+      val clientSecret  = s"${config.getOSMOauth.consumerKey.secret}"
 
       val requestBody = Map(
         "grant_type"    -> "authorization_code",
         "code"          -> code,
         "client_id"     -> clientId,
         "client_secret" -> clientSecret,
-        "redirect_uri"  -> "http://127.0.0.1:3000"
+        "redirect_uri"  -> config.getMRFrontend
       )
 
       val responseFuture = for {
@@ -140,24 +139,19 @@ class AuthController @Inject() (
       }
 
       val state             = generateRandomState()
-      val clientId          = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
-      val authorizeEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/authorize"
+      val clientId          = s"${config.getOSMOauth.consumerKey.key}"
+      val authorizeEndpoint = s"${config.getOSMServer}/oauth2/authorize"
 
       val params = Map(
         "client_id"     -> clientId,
         "response_type" -> "code",
-        "redirect_uri"  -> "http://127.0.0.1:3000",
+        "redirect_uri"  -> config.getMRFrontend,
         "scope"         -> "read_prefs write_api",
         "state"         -> state
       )
 
       val url =
         wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
-
-      val json = Json.obj(
-        "auth_url" -> url,
-        "state"    -> state
-      )
 
       Future(Redirect(url, SEE_OTHER).withHeaders(("Cache-Control", "no-cache")))
     }
@@ -259,7 +253,6 @@ class AuthController @Inject() (
           ACCEPT          -> JSON,
           "Authorization" -> s"Bearer ${user.osmProfile.requestToken}"
         )
-        //.sign(OAuthCalculator(config.getOSMOauth.consumerKey, user.osmProfile.requestToken))
         .put(decryptedAPIKey) onComplete {
         case Success(response) =>
           if (response.status != 200) {

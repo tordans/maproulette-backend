@@ -73,8 +73,6 @@ class SessionManager @Inject() (
       case Success(user) =>
         user match {
           case Some(u) =>
-            var a = 'a'
-            //need to do stuff here
             p success u.copy(osmProfile = u.osmProfile.copy(requestToken = token))
           case None => p failure new OAuthNotAuthorizedException()
         }
@@ -369,12 +367,7 @@ class SessionManager @Inject() (
   def refreshProfile(accessToken: String, user: User): Future[Option[User]] = {
     val p = Promise[Option[User]]()
     // if no user is matched, then lets create a new user
-
-//    val details = this.ws
-//      .url(this.osmOAuth.userDetailsURL)
-//      .sign(OAuthCalculator(this.osmOAuth.consumerKey, accessToken))
-
-    val endpoint = s"https://master.apis.dev.openstreetmap.org/api/0.6/user/details"
+    val endpoint = s"${config.getOSMServer}/api/0.6/user/details"
 
     ws.url(endpoint)
       .withHttpHeaders(
@@ -384,10 +377,8 @@ class SessionManager @Inject() (
       .map { response =>
         if (response.status == 200) {
           try {
-            val responseBody = response.body
-            val bbb          = "a"
-            val newUser      = User.generate(response.body, accessToken, config)
-            val osmUser      = this.serviceManager.user.create(newUser, user)
+            val newUser = User.generate(response.body, accessToken, config)
+            val osmUser = this.serviceManager.user.create(newUser, user)
             p success Some(this.serviceManager.user.initializeHomeProject(osmUser))
           } catch {
             case e: Exception => p failure e
@@ -398,22 +389,6 @@ class SessionManager @Inject() (
           )
         }
       }
-
-//    details.get() onComplete {
-//      case Success(detailsResponse) if detailsResponse.status == HttpResponseStatus.OK.code() =>
-//        try {
-//          val newUser = User.generate(detailsResponse.body, accessToken, config)
-//          val osmUser = this.serviceManager.user.create(newUser, user)
-//          p success Some(this.serviceManager.user.initializeHomeProject(osmUser))
-//        } catch {
-//          case e: Exception => p failure e
-//        }
-//      case Success(response) =>
-//        p failure new OAuthNotAuthorizedException(response.body)
-//      case Failure(error) =>
-//        logger.error(error.getMessage, error)
-//        p failure error
-//    }
     p.future
   }
 
