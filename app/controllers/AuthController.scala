@@ -55,39 +55,45 @@ class AuthController @Inject() (
   def callback(code: String): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val tokenEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/token"
-      val clientId = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
-      val clientSecret = "MtLDgWWn-KvdWCFbmVf54EVP2KRP_B8RWEzNbJwghys"
+      val clientId      = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
+      val clientSecret  = "MtLDgWWn-KvdWCFbmVf54EVP2KRP_B8RWEzNbJwghys"
 
       val requestBody = Map(
-        "grant_type" -> "authorization_code",
-        "code" -> code,
-        "client_id" -> clientId,
+        "grant_type"    -> "authorization_code",
+        "code"          -> code,
+        "client_id"     -> clientId,
         "client_secret" -> clientSecret,
-        "redirect_uri" -> "http://127.0.0.1:3000"
+        "redirect_uri"  -> "http://127.0.0.1:3000"
       )
 
       val responseFuture = for {
-        response <- wsClient.url(tokenEndpoint).withHttpHeaders(ACCEPT -> JSON).withHttpHeaders(CONTENT_TYPE -> FORM).post(requestBody)
+        response <- wsClient
+          .url(tokenEndpoint)
+          .withHttpHeaders(ACCEPT -> JSON)
+          .withHttpHeaders(CONTENT_TYPE -> FORM)
+          .post(requestBody)
         result <- response.status match {
           case OK =>
             val accessToken = (response.json \ "access_token").as[String]
-            val p        = Promise[Result]()
+            val p           = Promise[Result]()
 
             //use the accessToken to retrieve the user.  if not found, create a new user
             sessionManager.retrieveUser(accessToken) onComplete {
               case Success(user) =>
                 // We received the authorized token in the OAuth object - store it before we proceed
                 val json = Json.obj(
-                  "token" -> accessToken,
+                  "token" -> accessToken
                 )
 
                 p success
-                  Ok(json).withHeaders(("Cache-Control", "no-cache")).withSession(
-                    SessionManager.KEY_TOKEN -> user.osmProfile.requestToken,
-                    SessionManager.KEY_USER_ID -> user.id.toString,
-                    SessionManager.KEY_OSM_ID -> user.osmProfile.id.toString,
-                    SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
-                  )
+                  Ok(json)
+                    .withHeaders(("Cache-Control", "no-cache"))
+                    .withSession(
+                      SessionManager.KEY_TOKEN     -> user.osmProfile.requestToken,
+                      SessionManager.KEY_USER_ID   -> user.id.toString,
+                      SessionManager.KEY_OSM_ID    -> user.osmProfile.id.toString,
+                      SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
+                    )
 
                 Future(storeAPIKeyInOSM(user))
               case Failure(e) => p failure e
@@ -95,7 +101,9 @@ class AuthController @Inject() (
 
             p.future
           case _ =>
-            val errorMessage = (response.json \ "error_description").asOpt[String].getOrElse("Failed to obtain access token")
+            val errorMessage = (response.json \ "error_description")
+              .asOpt[String]
+              .getOrElse("Failed to obtain access token")
             Future.successful(InternalServerError(errorMessage))
         }
       } yield result
@@ -115,11 +123,15 @@ class AuthController @Inject() (
   def authenticate(): Action[AnyContent] = Action.async { implicit request =>
     MPExceptionUtil.internalAsyncExceptionCatcher { () =>
       val LENGTH = 48
-      val UNICODE_ASCII_CHARACTER_SET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toSeq
+      val UNICODE_ASCII_CHARACTER_SET =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toSeq
 
       // Generate a random state string of a given length using a given set of characters
-      def generateRandomState(length: Int = LENGTH, chars: Seq[Char] = UNICODE_ASCII_CHARACTER_SET): String = {
-        val rand = new SecureRandom()
+      def generateRandomState(
+          length: Int = LENGTH,
+          chars: Seq[Char] = UNICODE_ASCII_CHARACTER_SET
+      ): String = {
+        val rand  = new SecureRandom()
         val state = new Array[Char](length)
         for (i <- 0 until length) {
           state(i) = chars(rand.nextInt(chars.length))
@@ -127,23 +139,24 @@ class AuthController @Inject() (
         new String(state)
       }
 
-      val state = generateRandomState()
-      val clientId = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
+      val state             = generateRandomState()
+      val clientId          = "RflKMjhJsuY5ktIYzuaVJ5JMOasjwRDtV0mq2OLPaxk"
       val authorizeEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/authorize"
 
       val params = Map(
-        "client_id" -> clientId,
+        "client_id"     -> clientId,
         "response_type" -> "code",
-        "redirect_uri" -> "http://127.0.0.1:3000",
-        "scope" -> "read_prefs write_api",
-        "state" -> state
+        "redirect_uri"  -> "http://127.0.0.1:3000",
+        "scope"         -> "read_prefs write_api",
+        "state"         -> state
       )
 
-      val url = wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
+      val url =
+        wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
 
       val json = Json.obj(
         "auth_url" -> url,
-        "state" -> state
+        "state"    -> state
       )
 
       Future(Redirect(url, SEE_OTHER).withHeaders(("Cache-Control", "no-cache")))
@@ -242,7 +255,10 @@ class AuthController @Inject() (
 
       wsClient
         .url(s"${config.getOSMServer}${config.getOSMPreferences}")
-        .withHttpHeaders(ACCEPT -> JSON, "Authorization" -> s"Bearer ${user.osmProfile.requestToken}")
+        .withHttpHeaders(
+          ACCEPT          -> JSON,
+          "Authorization" -> s"Bearer ${user.osmProfile.requestToken}"
+        )
         //.sign(OAuthCalculator(config.getOSMOauth.consumerKey, user.osmProfile.requestToken))
         .put(decryptedAPIKey) onComplete {
         case Success(response) =>

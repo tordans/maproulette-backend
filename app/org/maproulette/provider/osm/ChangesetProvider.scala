@@ -301,9 +301,11 @@ class ChangesetProvider @Inject() (
   def closeChangeset(changesetId: Int, accessToken: String): Future[Boolean] = {
     implicit val url = s"${config.getOSMServer}/api/0.6/changeset/$changesetId/close"
     implicit val req =
-      ws.url(url).withHttpHeaders(
-        "Authorization" -> s"Bearer $accessToken"
-      ).put("")
+      ws.url(url)
+        .withHttpHeaders(
+          "Authorization" -> s"Bearer $accessToken"
+        )
+        .put("")
     this.checkResult[Boolean] { response =>
       true
     }

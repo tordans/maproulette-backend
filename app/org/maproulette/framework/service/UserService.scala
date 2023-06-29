@@ -207,7 +207,7 @@ class UserService @Inject() (
           Query.simple(
             List(
               FilterParameter.conditional(User.FIELD_ID, id, includeOnlyIfTrue = id > 0),
-              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken),
+              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken)
             )
           ),
           user

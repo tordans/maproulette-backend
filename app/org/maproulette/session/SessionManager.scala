@@ -212,8 +212,8 @@ class SessionManager @Inject() (
     */
   def retrieveSessionToken(implicit request: RequestHeader): Option[String] = {
     for {
-      token  <- request.session.get(SessionManager.KEY_TOKEN)
-      tick   <- request.session.get(SessionManager.KEY_USER_TICK)
+      token <- request.session.get(SessionManager.KEY_TOKEN)
+      tick  <- request.session.get(SessionManager.KEY_USER_TICK)
       if tick.toLong >= DateTime
         .now()
         .getMillis - config.sessionTimeout || config.ignoreSessionTimeout
@@ -385,15 +385,17 @@ class SessionManager @Inject() (
         if (response.status == 200) {
           try {
             val responseBody = response.body
-            val bbb = "a"
-            val newUser = User.generate(response.body, accessToken, config)
-            val osmUser = this.serviceManager.user.create(newUser, user)
+            val bbb          = "a"
+            val newUser      = User.generate(response.body, accessToken, config)
+            val osmUser      = this.serviceManager.user.create(newUser, user)
             p success Some(this.serviceManager.user.initializeHomeProject(osmUser))
           } catch {
             case e: Exception => p failure e
           }
         } else {
-          throw new RuntimeException(s"Failed to retrieve user from OSM. Status code: ${response.status}")
+          throw new RuntimeException(
+            s"Failed to retrieve user from OSM. Status code: ${response.status}"
+          )
         }
       }
 
