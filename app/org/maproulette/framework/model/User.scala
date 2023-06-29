@@ -45,7 +45,7 @@ case class Location(latitude: Double, longitude: Double, name: Option[String] = 
   * @param avatarURL    The avatar URL to enabling displaying of their avatar
   * @param homeLocation Their home location
   * @param created      When their OSM account was created
-  * @param requestToken The key and secret (access token) used for authorization
+  * @param requestToken The key used for authorization
   */
 case class OSMProfile(
     id: Long,
@@ -289,7 +289,6 @@ object User extends CommonField {
   val FIELD_OSM_CREATED         = "osm_created"
   val FIELD_API_KEY             = "api_key"
   val FIELD_OAUTH_TOKEN         = "oauth_token"
-  val FIELD_OAUTH_SECRET        = "oauth_secret"
   val FIELD_HOME_LOCATION       = "home_location"
   val FIELD_EMAIL_OPT_IN        = "email_opt_in"
   val FIELD_LEADERBOARD_OPT_OUT = "leaderboard_opt_out"

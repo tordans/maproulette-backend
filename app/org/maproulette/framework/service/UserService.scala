@@ -308,7 +308,7 @@ class UserService @Inject() (
 
   /**
     * Only certain values are allowed to be updated for the user. Namely apiKey, displayName,
-    * description, avatarURL, token, secret and theme.
+    * description, avatarURL, token and theme.
     *
     * @param value The json object containing the fields to update
     * @param id    The id of the user to update

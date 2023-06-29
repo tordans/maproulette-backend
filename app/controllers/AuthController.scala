@@ -17,7 +17,6 @@ import org.maproulette.session.SessionManager
 import org.maproulette.permissions.Permission
 import org.maproulette.utils.Crypto
 import play.api.libs.json.{JsString, Json}
-import play.api.libs.oauth.OAuthCalculator
 import play.api.mvc._
 import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 import play.api.libs.ws.WSClient
@@ -29,7 +28,6 @@ import scala.util.{Failure, Success}
 import scala.concurrent.Future
 
 import java.security.SecureRandom
-import java.math.BigInteger
 
 /**
   * All the authentication actions go in this class
@@ -51,69 +49,7 @@ class AuthController @Inject() (
   val logger: Logger = LoggerFactory.getLogger(classOf[AuthController])
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  /**
-    * An action to call to authenticate a user using OAuth 1.0a against the OAuth OSM Provider
-    *
-    * @return Redirects back to the index page containing a valid session
-    */
-  def authenticate2(): Action[AnyContent] = Action.async { implicit request =>
-    MPExceptionUtil.internalAsyncExceptionCatcher { () =>
-      val p        = Promise[Result]()
-      val redirect = request.getQueryString("redirect").getOrElse("")
-      request.getQueryString("oauth_verifier") match {
-        case Some(verifier) =>
-          sessionManager.retrieveUser(verifier) onComplete {
-            case Success(user) =>
-              // We received the authorized tokens in the OAuth object - store it before we proceed
-              p success this.withOSMSession(
-                user,
-                Redirect(redirect, SEE_OTHER).withHeaders(("Cache-Control", "no-cache"))
-              )
-
-              Future(storeAPIKeyInOSM(user))
-
-            case Failure(e) => p failure e
-          }
-        case None =>
-          sessionManager.retrieveRequestToken(
-            proxyRedirect(routes.AuthController.authenticate) + s"?redirect=${getRedirectURL(request, redirect)}"
-          ) match {
-            case Right(t) =>
-              // We received the unauthorized tokens in the OAuth object - store it before we proceed
-              p success Redirect(sessionManager.redirectUrl(t.token))
-                .withHeaders(("Cache-Control", "no-cache"))
-                .withSession(
-                  SessionManager.KEY_TOKEN     -> t.token,
-                  SessionManager.KEY_SECRET    -> t.secret,
-                  SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
-                )
-            case Left(e) => p failure e
-          }
-      }
-      p.future
-    }
-  }
-
-//  def authenticate2: Action[AnyContent] = Action { implicit request =>
-//    val clientId = "cFogtzRCeVtKryYGonnmjXy6yHx2hUHDYmsWA1ZYtnE"
-//    val clientSecret = "56JSEHqLK3bVq5C9Z48sI0w53SUJ9wFOU4QiAsDtzkw"
-//    val authorizeEndpoint = "https://master.apis.dev.openstreetmap.org/oauth2/authorize"
-//    val redirectUrl = "http://127.0.0.1:9000/api/v2/callback"
-//
-//    def generateRandomState(length: Int = LENGTH, chars: Seq[Char] = UNICODE_ASCII_CHARACTER_SET): String = {
-//      val rand = new SecureRandom()
-//      val state = new Array[Char](length)
-//      for (i <- 0 until length) {
-//        state(i) = chars(rand.nextInt(chars.length))
-//      }
-//      new String(state)
-//    }
-//
-//    val oauthUrl = s"$authorizeEndpoint?client_id=$clientId&redirect_uri=$redirectUrl&response_type=code&scope=read%20write%20prefs"
-//    Redirect(oauthUrl)
-//  }
-
-  //oauth2 endpoint.  takes the authcode provided by OSM and uses it to retrieve a token.
+  //oauth2 endpoint.  takes the auth code provided by OSM and uses it to retrieve a token.
   //we also check to see if there is a user associated with the token in the system.
   //if not, we create a new user
   def callback(code: String): Action[AnyContent] = Action.async { implicit request =>
@@ -153,23 +89,12 @@ class AuthController @Inject() (
                     SessionManager.KEY_USER_TICK -> DateTime.now().getMillis.toString
                   )
 
-
-//                val json = Json.obj(
-//                  "token" -> accessToken,
-//                )
-//
-//                Future.successful(this.withOSMSession(user, Ok(json)))
-
                 Future(storeAPIKeyInOSM(user))
-
-                //this failure would occur if a user isn't found in the system.
-                //we should create a user here
               case Failure(e) => p failure e
             }
 
             p.future
           case _ =>
-            //this error would occur if the oauth2 /token endpoint fails for whatever reason
             val errorMessage = (response.json \ "error_description").asOpt[String].getOrElse("Failed to obtain access token")
             Future.successful(InternalServerError(errorMessage))
         }
@@ -215,7 +140,6 @@ class AuthController @Inject() (
       )
 
       val url = wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
-      //wsClient.close()
 
       val json = Json.obj(
         "auth_url" -> url,
@@ -223,8 +147,6 @@ class AuthController @Inject() (
       )
 
       Future(Redirect(url, SEE_OTHER).withHeaders(("Cache-Control", "no-cache")))
-
-//      Future(Ok(json))
     }
   }
 

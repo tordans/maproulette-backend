@@ -104,7 +104,7 @@ class UserRepository @Inject() (
 
       val query =
         s"""UPDATE users SET name = {name}, description = {description},
-                                          avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
+                                          avatar_url = {avatarURL}, oauth_token = {token},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId},
                                           locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
@@ -496,7 +496,6 @@ object UserRepository {
       get[Option[String]]("home") ~
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
-      get[String]("users.oauth_secret") ~
       get[Option[Int]]("users.default_editor") ~
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.default_basemap_id") ~
@@ -516,7 +515,7 @@ object UserRepository {
       get[Option[Long]]("users.followers_group") ~
       get[Option[Boolean]]("users.see_tag_fix_suggestions") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
-            homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
+            homeLocation ~ apiKey ~ oauthToken ~ defaultEditor ~ defaultBasemap ~
             defaultBasemapId ~ customBasemapList ~
             email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
             properties ~ score ~ achievements ~ allowFollowing ~ followingGroupId ~ followersGroupId ~ seeTagFixSuggestions =>

@@ -319,7 +319,7 @@ class SessionManager @Inject() (
     * If a session is found in the secure cookie, which includes the userId, will retrieve the userId
     * from cache/database.
     *
-    * @param accessToken The access token (key and secret) current stored in the session
+    * @param accessToken The access token currently stored in the session
     * @param userId      The userId stored in the session
     * @param create      If the user does not exist, create a new user in the database. Default false
     * @return A Future for an optional user, if user not found, or could not be created will return
@@ -437,7 +437,6 @@ class SessionManager @Inject() (
 object SessionManager {
   val KEY_USER_TICK = "userTick"
   val KEY_TOKEN     = "token"
-  val KEY_SECRET    = "secret"
   val KEY_USER_ID   = "userId"
   val KEY_OSM_ID    = "osmId"
   val KEY_API       = "apiKey"
