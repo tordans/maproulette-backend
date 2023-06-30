@@ -20,7 +20,6 @@ import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Query, SQLUtils}
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
-import play.api.libs.oauth.RequestToken
 import play.api.libs.json.{JsResultException, Json}
 
 /**

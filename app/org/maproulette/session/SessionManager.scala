@@ -19,7 +19,6 @@ import play.api.db.Database
 import play.api.libs.oauth._
 import play.api.libs.ws.WSClient
 import play.api.mvc.{AnyContent, Request, RequestHeader, Result}
-import play.shaded.ahc.io.netty.handler.codec.http.HttpResponseStatus
 import play.shaded.oauth.oauth.signpost.exception.{OAuthException, OAuthNotAuthorizedException}
 
 import scala.concurrent.{Future, Promise}

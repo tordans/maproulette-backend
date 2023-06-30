@@ -21,7 +21,6 @@ import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
 import play.api.Configuration
 import play.api.db.Databases
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert

@@ -14,7 +14,6 @@ import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.dal.DALManager
 import org.maproulette.provider.osm.objects._
 import play.api.db.Database
-import play.api.libs.oauth.{OAuthCalculator, RequestToken}
 import play.api.libs.ws.{WSClient, WSResponse}
 import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 

@@ -25,7 +25,6 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.{Crypto, Utils, Writers}
 import play.api.libs.json.{JsString, JsValue, Json}
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert

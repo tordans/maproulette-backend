@@ -13,7 +13,6 @@ import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.service.UserService
 import org.maproulette.framework.util.{FrameworkHelper, UserRepoTag}
 import play.api.Application
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert

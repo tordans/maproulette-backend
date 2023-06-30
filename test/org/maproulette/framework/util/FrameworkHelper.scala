@@ -16,7 +16,6 @@ import org.scalatest.{BeforeAndAfterAll, Tag}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
 import play.api.Application
-import play.api.libs.oauth.RequestToken
 
 import org.maproulette.data.SnapshotManager
 
