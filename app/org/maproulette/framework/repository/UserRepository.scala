@@ -103,7 +103,7 @@ class UserRepository @Inject() (
 
       val query =
         s"""UPDATE users SET name = {name}, description = {description},
-                                          avatar_url = {avatarURL}, oauth_token = {token},
+                                          avatar_url = {avatarURL}, oauth_token = {token}, oauth_secret = {secret},
                                           home_location = ST_SetSRID(ST_GeomFromEWKT({wkt}),4326), default_editor = {defaultEditor},
                                           default_basemap = {defaultBasemap}, default_basemap_id = {defaultBasemapId},
                                           locale = {locale}, email = {email}, email_opt_in = {emailOptIn}, leaderboard_opt_out = {leaderboardOptOut},
@@ -118,6 +118,7 @@ class UserRepository @Inject() (
           Symbol("description")          -> user.osmProfile.description,
           Symbol("avatarURL")            -> user.osmProfile.avatarURL,
           Symbol("token")                -> user.osmProfile.requestToken,
+          Symbol("secret")                -> "",
           Symbol("wkt")                  -> s"SRID=4326;$ewkt",
           Symbol("id")                   -> user.id,
           Symbol("defaultEditor")        -> user.settings.defaultEditor,
