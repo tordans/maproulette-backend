@@ -118,7 +118,7 @@ class UserRepository @Inject() (
           Symbol("description")          -> user.osmProfile.description,
           Symbol("avatarURL")            -> user.osmProfile.avatarURL,
           Symbol("token")                -> user.osmProfile.requestToken,
-          Symbol("secret")                -> "",
+          Symbol("secret")               -> "",
           Symbol("wkt")                  -> s"SRID=4326;$ewkt",
           Symbol("id")                   -> user.id,
           Symbol("defaultEditor")        -> user.settings.defaultEditor,
