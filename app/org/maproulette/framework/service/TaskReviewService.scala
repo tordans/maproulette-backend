@@ -198,6 +198,37 @@ class TaskReviewService @Inject() (
   }
 
   /**
+    * Gets a list of the data in the Review Table
+    *
+    * @param user      The user executing the request
+    * @param searchParameters
+    * @param onlySaved Only include saved challenges
+    */
+  def getReviewTableData(
+      user: User,
+      params: SearchParameters,
+      sortBy: String = "",
+      direction: String = "",
+      onlySaved: Boolean = false
+  ): List[TaskWithReview] = {
+    val query = this.setupReviewSearchClause(
+      Query.empty,
+      user,
+      permission,
+      params,
+      4,
+      true,
+      onlySaved
+    )
+
+    this.repository.executeReviewTableData(
+      query,
+      sortBy,
+      direction
+    )
+  }
+
+  /**
     * Gets a list of tasks that have requested review (and are in this user's project group)
     *
     * @param user            The user executing the request

@@ -5,28 +5,33 @@
 package org.maproulette.framework.controller
 
 import javax.inject.Inject
+import akka.util.ByteString
+import com.github.tototoshi.csv.CSVWriter
 import org.maproulette.data.ActionManager
-import org.maproulette.exception.NotFoundException
-import org.maproulette.framework.service.{TaskReviewService, TagService, ServiceManager}
+import org.maproulette.Config
+import org.apache.commons.lang3.StringUtils
+import org.maproulette.exception.{InvalidException, NotFoundException}
+import org.maproulette.framework.service.{ServiceManager, TagService, TaskReviewService}
 import org.maproulette.framework.psql.Paging
-import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, User, Tag, Task}
+import org.maproulette.framework.model.{Challenge, ChallengeListing, Project, Tag, Task, User}
 import org.maproulette.framework.mixins.{ParentMixin, TagsControllerMixin}
 import org.maproulette.framework.repository.TaskRepository
-import org.maproulette.session.{SessionManager, SearchParameters, SearchLocation}
+import org.maproulette.session.{SearchLocation, SearchParameters, SessionManager}
 import org.maproulette.utils.Utils
 import play.api.mvc._
 import play.api.libs.json._
-
+import play.api.http.HttpEntity
 import org.maproulette.data.{
+  MetaReviewStatusSet,
   TaskItem,
-  TaskStatusSet,
   TaskReviewStatusSet,
-  TaskType,
-  MetaReviewStatusSet
+  TaskStatusSet,
+  TaskType
 }
-
 import org.maproulette.models.dal.TaskDAL
 import org.maproulette.models.dal.mixin.TagDALMixin
+
+import java.io.StringWriter
 
 /**
   * TaskReviewController is responsible for handling functionality related to
@@ -38,6 +43,7 @@ class TaskReviewController @Inject() (
     override val sessionManager: SessionManager,
     override val actionManager: ActionManager,
     override val bodyParsers: PlayBodyParsers,
+    val config: Config,
     service: TaskReviewService,
     taskRepository: TaskRepository,
     components: ControllerComponents,
@@ -237,6 +243,165 @@ class TaskReviewController @Inject() (
         )
       }
     }
+  }
+
+  /**
+    * Returns a CSV export of the data displayed in the review table.
+    *
+    * SearchParameters:
+    * @param taskId Reviews to equivalent taskId. Example (Int) - 14
+    * @param reviewStatus Reviews to equivalent reviewStatus. Available Values - 0,1,2,3,4,5,6,7,-1
+    * @param mapper Reviews to equivalent mapper. Example (String) - Username123
+    * @param challengeId Reviews to equivalent challengeId. Example (Int)'s (no spaces) - 23,45,1,12
+    * @param projectIds Reviews to equivalent projectIds. Example (Int)'s (no spaces) - 1,12,3
+    * @param mappedOn Reviews to equivalent mappedOn. format - YYYY-MM-DD
+    * @param reviewedBy Reviews to equivalent reviewedBy. Example - Username567
+    * @param reviewedAt Reviews to equivalent reviewedAt. format - YYYY-MM-DD
+    * @param metaReviewedBy Reviews to equivalent metaReviewedBy. Example - Username987
+    * @param metaReviewStatus Reviews to equivalent metaReviewStatus. Available Values - 2,0,1,2,3,6
+    * @param status Reviews to equivalent status. Available Values - 0,1,2,3,4,5,6,9
+    * @param priority Reviews to equivalent priority. Available Values - 0,1,2
+    * @param tagFilter Reviews to equivalent tagFilter. Example - Geometries
+    * @param sortBy Reviews to equivalent sortBy. (You must pick only one) Available Values - Internal Id,Review Status,Mapper,Challenge,Project,Mapped On,Reviewer,Reviewed On,Status,Priority,Actions,Additional Reviewers
+    * @param direction Sort order direction. Either ASC or DESC.
+    * @param displayedColumns Reviews to equivalent displayedColumns. Available Values - Internal Id,Review Status,Mapper,Challenge,Project,Mapped On,Reviewer,Reviewed On,Status,Priority,Actions,Additional Reviewers
+    * @param invertedFilters Reviews to equivalent invertedFilters. Available Values - cid,priorities,pid,m,trStatus,r,tStatus
+    * @param onlySaved Reviews to equivalent onlySaved.
+    * @return
+    */
+  def extractReviewTableData(
+      taskId: String,
+      reviewStatus: String,
+      mapper: String,
+      challengeId: String,
+      projectIds: String,
+      mappedOn: String,
+      reviewedBy: String,
+      reviewedAt: String,
+      metaReviewedBy: String,
+      metaReviewStatus: String,
+      status: String,
+      priority: String,
+      tagFilter: String,
+      sortBy: String,
+      direction: String,
+      displayedColumns: String,
+      invertedFilters: String,
+      onlySaved: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        val invertFiltering        = parseParameterString(invertedFilters)
+        val statusFilter           = parseParameterInt(status)
+        val reviewStatusFilter     = parseParameterInt(reviewStatus)
+        val priorityFilter         = parseParameterInt(priority)
+        val metaReviewStatusFilter = parseParameterInt(metaReviewStatus)
+        val projectIdsFilter       = parseParameterLong(projectIds)
+        val challengeIdsFilter     = parseParameterLong(challengeId)
+        val taskIdFilter           = parseParameterLong(taskId).map(_.head)
+        val mappedOnFilter         = parseParameterString(mappedOn).map(_.head)
+        val mapperFilter           = parseParameterString(mapper).map(_.head)
+        val metaReviewedByFilter   = parseParameterString(metaReviewedBy).map(_.head)
+        val reviewByFilter         = parseParameterString(reviewedBy).map(_.head)
+        val reviewedAtFilter       = parseParameterString(reviewedAt).map(_.head)
+
+        val metrics = this.service.getReviewTableData(
+          User.userOrMocked(user),
+          params.copy(
+            projectIds = projectIdsFilter,
+            challengeParams = params.challengeParams.copy(
+              challengeIds = challengeIdsFilter
+            ),
+            taskParams = params.taskParams.copy(
+              taskId = taskIdFilter,
+              taskStatus = statusFilter,
+              taskReviewStatus = reviewStatusFilter,
+              taskPriorities = priorityFilter,
+              taskMappedOn = mappedOnFilter
+            ),
+            reviewParams = params.reviewParams.copy(
+              endDate = reviewedAtFilter,
+              metaReviewStatus = metaReviewStatusFilter
+            ),
+            invertFields = invertFiltering,
+            mapper = mapperFilter,
+            reviewer = reviewByFilter,
+            metaReviewer = metaReviewedByFilter
+          ),
+          sortBy,
+          direction,
+          onlySaved
+        )
+
+        val urlPrefix = config.getPublicOrigin.fold(s"https://${request.host}/")(_ + "/")
+
+        val csvRows = metrics.map { row =>
+          displayedColumns.split(",").flatMap {
+            case "Internal Id"   => Seq(row.review.taskId)
+            case "Review Status" => Seq(Task.reviewStatusMap(row.review.reviewStatus.get))
+            case "Mapper"        => Seq(row.review.reviewRequestedByUsername.getOrElse(""))
+            case "Challenge"     => Seq(row.review.challengeName.getOrElse(""))
+            case "Project"       => Seq(row.review.projectName.getOrElse(""))
+            case "Mapped On"     => Seq(row.task.mappedOn.getOrElse(""))
+            case "Reviewer"      => Seq(row.review.reviewedByUsername.getOrElse(""))
+            case "Reviewed On"   => Seq(row.review.reviewedAt.getOrElse(""))
+            case "Status"        => Seq(Task.statusMap(row.task.status.get))
+            case "Priority"      => Seq(Challenge.priorityMap(row.task.priority))
+            case "Actions" =>
+              Seq(
+                s"[[Task Link=${urlPrefix}challenge/${row.task.parent}/task/${row.review.taskId}]]"
+              )
+            case "Additional Reviewers" => Seq(row.review.additionalReviewers.getOrElse(""))
+            case "Meta Review Status"   => Seq(row.review.metaReviewStatus)
+            case "Meta Reviewed By"     => Seq(row.review.metaReviewedByUsername.getOrElse(""))
+            case "Meta Reviewed At"     => Seq(row.review.metaReviewedAt.getOrElse(""))
+            case it =>
+              throw new InvalidException(
+                s"Parameter displayedColumns has Invalid column name '${it}'"
+              )
+          }
+        }
+
+        val csvContent = new StringWriter()
+        val csvWriter  = new CSVWriter(csvContent)
+
+        // Write header
+        csvWriter.writeRow(displayedColumns.split(",").toVector)
+
+        // Write rows
+        csvRows.foreach(row => csvWriter.writeRow(row.toVector))
+        csvWriter.close()
+
+        Result(
+          header = ResponseHeader(
+            OK,
+            Map(CONTENT_DISPOSITION -> "attachment; filename=review_table.csv")
+          ),
+          body = HttpEntity.Strict(
+            ByteString(csvContent.toString),
+            Some("text/csv; header=present")
+          )
+        )
+      }
+    }
+  }
+
+  private def parseParameterString(parameter: String): Option[List[String]] = {
+    Option(parameter)
+      .filterNot(StringUtils.isEmpty)
+      .map(ids => Utils.split(ids).map(_.toString))
+  }
+
+  private def parseParameterLong(parameter: String): Option[List[Long]] = {
+    Option(parameter)
+      .filterNot(StringUtils.isEmpty)
+      .map(ids => Utils.split(ids).map(_.toLong))
+  }
+
+  private def parseParameterInt(parameter: String): Option[List[Int]] = {
+    Option(parameter)
+      .filterNot(StringUtils.isEmpty)
+      .map(ids => Utils.split(ids).map(_.toInt))
   }
 
   /**
