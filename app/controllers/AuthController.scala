@@ -153,7 +153,12 @@ class AuthController @Inject() (
       val url =
         wsClient.url(authorizeEndpoint).withQueryStringParameters(params.toSeq: _*).uri.toString
 
-      Future(Redirect(url, SEE_OTHER).withHeaders(("Cache-Control", "no-cache")))
+      val json = Json.obj(
+        "state" -> state,
+        "redirect" -> url
+      )
+
+      Future(Ok(json))
     }
   }
 
