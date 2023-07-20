@@ -21,7 +21,6 @@ import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
 import play.api.Configuration
 import play.api.db.Databases
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert
@@ -108,7 +107,7 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     1,
     DateTime.now(),
     DateTime.now(),
-    OSMProfile(1, "AdminUser", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
+    OSMProfile(1, "AdminUser", "", "", Location(0, 0), DateTime.now(), ""),
     List(adminGrant(1, 1))
   )
   val actionManager = mock[ActionManager]
@@ -175,21 +174,21 @@ trait TestSpec extends PlaySpec with MockitoSugar {
     2,
     DateTime.now(),
     DateTime.now(),
-    OSMProfile(2, "WriteUser", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
+    OSMProfile(2, "WriteUser", "", "", Location(0, 0), DateTime.now(), ""),
     List(writeGrant(1, 2))
   )
   var readUser = User(
     3,
     DateTime.now(),
     DateTime.now(),
-    OSMProfile(3, "ReadUser", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
+    OSMProfile(3, "ReadUser", "", "", Location(0, 0), DateTime.now(), ""),
     List(readGrant(1, 3))
   )
   var owner = User(
     100,
     DateTime.now(),
     DateTime.now(),
-    OSMProfile(101, "DefaultOwner", "", "", Location(0, 0), DateTime.now(), RequestToken("", "")),
+    OSMProfile(101, "DefaultOwner", "", "", Location(0, 0), DateTime.now(), ""),
     List.empty // even an owner needs to be granted the proper role
   )
 

@@ -20,7 +20,6 @@ import org.maproulette.framework.psql.filter._
 import org.maproulette.framework.psql.{Query, SQLUtils}
 import org.maproulette.models.dal.ChallengeDAL
 import play.api.db.Database
-import play.api.libs.oauth.RequestToken
 import play.api.libs.json.{JsResultException, Json}
 
 /**
@@ -48,7 +47,7 @@ class UserRepository @Inject() (
       val query =
         s"""WITH upsert AS (UPDATE users SET osm_id = {osmID}, osm_created = {osmCreated},
                               name = {name}, description = {description}, avatar_url = {avatarURL},
-                              oauth_token = {token}, oauth_secret = {secret},  home_location = ST_GeomFromEWKT({wkt})
+                              oauth_token = {token}, oauth_secret = {secret}, home_location = ST_GeomFromEWKT({wkt})
                             WHERE id = {id} OR osm_id = {osmID} RETURNING ${UserRepository.standardColumns})
             INSERT INTO users (api_key, osm_id, osm_created, name, description,
                                avatar_url, oauth_token, oauth_secret, home_location)
@@ -62,8 +61,8 @@ class UserRepository @Inject() (
           Symbol("name")        -> user.osmProfile.displayName,
           Symbol("description") -> user.osmProfile.description,
           Symbol("avatarURL")   -> user.osmProfile.avatarURL,
-          Symbol("token")       -> user.osmProfile.requestToken.token,
-          Symbol("secret")      -> user.osmProfile.requestToken.secret,
+          Symbol("token")       -> user.osmProfile.requestToken,
+          Symbol("secret")      -> "",
           Symbol("wkt")         -> s"SRID=4326;$ewkt",
           Symbol("id")          -> user.id
         )
@@ -119,8 +118,8 @@ class UserRepository @Inject() (
           Symbol("name")                 -> user.osmProfile.displayName,
           Symbol("description")          -> user.osmProfile.description,
           Symbol("avatarURL")            -> user.osmProfile.avatarURL,
-          Symbol("token")                -> user.osmProfile.requestToken.token,
-          Symbol("secret")               -> user.osmProfile.requestToken.secret,
+          Symbol("token")                -> user.osmProfile.requestToken,
+          Symbol("secret")               -> "",
           Symbol("wkt")                  -> s"SRID=4326;$ewkt",
           Symbol("id")                   -> user.id,
           Symbol("defaultEditor")        -> user.settings.defaultEditor,
@@ -498,7 +497,6 @@ object UserRepository {
       get[Option[String]]("home") ~
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
-      get[String]("users.oauth_secret") ~
       get[Option[Int]]("users.default_editor") ~
       get[Option[Int]]("users.default_basemap") ~
       get[Option[String]]("users.default_basemap_id") ~
@@ -518,7 +516,7 @@ object UserRepository {
       get[Option[Long]]("users.followers_group") ~
       get[Option[Boolean]]("users.see_tag_fix_suggestions") map {
       case id ~ osmId ~ created ~ modified ~ osmCreated ~ displayName ~ description ~ avatarURL ~
-            homeLocation ~ apiKey ~ oauthToken ~ oauthSecret ~ defaultEditor ~ defaultBasemap ~
+            homeLocation ~ apiKey ~ oauthToken ~ defaultEditor ~ defaultBasemap ~
             defaultBasemapId ~ customBasemapList ~
             email ~ emailOptIn ~ leaderboardOptOut ~ needsReview ~ isReviewer ~ locale ~ theme ~
             properties ~ score ~ achievements ~ allowFollowing ~ followingGroupId ~ followersGroupId ~ seeTagFixSuggestions =>
@@ -549,7 +547,7 @@ object UserRepository {
             avatarURL.getOrElse(""),
             Location(locationWKT.getX, locationWKT.getY),
             osmCreated,
-            RequestToken(oauthToken, oauthSecret)
+            oauthToken
           ),
           grantFunc.apply(id),
           apiKey,

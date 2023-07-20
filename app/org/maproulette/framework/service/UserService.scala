@@ -25,7 +25,6 @@ import org.maproulette.permissions.Permission
 import org.maproulette.session.SearchParameters
 import org.maproulette.utils.{Crypto, Utils, Writers}
 import play.api.libs.json.{JsString, JsValue, Json}
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert
@@ -194,21 +193,20 @@ class UserService @Inject() (
   }
 
   /**
-    * Match the user based on the token, secret and id for the user.
+    * Match the user based on the token and id for the user.
     *
     * @param id           The id of the user
-    * @param requestToken The request token containing the access token and secret
+    * @param requestToken The osm oauth2 token
     * @return The matched user, None if User not found
     */
-  def matchByRequestToken(id: Long, requestToken: RequestToken, user: User): Option[User] = {
+  def matchByRequestToken(id: Long, requestToken: String, user: User): Option[User] = {
     val requestedUser = this.cacheManager.withCaching { () =>
       this
         .query(
           Query.simple(
             List(
               FilterParameter.conditional(User.FIELD_ID, id, includeOnlyIfTrue = id > 0),
-              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken.token),
-              BaseParameter(User.FIELD_OAUTH_SECRET, requestToken.secret)
+              BaseParameter(User.FIELD_OAUTH_TOKEN, requestToken)
             )
           ),
           user
@@ -217,9 +215,8 @@ class UserService @Inject() (
     }(id = id)
     requestedUser match {
       case Some(u) =>
-        // double check that the token and secret still match, in case it came from the cache
-        if (StringUtils.equals(u.osmProfile.requestToken.token, requestToken.token) &&
-            StringUtils.equals(u.osmProfile.requestToken.secret, requestToken.secret)) {
+        // double check that the token still matches, in case it came from the cache
+        if (StringUtils.equals(u.osmProfile.requestToken, requestToken)) {
           this.permission.hasObjectReadAccess(u, user)
           Some(u)
         } else {
@@ -310,7 +307,7 @@ class UserService @Inject() (
 
   /**
     * Only certain values are allowed to be updated for the user. Namely apiKey, displayName,
-    * description, avatarURL, token, secret and theme.
+    * description, avatarURL, token and theme.
     *
     * @param value The json object containing the fields to update
     * @param id    The id of the user to update
@@ -331,10 +328,7 @@ class UserService @Inject() (
         .getOrElse(cachedItem.osmProfile.avatarURL)
       val token = (value \ "osmProfile" \ "token")
         .asOpt[String]
-        .getOrElse(cachedItem.osmProfile.requestToken.token)
-      val secret = (value \ "osmProfile" \ "secret")
-        .asOpt[String]
-        .getOrElse(cachedItem.osmProfile.requestToken.secret)
+        .getOrElse(cachedItem.osmProfile.requestToken)
       // todo: allow to insert in WKT, WKB or latitude/longitude
       val latitude = (value \ "osmProfile" \ "homeLocation" \ "latitude")
         .asOpt[Double]
@@ -405,7 +399,7 @@ class UserService @Inject() (
               avatarURL,
               null,
               DateTime.now(),
-              RequestToken(token, secret)
+              token
             ),
             settings = UserSettings(
               Some(defaultEditor),

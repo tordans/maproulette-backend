@@ -14,7 +14,6 @@ import org.maproulette.framework.psql.TransactionManager
 import org.maproulette.models.dal.DALManager
 import org.maproulette.provider.osm.objects._
 import play.api.db.Database
-import play.api.libs.oauth.{OAuthCalculator, RequestToken}
 import play.api.libs.ws.{WSClient, WSResponse}
 import play.shaded.oauth.oauth.signpost.exception.OAuthNotAuthorizedException
 
@@ -74,7 +73,7 @@ class ChangesetProvider @Inject() (
   def submitOsmChange(
       changes: OSMChange,
       changeSetComment: String,
-      accessToken: RequestToken,
+      accessToken: String,
       taskId: Option[Long] = None
   )(implicit c: Option[Connection] = None): Future[Elem] = {
     val p = Promise[Elem]()
@@ -88,7 +87,9 @@ class ChangesetProvider @Inject() (
             // submit the conflated changes
             val url = s"${config.getOSMServer}/api/0.6/changeset/$changesetId/upload"
             ws.url(url)
-              .sign(OAuthCalculator(config.getOSMOauth.consumerKey, accessToken))
+              .withHttpHeaders(
+                "Authorization" -> s"Bearer $accessToken"
+              )
               .post(res) onComplete {
               case Success(uploadResult) =>
                 uploadResult.status match {
@@ -249,7 +250,7 @@ class ChangesetProvider @Inject() (
     * @param accessToken The access token for the user
     * @return
     */
-  def createChangeset(comment: String, accessToken: RequestToken): Future[Int] = {
+  def createChangeset(comment: String, accessToken: String): Future[Int] = {
     // Changeset XML Element
     val newChangeSet =
       <osm>
@@ -261,7 +262,9 @@ class ChangesetProvider @Inject() (
     implicit val url = s"${config.getOSMServer}/api/0.6/changeset/create"
     implicit val req = ws
       .url(url)
-      .sign(OAuthCalculator(config.getOSMOauth.consumerKey, accessToken))
+      .withHttpHeaders(
+        "Authorization" -> s"Bearer $accessToken"
+      )
       .put(newChangeSet)
     this.checkResult[Int] { response =>
       response.body.toInt
@@ -294,10 +297,14 @@ class ChangesetProvider @Inject() (
     * @param accessToken The access token for the user
     * @return true if succeeded, if failed will respond with exception failure
     */
-  def closeChangeset(changesetId: Int, accessToken: RequestToken): Future[Boolean] = {
+  def closeChangeset(changesetId: Int, accessToken: String): Future[Boolean] = {
     implicit val url = s"${config.getOSMServer}/api/0.6/changeset/$changesetId/close"
     implicit val req =
-      ws.url(url).sign(OAuthCalculator(config.getOSMOauth.consumerKey, accessToken)).put("")
+      ws.url(url)
+        .withHttpHeaders(
+          "Authorization" -> s"Bearer $accessToken"
+        )
+        .put("")
     this.checkResult[Boolean] { response =>
       true
     }

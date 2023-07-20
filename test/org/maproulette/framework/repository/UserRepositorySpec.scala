@@ -13,7 +13,6 @@ import org.maproulette.framework.psql.filter.{BaseParameter, Operator}
 import org.maproulette.framework.service.UserService
 import org.maproulette.framework.util.{FrameworkHelper, UserRepoTag}
 import play.api.Application
-import play.api.libs.oauth.RequestToken
 
 /**
   * @author mcuthbert
@@ -36,7 +35,7 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
         osmProfile = insertedUser.osmProfile.copy(
           displayName = "name3",
           avatarURL = "UPDATE_avatarURL",
-          requestToken = RequestToken("UPDATED_TOKEN", "UPDATED_SECRET")
+          requestToken = "UPDATED_TOKEN"
         ),
         apiKey = Some(updatedApiKey),
         settings = UserSettings(
@@ -71,7 +70,7 @@ class UserRepositorySpec(implicit val application: Application) extends Framewor
         osmProfile = insertedUser.osmProfile.copy(
           displayName = "name31",
           avatarURL = "UPDATE_avatarURL",
-          requestToken = RequestToken("UPDATED_TOKEN", "UPDATED_SECRET")
+          requestToken = "UPDATED_TOKEN"
         ),
         apiKey = Some(updatedApiKey),
         settings = UserSettings(

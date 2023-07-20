@@ -45,7 +45,7 @@ case class Location(latitude: Double, longitude: Double, name: Option[String] = 
   * @param avatarURL    The avatar URL to enabling displaying of their avatar
   * @param homeLocation Their home location
   * @param created      When their OSM account was created
-  * @param requestToken The key and secret (access token) used for authorization
+  * @param requestToken The key used for authorization
   */
 case class OSMProfile(
     id: Long,
@@ -54,7 +54,7 @@ case class OSMProfile(
     avatarURL: String,
     homeLocation: Location,
     created: DateTime,
-    requestToken: RequestToken
+    requestToken: String
 )
 
 /**
@@ -289,7 +289,6 @@ object User extends CommonField {
   val FIELD_OSM_CREATED         = "osm_created"
   val FIELD_API_KEY             = "api_key"
   val FIELD_OAUTH_TOKEN         = "oauth_token"
-  val FIELD_OAUTH_SECRET        = "oauth_secret"
   val FIELD_HOME_LOCATION       = "home_location"
   val FIELD_EMAIL_OPT_IN        = "email_opt_in"
   val FIELD_LEADERBOARD_OPT_OUT = "leaderboard_opt_out"
@@ -348,7 +347,7 @@ object User extends CommonField {
     * @param requestToken The access token used to retrieve the OSM details
     * @return A user object based on the XML details provided
     */
-  def generate(userXML: String, requestToken: RequestToken, config: Config): User =
+  def generate(userXML: String, requestToken: String, config: Config): User =
     generate(XML.loadString(userXML), requestToken, config)
 
   /**
@@ -358,7 +357,7 @@ object User extends CommonField {
     * @param requestToken The access token used to retrieve the OSM details
     * @return A user object based on the XML details provided
     */
-  def generate(root: Elem, requestToken: RequestToken, config: Config): User = {
+  def generate(root: Elem, requestToken: String, config: Config): User = {
     val userXML           = (root \ "user").head
     val displayName       = userXML \@ "display_name"
     val osmAccountCreated = userXML \@ "account_created"
@@ -403,7 +402,7 @@ object User extends CommonField {
         "/assets/images/user_no_image.png",
         Location(47.608013, -122.335167),
         DateTime.now(),
-        RequestToken("", "")
+        ""
       ),
       List(),
       settings = UserSettings(theme = Some(THEME_BLACK))
@@ -456,7 +455,7 @@ object User extends CommonField {
         "/assets/images/user_no_image.png",
         Location(-33.918861, 18.423300),
         DateTime.now(),
-        RequestToken("", "")
+        ""
       ),
       List(),
       None,

@@ -16,7 +16,6 @@ import org.scalatest.{BeforeAndAfterAll, Tag}
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
 import play.api.Application
-import play.api.libs.oauth.RequestToken
 
 import org.maproulette.data.SnapshotManager
 
@@ -135,7 +134,7 @@ trait FrameworkHelper extends PlaySpec with BeforeAndAfterAll with MockitoSugar 
         "",
         Location(1.0, 2.0),
         DateTime.now(),
-        RequestToken("token", "secret")
+        "token"
       ),
       List.empty,
       Some(UUID.randomUUID().toString)
