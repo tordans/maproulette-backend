@@ -5,13 +5,11 @@
 
 package org.maproulette.framework.controller
 
-import java.net.URLDecoder
-
 import javax.inject.Inject
 import org.maproulette.data.ActionManager
 import org.maproulette.framework.service.{CommentService, ServiceManager}
 import org.maproulette.session.SessionManager
-import play.api.libs.json.Json
+import play.api.libs.json.{JsValue, Json}
 import play.api.mvc._
 
 /**
@@ -115,18 +113,22 @@ class CommentController @Inject() (
     * Adds a comment for a specific task
     *
     * @param taskId   The id for a task
-    * @param comment  The comment the user is leaving
     * @param actionId The action if any associated with the comment
     * @return Ok if successful.
     */
-  def add(taskId: Long, comment: String, actionId: Option[Long]): Action[AnyContent] =
-    Action.async { implicit request =>
+  def add(taskId: Long, actionId: Option[Long]): Action[JsValue] =
+    Action.async(parse.json) { implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        Created(
-          Json.toJson(
-            this.commentService.create(user, taskId, URLDecoder.decode(comment, "UTF-8"), actionId)
-          )
-        )
+        val commentResult = (request.body \ "comment").asOpt[String].map(_.trim)
+        commentResult match {
+          case Some(comment) =>
+            Created(
+              Json.toJson(
+                this.commentService
+                  .create(user, taskId, comment, actionId)
+              )
+            )
+        }
       }
     }
 
@@ -134,18 +136,21 @@ class CommentController @Inject() (
     * Adds a comment for a specific challenge
     *
     * @param challengeId   The id for a challenge
-    * @param comment  The comment the user is leaving
     * @return Ok if successful.
     */
-  def addChallengeComment(challengeId: Long, comment: String): Action[AnyContent] =
-    Action.async { implicit request =>
+  def addChallengeComment(challengeId: Long): Action[JsValue] =
+    Action.async(parse.json) { implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
-        Created(
-          Json.toJson(
-            this.commentService
-              .createChallengeComment(user, challengeId, URLDecoder.decode(comment, "UTF-8"))
-          )
-        )
+        val commentResult = (request.body \ "comment").asOpt[String].map(_.trim)
+        commentResult match {
+          case Some(comment) =>
+            Created(
+              Json.toJson(
+                this.commentService
+                  .createChallengeComment(user, challengeId, comment)
+              )
+            )
+        }
       }
     }
 
@@ -153,18 +158,19 @@ class CommentController @Inject() (
     * Adds a comment for tasks in a bundle
     *
     * @param bundleId   The id for the bundle
-    * @param comment  The comment the user is leaving
     * @param actionId The action if any associated with the comment
     * @return Ok if successful.
     */
   def addToBundleTasks(
       bundleId: Long,
-      comment: String,
       actionId: Option[Long]
-  ): Action[AnyContent] = Action.async { implicit request =>
+  ): Action[JsValue] = Action.async(parse.json) { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
-      this.commentService.addToBundle(user, bundleId, comment, actionId)
-
+      val commentResult = (request.body \ "comment").asOpt[String].map(_.trim)
+      commentResult match {
+        case Some(comment) =>
+          this.commentService.addToBundle(user, bundleId, comment, actionId)
+      }
       Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, bundleId)))
     }
   }
@@ -173,18 +179,21 @@ class CommentController @Inject() (
     * Updates the original comment
     *
     * @param commentId The ID of the comment to update
-    * @param comment   The comment to update
     * @return
     */
-  def update(commentId: Long, comment: String): Action[AnyContent] = Action.async {
-    implicit request =>
-      this.sessionManager.authenticatedRequest { implicit user =>
-        Ok(
-          Json.toJson(
-            this.commentService.update(commentId, URLDecoder.decode(comment, "UTF-8"), user)
+  def update(commentId: Long): Action[JsValue] = Action.async(parse.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val commentResult = (request.body \ "comment").asOpt[String].map(_.trim)
+      commentResult match {
+        case Some(comment) =>
+          Ok(
+            Json.toJson(
+              this.commentService
+                .update(commentId, comment, user)
+            )
           )
-        )
       }
+    }
   }
 
   /**

@@ -5,8 +5,6 @@
 
 package org.maproulette.framework.service
 
-import java.net.URLDecoder
-
 import javax.inject.{Inject, Singleton}
 import org.apache.commons.lang3.StringUtils
 import org.maproulette.exception.{InvalidException, NotFoundException}
@@ -117,7 +115,7 @@ class CommentService @Inject() (
 
     var notify = true
     for (task <- tasks) {
-      this.create(user, task.id, URLDecoder.decode(comment, "UTF-8"), actionId, notify)
+      this.create(user, task.id, comment, actionId, notify)
       notify = false
     }
     bundle
