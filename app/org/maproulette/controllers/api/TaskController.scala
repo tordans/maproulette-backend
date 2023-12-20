@@ -87,9 +87,9 @@ class TaskController @Inject() (
   override implicit val itemType = TaskType()
   override implicit val tagType  = this.dal.tableName
   // json reads for automatically reading Tags from a posted json body
-  implicit val tagReads: Reads[Tag]           = Tag.tagReads
   implicit val commentReads: Reads[Comment]   = Comment.reads
   implicit val commentWrites: Writes[Comment] = Comment.writes
+  implicit val tagReads: Reads[Tag]           = Tag.tagReads
 
   implicit val tagChangeReads           = ChangeObjects.tagChangeReads
   implicit val tagChangeResultWrites    = ChangeObjects.tagChangeResultWrites
@@ -479,7 +479,6 @@ class TaskController @Inject() (
     *
     * @param id     The id of the task
     * @param status The status id to set the task's status to
-    * @param comment An optional comment to add to the task
     * @param tags Optional tags to add to the task
     * @return 400 BadRequest if status id is invalid or task with supplied id not found.
     *         If successful then 200 NoContent
@@ -487,7 +486,6 @@ class TaskController @Inject() (
   def setTaskStatus(
       id: Long,
       status: Int,
-      comment: String = "",
       tags: String = ""
   ): Action[AnyContent] = Action.async { implicit request =>
     this.sessionManager.authenticatedRequest { implicit user =>
@@ -501,7 +499,6 @@ class TaskController @Inject() (
         id,
         TaskStatusSet(status),
         user,
-        comment,
         tags,
         requestReview,
         completionResponses
@@ -635,7 +632,7 @@ class TaskController @Inject() (
     }
   }
 
-  def applyTagFix(taskId: Long, comment: String = "", tags: String = ""): Action[JsValue] =
+  def applyTagFix(taskId: Long, tags: String = ""): Action[JsValue] =
     Action.async(bodyParsers.json) { implicit request =>
       this.sessionManager.authenticatedFutureRequest { implicit user =>
         val result = request.body.validate[TagChangeSubmission]
@@ -671,7 +668,6 @@ class TaskController @Inject() (
                   taskId,
                   TaskStatusSet(Task.STATUS_FIXED),
                   user,
-                  comment,
                   tags,
                   requestReview
                 )
@@ -689,7 +685,6 @@ class TaskController @Inject() (
                       taskId,
                       TaskStatusSet(Task.STATUS_FIXED),
                       user,
-                      comment,
                       tags,
                       requestReview
                     )
@@ -708,7 +703,6 @@ class TaskController @Inject() (
       taskId: Long,
       actionType: ActionType,
       user: User,
-      comment: String = "",
       tags: String = "",
       requestReview: Option[Boolean] = None,
       completionResponses: Option[JsValue] = None
@@ -731,14 +725,6 @@ class TaskController @Inject() (
 
     val action =
       this.actionManager.setAction(Some(user), new TaskItem(task.id), actionType, task.name)
-    // add comment if any provided
-    if (comment.nonEmpty) {
-      val actionId = action match {
-        case Some(a) => Some(a.id)
-        case None    => None
-      }
-      this.serviceManager.comment.create(user, task.id, comment, actionId)
-    }
 
     val tagList = if (tags == "") List() else tags.split(",").toList
     if (tagList.nonEmpty) {
