@@ -47,25 +47,47 @@ class ChallengeListingService @Inject() (
       projectSearchQuery: String = "",
       paging: Paging = Paging()
   ): List[ChallengeListing] = {
+    val challengeNameParameter =
+      if (challengeSearchQuery.nonEmpty) {
+        Some(
+          BaseParameter(
+            Challenge.FIELD_NAME,
+            SQLUtils.search(challengeSearchQuery),
+            Operator.ILIKE,
+            table = Some(Challenge.TABLE)
+          )
+        )
+      } else {
+        None
+      }
+
+    val projectNameParameter =
+      if (projectSearchQuery.nonEmpty) {
+        Some(
+          BaseParameter(
+            Project.FIELD_DISPLAY_NAME,
+            SQLUtils.search(projectSearchQuery),
+            Operator.ILIKE,
+            table = Some(Project.TABLE)
+          )
+        )
+      } else {
+        None
+      }
+
+    val parameters = List(challengeNameParameter, projectNameParameter).flatten
+
+    val filterGroup =
+      if (parameters.nonEmpty) {
+        FilterGroup(parameters)
+      } else {
+        FilterGroup(List())
+      }
+
     val filter =
       Filter(
         List(
-          FilterGroup(
-            List(
-              BaseParameter(
-                Challenge.FIELD_NAME,
-                SQLUtils.search(challengeSearchQuery),
-                Operator.ILIKE,
-                table = Some(Challenge.TABLE)
-              ),
-              BaseParameter(
-                Project.FIELD_DISPLAY_NAME,
-                SQLUtils.search(projectSearchQuery),
-                Operator.ILIKE,
-                table = Some(Project.TABLE)
-              )
-            )
-          ),
+          filterGroup,
           FilterGroup(
             List(
               // Has a task review
