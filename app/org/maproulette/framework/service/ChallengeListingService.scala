@@ -29,10 +29,13 @@ class ChallengeListingService @Inject() (
   /**
     * Returns a list of challenges that have reviews/review requests.
     *
-    * @param reviewTasksType  The type of reviews (1: To Be Reviewed,  2: User's reviewed Tasks, 3: All reviewed by users)
-    * @param user The user making request (for challenge permission visibility)
-    * @param taskStatus The task statuses to include
+    * @param reviewTasksType       The type of reviews (1: To Be Reviewed, 2: User's reviewed Tasks, 3: All reviewed by users)
+    * @param user                  The user making request (for challenge permission visibility)
+    * @param taskStatus            The task statuses to include
     * @param excludeOtherReviewers Whether tasks completed by other reviewers should be included
+    * @param challengeSearchQuery  Search query for filtering challenges
+    * @param projectSearchQuery    Search query for filtering projects
+    * @param paging                Paging information
     * @return A list of children listing objects
     */
   def withReviewList(
@@ -40,11 +43,29 @@ class ChallengeListingService @Inject() (
       user: User,
       taskStatus: Option[List[Int]] = None,
       excludeOtherReviewers: Boolean = false,
+      challengeSearchQuery: String = "",
+      projectSearchQuery: String = "",
       paging: Paging = Paging()
   ): List[ChallengeListing] = {
     val filter =
       Filter(
         List(
+          FilterGroup(
+            List(
+              BaseParameter(
+                Challenge.FIELD_NAME,
+                SQLUtils.search(challengeSearchQuery),
+                Operator.ILIKE,
+                table = Some(Challenge.TABLE)
+              ),
+              BaseParameter(
+                Project.FIELD_DISPLAY_NAME,
+                SQLUtils.search(projectSearchQuery),
+                Operator.ILIKE,
+                table = Some(Project.TABLE)
+              )
+            )
+          ),
           FilterGroup(
             List(
               // Has a task review
@@ -104,7 +125,7 @@ class ChallengeListingService @Inject() (
               )
             )
           ),
-          // Check project/challenge visiblity
+          // Check project/challenge visibility
           challengeService.challengeVisibilityFilter(user),
           // reviewed_by is empty or user.id if excludeOtherReviewers
           FilterGroup(
