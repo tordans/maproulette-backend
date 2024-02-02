@@ -121,6 +121,47 @@ class TaskBundleRepository @Inject() (
   }
 
   /**
+    * Adds tasks to a bundle.
+    *
+    * @param bundleId The id of the bundle
+    */
+  def bundleTasks(user: User, bundleId: Long, taskIds: List[Long]): Unit = {
+    this.withMRConnection { implicit c =>
+      SQL(s"""UPDATE tasks SET bundle_id = {bundleId}
+            WHERE bundle_id IS NULL
+            AND id IN ({inList})""")
+        .on(
+          "bundleId" -> bundleId,
+          "inList"   -> taskIds
+        )
+        .executeUpdate()
+
+      val sqlQuery =
+        s"""INSERT INTO task_bundles (bundle_id, task_id) VALUES ($bundleId, {taskId})"""
+
+      val parameters = taskIds.map(taskId => Seq[NamedParameter]("taskId" -> taskId))
+
+      BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
+
+      val tasks = this.retrieveTasks(
+        Query.simple(
+          List(
+            BaseParameter("bundle_id", bundleId, table = Some("tb"))
+          )
+        )
+      )
+      // Lock the new tasks to indicate they are part of the bundle
+      for (task <- tasks) {
+        try {
+          this.lockItem(user, task)
+        } catch {
+          case e: Exception => this.logger.warn(e.getMessage)
+        }
+      }
+    }
+  }
+
+  /**
     * Deletes a task bundle.
     *
     * @param bundleId The id of the bundle

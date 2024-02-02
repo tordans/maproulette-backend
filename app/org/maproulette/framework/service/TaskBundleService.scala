@@ -58,26 +58,26 @@ class TaskBundleService @Inject() (
         // 2. Must be same task type as main task
         for (task <- tasks) {
           if (cooperativeWork && task.cooperativeWork.isDefined != cooperativeWork) {
-            throw new InvalidException(
+              throw new InvalidException(
               "The main task type is Cooperative. All selected tasks must be Cooperative."
             )
           }
           if (!cooperativeWork && task.cooperativeWork.isDefined != cooperativeWork) {
             throw new InvalidException(
               "The main task type is not Cooperative. All selected tasks must not be Cooperative."
-            )
-          }
-          if (task.parent != challengeId) {
-            throw new InvalidException(
-              "All tasks in the bundle must be part of the same challenge."
-            )
-          }
-          if (task.bundleId.isDefined) {
-            throw new InvalidException(
+              )
+            }
+            if (task.parent != challengeId) {
+              throw new InvalidException(
+                "All tasks in the bundle must be part of the same challenge."
+              )
+            }
+            if (task.bundleId.isDefined) {
+              throw new InvalidException(
               "Task " + task.id + " already assigned to bundle: " +
                 task.bundleId.getOrElse("") + "."
-            )
-          }
+              )
+            }
         }
       }
     )
@@ -99,6 +99,25 @@ class TaskBundleService @Inject() (
     }
 
     this.repository.unbundleTasks(user, bundleId, taskIds)
+    this.getTaskBundle(user, bundleId)
+  }
+
+  /**
+    * Removes tasks from a bundle.
+    *
+    * @param bundleId The id of the bundle
+    */
+  def bundleTasks(user: User, bundleId: Long, taskIds: List[Long])(): TaskBundle = {
+    val bundle = this.getTaskBundle(user, bundleId)
+
+    // Verify permissions to modify this bundle
+    if (!permission.isSuperUser(user) && bundle.ownerId != user.id) {
+      throw new IllegalAccessException(
+        "Only a super user or the original user can update this bundle."
+      )
+    }
+
+    this.repository.bundleTasks(user, bundleId, taskIds)
     this.getTaskBundle(user, bundleId)
   }
 

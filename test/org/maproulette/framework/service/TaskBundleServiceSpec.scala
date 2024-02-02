@@ -244,6 +244,39 @@ class TaskBundleServiceSpec(implicit val application: Application) extends Frame
         this.service.unbundleTasks(randomUser, bundle.bundleId, List(task2.id))()
     }
 
+    "bundle a task with permission check" taggedAs (TaskTag) in {
+      val task1 = taskDAL
+        .insert(
+          getTestTask(UUID.randomUUID().toString, challenge.id),
+          User.superUser
+        )
+      val task2 = taskDAL
+        .insert(
+          getTestTask(UUID.randomUUID().toString, challenge.id),
+          User.superUser
+        )
+
+      // Create a bundle with task1 only
+      val bundle = this.service.createTaskBundle(User.superUser, "my bundle for bundle", List(task1.id))
+
+      // tasks.bundle_id is NOT set until setTaskStatus is called
+      taskDAL.setTaskStatus(
+        List(task1),
+        Task.STATUS_FIXED,
+        User.superUser,
+        bundleId = Some(bundle.bundleId),
+        primaryTaskId = Some(task1.id)
+      )
+
+      val randomUser = serviceManager.user.create(
+        this.getTestUser(1022345, "RandomUser2"),
+        User.superUser
+      )
+
+      // Random user is not allowed to bundle task2
+      an[IllegalAccessException] should be thrownBy
+        this.service.bundleTasks(randomUser, bundle.bundleId, List(task2.id))
+      } 
   }
 
   override implicit val projectTestName: String = "TaskBundleSpecProject"

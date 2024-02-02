@@ -235,17 +235,17 @@ class TaskBundleController @Inject() (
     *
     * @return A TaskBundle representing the new bundle
     */
-  def createTaskBundle(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
-    this.sessionManager.authenticatedRequest { implicit user =>
-      val name = (request.body \ "name").asOpt[String].getOrElse("")
+ def createTaskBundle(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+  this.sessionManager.authenticatedRequest { implicit user =>
+    val name = (request.body \ "name").asOpt[String].getOrElse("")
       val taskIds = (request.body \ "taskIds").asOpt[List[Long]] match {
         case Some(tasks) => tasks
         case None        => throw new InvalidException("No task ids provided for task bundle")
-      }
-      val bundle = this.serviceManager.taskBundle.createTaskBundle(user, name, taskIds)
-      Created(Json.toJson(bundle))
     }
+    val bundle = this.serviceManager.taskBundle.createTaskBundle(user, name, taskIds)
+      Created(Json.toJson(bundle))
   }
+}
 
   /**
     * Gets the tasks in the given Bundle
@@ -270,6 +270,21 @@ class TaskBundleController @Inject() (
     implicit request =>
       this.sessionManager.authenticatedRequest { implicit user =>
         this.serviceManager.taskBundle.unbundleTasks(user, id, taskIds)
+        Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, id)))
+      }
+  }
+
+  /**
+    * Adds tasks to a bundle.
+    *
+    * @param id      The id for the bundle
+    * @param taskIds List of task ids to remove
+    * @return Task Bundle
+    */
+  def bundleTasks(id: Long, taskIds: List[Long]): Action[AnyContent] = Action.async {
+    implicit request =>
+      this.sessionManager.authenticatedRequest { implicit user =>
+        this.serviceManager.taskBundle.bundleTasks(user, id, taskIds)
         Ok(Json.toJson(this.serviceManager.taskBundle.getTaskBundle(user, id)))
       }
   }
