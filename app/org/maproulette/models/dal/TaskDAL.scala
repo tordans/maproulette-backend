@@ -72,6 +72,7 @@ class TaskDAL @Inject() (
 
   val parser = this.getTaskParser(this.taskRepository.updateAndRetrieve)
 
+
   // The cache manager for that tasks
   override val cacheManager = this.taskRepository.cacheManager
 

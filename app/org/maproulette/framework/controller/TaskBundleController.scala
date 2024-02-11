@@ -235,17 +235,18 @@ class TaskBundleController @Inject() (
     *
     * @return A TaskBundle representing the new bundle
     */
- def createTaskBundle(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
-  this.sessionManager.authenticatedRequest { implicit user =>
-    val name = (request.body \ "name").asOpt[String].getOrElse("")
+  def createTaskBundle(): Action[JsValue] = Action.async(bodyParsers.json) { implicit request =>
+    this.sessionManager.authenticatedRequest { implicit user =>
+      val name      = (request.body \ "name").asOpt[String].getOrElse("")
+      val primaryId = (request.body \ "primaryId").asOpt[Long]
       val taskIds = (request.body \ "taskIds").asOpt[List[Long]] match {
         case Some(tasks) => tasks
         case None        => throw new InvalidException("No task ids provided for task bundle")
-    }
-    val bundle = this.serviceManager.taskBundle.createTaskBundle(user, name, taskIds)
+      }
+      val bundle = this.serviceManager.taskBundle.createTaskBundle(user, name, primaryId, taskIds)
       Created(Json.toJson(bundle))
+    }
   }
-}
 
   /**
     * Gets the tasks in the given Bundle

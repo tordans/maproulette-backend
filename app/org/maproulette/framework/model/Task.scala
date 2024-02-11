@@ -151,6 +151,15 @@ object Task extends CommonField {
         case None     => original
       }
 
+      original = Utils.insertIntoJson(original, "bundle_id", Json.toJson(o.bundleId), true)
+
+updated = o.bundleId match {
+  case Some(r) =>
+    Utils.insertIntoJson(original, "bundle_id", Json.toJson(o.bundleId), true)
+  case None =>
+    updated
+}
+
       // Move review fields up to top level
       updated = o.review.reviewStatus match {
         case Some(r) => {

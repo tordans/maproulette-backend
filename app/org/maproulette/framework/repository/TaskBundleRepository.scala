@@ -8,6 +8,7 @@ package org.maproulette.framework.repository
 import org.slf4j.LoggerFactory
 
 import anorm.ToParameterValue
+import org.maproulette.cache.CacheManager
 import anorm._, postgresql._
 import javax.inject.{Inject, Singleton}
 import org.maproulette.Config
@@ -32,6 +33,7 @@ class TaskBundleRepository @Inject() (
     with Locking[Task] {
   protected val logger           = LoggerFactory.getLogger(this.getClass)
   implicit val baseTable: String = Task.TABLE
+  val cacheManager: CacheManager[Long, Task]  = this.taskRepository.cacheManager
 
   /**
     * Inserts a new task bundle with the given tasks, assigning ownership of
@@ -41,38 +43,82 @@ class TaskBundleRepository @Inject() (
     * @param name    The name of the task bundle
     * @param lockedTasks The tasks to be added to the bundle
     */
-  def insert(
-      user: User,
-      name: String,
-      taskIds: List[Long],
-      verifyTasks: (List[Task]) => Unit
-  ): TaskBundle = {
-    this.withMRTransaction { implicit c =>
-      val lockedTasks = this.withListLocking(user, Some(TaskType())) { () =>
-        this.taskDAL.retrieveListById(-1, 0)(taskIds)
-      }
+def insert(
+  user: User,
+  name: String,
+  primaryId: Option[Long],
+  taskIds: List[Long],
+  verifyTasks: (List[Task]) => Unit
+): TaskBundle = {
+  this.withMRTransaction { implicit c =>
+    val lockedTasks = this.withListLocking(user, Some(TaskType())) { () =>
+      this.taskDAL.retrieveListById(-1, 0)(taskIds)
+    }
 
-      verifyTasks(lockedTasks)
+    verifyTasks(lockedTasks)
 
-      val rowId =
-        SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
-      rowId match {
-        case Some(bundleId) =>
-          val sqlQuery =
-            s"""INSERT INTO task_bundles (task_id, bundle_id) VALUES ({taskId}, $bundleId)"""
-          val parameters = lockedTasks.map(task => {
-            Seq[NamedParameter]("taskId" -> task.id)
-          })
-          BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
-          TaskBundle(bundleId, user.id, lockedTasks.map(task => {
-            task.id
-          }), Some(lockedTasks))
+    val rowId =
+      SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
 
-        case None =>
-          throw new Exception("Bundle creation failed")
-      }
+    rowId match {
+      case Some(bundleId: Long) =>
+        // Insert tasks into the task_bundles table
+        val sqlInsertTaskBundles =
+          s"""INSERT INTO task_bundles (task_id, bundle_id) VALUES ({taskId}, $bundleId)"""
+
+        // Update tasks in the tasks table
+        SQL(s"""UPDATE tasks SET bundle_id = $bundleId
+              WHERE id IN ({inList})""")
+          .on(
+            "inList"   -> taskIds
+          )
+          .executeUpdate()
+
+        primaryId.foreach { id =>
+          SQL"""UPDATE tasks SET is_bundle_primary = true, bundle_id = $bundleId WHERE id = $id"""
+            .executeUpdate()
+        }
+
+        val parameters = lockedTasks.map(task => Seq[NamedParameter]("taskId" -> task.id))
+        BatchSql(sqlInsertTaskBundles, parameters.head, parameters.tail: _*).execute()
+
+        // Lock each of the new tasks to indicate they are part of the bundle
+        for (task <- lockedTasks) {
+          try {
+            this.lockItem(user, task)
+          } catch {
+              case e: Exception => this.logger.warn(e.getMessage)
+          }
+        }
+
+        // Retrieve the tasks associated with the provided bundleId
+        val tasks = this.retrieveTasks(
+          Query.simple(
+            List(
+              BaseParameter("bundle_id", bundleId, table = Some("tb"))
+            )
+          )
+        )
+
+        // Update cache with the latest task data
+        for (task <- tasks) {
+          this.cacheManager.withOptionCaching { () =>
+            Some(
+              task.copy(
+                bundleId = Some(bundleId),
+                isBundlePrimary = primaryId.map(_ == task.id)
+              )
+            )
+          }
+        }
+
+        TaskBundle(bundleId, user.id, taskIds, Some(tasks))
+
+      case None =>
+        throw new Exception("Bundle creation failed")
     }
   }
+}
 
   /**
     * Removes tasks from a bundle.
@@ -127,6 +173,7 @@ class TaskBundleRepository @Inject() (
     */
   def bundleTasks(user: User, bundleId: Long, taskIds: List[Long]): Unit = {
     this.withMRConnection { implicit c =>
+      // Update tasks to set their bundle_id to the provided bundleId
       SQL(s"""UPDATE tasks SET bundle_id = {bundleId}
             WHERE bundle_id IS NULL
             AND id IN ({inList})""")
@@ -136,13 +183,17 @@ class TaskBundleRepository @Inject() (
         )
         .executeUpdate()
 
+      // Construct the SQL query to insert task-bundle associations
       val sqlQuery =
         s"""INSERT INTO task_bundles (bundle_id, task_id) VALUES ($bundleId, {taskId})"""
 
+      // Construct parameters for the BatchSql operation
       val parameters = taskIds.map(taskId => Seq[NamedParameter]("taskId" -> taskId))
 
+      // Execute the BatchSql operation to insert task-bundle associations
       BatchSql(sqlQuery, parameters.head, parameters.tail: _*).execute()
 
+      // Retrieve the tasks associated with the given bundleId
       val tasks = this.retrieveTasks(
         Query.simple(
           List(
@@ -150,7 +201,7 @@ class TaskBundleRepository @Inject() (
           )
         )
       )
-      // Lock the new tasks to indicate they are part of the bundle
+      // Lock each of the new tasks to indicate they are part of the bundle
       for (task <- tasks) {
         try {
           this.lockItem(user, task)
@@ -171,6 +222,10 @@ class TaskBundleRepository @Inject() (
       SQL(
         "UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}"
       ).on(Symbol("bundleId") -> bundle.bundleId).executeUpdate()
+
+      // Update the bundle_id of tasks back to NULL
+      val inList = bundle.tasks.getOrElse(Nil).map(_.id).mkString(",")
+      SQL(s"UPDATE tasks SET bundle_id = NULL WHERE id IN ($inList)").executeUpdate()
 
       if (primaryTaskId != None) {
         // unlock tasks (everything but the primary task id)
