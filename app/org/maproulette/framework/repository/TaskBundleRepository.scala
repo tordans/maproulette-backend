@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 import anorm.ToParameterValue
 import anorm._, postgresql._
 import javax.inject.{Inject, Singleton}
+import org.maproulette.exception.InvalidException
 import org.maproulette.Config
 import org.maproulette.framework.psql.Query
 import org.maproulette.framework.psql.filter.BaseParameter
@@ -32,6 +33,7 @@ class TaskBundleRepository @Inject() (
     with Locking[Task] {
   protected val logger           = LoggerFactory.getLogger(this.getClass)
   implicit val baseTable: String = Task.TABLE
+  val cacheManager               = this.taskRepository.cacheManager
 
   /**
     * Inserts a new task bundle with the given tasks, assigning ownership of
@@ -52,7 +54,22 @@ class TaskBundleRepository @Inject() (
         this.taskDAL.retrieveListById(-1, 0)(taskIds)
       }
 
+      val failedTaskIds = taskIds.diff(lockedTasks.map(_.id))
+      if (failedTaskIds.nonEmpty) {
+        throw new InvalidException(
+          s"Bundle creation failed because the following task IDs were locked: ${failedTaskIds.mkString(", ")}"
+        )
+      }
+
       verifyTasks(lockedTasks)
+
+      for (task <- lockedTasks) {
+        try {
+          this.lockItem(user, task)
+        } catch {
+          case e: Exception => this.logger.warn(e.getMessage)
+        }
+      }
 
       val rowId =
         SQL"""INSERT INTO bundles (owner_id, name) VALUES (${user.id}, ${name})""".executeInsert()
@@ -128,8 +145,15 @@ class TaskBundleRepository @Inject() (
   def deleteTaskBundle(user: User, bundle: TaskBundle, primaryTaskId: Option[Long] = None): Unit = {
     this.withMRConnection { implicit c =>
       SQL(
-        "UPDATE tasks SET bundle_id = NULL, is_bundle_primary = NULL WHERE bundle_id = {bundleId}"
-      ).on(Symbol("bundleId") -> bundle.bundleId).executeUpdate()
+        """UPDATE tasks 
+     SET bundle_id = NULL, 
+         is_bundle_primary = NULL 
+     WHERE bundle_id = {bundleId} OR id = {primaryTaskId}"""
+      ).on(
+          Symbol("bundleId")      -> bundle.bundleId,
+          Symbol("primaryTaskId") -> primaryTaskId
+        )
+        .executeUpdate()
 
       if (primaryTaskId != None) {
         // unlock tasks (everything but the primary task id)
@@ -146,6 +170,23 @@ class TaskBundleRepository @Inject() (
             }
           case None => // no tasks in bundle
         }
+      }
+
+      // Update cache for each task in the bundle
+      bundle.tasks match {
+        case Some(t) =>
+          for (task <- t) {
+            this.cacheManager.withOptionCaching { () =>
+              Some(
+                task.copy(
+                  bundleId = None,
+                  isBundlePrimary = None
+                )
+              )
+            }
+          }
+
+        case None => // no tasks in bundle
       }
 
       // Delete from task_bundles which will also cascade delete from bundles
