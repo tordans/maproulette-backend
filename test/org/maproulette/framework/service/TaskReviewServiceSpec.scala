@@ -61,6 +61,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
       var result2 = this.service.nextTaskReview(
         reviewUser,
         SearchParameters(),
+        lastChallengeId = Some(result.get.parent),
         lastTaskId = Some(result.get.id),
         sort = "id",
         order = ""
@@ -76,6 +77,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
       var result3 = this.service.nextTaskReview(
         reviewUser,
         SearchParameters(),
+        lastChallengeId = Some(result2.get.parent),
         lastTaskId = Some(result2.get.id),
         sort = "id",
         order = ""
