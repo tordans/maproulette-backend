@@ -8,7 +8,7 @@ package org.maproulette.framework.service
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.duration.FiniteDuration
 import org.joda.time.DateTime
-
+import scala.util.Random
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
@@ -140,6 +140,7 @@ class TaskReviewService @Inject() (
       onlySaved: Boolean = false,
       sort: String,
       order: String,
+      lastChallengeId: Option[Long] = None,
       lastTaskId: Option[Long] = None,
       excludeOtherReviewers: Boolean = false,
       asMetaReview: Boolean = false
@@ -151,10 +152,20 @@ class TaskReviewService @Inject() (
 
     val params = copyParamsForMetaReview(asMetaReview, searchParameters)
 
-    val position = lastTaskId match {
-      case Some(taskId) => {
-        // Queries for a map of (taskId -> row position)
-        val rowMap = this.repository.queryTasksWithRowNumber(
+    // Define a function to prioritize tasks with the same challenge ID
+    def prioritizeByChallengeId(tasks: List[Task]): List[Task] =
+      lastChallengeId match {
+        case Some(challengeId) =>
+          val filteredTasks =
+            tasks.filter(task => task.parent == challengeId && task.id != lastTaskId.getOrElse(-1))
+          if (filteredTasks.nonEmpty) filteredTasks
+          else tasks.filter(_.id != lastTaskId.getOrElse(-1))
+        case None => tasks
+      }
+
+    val tasks =
+      prioritizeByChallengeId(
+        this.repository.queryTasks(
           getReviewRequestedQueries(
             user,
             params,
@@ -166,35 +177,11 @@ class TaskReviewService @Inject() (
             excludeOtherReviewers,
             asMetaReview
           ),
-          taskId
+          params
         )
-        rowMap.get(taskId)
-
-        // If our task id is in the row map, we have a position for it
-        rowMap.get(taskId) match {
-          case Some(row) => row
-          case _         => 0
-        }
-      }
-      case _ => 0
-    }
-
-    this.repository
-      .queryTasks(
-        getReviewRequestedQueries(
-          user,
-          params,
-          onlySaved,
-          Paging(1, position),
-          sort,
-          order,
-          false,
-          excludeOtherReviewers,
-          asMetaReview
-        ),
-        params
       )
-      .headOption
+
+    Random.shuffle(tasks).headOption
   }
 
   /**

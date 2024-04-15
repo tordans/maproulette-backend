@@ -115,6 +115,7 @@ class TaskReviewController @Inject() (
       onlySaved: Boolean = false,
       sort: String,
       order: String,
+      lastChallengeId: Long = -1,
       lastTaskId: Long = -1,
       excludeOtherReviewers: Boolean = false,
       asMetaReview: Boolean = false
@@ -139,10 +140,12 @@ class TaskReviewController @Inject() (
           onlySaved,
           sort,
           order,
+          (if (lastChallengeId == -1) None else Some(lastChallengeId)),
           (if (lastTaskId == -1) None else Some(lastTaskId)),
           excludeOtherReviewers,
           asMetaReview
         )
+
         val nextTask = result match {
           case Some(task) =>
             Ok(Json.toJson(this.service.startTaskReview(user, task)))
