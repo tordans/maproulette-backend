@@ -7,14 +7,12 @@ package org.maproulette.framework.repository
 
 import java.sql.Connection
 import scala.concurrent.duration.FiniteDuration
-import scala.collection.mutable
 
-import anorm.SqlParser.get
-import anorm.{ToParameterValue, SimpleSql, Row, SqlParser, RowParser, ~, SQL}
+import anorm.{ToParameterValue, SimpleSql, Row, SqlParser, SQL}
 import javax.inject.{Inject, Singleton}
 import org.joda.time.DateTime
 import org.maproulette.framework.model.{Task, TaskReview, TaskWithReview, User}
-import org.maproulette.framework.psql.{Query, Grouping, OrderField, Order, Paging}
+import org.maproulette.framework.psql.{Query, OrderField, Order, Paging}
 import org.maproulette.framework.mixins.{Locking, TaskParserMixin}
 import org.maproulette.framework.service.UserService
 import org.maproulette.session.SearchParameters

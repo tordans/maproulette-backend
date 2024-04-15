@@ -8,7 +8,6 @@ package org.maproulette.framework.service
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.duration.FiniteDuration
 import org.joda.time.DateTime
-import scala.util.Random
 import org.maproulette.framework.model._
 import org.maproulette.framework.psql.{Query, _}
 import org.maproulette.framework.psql.filter.{BaseParameter, _}
@@ -181,7 +180,7 @@ class TaskReviewService @Inject() (
         )
       )
 
-    Random.shuffle(tasks).headOption
+    tasks.headOption
   }
 
   /**
