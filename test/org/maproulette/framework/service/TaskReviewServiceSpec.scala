@@ -52,6 +52,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
       // Get a task to review
       var result =
         this.service.nextTaskReview(reviewUser, SearchParameters(), sort = "id", order = "")
+      println(s"Task 1: $result")
       result = this.service.startTaskReview(reviewUser, result.get)
       result.get.review.reviewClaimedBy.get mustEqual reviewUser.id
       result.get.id mustEqual reviewTask.id
@@ -66,6 +67,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
         sort = "id",
         order = ""
       )
+      println(s"Task 2: $result2")
       result2 = this.service.startTaskReview(reviewUser, result2.get)
       result2.get.review.reviewClaimedBy.get mustEqual reviewUser.id
 
@@ -82,6 +84,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
         sort = "id",
         order = ""
       )
+      println(s"Task 3: $result3")
       result3 mustEqual None
     }
 
