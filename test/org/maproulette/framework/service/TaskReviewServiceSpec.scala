@@ -107,6 +107,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
         SearchParameters(),
         lastChallengeId = Some(reviewTask.parent),
         lastTaskId = Some(reviewTask.id),
+        reviewedTaskIdsList = List(reviewTask.id),
         sort = "id",
         order = "ASC"
       )
