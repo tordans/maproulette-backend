@@ -165,7 +165,7 @@ GET     /tasks/reviewed                          @org.maproulette.framework.cont
 #     description: Fetch a task within the current challenge lastChallengeId.
 #   - name: reviewedTaskIds
 #     in: query
-#     description: A comma-separated list of reviewed task IDs. Example format: "14859,25084". Use this parameter to exclude tasks that have been reviewed. Tasks listed here will not appear in the results of the request.
+#     description: A comma-separated list of reviewed task IDs. Example format "14859,25084". Use this parameter to exclude tasks that have been reviewed. Tasks listed here will not appear in the results of the request.
 #   - name: asMetaReview
 #     in: query
 #     description: Fetch the next task for a meta review.
