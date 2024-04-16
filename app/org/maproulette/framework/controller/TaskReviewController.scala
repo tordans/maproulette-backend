@@ -117,6 +117,7 @@ class TaskReviewController @Inject() (
       order: String,
       lastChallengeId: Long = -1,
       lastTaskId: Long = -1,
+      reviewedTaskIds: String = "",
       excludeOtherReviewers: Boolean = false,
       asMetaReview: Boolean = false
   ): Action[AnyContent] = Action.async { implicit request =>
@@ -134,6 +135,8 @@ class TaskReviewController @Inject() (
           case _: Throwable => // do nothing, it's okay if the user didn't lock the prior task
         }
 
+        val reviewedTaskIdsList: List[Long] = reviewedTaskIds.split(",").map(_.toLong).toList
+
         val result = this.service.nextTaskReview(
           user,
           params,
@@ -142,6 +145,7 @@ class TaskReviewController @Inject() (
           order,
           (if (lastChallengeId == -1) None else Some(lastChallengeId)),
           (if (lastTaskId == -1) None else Some(lastTaskId)),
+          reviewedTaskIdsList,
           excludeOtherReviewers,
           asMetaReview
         )

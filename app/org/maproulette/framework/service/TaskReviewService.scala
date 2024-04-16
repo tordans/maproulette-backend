@@ -124,12 +124,13 @@ class TaskReviewService @Inject() (
   /**
     * Gets and claims the next task for review.
     *
-    * @param user The user executing the request
+    * @param user                   The user executing the request
     * @param searchParameters
     * @param onlySaved
     * @param sort
     * @param order
     * @param lastTaskId
+    * @param reviewedTaskIdsList
     * @param excludeOtherReviewers
     * @return task
     */
@@ -141,6 +142,7 @@ class TaskReviewService @Inject() (
       order: String,
       lastChallengeId: Option[Long] = None,
       lastTaskId: Option[Long] = None,
+      reviewedTaskIdsList: List[Long] = Nil,
       excludeOtherReviewers: Boolean = false,
       asMetaReview: Boolean = false
   ): Option[Task] = {
@@ -152,15 +154,15 @@ class TaskReviewService @Inject() (
     val params = copyParamsForMetaReview(asMetaReview, searchParameters)
 
     // Define a function to prioritize tasks with the same challenge ID
-    def prioritizeByChallengeId(tasks: List[Task]): List[Task] =
+    def prioritizeByChallengeId(tasks: List[Task], reviewedTasks: List[Long]): List[Task] = {
+      val unreviewedTasks = tasks.filterNot(task => reviewedTasks.contains(task.id))
       lastChallengeId match {
         case Some(challengeId) =>
-          val filteredTasks =
-            tasks.filter(task => task.parent == challengeId && task.id != lastTaskId.getOrElse(-1))
-          if (filteredTasks.nonEmpty) filteredTasks
-          else tasks.filter(_.id != lastTaskId.getOrElse(-1))
-        case None => tasks
+          val filteredTasks = unreviewedTasks.filter(task => task.parent == challengeId)
+          if (filteredTasks.nonEmpty) filteredTasks else unreviewedTasks
+        case None => unreviewedTasks
       }
+    }
 
     val tasks =
       prioritizeByChallengeId(
@@ -177,7 +179,8 @@ class TaskReviewService @Inject() (
             asMetaReview
           ),
           params
-        )
+        ),
+        reviewedTaskIdsList
       )
 
     tasks.headOption

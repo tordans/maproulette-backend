@@ -160,6 +160,12 @@ GET     /tasks/reviewed                          @org.maproulette.framework.cont
 #   - name: lastTaskId
 #     in: query
 #     description: Fetch the next task after the lastTaskId. (so if you want to 'skip' a task you can get the next one)
+#   - name: lastChallengeId
+#     in: query
+#     description: Fetch a task within the current challenge lastChallengeId.
+#   - name: reviewedTaskIds
+#     in: query
+#     description: A comma-separated list of reviewed task IDs. Example format: "14859,25084". Use this parameter to exclude tasks that have been reviewed. Tasks listed here will not appear in the results of the request.
 #   - name: asMetaReview
 #     in: query
 #     description: Fetch the next task for a meta review.
@@ -173,7 +179,7 @@ GET     /tasks/reviewed                          @org.maproulette.framework.cont
 #     in: query
 #     description: The search string used to match the Reviewer names. (reviewed_by)
 ###
-GET     /tasks/review/next                       @org.maproulette.framework.controller.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastChallengeId:Long ?= -1, lastTaskId:Long ?= -1, excludeOtherReviewers:Boolean ?= false, asMetaReview: Boolean ?= false)
+GET     /tasks/review/next                       @org.maproulette.framework.controller.TaskReviewController.nextTaskReview(onlySaved:Boolean ?= false, sort:String ?= "", order:String ?= "ASC", lastChallengeId:Long ?= -1, lastTaskId:Long ?= -1, reviewedTaskIds:String ?= "", excludeOtherReviewers:Boolean ?= false, asMetaReview: Boolean ?= false)
 ###
 # tags: [ Review ]
 # summary: Retrieves nearby Tasks
