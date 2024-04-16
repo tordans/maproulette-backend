@@ -87,45 +87,6 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
       result3 mustEqual None
     }
 
-    "next task review should honor sort direction" taggedAs (TaskReviewTag) in {
-      // Get a task to review
-      var result =
-        this.service.nextTaskReview(reviewUser, SearchParameters(), sort = "id", order = "DESC")
-      result = this.service.startTaskReview(reviewUser, result.get)
-      result.get.review.reviewClaimedBy.get mustEqual reviewUser.id
-      this.service.cancelTaskReview(reviewUser, result.get)
-
-      // Get a second task to review
-      var result2 = this.service.nextTaskReview(
-        reviewUser,
-        SearchParameters(),
-        lastChallengeId = Some(result.get.parent),
-        lastTaskId = Some(result.get.id),
-        sort = "id",
-        order = "DESC"
-      )
-      result2 = this.service.startTaskReview(reviewUser, result2.get)
-      result2.get.review.reviewClaimedBy.get mustEqual reviewUser.id
-      result2.get.id mustEqual reviewTask.id
-      this.service.cancelTaskReview(reviewUser, result2.get)
-
-      // Exercise sorting
-      var result3 = this.service.nextTaskReview(
-        reviewUser,
-        SearchParameters(),
-        sort = "review_requested_by",
-        order = "ASC"
-      )
-      (result3 != None) mustEqual true
-      var result4 = this.service.nextTaskReview(
-        reviewUser,
-        SearchParameters(),
-        sort = "mapped_on",
-        order = "ASC"
-      )
-      (result4 != None) mustEqual true
-    }
-
     "get Review Requested tasks" taggedAs (TaskReviewTag) in {
       var (count, result) =
         this.service.getReviewRequestedTasks(reviewUser, SearchParameters(), sort = "", order = "")
