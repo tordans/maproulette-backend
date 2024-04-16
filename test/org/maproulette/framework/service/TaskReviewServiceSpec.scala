@@ -63,7 +63,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
         SearchParameters(),
         lastChallengeId = Some(result.get.parent),
         lastTaskId = Some(result.get.id),
-        reviewedTaskIdsList = List(Some(result.get.id)),
+        reviewedTaskIdsList = List(result.get.id),
         sort = "id",
         order = ""
       )
@@ -80,7 +80,7 @@ class TaskReviewServiceSpec(implicit val application: Application) extends Frame
         SearchParameters(),
         lastChallengeId = Some(result2.get.parent),
         lastTaskId = Some(result2.get.id),
-        reviewedTaskIdsList = List(Some(result.get.id), Some(result2.get.id)),
+        reviewedTaskIdsList = List(result.get.id, result2.get.id),
         sort = "id",
         order = ""
       )
