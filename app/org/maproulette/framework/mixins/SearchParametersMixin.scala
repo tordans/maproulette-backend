@@ -25,6 +25,7 @@ trait SearchParametersMixin {
       this.filterBounding(params),
       this.filterTaskStatus(params),
       this.filterTaskId(params),
+      this.filterTaskFeatureId(params),
       this.filterProjectSearch(params),
       this.filterTaskReviewStatus(params),
       this.filterMetaReviewStatus(params),
@@ -302,6 +303,24 @@ trait SearchParametersMixin {
           )
         )
       case _ => FilterGroup(List())
+    }
+  }
+
+  /**
+    * Filters by tasks.name
+    * @param params with inverting on 'fid'
+    */
+  def filterTaskFeatureId(params: SearchParameters): FilterGroup = {
+    params.taskParams.taskFeatureId match {
+      case Some(fid) =>
+        FilterGroup(
+          List(
+            CustomParameter(
+              s"LOWER(TRIM(${Task.TABLE}.${Task.FIELD_NAME}::TEXT)) LIKE LOWER('%${fid.trim}%')"
+            )
+          )
+        )
+      case None => FilterGroup(List())
     }
   }
 
