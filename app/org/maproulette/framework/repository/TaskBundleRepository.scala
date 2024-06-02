@@ -98,6 +98,7 @@ class TaskBundleRepository @Inject() (
             } catch {
               case e: Exception => this.logger.warn(e.getMessage)
             }
+            taskRepository.cacheManager.cache.remove(task.id)
           }
 
           TaskBundle(bundleId, user.id, lockedTasks.map(task => {
@@ -212,6 +213,7 @@ class TaskBundleRepository @Inject() (
           case e: Exception =>
             this.logger.warn(e.getMessage)
         }
+        taskRepository.cacheManager.cache.remove(task.id)
       }
     }
   }
@@ -270,6 +272,7 @@ class TaskBundleRepository @Inject() (
                   case e: Exception => this.logger.warn(e.getMessage)
                 }
               }
+              taskRepository.cacheManager.cache.remove(task.id)
             case None => // do nothing
           }
         }
@@ -311,6 +314,7 @@ class TaskBundleRepository @Inject() (
             case e: Exception => this.logger.warn(e.getMessage)
           }
         }
+        taskRepository.cacheManager.cache.remove(task.id)
       }
     }
   }
