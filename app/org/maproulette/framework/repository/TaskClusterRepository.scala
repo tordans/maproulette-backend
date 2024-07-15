@@ -143,14 +143,15 @@ class TaskClusterRepository @Inject() (override val db: Database, challengeDAL: 
             ${joinClause.toString()}
           """).as(SqlParser.int("count").single)
 
-      val results =
-        query
-          .copy(
-            order = order,
-            paging = paging
-          )
-          .build(
-            s"""
+      if (count <= 1001) {
+        val results =
+          query
+            .copy(
+              order = order,
+              paging = paging
+            )
+            .build(
+              s"""
               SELECT tasks.id, tasks.name, tasks.parent_id, c.name, tasks.instruction, tasks.status, tasks.mapped_on,
                      tasks.completed_time_spent, tasks.completed_by,
                      tasks.bundle_id, tasks.is_bundle_primary, tasks.cooperative_work_json::TEXT as cooperative_work,
@@ -165,10 +166,13 @@ class TaskClusterRepository @Inject() (override val db: Database, challengeDAL: 
               FROM tasks
               ${joinClause.toString()}
             """
-          )
-          .as(this.pointParser.*)
+            )
+            .as(this.pointParser.*)
 
-      (count, results)
+        (count, Some(results))
+      } else {
+        (count, Option.empty[List[ClusteredPoint]])
+      }
     }
   }
 
