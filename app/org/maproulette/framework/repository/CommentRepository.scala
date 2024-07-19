@@ -165,19 +165,17 @@ class CommentRepository @Inject() (override val db: Database) extends Repository
 
 object CommentRepository {
   val parser: RowParser[Comment] = {
-    long("task_comments.id") ~ long("task_comments.osm_id") ~ get[String]("users.name") ~ get[
-      String
-    ]("users.avatar_url") ~
-      long("task_comments.task_id") ~ long("task_comments.challenge_id") ~ long(
-      "task_comments.project_id"
-    ) ~ get[DateTime]("task_comments.created") ~ get[String]("task_comments.comment") ~
+    long("task_comments.id") ~ long("task_comments.osm_id") ~ get[String]("users.name") ~
+      get[Option[String]]("users.avatar_url") ~ long("task_comments.task_id") ~
+      long("task_comments.challenge_id") ~ long("task_comments.project_id") ~
+      get[DateTime]("task_comments.created") ~ get[String]("task_comments.comment") ~
       get[Option[Long]]("task_comments.action_id") map {
       case id ~ osmId ~ name ~ avatarUrl ~ taskId ~ challengeId ~ projectId ~ created ~ comment ~ actionId =>
         Comment(
           id,
           osm_id = osmId,
           osm_username = name,
-          avatarUrl = if (avatarUrl.isEmpty) "/assets/images/user_no_image.png" else avatarUrl,
+          avatarUrl.getOrElse(""),
           taskId = taskId,
           challengeId = challengeId,
           projectId = projectId,
@@ -189,19 +187,17 @@ object CommentRepository {
   }
 
   val expandedParser: RowParser[Comment] = {
-    long("task_comments.id") ~ long("task_comments.osm_id") ~ get[String]("users.name") ~ get[
-      String
-    ]("users.avatar_url") ~
-      long("task_comments.task_id") ~ long("task_comments.challenge_id") ~ long(
-      "task_comments.project_id"
-    ) ~ get[DateTime]("task_comments.created") ~ get[String]("task_comments.comment") ~
+    long("task_comments.id") ~ long("task_comments.osm_id") ~ get[String]("users.name") ~
+      get[Option[String]]("users.avatar_url") ~ long("task_comments.task_id") ~
+      long("task_comments.challenge_id") ~ long("task_comments.project_id") ~
+      get[DateTime]("task_comments.created") ~ get[String]("task_comments.comment") ~
       get[Option[Long]]("task_comments.action_id") ~ get[Option[Int]]("full_count") map {
       case id ~ osmId ~ name ~ avatarUrl ~ taskId ~ challengeId ~ projectId ~ created ~ comment ~ actionId ~ fullCount =>
         Comment(
           id,
           osm_id = osmId,
           osm_username = name,
-          avatarUrl = if (avatarUrl.isEmpty) "/assets/images/user_no_image.png" else avatarUrl,
+          avatarUrl.getOrElse(""),
           taskId = taskId,
           challengeId = challengeId,
           projectId = projectId,

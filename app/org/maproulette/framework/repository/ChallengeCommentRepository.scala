@@ -117,13 +117,15 @@ class ChallengeCommentRepository @Inject() (override val db: Database) extends R
 object ChallengeCommentRepository {
   val parser: RowParser[ChallengeComment] = {
     long("id") ~ long("project_id") ~ long("challenge_id") ~ get[DateTime]("created") ~
-      get[String]("comment") ~ long("osm_id") ~ get[String]("name") ~ get[String]("avatar_url") map {
+      get[String]("comment") ~ long("osm_id") ~ get[String]("name") ~ get[Option[String]](
+      "avatar_url"
+    ) map {
       case id ~ projectId ~ challengeId ~ created ~ comment ~ osmId ~ name ~ avatarUrl =>
         ChallengeComment(
           id,
           osmId,
           name,
-          avatarUrl = if (avatarUrl.isEmpty) "/assets/images/user_no_image.png" else avatarUrl,
+          avatarUrl.getOrElse(""),
           challengeId,
           projectId,
           created,
@@ -134,7 +136,9 @@ object ChallengeCommentRepository {
 
   val expandedParser: RowParser[ChallengeComment] = {
     long("id") ~ long("project_id") ~ long("challenge_id") ~ get[DateTime]("created") ~
-      get[String]("comment") ~ long("osm_id") ~ get[String]("name") ~ get[String]("avatar_url") ~ get[
+      get[String]("comment") ~ long("osm_id") ~ get[String]("name") ~ get[Option[String]](
+      "avatar_url"
+    ) ~ get[
       Option[String]
     ]("challenge_name") ~ get[Option[Int]]("full_count") map {
       case id ~ projectId ~ challengeId ~ created ~ comment ~ osmId ~ name ~ avatarUrl ~ challengeName ~ fullCount =>
@@ -142,7 +146,7 @@ object ChallengeCommentRepository {
           id,
           osmId,
           name,
-          avatarUrl = if (avatarUrl.isEmpty) "/assets/images/user_no_image.png" else avatarUrl,
+          avatarUrl.getOrElse(""),
           challengeId,
           projectId,
           created,
