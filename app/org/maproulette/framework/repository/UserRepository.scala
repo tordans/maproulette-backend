@@ -466,10 +466,10 @@ object UserRepository {
       get[Long]("users.id") ~
       get[Long]("users.osm_id") ~
       get[String]("users.name") ~
-      get[Option[String]]("users.avatar_url") ~
+      get[String]("users.avatar_url") ~
       get[List[Int]]("roles") map {
       case projectId ~ userId ~ osmId ~ displayName ~ avatarURL ~ roles =>
-        ProjectManager(projectId, userId, osmId, displayName, avatarURL.getOrElse(""), roles)
+        ProjectManager(projectId, userId, osmId, displayName, avatarURL, roles)
     }
   }
 
@@ -493,7 +493,7 @@ object UserRepository {
       get[DateTime]("users.osm_created") ~
       get[String]("users.name") ~
       get[Option[String]]("users.description") ~
-      get[Option[String]]("users.avatar_url") ~
+      get[String]("users.avatar_url") ~
       get[Option[String]]("home") ~
       get[Option[String]]("users.api_key") ~
       get[String]("users.oauth_token") ~
@@ -544,7 +544,7 @@ object UserRepository {
             osmId,
             displayName,
             description.getOrElse(""),
-            avatarURL.getOrElse(""),
+            avatarURL,
             Location(locationWKT.getX, locationWKT.getY),
             osmCreated,
             oauthToken
