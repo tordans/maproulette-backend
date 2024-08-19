@@ -330,7 +330,10 @@ class ChallengeProvider @Inject() (
     if (!challenge.extra.osmIdProperty.getOrElse("").isEmpty) {
       return featureOSMId(value, challenge) match {
         case Some(osmId) => osmId
-        case None        => UUID.randomUUID().toString // task does not contain id property
+        case None        =>               
+          throw new InvalidException(
+            s"No OSM/External Id Property matching ${challenge.extra.osmIdProperty} found."
+          )
       }
     }
 
@@ -354,10 +357,9 @@ class ChallengeProvider @Inject() (
             // See if we can find an id field on the feature properties
             case Some(properties) => taskNameFromJsValue(properties, challenge)
             case None             =>
-              // if we still don't find anything, create a UUID for it. The
-              // caveat to this is that if you upload the same file again, it
-              // will create duplicate tasks
-              UUID.randomUUID().toString
+              throw new InvalidException(
+                s"A feature id is required to prevent duplicate tasks on rebuild. Examples of feature id's include 'id', '@id', 'osmid', 'osm_id', 'name'"
+              )
           }
       }
     }
