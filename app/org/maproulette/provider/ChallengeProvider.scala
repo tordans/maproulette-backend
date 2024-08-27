@@ -330,9 +330,12 @@ class ChallengeProvider @Inject() (
     if (!challenge.extra.osmIdProperty.getOrElse("").isEmpty) {
       return featureOSMId(value, challenge) match {
         case Some(osmId) => osmId
-        case None        =>               
+        case None =>
           throw new InvalidException(
-            s"No OSM/External Id Property matching ${challenge.extra.osmIdProperty} found."
+            s"External ID property '${challenge.extra.osmIdProperty}' not found. To resolve this issue, you have two options: " +
+              "1. Remove the external ID, and Maproulette will attempt to use one of the default IDs: 'id', '@id', 'osmid', 'osm_id', or 'name'. " +
+              "2. Provide a valid external ID that matches your data. " +
+              "Rebuild the challenge after these changes are made."
           )
       }
     }
@@ -356,9 +359,9 @@ class ChallengeProvider @Inject() (
           (value \ "properties").asOpt[JsObject] match {
             // See if we can find an id field on the feature properties
             case Some(properties) => taskNameFromJsValue(properties, challenge)
-            case None             =>
+            case None =>
               throw new InvalidException(
-                s"A feature id is required to prevent duplicate tasks on rebuild. Examples of feature id's include 'id', '@id', 'osmid', 'osm_id', 'name'"
+                s"One or more tasks in your GeoJSON file are missing one or more of the required feature IDs: 'id', '@id', 'osmid', 'osm_id', or 'name'. These IDs are necessary for each task to build a challenge correctly. Please upload a valid GeoJSON file, and rebuild the tasks."
               )
           }
       }
