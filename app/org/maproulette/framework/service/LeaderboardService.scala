@@ -184,6 +184,45 @@ class LeaderboardService @Inject() (
     )
   }
 
+  def getChallengeLeaderboard(
+      challengeId: Int,
+      monthDuration: Int = 1,
+      limit: Int = Config.DEFAULT_LIST_SIZE,
+      offset: Int = 1
+  ): List[LeaderboardUser] = {
+    val result = this.repository.queryChallengeLeaderboard(
+      Query.simple(
+        List(
+          BaseParameter(
+            "challenge_id",
+            challengeId,
+            Operator.EQ,
+            useValueDirectly = true,
+            table = Some("utc")
+          ),
+          BaseParameter(
+            "month_duration",
+            monthDuration,
+            Operator.EQ,
+            useValueDirectly = true,
+            table = Some("utc")
+          ),
+          BaseParameter(
+            "country_code",
+            None,
+            Operator.NULL,
+            useValueDirectly = true,
+            table = Some("utc")
+          )
+        ),
+        paging = Paging(limit, offset),
+        order = Order(List(OrderField("activity", Order.DESC, table = Some("utc"))))
+      )
+    )
+
+    return result
+  }
+
   /**
     * Gets leaderboard rank for a user based on task completion activity
     * over the given period. Scoring for each completed task is based on status
@@ -265,6 +304,73 @@ class LeaderboardService @Inject() (
       fetchedUserId => this.getUserTopChallenges(fetchedUserId, params)
     )
   }
+
+  /**
+    * Gets leaderboard rank for a user based on task completion activity
+    * over the given period. Scoring for each completed task is based on status
+    * assigned to the task (status point values are configurable). Also included
+    * is the user's top challenges (by amount of activity).
+    *
+    * If the optional projectFilter or challengeFilter are given,
+    * activity will be limited to those projects and/or challenges.
+    *
+    * @param userId            user id
+    * @param params             SearchLeaderboardParameters
+    * @param onlyEnabled       only enabled in user top challenges (doesn't affect scoring)
+    * @return Returns leaderboard for user with score
+    */
+  def getChallengeLeaderboardForUser(
+    userId: Long,
+    challengeId: Long,
+    monthDuration: Int = 1,
+    bracket: Int = 0
+): List[LeaderboardUser] = {
+  // The userId must exist and must not be a system user, otherwise return NotFound (http 404).
+  if (userId <= 0 || this.userService.retrieve(userId).isEmpty) {
+    throw new NotFoundException(s"No user found with id $userId")
+  }
+  val result = this.repository.queryUserChallengeLeaderboardWithRank(
+    userId,
+        Query.simple(
+          List(),
+          finalClause=s"""JOIN user_rank ur ON r.user_ranking BETWEEN (ur.user_ranking - ${bracket}) AND (ur.user_ranking + ${bracket});"""
+        ),
+        Query.simple(
+              List(
+           BaseParameter(
+        "user_id",
+        userId,
+        Operator.EQ,
+        useValueDirectly = true,
+        table = Some("utc")
+      ),
+      BaseParameter(
+        "challenge_id",
+        challengeId,
+        Operator.EQ,
+        useValueDirectly = true,
+        table = Some("utc")
+      ),
+      BaseParameter(
+        "month_duration",
+        monthDuration,
+        Operator.EQ,
+        useValueDirectly = true,
+        table = Some("utc")
+      ),
+      BaseParameter(
+        "country_code",
+        None,
+        Operator.NULL,
+        useValueDirectly = true,
+        table = Some("utc")
+      )
+        ))
+      )
+
+  result
+}
+
 
   /**
     * Gets the top challenges by activity for the given user over the given period.
@@ -472,6 +578,28 @@ class LeaderboardService @Inject() (
           FROM status_actions sa, users, tasks
           $taskTableIfNeeded
         """
+    )
+  }
+
+  // Returns basic filters for monthDuration and countryCode
+  private def lessBasicFilters(
+      monthDuration: Int
+  ): List[Parameter[_]] = {
+    List(
+      BaseParameter(
+        "month_duration",
+        monthDuration,
+        Operator.EQ,
+        useValueDirectly = true,
+        table = Some("")
+      ),
+      BaseParameter(
+        "country_code",
+        None,
+        Operator.NULL,
+        useValueDirectly = true,
+        table = Some("")
+      )
     )
   }
 

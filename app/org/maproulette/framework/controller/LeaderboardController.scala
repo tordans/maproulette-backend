@@ -53,6 +53,28 @@ class LeaderboardController @Inject() (
   }
 
   /**
+    * Gets the top scoring users, based on task completion, over the given
+    * number of months (or using start and end dates). Included with each user is their top challenges
+    * (by amount of activity).
+    *
+    * @param id                  the ID of the challenge
+    * @param monthDuration       the number of months to consider for the leaderboard
+    * @param limit               the limit on the number of users returned
+    * @param offset              the number of users to skip before starting to return results (for pagination)
+    * @return                    Top-ranked users with scores based on task completion activity
+    */
+  def getChallengeLeaderboard(
+      id: Int,
+      monthDuration: Int,
+      limit: Int,
+      offset: Int
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      Ok(Json.toJson(this.service.getChallengeLeaderboard(id, monthDuration, limit, offset)))
+    }
+  }
+
+  /**
     * Gets the leaderboard ranking for a user, based on task completion, over
     * the given number of months (or start and end dates). Included with the user is their top challenges
     * (by amount of activity). Also a bracketing number of users above and below
@@ -73,6 +95,38 @@ class LeaderboardController @Inject() (
             this.service.getLeaderboardForUser(
               userId,
               params.leaderboardParams,
+              bracket
+            )
+          )
+        )
+      }
+    }
+  }
+
+  /**
+    * Gets the leaderboard ranking for a user, based on task completion, over
+    * the given number of months (or start and end dates). Included with the user is their top challenges
+    * (by amount of activity). Also a bracketing number of users above and below
+    * the user in the rankings.
+    *
+    * @param userId        user Id for user
+    * @param bracket       the number of users to return above and below the given user (0 returns just the user)
+    * @return User with score and ranking based on task completion activity
+    */
+  def getChallengeLeaderboardForUser(
+      userId: Long,
+      challengeId: Long,
+      monthDuration: Int,
+      bracket: Int
+  ): Action[AnyContent] = Action.async { implicit request =>
+    this.sessionManager.userAwareRequest { implicit user =>
+      SearchParameters.withSearch { implicit params =>
+        Ok(
+          Json.toJson(
+            this.service.getChallengeLeaderboardForUser(
+              userId,
+              challengeId,
+              monthDuration,
               bracket
             )
           )

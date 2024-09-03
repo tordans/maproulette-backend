@@ -63,6 +63,9 @@ class UserMetricService @Inject() (
     var isReviewer = false
     targetUser match {
       case Some(u) =>
+        // if (u.score.getOrElse(0) == 0) {
+        //   throw new IllegalAccessException(s"User is not in the leaderboard.")
+        // }
         if (u.settings.leaderboardOptOut.getOrElse(false) && !permission.isSuperUser(user) && userId != user.id) {
           throw new IllegalAccessException(s"User metrics are not public for this user.")
         }
